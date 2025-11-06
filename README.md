@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating **47+ state-of-the-art algorithms** from classical machine learning to cutting-edge deep learning (CVPR 2023, CVPR 2022, ECCV 2020, ICCV 2021, WACV 2023, KDD 2019).
+A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating **50+ state-of-the-art algorithms** from classical machine learning to cutting-edge deep learning (CVPR 2023, ICCV 2023, CVPR 2022, ECCV 2020, ICCV 2021, WACV 2023, KDD 2019). 🎉
 
 > **Translations:** [中文](README_cn.md) · [日本語](README_ja.md) · [한국어](README_ko.md)
 
@@ -14,7 +14,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 
 ## ✨ Key Features
 
-- 🔥 **47+ Detection Algorithms** - From classical (ECOD, COPOD, KNN, PCA) to latest SOTA (PNI, DSR, CSFlow, SPADE, WinCLIP, SimpleNet)
+- 🔥 **50+ Detection Algorithms** 🎉 - From classical (ECOD, COPOD, KNN, PCA) to latest SOTA (InTra, RD++, BGAD, PNI, DSR, CSFlow)
 - 🚀 **Production Ready** - Enterprise-grade code quality, comprehensive testing, CI/CD pipelines
 - 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
@@ -34,19 +34,21 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 
 | Algorithm | Type | Year | Performance | Speed | Use Case |
 |-----------|------|------|-------------|-------|----------|
+| **InTra** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Transformer-based, long-range |
 | **WinCLIP** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡ | Zero-shot, no training needed |
 | **SimpleNet** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Ultra-fast SOTA, production |
+| **BGAD** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Background-guided, robust |
 | **DifferNet** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Learnable differences, k-NN |
-| **DSR** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Frequency domain, parameter-free |
+| **DSR** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Frequency domain, parameter-free |
 | **PatchCore** ⭐ | Deep Learning | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Best accuracy, MVTec champion |
-| **PNI** ⭐ 🆕 | Deep Learning | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Multi-scale pyramid, fast |
+| **PNI** ⭐ | Deep Learning | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Multi-scale pyramid, fast |
+| **RD++** ⭐ 🆕 | Deep Learning | 2022 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Enhanced distillation, attention |
 | **ECOD** | Classical | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Parameter-free, general purpose |
 | **COPOD** | Classical | 2020 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Speed-critical applications |
 | **SPADE** ⭐ | Deep Learning | 2020 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Excellent localization, k-NN |
-| **CSFlow** 🆕 | Deep Learning | 2022 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Expressive flows, good accuracy |
+| **CSFlow** | Deep Learning | 2022 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Expressive flows, good accuracy |
 | **CutPaste** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Self-supervised, no anomalies |
 | **STFPM** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡ | Student-Teacher, localization |
-| **FastFlow** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Normalizing flows, real-time |
 
 > **See [Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md) and [Deep Learning Guide](docs/DEEP_LEARNING_MODELS.md) for detailed comparison**
 
@@ -357,20 +359,23 @@ augmented_images = [aug_pipeline(img) for img in train_images]
 | SUOD | `vision_suod` | Scalable ensemble |
 | XGBOD | `vision_xgbod` | XGBoost-based |
 
-### Deep Learning (28 algorithms)
+### Deep Learning (31 algorithms) 🎉
 
 | Algorithm | Model Name | Key Features |
 |-----------|------------|--------------|
+| **InTra** ⭐ 🆕 | `vision_intra` | Industrial Transformer (ICCV 2023), self-attention |
 | **WinCLIP** ⭐ | `vision_winclip` | Zero-shot CLIP-based (CVPR 2023), no training |
 | **SimpleNet** ⭐ | `vision_simplenet` | Ultra-fast SOTA (CVPR 2023), 10x faster training |
+| **BGAD** ⭐ 🆕 | `vision_bgad` | Background-guided (CVPR 2023), robust to variations |
 | **DifferNet** ⭐ | `vision_differnet` | Learnable differences (WACV 2023), k-NN |
-| **DSR** ⭐ 🆕 | `vision_dsr` | Deep spectral residual (WACV 2023), frequency domain |
+| **DSR** ⭐ | `vision_dsr` | Deep spectral residual (WACV 2023), frequency domain |
 | **PatchCore** ⭐ | `vision_patchcore` | Best accuracy (CVPR 2022), pixel localization |
-| **PNI** ⭐ 🆕 | `vision_pni` | Pyramidal normality indexing (CVPR 2022), multi-scale |
+| **PNI** ⭐ | `vision_pni` | Pyramidal normality indexing (CVPR 2022), multi-scale |
+| **RD++** ⭐ 🆕 | `vision_rdplusplus` | Reverse Distillation++ (2022), enhanced attention |
 | **SPADE** ⭐ | `vision_spade` | Deep pyramid k-NN (ECCV 2020), excellent localization |
 | **CutPaste** ⭐ | `vision_cutpaste` | Self-supervised (CVPR 2021), no anomaly data |
 | **DRAEM** ⭐ | `vision_draem` | Synthetic anomalies (ICCV 2021), robust |
-| **CSFlow** 🆕 | `vision_csflow` | Cross-scale normalizing flows (WACV 2022), expressive |
+| **CSFlow** | `vision_csflow` | Cross-scale normalizing flows (WACV 2022), expressive |
 | **MemSeg** | `vision_memseg` | Memory-guided segmentation (2022) |
 | **RIAD** | `vision_riad` | Inpainting-based (2020), self-supervised |
 | **DevNet** | `vision_devnet` | Weakly-supervised (KDD 2019), few labels |
@@ -506,20 +511,23 @@ Start Here
 ```
 pyimgano/
 ├── pyimgano/
-│   ├── models/          # 47+ anomaly detection algorithms
+│   ├── models/          # 50+ anomaly detection algorithms 🎉
 │   │   ├── Classical ML (19 algorithms)
 │   │   │   ├── ecod.py          # ECOD (TKDE 2022)
 │   │   │   ├── copod.py         # COPOD (ICDM 2020)
 │   │   │   ├── feature_bagging.py
 │   │   │   ├── knn.py, pca.py, lof.py, ...
 │   │   │   └── ...
-│   │   ├── Deep Learning (28 algorithms)
+│   │   ├── Deep Learning (31 algorithms) 🎉
+│   │   │   ├── intra.py         # InTra Transformer (ICCV 2023) ⭐ 🆕
 │   │   │   ├── winclip.py       # WinCLIP (CVPR 2023) ⭐
 │   │   │   ├── simplenet.py     # SimpleNet (CVPR 2023) ⭐
+│   │   │   ├── bgad.py          # BGAD (CVPR 2023) ⭐ 🆕
 │   │   │   ├── differnet.py     # DifferNet (WACV 2023) ⭐
 │   │   │   ├── dsr.py           # DSR (WACV 2023) ⭐ 🆕
 │   │   │   ├── patchcore.py     # PatchCore (CVPR 2022) ⭐
 │   │   │   ├── pni.py           # PNI (CVPR 2022) ⭐ 🆕
+│   │   │   ├── rdplusplus.py    # RD++ (2022) ⭐ 🆕
 │   │   │   ├── stfpm.py         # STFPM (BMVC 2021) ⭐
 │   │   │   ├── cutpaste.py      # CutPaste (CVPR 2021) ⭐
 │   │   │   ├── draem.py         # DRAEM (ICCV 2021) ⭐

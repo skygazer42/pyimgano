@@ -51,6 +51,7 @@ _auto_import(
         "ae",
         "ae1svm",
         "alad",
+        "bgad",  # NEW: Background-guided detection (CVPR 2023) ⭐⭐ 🆕
         "cflow",  # NEW: Conditional normalizing flows (WACV 2022) ⭐
         "csflow",  # NEW: Cross-scale flows (WACV 2022) ⭐⭐ 🆕
         "cutpaste",  # NEW: Self-supervised learning (CVPR 2021) ⭐⭐
@@ -63,12 +64,14 @@ _auto_import(
         "efficientad",
         "fastflow",
         "imdd",
+        "intra",  # NEW: Industrial Transformer (ICCV 2023) ⭐⭐ 🆕
         "memseg",  # NEW: Memory-guided segmentation ⭐⭐ 🆕
         "mo_gaal",
         "one_svm_cnn",
         "padim",
         "patchcore",  # SOTA patch-level detection (CVPR 2022)
         "pni",  # NEW: Pyramidal normality indexing (CVPR 2022) ⭐⭐ 🆕
+        "rdplusplus",  # NEW: Reverse Distillation++ (Enhanced) ⭐⭐ 🆕
         "reverse_distillation",
         "riad",  # NEW: Reconstruction from adjacent decomposition ⭐⭐ 🆕
         "simplenet",  # Ultra-fast SOTA (CVPR 2023)
