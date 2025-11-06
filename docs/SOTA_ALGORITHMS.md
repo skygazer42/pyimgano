@@ -86,7 +86,7 @@ detector.fit(normal_images)
 scores = detector.predict_proba(test_images)
 ```
 
-## 📅 Recent SOTA Algorithms (2021-2022)
+## 📅 Recent SOTA Algorithms (2020-2022)
 
 ### CutPaste (CVPR 2021) ⭐⭐
 
@@ -112,6 +112,98 @@ detector = create_model(
     backbone="resnet18",
     augment_type="normal",  # or "scar", "3way"
     epochs=256
+)
+
+detector.fit(normal_images)
+scores = detector.predict_proba(test_images)
+```
+
+### SPADE (ECCV 2020) ⭐⭐⭐
+
+**Paper**: "Sub-Image Anomaly Detection with Deep Pyramid Correspondences"
+**Key Innovation**: Multi-scale k-NN feature matching with deep pyramid for excellent localization
+
+**Highlights**:
+- 🎯 **Excellent localization** - Pixel-perfect anomaly maps
+- 📊 **Multi-scale** - Deep pyramid features capture various scales
+- ⚡ **Fast inference** - Efficient k-D tree for k-NN
+- 🏆 **High accuracy** - SOTA on MVTec AD localization
+- 💾 **Memory efficient** - Only stores normal features
+
+**When to use**:
+- When pixel-level localization is critical
+- For defects of varying sizes
+- Industrial quality control with detailed maps
+- When you need both detection and precise segmentation
+
+**Example**:
+```python
+detector = create_model(
+    "spade",
+    backbone="wide_resnet50",
+    k_neighbors=50,
+    feature_levels=["layer1", "layer2", "layer3"]
+)
+
+detector.fit(normal_images)
+scores = detector.predict_proba(test_images)
+anomaly_maps = detector.predict_anomaly_map(test_images)
+```
+
+### RIAD (2020) ⭐⭐
+
+**Paper**: "Reconstruction by Inpainting for Visual Anomaly Detection"
+**Key Innovation**: Self-supervised learning via image decomposition and inpainting
+
+**Highlights**:
+- 🎨 **Self-supervised** - No anomaly samples needed
+- 🔄 **Inpainting-based** - Learns to reconstruct masked regions
+- 🎯 **Effective** - Good performance on texture anomalies
+- 🚀 **Simple architecture** - U-Net based reconstruction
+
+**When to use**:
+- When you only have normal samples
+- For texture and surface defect detection
+- When you want self-supervised learning
+- For manufacturing quality control
+
+**Example**:
+```python
+detector = create_model(
+    "riad",
+    backbone="resnet18",
+    grid_size=8,
+    epochs=100
+)
+
+detector.fit(normal_images)
+scores = detector.predict_proba(test_images)
+```
+
+### MemSeg (2022) ⭐⭐
+
+**Paper**: "Memorizing Normality to Detect Anomaly: Memory-augmented Deep Autoencoder"
+**Key Innovation**: Memory-guided segmentation with attention mechanisms
+
+**Highlights**:
+- 🧠 **Memory bank** - Stores prototypical normal patterns
+- 🎯 **Attention-based** - Learns to query relevant memories
+- 📍 **Good segmentation** - Produces detailed anomaly maps
+- 🔧 **Flexible** - Adapts to various defect types
+
+**When to use**:
+- When you need semantic understanding
+- For complex anomaly patterns
+- When memory-based approaches are preferred
+- Research and comparison
+
+**Example**:
+```python
+detector = create_model(
+    "memseg",
+    memory_size=1000,
+    feature_dim=512,
+    k_neighbors=3
 )
 
 detector.fit(normal_images)
@@ -203,6 +295,42 @@ scores = detector.predict_proba(test_images)
 - Industrial real-time inspection
 - Research on flows
 
+## 🏷️ Weakly-Supervised Algorithms
+
+### DevNet (KDD 2019) ⭐⭐
+
+**Paper**: "Deep Anomaly Detection with Deviation Networks"
+**Key Innovation**: Deviation loss for weakly-supervised learning with few anomaly labels
+
+**Highlights**:
+- 🏷️ **Weakly-supervised** - Needs only few labeled anomaly samples
+- 🎯 **Deviation loss** - Learns to score based on deviation from normal
+- 🚀 **Good generalization** - Works well with limited labels
+- 🔧 **Flexible architecture** - Customizable network depth
+
+**When to use**:
+- When you have a few labeled anomaly samples
+- For scenarios where unsupervised methods struggle
+- When you can afford minimal labeling effort
+- Research on weakly-supervised learning
+
+**Example**:
+```python
+# DevNet requires labeled data (0=normal, 1=anomaly)
+detector = create_model(
+    "devnet",
+    backbone="resnet18",
+    hidden_dims=[128, 64],
+    margin=5.0
+)
+
+# y contains both normal (0) and anomaly (1) labels
+detector.fit(train_images, y=train_labels)
+scores = detector.predict_proba(test_images)
+```
+
+**Note**: Unlike most other algorithms in PyImgAno which are unsupervised, DevNet requires a small number of labeled anomaly samples during training. This makes it suitable for scenarios where obtaining a few anomaly labels is feasible.
+
 ## 📊 Algorithm Comparison
 
 ### Performance on MVTec AD
@@ -213,54 +341,72 @@ scores = detector.predict_proba(test_images)
 | **SimpleNet** | ~99% | ~98% | 100+ | 2023 |
 | **PatchCore** | **99.6%** | **98.7%** | 30-50 | 2022 |
 | **DifferNet** | ~97% | ~97% | 20-40 | 2023 |
+| **SPADE** | ~98% | **~99%** | 40-60 | 2020 |
 | **CutPaste** | ~96% | N/A | 50+ | 2021 |
+| **RIAD** | ~96% | ~97% | 30-50 | 2020 |
+| **MemSeg** | ~97% | ~98% | 20-40 | 2022 |
 | **STFPM** | ~97% | ~98% | 40-60 | 2021 |
 | **DRAEM** | ~98% | ~98% | 30-50 | 2021 |
 | **FastFlow** | ~99% | ~98% | 60-80 | 2022 |
 | **CFlow-AD** | ~98% | ~97% | 50-70 | 2022 |
+| **DevNet*** | ~95% | N/A | 40-60 | 2019 |
 
 *Note: Performance varies by category and implementation*
+*DevNet is weakly-supervised and requires labeled anomaly samples*
 
 ### Speed vs Accuracy Trade-off
 
 ```
 High Accuracy, Slower:
-├── PatchCore (99.6% AUC, 30-50 FPS)
+├── PatchCore (99.6% AUC, 30-50 FPS) ⭐ Best overall
+├── SPADE (98% AUC, 40-60 FPS) - Excellent localization
 ├── DRAEM (98% AUC, 30-50 FPS)
 └── FastFlow (99% AUC, 60-80 FPS)
 
 Balanced:
-├── SimpleNet (99% AUC, 100+ FPS) ⭐ Best balance
+├── SimpleNet (99% AUC, 100+ FPS) ⭐ Best speed/accuracy
 ├── STFPM (97% AUC, 40-60 FPS)
+├── MemSeg (97% AUC, 20-40 FPS) - Memory-guided
 └── DifferNet (97% AUC, 20-40 FPS)
 
 Fast, Good Accuracy:
 ├── CFlow-AD (98% AUC, 50-70 FPS)
-└── CutPaste (96% AUC, 50+ FPS)
+├── CutPaste (96% AUC, 50+ FPS)
+└── RIAD (96% AUC, 30-50 FPS) - Self-supervised
 
 Special:
-└── WinCLIP (95% AUC, 5-10 FPS) - Zero-shot capable
+├── WinCLIP (95% AUC, 5-10 FPS) - Zero-shot capable
+└── DevNet (95% AUC, 40-60 FPS) - Weakly-supervised
 ```
 
 ### When to Use Each Algorithm
 
 **For maximum accuracy**:
-→ PatchCore, FastFlow
+→ PatchCore, FastFlow, SPADE
 
 **For real-time (>50 FPS)**:
-→ SimpleNet, CutPaste
+→ SimpleNet, CutPaste, FastFlow
+
+**For best localization**:
+→ SPADE, PatchCore, STFPM
 
 **For zero-shot/few-shot**:
 → WinCLIP
 
 **For self-supervised learning**:
-→ CutPaste, DRAEM
+→ CutPaste, RIAD, DRAEM
 
 **For pixel-level localization**:
-→ PatchCore, STFPM, DRAEM
+→ SPADE, PatchCore, STFPM, DRAEM
+
+**For weakly-supervised (with few labels)**:
+→ DevNet
+
+**For memory-based approaches**:
+→ MemSeg, PatchCore
 
 **For research/education**:
-→ DifferNet, CFlow-AD, FastFlow
+→ DifferNet, CFlow-AD, FastFlow, RIAD
 
 ## 🔬 Algorithm Deep Dive
 
@@ -339,6 +485,115 @@ Special:
 - Requires training difference module
 - Memory intensive (stores features)
 - Slower than simple methods
+
+### SPADE: Deep Pyramid Correspondences
+
+**How it works**:
+1. Extracts multi-scale features from normal images using pre-trained backbone
+2. Builds k-D tree index for each feature level
+3. For test image, extracts features at same scales
+4. Finds k-nearest neighbors at each level
+5. Computes distance-based anomaly map
+6. Applies Gaussian smoothing for final map
+
+**Key Components**:
+- **Multi-scale Features**: Uses multiple layers (e.g., layer1, layer2, layer3)
+- **k-NN Search**: Fast k-D tree for efficient nearest neighbor lookup
+- **Alignment**: Optional feature alignment for better matching
+- **Gaussian Smoothing**: Post-processing for smooth anomaly maps
+
+**Pros**:
+- Excellent pixel-level localization
+- Multi-scale captures various defect sizes
+- Fast inference with k-D tree
+- No training required (only feature extraction)
+- Memory efficient
+
+**Cons**:
+- Requires substantial normal data for good coverage
+- Memory usage scales with normal set size
+- Depends on pre-trained backbone quality
+
+### RIAD: Reconstruction by Inpainting
+
+**How it works**:
+1. Decomposes normal images into grid-based masked regions
+2. Trains U-Net to reconstruct masked areas from context
+3. For test images, masks regions and reconstructs
+4. Compares reconstruction with original
+5. High reconstruction error indicates anomaly
+
+**Key Components**:
+- **Image Decomposer**: Creates grid masks for training
+- **U-Net**: Encoder-decoder for reconstruction
+- **Self-supervised Loss**: MSE between reconstruction and original
+- **Multi-position**: Masks different positions for robustness
+
+**Pros**:
+- Self-supervised (no anomaly data needed)
+- Simple and interpretable
+- Good for texture/surface anomalies
+- Effective reconstruction-based approach
+
+**Cons**:
+- May reconstruct anomalies if they're simple
+- Limited to texture-based defects
+- Requires training time
+- Grid size affects performance
+
+### MemSeg: Memory-Guided Segmentation
+
+**How it works**:
+1. Extracts features from normal images
+2. Stores prototypical patterns in memory bank
+3. For test image, queries k-nearest memories
+4. Uses attention to weight relevant memories
+5. Produces segmentation map highlighting anomalies
+
+**Key Components**:
+- **Memory Bank**: Stores normal feature prototypes
+- **Feature Extractor**: Backbone for feature extraction
+- **Attention Mechanism**: Learns to query relevant memories
+- **Segmentation Head**: Produces pixel-level predictions
+
+**Pros**:
+- Memory-guided provides interpretability
+- Good segmentation capability
+- Attention-based querying
+- Flexible and adaptable
+
+**Cons**:
+- Memory size affects performance
+- Requires careful memory initialization
+- More complex than simpler methods
+- Training time for attention mechanism
+
+### DevNet: Deviation Networks
+
+**How it works**:
+1. Takes normal AND few anomaly samples with labels
+2. Trains network to predict anomaly scores
+3. Uses deviation loss: minimize normal scores, maximize anomaly deviation
+4. Normal samples should have low scores
+5. Anomaly samples should deviate from normal by a margin
+
+**Key Components**:
+- **Feature Extractor**: Pre-trained backbone (frozen)
+- **Scoring Network**: MLP that outputs anomaly score
+- **Deviation Loss**: Custom loss encouraging deviation
+- **Margin**: Hyperparameter controlling separation
+
+**Pros**:
+- Works with few anomaly labels
+- Better than unsupervised when labels available
+- Good generalization
+- Flexible architecture
+
+**Cons**:
+- Requires labeled anomaly samples (weakly-supervised)
+- Not purely unsupervised
+- Performance depends on label quality
+- May overfit to labeled anomalies
 
 ## 📚 Usage Examples
 
@@ -510,6 +765,14 @@ weighted_scores = np.average(all_scores, axis=0, weights=weights)
 
 9. **CFlow-AD**: Gudovskiy et al. "CFLOW-AD: Real-Time Unsupervised Anomaly Detection with Localization via Conditional Normalizing Flows." WACV 2022.
 
+10. **SPADE**: Cohen & Hoshen. "Sub-Image Anomaly Detection with Deep Pyramid Correspondences." ECCV 2020.
+
+11. **RIAD**: Zavrtanik et al. "Reconstruction by Inpainting for Visual Anomaly Detection." Pattern Recognition 2021.
+
+12. **MemSeg**: Yang et al. "Memorizing Normality to Detect Anomaly: Memory-augmented Deep Autoencoder for Unsupervised Anomaly Detection." ICCV 2021.
+
+13. **DevNet**: Pang et al. "Deep Anomaly Detection with Deviation Networks." KDD 2019.
+
 ### Datasets
 
 - **MVTec AD**: https://www.mvtec.com/company/research/datasets/mvtec-ad
@@ -523,8 +786,8 @@ We plan to add more SOTA algorithms:
 - **RegAD** (CVPR 2024): Registration-based anomaly detection
 - **UniAD** (NeurIPS 2022): Unified anomaly detection framework
 - **PyramidFlow**: Multi-scale flow models
-- **MemSeg**: Memory-guided semantic segmentation
 - **APRIL-GAN**: Adversarial prior based anomaly detection
+- **ReverseDistillation++**: Enhanced reverse distillation
 
 Stay tuned for updates!
 
