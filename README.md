@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating 25+ state-of-the-art algorithms from classical machine learning to deep learning.
+A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating 31+ state-of-the-art algorithms from classical machine learning to deep learning.
 
 > **Translations:** [中文](README_cn.md) · [日本語](README_ja.md) · [한국어](README_ko.md)
 
@@ -14,7 +14,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 
 ## ✨ Key Features
 
-- 🔥 **27+ Detection Algorithms** - From classical (ECOD, COPOD, KNN, PCA) to deep learning (Deep SVDD, VAE, FastFlow)
+- 🔥 **31+ Detection Algorithms** - From classical (ECOD, COPOD, KNN, PCA, MCD, COF) to deep learning (Deep SVDD, VAE, FastFlow)
 - 🚀 **Production Ready** - Enterprise-grade code quality, comprehensive testing, CI/CD pipelines
 - 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
@@ -152,16 +152,20 @@ for name, preds in results.items():
 
 ## 📚 Available Algorithms
 
-### Classical Machine Learning (15 algorithms)
+### Classical Machine Learning (19 algorithms)
 
 | Algorithm | Model Name | Key Features |
 |-----------|------------|--------------|
 | **ECOD** ⭐ | `vision_ecod` | Parameter-free, top performance, TKDE 2022 |
 | **COPOD** ⭐ | `vision_copod` | Very fast, parameter-free, ICDM 2020 |
+| **Feature Bagging** ⭐ | `vision_feature_bagging` | Ensemble, high stability |
 | KNN | `vision_knn` | Simple, interpretable |
 | PCA | `vision_pca` | Classic dimensionality reduction |
 | Isolation Forest | `vision_iforest` | Robust, widely used |
+| INNE | `vision_inne` | Fast isolation-based |
 | LOF | `vision_lof` | Density-based, local outliers |
+| COF | `vision_cof` | Connectivity-based |
+| MCD | `vision_mcd` | Robust covariance |
 | One-Class SVM | `vision_ocsvm` | Kernel methods |
 | ABOD | `vision_abod` | Angle-based detection |
 | CBLOF | `vision_cblof` | Cluster-based |

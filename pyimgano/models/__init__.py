@@ -27,10 +27,13 @@ _auto_import(
         # Classical ML algorithms
         "abod",
         "cblof",
+        "cof",  # NEW: Connectivity-based outlier factor
         "copod",  # NEW: High-performance, parameter-free (ICDM 2020)
         "dbscan",
         "ecod",  # NEW: State-of-the-art, parameter-free (TKDE 2022)
+        "feature_bagging",  # NEW: Ensemble method
         "hbos",
+        "inne",  # NEW: Isolation using nearest neighbors
         "Isolationforest",
         "knn",  # NEW: K-Nearest Neighbors (classic)
         "kpca",
@@ -39,6 +42,7 @@ _auto_import(
         "loda",
         "lof",
         "lscp",
+        "mcd",  # NEW: Minimum covariance determinant
         "ocsvm",
         "pca",  # NEW: Principal Component Analysis (classic)
         "suod",
