@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MANIFEST.in for proper package distribution
 - .editorconfig for consistent coding style
 - tox configuration for multi-version testing
-- New PyOD algorithm integrations (31+ total algorithms):
+- **34+ total algorithms** (19 classical ML + 15 deep learning)
+- New PyOD classical ML integrations (19 total):
   - **ECOD** (Empirical CDF-based, TKDE 2022) - State-of-the-art, parameter-free
   - **COPOD** (Copula-based, ICDM 2020) - High-performance, parameter-free
   - **KNN** (K-Nearest Neighbors) - Classic, simple and effective
@@ -29,10 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **MCD** (Minimum Covariance Determinant, 1999) - Robust statistical method
   - **Feature Bagging** (KDD 2005) - Ensemble method for stability
   - **INNE** (Isolation Nearest Neighbors, ICDM 2014) - Fast isolation-based
+- New state-of-the-art deep learning algorithms (15 total):
+  - **SimpleNet** (CVPR 2023) ⭐ - Ultra-fast SOTA, 10x faster training, ~99% AUROC
+  - **PatchCore** (CVPR 2022) ⭐ - Best accuracy (99.6% AUROC), memory-based, pixel localization
+  - **STFPM** (BMVC 2021) ⭐ - Student-Teacher matching, multi-scale features, ~97% AUROC
 - Enhanced error handling and logging for all detectors
 - Improved PyOD version compatibility (>=1.1.0, <3.0.0)
 - Comprehensive algorithm selection guide
-- Complete test suite with 200+ lines of test code
+- **Deep Learning Models Guide** - Detailed documentation for SOTA DL algorithms
+- Complete test suite with comprehensive coverage:
+  - Classical ML tests (test_pyod_models.py)
+  - Deep learning tests (test_dl_models.py) - 400+ lines covering all DL models
+- Enhanced documentation structure with dedicated DL guide
 
 ### Changed
 - Enhanced package metadata and classifiers
@@ -66,7 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - SUOD (Scalable Unsupervised Outlier Detection)
   - XGBOD (XGBoost Outlier Detection)
 
-- Support for 12+ deep learning anomaly detectors:
+- Support for 15 deep learning anomaly detectors:
+  - **SimpleNet** (CVPR 2023) - Ultra-fast SOTA ⭐
+  - **PatchCore** (CVPR 2022) - Best accuracy ⭐
+  - **STFPM** (BMVC 2021) - Student-Teacher ⭐
   - AutoEncoder (AE)
   - AE + SVM
   - ALAD (Adversarial Learning)

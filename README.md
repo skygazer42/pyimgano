@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating 31+ state-of-the-art algorithms from classical machine learning to deep learning.
+A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating **34+ state-of-the-art algorithms** from classical machine learning to cutting-edge deep learning (CVPR 2023, CVPR 2022).
 
 > **Translations:** [中文](README_cn.md) · [日本語](README_ja.md) · [한국어](README_ko.md)
 
@@ -14,7 +14,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 
 ## ✨ Key Features
 
-- 🔥 **31+ Detection Algorithms** - From classical (ECOD, COPOD, KNN, PCA, MCD, COF) to deep learning (Deep SVDD, VAE, FastFlow)
+- 🔥 **34+ Detection Algorithms** - From classical (ECOD, COPOD, KNN, PCA) to SOTA deep learning (SimpleNet, PatchCore, STFPM)
 - 🚀 **Production Ready** - Enterprise-grade code quality, comprehensive testing, CI/CD pipelines
 - 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
@@ -30,13 +30,14 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 
 | Algorithm | Type | Year | Performance | Speed | Use Case |
 |-----------|------|------|-------------|-------|----------|
-| **ECOD** | Classical | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | General purpose, parameter-free |
+| **SimpleNet** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Ultra-fast SOTA, production |
+| **PatchCore** ⭐ | Deep Learning | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Best accuracy, MVTec champion |
+| **ECOD** | Classical | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Parameter-free, general purpose |
 | **COPOD** | Classical | 2020 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Speed-critical applications |
-| **Deep SVDD** | Deep Learning | 2018 | ⭐⭐⭐⭐ | ⚡⚡ | Complex patterns |
-| **FastFlow** | Deep Learning | 2021 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Real-time inspection |
-| **VAE** | Deep Learning | 2013 | ⭐⭐⭐⭐ | ⚡⚡ | Probabilistic modeling |
+| **STFPM** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡ | Student-Teacher, localization |
+| **FastFlow** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Normalizing flows, real-time |
 
-> **See [Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md) for detailed comparison**
+> **See [Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md) and [Deep Learning Guide](docs/DEEP_LEARNING_MODELS.md) for detailed comparison**
 
 ---
 
@@ -111,24 +112,44 @@ scores = detector.decision_function(test_paths)  # Anomaly scores
 print(f"Detected {predictions.sum()} anomalies")
 ```
 
-### Example 2: Using Deep Learning (FastFlow)
+### Example 2: Using Deep Learning (SimpleNet - CVPR 2023)
 
 ```python
 from pyimgano import models
 
-# End-to-end deep learning (no separate feature extractor needed)
+# State-of-the-art deep learning (CVPR 2023)
+# Ultra-fast training - only 10 epochs needed!
 detector = models.create_model(
-    "vision_fastflow",
-    epoch_num=50,
-    batch_size=32,
-    learning_rate=0.001
+    "vision_simplenet",
+    epochs=10,        # 10x faster than other DL methods
+    batch_size=8,
+    device='cuda'     # GPU acceleration
 )
 
 detector.fit(train_paths)
 predictions = detector.predict(test_paths)
+scores = detector.decision_function(test_paths)
 ```
 
-### Example 3: Comparing Multiple Algorithms
+### Example 3: Maximum Accuracy (PatchCore - CVPR 2022)
+
+```python
+# Best accuracy on MVTec AD benchmark (99.6% AUROC)
+detector = models.create_model(
+    "vision_patchcore",
+    backbone='wide_resnet50',
+    coreset_sampling_ratio=0.1,  # Memory-efficient
+    device='cuda'
+)
+
+detector.fit(train_paths)
+predictions = detector.predict(test_paths)
+
+# Get pixel-level anomaly heatmap
+anomaly_map = detector.get_anomaly_map('test_image.jpg')
+```
+
+### Example 4: Comparing Multiple Algorithms
 
 ```python
 algorithms = ["vision_ecod", "vision_copod", "vision_knn"]
@@ -176,17 +197,20 @@ for name, preds in results.items():
 | SUOD | `vision_suod` | Scalable ensemble |
 | XGBOD | `vision_xgbod` | XGBoost-based |
 
-### Deep Learning (12 algorithms)
+### Deep Learning (15 algorithms)
 
 | Algorithm | Model Name | Key Features |
 |-----------|------------|--------------|
-| FastFlow ⭐ | `vision_fastflow` | Real-time, normalizing flows |
+| **SimpleNet** ⭐ | `vision_simplenet` | Ultra-fast SOTA (CVPR 2023), 10x faster training |
+| **PatchCore** ⭐ | `vision_patchcore` | Best accuracy (CVPR 2022), pixel localization |
+| **STFPM** ⭐ | `vision_stfpm` | Student-Teacher (BMVC 2021), multi-scale |
+| FastFlow | `vision_fastflow` | Normalizing flows, real-time |
+| PaDiM | `vision_padim` | Patch distribution, edge devices |
 | Deep SVDD | `vision_deep_svdd` | One-class deep learning |
 | VAE | `vision_vae` | Variational autoencoder |
-| AutoEncoder | `vision_ae` | Classic neural network |
-| PaDiM | `vision_padim` | Patch-based, efficient |
+| AutoEncoder | `vision_ae` | Classic reconstruction |
 | Reverse Distillation | `vision_reverse_dist` | Knowledge distillation |
-| EfficientAD | `vision_efficientad` | Lightweight, fast |
+| EfficientAD | `vision_efficientad` | Lightweight, resource-efficient |
 | SSIM-based | `vision_ssim` | Structural similarity |
 | ALAD | `vision_alad` | Adversarial learning |
 | AE+SVM | `vision_ae1svm` | Hybrid approach |
@@ -227,6 +251,7 @@ anomalies = detector.predict(monitoring_frames)
 
 ## 📖 Documentation
 
+- **[Deep Learning Models Guide](docs/DEEP_LEARNING_MODELS.md)** ⭐ - SOTA deep learning algorithms (NEW!)
 - **[Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md)** - Choose the right algorithm
 - **[API Reference](docs/)** - Detailed API documentation
 - **[Examples](examples/)** - Code examples and tutorials
@@ -240,20 +265,33 @@ anomalies = detector.predict(monitoring_frames)
 ```
 pyimgano/
 ├── pyimgano/
-│   ├── models/          # 27+ anomaly detection algorithms
-│   │   ├── ecod.py     # ECOD detector
-│   │   ├── copod.py    # COPOD detector
-│   │   ├── deep_svdd.py
-│   │   └── ...
+│   ├── models/          # 34+ anomaly detection algorithms
+│   │   ├── Classical ML (19 algorithms)
+│   │   │   ├── ecod.py          # ECOD (TKDE 2022)
+│   │   │   ├── copod.py         # COPOD (ICDM 2020)
+│   │   │   ├── feature_bagging.py
+│   │   │   ├── knn.py, pca.py, lof.py, ...
+│   │   │   └── ...
+│   │   ├── Deep Learning (15 algorithms)
+│   │   │   ├── simplenet.py     # SimpleNet (CVPR 2023) ⭐
+│   │   │   ├── patchcore.py     # PatchCore (CVPR 2022) ⭐
+│   │   │   ├── stfpm.py         # STFPM (BMVC 2021) ⭐
+│   │   │   ├── fastflow.py, padim.py, ...
+│   │   │   └── ...
+│   │   ├── registry.py  # Model registry system
+│   │   └── baseml.py    # Base classes
 │   ├── utils/           # Image processing utilities
-│   │   ├── image_ops.py
-│   │   ├── augmentation.py
-│   │   └── defect_ops.py
 │   ├── datasets/        # Data loading utilities
 │   └── visualization/   # Visualization tools
 ├── tests/               # Comprehensive test suite
+│   ├── test_pyod_models.py      # Classical ML tests
+│   ├── test_dl_models.py        # Deep learning tests
+│   └── ...
 ├── examples/            # Usage examples
 ├── docs/                # Documentation
+│   ├── DEEP_LEARNING_MODELS.md  # DL algorithms guide ⭐
+│   ├── ALGORITHM_SELECTION_GUIDE.md
+│   └── ...
 └── .github/             # CI/CD workflows
 ```
 
