@@ -1,4 +1,9 @@
-"""数据集模块，提供图像数据加载与预处理的基础组件。"""
+"""
+Datasets module providing image data loading and preprocessing components.
+
+This module includes dataset classes, data loaders, and transformation utilities
+for vision-based anomaly detection tasks.
+"""
 
 from .image import ImagePathDataset, VisionImageDataset
 from .transforms import default_eval_transforms, default_train_transforms, to_tensor_normalized

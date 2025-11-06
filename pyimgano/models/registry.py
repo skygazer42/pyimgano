@@ -1,4 +1,9 @@
-"""模型注册中心，借鉴 torchvision 与 timm 的设计。"""
+"""
+Model registry system inspired by torchvision and timm.
+
+This module provides a centralized registry for model constructors,
+enabling dynamic model creation and discovery.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +20,7 @@ class ModelEntry:
 
 
 class ModelRegistry:
-    """保存模型构造器的注册表。"""
+    """Registry for storing model constructors with metadata."""
 
     def __init__(self) -> None:
         self._registry: Dict[str, ModelEntry] = {}
@@ -31,7 +36,9 @@ class ModelRegistry:
         overwrite: bool = False,
     ) -> None:
         if not overwrite and name in self._registry:
-            raise KeyError(f"模型 {name!r} 已存在，请设置 overwrite=True 以覆盖。")
+            raise KeyError(
+                f"Model {name!r} already exists. Set overwrite=True to replace it."
+            )
         entry = ModelEntry(
             name=name,
             constructor=constructor,
@@ -45,7 +52,7 @@ class ModelRegistry:
             return self._registry[name].constructor
         except KeyError as exc:
             available = ", ".join(sorted(self._registry)) or "<empty>"
-            raise KeyError(f"未找到模型 {name!r}，当前可用: {available}") from exc
+            raise KeyError(f"Model {name!r} not found. Available models: {available}") from exc
 
     def available(self, *, tags: Optional[Iterable[str]] = None) -> List[str]:
         if tags is None:
@@ -57,7 +64,7 @@ class ModelRegistry:
 
     def info(self, name: str) -> ModelEntry:
         if name not in self._registry:
-            raise KeyError(f"未找到模型 {name!r}")
+            raise KeyError(f"Model {name!r} not found in registry")
         return self._registry[name]
 
 
@@ -71,7 +78,31 @@ def register_model(
     metadata: Optional[Dict[str, Any]] = None,
     overwrite: bool = False,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """装饰器，用于在导入时自动注册模型。"""
+    """
+    Decorator for automatically registering models at import time.
+
+    Parameters
+    ----------
+    name : str
+        Unique name for the model
+    tags : Iterable[str], optional
+        Tags for categorizing the model (e.g., 'vision', 'classical', 'deep')
+    metadata : Dict[str, Any], optional
+        Additional metadata (e.g., description, paper, year)
+    overwrite : bool, default=False
+        Whether to overwrite existing registration
+
+    Returns
+    -------
+    Callable
+        Decorator function
+
+    Examples
+    --------
+    >>> @register_model("my_model", tags=["vision", "ml"])
+    ... class MyModel:
+    ...     pass
+    """
 
     def decorator(constructor: Callable[..., Any]) -> Callable[..., Any]:
         MODEL_REGISTRY.register(
@@ -87,14 +118,50 @@ def register_model(
 
 
 def create_model(name: str, *args, **kwargs):
-    """根据注册名称构建模型实例。"""
+    """
+    Create a model instance from its registered name.
 
+    Parameters
+    ----------
+    name : str
+        Registered model name
+    *args
+        Positional arguments to pass to the model constructor
+    **kwargs
+        Keyword arguments to pass to the model constructor
+
+    Returns
+    -------
+    model
+        Instantiated model object
+
+    Examples
+    --------
+    >>> model = create_model("vision_ecod", contamination=0.1)
+    """
     constructor = MODEL_REGISTRY.get(name)
     return constructor(*args, **kwargs)
 
 
 def list_models(*, tags: Optional[Iterable[str]] = None) -> List[str]:
-    """列举可用模型名称。"""
+    """
+    List available model names, optionally filtered by tags.
 
+    Parameters
+    ----------
+    tags : Iterable[str], optional
+        Filter models by tags (only models with all specified tags are returned)
+
+    Returns
+    -------
+    List[str]
+        Sorted list of model names
+
+    Examples
+    --------
+    >>> all_models = list_models()
+    >>> classical_models = list_models(tags=["classical"])
+    >>> vision_ml_models = list_models(tags=["vision", "ml"])
+    """
     return MODEL_REGISTRY.available(tags=tags)
 

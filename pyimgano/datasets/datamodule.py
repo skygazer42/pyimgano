@@ -1,4 +1,9 @@
-"""数据模块工具，提供类似 PyTorch Lightning 的数据装载体验。"""
+"""
+Data module utilities providing PyTorch Lightning-like data loading experience.
+
+This module simplifies data loading and management for vision anomaly detection tasks
+with automatic batching, preprocessing, and multi-worker support.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +29,22 @@ SUPPORTED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
 
 @dataclass
 class DataLoaderConfig:
-    """控制 DataLoader 行为的配置封装。"""
+    """
+    Configuration wrapper for controlling DataLoader behavior.
+
+    Attributes
+    ----------
+    batch_size : int, default=32
+        Number of samples per batch
+    num_workers : int, default=0
+        Number of subprocesses for data loading
+    pin_memory : bool, optional
+        Whether to pin memory (auto-detected if None)
+    drop_last : bool, default=False
+        Whether to drop the last incomplete batch
+    shuffle : bool, default=True
+        Whether to shuffle the data
+    """
 
     batch_size: int = 32
     num_workers: int = 0
@@ -46,11 +66,32 @@ class DataLoaderConfig:
 
 
 class VisionDataModule:
-    """统一管理视觉任务数据加载的模块。
+    """
+    Unified data loading module for vision tasks.
 
-    - 支持传入路径列表或目录，自动筛选常见图像扩展名。
-    - 提供默认的训练/验证转换，与 BaseVisionDeepDetector 保持对齐。
-    - 可选地返回 `(image, image)` 形式的数据，用于重建类任务。
+    Features:
+    - Supports path lists or directories with automatic image filtering
+    - Provides default train/val transforms aligned with BaseVisionDeepDetector
+    - Optional (image, image) format for reconstruction tasks
+
+    Parameters
+    ----------
+    train : Iterable[str], optional
+        Training image paths or directory
+    val : Iterable[str], optional
+        Validation image paths or directory
+    test : Iterable[str], optional
+        Test image paths or directory
+    reconstruction : bool, default=True
+        Return (image, image) pairs for reconstruction tasks
+    train_transform : callable, optional
+        Custom training transform
+    eval_transform : callable, optional
+        Custom evaluation transform
+    device : torch.device, optional
+        Target device (auto-detected if None)
+    loader_config : DataLoaderConfig, optional
+        DataLoader configuration
     """
 
     def __init__(
@@ -83,7 +124,14 @@ class VisionDataModule:
     # public API
     # ------------------------------------------------------------------
     def setup(self, stage: Optional[str] = None) -> None:
-        """根据阶段初始化对应数据集。"""
+        """
+        Initialize datasets based on stage.
+
+        Parameters
+        ----------
+        stage : str, optional
+            Stage name ('fit', 'test', or None for both)
+        """
 
         if stage in (None, "fit") and self.train_paths is not None:
             self._train_dataset = self._build_dataset(self.train_paths, train=True)
@@ -127,20 +175,22 @@ class VisionDataModule:
 
     def _scan_directory(self, directory: Path) -> Sequence[str]:
         if not directory.exists():
-            raise FileNotFoundError(f"目录不存在: {directory}")
+            raise FileNotFoundError(f"Directory does not exist: {directory}")
         paths = [
             str(path)
             for path in sorted(directory.iterdir())
             if path.suffix.lower() in SUPPORTED_EXTENSIONS
         ]
         if not paths:
-            raise ValueError(f"在 {directory} 中找不到支持的图像文件 {SUPPORTED_EXTENSIONS}")
+            raise ValueError(
+                f"No supported image files {SUPPORTED_EXTENSIONS} found in {directory}"
+            )
         return paths
 
     @staticmethod
     def _ensure_dataset(dataset, stage: str) -> None:
         if dataset is None:
-            raise RuntimeError(f"请先在 setup 阶段准备 {stage} 数据集")
+            raise RuntimeError(f"Please call setup() first to prepare the {stage} dataset")
 
     # ------------------------------------------------------------------
     # properties

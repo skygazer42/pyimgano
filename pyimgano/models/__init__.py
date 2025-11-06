@@ -1,4 +1,9 @@
-"""模型模块，提供统一的工厂与注册接口。"""
+"""
+Models module providing unified factory and registry interfaces.
+
+This module auto-imports all available models and registers them
+in the MODEL_REGISTRY for dynamic model creation.
+"""
 
 from importlib import import_module
 from typing import Iterable
@@ -10,14 +15,20 @@ from .registry import MODEL_REGISTRY, create_model, list_models, register_model
 
 
 def _auto_import(modules: Iterable[str]) -> None:
-    """按需导入并触发注册表装饰器。"""
+    """
+    Auto-import modules to trigger registry decorators.
 
+    Parameters
+    ----------
+    modules : Iterable[str]
+        Module names to import
+    """
     for module_name in modules:
         try:
             import_module(f"{__name__}.{module_name}")
-        except Exception as exc:  # noqa: BLE001 - 记录导入失败信息
+        except Exception as exc:  # noqa: BLE001 - Log import failures
             warnings.warn(
-                f"加载模型模块 {module_name!r} 失败: {exc}",
+                f"Failed to load model module {module_name!r}: {exc}",
                 RuntimeWarning,
             )
 
@@ -98,7 +109,7 @@ _auto_import(
     ]
 )
 
-from .ae import OptimizedAEDetector  # noqa: E402  # re-export常用模型
+from .ae import OptimizedAEDetector  # noqa: E402  # Re-export commonly used models
 from .loda import VisionLODA  # noqa: E402
 from .vae import VAEAnomalyDetector  # noqa: E402
 
