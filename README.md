@@ -160,16 +160,63 @@ predictions = detector.predict(test_paths)
 anomaly_map = detector.get_anomaly_map('test_image.jpg')
 ```
 
-### Example 4: Comparing Multiple Algorithms
+### Example 4: Zero-Shot Detection (WinCLIP - CVPR 2023) ⭐ NEW
 
 ```python
-algorithms = ["vision_ecod", "vision_copod", "vision_knn"]
+# No training needed! Perfect for quick prototyping
+detector = models.create_model(
+    "vision_winclip",
+    clip_model="ViT-B/32",
+    k_shot=0  # Zero-shot mode
+)
+
+# Just set the class name and predict
+detector.set_class_name("screw")
+predictions = detector.predict(test_paths)
+anomaly_maps = detector.predict_anomaly_map(test_paths)  # Pixel-level heatmaps
+```
+
+### Example 5: Best Localization (SPADE - ECCV 2020) ⭐ NEW
+
+```python
+# Excellent pixel-level anomaly localization
+detector = models.create_model(
+    "vision_spade",
+    backbone="wide_resnet50",
+    k_neighbors=50,
+    feature_levels=["layer1", "layer2", "layer3"]
+)
+
+detector.fit(train_paths)
+predictions = detector.predict(test_paths)
+anomaly_maps = detector.predict_anomaly_map(test_paths)  # Precise localization
+```
+
+### Example 6: Self-Supervised Learning (CutPaste - CVPR 2021) ⭐ NEW
+
+```python
+# Train without any anomaly samples
+detector = models.create_model(
+    "vision_cutpaste",
+    backbone="resnet18",
+    augment_type="3way",  # normal, cutpaste, scar
+    epochs=256
+)
+
+detector.fit(normal_images_only)  # Only normal images needed
+predictions = detector.predict(test_paths)
+```
+
+### Example 7: Comparing Multiple Algorithms
+
+```python
+algorithms = ["vision_ecod", "vision_copod", "vision_simplenet", "vision_spade"]
 results = {}
 
 for algo_name in algorithms:
     detector = models.create_model(
         algo_name,
-        feature_extractor=feature_extractor,
+        feature_extractor=feature_extractor if "vision_ecod" in algo_name else None,
         contamination=0.1
     )
     detector.fit(train_paths)
@@ -310,13 +357,20 @@ augmented_images = [aug_pipeline(img) for img in train_images]
 | SUOD | `vision_suod` | Scalable ensemble |
 | XGBOD | `vision_xgbod` | XGBoost-based |
 
-### Deep Learning (18 algorithms)
+### Deep Learning (25 algorithms)
 
 | Algorithm | Model Name | Key Features |
 |-----------|------------|--------------|
+| **WinCLIP** ⭐ NEW | `vision_winclip` | Zero-shot CLIP-based (CVPR 2023), no training |
 | **SimpleNet** ⭐ | `vision_simplenet` | Ultra-fast SOTA (CVPR 2023), 10x faster training |
+| **DifferNet** ⭐ NEW | `vision_differnet` | Learnable differences (WACV 2023), k-NN |
 | **PatchCore** ⭐ | `vision_patchcore` | Best accuracy (CVPR 2022), pixel localization |
+| **SPADE** ⭐ NEW | `vision_spade` | Deep pyramid k-NN (ECCV 2020), excellent localization |
+| **CutPaste** ⭐ NEW | `vision_cutpaste` | Self-supervised (CVPR 2021), no anomaly data |
 | **DRAEM** ⭐ | `vision_draem` | Synthetic anomalies (ICCV 2021), robust |
+| **MemSeg** NEW | `vision_memseg` | Memory-guided segmentation (2022) |
+| **RIAD** NEW | `vision_riad` | Inpainting-based (2020), self-supervised |
+| **DevNet** NEW | `vision_devnet` | Weakly-supervised (KDD 2019), few labels |
 | **CFlow-AD** ⭐ | `vision_cflow` | Conditional flows (WACV 2022), real-time |
 | **DFM** ⭐ | `vision_dfm` | Fast discriminative features, training-free |
 | **STFPM** | `vision_stfpm` | Student-Teacher (BMVC 2021), multi-scale |
@@ -365,12 +419,78 @@ anomalies = detector.predict(monitoring_frames)
 
 ---
 
+## 📊 Algorithm Comparison & Selection
+
+### Quick Selection Guide
+
+| Your Need | Recommended Algorithms | Why |
+|-----------|------------------------|-----|
+| **Best Overall Accuracy** | PatchCore, SPADE, FastFlow | 99%+ AUROC on MVTec AD |
+| **Fastest Training** | SimpleNet, ECOD, COPOD | 10× faster than competitors |
+| **Zero-Shot (No Training)** | WinCLIP | CLIP-based, text prompts |
+| **Best Localization** | SPADE, PatchCore, STFPM | Pixel-perfect anomaly maps |
+| **Limited Data** | WinCLIP, CutPaste, RIAD | Zero-shot or self-supervised |
+| **Real-Time Inference** | SimpleNet, FastFlow, COPOD | 100+ FPS on GPU |
+| **No GPU Available** | ECOD, COPOD, Feature Bagging | CPU-optimized classical ML |
+| **Few Anomaly Labels** | DevNet | Weakly-supervised learning |
+| **Production Deployment** | SimpleNet, ECOD, PatchCore | Stable, well-tested, fast |
+
+### Performance Comparison (MVTec AD Dataset)
+
+| Algorithm | Image AUROC | Pixel AUROC | Training Time | Inference Speed | Memory |
+|-----------|-------------|-------------|---------------|-----------------|---------|
+| **PatchCore** | 99.6% ⭐ | 98.7% ⭐ | Medium | 30-50 FPS | High |
+| **SPADE** | 98.0% | 99.0% ⭐ | Low | 40-60 FPS | Medium |
+| **SimpleNet** | 99.0% | 98.0% | Very Low ⭐ | 100+ FPS ⭐ | Low |
+| **FastFlow** | 99.0% | 98.0% | Low | 60-80 FPS | Medium |
+| **DifferNet** | 97.0% | 97.0% | Medium | 20-40 FPS | Medium |
+| **CutPaste** | 96.0% | N/A | Medium | 50+ FPS | Low |
+| **STFPM** | 97.0% | 98.0% | Medium | 40-60 FPS | Medium |
+| **WinCLIP** | 95.0% | 98.0% | None ⭐ | 5-10 FPS | Low |
+| **ECOD** | 85-90% | N/A | None ⭐ | 200+ FPS ⭐ | Very Low ⭐ |
+| **COPOD** | 85-90% | N/A | None ⭐ | 300+ FPS ⭐ | Very Low ⭐ |
+
+### Decision Tree
+
+```
+Start Here
+│
+├─ Have GPU?
+│  ├─ YES
+│  │  ├─ Need best accuracy? → PatchCore, SPADE
+│  │  ├─ Need speed? → SimpleNet, FastFlow
+│  │  ├─ No training data? → WinCLIP (zero-shot)
+│  │  └─ Need localization? → SPADE, PatchCore
+│  │
+│  └─ NO (CPU only)
+│     ├─ Need speed? → COPOD, ECOD
+│     ├─ Need accuracy? → ECOD, Feature Bagging
+│     └─ General purpose → ECOD (best balance)
+│
+├─ Type of Data?
+│  ├─ Only normal samples → CutPaste, RIAD, WinCLIP
+│  ├─ Few anomaly labels → DevNet
+│  └─ Mixed normal/anomaly → Any algorithm
+│
+└─ Deployment Scenario?
+   ├─ Edge device → PaDiM, EfficientAD
+   ├─ Cloud/Server → PatchCore, SimpleNet
+   └─ Real-time critical → SimpleNet, COPOD
+```
+
+---
+
 ## 📖 Documentation
 
-- **[Deep Learning Models Guide](docs/DEEP_LEARNING_MODELS.md)** ⭐ - SOTA deep learning algorithms
-- **[Preprocessing Guide](docs/PREPROCESSING.md)** ⭐ - NEW! Image enhancement and preprocessing
-- **[Evaluation & Benchmarking Guide](docs/EVALUATION_AND_BENCHMARK.md)** ⭐ - Comprehensive evaluation tools
+### Core Guides
+- **[Quick Start Guide](docs/QUICK_START.md)** ⭐ - Get started in 5 minutes
+- **[SOTA Algorithms Guide](docs/SOTA_ALGORITHMS.md)** ⭐ NEW! - Latest state-of-the-art algorithms (WinCLIP, SPADE, etc.)
+- **[Deep Learning Models Guide](docs/DEEP_LEARNING_MODELS.md)** ⭐ - Comprehensive deep learning guide
 - **[Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md)** - Choose the right algorithm
+- **[Preprocessing Guide](docs/PREPROCESSING.md)** ⭐ - Image enhancement and preprocessing
+- **[Evaluation & Benchmarking Guide](docs/EVALUATION_AND_BENCHMARK.md)** ⭐ - Comprehensive evaluation tools
+
+### Reference
 - **[API Reference](docs/)** - Detailed API documentation
 - **[Examples](examples/)** - Code examples and tutorials
 - **[Contributing](CONTRIBUTING.md)** - Contribution guidelines
