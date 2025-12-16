@@ -1,4 +1,4 @@
-# pyImgano
+# pyimgano
 
 **Enterprise-Grade Visual Anomaly Detection Toolkit**
 
