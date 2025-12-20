@@ -129,3 +129,24 @@ class ImagePreprocessor:
     def batch_process(self, paths: Iterable[str]) -> np.ndarray:
         arrays = [self.process(path) for path in paths]
         return np.stack(arrays)
+
+    def extract(self, paths: Iterable[str]) -> np.ndarray:
+        """Extract flattened feature vectors from image paths.
+
+        This is a convenience wrapper expected by classical detectors that
+        operate on 2D feature matrices. Each image is preprocessed using
+        :meth:`process`, then flattened into a 1D vector before stacking.
+
+        Parameters
+        ----------
+        paths : Iterable[str]
+            Image file paths to preprocess.
+
+        Returns
+        -------
+        np.ndarray
+            Array of shape (n_samples, n_features).
+        """
+
+        arrays = self.batch_process(paths)
+        return arrays.reshape(arrays.shape[0], -1)
