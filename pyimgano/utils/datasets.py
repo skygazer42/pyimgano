@@ -218,6 +218,75 @@ class MVTecDataset(BaseDataset):
             description=f'MVTec AD - {self.category} category'
         )
 
+    def get_train_paths(self) -> List[str]:
+        """Get training image paths (normal only)."""
+        train_path = self.category_path / 'train' / 'good'
+        if not train_path.exists():
+            raise FileNotFoundError(f"Training data not found: {train_path}")
+        paths = [str(p) for p in sorted(train_path.glob('*.png'))]
+        if not paths:
+            raise ValueError(f"No training images found in: {train_path}")
+        return paths
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        """Get test image paths with labels and optionally masks."""
+        test_path = self.category_path / 'test'
+        ground_truth_path = self.category_path / 'ground_truth'
+
+        if not test_path.exists():
+            raise FileNotFoundError(f"Test data not found: {test_path}")
+
+        image_paths: List[str] = []
+        labels: List[int] = []
+        masks: Optional[List[NDArray]] = [] if self.load_masks else None
+
+        # Normal test images
+        normal_dir = test_path / 'good'
+        normal_paths = sorted(normal_dir.glob('*.png')) if normal_dir.exists() else []
+        image_paths.extend([str(p) for p in normal_paths])
+        labels.extend([0] * len(normal_paths))
+
+        if self.load_masks:
+            for img_path in normal_paths:
+                shape = self.resize
+                if shape is None:
+                    img = cv2.imread(str(img_path))
+                    if img is None:
+                        shape = (256, 256)
+                    else:
+                        shape = img.shape[:2]
+                masks.append(np.zeros(shape, dtype=np.uint8))
+
+        # Anomaly test images (all subdirs except good)
+        for defect_dir in sorted(test_path.iterdir()):
+            if defect_dir.name == 'good' or not defect_dir.is_dir():
+                continue
+
+            defect_paths = sorted(defect_dir.glob('*.png'))
+            image_paths.extend([str(p) for p in defect_paths])
+            labels.extend([1] * len(defect_paths))
+
+            if not self.load_masks:
+                continue
+
+            mask_dir = ground_truth_path / defect_dir.name
+            for img_path in defect_paths:
+                mask_path = mask_dir / f"{img_path.stem}_mask.png"
+                mask = None
+                if mask_path.exists():
+                    mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                if mask is None:
+                    shape = self.resize
+                    if shape is None:
+                        img = cv2.imread(str(img_path))
+                        shape = img.shape[:2] if img is not None else (256, 256)
+                    mask = np.zeros(shape, dtype=np.uint8)
+                elif self.resize is not None:
+                    mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                masks.append((mask > 127).astype(np.uint8))
+
+        return image_paths, np.array(labels), np.array(masks) if self.load_masks else None
+
     @staticmethod
     def list_categories() -> List[str]:
         """List all available categories."""
@@ -328,6 +397,37 @@ class BTADDataset(BaseDataset):
             image_size=train_data[0].shape[:2],
             description=f'BTAD - Category {self.category}'
         )
+
+    def get_train_paths(self) -> List[str]:
+        train_path = self.category_path / 'train' / 'ok'
+        if not train_path.exists():
+            raise FileNotFoundError(f"Training data not found: {train_path}")
+        paths: List[str] = []
+        for ext in ['*.png', '*.jpg', '*.bmp']:
+            paths.extend([str(p) for p in sorted(train_path.glob(ext))])
+        if not paths:
+            raise ValueError(f"No training images found in: {train_path}")
+        return paths
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        test_path = self.category_path / 'test'
+        if not test_path.exists():
+            raise FileNotFoundError(f"Test data not found: {test_path}")
+
+        ok_dir = test_path / 'ok'
+        ko_dir = test_path / 'ko'
+
+        ok_paths: List[str] = []
+        ko_paths: List[str] = []
+        for ext in ['*.png', '*.jpg', '*.bmp']:
+            if ok_dir.exists():
+                ok_paths.extend([str(p) for p in sorted(ok_dir.glob(ext))])
+            if ko_dir.exists():
+                ko_paths.extend([str(p) for p in sorted(ko_dir.glob(ext))])
+
+        test_paths = ok_paths + ko_paths
+        labels = np.array([0] * len(ok_paths) + [1] * len(ko_paths))
+        return test_paths, labels, None
 
 
 class VisADataset(BaseDataset):
@@ -687,6 +787,65 @@ class CustomDataset(BaseDataset):
             image_size=train_data[0].shape[:2],
             description='User-defined custom dataset'
         )
+
+    def get_train_paths(self) -> List[str]:
+        train_path = self.root / 'train' / 'normal'
+        if not train_path.exists():
+            raise FileNotFoundError(f"Training data not found: {train_path}")
+        paths: List[str] = []
+        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+            paths.extend([str(p) for p in sorted(train_path.glob(ext))])
+        if not paths:
+            raise ValueError(f"No training images found in: {train_path}")
+        return paths
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        test_path = self.root / 'test'
+        if not test_path.exists():
+            raise FileNotFoundError(f"Test data not found: {test_path}")
+
+        normal_dir = test_path / 'normal'
+        anomaly_dir = test_path / 'anomaly'
+
+        normal_paths: List[Path] = []
+        anomaly_paths: List[Path] = []
+        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+            if normal_dir.exists():
+                normal_paths.extend(sorted(normal_dir.glob(ext)))
+            if anomaly_dir.exists():
+                anomaly_paths.extend(sorted(anomaly_dir.glob(ext)))
+
+        test_paths = [str(p) for p in normal_paths + anomaly_paths]
+        labels = np.array([0] * len(normal_paths) + [1] * len(anomaly_paths))
+
+        if not self.load_masks:
+            return test_paths, labels, None
+
+        masks: List[NDArray] = []
+        for img_path in normal_paths:
+            shape = self.resize
+            if shape is None:
+                img = cv2.imread(str(img_path))
+                shape = img.shape[:2] if img is not None else (256, 256)
+            masks.append(np.zeros(shape, dtype=np.uint8))
+
+        gt_dir = self.root / 'ground_truth' / 'anomaly'
+        for img_path in anomaly_paths:
+            mask = None
+            mask_path = gt_dir / f"{img_path.stem}_mask.png"
+            if mask_path.exists():
+                mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                shape = self.resize
+                if shape is None:
+                    img = cv2.imread(str(img_path))
+                    shape = img.shape[:2] if img is not None else (256, 256)
+                mask = np.zeros(shape, dtype=np.uint8)
+            elif self.resize is not None:
+                mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+            masks.append((mask > 127).astype(np.uint8))
+
+        return test_paths, labels, np.array(masks)
 
 
 def load_dataset(
