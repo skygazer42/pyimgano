@@ -106,7 +106,7 @@ class VisionPCA(BaseVisionDetector):
     def __init__(
         self,
         *,
-        feature_extractor,
+        feature_extractor=None,
         contamination: float = 0.1,
         n_components=None,
         n_selected_components=None,

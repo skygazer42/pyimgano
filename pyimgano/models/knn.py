@@ -107,7 +107,7 @@ class VisionKNN(BaseVisionDetector):
     def __init__(
         self,
         *,
-        feature_extractor,
+        feature_extractor=None,
         contamination: float = 0.1,
         n_neighbors: int = 5,
         method: str = 'largest',
