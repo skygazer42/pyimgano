@@ -86,8 +86,8 @@ class TestBasicWorkflow:
         # Fit
         detector.fit(synthetic_dataset['train'])
 
-        # Predict
-        scores = detector.predict(synthetic_dataset['test_all'])
+        # Get continuous anomaly scores
+        scores = detector.decision_function(synthetic_dataset['test_all'])
 
         # Verify
         assert len(scores) == len(synthetic_dataset['test_all'])
@@ -101,7 +101,7 @@ class TestBasicWorkflow:
         detector.fit(synthetic_dataset['train'])
 
         # Get scores
-        scores = detector.predict(synthetic_dataset['test_all'])
+        scores = detector.decision_function(synthetic_dataset['test_all'])
 
         # Evaluate
         results = evaluate_detector(
@@ -182,7 +182,7 @@ class TestDeepLearningWorkflow:
         detector.fit(synthetic_dataset['train'])
 
         # Predict
-        scores = detector.predict(synthetic_dataset['test_all'])
+        scores = detector.decision_function(synthetic_dataset['test_all'])
 
         # Evaluate
         auroc = compute_auroc(synthetic_dataset['test_labels'], scores)
@@ -202,7 +202,7 @@ class TestDeepLearningWorkflow:
         detector.fit(synthetic_dataset['train'])
 
         # Predict
-        scores = detector.predict(synthetic_dataset['test_all'])
+        scores = detector.decision_function(synthetic_dataset['test_all'])
 
         # Evaluate
         results = evaluate_detector(
@@ -237,7 +237,7 @@ class TestErrorHandling:
         detector.fit(synthetic_dataset['train'])
 
         # This should handle the error gracefully
-        scores = detector.predict(['nonexistent.jpg'])
+        scores = detector.decision_function(['nonexistent.jpg'])
         # Typically returns 0.0 for failed images
         assert len(scores) == 1
 
@@ -261,7 +261,7 @@ class TestSaveLoad:
         detector.fit(synthetic_dataset['train'])
 
         # Get original predictions
-        original_scores = detector.predict(synthetic_dataset['test_all'])
+        original_scores = detector.decision_function(synthetic_dataset['test_all'])
 
         # Save
         model_path = tmp_path / 'detector.pkl'
@@ -273,7 +273,7 @@ class TestSaveLoad:
             loaded_detector = pickle.load(f)
 
         # Get loaded predictions
-        loaded_scores = loaded_detector.predict(synthetic_dataset['test_all'])
+        loaded_scores = loaded_detector.decision_function(synthetic_dataset['test_all'])
 
         # Compare
         np.testing.assert_array_almost_equal(original_scores, loaded_scores)
