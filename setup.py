@@ -36,6 +36,12 @@ setup(
             "transformers>=4.30.0",
             "accelerate>=0.20.0",
         ],
+        "anomalib": [
+            "anomalib>=0.10.0",
+        ],
+        "faiss": [
+            "faiss-cpu>=1.7.4",
+        ],
         "dev": [
             "pytest>=7.0.0",
             "pytest-cov>=4.0.0",
@@ -53,6 +59,9 @@ setup(
         ],
         "all": [
             "pyimgano[diffusion,dev,docs]",
+        ],
+        "backends": [
+            "pyimgano[anomalib,faiss]",
         ],
     },
     include_package_data=True,
