@@ -218,6 +218,28 @@ class TestEvaluateDetector:
         assert 'fp' in metrics
         assert 'fn' in metrics
 
+    def test_pixel_metrics_optional(self):
+        """Test that pixel-level metrics are computed when provided."""
+        y_true = np.array([0, 0, 1, 1])
+        y_scores = np.array([0.1, 0.2, 0.8, 0.9])
+
+        pixel_labels = np.zeros((1, 10, 10), dtype=np.uint8)
+        pixel_labels[:, 2:5, 2:5] = 1
+        pixel_scores = pixel_labels.astype(np.float32)
+
+        results = evaluate_detector(
+            y_true,
+            y_scores,
+            pixel_labels=pixel_labels,
+            pixel_scores=pixel_scores,
+        )
+
+        assert 'pixel_metrics' in results
+        pixel_metrics = results['pixel_metrics']
+        assert 'pixel_auroc' in pixel_metrics
+        assert 'pixel_average_precision' in pixel_metrics
+        assert 'aupro' in pixel_metrics
+
 
 class TestPROScore:
     """Test PRO score computation."""

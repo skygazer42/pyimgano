@@ -248,6 +248,9 @@ def evaluate_detector(
     y_scores: NDArray,
     threshold: Optional[float] = None,
     find_best_threshold: bool = True,
+    pixel_labels: Optional[NDArray] = None,
+    pixel_scores: Optional[NDArray] = None,
+    pro_integration_limit: float = 0.3,
 ) -> Dict[str, Union[float, Dict]]:
     """
     Comprehensive evaluation of anomaly detector.
@@ -317,12 +320,25 @@ def evaluate_detector(
         classification_metrics['f1']
     )
 
-    return {
+    results: Dict[str, Union[float, Dict]] = {
         'auroc': auroc,
         'average_precision': ap,
         'threshold': float(threshold),
         'metrics': classification_metrics,
     }
+
+    if pixel_labels is not None and pixel_scores is not None:
+        results['pixel_metrics'] = {
+            'pixel_auroc': compute_pixel_auroc(pixel_labels, pixel_scores),
+            'pixel_average_precision': compute_pixel_average_precision(pixel_labels, pixel_scores),
+            'aupro': compute_aupro(
+                pixel_labels,
+                pixel_scores,
+                integration_limit=pro_integration_limit,
+            ),
+        }
+
+    return results
 
 
 def compute_pro_score(
