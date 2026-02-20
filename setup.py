@@ -98,4 +98,9 @@ setup(
         "Bug Tracker": "https://github.com/jhlu2019/pyimgano/issues",
         "Changelog": "https://github.com/jhlu2019/pyimgano/blob/main/CHANGELOG.md",
     },
+    entry_points={
+        "console_scripts": [
+            "pyimgano-benchmark=pyimgano.cli:main",
+        ],
+    },
 )
