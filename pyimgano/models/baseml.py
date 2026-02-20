@@ -15,7 +15,12 @@ class BaseVisionDetector(BaseDetector):
         super(BaseVisionDetector, self).__init__(contamination=contamination)
 
         if feature_extractor is None:
-            raise ValueError("feature_extractor 不能为空。请提供一个特征提取器实例。")
+            # Provide a safe default so classical detectors work out-of-the-box.
+            # This trades off accuracy for simplicity, but avoids surprising
+            # TypeError/ValueError for new users and for quick benchmarks.
+            from pyimgano.utils.image_ops import ImagePreprocessor
+
+            feature_extractor = ImagePreprocessor(resize=(224, 224), output_tensor=False)
         if not hasattr(feature_extractor, 'extract'):
             raise TypeError("feature_extractor 必须有一个名为 'extract' 的方法。")
         self.feature_extractor = feature_extractor
