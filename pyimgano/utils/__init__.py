@@ -115,6 +115,7 @@ __all__ += [
 from .datasets import (
     MVTecDataset,
     BTADDataset,
+    VisADataset,
     CustomDataset,
     load_dataset,
 )
@@ -122,6 +123,7 @@ from .datasets import (
 __all__ += [
     "MVTecDataset",
     "BTADDataset",
+    "VisADataset",
     "CustomDataset",
     "load_dataset",
 ]

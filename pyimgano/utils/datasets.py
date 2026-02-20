@@ -330,6 +330,228 @@ class BTADDataset(BaseDataset):
         )
 
 
+class VisADataset(BaseDataset):
+    """VisA (Visual Anomaly) dataset loader.
+
+    Supports a common folder-based layout (often named `visa_pytorch/`):
+
+        root/
+            visa_pytorch/
+                <category>/
+                    train/good/*.png
+                    test/good/*.png
+                    test/bad/*.png
+                    ground_truth/bad/*.png   (optional)
+
+    You may also pass `root` directly as the `visa_pytorch/` directory.
+    If your VisA export uses a different structure, use `CustomDataset` or
+    convert it into the layout above.
+    """
+
+    def __init__(
+        self,
+        root: str,
+        category: str,
+        resize: Optional[Tuple[int, int]] = None,
+        load_masks: bool = True,
+    ):
+        super().__init__(root, category)
+        self.resize = resize
+        self.load_masks = load_masks
+
+        base_root = self.root / "visa_pytorch" if (self.root / "visa_pytorch").exists() else self.root
+        self.category_path = base_root / category
+
+        if not self.category_path.exists():
+            raise FileNotFoundError(f"VisA category path not found: {self.category_path}")
+
+    def _load_images(self, path: Path) -> List[NDArray]:
+        images: List[NDArray] = []
+
+        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+            for img_path in sorted(path.glob(ext)):
+                img = cv2.imread(str(img_path))
+                if img is None:
+                    continue
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+                if self.resize is not None:
+                    img = cv2.resize(img, (self.resize[1], self.resize[0]))
+
+                images.append(img)
+
+        return images
+
+    @staticmethod
+    def _resolve_dir(parent: Path, preferred: str, fallbacks: List[str]) -> Path:
+        preferred_dir = parent / preferred
+        if preferred_dir.exists():
+            return preferred_dir
+        for name in fallbacks:
+            candidate = parent / name
+            if candidate.exists():
+                return candidate
+        return preferred_dir
+
+    @staticmethod
+    def _scan_images(directory: Path) -> List[Path]:
+        paths: List[Path] = []
+        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+            paths.extend(sorted(directory.glob(ext)))
+        return paths
+
+    def get_train_data(self) -> NDArray:
+        train_dir = self.category_path / "train"
+        good_dir = self._resolve_dir(train_dir, "good", ["ok", "normal"])
+
+        if not good_dir.exists():
+            raise FileNotFoundError(f"Training data not found: {good_dir}")
+
+        images = self._load_images(good_dir)
+        if not images:
+            raise ValueError(f"No training images found in: {good_dir}")
+        return np.array(images)
+
+    def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
+        test_dir = self.category_path / "test"
+        if not test_dir.exists():
+            raise FileNotFoundError(f"Test data not found: {test_dir}")
+
+        good_dir = self._resolve_dir(test_dir, "good", ["ok", "normal"])
+        bad_dir = self._resolve_dir(test_dir, "bad", ["ko", "anomaly"])
+
+        images: List[NDArray] = []
+        labels: List[int] = []
+        masks: Optional[List[NDArray]] = [] if self.load_masks else None
+
+        # Normal images
+        if good_dir.exists():
+            good_imgs = self._load_images(good_dir)
+            images.extend(good_imgs)
+            labels.extend([0] * len(good_imgs))
+            if self.load_masks:
+                for img in good_imgs:
+                    masks.append(np.zeros(img.shape[:2], dtype=np.uint8))
+
+        # Anomalous images
+        bad_img_paths = self._scan_images(bad_dir) if bad_dir.exists() else []
+        bad_imgs: List[NDArray] = []
+        for img_path in bad_img_paths:
+            img = cv2.imread(str(img_path))
+            if img is None:
+                continue
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            if self.resize is not None:
+                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+            bad_imgs.append(img)
+
+        images.extend(bad_imgs)
+        labels.extend([1] * len(bad_imgs))
+
+        if self.load_masks:
+            gt_dir = self.category_path / "ground_truth"
+            gt_bad_dir = self._resolve_dir(gt_dir, "bad", ["ko", "anomaly"])
+            for img_path, img in zip(bad_img_paths, bad_imgs):
+                mask = None
+                if gt_bad_dir.exists():
+                    candidates = [
+                        gt_bad_dir / img_path.name,
+                        gt_bad_dir / f"{img_path.stem}.png",
+                        gt_bad_dir / f"{img_path.stem}_mask.png",
+                    ]
+                    for candidate in candidates:
+                        if candidate.exists():
+                            mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
+                            break
+                if mask is None:
+                    mask = np.zeros(img.shape[:2], dtype=np.uint8)
+                elif self.resize is not None:
+                    mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                masks.append((mask > 127).astype(np.uint8))
+
+        return (
+            np.array(images),
+            np.array(labels),
+            np.array(masks) if self.load_masks else None,
+        )
+
+    def get_info(self) -> DatasetInfo:
+        train_data = self.get_train_data()
+        test_data, _, _ = self.get_test_data()
+
+        return DatasetInfo(
+            name='VisA',
+            categories=[self.category] if self.category else [],
+            num_train=len(train_data),
+            num_test=len(test_data),
+            image_size=train_data[0].shape[:2],
+            description=f'VisA - {self.category} category',
+        )
+
+    def get_train_paths(self) -> List[str]:
+        train_dir = self.category_path / "train"
+        good_dir = self._resolve_dir(train_dir, "good", ["ok", "normal"])
+        if not good_dir.exists():
+            raise FileNotFoundError(f"Training data not found: {good_dir}")
+        paths = [str(p) for p in self._scan_images(good_dir)]
+        if not paths:
+            raise ValueError(f"No training images found in: {good_dir}")
+        return paths
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        test_dir = self.category_path / "test"
+        if not test_dir.exists():
+            raise FileNotFoundError(f"Test data not found: {test_dir}")
+
+        good_dir = self._resolve_dir(test_dir, "good", ["ok", "normal"])
+        bad_dir = self._resolve_dir(test_dir, "bad", ["ko", "anomaly"])
+
+        good_paths = self._scan_images(good_dir) if good_dir.exists() else []
+        bad_paths = self._scan_images(bad_dir) if bad_dir.exists() else []
+
+        test_paths = [str(p) for p in good_paths + bad_paths]
+        labels = np.array([0] * len(good_paths) + [1] * len(bad_paths))
+
+        if not self.load_masks:
+            return test_paths, labels, None
+
+        masks: List[NDArray] = []
+        for _ in good_paths:
+            shape = self.resize or (256, 256)
+            masks.append(np.zeros(shape, dtype=np.uint8))
+
+        gt_dir = self.category_path / "ground_truth"
+        gt_bad_dir = self._resolve_dir(gt_dir, "bad", ["ko", "anomaly"])
+        for img_path in bad_paths:
+            mask = None
+            if gt_bad_dir.exists():
+                candidates = [
+                    gt_bad_dir / img_path.name,
+                    gt_bad_dir / f"{img_path.stem}.png",
+                    gt_bad_dir / f"{img_path.stem}_mask.png",
+                ]
+                for candidate in candidates:
+                    if candidate.exists():
+                        mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
+                        break
+            if mask is None:
+                shape = self.resize or (256, 256)
+                mask = np.zeros(shape, dtype=np.uint8)
+            elif self.resize is not None:
+                mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+            masks.append((mask > 127).astype(np.uint8))
+
+        return test_paths, labels, np.array(masks)
+
+    @staticmethod
+    def list_categories(root: str) -> List[str]:
+        root_path = Path(root)
+        base_root = root_path / "visa_pytorch" if (root_path / "visa_pytorch").exists() else root_path
+        if not base_root.exists():
+            return []
+        return sorted([p.name for p in base_root.iterdir() if p.is_dir()])
+
+
 class CustomDataset(BaseDataset):
     """Custom dataset loader for user-defined datasets.
 
@@ -476,7 +698,7 @@ def load_dataset(
     """Factory function to load datasets.
 
     Args:
-        name: Dataset name ('mvtec', 'btad', 'custom')
+        name: Dataset name ('mvtec', 'btad', 'visa', 'custom')
         root: Path to dataset root
         category: Category name (required for mvtec and btad)
         **kwargs: Additional arguments for dataset
@@ -492,6 +714,7 @@ def load_dataset(
         'mvtec': MVTecDataset,
         'mvtec_ad': MVTecDataset,
         'btad': BTADDataset,
+        'visa': VisADataset,
         'custom': CustomDataset,
     }
 
@@ -501,7 +724,7 @@ def load_dataset(
 
     dataset_class = datasets[name_lower]
 
-    if name_lower in ['mvtec', 'mvtec_ad', 'btad']:
+    if name_lower in ['mvtec', 'mvtec_ad', 'btad', 'visa']:
         if category is None:
             raise ValueError(f"Category is required for {name} dataset")
         return dataset_class(root=root, category=category, **kwargs)
