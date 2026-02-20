@@ -166,7 +166,10 @@ class AlgorithmBenchmark:
             print(f"Running inference on {len(test_images)} images...")
 
         inference_start = time.time()
-        test_scores = detector.predict(test_images)
+        # Use continuous anomaly scores for evaluation/metrics.
+        # `predict()` may return binary labels for some detectors (PyOD semantics),
+        # which would break AUROC/AP computations.
+        test_scores = detector.decision_function(test_images)
         inference_time = time.time() - inference_start
 
         inference_per_image = inference_time / len(test_images)
