@@ -17,8 +17,8 @@ from pyimgano import evaluate_detector, models
 detector = models.create_model('vision_ecod')
 detector.fit(train_images)
 
-# Get predictions
-scores = detector.predict(test_images)
+# Get anomaly scores
+scores = detector.decision_function(test_images)
 
 # Evaluate
 results = evaluate_detector(test_labels, scores)
@@ -248,8 +248,8 @@ compare_detectors(
 ```python
 from pyimgano.visualization import plot_score_distribution
 
-normal_scores = detector.predict(normal_images)
-anomaly_scores = detector.predict(anomaly_images)
+normal_scores = detector.decision_function(normal_images)
+anomaly_scores = detector.decision_function(anomaly_images)
 
 plot_score_distribution(
     normal_scores,
@@ -310,7 +310,7 @@ print(f"{'=' * 60}\n")
 
 best_detector = models.create_model(all_algorithms[best_algo]['model_name'])
 best_detector.fit(train_images)
-best_scores = best_detector.predict(test_images)
+best_scores = best_detector.decision_function(test_images)
 
 from pyimgano import print_evaluation_summary
 evaluation = evaluate_detector(test_labels, best_scores)
@@ -318,10 +318,11 @@ print_evaluation_summary(evaluation)
 
 # 5. Visualizations
 # ROC comparison
-scores_dict = {
-    name: models.create_model(cfg['model_name']).fit(train_images).predict(test_images)
-    for name, cfg in all_algorithms.items()
-}
+scores_dict = {}
+for name, cfg in all_algorithms.items():
+    det = models.create_model(cfg['model_name'])
+    det.fit(train_images)
+    scores_dict[name] = det.decision_function(test_images)
 compare_detectors(test_labels, scores_dict, save_path='comparison.png')
 
 # Anomaly map (for models that support it)
@@ -365,7 +366,7 @@ train_imgs, val_imgs = train_test_split(normal_images, test_size=0.2)
 detector.fit(train_imgs)
 
 # Validate
-val_scores = detector.predict(val_imgs + anomaly_images)
+val_scores = detector.decision_function(val_imgs + anomaly_images)
 val_labels = [0] * len(val_imgs) + [1] * len(anomaly_images)
 
 results = evaluate_detector(val_labels, val_scores)
@@ -387,7 +388,7 @@ for train_idx, val_idx in kfold.split(normal_images):
     detector = models.create_model('vision_ecod')
     detector.fit(train_fold)
 
-    scores = detector.predict(val_fold + anomaly_images)
+    scores = detector.decision_function(val_fold + anomaly_images)
     labels = [0] * len(val_fold) + [1] * len(anomaly_images)
 
     auroc = compute_auroc(labels, scores)
@@ -402,8 +403,8 @@ print(f"Mean AUROC: {np.mean(aurocs):.4f} ± {np.std(aurocs):.4f}")
 from scipy import stats
 
 # Compare two detectors
-scores_a = detector_a.predict(test_images)
-scores_b = detector_b.predict(test_images)
+scores_a = detector_a.decision_function(test_images)
+scores_b = detector_b.decision_function(test_images)
 
 auroc_a = compute_auroc(test_labels, scores_a)
 auroc_b = compute_auroc(test_labels, scores_b)

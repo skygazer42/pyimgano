@@ -156,8 +156,14 @@ detector = models.create_model(
 )
 
 detector.fit(train_paths)
-predictions = detector.predict(test_paths)
 scores = detector.decision_function(test_paths)
+
+# If you need binary labels, threshold the scores.
+# For example (one-class, no labels): choose a quantile threshold from train scores.
+# import numpy as np
+# train_scores = detector.decision_function(train_paths)
+# threshold = np.quantile(train_scores, 0.9)  # 0.9 == 1 - contamination (example)
+# predictions = (scores >= threshold).astype(int)
 ```
 
 ### Example 3: Maximum Accuracy (PatchCore - CVPR 2022)
@@ -172,7 +178,7 @@ detector = models.create_model(
 )
 
 detector.fit(train_paths)
-predictions = detector.predict(test_paths)
+scores = detector.decision_function(test_paths)
 
 # Get pixel-level anomaly heatmap
 anomaly_map = detector.get_anomaly_map('test_image.jpg')
@@ -190,7 +196,7 @@ detector = models.create_model(
 
 # Just set the class name and predict
 detector.set_class_name("screw")
-predictions = detector.predict(test_paths)
+scores = detector.decision_function(test_paths)
 anomaly_maps = detector.predict_anomaly_map(test_paths)  # Pixel-level heatmaps
 ```
 
@@ -206,7 +212,7 @@ detector = models.create_model(
 )
 
 detector.fit(train_paths)
-predictions = detector.predict(test_paths)
+scores = detector.decision_function(test_paths)
 anomaly_maps = detector.predict_anomaly_map(test_paths)  # Precise localization
 ```
 
@@ -222,23 +228,27 @@ detector = models.create_model(
 )
 
 detector.fit(normal_images_only)  # Only normal images needed
-predictions = detector.predict(test_paths)
+scores = detector.decision_function(test_paths)
 ```
 
 ### Example 7: Comparing Multiple Algorithms
 
 ```python
+import numpy as np
+
 algorithms = ["vision_ecod", "vision_copod", "vision_simplenet", "vision_spade"]
 results = {}
 
 for algo_name in algorithms:
     detector = models.create_model(
         algo_name,
-        feature_extractor=feature_extractor if "vision_ecod" in algo_name else None,
         contamination=0.1
     )
     detector.fit(train_paths)
-    results[algo_name] = detector.predict(test_paths)
+    train_scores = detector.decision_function(train_paths)
+    threshold = np.quantile(train_scores, 0.9)
+    test_scores = detector.decision_function(test_paths)
+    results[algo_name] = (test_scores >= threshold).astype(int)
 
 # Compare results
 for name, preds in results.items():
@@ -283,7 +293,7 @@ class ECODWithPreprocessing(PreprocessingMixin, ECOD):
 
 detector = ECODWithPreprocessing()
 detector.fit(train_images)
-scores = detector.predict(test_images)
+scores = detector.decision_function(test_images)
 
 # Method 3: Data Augmentation for Training
 from pyimgano.preprocessing import (
@@ -422,7 +432,7 @@ augmented_images = [aug_pipeline(img) for img in train_images]
 # Detect defects in manufactured products
 detector = models.create_model("vision_ecod", ...)
 detector.fit(normal_product_images)
-defects = detector.predict(inspection_images)
+defect_scores = detector.decision_function(inspection_images)
 ```
 
 ### Medical Imaging
@@ -430,7 +440,7 @@ defects = detector.predict(inspection_images)
 # Identify abnormal X-rays
 detector = models.create_model("vision_deep_svdd", ...)
 detector.fit(normal_xrays)
-abnormal_cases = detector.predict(patient_xrays)
+abnormal_scores = detector.decision_function(patient_xrays)
 ```
 
 ### Security & Surveillance
@@ -438,7 +448,7 @@ abnormal_cases = detector.predict(patient_xrays)
 # Detect unusual behavior
 detector = models.create_model("vision_copod", ...)
 detector.fit(normal_scene_frames)
-anomalies = detector.predict(monitoring_frames)
+anomaly_scores = detector.decision_function(monitoring_frames)
 ```
 
 ---
