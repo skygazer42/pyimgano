@@ -106,6 +106,8 @@ _auto_import(
         "stfpm",  # Student-Teacher Feature Pyramid Matching (BMVC 2021)
         "vae",  # Variational Autoencoder
         "winclip",  # WinCLIP zero-shot CLIP-based (CVPR 2023)
+        # Optional backend wrappers (safe to import; dependencies are checked at runtime)
+        "anomalib_backend",
     ]
 )
 
