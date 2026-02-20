@@ -377,6 +377,38 @@ def compute_pro_score(
     return float(pro_score)
 
 
+def compute_pixel_auroc(
+    pixel_labels: NDArray,
+    pixel_scores: NDArray,
+) -> float:
+    """Compute pixel-level AUROC by flattening pixel arrays."""
+
+    return compute_auroc(pixel_labels.ravel(), pixel_scores.ravel())
+
+
+def compute_pixel_average_precision(
+    pixel_labels: NDArray,
+    pixel_scores: NDArray,
+) -> float:
+    """Compute pixel-level Average Precision (AP) by flattening pixel arrays."""
+
+    return compute_average_precision(pixel_labels.ravel(), pixel_scores.ravel())
+
+
+def compute_aupro(
+    pixel_labels: NDArray,
+    pixel_scores: NDArray,
+    integration_limit: float = 0.3,
+) -> float:
+    """Alias for :func:`compute_pro_score` (commonly referred to as AUPRO)."""
+
+    return compute_pro_score(
+        pixel_labels=pixel_labels,
+        pixel_scores=pixel_scores,
+        integration_limit=integration_limit,
+    )
+
+
 def print_evaluation_summary(results: Dict) -> None:
     """
     Print formatted evaluation summary.
