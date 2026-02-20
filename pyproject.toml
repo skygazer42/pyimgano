@@ -98,8 +98,8 @@ Changelog = "https://github.com/jhlu2019/pyimgano/blob/main/CHANGELOG.md"
 [project.scripts]
 pyimgano-benchmark = "pyimgano.cli:main"
 
-[tool.setuptools]
-packages = ["pyimgano"]
+[tool.setuptools.packages.find]
+include = ["pyimgano*"]
 
 [tool.setuptools.package-data]
 pyimgano = ["py.typed"]
