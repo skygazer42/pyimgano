@@ -19,9 +19,9 @@ from numpy.typing import NDArray
 import torch
 import torch.nn.functional as F
 from torchvision import models, transforms
-from sklearn.neighbors import NearestNeighbors
 
 from .baseCv import BaseVisionDeepDetector
+from .knn_index import KNNIndex, build_knn_index
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         layers: List[str] = None,
         coreset_sampling_ratio: float = 0.1,
         n_neighbors: int = 9,
+        knn_backend: str = "sklearn",
         pretrained: bool = True,
         device: str = "cpu",
         **kwargs,
@@ -93,6 +94,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.layers = layers or ["layer2", "layer3"]
         self.coreset_sampling_ratio = coreset_sampling_ratio
         self.n_neighbors = n_neighbors
+        self.knn_backend = knn_backend
         self.pretrained = pretrained
         self.device = device
 
@@ -101,7 +103,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         # Memory bank for patch features
         self.memory_bank: Optional[NDArray] = None
-        self.nn_index: Optional[NearestNeighbors] = None
+        self.nn_index: Optional[KNNIndex] = None
 
         # Image preprocessing
         self.transform = transforms.Compose([
@@ -326,11 +328,11 @@ class VisionPatchCore(BaseVisionDeepDetector):
         )
 
         # Build k-NN index
-        self.nn_index = NearestNeighbors(
+        self.nn_index = build_knn_index(
+            backend=self.knn_backend,
             n_neighbors=self.n_neighbors,
-            algorithm='auto',
-            metric='euclidean',
-            n_jobs=-1
+            metric="euclidean",
+            n_jobs=-1,
         )
         self.nn_index.fit(self.memory_bank)
 
