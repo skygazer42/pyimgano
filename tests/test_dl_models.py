@@ -53,6 +53,7 @@ class TestPatchCore:
             backbone="wide_resnet50",
             coreset_sampling_ratio=0.1,
             n_neighbors=9,
+            pretrained=False,
             device=device,
         )
 
@@ -80,6 +81,7 @@ class TestPatchCore:
         detector = create_model(
             "vision_patchcore",
             coreset_sampling_ratio=0.5,  # Higher ratio for small dataset
+            pretrained=False,
             device="cpu",
         )
 
@@ -104,6 +106,7 @@ class TestPatchCore:
         detector = create_model(
             "vision_patchcore",
             coreset_sampling_ratio=0.5,
+            pretrained=False,
             device="cpu",
         )
 

@@ -74,6 +74,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         layers: List[str] = None,
         coreset_sampling_ratio: float = 0.1,
         n_neighbors: int = 9,
+        pretrained: bool = True,
         device: str = "cpu",
         **kwargs,
     ):
@@ -92,6 +93,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.layers = layers or ["layer2", "layer3"]
         self.coreset_sampling_ratio = coreset_sampling_ratio
         self.n_neighbors = n_neighbors
+        self.pretrained = pretrained
         self.device = device
 
         # Initialize backbone
@@ -120,10 +122,22 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
     def _build_model(self) -> None:
         """Build feature extraction backbone."""
+        # TorchVision changed API from `pretrained=True` to `weights=...`.
+        # Keep backward compatibility with older torchvision versions.
         if self.backbone_name == "wide_resnet50":
-            self.model = models.wide_resnet50_2(pretrained=True)
+            try:
+                weights = (
+                    models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
+                )
+                self.model = models.wide_resnet50_2(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                self.model = models.wide_resnet50_2(pretrained=self.pretrained)
         elif self.backbone_name == "resnet50":
-            self.model = models.resnet50(pretrained=True)
+            try:
+                weights = models.ResNet50_Weights.DEFAULT if self.pretrained else None
+                self.model = models.resnet50(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                self.model = models.resnet50(pretrained=self.pretrained)
         else:
             raise ValueError(
                 f"Unsupported backbone: {self.backbone_name}. "
@@ -148,7 +162,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 get_activation(layer)
             )
 
-    def _extract_patch_features(self, image_path: str) -> NDArray:
+    def _extract_patch_features(self, image_path: str) -> Tuple[NDArray, Tuple[int, int]]:
         """
         Extract patch-level features from an image.
 
@@ -176,14 +190,14 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         # Aggregate multi-scale features
         features_list = []
-        target_size = None
+        target_size: Optional[Tuple[int, int]] = None
 
         for layer in self.layers:
             feat = self.feature_maps[layer]  # (1, C, H, W)
 
             # Resize to common spatial size
             if target_size is None:
-                target_size = feat.shape[-2:]
+                target_size = (int(feat.shape[-2]), int(feat.shape[-1]))
             else:
                 feat = F.interpolate(
                     feat,
@@ -202,7 +216,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
         features = features.permute(1, 2, 0)  # (H, W, C)
         features = features.reshape(-1, features.shape[-1])  # (H*W, C)
 
-        return features.cpu().numpy()
+        if target_size is None:
+            raise RuntimeError("Failed to infer PatchCore feature map spatial size")
+
+        return features.cpu().numpy(), target_size
 
     def _coreset_sampling(self, features: NDArray) -> NDArray:
         """
@@ -284,7 +301,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 logger.debug("Processing image %d/%d", idx + 1, len(X_list))
 
             try:
-                features = self._extract_patch_features(image_path)
+                features, _ = self._extract_patch_features(image_path)
                 all_features.append(features)
             except Exception as e:
                 logger.warning("Failed to process %s: %s", image_path, e)
@@ -345,7 +362,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         for idx, image_path in enumerate(X_list):
             try:
                 # Extract patch features
-                features = self._extract_patch_features(image_path)
+                features, _ = self._extract_patch_features(image_path)
 
                 # Find k nearest neighbors in memory bank
                 distances, _ = self.nn_index.kneighbors(features)
@@ -398,15 +415,18 @@ class VisionPatchCore(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Extract patch features
-        features = self._extract_patch_features(image_path)
+        features, (h, w) = self._extract_patch_features(image_path)
 
         # Compute patch-level anomaly scores
         distances, _ = self.nn_index.kneighbors(features)
         patch_scores = distances[:, -1]
 
         # Reshape to spatial dimensions
-        h = w = int(np.sqrt(len(patch_scores)))
-        anomaly_map = patch_scores.reshape(h, w)
+        expected = int(h * w)
+        if patch_scores.shape[0] != expected:
+            side = int(np.sqrt(len(patch_scores)))
+            h = w = side
+        anomaly_map = patch_scores.reshape(int(h), int(w))
 
         # Resize to original image size
         img = cv2.imread(image_path)
