@@ -22,6 +22,13 @@ def test_build_knn_index_sklearn():
     assert index is not None
 
 
+def test_build_knn_index_faiss_optional():
+    pytest.importorskip("faiss")
+
+    index = build_knn_index(backend="faiss", n_neighbors=3)
+    assert isinstance(index, FaissKNNIndex)
+
+
 def test_faiss_knn_index_optional():
     pytest.importorskip("faiss")
 
@@ -35,4 +42,3 @@ def test_faiss_knn_index_optional():
     assert distances.shape == (2, 3)
     assert indices.shape == (2, 3)
     assert np.all(np.isfinite(distances))
-
