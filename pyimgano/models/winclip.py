@@ -412,3 +412,16 @@ class WinCLIPDetector(BaseVisionDeepDetector):
 
         # Average across scales
         return np.mean(all_scores, axis=0)
+
+
+@register_model(
+    "vision_winclip",
+    tags=("vision", "deep", "winclip", "clip"),
+    metadata={
+        "description": "WinCLIP - Zero-/Few-shot CLIP-based anomaly detection (CVPR 2023)",
+        "paper": "WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation",
+        "year": 2023,
+    },
+)
+class VisionWinCLIP(WinCLIPDetector):
+    """Registry alias for `winclip` (naming consistency)."""

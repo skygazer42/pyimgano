@@ -8,3 +8,5 @@ def test_pyimgano_models_import_does_not_require_optional_deps():
     available = models.list_models()
     assert "vision_openclip_patchknn" in available
     assert "vision_openclip_promptscore" in available
+    assert "winclip" in available
+    assert "vision_winclip" in available
