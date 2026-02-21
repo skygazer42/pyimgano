@@ -222,6 +222,28 @@ Notes:
 - For “noisy normal” training sets, `vision_softpatch` is a robust patch-memory baseline.
 - If you train via anomalib, `pyimgano` also provides inference wrappers such as `vision_dinomaly_anomalib` and `vision_cfa_anomalib` (requires `pyimgano[anomalib]` + a trained checkpoint).
 
+Benchmarking anomalib-trained checkpoints (inference wrappers):
+
+```bash
+# One-time install (keeps anomalib optional):
+pip install "pyimgano[anomalib]"
+
+# Evaluate an anomalib checkpoint with pyimgano's unified CLI + reporting.
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore_anomalib \
+  --checkpoint-path /path/to/anomalib/checkpoint.ckpt \
+  --device cuda \
+  --pixel \
+  --output runs/mvtec_bottle_patchcore_anomalib.json
+```
+
+Advanced:
+- Pass additional constructor args with `--model-kwargs '{"contamination": 0.1}'`.
+- `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
+
 ### Example 4: Zero-Shot Detection (WinCLIP - CVPR 2023) ⭐ NEW
 
 ```python
