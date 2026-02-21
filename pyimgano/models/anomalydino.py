@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .knn_index import KNNIndex, build_knn_index
+from .registry import register_model
 
 
 _AggregationMethod = Literal["topk_mean", "max", "mean"]
@@ -76,6 +77,13 @@ class _EmbeddedImage:
     original_size: Tuple[int, int]
 
 
+@register_model(
+    "vision_anomalydino",
+    tags=("vision", "deep", "anomalydino", "knn", "dinov2"),
+    metadata={
+        "description": "AnomalyDINO-style DINOv2 patch-kNN detector (few-shot friendly)",
+    },
+)
 class VisionAnomalyDINO:
     """DINOv2 patch-kNN anomaly detector (AnomalyDINO-style).
 
