@@ -92,7 +92,7 @@ all = [
     "pyimgano[backends,diffusion,dev,docs,viz]",
 ]
 backends = [
-    "pyimgano[anomalib,faiss]",
+    "pyimgano[anomalib,faiss,clip]",
 ]
 
 [project.urls]
