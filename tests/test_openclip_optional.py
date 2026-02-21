@@ -40,3 +40,31 @@ def test_require_openclip_has_clip_install_hint_when_missing(monkeypatch):
     message = str(excinfo.value)
     assert "Optional dependency 'open_clip'" in message
     assert "pip install 'pyimgano[clip]'" in message
+
+
+def test_openclip_models_registered_without_open_clip():
+    import pyimgano.models as models
+
+    available = models.list_models()
+    assert "vision_openclip_patchknn" in available
+    assert "vision_openclip_promptscore" in available
+
+
+def test_create_openclip_promptscore_raises_importerror_when_open_clip_missing(monkeypatch):
+    import pyimgano.models as models
+
+    original_optional_import = optional_deps.optional_import
+
+    def fake_optional_import(module_name: str):
+        if module_name == "open_clip":
+            return None, ModuleNotFoundError("No module named 'open_clip'")
+        return original_optional_import(module_name)
+
+    monkeypatch.setattr(optional_deps, "optional_import", fake_optional_import)
+
+    with pytest.raises(ImportError) as excinfo:
+        models.create_model("vision_openclip_promptscore")
+
+    message = str(excinfo.value)
+    assert "Optional dependency 'open_clip' is required for OpenCLIP detectors" in message
+    assert "pip install 'pyimgano[clip]'" in message

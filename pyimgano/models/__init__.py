@@ -108,6 +108,7 @@ _auto_import(
         "winclip",  # WinCLIP zero-shot CLIP-based (CVPR 2023)
         # Optional backend wrappers (safe to import; dependencies are checked at runtime)
         "anomalib_backend",
+        "openclip_backend",
         # Foundation-style PoC models (safe to import; weights are loaded lazily at runtime)
         "anomalydino",
     ]

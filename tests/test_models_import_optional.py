@@ -3,5 +3,8 @@ def test_pyimgano_models_import_does_not_require_optional_deps():
     # dependencies used by specific model implementations.
     #
     # This test intentionally does not import those optional deps.
-    import pyimgano.models  # noqa: F401
+    import pyimgano.models as models
 
+    available = models.list_models()
+    assert "vision_openclip_patchknn" in available
+    assert "vision_openclip_promptscore" in available
