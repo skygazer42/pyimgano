@@ -145,3 +145,99 @@ class VisionPatchCoreAnomalib(VisionAnomalibCheckpoint):
 
     The implementation is shared; only the registry entry differs.
     """
+
+
+@register_model(
+    "vision_padim_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "padim"),
+    metadata={
+        "description": "PaDiM via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionPadimAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with PaDiM tags."""
+
+
+@register_model(
+    "vision_stfpm_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "stfpm"),
+    metadata={
+        "description": "STFPM via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionStfpmAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with STFPM tags."""
+
+
+@register_model(
+    "vision_draem_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "draem"),
+    metadata={
+        "description": "DRAEM via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionDraemAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with DRAEM tags."""
+
+
+@register_model(
+    "vision_fastflow_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "fastflow"),
+    metadata={
+        "description": "FastFlow via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionFastflowAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with FastFlow tags."""
+
+
+@register_model(
+    "vision_reverse_distillation_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "reverse_distillation"),
+    metadata={
+        "description": "Reverse Distillation via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionReverseDistillationAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with Reverse Distillation tags."""
+
+
+@register_model(
+    "vision_dfm_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "dfm"),
+    metadata={
+        "description": "DFM via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionDfmAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with DFM tags."""
+
+
+@register_model(
+    "vision_cflow_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "cflow"),
+    metadata={
+        "description": "CFlow via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionCflowAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with CFlow tags."""
+
+
+@register_model(
+    "vision_efficientad_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "efficientad"),
+    metadata={
+        "description": "EfficientAD via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionEfficientadAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with EfficientAD tags."""
