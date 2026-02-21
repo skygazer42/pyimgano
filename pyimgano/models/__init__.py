@@ -6,6 +6,8 @@ in the MODEL_REGISTRY for dynamic model creation.
 """
 
 from importlib import import_module
+import contextlib
+import io
 from typing import Iterable
 import warnings
 
@@ -25,7 +27,12 @@ def _auto_import(modules: Iterable[str]) -> None:
     """
     for module_name in modules:
         try:
-            import_module(f"{__name__}.{module_name}")
+            # Some third-party model backends (e.g. certain PyOD submodules) emit
+            # user-facing "please install ..." messages via `print()` at import
+            # time. Keep `import pyimgano.models` quiet by default; model-specific
+            # dependency errors are surfaced when constructing the model.
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                import_module(f"{__name__}.{module_name}")
         except Exception as exc:  # noqa: BLE001 - Log import failures
             warnings.warn(
                 f"Failed to load model module {module_name!r}: {exc}",
