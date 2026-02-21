@@ -184,3 +184,56 @@ def test_resolve_preset_kwargs_patchcore_prefers_faiss_when_available(monkeypatc
     monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_patchcore")
     assert kwargs["knn_backend"] == "faiss"
+
+
+def test_build_model_kwargs_user_overrides_preset_values():
+    from pyimgano.cli import _build_model_kwargs
+
+    out = _build_model_kwargs(
+        "vision_patchcore",
+        user_kwargs={"coreset_sampling_ratio": 0.2},
+        preset_kwargs={"coreset_sampling_ratio": 0.05, "n_neighbors": 5},
+        auto_kwargs={"device": "cpu"},
+    )
+    assert out["coreset_sampling_ratio"] == 0.2
+    assert out["n_neighbors"] == 5
+    assert out["device"] == "cpu"
+
+
+def test_cli_applies_preset_for_patchcore(monkeypatch):
+    import pyimgano.cli as cli
+
+    captured: dict[str, object] = {}
+
+    def fake_create_model(name: str, **kwargs):
+        captured["name"] = name
+        captured["kwargs"] = dict(kwargs)
+        return object()
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
+    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
+    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
+    monkeypatch.setattr(cli, "create_model", fake_create_model)
+
+    code = cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_patchcore",
+            "--preset",
+            "industrial-balanced",
+            "--device",
+            "cpu",
+        ]
+    )
+    assert code == 0
+    assert captured["name"] == "vision_patchcore"
+    kwargs = captured["kwargs"]
+    assert kwargs["backbone"] == "resnet50"
+    assert kwargs["coreset_sampling_ratio"] == 0.05
+    assert kwargs["knn_backend"] == "sklearn"

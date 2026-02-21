@@ -224,14 +224,29 @@ def _build_model_kwargs(
     model_name: str,
     *,
     user_kwargs: dict[str, Any],
+    preset_kwargs: dict[str, Any] | None = None,
     auto_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
-    """Combine user and auto kwargs, keeping user precedence and dropping unsupported auto keys."""
+    """Combine preset, user, and auto kwargs with stable precedence.
+
+    Precedence (highest wins):
+    - user kwargs (explicit --model-kwargs)
+    - preset kwargs (--preset)
+    - auto kwargs (device/contamination/pretrained inferred from CLI flags)
+
+    Preset/auto kwargs are filtered to only include keys accepted by the target
+    model constructor (unless it accepts **kwargs).
+    """
 
     _validate_user_model_kwargs(model_name, user_kwargs)
     accepted, accepts_var_kwargs = _get_model_signature_info(model_name)
 
-    out = dict(user_kwargs)
+    out: dict[str, Any] = {}
+    if preset_kwargs:
+        for key, value in preset_kwargs.items():
+            if accepts_var_kwargs or key in accepted:
+                out[key] = value
+    out.update(user_kwargs)
     for key, value in auto_kwargs.items():
         if key in out:
             continue
@@ -263,11 +278,13 @@ def main(argv: list[str] | None = None) -> int:
                 "Provide --checkpoint-path or set checkpoint_path in --model-kwargs."
             )
 
+        preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
         detector = create_model(
             args.model,
             **_build_model_kwargs(
                 args.model,
                 user_kwargs=merged_kwargs,
+                preset_kwargs=preset_kwargs,
                 auto_kwargs={
                     "device": args.device,
                     "contamination": args.contamination,
