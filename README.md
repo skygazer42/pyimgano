@@ -92,6 +92,18 @@ pip install -e .[dev]
 # For diffusion models
 pip install pyimgano[diffusion]
 
+# For advanced visualization (seaborn)
+pip install pyimgano[viz]
+
+# For anomalib checkpoint wrappers (inference-first)
+pip install pyimgano[anomalib]
+
+# For FAISS kNN acceleration
+pip install pyimgano[faiss]
+
+# All optional backends
+pip install pyimgano[backends]
+
 # For documentation
 pip install pyimgano[docs]
 
@@ -198,6 +210,46 @@ detector = models.create_model(
 detector.set_class_name("screw")
 scores = detector.decision_function(test_paths)
 anomaly_maps = detector.predict_anomaly_map(test_paths)  # Pixel-level heatmaps
+```
+
+### Example 5: Few-Shot Foundation Model (AnomalyDINO - WACV 2025) ⭐ NEW
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_anomalydino",
+    device="cuda",        # optional
+    contamination=0.1,
+)
+
+# Fit on normal/reference images (builds a patch memory bank)
+detector.fit(train_paths)
+
+scores = detector.decision_function(test_paths)
+anomaly_map = detector.get_anomaly_map(test_paths[0])
+```
+
+> **Note:** The default embedder uses `torch.hub` to load DINOv2 weights on first run.
+> For offline/enterprise usage, pass a custom `embedder=...`.
+
+### Example 6: Inference-Only Checkpoint Loading (anomalib backend) ⭐ NEW
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_anomalib_checkpoint",  # or: vision_patchcore_anomalib, vision_padim_anomalib, ...
+    checkpoint_path="/path/to/anomalib.ckpt",
+    device="cuda",
+    contamination=0.1,
+)
+
+# This does not train: it only calibrates a score threshold from train scores.
+detector.fit(train_paths)
+
+scores = detector.decision_function(test_paths)
+anomaly_map = detector.get_anomaly_map(test_paths[0])
 ```
 
 ### Example 5: Best Localization (SPADE - ECCV 2020) ⭐ NEW

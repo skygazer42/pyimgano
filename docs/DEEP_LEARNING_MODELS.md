@@ -6,6 +6,7 @@ This guide covers the state-of-the-art deep learning algorithms available in PyI
 
 | Algorithm | Year | Speed | Accuracy | Memory | Training Time | Use Case |
 |-----------|------|-------|----------|--------|---------------|----------|
+| **AnomalyDINO** ⭐ | 2025 | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Minutes | Few-shot, foundation-style |
 | **SimpleNet** ⭐ | 2023 | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | Low | Minutes | Production, Fast deployment |
 | **PatchCore** ⭐ | 2022 | ⚡⚡ | ⭐⭐⭐⭐⭐ | Medium | No training | High accuracy needed |
 | **PaDiM** | 2021 | ⚡⚡⚡ | ⭐⭐⭐⭐ | Low | No training | Edge devices |
@@ -107,7 +108,40 @@ anomaly_map = detector.get_anomaly_map('test_image.jpg')
 
 ---
 
-### 3. STFPM (BMVC 2021)
+### 3. AnomalyDINO (WACV 2025) ⭐ NEW
+
+**Few-shot friendly foundation-style detector (DINOv2 patch embeddings + kNN)**
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_anomalydino",
+    device="cuda",        # optional
+    contamination=0.1,
+)
+
+# Fit on normal/reference images (builds a patch memory bank)
+detector.fit(train_images)
+
+scores = detector.decision_function(test_images)
+anomaly_map = detector.get_anomaly_map(test_images[0])
+```
+
+**Key Features:**
+- 🧠 **Foundation backbone**: DINOv2 patch embeddings
+- 🎯 **Few-shot**: Works well with small normal/reference sets
+- 📍 **Localization**: Produces pixel-level anomaly maps
+- ⚡ **Inference-first**: No gradient training in the default workflow
+
+**Notes:**
+- The default embedder uses `torch.hub` to load DINOv2 weights on first run.
+- For offline/enterprise usage, pass a custom `embedder=...`.
+- For faster kNN search on large memory banks, install `pyimgano[faiss]`.
+
+---
+
+### 4. STFPM (BMVC 2021)
 
 **Student-Teacher feature pyramid matching**
 
@@ -192,6 +226,37 @@ anomaly_map = detector.get_anomaly_map('test_image.jpg')
 ```
 
 ---
+
+## 🔌 Optional Backends
+
+### anomalib checkpoint wrapper (inference-only)
+
+If you already have checkpoints trained with Intel's `anomalib`, you can load them directly and reuse
+PyImgAno's unified API / post-processing / evaluation.
+
+Install:
+
+```bash
+pip install pyimgano[anomalib]
+```
+
+Usage:
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_anomalib_checkpoint",  # or: vision_patchcore_anomalib, vision_padim_anomalib, ...
+    checkpoint_path="/path/to/anomalib.ckpt",
+    device="cuda",
+    contamination=0.1,
+)
+
+detector.fit(train_images)  # calibrates a score threshold only
+scores = detector.decision_function(test_images)
+anomaly_map = detector.get_anomaly_map(test_images[0])
+```
+
 
 ## 📖 Detailed Algorithm Descriptions
 
