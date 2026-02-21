@@ -146,3 +146,24 @@ def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
     assert kwargs["contamination"] == 0.2
     # The checkpoint wrapper doesn't accept `pretrained`, so the CLI should not pass it.
     assert "pretrained" not in kwargs
+
+
+def test_cli_parser_accepts_preset_industrial_balanced():
+    import pyimgano.cli as cli
+
+    parser = cli._build_parser()
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--preset",
+                "industrial-balanced",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc

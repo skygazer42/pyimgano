@@ -21,6 +21,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", required=True, help="Dataset root path")
     parser.add_argument("--category", required=True, help="Dataset category name")
     parser.add_argument("--model", default="vision_patchcore", help="Registered model name")
+    parser.add_argument(
+        "--preset",
+        default=None,
+        choices=["industrial-balanced"],
+        help="Optional model preset (applied before --model-kwargs). Default: none",
+    )
     parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=0.1)
     parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=True)
