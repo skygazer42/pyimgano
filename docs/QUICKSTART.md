@@ -463,7 +463,7 @@ pyimgano-benchmark \
 ```
 
 Notes:
-- `--preset industrial-balanced` currently provides tuned defaults for: `vision_patchcore`, `vision_fastflow`, `vision_cflow`.
+- `--preset industrial-balanced` currently provides tuned defaults for: `vision_patchcore`, `vision_anomalydino`, `vision_softpatch`, `vision_simplenet`, `vision_fastflow`, `vision_cflow`, `vision_stfpm`, `vision_reverse_distillation`, `vision_draem`.
 - `--model-kwargs` always overrides preset values when both are provided.
 
 #### Option C: Evaluate anomalib-trained checkpoints (inference wrappers)

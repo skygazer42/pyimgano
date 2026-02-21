@@ -151,6 +151,25 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
                 "n_neighbors": 5,
                 "knn_backend": "faiss" if _faiss_available() else "sklearn",
             }
+        if model_name == "vision_anomalydino":
+            return {
+                "knn_backend": "faiss" if _faiss_available() else "sklearn",
+                "coreset_sampling_ratio": 0.2,
+                "image_size": 448,
+            }
+        if model_name == "vision_softpatch":
+            return {
+                "knn_backend": "faiss" if _faiss_available() else "sklearn",
+                "coreset_sampling_ratio": 0.2,
+                "train_patch_outlier_quantile": 0.1,
+                "image_size": 448,
+            }
+        if model_name == "vision_simplenet":
+            return {
+                "backbone": "resnet50",
+                "epochs": 10,
+                "batch_size": 16,
+            }
         if model_name == "vision_fastflow":
             return {
                 "epoch_num": 10,
@@ -162,6 +181,22 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
                 "epochs": 15,
                 "n_flows": 4,
                 "batch_size": 32,
+            }
+        if model_name == "vision_stfpm":
+            return {
+                "epochs": 50,
+                "batch_size": 32,
+            }
+        if model_name == "vision_reverse_distillation":
+            return {
+                "epoch_num": 10,
+                "batch_size": 32,
+            }
+        if model_name == "vision_draem":
+            return {
+                "image_size": 256,
+                "epochs": 50,
+                "batch_size": 16,
             }
         return {}
 

@@ -237,3 +237,58 @@ def test_cli_applies_preset_for_patchcore(monkeypatch):
     assert kwargs["backbone"] == "resnet50"
     assert kwargs["coreset_sampling_ratio"] == 0.05
     assert kwargs["knn_backend"] == "sklearn"
+
+
+def test_resolve_preset_kwargs_anomalydino_includes_balanced_defaults(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_anomalydino")
+    assert kwargs["knn_backend"] == "sklearn"
+    assert kwargs["coreset_sampling_ratio"] == 0.2
+    assert kwargs["image_size"] == 448
+
+
+def test_resolve_preset_kwargs_softpatch_includes_robust_defaults(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_softpatch")
+    assert kwargs["knn_backend"] == "faiss"
+    assert kwargs["coreset_sampling_ratio"] == 0.2
+    assert kwargs["train_patch_outlier_quantile"] == 0.1
+    assert kwargs["image_size"] == 448
+
+
+def test_resolve_preset_kwargs_simplenet_includes_balanced_defaults():
+    import pyimgano.cli as cli
+
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_simplenet")
+    assert kwargs["backbone"] == "resnet50"
+    assert kwargs["epochs"] == 10
+    assert kwargs["batch_size"] == 16
+
+
+def test_resolve_preset_kwargs_stfpm_includes_balanced_defaults():
+    import pyimgano.cli as cli
+
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_stfpm")
+    assert kwargs["epochs"] == 50
+    assert kwargs["batch_size"] == 32
+
+
+def test_resolve_preset_kwargs_reverse_distillation_includes_balanced_defaults():
+    import pyimgano.cli as cli
+
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_reverse_distillation")
+    assert kwargs["epoch_num"] == 10
+    assert kwargs["batch_size"] == 32
+
+
+def test_resolve_preset_kwargs_draem_includes_balanced_defaults():
+    import pyimgano.cli as cli
+
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_draem")
+    assert kwargs["epochs"] == 50
+    assert kwargs["batch_size"] == 16
+    assert kwargs["image_size"] == 256
