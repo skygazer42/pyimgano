@@ -92,6 +92,7 @@ _auto_import(
         "padim",  # Patch Distribution Modeling
         "panda",  # Prototypical Anomaly Network (ICCV 2023)
         "patchcore",  # PatchCore patch-level detection (CVPR 2022)
+        "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
         "promptad",  # Prompt-based Few-Shot Anomaly Detection (CVPR 2024)
         "pni",  # Pyramidal Normality Indexing (CVPR 2022)
         "rdplusplus",  # Reverse Distillation++ (CVPR 2022)
