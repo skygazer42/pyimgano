@@ -1,0 +1,33 @@
+import numpy as np
+
+from pyimgano import models
+
+
+class _FakeEmbedder:
+    def embed(self, image_path: str):
+        # 4 patches (2x2), dim=2, deterministic by path.
+        if "anomaly" in image_path:
+            patches = np.tile(np.array([[0.0, 1.0]], dtype=np.float32), (4, 1))
+        else:
+            patches = np.tile(np.array([[1.0, 0.0]], dtype=np.float32), (4, 1))
+        return patches, (2, 2), (8, 8)
+
+
+def test_openclip_promptscore_fit_predict_and_map():
+    detector = models.create_model(
+        "vision_openclip_promptscore",
+        embedder=_FakeEmbedder(),
+        text_features_normal=np.array([1.0, 0.0], dtype=np.float32),
+        text_features_anomaly=np.array([0.0, 1.0], dtype=np.float32),
+        contamination=0.1,
+        aggregation_method="topk_mean",
+        aggregation_topk=0.25,
+    )
+    detector.fit(["normal_1.png", "normal_2.png"])
+    scores = detector.decision_function(["normal_x.png", "anomaly_x.png"])
+    assert float(scores[1]) > float(scores[0])
+
+    amap = detector.get_anomaly_map("anomaly_x.png")
+    assert amap.shape == (8, 8)
+    assert np.isfinite(amap).all()
+

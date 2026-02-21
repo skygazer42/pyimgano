@@ -15,7 +15,12 @@ from typing import Any, Literal, Optional
 import numpy as np
 from numpy.typing import NDArray
 
-from .anomalydino import PatchEmbedder, VisionAnomalyDINO
+from .anomalydino import (
+    PatchEmbedder,
+    VisionAnomalyDINO,
+    _aggregate_patch_scores,
+    _reshape_patch_scores,
+)
 
 from pyimgano.utils.optional_deps import require
 
@@ -109,21 +114,137 @@ class VisionOpenCLIPPromptScore:
     def __init__(
         self,
         *,
+        embedder: Optional[PatchEmbedder] = None,
+        text_features_normal: Optional[NDArray] = None,
+        text_features_anomaly: Optional[NDArray] = None,
+        contamination: float = 0.1,
+        aggregation_method: str = "topk_mean",
+        aggregation_topk: float = 0.01,
+        mode: _PromptScoreMode = "diff",
         open_clip_module=None,
         **kwargs: Any,
     ) -> None:
-        # Keep the runtime dependency check lazy so importing this module never
-        # requires `open_clip` to be installed.
-        self._open_clip = _require_open_clip(open_clip_module)
+        self.embedder = embedder
+        self.text_features_normal = text_features_normal
+        self.text_features_anomaly = text_features_anomaly
+        self.contamination = float(contamination)
+        if not (0.0 < self.contamination < 0.5):
+            raise ValueError(
+                f"contamination must be in (0, 0.5). Got {self.contamination}."
+            )
+
+        self.aggregation_method = str(aggregation_method)
+        self.aggregation_topk = float(aggregation_topk)
+        self.mode = mode
         self._kwargs = dict(kwargs)
+        self._open_clip = open_clip_module
 
-    def fit(self, X, y=None):  # pragma: no cover - skeleton API
-        raise NotImplementedError("OpenCLIP backend skeleton: fit() not implemented yet.")
+        self.decision_scores_: Optional[NDArray] = None
+        self.threshold_: Optional[float] = None
 
-    def decision_function(self, X):  # pragma: no cover - skeleton API
-        raise NotImplementedError(
-            "OpenCLIP backend skeleton: decision_function() not implemented yet."
+        # Ensure missing optional deps raise a clean ImportError, but allow unit
+        # tests to inject a fake embedder + text features without OpenCLIP.
+        if self.embedder is None or self.text_features_normal is None or self.text_features_anomaly is None:
+            _require_open_clip(open_clip_module)
+            raise NotImplementedError(
+                "Automatic OpenCLIP model loading and text prompt encoding is not implemented yet. "
+                "Pass `embedder=`, `text_features_normal=`, and `text_features_anomaly=`."
+            )
+
+    def _embed(self, image_path: str) -> tuple[NDArray, tuple[int, int], tuple[int, int]]:
+        if self.embedder is None:  # pragma: no cover - guarded by __init__
+            raise RuntimeError("embedder is required")
+
+        patch_embeddings, grid_shape, original_size = self.embedder.embed(image_path)
+        patch_embeddings_np = np.asarray(patch_embeddings, dtype=np.float32)
+        if patch_embeddings_np.ndim != 2:
+            raise ValueError(
+                f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}"
+            )
+
+        grid_h, grid_w = int(grid_shape[0]), int(grid_shape[1])
+        if patch_embeddings_np.shape[0] != grid_h * grid_w:
+            raise ValueError(
+                "Patch embedding count does not match grid shape. "
+                f"Got {patch_embeddings_np.shape[0]} patches for grid {grid_h}x{grid_w}."
+            )
+
+        original_h, original_w = int(original_size[0]), int(original_size[1])
+        if original_h <= 0 or original_w <= 0:
+            raise ValueError(f"Invalid original_size: {original_size}")
+
+        return patch_embeddings_np, (grid_h, grid_w), (original_h, original_w)
+
+    def fit(self, X, y=None):
+        paths = list(X)
+        if not paths:
+            raise ValueError("X must contain at least one training image path.")
+
+        self.decision_scores_ = np.asarray(self.decision_function(paths), dtype=np.float64)
+        self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
+        return self
+
+    def decision_function(self, X):
+        if self.text_features_normal is None or self.text_features_anomaly is None:
+            raise RuntimeError("text_features_normal/text_features_anomaly are required")
+
+        paths = list(X)
+        scores = np.zeros(len(paths), dtype=np.float64)
+        for i, path in enumerate(paths):
+            patch_embeddings, _grid_shape, _original_size = self._embed(path)
+            patch_scores = _prompt_patch_scores(
+                patch_embeddings,
+                text_features_normal=self.text_features_normal,
+                text_features_anomaly=self.text_features_anomaly,
+                mode=self.mode,
+            )
+            scores[i] = _aggregate_patch_scores(
+                patch_scores,
+                method=self.aggregation_method,
+                topk=self.aggregation_topk,
+            )
+        return scores
+
+    def predict(self, X):
+        if self.threshold_ is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        scores = self.decision_function(X)
+        return (scores > self.threshold_).astype(np.int64)
+
+    def get_anomaly_map(self, image_path: str) -> NDArray:
+        if self.text_features_normal is None or self.text_features_anomaly is None:
+            raise RuntimeError("text_features_normal/text_features_anomaly are required")
+
+        patch_embeddings, grid_shape, original_size = self._embed(image_path)
+        patch_scores = _prompt_patch_scores(
+            patch_embeddings,
+            text_features_normal=self.text_features_normal,
+            text_features_anomaly=self.text_features_anomaly,
+            mode=self.mode,
         )
+        patch_grid = _reshape_patch_scores(patch_scores, grid_h=grid_shape[0], grid_w=grid_shape[1])
+
+        try:
+            import cv2  # type: ignore
+        except Exception as exc:  # pragma: no cover
+            raise ImportError(
+                "opencv-python is required to upsample anomaly maps.\n"
+                "Install it via:\n  pip install 'opencv-python'\n"
+                f"Original error: {exc}"
+            ) from exc
+
+        original_h, original_w = original_size
+        upsampled = cv2.resize(
+            np.asarray(patch_grid, dtype=np.float32),
+            (original_w, original_h),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        return np.asarray(upsampled, dtype=np.float32)
+
+    def predict_anomaly_map(self, X):
+        paths = list(X)
+        maps = [self.get_anomaly_map(path) for path in paths]
+        return np.stack(maps)
 
 
 @register_model(
