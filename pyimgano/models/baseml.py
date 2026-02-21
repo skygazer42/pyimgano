@@ -20,7 +20,11 @@ class BaseVisionDetector(BaseDetector):
             # TypeError/ValueError for new users and for quick benchmarks.
             from pyimgano.utils.image_ops import ImagePreprocessor
 
-            feature_extractor = ImagePreprocessor(resize=(224, 224), output_tensor=False)
+            feature_extractor = ImagePreprocessor(
+                resize=(224, 224),
+                output_tensor=False,
+                error_mode="zeros",
+            )
         if not hasattr(feature_extractor, 'extract'):
             raise TypeError("feature_extractor 必须有一个名为 'extract' 的方法。")
         self.feature_extractor = feature_extractor

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Iterable, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image
@@ -103,28 +103,49 @@ class ImagePreprocessor:
                  normalize_mean: Optional[Sequence[float]] = None,
                  normalize_std: Optional[Sequence[float]] = None,
                  augmentations: Optional[Iterable[Callable[[Image.Image], Image.Image]]] = None,
-                 output_tensor: bool = False) -> None:
+                 output_tensor: bool = False,
+                 error_mode: Literal["raise", "zeros"] = "raise",
+                 fallback_size: Tuple[int, int] = (224, 224)) -> None:
         self.resize = resize
         self.crop = crop
         self.normalize_mean = normalize_mean
         self.normalize_std = normalize_std
         self.augmentations = list(augmentations) if augmentations else []
         self.output_tensor = output_tensor
+        self.error_mode = error_mode
+        self.fallback_size = fallback_size
 
     def process(self, path: str) -> np.ndarray:
-        image = load_image(path)
-        for aug in self.augmentations:
-            image = aug(image)
-        if self.resize is not None:
-            image = resize_image(image, self.resize)
+        try:
+            image = load_image(path)
+            for aug in self.augmentations:
+                image = aug(image)
+            if self.resize is not None:
+                image = resize_image(image, self.resize)
+            if self.crop is not None:
+                image = center_crop(image, self.crop)
+            array = to_numpy(image)
+            if self.normalize_mean is not None and self.normalize_std is not None:
+                array = normalize_array(array, self.normalize_mean, self.normalize_std)
+            if self.output_tensor:
+                array = np.transpose(array, (2, 0, 1))
+            return array
+        except Exception:
+            if self.error_mode != "zeros":
+                raise
+            width, height = self._fallback_hw()
+            if self.output_tensor:
+                return np.zeros((3, height, width), dtype=np.float32)
+            return np.zeros((height, width, 3), dtype=np.float32)
+
+    def _fallback_hw(self) -> Tuple[int, int]:
         if self.crop is not None:
-            image = center_crop(image, self.crop)
-        array = to_numpy(image)
-        if self.normalize_mean is not None and self.normalize_std is not None:
-            array = normalize_array(array, self.normalize_mean, self.normalize_std)
-        if self.output_tensor:
-            array = np.transpose(array, (2, 0, 1))
-        return array
+            width, height = self.crop
+        elif self.resize is not None:
+            width, height = self.resize
+        else:
+            width, height = self.fallback_size
+        return int(width), int(height)
 
     def batch_process(self, paths: Iterable[str]) -> np.ndarray:
         arrays = [self.process(path) for path in paths]
