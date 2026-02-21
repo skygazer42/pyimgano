@@ -55,7 +55,7 @@ def build_default_detector(
 ):
     """Create a detector with sensible defaults for MVTec/VisA-style benchmarks."""
 
-    if model == "vision_patchcore":
+    if model in ("vision_patchcore", "vision_anomalydino"):
         return create_model(
             model,
             device=device,
