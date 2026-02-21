@@ -10,7 +10,10 @@ The goal is to make `import pyimgano.models` safe even when optional deps are
 not installed, while still registering model names so they can be discovered.
 """
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
+
+import numpy as np
+from numpy.typing import NDArray
 
 from .anomalydino import PatchEmbedder, VisionAnomalyDINO
 
@@ -23,6 +26,66 @@ def _require_open_clip(open_clip_module=None):
     if open_clip_module is not None:
         return open_clip_module
     return require("open_clip", extra="clip", purpose="OpenCLIP detectors")
+
+
+def _l2_normalize(x: NDArray, *, axis: int, eps: float = 1e-12) -> NDArray:
+    x_np = np.asarray(x, dtype=np.float32)
+    denom = np.linalg.norm(x_np, axis=axis, keepdims=True)
+    denom = np.maximum(denom, float(eps))
+    return x_np / denom
+
+
+_PromptScoreMode = Literal["diff", "ratio"]
+
+
+def _prompt_patch_scores(
+    patch_embeddings: NDArray,
+    *,
+    text_features_normal: NDArray,
+    text_features_anomaly: NDArray,
+    mode: _PromptScoreMode = "diff",
+    eps: float = 1e-6,
+) -> NDArray:
+    """Compute per-patch anomaly scores from OpenCLIP-style embeddings.
+
+    This helper is intentionally NumPy-only so it can be unit tested without
+    `torch`/`open_clip` installed.
+    """
+
+    patches = np.asarray(patch_embeddings, dtype=np.float32)
+    if patches.ndim != 2:
+        raise ValueError(f"patch_embeddings must be 2D (num_patches, dim). Got {patches.shape}.")
+
+    normal = np.asarray(text_features_normal, dtype=np.float32).reshape(-1)
+    anomaly = np.asarray(text_features_anomaly, dtype=np.float32).reshape(-1)
+    if normal.ndim != 1 or anomaly.ndim != 1:
+        raise ValueError("text_features_normal/anomaly must be 1D feature vectors.")
+    if normal.shape != anomaly.shape:
+        raise ValueError(
+            "text_features_normal and text_features_anomaly must have the same shape. "
+            f"Got {normal.shape} vs {anomaly.shape}."
+        )
+    if patches.shape[1] != normal.shape[0]:
+        raise ValueError(
+            "Embedding dimension mismatch between patches and text features. "
+            f"Got patches dim={patches.shape[1]} vs text dim={normal.shape[0]}."
+        )
+
+    patches_norm = _l2_normalize(patches, axis=1, eps=float(eps))
+    normal_norm = _l2_normalize(normal, axis=0, eps=float(eps)).reshape(-1)
+    anomaly_norm = _l2_normalize(anomaly, axis=0, eps=float(eps)).reshape(-1)
+
+    sim_normal = patches_norm @ normal_norm
+    sim_anomaly = patches_norm @ anomaly_norm
+
+    mode_lower = str(mode).lower()
+    if mode_lower == "diff":
+        return np.asarray(sim_anomaly - sim_normal, dtype=np.float32)
+    if mode_lower == "ratio":
+        eps_float = float(eps)
+        return np.asarray((sim_anomaly + eps_float) / (sim_normal + eps_float), dtype=np.float32)
+
+    raise ValueError(f"Unknown mode: {mode}. Choose from: diff, ratio")
 
 
 @register_model(
