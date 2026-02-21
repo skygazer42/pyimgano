@@ -15,6 +15,19 @@ This guide helps you choose the right anomaly detection algorithm for your use c
 | **Deep Learning** | Deep SVDD, VAE, AE | Learn complex patterns |
 | **Production Ready** | ECOD, COPOD, IForest | Fast, stable, well-tested |
 
+## Pixel Localization (Recommended)
+
+If your goal is **industrial inspection** with **pixel-level localization** (anomaly maps / heatmaps),
+start with these “pixel-first” detectors (designed for MVTec AD / VisA-style datasets).
+
+| Detector | When to start | Notes |
+|----------|---------------|-------|
+| `vision_patchcore` | Strong default pixel localization | Training-free (memory bank) and widely used baseline |
+| `vision_softpatch` | “Noisy normal” training set | Filters outlier patches in the memory bank for robustness |
+| `vision_anomalydino` | Few-shot / small normal set | DINOv2 patch embeddings + kNN; pass a custom embedder for offline usage |
+| `vision_openclip_patchknn` | Semantics-driven patch kNN | Requires `pyimgano[clip]` (OpenCLIP) or an injected embedder |
+| `vision_dinomaly_anomalib`, `vision_cfa_anomalib` | You already use anomalib | Inference wrappers; require `pyimgano[anomalib]` + a trained checkpoint |
+
 ## Algorithm Categories
 
 ### 🔥 Top-Tier Algorithms (Start Here)
