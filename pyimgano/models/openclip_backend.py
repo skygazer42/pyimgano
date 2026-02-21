@@ -18,9 +18,9 @@ from numpy.typing import NDArray
 from .anomalydino import (
     PatchEmbedder,
     VisionAnomalyDINO,
-    _aggregate_patch_scores,
-    _reshape_patch_scores,
 )
+
+from .patchknn_core import aggregate_patch_scores, reshape_patch_scores
 
 from pyimgano.utils.optional_deps import require
 
@@ -587,7 +587,7 @@ class VisionOpenCLIPPromptScore:
                 text_features_anomaly=self.text_features_anomaly,
                 mode=self.mode,
             )
-            scores[i] = _aggregate_patch_scores(
+            scores[i] = aggregate_patch_scores(
                 patch_scores,
                 method=self.aggregation_method,
                 topk=self.aggregation_topk,
@@ -612,7 +612,7 @@ class VisionOpenCLIPPromptScore:
             text_features_anomaly=self.text_features_anomaly,
             mode=self.mode,
         )
-        patch_grid = _reshape_patch_scores(patch_scores, grid_h=grid_shape[0], grid_w=grid_shape[1])
+        patch_grid = reshape_patch_scores(patch_scores, grid_h=grid_shape[0], grid_w=grid_shape[1])
 
         try:
             import cv2  # type: ignore

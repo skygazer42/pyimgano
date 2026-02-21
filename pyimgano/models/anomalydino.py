@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Optional, Protocol, Tuple
 
@@ -8,60 +7,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .knn_index import KNNIndex, build_knn_index
+from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
-
-
-_AggregationMethod = Literal["topk_mean", "max", "mean"]
-
-
-def _aggregate_patch_scores(
-    patch_scores: NDArray,
-    *,
-    method: _AggregationMethod = "topk_mean",
-    topk: float = 0.01,
-) -> float:
-    scores = np.asarray(patch_scores, dtype=np.float64).ravel()
-    if scores.size == 0:
-        raise ValueError("patch_scores must be non-empty")
-
-    method_lower = str(method).lower()
-    if method_lower == "max":
-        return float(np.max(scores))
-    if method_lower == "mean":
-        return float(np.mean(scores))
-    if method_lower == "topk_mean":
-        topk_float = float(topk)
-        if not (0.0 < topk_float <= 1.0):
-            raise ValueError("topk must be a fraction in (0, 1].")
-
-        k = max(1, int(math.ceil(topk_float * scores.size)))
-        k = min(k, scores.size)
-
-        top_scores = np.partition(scores, -k)[-k:]
-        return float(np.mean(top_scores))
-
-    raise ValueError(f"Unknown aggregation method: {method}. Choose from: topk_mean, max, mean")
-
-
-def _reshape_patch_scores(
-    patch_scores: NDArray,
-    *,
-    grid_h: int,
-    grid_w: int,
-) -> NDArray:
-    scores = np.asarray(patch_scores)
-    if scores.ndim != 1:
-        scores = scores.reshape(-1)
-
-    grid_h_int = int(grid_h)
-    grid_w_int = int(grid_w)
-    expected = grid_h_int * grid_w_int
-    if scores.size != expected:
-        raise ValueError(
-            f"Expected {expected} patch scores for grid {grid_h_int}x{grid_w_int}, got {scores.size}."
-        )
-
-    return scores.reshape(grid_h_int, grid_w_int)
 
 
 class PatchEmbedder(Protocol):
@@ -102,7 +49,7 @@ class VisionAnomalyDINO:
         pretrained: bool = True,
         knn_backend: str = "sklearn",
         n_neighbors: int = 1,
-        aggregation_method: _AggregationMethod = "topk_mean",
+        aggregation_method: AggregationMethod = "topk_mean",
         aggregation_topk: float = 0.01,
         device: str = "cpu",
         image_size: int = 518,
@@ -195,7 +142,7 @@ class VisionAnomalyDINO:
         for i, path in enumerate(paths):
             embedded = self._embed(path)
             patch_scores = self._patch_scores(embedded)
-            scores[i] = _aggregate_patch_scores(
+            scores[i] = aggregate_patch_scores(
                 patch_scores,
                 method=self.aggregation_method,
                 topk=self.aggregation_topk,
@@ -211,7 +158,11 @@ class VisionAnomalyDINO:
     def get_anomaly_map(self, image_path: str) -> NDArray:
         embedded = self._embed(image_path)
         patch_scores = self._patch_scores(embedded)
-        patch_grid = _reshape_patch_scores(patch_scores, grid_h=embedded.grid_shape[0], grid_w=embedded.grid_shape[1])
+        patch_grid = reshape_patch_scores(
+            patch_scores,
+            grid_h=embedded.grid_shape[0],
+            grid_w=embedded.grid_shape[1],
+        )
 
         try:
             import cv2  # type: ignore
