@@ -226,6 +226,19 @@ Notes:
 - Tune AUPRO computation via `--pixel-aupro-limit` (FPR limit, commonly `0.3`) and `--pixel-aupro-thresholds` (integration resolution).
 - If you train via anomalib, `pyimgano` also provides inference wrappers such as `vision_dinomaly_anomalib` and `vision_cfa_anomalib` (requires `pyimgano[anomalib]` + a trained checkpoint).
 
+Preset tip (popular industrial defaults, no JSON):
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore \
+  --preset industrial-balanced \
+  --device cuda \
+  --pixel
+```
+
 Benchmarking anomalib-trained checkpoints (inference wrappers):
 
 ```bash

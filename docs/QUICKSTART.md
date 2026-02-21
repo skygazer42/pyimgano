@@ -452,6 +452,7 @@ pyimgano-benchmark \
   --root /path/to/mvtec_ad \
   --category bottle \
   --model vision_patchcore \
+  --preset industrial-balanced \
   --device cpu \
   --no-pretrained \
   --pixel \
@@ -460,6 +461,10 @@ pyimgano-benchmark \
   --pixel-post-percentiles 1 99 \
   --pixel-post-gaussian-sigma 1.0
 ```
+
+Notes:
+- `--preset industrial-balanced` currently provides tuned defaults for: `vision_patchcore`, `vision_fastflow`, `vision_cflow`.
+- `--model-kwargs` always overrides preset values when both are provided.
 
 #### Option C: Evaluate anomalib-trained checkpoints (inference wrappers)
 
