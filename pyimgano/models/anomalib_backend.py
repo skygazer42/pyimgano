@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -32,8 +32,17 @@ class _AnomalibPredictResult:
 def _extract_score_and_map(result) -> _AnomalibPredictResult:
     # Newer anomalib uses structured objects; older versions may return dict-like.
     if isinstance(result, dict):
-        score = result.get("anomaly_score") or result.get("pred_score") or result.get("score")
-        anomaly_map = result.get("anomaly_map") or result.get("segmentation_map")
+        score = result.get("anomaly_score", None)
+        if score is None:
+            score = result.get("pred_score", None)
+        if score is None:
+            score = result.get("score", None)
+        if score is None:
+            raise ValueError("Unable to extract anomaly score from anomalib prediction result")
+
+        anomaly_map = result.get("anomaly_map", None)
+        if anomaly_map is None:
+            anomaly_map = result.get("segmentation_map", None)
         return _AnomalibPredictResult(score=float(score), anomaly_map=anomaly_map)
 
     score = getattr(result, "anomaly_score", None)
@@ -52,19 +61,18 @@ def _extract_score_and_map(result) -> _AnomalibPredictResult:
 
 
 @register_model(
-    "vision_patchcore_anomalib",
-    tags=("vision", "deep", "backend", "anomalib", "patchcore"),
+    "vision_anomalib_checkpoint",
+    tags=("vision", "deep", "backend", "anomalib"),
     metadata={
-        "description": "PatchCore via anomalib backend (requires pyimgano[anomalib])",
+        "description": "Generic anomalib checkpoint inferencer wrapper (requires pyimgano[anomalib])",
         "backend": "anomalib",
     },
 )
-class VisionPatchCoreAnomalib:
-    """Inference wrapper for anomalib PatchCore checkpoints.
+class VisionAnomalibCheckpoint:
+    """Generic inference wrapper for anomalib checkpoints.
 
-    This is intentionally **inference-first** to keep `pyimgano` core lightweight.
-    Training is expected to be done via anomalib, producing a checkpoint that
-    this wrapper can load.
+    This is intentionally **inference-first**: training is expected to be done
+    via anomalib, producing a checkpoint that this wrapper can load.
     """
 
     def __init__(
@@ -72,13 +80,29 @@ class VisionPatchCoreAnomalib:
         *,
         checkpoint_path: str,
         device: str = "cpu",
+        contamination: float = 0.1,
+        inferencer=None,
     ) -> None:
         self.checkpoint_path = checkpoint_path
         self.device = device
-        self._inferencer = _build_torch_inferencer(checkpoint_path=checkpoint_path, device=device)
+        self.contamination = float(contamination)
+
+        self._inferencer = (
+            inferencer
+            if inferencer is not None
+            else _build_torch_inferencer(checkpoint_path=checkpoint_path, device=device)
+        )
+
+        self.decision_scores_: Optional[NDArray] = None
+        self.threshold_: Optional[float] = None
 
     def fit(self, X: Iterable[str], y=None):
-        # Training is managed by anomalib; keep API compatibility.
+        paths = list(X)
+        if not paths:
+            raise ValueError("X must contain at least one training image path.")
+
+        self.decision_scores_ = self.decision_function(paths)
+        self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
     def decision_function(self, X: Iterable[str]) -> NDArray:
@@ -89,6 +113,12 @@ class VisionPatchCoreAnomalib:
             scores[i] = _extract_score_and_map(pred).score
         return scores
 
+    def predict(self, X: Iterable[str]) -> NDArray:
+        if self.threshold_ is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        scores = self.decision_function(X)
+        return (scores > self.threshold_).astype(np.int64)
+
     def get_anomaly_map(self, image_path: str) -> NDArray:
         pred = self._inferencer.predict(image_path)
         extracted = _extract_score_and_map(pred)
@@ -97,6 +127,21 @@ class VisionPatchCoreAnomalib:
         return np.asarray(extracted.anomaly_map)
 
     def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        maps = [self.get_anomaly_map(path) for path in X]
+        paths: Sequence[str] = list(X)
+        maps = [self.get_anomaly_map(path) for path in paths]
         return np.stack(maps)
 
+
+@register_model(
+    "vision_patchcore_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "patchcore"),
+    metadata={
+        "description": "PatchCore via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionPatchCoreAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with PatchCore tags.
+
+    The implementation is shared; only the registry entry differs.
+    """
