@@ -448,4 +448,4 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 interpolation=cv2.INTER_CUBIC
             )
 
-        return anomaly_map
+        return np.asarray(anomaly_map, dtype=np.float32)
