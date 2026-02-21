@@ -7,6 +7,14 @@ def test_anomalib_checkpoint_wrapper_is_registered():
     assert "vision_anomalib_checkpoint" in list_models()
 
 
+def test_anomalib_aliases_are_registered():
+    from pyimgano.models import list_models
+
+    anomalib_models = set(list_models(tags=["anomalib"]))
+    assert "vision_dinomaly_anomalib" in anomalib_models
+    assert "vision_cfa_anomalib" in anomalib_models
+
+
 def test_anomalib_checkpoint_wrapper_requires_anomalib_if_no_inferencer():
     from pyimgano.models import create_model
 
@@ -16,4 +24,3 @@ def test_anomalib_checkpoint_wrapper_requires_anomalib_if_no_inferencer():
             checkpoint_path="does-not-exist.ckpt",
             device="cpu",
         )
-

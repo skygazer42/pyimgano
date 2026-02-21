@@ -245,3 +245,27 @@ class VisionCflowAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionEfficientadAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with EfficientAD tags."""
+
+
+@register_model(
+    "vision_dinomaly_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "dinomaly"),
+    metadata={
+        "description": "Dinomaly via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionDinomalyAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with Dinomaly tags."""
+
+
+@register_model(
+    "vision_cfa_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "cfa"),
+    metadata={
+        "description": "CFA via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+    },
+)
+class VisionCfaAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with CFA tags."""
