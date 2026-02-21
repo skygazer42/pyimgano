@@ -22,6 +22,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=0.1)
     parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--model-kwargs",
+        default=None,
+        help="JSON object of additional model constructor kwargs (advanced)",
+    )
     parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
     parser.add_argument(
         "--pixel-postprocess",
@@ -86,6 +91,21 @@ def _to_jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_to_jsonable(v) for v in value]
     return value
+
+
+def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
+    if text is None:
+        return {}
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"--model-kwargs must be valid JSON. Original error: {exc}") from exc
+
+    if not isinstance(parsed, dict):
+        raise ValueError("--model-kwargs must be a JSON object (e.g. '{\"k\": 1}').")
+
+    return dict(parsed)
 
 
 def main(argv: list[str] | None = None) -> int:
