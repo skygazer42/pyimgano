@@ -66,6 +66,7 @@ def _extract_score_and_map(result) -> _AnomalibPredictResult:
     metadata={
         "description": "Generic anomalib checkpoint inferencer wrapper (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
     },
 )
 class VisionAnomalibCheckpoint:
