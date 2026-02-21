@@ -60,6 +60,56 @@ def _extract_score_and_map(result) -> _AnomalibPredictResult:
     return _AnomalibPredictResult(score=float(score), anomaly_map=anomaly_map)
 
 
+def _to_numpy(value) -> NDArray:
+    """Best-effort conversion for anomalib anomaly maps to numpy.
+
+    anomalib may return numpy arrays, torch tensors, or other array-like types.
+    We avoid importing torch directly and instead use duck-typing.
+    """
+
+    if isinstance(value, np.ndarray):
+        return value
+
+    detach = getattr(value, "detach", None)
+    cpu = getattr(value, "cpu", None)
+    numpy = getattr(value, "numpy", None)
+    if callable(detach) and callable(cpu) and callable(numpy):
+        try:
+            return value.detach().cpu().numpy()
+        except Exception:
+            pass
+
+    if callable(numpy):
+        try:
+            return value.numpy()
+        except Exception:
+            pass
+
+    return np.asarray(value)
+
+
+def _normalize_anomaly_map(anomaly_map) -> NDArray:
+    """Normalize an anomalib anomaly map to a stable (H, W) float32 contract."""
+
+    arr = np.asarray(_to_numpy(anomaly_map))
+
+    # Common anomalib output shapes include (H, W), (1, H, W), (H, W, 1),
+    # and sometimes (1, 1, H, W). Strip only leading/trailing singleton dims
+    # to keep (H, W) intact.
+    while arr.ndim > 2 and arr.shape[0] == 1:
+        arr = arr[0]
+    while arr.ndim > 2 and arr.shape[-1] == 1:
+        arr = arr[..., 0]
+
+    if arr.ndim != 2:
+        raise ValueError(
+            "anomalib anomaly_map must be 2D after normalization. "
+            f"Got shape {tuple(arr.shape)}"
+        )
+
+    return np.asarray(arr, dtype=np.float32)
+
+
 @register_model(
     "vision_anomalib_checkpoint",
     tags=("vision", "deep", "backend", "anomalib"),
@@ -129,7 +179,7 @@ class VisionAnomalibCheckpoint:
         extracted = _extract_score_and_map(pred)
         if extracted.anomaly_map is None:
             raise ValueError("anomalib prediction did not include an anomaly map")
-        return np.asarray(extracted.anomaly_map)
+        return _normalize_anomaly_map(extracted.anomaly_map)
 
     def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
         paths: Sequence[str] = list(X)

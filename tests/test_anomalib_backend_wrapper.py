@@ -90,3 +90,29 @@ def test_anomalib_checkpoint_wrapper_returns_anomaly_maps():
     stacked = model.predict_anomaly_map(paths)
     assert isinstance(stacked, np.ndarray)
     assert stacked.shape == (2, 3, 5)
+
+
+def test_anomalib_checkpoint_wrapper_normalizes_map_shapes():
+    from pyimgano.models.anomalib_backend import VisionAnomalibCheckpoint
+
+    scores = {"a.png": 0.1, "b.png": 0.2}
+    maps = {
+        "a.png": np.ones((1, 3, 5), dtype=np.float32),
+        "b.png": np.ones((3, 5, 1), dtype=np.float32),
+    }
+    inferencer = _FakeInferencerDict(scores, maps)
+
+    model = VisionAnomalibCheckpoint(
+        checkpoint_path="ignored.ckpt",
+        inferencer=inferencer,
+        contamination=0.1,
+        device="cpu",
+    )
+
+    m1 = model.get_anomaly_map("a.png")
+    assert m1.shape == (3, 5)
+    assert m1.dtype == np.float32
+
+    m2 = model.get_anomaly_map("b.png")
+    assert m2.shape == (3, 5)
+    assert m2.dtype == np.float32
