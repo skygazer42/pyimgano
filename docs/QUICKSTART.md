@@ -29,6 +29,9 @@ pip install pyimgano[diffusion]
 # For development tools
 pip install pyimgano[dev]
 
+# For anomalib checkpoint wrappers (train in anomalib, evaluate in pyimgano)
+pip install pyimgano[anomalib]
+
 # Install everything
 pip install pyimgano[all]
 ```
@@ -450,6 +453,23 @@ pyimgano-benchmark \
   --pixel-post-gaussian-sigma 1.0
 ```
 
+#### Option C: Evaluate anomalib-trained checkpoints (inference wrappers)
+
+```bash
+# Requires:
+#   pip install "pyimgano[anomalib]"
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore_anomalib \
+  --checkpoint-path /path/to/anomalib/model.pt \
+  --device cuda \
+  --pixel
+```
+
+See `docs/ANOMALIB_CHECKPOINTS.md` for more details and troubleshooting.
+
 #### Option B: Python pipeline (recommended for integration)
 
 ```python
@@ -636,6 +656,7 @@ detectors.DeepSVDDDetector
 
 - [API Reference](https://github.com/jhlu2019/pyimgano#api-reference)
 - [Algorithm Comparison](./COMPARISON.md)
+- [Anomalib Checkpoints](./ANOMALIB_CHECKPOINTS.md)
 - [Advanced Examples](../examples/)
 
 ### 3. Run Benchmarks
