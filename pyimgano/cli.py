@@ -13,6 +13,7 @@ from pyimgano.models import MODEL_REGISTRY, create_model
 from pyimgano.pipelines.mvtec_visa import evaluate_split, load_benchmark_split
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 from pyimgano.reporting.report import save_run_report
+from pyimgano.utils.optional_deps import optional_import
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -131,6 +132,40 @@ def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
         raise ValueError("--model-kwargs must be a JSON object (e.g. '{\"k\": 1}').")
 
     return dict(parsed)
+
+
+def _faiss_available() -> bool:
+    module, _error = optional_import("faiss")
+    return module is not None
+
+
+def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any]:
+    if preset is None:
+        return {}
+
+    if preset == "industrial-balanced":
+        if model_name == "vision_patchcore":
+            return {
+                "backbone": "resnet50",
+                "coreset_sampling_ratio": 0.05,
+                "n_neighbors": 5,
+                "knn_backend": "faiss" if _faiss_available() else "sklearn",
+            }
+        if model_name == "vision_fastflow":
+            return {
+                "epoch_num": 10,
+                "n_flow_steps": 6,
+                "batch_size": 32,
+            }
+        if model_name == "vision_cflow":
+            return {
+                "epochs": 15,
+                "n_flows": 4,
+                "batch_size": 32,
+            }
+        return {}
+
+    raise ValueError(f"Unknown preset: {preset!r}. Choose from: industrial-balanced")
 
 
 def _merge_checkpoint_path(

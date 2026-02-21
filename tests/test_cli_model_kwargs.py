@@ -167,3 +167,20 @@ def test_cli_parser_accepts_preset_industrial_balanced():
         )
     except SystemExit as exc:
         raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
+
+
+def test_resolve_preset_kwargs_patchcore_prefers_sklearn_when_no_faiss(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_patchcore")
+    assert kwargs["backbone"] == "resnet50"
+    assert kwargs["knn_backend"] == "sklearn"
+
+
+def test_resolve_preset_kwargs_patchcore_prefers_faiss_when_available(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_patchcore")
+    assert kwargs["knn_backend"] == "faiss"
