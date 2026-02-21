@@ -24,16 +24,16 @@ pip install pyimgano
 
 ```bash
 # For diffusion models
-pip install pyimgano[diffusion]
+pip install "pyimgano[diffusion]"
 
 # For development tools
-pip install pyimgano[dev]
+pip install "pyimgano[dev]"
 
 # For anomalib checkpoint wrappers (train in anomalib, evaluate in pyimgano)
-pip install pyimgano[anomalib]
+pip install "pyimgano[anomalib]"
 
 # Install everything
-pip install pyimgano[all]
+pip install "pyimgano[all]"
 ```
 
 ### Verify Installation
