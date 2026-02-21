@@ -45,3 +45,33 @@ def test_softpatch_registry_and_basic_api():
     assert anomaly_map.shape == (8, 8)
     assert np.isfinite(anomaly_map).all()
 
+
+def test_softpatch_robust_memory_filtering_reduces_bank():
+    class _OutlierEmbedder:
+        def embed(self, image_path: str):
+            grid_h, grid_w = 2, 2
+            original_h, original_w = 8, 8
+            patch_embeddings = np.zeros((grid_h * grid_w, 2), dtype=np.float32)
+            if "noisy" in image_path:
+                # Inject two extreme outlier patches.
+                patch_embeddings[0] = np.array([100.0, 100.0], dtype=np.float32)
+                patch_embeddings[3] = np.array([100.0, 100.0], dtype=np.float32)
+            return patch_embeddings, (grid_h, grid_w), (original_h, original_w)
+
+    det_plain = create_model(
+        "vision_softpatch",
+        embedder=_OutlierEmbedder(),
+        train_patch_outlier_quantile=0.0,
+        coreset_sampling_ratio=1.0,
+    )
+    det_plain.fit(["clean_0.png", "noisy_0.png"])
+
+    det_filtered = create_model(
+        "vision_softpatch",
+        embedder=_OutlierEmbedder(),
+        train_patch_outlier_quantile=0.25,
+        coreset_sampling_ratio=1.0,
+    )
+    det_filtered.fit(["clean_0.png", "noisy_0.png"])
+
+    assert det_filtered.memory_bank_size_ < det_plain.memory_bank_size_

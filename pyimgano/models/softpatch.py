@@ -103,6 +103,7 @@ class VisionSoftPatch:
         self._memory_bank: Optional[NDArray] = None
         self._knn_index: Optional[KNNIndex] = None
         self._n_neighbors_fit: Optional[int] = None
+        self.filtered_patches_: int = 0
 
     @property
     def memory_bank_size_(self) -> int:
@@ -142,6 +143,19 @@ class VisionSoftPatch:
 
         embedded_train = [self._embed(path) for path in paths]
         memory_bank = np.concatenate([e.patch_embeddings for e in embedded_train], axis=0)
+
+        if self.train_patch_outlier_quantile > 0.0:
+            mean = np.mean(memory_bank, axis=0, keepdims=True)
+            distances = np.linalg.norm(memory_bank - mean, axis=1)
+            keep_q = 1.0 - float(self.train_patch_outlier_quantile)
+            threshold = float(np.quantile(distances, keep_q))
+            keep_mask = distances <= threshold
+            if int(np.sum(keep_mask)) < 1:
+                keep_mask[np.argmin(distances)] = True
+            self.filtered_patches_ = int(memory_bank.shape[0] - int(np.sum(keep_mask)))
+            memory_bank = memory_bank[keep_mask]
+        else:
+            self.filtered_patches_ = 0
 
         if self.coreset_sampling_ratio < 1.0:
             rng = np.random.default_rng(self.random_seed)
@@ -227,4 +241,3 @@ class VisionSoftPatch:
         paths = list(X)
         maps = [self.get_anomaly_map(path) for path in paths]
         return np.stack(maps)
-
