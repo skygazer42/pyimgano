@@ -113,7 +113,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
     >>> # SimpleNet is extremely fast - only 10 epochs needed!
     >>> detector = VisionSimpleNet(epochs=10, device='cuda')
     >>> detector.fit(['normal_img1.jpg', 'normal_img2.jpg'])
-    >>> scores = detector.predict(['test_img.jpg'])
+    >>> scores = detector.decision_function(['test_img.jpg'])
 
     Notes
     -----
@@ -357,6 +357,11 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         # Build reference features from training set
         self._build_reference_features(X_list)
 
+        # Compute training scores to establish a threshold (PyOD semantics).
+        # This enables `predict()` to return binary labels consistently.
+        self.decision_scores_ = self.decision_function(X_list)
+        self._process_decision_scores()
+
         return self
 
     def _build_reference_features(self, X: List[str]) -> None:
@@ -393,6 +398,17 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         if all_features:
             self.reference_features = np.vstack(all_features)
             logger.debug("Reference bank size: %s", self.reference_features.shape)
+
+            ref_norm = self.reference_features / (
+                np.linalg.norm(self.reference_features, axis=1, keepdims=True) + 1e-8
+            )
+            n_refs = min(1000, len(ref_norm))
+            rng = np.random.RandomState(getattr(self, "random_state", 42))
+            if n_refs < len(ref_norm):
+                indices = rng.choice(len(ref_norm), n_refs, replace=False)
+                self.reference_features_subset_ = ref_norm[indices]
+            else:
+                self.reference_features_subset_ = ref_norm
         else:
             raise ValueError("Failed to build reference features")
 
@@ -431,15 +447,9 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         # Normalize features
         feat_norm = feat / (np.linalg.norm(feat, axis=1, keepdims=True) + 1e-8)
-        ref_norm = self.reference_features / (
-            np.linalg.norm(self.reference_features, axis=1, keepdims=True) + 1e-8
-        )
-
-        # Compute max cosine distance to reference features
-        # For efficiency, compare with random subset
-        n_refs = min(1000, len(ref_norm))
-        indices = np.random.choice(len(ref_norm), n_refs, replace=False)
-        ref_subset = ref_norm[indices]
+        ref_subset = getattr(self, "reference_features_subset_", None)
+        if ref_subset is None:
+            raise RuntimeError("Reference features not built. Call fit() first.")
 
         # Cosine similarity matrix
         sim_matrix = feat_norm @ ref_subset.T  # (H*W, n_refs)
@@ -451,6 +461,26 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         return score
 
     def predict(self, X: Iterable[str]) -> NDArray:
+        """
+        Predict binary anomaly labels for test images.
+
+        Parameters
+        ----------
+        X : iterable of str
+            Paths to test images
+
+        Returns
+        -------
+        labels : ndarray of shape (n_samples,)
+            Binary labels (0 = normal, 1 = anomaly)
+        """
+        if not hasattr(self, 'reference_features') or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
+
+    def decision_function(self, X: Iterable[str]) -> NDArray:
         """
         Compute anomaly scores for test images.
 
@@ -484,19 +514,3 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
-
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        """
-        Compute anomaly scores (alias for predict).
-
-        Parameters
-        ----------
-        X : iterable of str
-            Paths to test images
-
-        Returns
-        -------
-        scores : ndarray of shape (n_samples,)
-            Anomaly scores (higher = more anomalous)
-        """
-        return self.predict(X)

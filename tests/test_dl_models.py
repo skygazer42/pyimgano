@@ -88,8 +88,8 @@ class TestPatchCore:
         # Fit on normal images
         detector.fit(sample_images["normal"])
 
-        # Predict on all images
-        scores = detector.predict(sample_images["all"])
+        # Score on all images
+        scores = detector.decision_function(sample_images["all"])
 
         assert len(scores) == len(sample_images["all"])
         assert all(isinstance(s, (int, float)) for s in scores)
@@ -99,6 +99,11 @@ class TestPatchCore:
         normal_scores = scores[:5]
         anomaly_scores = scores[5:]
         assert np.mean(anomaly_scores) > np.mean(normal_scores)
+
+        # Predict binary labels
+        labels = detector.predict(sample_images["all"])
+        assert labels.shape == (len(sample_images["all"]),)
+        assert set(labels.tolist()).issubset({0, 1})
 
     @pytest.mark.slow
     def test_anomaly_map(self, sample_images):
@@ -166,7 +171,7 @@ class TestSTFPM:
         detector.fit(sample_images["normal"])
 
         # Predict on all images
-        scores = detector.predict(sample_images["all"])
+        scores = detector.decision_function(sample_images["all"])
 
         assert len(scores) == len(sample_images["all"])
         assert all(isinstance(s, (int, float)) for s in scores)
@@ -238,11 +243,15 @@ class TestSimpleNet:
         detector.fit(sample_images["normal"])
 
         # Predict on all images
-        scores = detector.predict(sample_images["all"])
+        scores = detector.decision_function(sample_images["all"])
 
         assert len(scores) == len(sample_images["all"])
         assert all(isinstance(s, (int, float)) for s in scores)
         assert all(0 <= s <= 2 for s in scores)  # Cosine distance range
+
+        labels = detector.predict(sample_images["all"])
+        assert labels.shape == (len(sample_images["all"]),)
+        assert set(labels.tolist()).issubset({0, 1})
 
     @pytest.mark.slow
     def test_reference_features_built(self, sample_images):

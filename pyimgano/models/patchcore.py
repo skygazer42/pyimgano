@@ -64,8 +64,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
     --------
     >>> detector = VisionPatchCore(coreset_sampling_ratio=0.1, device='cuda')
     >>> detector.fit(['normal_img1.jpg', 'normal_img2.jpg'])
-    >>> scores = detector.predict(['test_img.jpg'])
-    >>> labels = detector.decision_function(['test_img.jpg'])  # 0=normal, 1=anomaly
+    >>> scores = detector.decision_function(['test_img.jpg'])
+    >>> labels = detector.predict(['test_img.jpg'])  # 0=normal, 1=anomaly
     """
 
     def __init__(
@@ -336,10 +336,35 @@ class VisionPatchCore(BaseVisionDeepDetector):
         )
         self.nn_index.fit(self.memory_bank)
 
+        # Compute training scores to establish a threshold (PyOD semantics).
+        # This enables `predict()` to return binary labels consistently.
+        self.decision_scores_ = self.decision_function(X_list)
+        self._process_decision_scores()
+
         logger.info("PatchCore training completed")
         return self
 
     def predict(self, X: Iterable[str]) -> NDArray:
+        """
+        Predict binary anomaly labels for test images.
+
+        Parameters
+        ----------
+        X : iterable of str
+            Paths to test images
+
+        Returns
+        -------
+        labels : ndarray of shape (n_samples,)
+            Binary labels (0 = normal, 1 = anomaly)
+        """
+        if self.memory_bank is None or self.nn_index is None or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
+
+    def decision_function(self, X: Iterable[str]) -> NDArray:
         """
         Compute anomaly scores for test images.
 
@@ -382,22 +407,6 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
-
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        """
-        Compute anomaly scores (alias for predict).
-
-        Parameters
-        ----------
-        X : iterable of str
-            Paths to test images
-
-        Returns
-        -------
-        scores : ndarray of shape (n_samples,)
-            Anomaly scores (higher = more anomalous)
-        """
-        return self.predict(X)
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
         """
