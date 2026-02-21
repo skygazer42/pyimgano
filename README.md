@@ -22,6 +22,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 - 🖼️ **Image Preprocessing** - 80+ operations (edge detection, morphology, filters, FFT, texture analysis, segmentation, augmentation)
 - 📊 **Dataset Loaders** ⭐ NEW! - MVTec AD, BTAD, custom datasets with automatic loading
 - 📈 **Advanced Visualization** ⭐ NEW! - ROC/PR curves, confusion matrices, t-SNE, anomaly heatmaps
+- 🧪 **Pixel-Level Metrics** ⭐ NEW! - pixel AUROC/AP + **region-aware AUPRO** (FPR-limited integration) for industrial inspection
 - 💾 **Model Management** ⭐ NEW! - Save/load, versioning, profiling, model registry
 - 🔬 **Experiment Tracking** ⭐ NEW! - Hyperparameter logging, metric tracking, report generation
 - 🏆 **Built-in Benchmarking** - Compare multiple algorithms systematically
@@ -211,6 +212,8 @@ pyimgano-benchmark \
   --model vision_softpatch \
   --device cuda \
   --pixel \
+  --pixel-aupro-limit 0.3 \
+  --pixel-aupro-thresholds 200 \
   --pixel-postprocess \
   --pixel-post-norm percentile \
   --pixel-post-percentiles 1 99 \
@@ -220,6 +223,7 @@ pyimgano-benchmark \
 Notes:
 - Swap `--model` to compare: `vision_patchcore`, `vision_anomalydino`, `vision_openclip_patchknn`, `vision_openclip_promptscore`.
 - For “noisy normal” training sets, `vision_softpatch` is a robust patch-memory baseline.
+- Tune AUPRO computation via `--pixel-aupro-limit` (FPR limit, commonly `0.3`) and `--pixel-aupro-thresholds` (integration resolution).
 - If you train via anomalib, `pyimgano` also provides inference wrappers such as `vision_dinomaly_anomalib` and `vision_cfa_anomalib` (requires `pyimgano[anomalib]` + a trained checkpoint).
 
 Benchmarking anomalib-trained checkpoints (inference wrappers):
