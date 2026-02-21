@@ -99,6 +99,7 @@ class VisionAnomalyDINO:
         *,
         embedder: Optional[PatchEmbedder] = None,
         contamination: float = 0.1,
+        pretrained: bool = True,
         knn_backend: str = "sklearn",
         n_neighbors: int = 1,
         aggregation_method: _AggregationMethod = "topk_mean",
@@ -116,6 +117,7 @@ class VisionAnomalyDINO:
 
         self.embedder = embedder
         self.contamination = float(contamination)
+        self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
         self.n_neighbors = int(n_neighbors)
         self.aggregation_method = aggregation_method
