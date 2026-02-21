@@ -10,6 +10,7 @@ Reference:
     In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (pp. 98-107).
 """
 
+import math
 import logging
 from typing import Iterable, List, Optional
 
@@ -22,7 +23,6 @@ import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
-import torch.distributions as dist
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
@@ -105,6 +105,8 @@ class VisionCFlow(BaseVisionDeepDetector):
     ----------
     backbone : str, default='resnet18'
         Feature extraction backbone
+    pretrained_backbone : bool, default=True
+        Whether to load ImageNet-pretrained weights for the backbone.
     n_flows : int, default=8
         Number of flow transformations
     epochs : int, default=50
@@ -113,6 +115,8 @@ class VisionCFlow(BaseVisionDeepDetector):
         Training batch size
     lr : float, default=0.001
         Learning rate
+    num_workers : int, default=0
+        Number of workers for the training DataLoader.
     device : str, default='cpu'
         Device to run model on
 
@@ -120,16 +124,19 @@ class VisionCFlow(BaseVisionDeepDetector):
     --------
     >>> detector = VisionCFlow(epochs=50, device='cuda')
     >>> detector.fit(train_images)
-    >>> scores = detector.predict(test_images)
+    >>> scores = detector.decision_function(test_images)
+    >>> labels = detector.predict(test_images)  # 0=normal, 1=anomaly
     """
 
     def __init__(
         self,
         backbone: str = "resnet18",
+        pretrained_backbone: bool = True,
         n_flows: int = 8,
         epochs: int = 50,
         batch_size: int = 16,
         lr: float = 0.001,
+        num_workers: int = 0,
         device: str = "cpu",
         **kwargs,
     ):
@@ -137,11 +144,14 @@ class VisionCFlow(BaseVisionDeepDetector):
         super().__init__(**kwargs)
 
         self.backbone_name = backbone
+        self.pretrained_backbone = pretrained_backbone
         self.n_flows = n_flows
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
+        self.num_workers = num_workers
         self.device = device
+        self._is_fitted = False
 
         # Build model
         self._build_model()
@@ -166,7 +176,13 @@ class VisionCFlow(BaseVisionDeepDetector):
         """Build feature extractor and flow model."""
         # Feature extractor (frozen)
         if self.backbone_name == "resnet18":
-            backbone = models.resnet18(pretrained=True)
+            try:
+                weights = (
+                    models.ResNet18_Weights.DEFAULT if self.pretrained_backbone else None
+                )
+                backbone = models.resnet18(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                backbone = models.resnet18(pretrained=self.pretrained_backbone)
             self.feature_extractor = nn.Sequential(*list(backbone.children())[:-2])
             self.feature_dim = 512
         else:
@@ -217,7 +233,8 @@ class VisionCFlow(BaseVisionDeepDetector):
             dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=2,
+            num_workers=self.num_workers,
+            pin_memory=str(self.device).startswith("cuda"),
         )
 
         # Setup optimizer
@@ -252,7 +269,8 @@ class VisionCFlow(BaseVisionDeepDetector):
 
                 # Compute negative log-likelihood
                 # Assume standard normal prior
-                log_prob_prior = dist.Normal(0, 1).log_prob(z).sum(dim=-1)
+                const = -0.5 * math.log(2 * math.pi)
+                log_prob_prior = (-0.5 * z.pow(2) + const).sum(dim=-1)
                 log_prob = log_prob_prior + log_det
 
                 # Negative log-likelihood loss
@@ -270,11 +288,40 @@ class VisionCFlow(BaseVisionDeepDetector):
                 logger.info("Epoch %d/%d, Loss: %.6f", epoch + 1, self.epochs, avg_loss)
 
         logger.info("CFlow training completed")
+
+        # Mark as fitted and compute training scores to establish a threshold.
+        self._is_fitted = True
+        self.decision_scores_ = self.decision_function(X_list)
+        self._process_decision_scores()
+
         return self
+
+    @torch.no_grad()
+    def _compute_patch_log_prob(self, img_tensor: torch.Tensor) -> torch.Tensor:
+        """Compute patch-level log-probabilities as a (1, H, W) tensor."""
+
+        features = self.feature_extractor(img_tensor)  # (1, C, H, W)
+
+        # Global condition
+        condition = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)  # (1, C)
+
+        # Flatten features
+        B, C, H, W = features.shape
+        features_flat = features.permute(0, 2, 3, 1).reshape(B * H * W, C)
+        condition_repeated = condition.unsqueeze(1).repeat(1, H * W, 1).reshape(B * H * W, -1)
+
+        # Flow forward
+        z, log_det = self.flow(features_flat, condition_repeated)
+
+        const = -0.5 * math.log(2 * math.pi)
+        log_prob_prior = (-0.5 * z.pow(2) + const).sum(dim=-1)
+        log_prob = log_prob_prior + log_det
+
+        return log_prob.view(B, H, W)
 
     def predict(self, X: Iterable[str]) -> NDArray:
         """
-        Compute anomaly scores.
+        Predict binary anomaly labels for test images.
 
         Parameters
         ----------
@@ -283,53 +330,65 @@ class VisionCFlow(BaseVisionDeepDetector):
 
         Returns
         -------
-        scores : ndarray
-            Anomaly scores
+        labels : ndarray of shape (n_samples,)
+            Binary labels (0 = normal, 1 = anomaly)
         """
+        if not self._is_fitted or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
+
+    def decision_function(self, X: Iterable[str]) -> NDArray:
+        """Compute anomaly scores."""
+        if not self._is_fitted:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
         self.flow.eval()
 
         X_list = list(X)
-        scores = np.zeros(len(X_list))
+        scores = np.zeros(len(X_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
-        with torch.no_grad():
-            for idx, img_path in enumerate(X_list):
-                try:
-                    # Load image
-                    img = cv2.imread(img_path)
-                    if img is None:
-                        continue
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    img_tensor = self.transform(img).unsqueeze(0).to(self.device)
+        for idx, img_path in enumerate(X_list):
+            try:
+                img = cv2.imread(img_path)
+                if img is None:
+                    raise ValueError(f"Failed to load image: {img_path}")
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
-                    # Extract features
-                    features = self.feature_extractor(img_tensor)
-
-                    # Global condition
-                    condition = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)
-
-                    # Flatten features
-                    B, C, H, W = features.shape
-                    features_flat = features.permute(0, 2, 3, 1).reshape(B * H * W, C)
-                    condition_repeated = condition.unsqueeze(1).repeat(1, H * W, 1).reshape(B * H * W, -1)
-
-                    # Compute likelihood
-                    z, log_det = self.flow(features_flat, condition_repeated)
-
-                    log_prob_prior = dist.Normal(0, 1).log_prob(z).sum(dim=-1)
-                    log_prob = log_prob_prior + log_det
-
-                    # Use negative log-likelihood as anomaly score
-                    score = -log_prob.mean().item()
-                    scores[idx] = score
-
-                except Exception as e:
-                    logger.warning("Failed to score %s: %s", img_path, e)
-                    scores[idx] = 0.0
+                log_prob = self._compute_patch_log_prob(img_tensor)
+                scores[idx] = float((-log_prob).mean().item())
+            except Exception as e:
+                logger.warning("Failed to score %s: %s", img_path, e)
+                scores[idx] = 0.0
 
         return scores
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        """Compute anomaly scores (alias for predict)."""
-        return self.predict(X)
+    def get_anomaly_map(self, image_path: str) -> NDArray:
+        """Generate pixel-level anomaly heatmap."""
+        if not self._is_fitted:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError(f"Failed to load image: {image_path}")
+
+        original_size = (img.shape[1], img.shape[0])  # (W, H)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
+
+        self.flow.eval()
+        log_prob = self._compute_patch_log_prob(img_tensor)
+        anomaly_map = (-log_prob).squeeze(0).cpu().numpy().astype(np.float32, copy=False)
+
+        # Resize to original image size for convenient downstream use.
+        anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
+        return anomaly_map
+
+    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+        """Generate pixel-level anomaly maps for a batch of images."""
+        maps = [self.get_anomaly_map(path) for path in X]
+        return np.stack(maps)

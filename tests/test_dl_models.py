@@ -321,6 +321,68 @@ class TestDFM:
         assert set(labels.tolist()).issubset({0, 1})
 
 
+class TestCFlow:
+    """Test CFlow algorithm."""
+
+    @pytest.mark.parametrize("device", ["cpu"])
+    def test_initialization(self, device):
+        detector = create_model(
+            "vision_cflow",
+            backbone="resnet18",
+            pretrained_backbone=False,
+            epochs=1,
+            batch_size=1,
+            device=device,
+        )
+        assert detector is not None
+        assert detector.backbone_name == "resnet18"
+        assert detector.pretrained_backbone is False
+
+    def test_model_not_fitted_error(self):
+        detector = create_model(
+            "vision_cflow",
+            pretrained_backbone=False,
+            device="cpu",
+        )
+
+        with pytest.raises(RuntimeError, match="not fitted"):
+            detector.decision_function(["dummy.jpg"])
+
+        with pytest.raises(RuntimeError, match="not fitted"):
+            detector.predict(["dummy.jpg"])
+
+
+class TestDRAEM:
+    """Test DRAEM algorithm."""
+
+    @pytest.mark.parametrize("device", ["cpu"])
+    def test_initialization(self, device):
+        detector = create_model(
+            "vision_draem",
+            image_size=64,
+            epochs=1,
+            batch_size=1,
+            device=device,
+        )
+        assert detector is not None
+        assert detector.image_size == 64
+
+    def test_model_not_fitted_error(self):
+        detector = create_model(
+            "vision_draem",
+            image_size=64,
+            epochs=1,
+            batch_size=1,
+            device="cpu",
+        )
+
+        with pytest.raises(RuntimeError, match="not fitted"):
+            detector.decision_function(["dummy.jpg"])
+
+        with pytest.raises(RuntimeError, match="not fitted"):
+            detector.predict(["dummy.jpg"])
+
+
 class TestDLModelsIntegration:
     """Integration tests for DL models."""
 

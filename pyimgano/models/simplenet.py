@@ -97,6 +97,8 @@ class VisionSimpleNet(BaseVisionDeepDetector):
     ----------
     backbone : str, default='wide_resnet50'
         Feature extraction backbone
+    pretrained : bool, default=True
+        Whether to load ImageNet-pretrained weights for the backbone.
     feature_dim : int, default=384
         Output dimension of adapter network
     epochs : int, default=10
@@ -126,6 +128,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "wide_resnet50",
+        pretrained: bool = True,
         feature_dim: int = 384,
         epochs: int = 10,
         batch_size: int = 8,
@@ -143,6 +146,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
             raise ValueError(f"batch_size must be >= 1, got {batch_size}")
 
         self.backbone_name = backbone
+        self.pretrained = pretrained
         self.feature_dim = feature_dim
         self.epochs = epochs
         self.batch_size = batch_size
@@ -173,10 +177,22 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         """Build feature extractor and adapter network."""
         # Pre-trained feature extractor (frozen)
         if self.backbone_name == "wide_resnet50":
-            backbone = models.wide_resnet50_2(pretrained=True)
+            # TorchVision changed API from `pretrained=True` to `weights=...`.
+            # Keep backward compatibility with older torchvision versions.
+            try:
+                weights = (
+                    models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
+                )
+                backbone = models.wide_resnet50_2(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                backbone = models.wide_resnet50_2(pretrained=self.pretrained)
             self.feature_dim_in = 1536  # layer2 (512) + layer3 (1024)
         elif self.backbone_name == "resnet50":
-            backbone = models.resnet50(pretrained=True)
+            try:
+                weights = models.ResNet50_Weights.DEFAULT if self.pretrained else None
+                backbone = models.resnet50(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                backbone = models.resnet50(pretrained=self.pretrained)
             self.feature_dim_in = 1536
         else:
             raise ValueError(

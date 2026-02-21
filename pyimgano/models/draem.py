@@ -162,6 +162,8 @@ class VisionDRAEM(BaseVisionDeepDetector):
         Training batch size
     lr : float, default=0.0001
         Learning rate
+    num_workers : int, default=0
+        Number of workers for the training DataLoader.
     device : str, default='cpu'
         Device to run model on
 
@@ -169,7 +171,8 @@ class VisionDRAEM(BaseVisionDeepDetector):
     --------
     >>> detector = VisionDRAEM(epochs=50, device='cuda')
     >>> detector.fit(train_images)
-    >>> scores = detector.predict(test_images)
+    >>> scores = detector.decision_function(test_images)
+    >>> labels = detector.predict(test_images)  # 0=normal, 1=anomaly
     """
 
     def __init__(
@@ -178,6 +181,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
         epochs: int = 100,
         batch_size: int = 8,
         lr: float = 0.0001,
+        num_workers: int = 0,
         device: str = "cpu",
         **kwargs,
     ):
@@ -188,7 +192,9 @@ class VisionDRAEM(BaseVisionDeepDetector):
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
+        self.num_workers = num_workers
         self.device = device
+        self._is_fitted = False
 
         # Build model
         self.model = SimpleUNet(in_channels=3, out_channels=3)
@@ -233,7 +239,8 @@ class VisionDRAEM(BaseVisionDeepDetector):
             dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=2,
+            num_workers=self.num_workers,
+            pin_memory=str(self.device).startswith("cuda"),
         )
 
         # Setup optimizer
@@ -267,11 +274,17 @@ class VisionDRAEM(BaseVisionDeepDetector):
                 logger.info("Epoch %d/%d, Loss: %.6f", epoch + 1, self.epochs, avg_loss)
 
         logger.info("DRAEM training completed")
+
+        # Mark as fitted and compute training scores to establish a threshold.
+        self._is_fitted = True
+        self.decision_scores_ = self.decision_function(X_list)
+        self._process_decision_scores()
+
         return self
 
     def predict(self, X: Iterable[str]) -> NDArray:
         """
-        Compute anomaly scores.
+        Predict binary anomaly labels for test images.
 
         Parameters
         ----------
@@ -280,34 +293,39 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
         Returns
         -------
-        scores : ndarray
-            Anomaly scores
+        labels : ndarray of shape (n_samples,)
+            Binary labels (0 = normal, 1 = anomaly)
         """
+        if not self._is_fitted or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
+
+    def decision_function(self, X: Iterable[str]) -> NDArray:
+        """Compute anomaly scores."""
+        if not self._is_fitted:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
         self.model.eval()
 
         X_list = list(X)
-        scores = np.zeros(len(X_list))
+        scores = np.zeros(len(X_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
         with torch.no_grad():
             for idx, img_path in enumerate(X_list):
                 try:
-                    # Load image
                     img = cv2.imread(img_path)
                     if img is None:
-                        continue
+                        raise ValueError(f"Failed to load image: {img_path}")
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
-                    # Reconstruct
                     reconstructed = self.model(img_tensor)
-
-                    # Compute reconstruction error
-                    error = F.mse_loss(reconstructed, img_tensor, reduction='none')
-                    score = error.mean().item()
-
-                    scores[idx] = score
+                    error = F.mse_loss(reconstructed, img_tensor, reduction="none")
+                    scores[idx] = float(error.mean().item())
 
                 except Exception as e:
                     logger.warning("Failed to score %s: %s", img_path, e)
@@ -315,6 +333,30 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
         return scores
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        """Compute anomaly scores (alias for predict)."""
-        return self.predict(X)
+    def get_anomaly_map(self, image_path: str) -> NDArray:
+        """Generate pixel-level anomaly heatmap."""
+        if not self._is_fitted:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError(f"Failed to load image: {image_path}")
+
+        original_size = (img.shape[1], img.shape[0])  # (W, H)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
+
+        self.model.eval()
+        with torch.no_grad():
+            reconstructed = self.model(img_tensor)
+            error = F.mse_loss(reconstructed, img_tensor, reduction="none")  # (1, C, H, W)
+            anomaly_map = error.mean(dim=1).squeeze(0).cpu().numpy()
+
+        anomaly_map = anomaly_map.astype(np.float32, copy=False)
+        anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
+        return anomaly_map
+
+    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+        """Generate pixel-level anomaly maps for a batch of images."""
+        maps = [self.get_anomaly_map(path) for path in X]
+        return np.stack(maps)
