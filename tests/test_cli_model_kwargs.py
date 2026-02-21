@@ -104,3 +104,45 @@ def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
     assert "device" not in captured
     assert "pretrained" not in captured
     assert captured["contamination"] == 0.2
+
+
+def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
+    import pyimgano.cli as cli
+
+    captured: dict[str, object] = {}
+
+    def fake_create_model(name: str, **kwargs):
+        captured["name"] = name
+        captured["kwargs"] = dict(kwargs)
+        return object()
+
+    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
+    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
+    monkeypatch.setattr(cli, "create_model", fake_create_model)
+
+    code = cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_anomalib_checkpoint",
+            "--checkpoint-path",
+            "/x.ckpt",
+            "--device",
+            "cpu",
+            "--contamination",
+            "0.2",
+        ]
+    )
+    assert code == 0
+    assert captured["name"] == "vision_anomalib_checkpoint"
+    kwargs = captured["kwargs"]
+    assert kwargs["checkpoint_path"] == "/x.ckpt"
+    assert kwargs["device"] == "cpu"
+    assert kwargs["contamination"] == 0.2
+    # The checkpoint wrapper doesn't accept `pretrained`, so the CLI should not pass it.
+    assert "pretrained" not in kwargs

@@ -27,12 +27,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model-kwargs",
         default=None,
-        help="JSON object of additional model constructor kwargs (advanced)",
+        help="JSON object of extra model constructor kwargs, e.g. '{\"k\": 1}' (advanced)",
     )
     parser.add_argument(
         "--checkpoint-path",
         default=None,
-        help="Optional checkpoint path for checkpoint-backed models (e.g. anomalib wrappers)",
+        help="Optional checkpoint path for checkpoint-backed models; sets model kwarg checkpoint_path",
     )
     parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
     parser.add_argument(
