@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from pyimgano.models import create_model
+from pyimgano.models import MODEL_REGISTRY, create_model
 from pyimgano.pipelines.mvtec_visa import evaluate_split, load_benchmark_split
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 from pyimgano.reporting.report import save_run_report
@@ -137,57 +138,74 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    split = load_benchmark_split(
-        dataset=args.dataset,
-        root=args.root,
-        category=args.category,
-        resize=(256, 256),
-        load_masks=True,
-    )
-
-    detector = create_model(
-        args.model,
-        device=args.device,
-        contamination=args.contamination,
-        pretrained=args.pretrained,
-    )
-
-    postprocess = None
-    if args.pixel and args.pixel_postprocess:
-        postprocess = AnomalyMapPostprocess(
-            normalize=True,
-            normalize_method=str(args.pixel_post_norm),
-            percentile_range=(
-                float(args.pixel_post_percentiles[0]),
-                float(args.pixel_post_percentiles[1]),
-            ),
-            gaussian_sigma=float(args.pixel_post_gaussian_sigma),
-            morph_open_ksize=int(args.pixel_post_open_ksize),
-            morph_close_ksize=int(args.pixel_post_close_ksize),
-            component_threshold=args.pixel_post_component_threshold,
-            min_component_area=int(args.pixel_post_min_component_area),
+    try:
+        split = load_benchmark_split(
+            dataset=args.dataset,
+            root=args.root,
+            category=args.category,
+            resize=(256, 256),
+            load_masks=True,
         )
 
-    results = evaluate_split(
-        detector,
-        split,
-        compute_pixel_scores=bool(args.pixel),
-        postprocess=postprocess,
-    )
+        user_kwargs = _parse_model_kwargs(args.model_kwargs)
+        merged_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
-    payload = {
-        "dataset": args.dataset,
-        "category": args.category,
-        "model": args.model,
-        "results": results,
-    }
+        entry = MODEL_REGISTRY.info(args.model)
+        if bool(entry.metadata.get("requires_checkpoint", False)) and "checkpoint_path" not in merged_kwargs:
+            raise ValueError(
+                f"Model {args.model!r} requires a checkpoint. "
+                "Provide --checkpoint-path or set checkpoint_path in --model-kwargs."
+            )
 
-    if args.output:
-        save_run_report(Path(args.output), payload)
-    else:
-        print(json.dumps(_to_jsonable(payload), indent=2, sort_keys=True))
+        # Do not override explicit user kwargs.
+        if "device" not in merged_kwargs:
+            merged_kwargs["device"] = args.device
+        if "contamination" not in merged_kwargs:
+            merged_kwargs["contamination"] = args.contamination
+        if "pretrained" not in merged_kwargs:
+            merged_kwargs["pretrained"] = args.pretrained
 
-    return 0
+        detector = create_model(args.model, **merged_kwargs)
+
+        postprocess = None
+        if args.pixel and args.pixel_postprocess:
+            postprocess = AnomalyMapPostprocess(
+                normalize=True,
+                normalize_method=str(args.pixel_post_norm),
+                percentile_range=(
+                    float(args.pixel_post_percentiles[0]),
+                    float(args.pixel_post_percentiles[1]),
+                ),
+                gaussian_sigma=float(args.pixel_post_gaussian_sigma),
+                morph_open_ksize=int(args.pixel_post_open_ksize),
+                morph_close_ksize=int(args.pixel_post_close_ksize),
+                component_threshold=args.pixel_post_component_threshold,
+                min_component_area=int(args.pixel_post_min_component_area),
+            )
+
+        results = evaluate_split(
+            detector,
+            split,
+            compute_pixel_scores=bool(args.pixel),
+            postprocess=postprocess,
+        )
+
+        payload = {
+            "dataset": args.dataset,
+            "category": args.category,
+            "model": args.model,
+            "results": results,
+        }
+
+        if args.output:
+            save_run_report(Path(args.output), payload)
+        else:
+            print(json.dumps(_to_jsonable(payload), indent=2, sort_keys=True))
+
+        return 0
+    except Exception as exc:  # noqa: BLE001 - CLI surface error
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":  # pragma: no cover

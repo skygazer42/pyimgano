@@ -26,3 +26,27 @@ def test_merge_checkpoint_path_detects_conflict():
 
     with pytest.raises(ValueError, match="conflict"):
         _merge_checkpoint_path({"checkpoint_path": "/a.ckpt"}, checkpoint_path="/b.ckpt")
+
+
+def test_cli_requires_checkpoint_for_checkpoint_backed_models(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
+    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
+    monkeypatch.setattr(cli, "create_model", lambda *_a, **_k: object())
+
+    code = cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_anomalib_checkpoint",
+            "--device",
+            "cpu",
+        ]
+    )
+    assert code != 0
