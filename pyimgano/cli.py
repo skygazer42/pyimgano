@@ -27,6 +27,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="JSON object of additional model constructor kwargs (advanced)",
     )
+    parser.add_argument(
+        "--checkpoint-path",
+        default=None,
+        help="Optional checkpoint path for checkpoint-backed models (e.g. anomalib wrappers)",
+    )
     parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
     parser.add_argument(
         "--pixel-postprocess",
@@ -106,6 +111,26 @@ def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
         raise ValueError("--model-kwargs must be a JSON object (e.g. '{\"k\": 1}').")
 
     return dict(parsed)
+
+
+def _merge_checkpoint_path(
+    model_kwargs: dict[str, Any],
+    *,
+    checkpoint_path: str | None,
+) -> dict[str, Any]:
+    if checkpoint_path is None:
+        return dict(model_kwargs)
+
+    out = dict(model_kwargs)
+    existing = out.get("checkpoint_path", None)
+    if existing is not None and str(existing) != str(checkpoint_path):
+        raise ValueError(
+            "checkpoint_path conflict: "
+            f"--checkpoint-path={checkpoint_path!r} but model-kwargs checkpoint_path={existing!r}"
+        )
+
+    out["checkpoint_path"] = str(checkpoint_path)
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
