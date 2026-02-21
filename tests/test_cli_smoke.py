@@ -47,6 +47,14 @@ def test_cli_pixel_mode_uses_pipeline_alignment(tmp_path, capsys):
             "cpu",
             "--no-pretrained",
             "--pixel",
+            "--pixel-postprocess",
+            "--pixel-post-norm",
+            "percentile",
+            "--pixel-post-percentiles",
+            "1",
+            "99",
+            "--pixel-post-gaussian-sigma",
+            "1.0",
         ]
     )
     assert code == 0
