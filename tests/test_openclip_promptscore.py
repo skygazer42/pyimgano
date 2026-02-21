@@ -31,3 +31,64 @@ def test_openclip_promptscore_fit_predict_and_map():
     assert amap.shape == (8, 8)
     assert np.isfinite(amap).all()
 
+
+def test_openclip_promptscore_caches_text_features_by_class_name():
+    import torch
+
+    from pyimgano.models.openclip_backend import VisionOpenCLIPPromptScore
+
+    class _FakeModel:
+        def __init__(self) -> None:
+            self.encode_text_calls = 0
+
+        def eval(self):
+            return self
+
+        def to(self, _device):
+            return self
+
+        def encode_text(self, tokens):
+            self.encode_text_calls += 1
+            return torch.ones((tokens.shape[0], 2), dtype=torch.float32)
+
+    class _FakeOpenCLIP:
+        def __init__(self) -> None:
+            self.create_model_calls = 0
+            self.tokenize_calls = 0
+            self.model = _FakeModel()
+
+        def create_model_and_transforms(self, _model_name: str, pretrained=None, **_kwargs):
+            self.create_model_calls += 1
+
+            def _preprocess(_image):
+                raise AssertionError("preprocess should not be called by this test")
+
+            return self.model, None, _preprocess
+
+        def tokenize(self, prompts):
+            self.tokenize_calls += 1
+            return torch.zeros((len(prompts), 1), dtype=torch.int64)
+
+    fake_open_clip = _FakeOpenCLIP()
+    detector = VisionOpenCLIPPromptScore(
+        open_clip_module=fake_open_clip,
+        device="cpu",
+        openclip_pretrained=None,
+    )
+
+    detector._ensure_text_features()
+    assert fake_open_clip.model.encode_text_calls == 2  # normal + anomaly
+
+    # Second call should be cached.
+    detector._ensure_text_features()
+    assert fake_open_clip.model.encode_text_calls == 2
+
+    # Setting the same class name should not invalidate the cache.
+    detector.set_class_name("object")
+    detector._ensure_text_features()
+    assert fake_open_clip.model.encode_text_calls == 2
+
+    # Changing the class name should re-encode.
+    detector.set_class_name("widget")
+    detector._ensure_text_features()
+    assert fake_open_clip.model.encode_text_calls == 4
