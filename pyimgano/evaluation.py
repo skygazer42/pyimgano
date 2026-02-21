@@ -15,7 +15,6 @@ from typing import Dict, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.metrics import (
-    auc,
     average_precision_score,
     confusion_matrix,
     f1_score,
@@ -56,6 +55,17 @@ def compute_auroc(
     >>> print(f"AUROC: {auroc:.3f}")
     AUROC: 1.000
     """
+    y_true = np.asarray(y_true).ravel()
+    y_scores = np.asarray(y_scores).ravel()
+
+    if y_true.size == 0 or y_scores.size == 0:
+        raise ValueError("y_true and y_scores must be non-empty.")
+    if y_true.shape[0] != y_scores.shape[0]:
+        raise ValueError(
+            "y_true and y_scores must have the same length. "
+            f"Got {y_true.shape[0]} != {y_scores.shape[0]}."
+        )
+
     if len(np.unique(y_true)) < 2:
         logger.warning("Only one class present in y_true. AUROC is not defined.")
         return float('nan')
@@ -97,6 +107,17 @@ def compute_average_precision(
     >>> ap = compute_average_precision(y_true, y_scores)
     >>> print(f"AP: {ap:.3f}")
     """
+    y_true = np.asarray(y_true).ravel()
+    y_scores = np.asarray(y_scores).ravel()
+
+    if y_true.size == 0 or y_scores.size == 0:
+        raise ValueError("y_true and y_scores must be non-empty.")
+    if y_true.shape[0] != y_scores.shape[0]:
+        raise ValueError(
+            "y_true and y_scores must have the same length. "
+            f"Got {y_true.shape[0]} != {y_scores.shape[0]}."
+        )
+
     if len(np.unique(y_true)) < 2:
         logger.warning("Only one class present in y_true. AP is not defined.")
         return float('nan')
@@ -373,24 +394,51 @@ def compute_pro_score(
     ----------
     Bergmann et al. (2020). "The MVTec Anomaly Detection Dataset"
     """
+    if not (0.0 < float(integration_limit) <= 1.0):
+        raise ValueError(f"integration_limit must be in (0, 1]. Got {integration_limit}.")
+
+    pixel_labels_arr = np.asarray(pixel_labels)
+    pixel_scores_arr = np.asarray(pixel_scores)
+    if pixel_labels_arr.size == 0 or pixel_scores_arr.size == 0:
+        raise ValueError("pixel_labels and pixel_scores must be non-empty.")
+    if pixel_labels_arr.shape != pixel_scores_arr.shape:
+        raise ValueError(
+            "pixel_labels and pixel_scores must have the same shape. "
+            f"Got {pixel_labels_arr.shape} != {pixel_scores_arr.shape}."
+        )
+
     # Flatten arrays
-    pixel_labels_flat = pixel_labels.ravel()
-    pixel_scores_flat = pixel_scores.ravel()
+    pixel_labels_flat = pixel_labels_arr.ravel()
+    pixel_scores_flat = pixel_scores_arr.ravel()
+
+    if len(np.unique(pixel_labels_flat)) < 2:
+        logger.warning(
+            "Only one class present in pixel_labels. PRO score is not defined."
+        )
+        return float("nan")
 
     # Compute ROC curve
-    fpr, tpr, thresholds = roc_curve(pixel_labels_flat, pixel_scores_flat)
+    fpr, tpr, _ = roc_curve(pixel_labels_flat, pixel_scores_flat)
 
-    # Integrate TPR up to integration_limit FPR
-    idx_limit = np.searchsorted(fpr, integration_limit, side='right')
+    # Integrate TPR up to integration_limit FPR.
+    # Use interpolation to ensure we include a point exactly at integration_limit.
+    mask = fpr <= integration_limit
+    fpr_clip = fpr[mask]
+    tpr_clip = tpr[mask]
 
-    if idx_limit < 2:
-        logger.warning("Integration limit too small, PRO score may be inaccurate")
+    if fpr_clip.size == 0:
         return 0.0
 
-    # Compute area under curve up to limit
-    pro_score = auc(fpr[:idx_limit], tpr[:idx_limit]) / integration_limit
+    if float(fpr_clip[-1]) < float(integration_limit):
+        unique_fpr, inverse = np.unique(fpr, return_inverse=True)
+        unique_tpr = np.full_like(unique_fpr, -np.inf, dtype=np.float64)
+        np.maximum.at(unique_tpr, inverse, tpr.astype(np.float64))
+        tpr_at_limit = float(np.interp(float(integration_limit), unique_fpr, unique_tpr))
+        fpr_clip = np.append(fpr_clip, float(integration_limit))
+        tpr_clip = np.append(tpr_clip, tpr_at_limit)
 
-    return float(pro_score)
+    area = float(np.trapz(tpr_clip, fpr_clip))
+    return float(area / float(integration_limit))
 
 
 def compute_pixel_auroc(

@@ -166,10 +166,13 @@ class VisionECOD(BaseVisionDetector):
         ValueError
             If feature extraction fails or produces invalid features.
         """
-        logger.info("Fitting ECOD detector on %d images", len(list(X)))
+        paths = list(X)
+        logger.info("Fitting ECOD detector on %d images", len(paths))
+        if not paths:
+            raise ValueError("Training set cannot be empty")
 
         try:
-            features = self.feature_extractor.extract(X)
+            features = self.feature_extractor.extract(paths)
             features = np.asarray(features, dtype=np.float64)
 
             if features.ndim != 2:

@@ -57,6 +57,32 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             else:
                 self.eval_transform = transforms.ToTensor()
 
+    # ------------------------------------------------------------------
+    # PyOD deep learning interface (required abstract methods)
+    #
+    # Many `pyimgano` vision detectors implement their own `fit` /
+    # `decision_function` without using PyOD's training loop, but still inherit
+    # from `BaseDeepLearningDetector` for shared thresholding semantics.
+    #
+    # To keep those detectors instantiable, we provide default implementations
+    # that raise clear errors if a subclass actually relies on the training loop.
+    def build_model(self, *args, **kwargs):  # pragma: no cover
+        if getattr(self, "model", None) is not None:
+            return self.model
+        raise NotImplementedError(
+            "Subclasses using BaseVisionDeepDetector.fit must implement build_model()."
+        )
+
+    def training_forward(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError(
+            "Subclasses using BaseVisionDeepDetector.fit must implement training_forward()."
+        )
+
+    def evaluating_forward(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError(
+            "Subclasses using BaseVisionDeepDetector.decision_function must implement evaluating_forward()."
+        )
+
     def fit(self, X, y=None):
         """
         【特色功能 3: 重写 fit 方法以处理图像路径】
