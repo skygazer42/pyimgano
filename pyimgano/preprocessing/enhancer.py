@@ -341,7 +341,8 @@ def normalize_image(
         raise ValueError(f"Unknown normalization method: {method}")
 
     logger.debug("Applied normalization: %s", method)
-    return normalized
+    # NumPy reductions like `percentile` may upcast to float64; keep output consistent.
+    return normalized.astype(np.float32, copy=False)
 
 
 class ImageEnhancer:
@@ -580,6 +581,19 @@ class ImageEnhancer:
 
         return equalized
 
+    def clahe(
+        self,
+        image: NDArray,
+        clip_limit: float = 2.0,
+        tile_grid_size: Tuple[int, int] = (8, 8),
+    ) -> NDArray:
+        """Alias for :meth:`adaptive_histogram_equalization` (CLAHE)."""
+        return self.adaptive_histogram_equalization(
+            image,
+            clip_limit=clip_limit,
+            tile_grid_size=tile_grid_size,
+        )
+
 
 class PreprocessingPipeline:
     """
@@ -679,7 +693,10 @@ class PreprocessingPipeline:
     def __repr__(self) -> str:
         """String representation."""
         step_names = [name for name, _, _ in self.steps]
-        return f"PreprocessingPipeline(steps={step_names})"
+        count = len(step_names)
+        label = "step" if count == 1 else "steps"
+        suffix = "" if count == 0 else f": {', '.join(step_names)}"
+        return f"PreprocessingPipeline({count} {label}{suffix})"
 
 
 # Import advanced operations

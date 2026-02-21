@@ -365,7 +365,7 @@ def evaluate_detector(
 def compute_pro_score(
     pixel_labels: NDArray,
     pixel_scores: NDArray,
-    integration_limit: float = 0.3,
+    integration_limit: float = 1.0,
 ) -> float:
     """
     Compute Per-Region-Overlap (PRO) score for pixel-level evaluation.
@@ -378,7 +378,7 @@ def compute_pro_score(
         Ground truth pixel-level labels
     pixel_scores : ndarray of shape (n_images, H, W)
         Predicted anomaly scores for each pixel
-    integration_limit : float, default=0.3
+    integration_limit : float, default=1.0
         FPR integration limit for PRO score
 
     Returns
@@ -437,7 +437,12 @@ def compute_pro_score(
         fpr_clip = np.append(fpr_clip, float(integration_limit))
         tpr_clip = np.append(tpr_clip, tpr_at_limit)
 
-    area = float(np.trapz(tpr_clip, fpr_clip))
+    # NumPy 2.x removed `np.trapz` in favor of `np.trapezoid`.
+    trapezoid = getattr(np, "trapezoid", None)
+    if trapezoid is None:  # pragma: no cover
+        trapezoid = getattr(np, "trapz")
+
+    area = float(trapezoid(tpr_clip, fpr_clip))
     return float(area / float(integration_limit))
 
 
