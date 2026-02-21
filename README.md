@@ -101,6 +101,9 @@ pip install pyimgano[anomalib]
 # For FAISS kNN acceleration
 pip install pyimgano[faiss]
 
+# For OpenCLIP backends
+pip install "pyimgano[clip]"
+
 # All optional backends
 pip install pyimgano[backends]
 
