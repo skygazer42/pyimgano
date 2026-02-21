@@ -56,6 +56,9 @@ These currently map to the same inference wrapper implementation, but provide cl
 - `vision_rkde_anomalib`
 - `vision_uflow_anomalib`
 - `vision_winclip_anomalib`
+- `vision_fre_anomalib`
+- `vision_supersimplenet_anomalib`
+- `vision_vlmad_anomalib`
 
 Tip: you can list what your installed version exposes:
 
@@ -135,4 +138,3 @@ In practice this is commonly a `.pt` exported weight file, but anomalib may also
 - Supported models / model reference: https://anomalib.readthedocs.io/en/latest/markdown/guides/reference/models/
 - Inference API (includes `TorchInferencer`): https://anomalib.readthedocs.io/en/latest/markdown/guides/reference/deploy/
 - Project repo: https://github.com/open-edge-platform/anomalib
-

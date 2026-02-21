@@ -23,6 +23,9 @@ def test_more_anomalib_aliases_are_registered():
     assert "vision_dsr_anomalib" in anomalib_models
     assert "vision_uflow_anomalib" in anomalib_models
     assert "vision_winclip_anomalib" in anomalib_models
+    assert "vision_fre_anomalib" in anomalib_models
+    assert "vision_supersimplenet_anomalib" in anomalib_models
+    assert "vision_vlmad_anomalib" in anomalib_models
 
 
 def test_anomalib_checkpoint_wrapper_requires_anomalib_if_no_inferencer():

@@ -440,3 +440,45 @@ class VisionUflowAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionWinclipAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with WinCLIP tags."""
+
+
+@register_model(
+    "vision_fre_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "fre"),
+    metadata={
+        "description": "FRE via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "fre",
+    },
+)
+class VisionFreAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with FRE tags."""
+
+
+@register_model(
+    "vision_supersimplenet_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "supersimplenet"),
+    metadata={
+        "description": "SuperSimpleNet via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "supersimplenet",
+    },
+)
+class VisionSuperSimpleNetAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with SuperSimpleNet tags."""
+
+
+@register_model(
+    "vision_vlmad_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "vlmad"),
+    metadata={
+        "description": "VLM-AD via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "vlm-ad",
+    },
+)
+class VisionVLMADAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with VLM-AD tags."""
