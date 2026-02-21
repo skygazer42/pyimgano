@@ -8,7 +8,9 @@ import numpy as np
 
 
 def _to_jsonable(value: Any) -> Any:
-    if isinstance(value, (np.floating, np.integer)):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.generic):
         return value.item()
     if isinstance(value, np.ndarray):
         return value.tolist()
@@ -27,4 +29,3 @@ def save_run_report(path: str | Path, results: dict) -> None:
 
     payload = _to_jsonable(results)
     out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-
