@@ -36,6 +36,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
     parser.add_argument(
+        "--pixel-aupro-limit",
+        type=float,
+        default=0.3,
+        help="FPR integration limit for AUPRO (only if --pixel). Default: 0.3",
+    )
+    parser.add_argument(
+        "--pixel-aupro-thresholds",
+        type=int,
+        default=200,
+        help="Number of thresholds used to approximate AUPRO (only if --pixel). Default: 200",
+    )
+    parser.add_argument(
         "--pixel-postprocess",
         action="store_true",
         help="Apply post-processing to anomaly maps before computing pixel metrics",
@@ -244,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
             split,
             compute_pixel_scores=bool(args.pixel),
             postprocess=postprocess,
+            pro_integration_limit=float(args.pixel_aupro_limit),
+            pro_num_thresholds=int(args.pixel_aupro_thresholds),
         )
 
         payload = {

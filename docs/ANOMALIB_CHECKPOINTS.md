@@ -4,7 +4,7 @@ PyImgAno includes **optional** wrappers that let you evaluate **anomalib-trained
 
 - dataset loaders (MVTec AD / VisA)
 - image-level metrics (AUROC/AP/F1, etc.)
-- pixel-level metrics (pixel AUROC / pixel AP / AUPRO, when masks exist)
+- pixel-level metrics (pixel AUROC / pixel AP / AUPRO, when masks exist; AUPRO is region-aware + FPR-limited)
 - JSON reporting via `--output`
 
 This keeps `anomalib` as a *training / checkpoint export* dependency, while PyImgAno stays the **single** benchmarking CLI.

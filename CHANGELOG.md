@@ -118,6 +118,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**:
   - `EVALUATION_AND_BENCHMARK.md` - Complete evaluation guide
 
+- Additional PyOD classical wrappers (unified vision API):
+  - `vision_iforest` (Isolation Forest)
+  - `vision_kde` (Kernel Density Estimation)
+  - `vision_gmm` (Gaussian Mixture Model)
+  - `vision_sos` (Stochastic Outlier Selection)
+  - `vision_sod` (Subspace Outlier Detection)
+  - `vision_rod` (Rotation-based Outlier Detection)
+  - `vision_qmcd` (Quantile-based MCD)
+  - `vision_mad` (Median Absolute Deviation)
+  - `vision_lmdd` (LMDD)
+
+### Fixed
+- `compute_pro_score` now computes **region-aware** PRO/AUPRO (connected components + FPR-limited integration),
+  instead of using pixel-level ROC TPR as a proxy.
+- `pyimgano.models.ae` no longer hard-requires `pytorch_msssim` at import time; `ComposedLoss` falls back to L1
+  when the optional dependency is missing.
+
 ### Changed
 - Enhanced package metadata and classifiers
 - Improved dependency version specifications

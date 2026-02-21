@@ -439,6 +439,11 @@ If your goal is **industrial visual inspection** (defect localization), you usua
 - **Pixel-level anomaly maps** (where is the defect?)
 - **Pixel metrics** (pixel AUROC / pixel AP / AUPRO) when GT masks are available
 
+Notes on pixel metrics:
+- `pixel_auroc` / `pixel_average_precision` treat every pixel independently.
+- `aupro` is **region-aware**: it splits the GT mask into connected components and
+  integrates mean per-region overlap (PRO) over FPR (commonly limited to `0.3`).
+
 #### Option A: CLI (recommended for quick benchmarking)
 
 ```bash

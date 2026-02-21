@@ -213,6 +213,45 @@ class TestPCA:
         assert predictions.shape == (len(test_paths),)
 
 
+@pytest.mark.parametrize(
+    ("model_name", "model_kwargs"),
+    [
+        ("vision_iforest", {"n_estimators": 50}),
+        ("vision_kde", {"bandwidth": 1.0}),
+        ("vision_gmm", {"n_components": 1}),
+        ("vision_sos", {"perplexity": 4.5}),
+        ("vision_sod", {"n_neighbors": 10, "ref_set": 5}),
+        ("vision_rod", {}),
+        ("vision_qmcd", {}),
+        ("vision_mad", {}),
+        ("vision_lmdd", {"n_iter": 5}),
+    ],
+)
+def test_additional_pyod_models_fit_predict(
+    feature_extractor,
+    mock_image_paths,
+    model_name,
+    model_kwargs,
+):
+    """Smoke-test additional PyOD wrappers added by pyimgano."""
+    train_paths, test_paths = mock_image_paths
+    detector = models.create_model(
+        model_name,
+        feature_extractor=feature_extractor,
+        contamination=0.1,
+        **model_kwargs,
+    )
+
+    detector.fit(train_paths)
+    predictions = detector.predict(test_paths)
+    scores = detector.decision_function(test_paths)
+
+    assert predictions.shape == (len(test_paths),)
+    assert scores.shape == (len(test_paths),)
+    assert set(predictions).issubset({0, 1})
+    assert np.all(np.isfinite(scores))
+
+
 class TestModelRegistry:
     """Test model registry for PyOD models."""
 
@@ -221,7 +260,21 @@ class TestModelRegistry:
         from pyimgano.models import list_models
 
         all_models = list_models()
-        pyod_models = ["vision_ecod", "vision_copod", "vision_knn", "vision_pca"]
+        pyod_models = [
+            "vision_ecod",
+            "vision_copod",
+            "vision_knn",
+            "vision_pca",
+            "vision_iforest",
+            "vision_kde",
+            "vision_gmm",
+            "vision_sos",
+            "vision_sod",
+            "vision_rod",
+            "vision_qmcd",
+            "vision_mad",
+            "vision_lmdd",
+        ]
 
         for model_name in pyod_models:
             assert model_name in all_models, f"{model_name} not in registry"

@@ -79,6 +79,8 @@ def evaluate_split(
     pixel_scores: Optional[NDArray] = None,
     compute_pixel_scores: bool = True,
     postprocess: Optional[AnomalyMapPostprocess] = None,
+    pro_integration_limit: float = 0.3,
+    pro_num_thresholds: int = 200,
 ) -> dict:
     """Fit on split.train_paths, score split.test_paths, and return evaluation dict."""
 
@@ -112,6 +114,8 @@ def evaluate_split(
         scores,
         pixel_labels=split.test_masks,
         pixel_scores=pixel_scores_used,
+        pro_integration_limit=pro_integration_limit,
+        pro_num_thresholds=pro_num_thresholds,
     )
 
 

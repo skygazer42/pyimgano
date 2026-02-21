@@ -44,19 +44,28 @@ _auto_import(
         "dbscan",  # Density-Based Spatial Clustering
         "ecod",  # Empirical Cumulative Outlier Detection (TKDE 2022)
         "feature_bagging",  # Feature Bagging ensemble method
+        "gmm",  # Gaussian Mixture Model density baseline
         "hbos",  # Histogram-Based Outlier Score
+        "iforest",  # Isolation Forest (PyOD)
         "inne",  # Isolation using Nearest Neighbors
         "Isolationforest",  # Isolation Forest
         "knn",  # K-Nearest Neighbors
         "kpca",  # Kernel Principal Component Analysis
         "k_means",  # K-Means clustering-based detection
+        "kde",  # Kernel Density Estimation density baseline
         "loci",  # Local Correlation Integral
         "loda",  # Lightweight On-line Detector of Anomalies
         "lof",  # Local Outlier Factor
         "lscp",  # Locally Selective Combination in Parallel
+        "lmdd",  # LMDD
+        "mad",  # Median Absolute Deviation
         "mcd",  # Minimum Covariance Determinant
         "ocsvm",  # One-Class Support Vector Machine
         "pca",  # Principal Component Analysis
+        "qmcd",  # Quantile-based MCD
+        "rod",  # Rotation-based Outlier Detection
+        "sod",  # Subspace Outlier Detection
+        "sos",  # Stochastic Outlier Selection
         "suod",  # Scalable Unsupervised Outlier Detection
         "xgbod",  # Extreme Gradient Boosting Outlier Detection
         # Deep learning algorithms

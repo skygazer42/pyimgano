@@ -187,6 +187,102 @@ detector = models.create_model(
 
 ---
 
+#### KDE (Kernel Density Estimation)
+**Best for: Simple density baseline**
+
+```python
+detector = models.create_model(
+    "vision_kde",
+    feature_extractor=extractor,
+    bandwidth=1.0,
+    contamination=0.1,
+)
+```
+
+**Pros:**
+- ✅ Strong non-parametric baseline
+- ✅ Works well for low/medium-dimensional features
+
+**Cons:**
+- ❌ Can be slow on very large datasets
+- ❌ Sensitive to bandwidth choice
+
+**When to use:** You want a density baseline for extracted features
+
+---
+
+#### GMM (Gaussian Mixture Model)
+**Best for: Parametric density baseline**
+
+```python
+detector = models.create_model(
+    "vision_gmm",
+    feature_extractor=extractor,
+    n_components=1,
+    contamination=0.1,
+)
+```
+
+**Pros:**
+- ✅ Fast, classic statistical baseline
+- ✅ Can model multi-modal normal data with `n_components>1`
+
+**Cons:**
+- ❌ Sensitive to `n_components` and initialization
+
+**When to use:** Normal data is multi-modal and you want a simple baseline
+
+---
+
+#### SOS (Stochastic Outlier Selection)
+**Best for: Probabilistic neighborhood baseline**
+
+```python
+detector = models.create_model(
+    "vision_sos",
+    feature_extractor=extractor,
+    perplexity=4.5,
+    contamination=0.1,
+)
+```
+
+**When to use:** You want a probabilistic kNN-style baseline without heavy tuning
+
+---
+
+#### SOD (Subspace Outlier Detection)
+**Best for: Subspace-style outliers**
+
+```python
+detector = models.create_model(
+    "vision_sod",
+    feature_extractor=extractor,
+    n_neighbors=20,
+    ref_set=10,
+    contamination=0.1,
+)
+```
+
+**When to use:** Features have many irrelevant dimensions and outliers appear in subspaces
+
+---
+
+#### Robust MAD (Median Absolute Deviation)
+**Best for: Fast, robust baseline for feature vectors**
+
+```python
+detector = models.create_model(
+    "vision_mad",
+    feature_extractor=extractor,
+    aggregation="max",  # max|mean|l2
+    contamination=0.1,
+)
+```
+
+**When to use:** You want a very fast, robust baseline that tolerates outliers in the training set
+
+---
+
 ### 🧠 Deep Learning Algorithms
 
 #### Deep SVDD

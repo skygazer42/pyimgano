@@ -14,6 +14,7 @@ from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy import ndimage
 from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
@@ -272,6 +273,7 @@ def evaluate_detector(
     pixel_labels: Optional[NDArray] = None,
     pixel_scores: Optional[NDArray] = None,
     pro_integration_limit: float = 0.3,
+    pro_num_thresholds: int = 200,
 ) -> Dict[str, Union[float, Dict]]:
     """
     Comprehensive evaluation of anomaly detector.
@@ -356,6 +358,7 @@ def evaluate_detector(
                 pixel_labels,
                 pixel_scores,
                 integration_limit=pro_integration_limit,
+                num_thresholds=pro_num_thresholds,
             ),
         }
 
@@ -366,11 +369,20 @@ def compute_pro_score(
     pixel_labels: NDArray,
     pixel_scores: NDArray,
     integration_limit: float = 1.0,
+    num_thresholds: int = 200,
 ) -> float:
     """
-    Compute Per-Region-Overlap (PRO) score for pixel-level evaluation.
+    Compute Per-Region-Overlap (PRO) / AUPRO score for pixel-level evaluation.
 
-    PRO score is designed for anomaly localization evaluation.
+    This implementation follows the common **AUPRO** definition used in
+    industrial anomaly detection benchmarks (e.g., MVTec AD):
+
+    1) Split the ground-truth anomaly mask into connected components (regions).
+    2) For a set of thresholds, compute:
+       - FPR: false positive rate on background pixels (gt==0)
+       - PRO(thr): mean per-region overlap, i.e. mean(region_recall)
+    3) Integrate PRO over FPR up to ``integration_limit`` and normalize by
+       ``integration_limit``.
 
     Parameters
     ----------
@@ -380,11 +392,14 @@ def compute_pro_score(
         Predicted anomaly scores for each pixel
     integration_limit : float, default=1.0
         FPR integration limit for PRO score
+    num_thresholds : int, default=200
+        Number of thresholds sampled to approximate the AUPRO integral.
+        Higher values are more accurate but slower.
 
     Returns
     -------
     pro_score : float
-        Per-Region-Overlap score
+        Normalized area under the PRO curve (AUPRO) in [0, 1].
 
     Notes
     -----
@@ -396,6 +411,8 @@ def compute_pro_score(
     """
     if not (0.0 < float(integration_limit) <= 1.0):
         raise ValueError(f"integration_limit must be in (0, 1]. Got {integration_limit}.")
+    if int(num_thresholds) < 10:
+        raise ValueError(f"num_thresholds must be >= 10. Got {num_thresholds}.")
 
     pixel_labels_arr = np.asarray(pixel_labels)
     pixel_scores_arr = np.asarray(pixel_scores)
@@ -407,43 +424,106 @@ def compute_pro_score(
             f"Got {pixel_labels_arr.shape} != {pixel_scores_arr.shape}."
         )
 
-    # Flatten arrays
-    pixel_labels_flat = pixel_labels_arr.ravel()
-    pixel_scores_flat = pixel_scores_arr.ravel()
+    labels_bin = (pixel_labels_arr > 0).astype(np.uint8, copy=False)
+    scores = np.asarray(pixel_scores_arr, dtype=np.float64)
+    if not np.all(np.isfinite(scores)):
+        # Avoid surprising ValueError in downstream computations; NaNs/inf would
+        # otherwise propagate and make the metric meaningless.
+        scores = np.nan_to_num(scores, nan=-np.inf, posinf=np.inf, neginf=-np.inf)
 
-    if len(np.unique(pixel_labels_flat)) < 2:
+    if len(np.unique(labels_bin.ravel())) < 2:
         logger.warning(
             "Only one class present in pixel_labels. PRO score is not defined."
         )
         return float("nan")
 
-    # Compute ROC curve
-    fpr, tpr, _ = roc_curve(pixel_labels_flat, pixel_scores_flat)
+    background_scores = scores[labels_bin == 0].ravel()
+    if background_scores.size == 0:
+        logger.warning("No background pixels found in pixel_labels. PRO score is not defined.")
+        return float("nan")
 
-    # Integrate TPR up to integration_limit FPR.
-    # Use interpolation to ensure we include a point exactly at integration_limit.
-    mask = fpr <= integration_limit
-    fpr_clip = fpr[mask]
-    tpr_clip = tpr[mask]
+    # Collect per-region score vectors (sorted) across the batch.
+    region_scores_sorted: list[np.ndarray] = []
+    structure = np.ones((3, 3), dtype=np.uint8)  # 8-connectivity
+    for i in range(int(labels_bin.shape[0])):
+        cc_map, num_regions = ndimage.label(labels_bin[i].astype(bool), structure=structure)
+        for region_id in range(1, int(num_regions) + 1):
+            region_scores = scores[i][cc_map == region_id].ravel()
+            if region_scores.size == 0:
+                continue
+            region_scores_sorted.append(np.sort(region_scores.astype(np.float64, copy=False)))
 
+    if not region_scores_sorted:
+        logger.warning("No connected-components regions found in pixel_labels. PRO score is not defined.")
+        return float("nan")
+
+    bg_sorted = np.sort(background_scores.astype(np.float64, copy=False))
+    bg_n = int(bg_sorted.size)
+
+    # Sample thresholds based on background quantiles so we spend resolution where
+    # the PRO metric is typically integrated (low FPR).
+    fpr_targets = np.linspace(0.0, float(integration_limit), int(num_thresholds), endpoint=True)
+    thresholds = np.empty_like(fpr_targets, dtype=np.float64)
+
+    # Ensure the first point yields exactly FPR=0: choose a threshold above max background.
+    max_bg = float(bg_sorted[-1])
+    thresholds[0] = max_bg + 1e-12
+    if thresholds.size > 1:
+        quantiles = 1.0 - fpr_targets[1:]
+        try:
+            thresholds[1:] = np.quantile(bg_sorted, quantiles, method="higher")
+        except TypeError:  # pragma: no cover - older NumPy (<1.22)
+            thresholds[1:] = np.quantile(bg_sorted, quantiles, interpolation="higher")
+
+    # Compute actual FPR values (may differ slightly due to ties/quantile rounding).
+    bg_left = np.searchsorted(bg_sorted, thresholds, side="left")
+    fpr = (bg_n - bg_left) / float(bg_n)
+
+    # Compute mean per-region overlap at each threshold.
+    pro = np.zeros_like(fpr, dtype=np.float64)
+    for t_idx, thr in enumerate(thresholds):
+        overlaps = np.zeros(len(region_scores_sorted), dtype=np.float64)
+        for r_idx, region_sorted in enumerate(region_scores_sorted):
+            left = np.searchsorted(region_sorted, thr, side="left")
+            overlaps[r_idx] = (region_sorted.size - left) / float(region_sorted.size)
+        pro[t_idx] = float(np.mean(overlaps)) if overlaps.size else 0.0
+
+    # Monotonicize/merge duplicates on the x-axis (keep best PRO per FPR).
+    order = np.argsort(fpr)
+    fpr_sorted = np.asarray(fpr[order], dtype=np.float64)
+    pro_sorted = np.asarray(pro[order], dtype=np.float64)
+
+    unique_fpr, inverse = np.unique(fpr_sorted, return_inverse=True)
+    unique_pro = np.full_like(unique_fpr, -np.inf, dtype=np.float64)
+    np.maximum.at(unique_pro, inverse, pro_sorted)
+
+    # Ensure the curve starts at 0 FPR with 0 overlap (no positives predicted).
+    if unique_fpr.size == 0:
+        return 0.0
+    if float(unique_fpr[0]) > 0.0:
+        unique_fpr = np.insert(unique_fpr, 0, 0.0)
+        unique_pro = np.insert(unique_pro, 0, 0.0)
+
+    # Clip/integrate to the requested FPR limit, interpolating the last point.
+    limit = float(integration_limit)
+    mask = unique_fpr <= limit
+    fpr_clip = unique_fpr[mask]
+    pro_clip = unique_pro[mask]
     if fpr_clip.size == 0:
         return 0.0
 
-    if float(fpr_clip[-1]) < float(integration_limit):
-        unique_fpr, inverse = np.unique(fpr, return_inverse=True)
-        unique_tpr = np.full_like(unique_fpr, -np.inf, dtype=np.float64)
-        np.maximum.at(unique_tpr, inverse, tpr.astype(np.float64))
-        tpr_at_limit = float(np.interp(float(integration_limit), unique_fpr, unique_tpr))
-        fpr_clip = np.append(fpr_clip, float(integration_limit))
-        tpr_clip = np.append(tpr_clip, tpr_at_limit)
+    if float(fpr_clip[-1]) < limit:
+        pro_at_limit = float(np.interp(limit, unique_fpr, unique_pro))
+        fpr_clip = np.append(fpr_clip, limit)
+        pro_clip = np.append(pro_clip, pro_at_limit)
 
     # NumPy 2.x removed `np.trapz` in favor of `np.trapezoid`.
     trapezoid = getattr(np, "trapezoid", None)
     if trapezoid is None:  # pragma: no cover
         trapezoid = getattr(np, "trapz")
 
-    area = float(trapezoid(tpr_clip, fpr_clip))
-    return float(area / float(integration_limit))
+    area = float(trapezoid(pro_clip, fpr_clip))
+    return float(area / limit)
 
 
 def compute_pixel_auroc(
@@ -468,6 +548,7 @@ def compute_aupro(
     pixel_labels: NDArray,
     pixel_scores: NDArray,
     integration_limit: float = 0.3,
+    num_thresholds: int = 200,
 ) -> float:
     """Alias for :func:`compute_pro_score` (commonly referred to as AUPRO)."""
 
@@ -475,6 +556,7 @@ def compute_aupro(
         pixel_labels=pixel_labels,
         pixel_scores=pixel_scores,
         integration_limit=integration_limit,
+        num_thresholds=num_thresholds,
     )
 
 

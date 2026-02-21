@@ -7,20 +7,32 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
-from pytorch_msssim import ssim, SSIM
 import joblib
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from collections import deque
+import warnings
 
 try:
-    import faiss
+    from pytorch_msssim import SSIM  # type: ignore
+
+    _MSSSIM_AVAILABLE = True
+    _MSSSIM_IMPORT_ERROR = None
+except Exception as exc:  # noqa: BLE001 - optional dependency
+    SSIM = None  # type: ignore[assignment]
+    _MSSSIM_AVAILABLE = False
+    _MSSSIM_IMPORT_ERROR = exc
+
+try:
+    import faiss  # type: ignore
 
     FAISS_AVAILABLE = True
-except ImportError:
+    _FAISS_IMPORT_ERROR = None
+except Exception as exc:  # noqa: BLE001 - optional dependency
+    faiss = None  # type: ignore[assignment]
     FAISS_AVAILABLE = False
-    print("FAISS not available, using fallback method for latent distance")
+    _FAISS_IMPORT_ERROR = exc
 import multiprocessing
 from sklearn.decomposition import PCA as sklearn_PCA
 
@@ -168,10 +180,23 @@ class ComposedLoss(nn.Module):
     def __init__(self, alpha=0.85):
         super(ComposedLoss, self).__init__()
         self.alpha = alpha
-        self.ssim = SSIM(data_range=1.0, channel=3)
+        if not _MSSSIM_AVAILABLE or SSIM is None:
+            self.ssim = None
+            warnings.warn(
+                "Optional dependency 'pytorch_msssim' is not installed. "
+                "ComposedLoss will fall back to L1-only loss. "
+                "Install it via: pip install pytorch-msssim. "
+                f"Original error: {_MSSSIM_IMPORT_ERROR}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        else:
+            self.ssim = SSIM(data_range=1.0, channel=3)
 
     def forward(self, pred, target):
         l1_loss = F.l1_loss(pred, target)
+        if self.ssim is None:
+            return l1_loss
         ssim_loss = 1 - self.ssim(pred, target)
         return self.alpha * l1_loss + (1 - self.alpha) * ssim_loss
 
