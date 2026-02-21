@@ -199,6 +199,29 @@ scores = detector.decision_function(test_paths)
 anomaly_map = detector.get_anomaly_map('test_image.jpg')
 ```
 
+### Example 4: Pixel-First Industrial Benchmarking (MVTec AD / VisA) ⭐ NEW
+
+Run image-level + pixel-level metrics in one command:
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_softpatch \
+  --device cuda \
+  --pixel \
+  --pixel-postprocess \
+  --pixel-post-norm percentile \
+  --pixel-post-percentiles 1 99 \
+  --output runs/mvtec_bottle_softpatch.json
+```
+
+Notes:
+- Swap `--model` to compare: `vision_patchcore`, `vision_anomalydino`, `vision_openclip_patchknn`, `vision_openclip_promptscore`.
+- For “noisy normal” training sets, `vision_softpatch` is a robust patch-memory baseline.
+- If you train via anomalib, `pyimgano` also provides inference wrappers such as `vision_dinomaly_anomalib` and `vision_cfa_anomalib` (requires `pyimgano[anomalib]` + a trained checkpoint).
+
 ### Example 4: Zero-Shot Detection (WinCLIP - CVPR 2023) ⭐ NEW
 
 ```python
