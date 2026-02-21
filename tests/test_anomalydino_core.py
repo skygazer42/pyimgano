@@ -70,3 +70,24 @@ def test_vision_anomalydino_fit_scores_and_anomaly_map():
     assert np.isfinite(normal_map).all()
     assert np.isfinite(anomaly_map).all()
     assert float(anomaly_map.mean()) > float(normal_map.mean())
+
+
+def test_vision_anomalydino_coreset_sampling_reduces_memory_bank():
+    from pyimgano.models.anomalydino import VisionAnomalyDINO
+
+    class _CountingEmbedder:
+        def embed(self, image_path: str):
+            grid_h, grid_w = 2, 2
+            original_h, original_w = 8, 8
+            offset = float(sum(ord(c) for c in image_path) % 10)
+            patch_embeddings = (np.arange(grid_h * grid_w, dtype=np.float32).reshape(-1, 1) + offset)
+            return patch_embeddings, (grid_h, grid_w), (original_h, original_w)
+
+    embedder = _CountingEmbedder()
+    det_full = VisionAnomalyDINO(embedder=embedder, coreset_sampling_ratio=1.0)
+    det_full.fit(["a.png", "b.png", "c.png"])
+
+    det_half = VisionAnomalyDINO(embedder=embedder, coreset_sampling_ratio=0.5, random_seed=0)
+    det_half.fit(["a.png", "b.png", "c.png"])
+
+    assert det_half.memory_bank_size_ < det_full.memory_bank_size_

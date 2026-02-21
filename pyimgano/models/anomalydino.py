@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Optional, Protocol, Tuple
 
@@ -49,6 +50,8 @@ class VisionAnomalyDINO:
         pretrained: bool = True,
         knn_backend: str = "sklearn",
         n_neighbors: int = 1,
+        coreset_sampling_ratio: float = 1.0,
+        random_seed: int = 0,
         aggregation_method: AggregationMethod = "topk_mean",
         aggregation_topk: float = 0.01,
         device: str = "cpu",
@@ -71,6 +74,13 @@ class VisionAnomalyDINO:
         self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
         self.n_neighbors = int(n_neighbors)
+        self.coreset_sampling_ratio = float(coreset_sampling_ratio)
+        if not (0.0 < self.coreset_sampling_ratio <= 1.0):
+            raise ValueError(
+                "coreset_sampling_ratio must be in (0, 1]. "
+                f"Got {self.coreset_sampling_ratio}."
+            )
+        self.random_seed = int(random_seed)
         self.aggregation_method = aggregation_method
         self.aggregation_topk = float(aggregation_topk)
 
@@ -79,6 +89,13 @@ class VisionAnomalyDINO:
 
         self._memory_bank: Optional[NDArray] = None
         self._knn_index: Optional[KNNIndex] = None
+        self._n_neighbors_fit: Optional[int] = None
+
+    @property
+    def memory_bank_size_(self) -> int:
+        if self._memory_bank is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        return int(self._memory_bank.shape[0])
 
     def _embed(self, image_path: str) -> _EmbeddedImage:
         patch_embeddings, grid_shape, original_size = self.embedder.embed(image_path)
@@ -110,11 +127,22 @@ class VisionAnomalyDINO:
 
         embedded_train = [self._embed(path) for path in paths]
         memory_bank = np.concatenate([e.patch_embeddings for e in embedded_train], axis=0)
+
+        if self.coreset_sampling_ratio < 1.0:
+            rng = np.random.default_rng(self.random_seed)
+            n_total = int(memory_bank.shape[0])
+            n_keep = max(1, int(math.ceil(self.coreset_sampling_ratio * n_total)))
+            n_keep = min(n_keep, n_total)
+            keep_idx = rng.choice(n_total, size=n_keep, replace=False)
+            memory_bank = memory_bank[keep_idx]
+
         self._memory_bank = memory_bank
 
+        effective_k = min(max(1, self.n_neighbors), int(memory_bank.shape[0]))
+        self._n_neighbors_fit = effective_k
         self._knn_index = build_knn_index(
             backend=self.knn_backend,
-            n_neighbors=max(1, self.n_neighbors),
+            n_neighbors=effective_k,
         )
         self._knn_index.fit(memory_bank)
 
@@ -125,10 +153,12 @@ class VisionAnomalyDINO:
     def _patch_scores(self, embedded: _EmbeddedImage) -> NDArray:
         if self._knn_index is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
+        if self._n_neighbors_fit is None:
+            raise RuntimeError("Internal error: missing fitted neighbor count.")
 
         distances, _indices = self._knn_index.kneighbors(
             embedded.patch_embeddings,
-            n_neighbors=max(1, self.n_neighbors),
+            n_neighbors=self._n_neighbors_fit,
         )
         distances_np = np.asarray(distances, dtype=np.float32)
         if distances_np.ndim != 2:
