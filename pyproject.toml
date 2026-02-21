@@ -52,6 +52,7 @@ dependencies = [
     "joblib>=1.0.0",
     "matplotlib>=3.3.0",
     "numba>=0.51",
+    "tqdm>=4.0.0",
 ]
 
 [project.optional-dependencies]
