@@ -80,6 +80,7 @@ def test_empty_training_set_raises_clean_error():
 def test_predict_anomaly_map_requires_consistent_shapes():
     from pyimgano.models.anomalib_backend import VisionAnomalibCheckpoint
     from pyimgano.models.anomalydino import VisionAnomalyDINO
+    from pyimgano.models.openclip_backend import VisionOpenCLIPPromptScore
 
     inferencer = _FakeInferencerMismatchedMaps()
     model_a = VisionAnomalibCheckpoint(
@@ -99,6 +100,16 @@ def test_predict_anomaly_map_requires_consistent_shapes():
     with pytest.raises(ValueError):
         model_b.predict_anomaly_map(["a.png", "b.png"])
 
+    model_c = VisionOpenCLIPPromptScore(
+        embedder=embedder,
+        text_features_normal=np.array([1.0, 0.0], dtype=np.float32),
+        text_features_anomaly=np.array([0.0, 1.0], dtype=np.float32),
+        contamination=0.1,
+    )
+    model_c.fit(["a.png"])
+    with pytest.raises(ValueError):
+        model_c.predict_anomaly_map(["a.png", "b.png"])
+
 
 def test_mvtec_pipeline_resizes_maps_to_mask_shape():
     from pyimgano.pipelines.mvtec_visa import _compute_pixel_scores_from_detector
@@ -113,4 +124,3 @@ def test_mvtec_pipeline_resizes_maps_to_mask_shape():
 
     pixel_scores = _compute_pixel_scores_from_detector(detector, paths, masks)
     assert pixel_scores.shape == (2, 3, 4)
-

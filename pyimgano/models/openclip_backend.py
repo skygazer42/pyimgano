@@ -93,6 +93,287 @@ def _prompt_patch_scores(
     raise ValueError(f"Unknown mode: {mode}. Choose from: diff, ratio")
 
 
+def _load_openclip_model_and_preprocess(
+    *,
+    open_clip_module=None,
+    model_name: str,
+    pretrained: Optional[str],
+    device: str,
+    force_image_size: Optional[int] = None,
+):
+    """Load an OpenCLIP model + preprocess lazily (best-effort API compatibility)."""
+
+    open_clip = _require_open_clip(open_clip_module)
+
+    try:
+        import torch
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "PyTorch is required to use OpenCLIP detectors.\n"
+            "Install it via:\n  pip install 'torch'\n"
+            f"Original error: {exc}"
+        ) from exc
+
+    device_t = torch.device(str(device))
+    kwargs: dict[str, Any] = {}
+    if force_image_size is not None:
+        kwargs["force_image_size"] = int(force_image_size)
+
+    result = open_clip.create_model_and_transforms(
+        str(model_name),
+        pretrained=pretrained,
+        **kwargs,
+    )
+    if not isinstance(result, tuple):
+        raise RuntimeError(
+            "Unexpected return value from open_clip.create_model_and_transforms: "
+            f"{type(result)}"
+        )
+
+    if len(result) == 3:
+        model, _preprocess_train, preprocess_val = result
+        preprocess = preprocess_val
+    elif len(result) == 2:
+        model, preprocess = result
+    else:
+        raise RuntimeError(
+            "Unexpected return arity from open_clip.create_model_and_transforms: "
+            f"{len(result)}"
+        )
+
+    model.eval()
+    model = model.to(device_t)
+    return model, preprocess, device_t
+
+
+def _run_openclip_transformer(transformer: Any, x: Any) -> Any:
+    """Run an OpenCLIP transformer in either (B, N, C) or (N, B, C) mode."""
+
+    # Strategy 1: some implementations accept (B, N, C).
+    try:
+        out = transformer(x)
+        if isinstance(out, tuple):
+            out = out[0]
+        return out
+    except Exception:
+        pass
+
+    # Strategy 2: OpenAI CLIP style expects (N, B, C).
+    try:
+        x_t = x.permute(1, 0, 2)
+        out = transformer(x_t)
+        if isinstance(out, tuple):
+            out = out[0]
+        return out.permute(1, 0, 2)
+    except Exception as exc:
+        raise RuntimeError(
+            "Failed to run OpenCLIP visual transformer. This may be an unsupported "
+            "OpenCLIP version / model architecture."
+        ) from exc
+
+
+class OpenCLIPViTPatchEmbedder:
+    """Patch-token embedder for OpenCLIP ViT models.
+
+    Notes
+    -----
+    - This class is intentionally **lazy**: it does not import torch/open_clip or
+      load weights until the first call to :meth:`embed`.
+    - It only supports OpenCLIP ViT visual backbones (e.g. ``ViT-B-32``).
+    """
+
+    def __init__(
+        self,
+        *,
+        model_name: str = "ViT-B-32",
+        pretrained: Optional[str] = "laion2b_s34b_b79k",
+        device: str = "cpu",
+        force_image_size: Optional[int] = None,
+        normalize: bool = True,
+        open_clip_module=None,
+        model: Any = None,
+        preprocess: Any = None,
+    ) -> None:
+        self.model_name = str(model_name)
+        self.pretrained = pretrained
+        self.device = str(device)
+        self.force_image_size = force_image_size
+        self.normalize = bool(normalize)
+        self._open_clip = open_clip_module
+
+        self._model: Any = model
+        self._preprocess: Any = preprocess
+        self._device_t: Any = None
+
+    def _ensure_loaded(self) -> None:
+        if self._model is not None and self._preprocess is not None:
+            return
+        model, preprocess, device_t = _load_openclip_model_and_preprocess(
+            open_clip_module=self._open_clip,
+            model_name=self.model_name,
+            pretrained=self.pretrained,
+            device=self.device,
+            force_image_size=self.force_image_size,
+        )
+        self._model = model
+        self._preprocess = preprocess
+        self._device_t = device_t
+
+    def get_model_and_preprocess(self):
+        self._ensure_loaded()
+        return self._model, self._preprocess, self._device_t
+
+    def _extract_vit_patch_tokens(self, image_tensor):
+        try:
+            import torch
+        except Exception as exc:  # pragma: no cover
+            raise ImportError(
+                "PyTorch is required to use OpenCLIP detectors.\n"
+                "Install it via:\n  pip install 'torch'\n"
+                f"Original error: {exc}"
+            ) from exc
+
+        if self._model is None:  # pragma: no cover - guarded by _ensure_loaded
+            raise RuntimeError("OpenCLIP model not loaded")
+
+        visual = getattr(self._model, "visual", None)
+        if visual is None:
+            raise RuntimeError("OpenCLIP model has no `.visual` attribute")
+
+        required_attrs = ("conv1", "class_embedding", "positional_embedding", "transformer")
+        if not all(hasattr(visual, name) for name in required_attrs):
+            raise ValueError(
+                "OpenCLIPViTPatchEmbedder only supports OpenCLIP ViT visual backbones. "
+                f"Missing one of: {required_attrs}"
+            )
+
+        x = visual.conv1(image_tensor)  # (B, C, Gh, Gw)
+        grid_h, grid_w = int(x.shape[-2]), int(x.shape[-1])
+        x = x.reshape(x.shape[0], x.shape[1], -1).permute(0, 2, 1)  # (B, N, C)
+
+        class_embedding = visual.class_embedding
+        if getattr(class_embedding, "ndim", None) == 1:
+            class_token = (
+                class_embedding.to(dtype=x.dtype)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .expand(x.shape[0], 1, -1)
+            )
+        else:  # pragma: no cover - rare variants
+            class_token = class_embedding.to(dtype=x.dtype)
+            if class_token.ndim == 2:
+                class_token = class_token.unsqueeze(0).expand(x.shape[0], -1, -1)
+
+        x = torch.cat([class_token, x], dim=1)  # (B, 1+N, C)
+
+        pos = visual.positional_embedding
+        if getattr(pos, "ndim", None) == 2:
+            pos = pos.unsqueeze(0)
+        pos = pos.to(dtype=x.dtype)
+        if pos.shape[1] != x.shape[1]:  # pragma: no cover - unexpected
+            raise RuntimeError(
+                "OpenCLIP position embedding length does not match token length. "
+                f"Got pos={tuple(pos.shape)} vs tokens={tuple(x.shape)}."
+            )
+        x = x + pos
+
+        patch_dropout = getattr(visual, "patch_dropout", None)
+        if patch_dropout is not None:
+            try:
+                x = patch_dropout(x)
+            except Exception:
+                pass
+
+        ln_pre = getattr(visual, "ln_pre", None)
+        if ln_pre is not None:
+            x = ln_pre(x)
+
+        x = _run_openclip_transformer(visual.transformer, x)
+
+        ln_post = getattr(visual, "ln_post", None)
+        if ln_post is not None:
+            x = ln_post(x)
+
+        proj = getattr(visual, "proj", None)
+        if proj is not None:
+            try:
+                x = x @ proj
+            except Exception:
+                pass
+
+        patch_tokens = x[:, 1:, :]  # drop CLS token
+        if self.normalize:
+            denom = torch.linalg.norm(patch_tokens, dim=-1, keepdim=True)
+            denom = torch.clamp(denom, min=1e-12)
+            patch_tokens = patch_tokens / denom
+
+        return patch_tokens, (grid_h, grid_w)
+
+    def embed(self, image_path: str):
+        self._ensure_loaded()
+
+        try:
+            from PIL import Image
+        except Exception as exc:  # pragma: no cover
+            raise ImportError(
+                "Pillow is required to load images for OpenCLIP.\n"
+                "Install it via:\n  pip install 'pillow'\n"
+                f"Original error: {exc}"
+            ) from exc
+
+        try:
+            import torch
+        except Exception as exc:  # pragma: no cover
+            raise ImportError(
+                "PyTorch is required to use OpenCLIP detectors.\n"
+                "Install it via:\n  pip install 'torch'\n"
+                f"Original error: {exc}"
+            ) from exc
+
+        if self._preprocess is None or self._device_t is None:  # pragma: no cover
+            raise RuntimeError("OpenCLIP preprocess not loaded")
+
+        image = Image.open(image_path).convert("RGB")
+        original_w, original_h = image.size
+
+        image_tensor = self._preprocess(image).unsqueeze(0).to(self._device_t)
+        with torch.no_grad():
+            patch_tokens, grid_shape = self._extract_vit_patch_tokens(image_tensor)
+
+        patch_embeddings = patch_tokens.squeeze(0).detach().cpu().numpy().astype(np.float32)
+        return patch_embeddings, grid_shape, (int(original_h), int(original_w))
+
+
+def _encode_openclip_text_features(
+    *,
+    open_clip: Any,
+    model: Any,
+    device_t: Any,
+    prompts: list[str],
+) -> NDArray:
+    if not prompts:
+        raise ValueError("prompts must be non-empty")
+
+    try:
+        import torch
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "PyTorch is required to use OpenCLIP detectors.\n"
+            "Install it via:\n  pip install 'torch'\n"
+            f"Original error: {exc}"
+        ) from exc
+
+    tokens = open_clip.tokenize(prompts).to(device_t)
+    with torch.no_grad():
+        features = model.encode_text(tokens)
+        denom = torch.linalg.norm(features, dim=-1, keepdim=True)
+        denom = torch.clamp(denom, min=1e-12)
+        features = features / denom
+
+    mean_feature = features.mean(dim=0).detach().cpu().numpy().astype(np.float32)
+    return mean_feature
+
+
 @register_model(
     "vision_openclip_promptscore",
     tags=("vision", "openclip", "backend"),
@@ -102,7 +383,7 @@ def _prompt_patch_scores(
     },
 )
 class VisionOpenCLIPPromptScore:
-    """Skeleton for an OpenCLIP prompt-score based vision detector.
+    """OpenCLIP prompt-score based vision detector.
 
     Parameters
     ----------
@@ -111,12 +392,32 @@ class VisionOpenCLIPPromptScore:
         Intended for unit tests and advanced callers.
     """
 
+    _DEFAULT_TEXT_PROMPTS = {
+        "normal": [
+            "a photo of a normal {}",
+            "a high-quality photo of a {}",
+            "a photo of a perfect {}",
+        ],
+        "anomaly": [
+            "a photo of a damaged {}",
+            "a photo of a defective {}",
+            "a photo of an anomalous {}",
+        ],
+    }
+
     def __init__(
         self,
         *,
         embedder: Optional[PatchEmbedder] = None,
         text_features_normal: Optional[NDArray] = None,
         text_features_anomaly: Optional[NDArray] = None,
+        class_name: str = "object",
+        text_prompts: Optional[dict[str, list[str]]] = None,
+        openclip_model_name: str = "ViT-B-32",
+        openclip_pretrained: Optional[str] = "laion2b_s34b_b79k",
+        device: str = "cpu",
+        force_image_size: Optional[int] = None,
+        normalize_embeddings: bool = True,
         contamination: float = 0.1,
         aggregation_method: str = "topk_mean",
         aggregation_topk: float = 0.01,
@@ -127,6 +428,13 @@ class VisionOpenCLIPPromptScore:
         self.embedder = embedder
         self.text_features_normal = text_features_normal
         self.text_features_anomaly = text_features_anomaly
+        self.class_name = str(class_name)
+        self.text_prompts = dict(text_prompts) if text_prompts is not None else dict(self._DEFAULT_TEXT_PROMPTS)
+        self.openclip_model_name = str(openclip_model_name)
+        self.openclip_pretrained = openclip_pretrained
+        self.device = str(device)
+        self.force_image_size = force_image_size
+        self.normalize_embeddings = bool(normalize_embeddings)
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
             raise ValueError(
@@ -138,18 +446,97 @@ class VisionOpenCLIPPromptScore:
         self.mode = mode
         self._kwargs = dict(kwargs)
         self._open_clip = open_clip_module
+        self._text_cache_key: Optional[tuple[Any, ...]] = None
+        self._manual_text_features = (
+            self.text_features_normal is not None and self.text_features_anomaly is not None
+        )
 
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
-        # Ensure missing optional deps raise a clean ImportError, but allow unit
-        # tests to inject a fake embedder + text features without OpenCLIP.
-        if self.embedder is None or self.text_features_normal is None or self.text_features_anomaly is None:
-            _require_open_clip(open_clip_module)
-            raise NotImplementedError(
-                "Automatic OpenCLIP model loading and text prompt encoding is not implemented yet. "
-                "Pass `embedder=`, `text_features_normal=`, and `text_features_anomaly=`."
+        if self.embedder is None:
+            open_clip = _require_open_clip(open_clip_module)
+            self._open_clip = open_clip
+            self.embedder = OpenCLIPViTPatchEmbedder(
+                open_clip_module=open_clip,
+                model_name=self.openclip_model_name,
+                pretrained=self.openclip_pretrained,
+                device=self.device,
+                force_image_size=self.force_image_size,
+                normalize=self.normalize_embeddings,
             )
+        else:
+            # If callers provide a custom embedder, require explicit text features
+            # so patch embeddings and text embeddings are in the same space.
+            if self.text_features_normal is None or self.text_features_anomaly is None:
+                raise ValueError(
+                    "text_features_normal and text_features_anomaly are required when providing a custom embedder."
+                )
+
+    def set_class_name(self, class_name: str):
+        class_name_str = str(class_name)
+        if self.class_name == class_name_str:
+            return self
+
+        self.class_name = class_name_str
+        if not self._manual_text_features:
+            self.text_features_normal = None
+            self.text_features_anomaly = None
+            self._text_cache_key = None
+        return self
+
+    def _format_prompts(self, templates: list[str]) -> list[str]:
+        formatted: list[str] = []
+        for template in templates:
+            try:
+                formatted.append(str(template).format(self.class_name))
+            except Exception:
+                formatted.append(str(template).format(class_name=self.class_name))
+        return formatted
+
+    def _ensure_text_features(self) -> None:
+        if self.text_features_normal is not None and self.text_features_anomaly is not None:
+            return
+
+        if self.embedder is None:
+            raise RuntimeError("embedder is required")
+
+        if not isinstance(self.embedder, OpenCLIPViTPatchEmbedder):
+            raise RuntimeError(
+                "Automatic text feature encoding requires the default OpenCLIP embedder. "
+                "Provide text_features_normal/text_features_anomaly explicitly."
+            )
+
+        open_clip = _require_open_clip(self._open_clip)
+        model, _preprocess, device_t = self.embedder.get_model_and_preprocess()
+
+        normal_templates = list(self.text_prompts.get("normal", []))
+        anomaly_templates = list(self.text_prompts.get("anomaly", []))
+        key = (
+            self.class_name,
+            tuple(normal_templates),
+            tuple(anomaly_templates),
+            self.openclip_model_name,
+            self.openclip_pretrained,
+        )
+        if self._text_cache_key == key:
+            return
+
+        normal_prompts = self._format_prompts(normal_templates)
+        anomaly_prompts = self._format_prompts(anomaly_templates)
+        self.text_features_normal = _encode_openclip_text_features(
+            open_clip=open_clip,
+            model=model,
+            device_t=device_t,
+            prompts=normal_prompts,
+        )
+        self.text_features_anomaly = _encode_openclip_text_features(
+            open_clip=open_clip,
+            model=model,
+            device_t=device_t,
+            prompts=anomaly_prompts,
+        )
+        self._text_cache_key = key
 
     def _embed(self, image_path: str) -> tuple[NDArray, tuple[int, int], tuple[int, int]]:
         if self.embedder is None:  # pragma: no cover - guarded by __init__
@@ -180,12 +567,14 @@ class VisionOpenCLIPPromptScore:
         if not paths:
             raise ValueError("X must contain at least one training image path.")
 
+        self._ensure_text_features()
         self.decision_scores_ = np.asarray(self.decision_function(paths), dtype=np.float64)
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
     def decision_function(self, X):
-        if self.text_features_normal is None or self.text_features_anomaly is None:
+        self._ensure_text_features()
+        if self.text_features_normal is None or self.text_features_anomaly is None:  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
         paths = list(X)
@@ -212,7 +601,8 @@ class VisionOpenCLIPPromptScore:
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
-        if self.text_features_normal is None or self.text_features_anomaly is None:
+        self._ensure_text_features()
+        if self.text_features_normal is None or self.text_features_anomaly is None:  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
         patch_embeddings, grid_shape, original_size = self._embed(image_path)
@@ -244,6 +634,16 @@ class VisionOpenCLIPPromptScore:
     def predict_anomaly_map(self, X):
         paths = list(X)
         maps = [self.get_anomaly_map(path) for path in paths]
+        if not maps:
+            raise ValueError("X must be non-empty")
+
+        first_shape = maps[0].shape
+        for m in maps[1:]:
+            if m.shape != first_shape:
+                raise ValueError(
+                    "Inconsistent anomaly map shapes. "
+                    f"Expected {first_shape}, got {m.shape}."
+                )
         return np.stack(maps)
 
 
@@ -270,21 +670,30 @@ class VisionOpenCLIPPatchKNN:
         open_clip_module=None,
         embedder: Optional[PatchEmbedder] = None,
         knn_index: Optional[Any] = None,
+        openclip_model_name: str = "ViT-B-32",
+        openclip_pretrained: Optional[str] = "laion2b_s34b_b79k",
+        device: str = "cpu",
+        force_image_size: Optional[int] = None,
+        normalize_embeddings: bool = True,
         **kwargs: Any,
     ) -> None:
         # This detector is implemented as an AnomalyDINO-style patch-kNN model.
         # To keep tests lightweight, callers can inject a pure-numpy embedder.
         if embedder is None:
-            _require_open_clip(open_clip_module)
-            raise NotImplementedError(
-                "Default OpenCLIP patch embedder not implemented yet. "
-                "Pass an `embedder=` that implements `embed(image_path)`."
+            open_clip = _require_open_clip(open_clip_module)
+            embedder = OpenCLIPViTPatchEmbedder(
+                open_clip_module=open_clip,
+                model_name=str(openclip_model_name),
+                pretrained=openclip_pretrained,
+                device=str(device),
+                force_image_size=force_image_size,
+                normalize=bool(normalize_embeddings),
             )
 
         self._open_clip = open_clip_module
         self._knn_index = knn_index
         self._kwargs = dict(kwargs)
-        self._core = VisionAnomalyDINO(embedder=embedder, **kwargs)
+        self._core = VisionAnomalyDINO(embedder=embedder, device=str(device), **kwargs)
 
     def fit(self, X, y=None):  # pragma: no cover - skeleton API
         self._core.fit(X, y=y)
