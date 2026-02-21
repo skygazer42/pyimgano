@@ -117,6 +117,10 @@ class VisionAnomalyDINO:
 
         self.embedder = embedder
         self.contamination = float(contamination)
+        if not (0.0 < self.contamination < 0.5):
+            raise ValueError(
+                f"contamination must be in (0, 0.5). Got {self.contamination}."
+            )
         self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
         self.n_neighbors = int(n_neighbors)

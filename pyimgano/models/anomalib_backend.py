@@ -86,6 +86,10 @@ class VisionAnomalibCheckpoint:
         self.checkpoint_path = checkpoint_path
         self.device = device
         self.contamination = float(contamination)
+        if not (0.0 < self.contamination < 0.5):
+            raise ValueError(
+                f"contamination must be in (0, 0.5). Got {self.contamination}."
+            )
 
         self._inferencer = (
             inferencer
