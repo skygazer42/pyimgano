@@ -376,7 +376,7 @@ def _encode_openclip_text_features(
 
 @register_model(
     "vision_openclip_promptscore",
-    tags=("vision", "openclip", "backend"),
+    tags=("vision", "deep", "clip", "openclip", "backend", "prompt"),
     metadata={
         "description": "OpenCLIP prompt scoring detector (requires pyimgano[clip])",
         "backend": "openclip",
@@ -649,7 +649,7 @@ class VisionOpenCLIPPromptScore:
 
 @register_model(
     "vision_openclip_patchknn",
-    tags=("vision", "openclip", "backend", "knn"),
+    tags=("vision", "deep", "clip", "openclip", "backend", "knn"),
     metadata={
         "description": "OpenCLIP patch embedding + kNN detector (requires pyimgano[clip])",
         "backend": "openclip",

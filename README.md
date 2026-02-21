@@ -215,6 +215,29 @@ scores = detector.decision_function(test_paths)
 anomaly_maps = detector.predict_anomaly_map(test_paths)  # Pixel-level heatmaps
 ```
 
+### OpenCLIP Backends (Optional) ⭐ NEW
+
+```python
+# Requires:
+#   pip install "pyimgano[clip]"
+#
+# Notes:
+# - OpenCLIP weights are cached by torch (default: ~/.cache/torch).
+# - You can override the cache location via TORCH_HOME.
+detector = models.create_model(
+    "vision_openclip_promptscore",
+    device="cuda",  # or "cpu"
+    contamination=0.1,
+    class_name="screw",
+    openclip_model_name="ViT-B-32",
+    openclip_pretrained="laion2b_s34b_b79k",
+)
+
+detector.fit(train_paths)  # calibrates a threshold from train scores
+scores = detector.decision_function(test_paths)
+anomaly_map = detector.get_anomaly_map(test_paths[0])
+```
+
 ### Example 5: Few-Shot Foundation Model (AnomalyDINO - WACV 2025) ⭐ NEW
 
 ```python
@@ -440,12 +463,14 @@ augmented_images = [aug_pipeline(img) for img in train_images]
 | SUOD | `vision_suod` | Scalable ensemble |
 | XGBOD | `vision_xgbod` | XGBoost-based |
 
-### Deep Learning (31 algorithms) 🎉
+### Deep Learning (33+ algorithms) 🎉
 
 | Algorithm | Model Name | Key Features |
 |-----------|------------|--------------|
 | **InTra** ⭐ 🆕 | `vision_intra` | Industrial Transformer (ICCV 2023), self-attention |
 | **WinCLIP** ⭐ | `vision_winclip` | Zero-shot CLIP-based (CVPR 2023), no training |
+| **OpenCLIP PromptScore** ⭐ | `vision_openclip_promptscore` | Prompt scoring + anomaly maps (requires `pyimgano[clip]`) |
+| **OpenCLIP PatchKNN** ⭐ | `vision_openclip_patchknn` | OpenCLIP patch embeddings + kNN (requires `pyimgano[clip]`) |
 | **SimpleNet** ⭐ | `vision_simplenet` | Ultra-fast SOTA (CVPR 2023), 10x faster training |
 | **BGAD** ⭐ 🆕 | `vision_bgad` | Background-guided (CVPR 2023), robust to variations |
 | **DifferNet** ⭐ | `vision_differnet` | Learnable differences (WACV 2023), k-NN |

@@ -257,6 +257,56 @@ scores = detector.decision_function(test_images)
 anomaly_map = detector.get_anomaly_map(test_images[0])
 ```
 
+### OpenCLIP detectors (prompt-score / patch-kNN)
+
+PyImgAno ships two lightweight CLIP-style detectors backed by `open_clip_torch` (imported as `open_clip`).
+
+Install:
+
+```bash
+pip install "pyimgano[clip]"
+```
+
+Prompt-score detector (prompt-based scoring + anomaly maps):
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_openclip_promptscore",
+    device="cuda",  # or "cpu"
+    contamination=0.1,
+    class_name="screw",
+    openclip_model_name="ViT-B-32",
+    openclip_pretrained="laion2b_s34b_b79k",
+)
+
+detector.fit(train_images)  # calibrates a score threshold only
+scores = detector.decision_function(test_images)
+anomaly_map = detector.get_anomaly_map(test_images[0])
+```
+
+Patch-kNN detector (OpenCLIP ViT patch embeddings + kNN memory bank):
+
+```python
+detector = create_model(
+    "vision_openclip_patchknn",
+    device="cuda",
+    contamination=0.1,
+    openclip_model_name="ViT-B-32",
+    openclip_pretrained="laion2b_s34b_b79k",
+)
+
+detector.fit(train_images)  # builds patch memory bank
+scores = detector.decision_function(test_images)
+anomaly_map = detector.get_anomaly_map(test_images[0])
+```
+
+Notes:
+- OpenCLIP weights are cached by torch (default: `~/.cache/torch`, configurable via `TORCH_HOME`).
+- If you want unit-test friendly behavior or custom feature extraction, pass `embedder=...` and
+  `text_features_normal=`/`text_features_anomaly=` (prompt-score).
+
 
 ## 📖 Detailed Algorithm Descriptions
 
