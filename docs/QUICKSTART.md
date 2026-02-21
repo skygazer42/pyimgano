@@ -425,6 +425,64 @@ print("\nROC curve saved to roc_curve.png")
 
 ## Common Use Cases
 
+### Use Case 0: Pixel-First Industrial Inspection (MVTec AD / VisA)
+
+If your goal is **industrial visual inspection** (defect localization), you usually care most about:
+
+- **Image-level scores** (is this sample anomalous?)
+- **Pixel-level anomaly maps** (where is the defect?)
+- **Pixel metrics** (pixel AUROC / pixel AP / AUPRO) when GT masks are available
+
+#### Option A: CLI (recommended for quick benchmarking)
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore \
+  --device cpu \
+  --no-pretrained \
+  --pixel \
+  --pixel-postprocess \
+  --pixel-post-norm percentile \
+  --pixel-post-percentiles 1 99 \
+  --pixel-post-gaussian-sigma 1.0
+```
+
+#### Option B: Python pipeline (recommended for integration)
+
+```python
+from pyimgano.models import create_model
+from pyimgano.pipelines.mvtec_visa import evaluate_split, load_benchmark_split
+from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
+
+split = load_benchmark_split(
+    dataset="mvtec",
+    root="/path/to/mvtec_ad",
+    category="bottle",
+    resize=(256, 256),
+    load_masks=True,
+)
+
+detector = create_model(
+    "vision_softpatch",
+    contamination=0.1,
+    train_patch_outlier_quantile=0.1,
+    coreset_sampling_ratio=0.5,
+)
+
+postprocess = AnomalyMapPostprocess(
+    normalize=True,
+    normalize_method="percentile",
+    percentile_range=(1.0, 99.0),
+    gaussian_sigma=1.0,
+)
+
+results = evaluate_split(detector, split, compute_pixel_scores=True, postprocess=postprocess)
+print(results)
+```
+
 ### Use Case 1: Surface Defect Inspection
 
 ```python
