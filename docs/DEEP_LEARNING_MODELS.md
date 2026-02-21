@@ -416,7 +416,7 @@ train_imgs, val_imgs = train_test_split(normal_images, test_size=0.2)
 detector.fit(train_imgs)
 
 # Validate
-val_scores = detector.predict(val_imgs + anomaly_imgs)
+val_scores = detector.decision_function(val_imgs + anomaly_imgs)
 val_labels = [0] * len(val_imgs) + [1] * len(anomaly_imgs)
 
 auroc = roc_auc_score(val_labels, val_scores)
@@ -439,7 +439,7 @@ with open('detector.pkl', 'wb') as f:
 with open('detector.pkl', 'rb') as f:
     detector = pickle.load(f)
 
-scores = detector.predict(test_images)
+scores = detector.decision_function(test_images)
 ```
 
 ---

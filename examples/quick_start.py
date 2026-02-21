@@ -74,7 +74,8 @@ def main():
 
     # Predict
     print("Running inference on test images...")
-    scores = detector.predict(test_images)
+    scores = detector.decision_function(test_images)
+    predictions = detector.predict(test_images)  # 0=normal, 1=anomaly
     print("✓ Inference complete\n")
 
     # Evaluate
@@ -91,6 +92,7 @@ def main():
         print(f"F1:        {results['metrics']['f1']:.4f}")
         print(f"Precision: {results['metrics']['precision']:.4f}")
         print(f"Recall:    {results['metrics']['recall']:.4f}")
+        print(f"Predicted anomalies: {int(predictions.sum())}/{len(predictions)}")
         print("=" * 60)
     else:
         print("⚠️  Not enough test data for evaluation")

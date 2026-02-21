@@ -75,12 +75,16 @@ class VisionSTFPM(BaseVisionDeepDetector):
         Backbone architecture ('resnet18')
     layers : List[str], default=['layer1', 'layer2', 'layer3']
         Layers to extract features from
+    pretrained_teacher : bool, default=True
+        Whether to load ImageNet-pretrained weights for the teacher backbone.
     epochs : int, default=100
         Number of training epochs
     batch_size : int, default=32
         Training batch size
     lr : float, default=0.4
         Learning rate for SGD optimizer
+    num_workers : int, default=0
+        Number of workers for the training DataLoader.
     device : str, default='cpu'
         Device to run model on ('cpu' or 'cuda')
 
@@ -88,16 +92,19 @@ class VisionSTFPM(BaseVisionDeepDetector):
     --------
     >>> detector = VisionSTFPM(epochs=100, device='cuda')
     >>> detector.fit(['normal_img1.jpg', 'normal_img2.jpg'])
-    >>> scores = detector.predict(['test_img.jpg'])
+    >>> scores = detector.decision_function(['test_img.jpg'])
+    >>> labels = detector.predict(['test_img.jpg'])  # 0=normal, 1=anomaly
     """
 
     def __init__(
         self,
         backbone: str = "resnet18",
         layers: List[str] = None,
+        pretrained_teacher: bool = True,
         epochs: int = 100,
         batch_size: int = 32,
         lr: float = 0.4,
+        num_workers: int = 0,
         device: str = "cpu",
         **kwargs,
     ):
@@ -112,9 +119,11 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         self.backbone_name = backbone
         self.layers = layers or ["layer1", "layer2", "layer3"]
+        self.pretrained_teacher = pretrained_teacher
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
+        self.num_workers = num_workers
         self.device = device
 
         # Build teacher and student networks
@@ -145,13 +154,22 @@ class VisionSTFPM(BaseVisionDeepDetector):
         """Build teacher and student networks."""
         if self.backbone_name == "resnet18":
             # Teacher network (frozen)
-            self.teacher = models.resnet18(pretrained=True)
+            try:
+                weights = (
+                    models.ResNet18_Weights.DEFAULT if self.pretrained_teacher else None
+                )
+                self.teacher = models.resnet18(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                self.teacher = models.resnet18(pretrained=self.pretrained_teacher)
             self.teacher.eval()
             for param in self.teacher.parameters():
                 param.requires_grad = False
 
             # Student network (trainable)
-            self.student = models.resnet18(pretrained=False)
+            try:
+                self.student = models.resnet18(weights=None)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                self.student = models.resnet18(pretrained=False)
             self.student.train()
         else:
             raise ValueError(
@@ -233,8 +251,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
             dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=2,
-            pin_memory=True if self.device == 'cuda' else False
+            num_workers=self.num_workers,
+            pin_memory=str(self.device).startswith("cuda"),
         )
 
         # Setup optimizer
@@ -292,6 +310,11 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         # Compute normalization statistics on training set
         self._compute_normalization_stats(X_list)
+
+        # Compute training scores to establish a threshold (PyOD semantics).
+        # This enables `predict()` to return binary labels consistently.
+        self.decision_scores_ = self.decision_function(X_list)
+        self._process_decision_scores()
 
         return self
 
@@ -371,6 +394,26 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
     def predict(self, X: Iterable[str]) -> NDArray:
         """
+        Predict binary anomaly labels for test images.
+
+        Parameters
+        ----------
+        X : iterable of str
+            Paths to test images
+
+        Returns
+        -------
+        labels : ndarray of shape (n_samples,)
+            Binary labels (0 = normal, 1 = anomaly)
+        """
+        if self.mean_scores is None or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
+
+    def decision_function(self, X: Iterable[str]) -> NDArray:
+        """
         Compute anomaly scores for test images.
 
         Parameters
@@ -389,7 +432,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         self.student.eval()
 
         X_list = list(X)
-        scores = np.zeros(len(X_list))
+        scores = np.zeros(len(X_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
@@ -407,22 +450,6 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
-
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        """
-        Compute anomaly scores (alias for predict).
-
-        Parameters
-        ----------
-        X : iterable of str
-            Paths to test images
-
-        Returns
-        -------
-        scores : ndarray of shape (n_samples,)
-            Anomaly scores (higher = more anomalous)
-        """
-        return self.predict(X)
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
         """
@@ -493,3 +520,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
         )
 
         return anomaly_map
+
+    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+        """Generate pixel-level anomaly maps for a batch of images."""
+        maps = [self.get_anomaly_map(path) for path in X]
+        return np.stack(maps)

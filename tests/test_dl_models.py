@@ -135,6 +135,7 @@ class TestSTFPM:
         detector = create_model(
             "vision_stfpm",
             backbone="resnet18",
+            pretrained_teacher=False,
             epochs=5,
             batch_size=2,
             lr=0.4,
@@ -164,17 +165,23 @@ class TestSTFPM:
             "vision_stfpm",
             epochs=2,  # Few epochs for testing
             batch_size=2,
+            pretrained_teacher=False,
             device="cpu",
         )
 
         # Fit on normal images
         detector.fit(sample_images["normal"])
 
-        # Predict on all images
+        # Score on all images
         scores = detector.decision_function(sample_images["all"])
 
         assert len(scores) == len(sample_images["all"])
         assert all(isinstance(s, (int, float)) for s in scores)
+
+        # Predict binary labels (0=normal, 1=anomaly)
+        labels = detector.predict(sample_images["all"])
+        assert labels.shape == (len(sample_images["all"]),)
+        assert set(labels.tolist()).issubset({0, 1})
 
     @pytest.mark.slow
     def test_anomaly_map(self, sample_images):
@@ -183,6 +190,7 @@ class TestSTFPM:
             "vision_stfpm",
             epochs=2,
             batch_size=2,
+            pretrained_teacher=False,
             device="cpu",
         )
 
@@ -210,6 +218,7 @@ class TestSimpleNet:
             epochs=5,
             batch_size=4,
             lr=0.001,
+            pretrained=False,
             device=device,
         )
 
@@ -236,6 +245,7 @@ class TestSimpleNet:
             "vision_simplenet",
             epochs=2,  # Very fast training
             batch_size=2,
+            pretrained=False,
             device="cpu",
         )
 
@@ -260,6 +270,7 @@ class TestSimpleNet:
             "vision_simplenet",
             epochs=2,
             batch_size=2,
+            pretrained=False,
             device="cpu",
         )
 
@@ -273,6 +284,41 @@ class TestSimpleNet:
         assert hasattr(detector, "reference_features")
         assert detector.reference_features.shape[0] > 0
         assert detector.reference_features.shape[1] == 384  # feature_dim
+
+
+class TestDFM:
+    """Test DFM algorithm."""
+
+    @pytest.mark.parametrize("device", ["cpu"])
+    def test_initialization(self, device):
+        detector = create_model(
+            "vision_dfm",
+            backbone="resnet18",
+            pretrained=False,
+            device=device,
+        )
+
+        assert detector is not None
+        assert detector.backbone_name == "resnet18"
+
+    @pytest.mark.slow
+    def test_fit_predict(self, sample_images):
+        detector = create_model(
+            "vision_dfm",
+            backbone="resnet18",
+            pretrained=False,
+            device="cpu",
+        )
+
+        detector.fit(sample_images["normal"])
+
+        scores = detector.decision_function(sample_images["all"])
+        assert scores.shape == (len(sample_images["all"]),)
+        assert all(isinstance(s, (int, float)) for s in scores)
+
+        labels = detector.predict(sample_images["all"])
+        assert labels.shape == (len(sample_images["all"]),)
+        assert set(labels.tolist()).issubset({0, 1})
 
 
 class TestDLModelsIntegration:
@@ -291,23 +337,43 @@ class TestDLModelsIntegration:
         """Test full lifecycle: init -> fit -> predict -> decision_function."""
         # Create model with minimal parameters for fast testing
         if model_name == "vision_patchcore":
-            detector = create_model(model_name, coreset_sampling_ratio=0.5, device="cpu")
+            detector = create_model(
+                model_name,
+                coreset_sampling_ratio=0.5,
+                pretrained=False,
+                device="cpu",
+            )
         elif model_name in ["vision_stfpm", "vision_simplenet"]:
-            detector = create_model(model_name, epochs=2, batch_size=2, device="cpu")
+            if model_name == "vision_stfpm":
+                detector = create_model(
+                    model_name,
+                    epochs=2,
+                    batch_size=2,
+                    pretrained_teacher=False,
+                    device="cpu",
+                )
+            else:
+                detector = create_model(
+                    model_name,
+                    epochs=2,
+                    batch_size=2,
+                    pretrained=False,
+                    device="cpu",
+                )
         else:
             detector = create_model(model_name, device="cpu")
 
         # Fit
         detector.fit(sample_images["normal"])
 
-        # Predict
-        scores = detector.predict(sample_images["all"])
+        # Score
+        scores = detector.decision_function(sample_images["all"])
         assert len(scores) == len(sample_images["all"])
 
-        # Decision function (should be same as predict)
-        decision_scores = detector.decision_function(sample_images["all"])
-        assert len(decision_scores) == len(scores)
-        np.testing.assert_array_equal(scores, decision_scores)
+        # Predict binary labels
+        labels = detector.predict(sample_images["all"])
+        assert labels.shape == (len(sample_images["all"]),)
+        assert set(labels.tolist()).issubset({0, 1})
 
     @pytest.mark.parametrize(
         "model_name",
@@ -321,9 +387,20 @@ class TestDLModelsIntegration:
         """Test anomaly map generation for models that support it."""
         # Create model
         if model_name == "vision_patchcore":
-            detector = create_model(model_name, coreset_sampling_ratio=0.5, device="cpu")
+            detector = create_model(
+                model_name,
+                coreset_sampling_ratio=0.5,
+                pretrained=False,
+                device="cpu",
+            )
         else:
-            detector = create_model(model_name, epochs=2, batch_size=2, device="cpu")
+            detector = create_model(
+                model_name,
+                epochs=2,
+                batch_size=2,
+                pretrained_teacher=False,
+                device="cpu",
+            )
 
         # Fit
         detector.fit(sample_images["normal"])
@@ -372,20 +449,33 @@ class TestDLModelComparison:
         """Test that all DL models produce reasonable scores."""
         models = {
             "patchcore": create_model(
-                "vision_patchcore", coreset_sampling_ratio=0.5, device="cpu"
+                "vision_patchcore",
+                coreset_sampling_ratio=0.5,
+                pretrained=False,
+                device="cpu",
             ),
-            "stfpm": create_model("vision_stfpm", epochs=2, batch_size=2, device="cpu"),
+            "stfpm": create_model(
+                "vision_stfpm",
+                epochs=2,
+                batch_size=2,
+                pretrained_teacher=False,
+                device="cpu",
+            ),
             "simplenet": create_model(
-                "vision_simplenet", epochs=2, batch_size=2, device="cpu"
+                "vision_simplenet",
+                epochs=2,
+                batch_size=2,
+                pretrained=False,
+                device="cpu",
             ),
         }
 
         results = {}
 
         for name, detector in models.items():
-            # Fit and predict
+            # Fit and score
             detector.fit(sample_images["normal"])
-            scores = detector.predict(sample_images["all"])
+            scores = detector.decision_function(sample_images["all"])
 
             results[name] = {
                 "scores": scores,

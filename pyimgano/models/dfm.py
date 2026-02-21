@@ -46,6 +46,8 @@ class VisionDFM(BaseVisionDeepDetector):
         Feature extraction backbone
     layers : list, default=['layer2', 'layer3']
         Layers to extract features from
+    pretrained : bool, default=True
+        Whether to load ImageNet-pretrained weights for the backbone.
     device : str, default='cpu'
         Device to run model on
 
@@ -53,7 +55,8 @@ class VisionDFM(BaseVisionDeepDetector):
     --------
     >>> detector = VisionDFM(device='cuda')
     >>> detector.fit(train_images)  # Fast feature extraction only
-    >>> scores = detector.predict(test_images)
+    >>> scores = detector.decision_function(test_images)
+    >>> labels = detector.predict(test_images)  # 0=normal, 1=anomaly
 
     Notes
     -----
@@ -66,6 +69,7 @@ class VisionDFM(BaseVisionDeepDetector):
         self,
         backbone: str = "resnet18",
         layers: list = None,
+        pretrained: bool = True,
         device: str = "cpu",
         **kwargs,
     ):
@@ -74,6 +78,7 @@ class VisionDFM(BaseVisionDeepDetector):
 
         self.backbone_name = backbone
         self.layers = layers or ["layer2", "layer3"]
+        self.pretrained = pretrained
         self.device = device
 
         # Build model
@@ -102,9 +107,17 @@ class VisionDFM(BaseVisionDeepDetector):
     def _build_model(self):
         """Build feature extractor."""
         if self.backbone_name == "resnet18":
-            self.model = models.resnet18(pretrained=True)
+            try:
+                weights = models.ResNet18_Weights.DEFAULT if self.pretrained else None
+                self.model = models.resnet18(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                self.model = models.resnet18(pretrained=self.pretrained)
         elif self.backbone_name == "resnet50":
-            self.model = models.resnet50(pretrained=True)
+            try:
+                weights = models.ResNet50_Weights.DEFAULT if self.pretrained else None
+                self.model = models.resnet50(weights=weights)
+            except Exception:  # pragma: no cover - fallback for older torchvision
+                self.model = models.resnet50(pretrained=self.pretrained)
         else:
             raise ValueError(f"Unsupported backbone: {self.backbone_name}")
 
@@ -205,12 +218,19 @@ class VisionDFM(BaseVisionDeepDetector):
             logger.warning("Singular covariance matrix, using pseudo-inverse")
             self.inv_cov = np.linalg.pinv(cov_estimator.covariance_)
 
+        # Compute training scores to establish a threshold (PyOD semantics).
+        # This enables `predict()` to return binary labels consistently.
+        diff = features - self.mean
+        train_scores = np.sqrt(np.einsum("ij,jk,ik->i", diff, self.inv_cov, diff))
+        self.decision_scores_ = train_scores
+        self._process_decision_scores()
+
         logger.info("DFM fitting completed")
         return self
 
     def predict(self, X: Iterable[str]) -> NDArray:
         """
-        Compute anomaly scores using Mahalanobis distance.
+        Predict binary anomaly labels for test images.
 
         Parameters
         ----------
@@ -219,14 +239,22 @@ class VisionDFM(BaseVisionDeepDetector):
 
         Returns
         -------
-        scores : ndarray
-            Anomaly scores (higher = more anomalous)
+        labels : ndarray of shape (n_samples,)
+            Binary labels (0 = normal, 1 = anomaly)
         """
+        if self.mean is None or self.inv_cov is None or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
+
+    def decision_function(self, X: Iterable[str]) -> NDArray:
+        """Compute anomaly scores using Mahalanobis distance."""
         if self.mean is None or self.inv_cov is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         X_list = list(X)
-        scores = np.zeros(len(X_list))
+        scores = np.zeros(len(X_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
@@ -247,7 +275,3 @@ class VisionDFM(BaseVisionDeepDetector):
 
         logger.debug("Scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
-
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        """Compute anomaly scores (alias for predict)."""
-        return self.predict(X)

@@ -163,6 +163,15 @@ def example_detector_with_preprocessing():
             X_flat = [img.flatten() for img in X_processed]
             return super().predict(X_flat)
 
+        def decision_function(self, X):
+            """Compute anomaly scores with preprocessing."""
+            print(f"Preprocessing {len(X)} test images...")
+            X_processed = self.preprocess_images(X)
+
+            # Flatten for ECOD
+            X_flat = [img.flatten() for img in X_processed]
+            return super().decision_function(X_flat)
+
     # Create sample data
     train_images = create_sample_images()[:8]
     test_images = create_sample_images()[8:]
@@ -184,10 +193,12 @@ def example_detector_with_preprocessing():
 
     # Predict
     print("\nPredicting anomaly scores...")
-    scores = detector.predict(test_images)
+    scores = detector.decision_function(test_images)
+    predictions = detector.predict(test_images)
 
     print(f"\nAnomaly scores: {scores}")
     print(f"Mean score: {scores.mean():.4f}")
+    print(f"Predicted anomalies: {int(predictions.sum())}/{len(predictions)}")
 
 
 def example_different_strategies():
