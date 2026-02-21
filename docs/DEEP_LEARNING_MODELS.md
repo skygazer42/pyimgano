@@ -9,6 +9,7 @@ This guide covers the state-of-the-art deep learning algorithms available in PyI
 | **AnomalyDINO** ⭐ | 2025 | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Minutes | Few-shot, foundation-style |
 | **SimpleNet** ⭐ | 2023 | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | Low | Minutes | Production, Fast deployment |
 | **PatchCore** ⭐ | 2022 | ⚡⚡ | ⭐⭐⭐⭐⭐ | Medium | No training | High accuracy needed |
+| **SoftPatch** ⭐ | - | ⚡⚡ | ⭐⭐⭐⭐ | Medium | No training | Noisy-normal robustness, localization |
 | **PaDiM** | 2021 | ⚡⚡⚡ | ⭐⭐⭐⭐ | Low | No training | Edge devices |
 | **STFPM** | 2021 | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Hours | Balanced performance |
 | **FastFlow** | 2021 | ⚡⚡⚡ | ⭐⭐⭐⭐ | Medium | Hours | Fast inference |
@@ -105,6 +106,40 @@ anomaly_map = detector.get_anomaly_map('test_image.jpg')
 - Pixel-level: 98.1% AUROC
 - No training time, only feature extraction
 - Memory: Depends on coreset ratio
+
+---
+
+### 2.5 SoftPatch (robust patch-memory) ⭐ NEW
+
+**Patch-memory detector tuned for “noisy normal” training data (industrial inspection reality)**
+
+`vision_softpatch` follows a Patch-kNN workflow similar to PatchCore/AnomalyDINO, but adds a
+training-time memory-bank filtering step to reduce the impact of outlier patches in your
+normal/reference set.
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_softpatch",
+    # Remove the top 10% most outlier-looking train patches from the memory bank.
+    train_patch_outlier_quantile=0.10,
+    # Optional: reduce the remaining memory bank for speed.
+    coreset_sampling_ratio=0.25,
+)
+
+detector.fit(train_images)
+scores = detector.decision_function(test_images)
+anomaly_map = detector.get_anomaly_map(test_images[0])
+```
+
+**When to Use:**
+- Your “normal” training set likely includes some bad frames / contaminated samples
+- You want strong pixel localization but more robustness than a plain patch-memory baseline
+
+**Key Parameters:**
+- `train_patch_outlier_quantile`: fraction of training patches removed as outliers (0.0–<1.0)
+- `coreset_sampling_ratio`: additional sampling ratio for the remaining memory bank (0.0–1.0)
 
 ---
 
@@ -207,8 +242,9 @@ anomaly_map = detector.get_anomaly_map('test_image.jpg')
 **📍 Anomaly Localization**
 ```
 1. PatchCore      - Best pixel-level accuracy
-2. STFPM          - Good multi-scale localization
-3. PaDiM          - Fast localization
+2. SoftPatch      - More robust when train normals are noisy
+3. STFPM          - Good multi-scale localization
+4. PaDiM          - Fast localization
 ```
 
 **⚡ Fast Training**
