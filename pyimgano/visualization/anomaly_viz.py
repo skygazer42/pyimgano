@@ -302,8 +302,8 @@ def plot_score_distribution(
 
     Examples
     --------
-    >>> normal_scores = detector.predict(normal_images)
-    >>> anomaly_scores = detector.predict(anomaly_images)
+    >>> normal_scores = detector.decision_function(normal_images)
+    >>> anomaly_scores = detector.decision_function(anomaly_images)
     >>> plot_score_distribution(normal_scores, anomaly_scores)
     """
     if not MATPLOTLIB_AVAILABLE:

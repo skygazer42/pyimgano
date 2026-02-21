@@ -280,7 +280,7 @@ def evaluate_detector(
     >>> from pyimgano.models import create_model
     >>> detector = create_model('vision_ecod')
     >>> detector.fit(train_images)
-    >>> scores = detector.predict(test_images)
+    >>> scores = detector.decision_function(test_images)
     >>> results = evaluate_detector(test_labels, scores)
     >>> print(f"AUROC: {results['auroc']:.3f}")
     >>> print(f"F1: {results['metrics']['f1']:.3f}")

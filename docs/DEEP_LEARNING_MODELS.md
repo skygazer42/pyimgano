@@ -33,7 +33,7 @@ detector = create_model(
 )
 
 detector.fit(train_images)
-scores = detector.predict(test_images)
+scores = detector.decision_function(test_images)
 ```
 
 **Key Features:**
@@ -75,7 +75,7 @@ detector = create_model(
 )
 
 detector.fit(train_images)  # No training, just feature extraction
-scores = detector.predict(test_images)
+scores = detector.decision_function(test_images)
 
 # Get pixel-level anomaly map
 anomaly_map = detector.get_anomaly_map('test_image.jpg')
@@ -123,7 +123,7 @@ detector = create_model(
 )
 
 detector.fit(train_images)
-scores = detector.predict(test_images)
+scores = detector.decision_function(test_images)
 anomaly_map = detector.get_anomaly_map('test_image.jpg')
 ```
 

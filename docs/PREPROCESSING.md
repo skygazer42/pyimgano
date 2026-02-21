@@ -420,7 +420,7 @@ class ECODWithPreprocessing(PreprocessingMixin, ECOD):
 # Usage
 detector = ECODWithPreprocessing()
 detector.fit(train_images)
-scores = detector.predict(test_images)
+scores = detector.decision_function(test_images)
 ```
 
 ### Method 2: External Pipeline
@@ -443,7 +443,7 @@ test_processed = [pipeline.transform(img) for img in test_images]
 # Use with detector
 detector = ECOD()
 detector.fit(train_processed)
-scores = detector.predict(test_processed)
+scores = detector.decision_function(test_processed)
 ```
 
 ### Method 3: Manual Preprocessing
@@ -470,7 +470,7 @@ test_processed = preprocess(test_images)
 
 detector = ECOD()
 detector.fit(train_processed)
-scores = detector.predict(test_processed)
+scores = detector.decision_function(test_processed)
 ```
 
 ## Best Practices
