@@ -32,6 +32,9 @@ pip install "pyimgano[dev]"
 # For anomalib checkpoint wrappers (train in anomalib, evaluate in pyimgano)
 pip install "pyimgano[anomalib]"
 
+# For PatchCore-Inspection checkpoints (amazon-science/patchcore-inspection)
+pip install "pyimgano[patchcore_inspection]"
+
 # Install everything
 pip install "pyimgano[all]"
 ```
@@ -657,6 +660,7 @@ detectors.DeepSVDDDetector
 - [API Reference](https://github.com/jhlu2019/pyimgano#api-reference)
 - [Algorithm Comparison](./COMPARISON.md)
 - [Anomalib Checkpoints](./ANOMALIB_CHECKPOINTS.md)
+- [PatchCore-Inspection Checkpoints](./PATCHCORE_INSPECTION_CHECKPOINTS.md)
 - [Advanced Examples](../examples/)
 
 ### 3. Run Benchmarks

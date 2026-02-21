@@ -67,6 +67,9 @@ viz = [
 anomalib = [
     "anomalib>=0.10.0",
 ]
+patchcore_inspection = [
+    "patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git",
+]
 faiss = [
     "faiss-cpu>=1.7.4",
 ]
