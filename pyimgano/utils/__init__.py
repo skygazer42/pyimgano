@@ -1,5 +1,9 @@
 """Utility helpers for PyImgAno."""
 
+from __future__ import annotations
+
+import warnings
+
 from .image_ops import (
     Compose,
     ImagePreprocessor,
@@ -129,29 +133,37 @@ __all__ += [
 ]
 
 # Advanced visualization utilities
-from .advanced_viz import (
-    plot_roc_curve,
-    plot_pr_curve,
-    plot_confusion_matrix,
-    plot_score_distribution,
-    plot_feature_space_tsne,
-    plot_anomaly_heatmap,
-    plot_multi_model_comparison,
-    plot_threshold_analysis,
-    create_evaluation_report,
-)
+try:
+    from .advanced_viz import (
+        create_evaluation_report,
+        plot_anomaly_heatmap,
+        plot_confusion_matrix,
+        plot_feature_space_tsne,
+        plot_multi_model_comparison,
+        plot_pr_curve,
+        plot_roc_curve,
+        plot_score_distribution,
+        plot_threshold_analysis,
+    )
 
-__all__ += [
-    "plot_roc_curve",
-    "plot_pr_curve",
-    "plot_confusion_matrix",
-    "plot_score_distribution",
-    "plot_feature_space_tsne",
-    "plot_anomaly_heatmap",
-    "plot_multi_model_comparison",
-    "plot_threshold_analysis",
-    "create_evaluation_report",
-]
+    __all__ += [
+        "plot_roc_curve",
+        "plot_pr_curve",
+        "plot_confusion_matrix",
+        "plot_score_distribution",
+        "plot_feature_space_tsne",
+        "plot_anomaly_heatmap",
+        "plot_multi_model_comparison",
+        "plot_threshold_analysis",
+        "create_evaluation_report",
+    ]
+except ModuleNotFoundError as exc:
+    warnings.warn(
+        "Optional dependency missing for advanced visualization utilities. "
+        "Install with: pip install pyimgano[viz] (or pip install seaborn). "
+        f"Original error: {exc}",
+        RuntimeWarning,
+    )
 
 # Model management utilities
 from .model_utils import (

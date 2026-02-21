@@ -60,6 +60,9 @@ diffusion = [
     "transformers>=4.30.0",
     "accelerate>=0.20.0",
 ]
+viz = [
+    "seaborn>=0.11.0",
+]
 anomalib = [
     "anomalib>=0.10.0",
 ]
@@ -82,7 +85,7 @@ docs = [
     "sphinxcontrib-napoleon>=0.7",
 ]
 all = [
-    "pyimgano[diffusion,dev,docs]",
+    "pyimgano[backends,diffusion,dev,docs,viz]",
 ]
 backends = [
     "pyimgano[anomalib,faiss]",

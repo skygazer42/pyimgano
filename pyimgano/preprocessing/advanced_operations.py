@@ -19,7 +19,13 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage
 from skimage import feature, filters, morphology
-from skimage.feature import greycomatrix, greycoprops, hog, local_binary_pattern
+try:
+    from skimage.feature import graycomatrix as greycomatrix  # type: ignore
+    from skimage.feature import graycoprops as greycoprops  # type: ignore
+except ImportError:  # pragma: no cover
+    from skimage.feature import greycomatrix, greycoprops  # type: ignore
+
+from skimage.feature import hog, local_binary_pattern
 from skimage.filters import gabor
 
 

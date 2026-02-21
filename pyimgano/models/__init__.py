@@ -111,10 +111,6 @@ _auto_import(
     ]
 )
 
-from .ae import OptimizedAEDetector  # noqa: E402  # Re-export commonly used models
-from .loda import VisionLODA  # noqa: E402
-from .vae import VAEAnomalyDetector  # noqa: E402
-
 __all__ = [
     "BaseVisionDetector",
     "BaseVisionDeepDetector",
@@ -122,7 +118,36 @@ __all__ = [
     "create_model",
     "list_models",
     "register_model",
-    "VisionLODA",
-    "OptimizedAEDetector",
-    "VAEAnomalyDetector",
 ]
+
+# Optional re-exports: these should not make `import pyimgano.models` fail if a
+# specific model has extra third-party dependencies.
+try:  # pragma: no cover - depends on optional deps
+    from .loda import VisionLODA  # noqa: E402
+except Exception as exc:  # noqa: BLE001 - best-effort optional exports
+    warnings.warn(
+        f"Optional model export VisionLODA unavailable: {exc}",
+        RuntimeWarning,
+    )
+else:
+    __all__.append("VisionLODA")
+
+try:  # pragma: no cover - depends on optional deps
+    from .vae import VAEAnomalyDetector  # noqa: E402
+except Exception as exc:  # noqa: BLE001 - best-effort optional exports
+    warnings.warn(
+        f"Optional model export VAEAnomalyDetector unavailable: {exc}",
+        RuntimeWarning,
+    )
+else:
+    __all__.append("VAEAnomalyDetector")
+
+try:  # pragma: no cover - depends on optional deps
+    from .ae import OptimizedAEDetector  # noqa: E402
+except Exception as exc:  # noqa: BLE001 - best-effort optional exports
+    warnings.warn(
+        f"Optional model export OptimizedAEDetector unavailable: {exc}",
+        RuntimeWarning,
+    )
+else:
+    __all__.append("OptimizedAEDetector")
