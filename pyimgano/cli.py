@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -131,6 +132,58 @@ def _merge_checkpoint_path(
         )
 
     out["checkpoint_path"] = str(checkpoint_path)
+    return out
+
+
+def _get_model_signature_info(model_name: str) -> tuple[set[str], bool]:
+    """Return (accepted_kwarg_names, accepts_var_kwargs) for a registered model."""
+
+    entry = MODEL_REGISTRY.info(model_name)
+    constructor = entry.constructor
+    sig = inspect.signature(constructor)
+
+    accepts_var_kwargs = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
+    accepted = {
+        name
+        for name, p in sig.parameters.items()
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+    return accepted, accepts_var_kwargs
+
+
+def _validate_user_model_kwargs(model_name: str, user_kwargs: dict[str, Any]) -> None:
+    accepted, accepts_var_kwargs = _get_model_signature_info(model_name)
+    if accepts_var_kwargs:
+        return
+
+    unknown = sorted(set(user_kwargs) - accepted)
+    if unknown:
+        allowed = ", ".join(sorted(accepted)) or "<none>"
+        raise TypeError(
+            f"Model {model_name!r} does not accept model-kwargs: {unknown}. "
+            f"Allowed keys: {allowed}"
+        )
+
+
+def _build_model_kwargs(
+    model_name: str,
+    *,
+    user_kwargs: dict[str, Any],
+    auto_kwargs: dict[str, Any],
+) -> dict[str, Any]:
+    """Combine user and auto kwargs, keeping user precedence and dropping unsupported auto keys."""
+
+    _validate_user_model_kwargs(model_name, user_kwargs)
+    accepted, accepts_var_kwargs = _get_model_signature_info(model_name)
+
+    out = dict(user_kwargs)
+    for key, value in auto_kwargs.items():
+        if key in out:
+            continue
+        if accepts_var_kwargs or key in accepted:
+            out[key] = value
     return out
 
 

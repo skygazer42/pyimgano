@@ -50,3 +50,22 @@ def test_cli_requires_checkpoint_for_checkpoint_backed_models(monkeypatch):
         ]
     )
     assert code != 0
+
+
+def test_validate_user_kwargs_rejects_unknown_keys_for_strict_models():
+    from pyimgano.cli import _validate_user_model_kwargs
+
+    with pytest.raises(TypeError, match="does not accept"):
+        _validate_user_model_kwargs("vision_abod", {"not_a_param": 1})
+
+
+def test_build_model_kwargs_does_not_override_user_values():
+    from pyimgano.cli import _build_model_kwargs
+
+    out = _build_model_kwargs(
+        "vision_patchcore",
+        user_kwargs={"device": "cpu"},
+        auto_kwargs={"device": "cuda", "contamination": 0.1},
+    )
+    assert out["device"] == "cpu"
+    assert out["contamination"] == 0.1
