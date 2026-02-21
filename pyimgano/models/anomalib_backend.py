@@ -193,6 +193,8 @@ class VisionAnomalibCheckpoint:
     metadata={
         "description": "PatchCore via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "patchcore",
     },
 )
 class VisionPatchCoreAnomalib(VisionAnomalibCheckpoint):
@@ -208,6 +210,8 @@ class VisionPatchCoreAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "PaDiM via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "padim",
     },
 )
 class VisionPadimAnomalib(VisionAnomalibCheckpoint):
@@ -220,6 +224,8 @@ class VisionPadimAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "STFPM via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "stfpm",
     },
 )
 class VisionStfpmAnomalib(VisionAnomalibCheckpoint):
@@ -232,6 +238,8 @@ class VisionStfpmAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "DRAEM via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "draem",
     },
 )
 class VisionDraemAnomalib(VisionAnomalibCheckpoint):
@@ -244,6 +252,8 @@ class VisionDraemAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "FastFlow via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "fastflow",
     },
 )
 class VisionFastflowAnomalib(VisionAnomalibCheckpoint):
@@ -256,6 +266,8 @@ class VisionFastflowAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "Reverse Distillation via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "reverse_distillation",
     },
 )
 class VisionReverseDistillationAnomalib(VisionAnomalibCheckpoint):
@@ -268,6 +280,8 @@ class VisionReverseDistillationAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "DFM via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "dfm",
     },
 )
 class VisionDfmAnomalib(VisionAnomalibCheckpoint):
@@ -280,6 +294,8 @@ class VisionDfmAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "CFlow via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "cflow",
     },
 )
 class VisionCflowAnomalib(VisionAnomalibCheckpoint):
@@ -292,6 +308,8 @@ class VisionCflowAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "EfficientAD via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "efficientad",
     },
 )
 class VisionEfficientadAnomalib(VisionAnomalibCheckpoint):
@@ -304,6 +322,8 @@ class VisionEfficientadAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "Dinomaly via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "dinomaly",
     },
 )
 class VisionDinomalyAnomalib(VisionAnomalibCheckpoint):
@@ -316,7 +336,107 @@ class VisionDinomalyAnomalib(VisionAnomalibCheckpoint):
     metadata={
         "description": "CFA via anomalib backend (requires pyimgano[anomalib])",
         "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "cfa",
     },
 )
 class VisionCfaAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with CFA tags."""
+
+
+@register_model(
+    "vision_csflow_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "csflow"),
+    metadata={
+        "description": "CS-Flow via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "csflow",
+    },
+)
+class VisionCsflowAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with CS-Flow tags."""
+
+
+@register_model(
+    "vision_dfkde_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "dfkde"),
+    metadata={
+        "description": "DFKDE via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "dfkde",
+    },
+)
+class VisionDfkdeAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with DFKDE tags."""
+
+
+@register_model(
+    "vision_dsr_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "dsr"),
+    metadata={
+        "description": "DSR via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "dsr",
+    },
+)
+class VisionDsrAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with DSR tags."""
+
+
+@register_model(
+    "vision_ganomaly_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "ganomaly"),
+    metadata={
+        "description": "GANomaly via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "ganomaly",
+    },
+)
+class VisionGanomalyAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with GANomaly tags."""
+
+
+@register_model(
+    "vision_rkde_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "rkde"),
+    metadata={
+        "description": "R-KDE via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "rkde",
+    },
+)
+class VisionRkdeAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with R-KDE tags."""
+
+
+@register_model(
+    "vision_uflow_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "uflow"),
+    metadata={
+        "description": "U-Flow via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "uflow",
+    },
+)
+class VisionUflowAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with U-Flow tags."""
+
+
+@register_model(
+    "vision_winclip_anomalib",
+    tags=("vision", "deep", "backend", "anomalib", "winclip"),
+    metadata={
+        "description": "WinCLIP via anomalib backend (requires pyimgano[anomalib])",
+        "backend": "anomalib",
+        "requires_checkpoint": True,
+        "anomalib_model": "winclip",
+    },
+)
+class VisionWinclipAnomalib(VisionAnomalibCheckpoint):
+    """Alias for ``vision_anomalib_checkpoint`` with WinCLIP tags."""
