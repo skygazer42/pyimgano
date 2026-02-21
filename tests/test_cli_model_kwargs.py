@@ -69,3 +69,38 @@ def test_build_model_kwargs_does_not_override_user_values():
     )
     assert out["device"] == "cpu"
     assert out["contamination"] == 0.1
+
+
+def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
+    import pyimgano.cli as cli
+
+    captured: dict[str, object] = {}
+
+    def fake_create_model(_name: str, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
+    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
+    monkeypatch.setattr(cli, "create_model", fake_create_model)
+
+    code = cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_abod",
+            "--device",
+            "cpu",
+            "--contamination",
+            "0.2",
+        ]
+    )
+    assert code == 0
+    assert "device" not in captured
+    assert "pretrained" not in captured
+    assert captured["contamination"] == 0.2

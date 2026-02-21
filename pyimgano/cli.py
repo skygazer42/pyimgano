@@ -210,15 +210,18 @@ def main(argv: list[str] | None = None) -> int:
                 "Provide --checkpoint-path or set checkpoint_path in --model-kwargs."
             )
 
-        # Do not override explicit user kwargs.
-        if "device" not in merged_kwargs:
-            merged_kwargs["device"] = args.device
-        if "contamination" not in merged_kwargs:
-            merged_kwargs["contamination"] = args.contamination
-        if "pretrained" not in merged_kwargs:
-            merged_kwargs["pretrained"] = args.pretrained
-
-        detector = create_model(args.model, **merged_kwargs)
+        detector = create_model(
+            args.model,
+            **_build_model_kwargs(
+                args.model,
+                user_kwargs=merged_kwargs,
+                auto_kwargs={
+                    "device": args.device,
+                    "contamination": args.contamination,
+                    "pretrained": args.pretrained,
+                },
+            ),
+        )
 
         postprocess = None
         if args.pixel and args.pixel_postprocess:
