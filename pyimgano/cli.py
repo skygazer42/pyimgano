@@ -7,9 +7,8 @@ from typing import Any
 
 import numpy as np
 
-from pyimgano.evaluation import evaluate_detector
 from pyimgano.models import create_model
-from pyimgano.pipelines.mvtec_visa import load_benchmark_split
+from pyimgano.pipelines.mvtec_visa import evaluate_split, load_benchmark_split
 from pyimgano.reporting.report import save_run_report
 
 
@@ -58,20 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         pretrained=args.pretrained,
     )
 
-    detector.fit(split.train_paths)
-    scores = detector.decision_function(split.test_paths)
-
-    pixel_scores = None
-    if args.pixel and split.test_masks is not None and hasattr(detector, "get_anomaly_map"):
-        maps = [detector.get_anomaly_map(path) for path in split.test_paths]
-        pixel_scores = np.stack([np.asarray(m, dtype=np.float32) for m in maps])
-
-    results = evaluate_detector(
-        split.test_labels,
-        scores,
-        pixel_labels=split.test_masks,
-        pixel_scores=pixel_scores,
-    )
+    results = evaluate_split(detector, split, compute_pixel_scores=bool(args.pixel))
 
     payload = {
         "dataset": args.dataset,
@@ -90,4 +76,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
