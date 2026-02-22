@@ -240,8 +240,20 @@ pyimgano-benchmark \
 ```
 
 Notes:
-- `--preset industrial-balanced` currently provides tuned defaults for: `vision_patchcore`, `vision_padim`, `vision_spade`, `vision_anomalydino`, `vision_softpatch`, `vision_simplenet`, `vision_fastflow`, `vision_cflow`, `vision_stfpm`, `vision_reverse_distillation` (alias: `vision_reverse_dist`), `vision_draem`.
+- Presets:
+  - `--preset industrial-fast`: speed-oriented defaults (quick iteration / first run).
+  - `--preset industrial-balanced`: speed/accuracy balanced defaults.
+  - `--preset industrial-accurate`: accuracy-oriented defaults (higher compute by default).
+- Preset model coverage currently includes: `vision_patchcore`, `vision_padim`, `vision_spade`, `vision_anomalydino`, `vision_softpatch`, `vision_simplenet`, `vision_fastflow`, `vision_cflow`, `vision_stfpm`, `vision_reverse_distillation` (alias: `vision_reverse_dist`), `vision_draem`.
 - `--model-kwargs` always overrides preset values when both are provided.
+
+Discover available models:
+
+```bash
+pyimgano-benchmark --list-models
+pyimgano-benchmark --model-info vision_patchcore
+pyimgano-benchmark --model-info vision_patchcore --json
+```
 
 Benchmarking anomalib-trained checkpoints (inference wrappers):
 
