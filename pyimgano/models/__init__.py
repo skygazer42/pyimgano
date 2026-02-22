@@ -143,6 +143,7 @@ _auto_import(
         "openclip_backend",
         # Foundation-style PoC models (safe to import; weights are loaded lazily at runtime)
         "anomalydino",
+        "superad",
         # Optional foundation + sequence modeling
         "mambaad",
     ]

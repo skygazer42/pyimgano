@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyimgano"
-version = "0.4.0"
+version = "0.5.0"
 description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 37+ algorithms and 80+ operations"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -113,6 +113,7 @@ Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
 [project.scripts]
 pyimgano-benchmark = "pyimgano.cli:main"
 pyimgano-infer = "pyimgano.infer_cli:main"
+pyimgano-robust-benchmark = "pyimgano.robust_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["pyimgano*"]

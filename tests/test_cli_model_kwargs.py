@@ -211,6 +211,33 @@ def test_cli_parser_accepts_preset_industrial_accurate():
         raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
 
 
+def test_cli_parser_accepts_pixel_segf1_threshold_strategy():
+    import pyimgano.cli as cli
+
+    parser = cli._build_parser()
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--pixel",
+                "--pixel-segf1",
+                "--pixel-threshold-strategy",
+                "normal_pixel_quantile",
+                "--pixel-normal-quantile",
+                "0.999",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(
+            f"parser should accept segf1/threshold flags, got SystemExit({exc.code})"
+        ) from exc
+
+
 def test_resolve_preset_kwargs_patchcore_prefers_sklearn_when_no_faiss(monkeypatch):
     import pyimgano.cli as cli
 

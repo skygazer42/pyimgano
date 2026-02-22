@@ -68,6 +68,47 @@ def _build_parser() -> argparse.ArgumentParser:
         "--pixel", action="store_true", help="Compute pixel-level metrics if possible"
     )
     parser.add_argument(
+        "--pixel-segf1",
+        action="store_true",
+        help=(
+            "Compute pixel SegF1/bg-FPR under a single calibrated pixel threshold "
+            "(VAND-style). Requires --pixel."
+        ),
+    )
+    parser.add_argument(
+        "--pixel-threshold-strategy",
+        default=None,
+        choices=["normal_pixel_quantile"],
+        help=(
+            "Pixel threshold calibration strategy used for --pixel-segf1. "
+            "Default: normal_pixel_quantile"
+        ),
+    )
+    parser.add_argument(
+        "--pixel-normal-quantile",
+        type=float,
+        default=0.999,
+        help=(
+            "Quantile used for normal_pixel_quantile calibration (only if --pixel-segf1). "
+            "Default: 0.999"
+        ),
+    )
+    parser.add_argument(
+        "--pixel-calibration-fraction",
+        type=float,
+        default=0.2,
+        help=(
+            "Fraction of train/good held out for pixel threshold calibration (only if --pixel-segf1). "
+            "Default: 0.2"
+        ),
+    )
+    parser.add_argument(
+        "--pixel-calibration-seed",
+        type=int,
+        default=0,
+        help="RNG seed for calibration hold-out split (only if --pixel-segf1). Default: 0",
+    )
+    parser.add_argument(
         "--pixel-aupro-limit",
         type=float,
         default=0.3,
@@ -646,6 +687,9 @@ def main(argv: list[str] | None = None) -> int:
                 min_component_area=int(args.pixel_post_min_component_area),
             )
 
+        if bool(args.pixel_segf1) and not bool(args.pixel):
+            raise ValueError("--pixel-segf1 requires --pixel.")
+
         results = evaluate_split(
             detector,
             split,
@@ -653,6 +697,11 @@ def main(argv: list[str] | None = None) -> int:
             postprocess=postprocess,
             pro_integration_limit=float(args.pixel_aupro_limit),
             pro_num_thresholds=int(args.pixel_aupro_thresholds),
+            pixel_segf1=bool(args.pixel_segf1),
+            pixel_threshold_strategy=args.pixel_threshold_strategy,
+            pixel_normal_quantile=float(args.pixel_normal_quantile),
+            calibration_fraction=float(args.pixel_calibration_fraction),
+            calibration_seed=int(args.pixel_calibration_seed),
         )
 
         payload = {

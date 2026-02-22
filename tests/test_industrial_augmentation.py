@@ -12,6 +12,7 @@ from pyimgano.preprocessing.augmentation import (
 )
 from pyimgano.preprocessing.augmentation_pipeline import (
     get_industrial_camera_robust_augmentation,
+    get_industrial_drift_augmentation,
     get_industrial_surface_defect_synthesis_augmentation,
 )
 
@@ -39,6 +40,14 @@ def test_random_channel_gain_runs() -> None:
 
 def test_industrial_camera_robust_preset_is_callable() -> None:
     aug = get_industrial_camera_robust_augmentation()
+    img = np.random.randint(0, 255, size=(32, 32, 3), dtype=np.uint8)
+    out = aug(img)
+    assert out.shape == img.shape
+    assert out.dtype == np.uint8
+
+
+def test_industrial_drift_preset_is_callable() -> None:
+    aug = get_industrial_drift_augmentation()
     img = np.random.randint(0, 255, size=(32, 32, 3), dtype=np.uint8)
     out = aug(img)
     assert out.shape == img.shape

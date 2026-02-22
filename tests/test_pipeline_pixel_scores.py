@@ -49,7 +49,7 @@ def _make_split() -> BenchmarkSplit:
         axis=0,
     )
     return BenchmarkSplit(
-        train_paths=["train_normal_0.png"],
+        train_paths=["train_normal_0.png", "train_normal_1.png"],
         test_paths=test_paths,
         test_labels=test_labels,
         test_masks=test_masks,
@@ -82,3 +82,23 @@ def test_evaluate_split_no_pixel_scores_when_disabled():
     results = evaluate_split(det, split, compute_pixel_scores=False)
     assert "pixel_metrics" not in results
 
+
+def test_evaluate_split_pixel_segf1_with_normal_quantile_threshold():
+    split = _make_split()
+    det = _DummyBatchMapDetector()
+
+    results = evaluate_split(
+        det,
+        split,
+        compute_pixel_scores=True,
+        pixel_segf1=True,
+        pixel_threshold_strategy="normal_pixel_quantile",
+        pixel_normal_quantile=0.999,
+        calibration_fraction=0.5,
+        calibration_seed=0,
+    )
+    assert "pixel_metrics" in results
+    pixel_metrics = results["pixel_metrics"]
+    assert pixel_metrics["pixel_threshold"] == 0.0
+    assert pixel_metrics["pixel_segf1"] == 1.0
+    assert pixel_metrics["bg_fpr"] == 0.0

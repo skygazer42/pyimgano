@@ -270,6 +270,9 @@ Notes:
 - Swap `--model` to compare: `vision_patchcore`, `vision_anomalydino`, `vision_openclip_patchknn`, `vision_openclip_promptscore`.
 - For “noisy normal” training sets, `vision_softpatch` is a robust patch-memory baseline.
 - Tune AUPRO computation via `--pixel-aupro-limit` (FPR limit, commonly `0.3`) and `--pixel-aupro-thresholds` (integration resolution).
+- For deploy-style **single-threshold** pixel evaluation (VAND-style), add:
+  - `--pixel-segf1 --pixel-threshold-strategy normal_pixel_quantile --pixel-normal-quantile 0.999`
+  - This calibrates one pixel threshold from train/good normal pixels and reports `pixel_segf1` + `bg_fpr`.
 - If you train via anomalib, `pyimgano` also provides inference wrappers such as `vision_dinomaly_anomalib` and `vision_cfa_anomalib` (requires `pyimgano[anomalib]` + a trained checkpoint).
 
 Preset tip (popular industrial defaults, no JSON):
@@ -322,6 +325,27 @@ pyimgano-benchmark \
 Advanced:
 - Pass additional constructor args with `--model-kwargs '{"contamination": 0.1}'`.
 - `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
+
+### Robustness Benchmark (Clean + Drift Corruptions) ⭐ NEW
+
+Evaluate a detector on clean test data and a deterministic corruption suite (lighting/JPEG/blur/glare/geo-jitter)
+using a **single fixed pixel threshold** for the entire run:
+
+```bash
+pyimgano-robust-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore \
+  --preset industrial-balanced \
+  --device cuda \
+  --pixel-normal-quantile 0.999 \
+  --corruptions lighting,jpeg,blur,glare,geo_jitter \
+  --severities 1 2 3 4 5 \
+  --output runs/robust_mvtec_bottle_patchcore.json
+```
+
+Docs: `docs/ROBUSTNESS_BENCHMARK.md`
 
 ### High-Resolution Tiling Inference (2K/4K) ⭐ NEW
 

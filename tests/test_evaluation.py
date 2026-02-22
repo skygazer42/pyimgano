@@ -240,6 +240,27 @@ class TestEvaluateDetector:
         assert 'pixel_average_precision' in pixel_metrics
         assert 'aupro' in pixel_metrics
 
+    def test_pixel_segf1_optional_with_fixed_threshold(self):
+        """Test SegF1/bg-FPR metrics under a single global pixel threshold."""
+        y_true = np.array([0, 0, 1, 1])
+        y_scores = np.array([0.1, 0.2, 0.8, 0.9])
+
+        pixel_labels = np.zeros((1, 10, 10), dtype=np.uint8)
+        pixel_labels[:, 2:5, 2:5] = 1
+        pixel_scores = pixel_labels.astype(np.float32)
+
+        results = evaluate_detector(
+            y_true,
+            y_scores,
+            pixel_labels=pixel_labels,
+            pixel_scores=pixel_scores,
+            pixel_threshold=0.5,
+        )
+
+        pixel_metrics = results["pixel_metrics"]
+        assert pixel_metrics["pixel_segf1"] == 1.0
+        assert pixel_metrics["bg_fpr"] == 0.0
+
 
 class TestPROScore:
     """Test PRO score computation."""

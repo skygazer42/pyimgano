@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-22
+
+### Added
+- VAND-style pixel SegF1 + background FPR (`bg_fpr`) metrics under a single calibrated pixel threshold.
+- Normal-pixel quantile calibration helper for deploy-style pixel thresholding.
+- `pyimgano.robustness` module:
+  - deterministic corruptions: lighting, JPEG, blur, glare/specular, geo-jitter (mask-aware)
+  - robustness benchmark runner (clean + corruption suite)
+- New CLI: `pyimgano-robust-benchmark` for clean + corruption robustness evaluation.
+- New augmentation preset: `get_industrial_drift_augmentation()` (camera/lighting drift aligned with the corruption suite).
+- New model: `vision_superad` (DINOv2 patch-kNN using k-th NN distance per patch).
+
+### Changed
+- `pyimgano-benchmark` adds `--pixel-segf1` + pixel-threshold calibration flags (single-threshold evaluation).
+- `evaluate_detector()` can optionally report SegF1/bg-FPR when a fixed pixel threshold is provided.
+
+### Fixed
+- Pixel thresholding uses strict `>` comparison to avoid false positives when `threshold == max(normal)`.
+
 ## [0.4.0] - 2026-02-22
 
 ### Added

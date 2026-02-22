@@ -65,7 +65,8 @@ def test_tiled_detector_stitches_maps_hann_window() -> None:
     maps = tiled.predict_anomaly_map([img])
     assert maps.shape == (1, 6, 6)
     stitched = maps[0]
-    assert float(stitched[1:3, 4:6].max()) == 200.0
+    # Windowed blending is float math; allow tiny numeric noise across platforms.
+    assert np.isclose(float(stitched[1:3, 4:6].max()), 200.0, atol=1e-3)
     assert float(stitched[:1, :].max()) == 0.0
 
 
@@ -79,5 +80,6 @@ def test_tiled_detector_stitches_maps_gaussian_window() -> None:
     maps = tiled.predict_anomaly_map([img])
     assert maps.shape == (1, 6, 6)
     stitched = maps[0]
-    assert float(stitched[1:3, 4:6].max()) == 200.0
+    # Windowed blending is float math; allow tiny numeric noise across platforms.
+    assert np.isclose(float(stitched[1:3, 4:6].max()), 200.0, atol=1e-3)
     assert float(stitched[:1, :].max()) == 0.0

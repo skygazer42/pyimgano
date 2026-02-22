@@ -637,6 +637,66 @@ def get_industrial_camera_robust_augmentation() -> Compose:
     )
 
 
+def get_industrial_drift_augmentation() -> Compose:
+    """Augmentation preset aligned with the robustness benchmark corruptions.
+
+    Targets the most common production drifts in industrial inspection:
+    - lighting/exposure/white-balance drift
+    - JPEG artifacts
+    - mild blur (defocus / motion)
+    - mild glare/specular highlights
+    - geometric jitter (small rotations/translations)
+    """
+
+    def _jpeg(image):
+        return jpeg_compress(image, quality=random.randint(20, 95))
+
+    def _gain(image):
+        return random_channel_gain(image, gain_range=(0.85, 1.15))
+
+    def _gamma(image):
+        arr = np.asarray(image, dtype=np.float32)
+        if arr.ndim != 3 or arr.shape[2] != 3:
+            raise ValueError(f"Expected color image shape (H,W,3), got {arr.shape}")
+
+        gamma = float(random.uniform(0.75, 1.35))
+        out = (np.clip(arr, 0.0, 255.0) / 255.0) ** gamma
+        return np.clip(out * 255.0, 0.0, 255.0).astype(np.uint8)
+
+    def _glare(image):
+        return add_specular_highlight(
+            image,
+            intensity=random.uniform(0.2, 0.8),
+            radius_frac_range=(0.04, 0.16),
+        )
+
+    return Compose(
+        [
+            RandomFlip(mode="horizontal", p=0.3),
+            RandomRotate(angle_range=(-7, 7), p=0.25),
+            RandomTranslate(translate_range=(-0.04, 0.04), p=0.2),
+            ColorJitter(
+                brightness=(0.85, 1.15),
+                contrast=(0.85, 1.15),
+                saturation=(0.9, 1.1),
+                hue=(-6, 6),
+                p=0.35,
+            ),
+            RandomApply(_gain, p=0.3),
+            RandomApply(_gamma, p=0.25),
+            RandomApply(_jpeg, p=0.25),
+            OneOf(
+                [
+                    MotionBlur(kernel_size_range=(3, 9), p=1.0),
+                    DefocusBlur(radius_range=(2, 6), p=1.0),
+                ],
+                p=0.2,
+            ),
+            RandomApply(_glare, p=0.15),
+        ]
+    )
+
+
 def get_industrial_surface_defect_synthesis_augmentation() -> Compose:
     """Augmentation preset that injects synthetic *surface defects*.
 

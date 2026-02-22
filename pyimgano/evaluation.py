@@ -272,6 +272,7 @@ def evaluate_detector(
     find_best_threshold: bool = True,
     pixel_labels: Optional[NDArray] = None,
     pixel_scores: Optional[NDArray] = None,
+    pixel_threshold: Optional[float] = None,
     pro_integration_limit: float = 0.3,
     pro_num_thresholds: int = 200,
 ) -> Dict[str, Union[float, Dict]]:
@@ -351,7 +352,7 @@ def evaluate_detector(
     }
 
     if pixel_labels is not None and pixel_scores is not None:
-        results['pixel_metrics'] = {
+        pixel_metrics: Dict[str, float] = {
             'pixel_auroc': compute_pixel_auroc(pixel_labels, pixel_scores),
             'pixel_average_precision': compute_pixel_average_precision(pixel_labels, pixel_scores),
             'aupro': compute_aupro(
@@ -361,6 +362,17 @@ def evaluate_detector(
                 num_thresholds=pro_num_thresholds,
             ),
         }
+
+        if pixel_threshold is not None:
+            pixel_metrics['pixel_threshold'] = float(pixel_threshold)
+            pixel_metrics['pixel_segf1'] = compute_pixel_segf1(
+                pixel_labels, pixel_scores, threshold=float(pixel_threshold)
+            )
+            pixel_metrics['bg_fpr'] = compute_bg_fpr(
+                pixel_labels, pixel_scores, threshold=float(pixel_threshold)
+            )
+
+        results['pixel_metrics'] = pixel_metrics
 
     return results
 
@@ -542,6 +554,88 @@ def compute_pixel_average_precision(
     """Compute pixel-level Average Precision (AP) by flattening pixel arrays."""
 
     return compute_average_precision(pixel_labels.ravel(), pixel_scores.ravel())
+
+
+def compute_pixel_segf1(
+    pixel_labels: NDArray,
+    pixel_scores: NDArray,
+    *,
+    threshold: float,
+) -> float:
+    """Compute pixel-level SegF1 (F1 of thresholded anomaly maps).
+
+    Notes
+    -----
+    - This is the common "SegF1 @ single global threshold" metric used in
+      industrial AD challenges (VAND-style).
+    - The caller is responsible for choosing a *single* threshold and using it
+      consistently across evaluation conditions (clean/corrupted, etc.).
+    """
+
+    labels = np.asarray(pixel_labels)
+    scores = np.asarray(pixel_scores)
+    if labels.size == 0 or scores.size == 0:
+        raise ValueError("pixel_labels and pixel_scores must be non-empty.")
+    if labels.shape != scores.shape:
+        raise ValueError(
+            "pixel_labels and pixel_scores must have the same shape. "
+            f"Got {labels.shape} != {scores.shape}."
+        )
+
+    labels_bin = (labels > 0).astype(np.uint8, copy=False).ravel()
+    scores_f = np.asarray(scores, dtype=np.float64).ravel()
+    pred = (scores_f > float(threshold)).astype(np.uint8, copy=False)
+
+    if len(np.unique(labels_bin)) < 2:
+        logger.warning("Only one class present in pixel_labels. SegF1 is not defined.")
+        return float("nan")
+
+    tp = int(np.sum((pred == 1) & (labels_bin == 1)))
+    fp = int(np.sum((pred == 1) & (labels_bin == 0)))
+    fn = int(np.sum((pred == 0) & (labels_bin == 1)))
+
+    denom = 2 * tp + fp + fn
+    if denom <= 0:
+        return 0.0
+    return float((2.0 * tp) / float(denom))
+
+
+def compute_bg_fpr(
+    pixel_labels: NDArray,
+    pixel_scores: NDArray,
+    *,
+    threshold: float,
+) -> float:
+    """Compute background false-positive rate at a pixel threshold.
+
+    Background pixels are defined as GT==0 (non-anomalous).
+    """
+
+    labels = np.asarray(pixel_labels)
+    scores = np.asarray(pixel_scores)
+    if labels.size == 0 or scores.size == 0:
+        raise ValueError("pixel_labels and pixel_scores must be non-empty.")
+    if labels.shape != scores.shape:
+        raise ValueError(
+            "pixel_labels and pixel_scores must have the same shape. "
+            f"Got {labels.shape} != {scores.shape}."
+        )
+
+    labels_bin = (labels > 0).astype(np.uint8, copy=False).ravel()
+    bg = labels_bin == 0
+    if int(np.sum(bg)) == 0:
+        logger.warning("No background pixels found in pixel_labels. bg_fpr is not defined.")
+        return float("nan")
+
+    scores_f = np.asarray(scores, dtype=np.float64).ravel()
+    pred = scores_f > float(threshold)
+
+    fp = int(np.sum(pred & bg))
+    tn = int(np.sum((~pred) & bg))
+    denom = fp + tn
+    if denom <= 0:
+        return float("nan")
+    return float(fp / float(denom))
 
 
 def compute_aupro(
