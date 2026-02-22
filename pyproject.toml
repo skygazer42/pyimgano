@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pyimgano"
 version = "0.5.2"
-description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 37+ algorithms and 80+ operations"
+description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 120+ registry models and 80+ operations"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}

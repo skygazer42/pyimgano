@@ -175,7 +175,23 @@ class FeatureExtractor(nn.Module):
         return features
 
 
-@register_model("devnet")
+@register_model(
+    "vision_devnet",
+    tags=("vision", "deep", "devnet", "weakly-supervised", "kdd2019"),
+    metadata={
+        "description": "DevNet - weakly-supervised deviation loss anomaly detection (KDD 2019)",
+        "paper": "Deep Anomaly Detection with Deviation Networks",
+        "year": 2019,
+    },
+)
+@register_model(
+    "devnet",
+    tags=("vision", "deep", "devnet", "weakly-supervised", "kdd2019"),
+    metadata={
+        "description": "DevNet (legacy alias) - weakly-supervised deviation loss anomaly detection",
+        "year": 2019,
+    },
+)
 class DevNetDetector(BaseVisionDeepDetector):
     """DevNet anomaly detector.
 

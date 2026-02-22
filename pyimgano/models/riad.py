@@ -179,7 +179,23 @@ class UNet(nn.Module):
         return out
 
 
-@register_model("riad")
+@register_model(
+    "vision_riad",
+    tags=("vision", "deep", "riad", "reconstruction", "self-supervised", "pixel_map"),
+    metadata={
+        "description": "RIAD - reconstruction by adjacent image decomposition (2020-style)",
+        "paper": "Reconstruction by Inpainting for Visual Anomaly Detection",
+        "year": 2020,
+    },
+)
+@register_model(
+    "riad",
+    tags=("vision", "deep", "riad", "reconstruction", "self-supervised", "pixel_map"),
+    metadata={
+        "description": "RIAD (legacy alias) - reconstruction by adjacent image decomposition",
+        "year": 2020,
+    },
+)
 class RIADDetector(BaseVisionDeepDetector):
     """RIAD anomaly detector.
 

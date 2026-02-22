@@ -106,7 +106,23 @@ class FeatureExtractor(nn.Module):
         return x1, x2, x3
 
 
-@register_model("differnet")
+@register_model(
+    "vision_differnet",
+    tags=("vision", "deep", "differnet", "knn", "wacv2023", "pixel_map"),
+    metadata={
+        "description": "DifferNet - learnable difference + kNN anomaly detection (WACV 2023)",
+        "paper": "Same Same But DifferNet: Semi-Supervised Defect Detection with Normalizing Flows",
+        "year": 2023,
+    },
+)
+@register_model(
+    "differnet",
+    tags=("vision", "deep", "differnet", "knn", "wacv2023", "pixel_map"),
+    metadata={
+        "description": "DifferNet (legacy alias) - learnable difference + kNN anomaly detection",
+        "year": 2023,
+    },
+)
 class DifferNetDetector(BaseVisionDeepDetector):
     """DifferNet anomaly detector.
 

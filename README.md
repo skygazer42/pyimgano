@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating **69+ state-of-the-art algorithms** from classical machine learning to cutting-edge deep learning (**CVPR 2025** 🚀, **CVPR 2024**, **ECCV 2024**, CVPR 2023, ICCV 2023, CVPR 2022, ECCV 2020). 🎉🔥
+A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating **120+ registered model entry points** (native implementations + optional backend wrappers + legacy aliases) from classical machine learning to cutting-edge deep learning (**CVPR 2025**, **CVPR 2024**, **ECCV 2024**, CVPR 2023, ICCV 2023, CVPR 2022, ECCV 2020).
 
 > **Translations:** [中文](README_cn.md) · [日本語](README_ja.md) · [한국어](README_ko.md)
 
@@ -14,7 +14,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 
 ## ✨ Key Features
 
-- 🔥 **69+ Detection Algorithms** 🎉🔥🚀 - From classical (ECOD, COPOD, KNN, PCA) to latest **CVPR 2025** SOTA (One-for-More #1, BayesianPF, Odd-One-Out, CrossMAD)
+- 🔥 **120+ Registry Model Entries** - From classical (ECOD, COPOD, KNN, PCA) to recent SOTA methods (including optional backend checkpoint wrappers)
 - 🚀 **Production Ready** - Enterprise-grade code quality, comprehensive testing, CI/CD pipelines
 - 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
@@ -30,6 +30,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 - 🏆 **Built-in Benchmarking** - Compare multiple algorithms systematically
 - 📖 **Well Documented** - Extensive docs, algorithm guide, and examples
 - 🔧 **Easy to Extend** - Plugin architecture with model registry system
+- 🧾 **Auto-generated Model Index** ⭐ NEW! - See `docs/MODEL_INDEX.md` or run `pyimgano-benchmark --list-models`
 
 ---
 

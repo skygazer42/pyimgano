@@ -232,7 +232,22 @@ class SegmentationHead(nn.Module):
         return output
 
 
-@register_model("memseg")
+@register_model(
+    "vision_memseg",
+    tags=("vision", "deep", "memseg", "memory", "segmentation", "pixel_map"),
+    metadata={
+        "description": "MemSeg - memory-guided anomaly segmentation (ICCV 2022-style)",
+        "year": 2022,
+    },
+)
+@register_model(
+    "memseg",
+    tags=("vision", "deep", "memseg", "memory", "segmentation", "pixel_map"),
+    metadata={
+        "description": "MemSeg (legacy alias) - memory-guided anomaly segmentation",
+        "year": 2022,
+    },
+)
 class MemSegDetector(BaseVisionDeepDetector):
     """Memory-guided segmentation anomaly detector.
 

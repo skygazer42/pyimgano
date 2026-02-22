@@ -205,7 +205,23 @@ class ProjectionHead(nn.Module):
         return x
 
 
-@register_model("cutpaste")
+@register_model(
+    "vision_cutpaste",
+    tags=("vision", "deep", "cutpaste", "self-supervised", "cvpr2021"),
+    metadata={
+        "description": "CutPaste - self-supervised anomaly detection via synthetic cut/paste (CVPR 2021)",
+        "paper": "CutPaste: Self-Supervised Learning for Anomaly Detection and Localization",
+        "year": 2021,
+    },
+)
+@register_model(
+    "cutpaste",
+    tags=("vision", "deep", "cutpaste", "self-supervised", "cvpr2021"),
+    metadata={
+        "description": "CutPaste (legacy alias) - self-supervised anomaly detection via synthetic cut/paste",
+        "year": 2021,
+    },
+)
 class CutPasteDetector(BaseVisionDeepDetector):
     """CutPaste anomaly detector.
 

@@ -27,7 +27,7 @@ from pyimgano.models import create_model
 
 # Zero-shot detection
 detector = create_model(
-    "winclip",
+    "vision_winclip",
     clip_model="ViT-B/32",
     k_shot=0  # Zero-shot
 )
@@ -76,7 +76,7 @@ anomaly_maps = detector.predict_anomaly_map(test_images)
 **Example**:
 ```python
 detector = create_model(
-    "differnet",
+    "vision_differnet",
     backbone="wide_resnet50",
     k_neighbors=5,
     train_difference=True  # Learn difference module
@@ -108,7 +108,7 @@ scores = detector.predict_proba(test_images)
 **Example**:
 ```python
 detector = create_model(
-    "cutpaste",
+    "vision_cutpaste",
     backbone="resnet18",
     augment_type="normal",  # or "scar", "3way"
     epochs=256
@@ -139,7 +139,7 @@ scores = detector.predict_proba(test_images)
 **Example**:
 ```python
 detector = create_model(
-    "spade",
+    "vision_spade",
     backbone="wide_resnet50",
     k_neighbors=50,
     feature_levels=["layer1", "layer2", "layer3"]
@@ -170,7 +170,7 @@ anomaly_maps = detector.predict_anomaly_map(test_images)
 **Example**:
 ```python
 detector = create_model(
-    "riad",
+    "vision_riad",
     backbone="resnet18",
     grid_size=8,
     epochs=100
@@ -200,7 +200,7 @@ scores = detector.predict_proba(test_images)
 **Example**:
 ```python
 detector = create_model(
-    "memseg",
+    "vision_memseg",
     memory_size=1000,
     feature_dim=512,
     k_neighbors=3
@@ -318,7 +318,7 @@ scores = detector.predict_proba(test_images)
 ```python
 # DevNet requires labeled data (0=normal, 1=anomaly)
 detector = create_model(
-    "devnet",
+    "vision_devnet",
     backbone="resnet18",
     hidden_dims=[128, 64],
     margin=5.0
@@ -609,7 +609,7 @@ normal_images = load_normal_images("train/good/")  # (N, H, W, 3)
 
 # 2. Create CutPaste detector
 detector = create_model(
-    "cutpaste",
+    "vision_cutpaste",
     backbone="resnet18",
     augment_type="3way",  # Use 3-way classification
     pretrained=True,
@@ -641,7 +641,7 @@ from pyimgano.models import create_model
 
 # 1. Create WinCLIP detector (no training needed!)
 detector = create_model(
-    "winclip",
+    "vision_winclip",
     clip_model="ViT-B/32",
     window_size=224,
     k_shot=0  # Zero-shot
@@ -683,9 +683,9 @@ import numpy as np
 
 # Create multiple detectors
 detectors = {
-    "cutpaste": create_model("cutpaste", backbone="resnet18"),
-    "differnet": create_model("differnet", backbone="resnet18"),
-    "simplenet": create_model("simplenet"),
+    "cutpaste": create_model("vision_cutpaste", backbone="resnet18"),
+    "differnet": create_model("vision_differnet", backbone="resnet18"),
+    "simplenet": create_model("vision_simplenet"),
 }
 
 # Train all
