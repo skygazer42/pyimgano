@@ -60,6 +60,10 @@ from .augmentation import (
     jpeg_compress,
     vignette,
     random_channel_gain,
+    # Industrial defect synthesis (optional / use with care)
+    add_scratches,
+    add_dust,
+    add_specular_highlight,
 )
 
 
@@ -629,6 +633,59 @@ def get_industrial_camera_robust_augmentation() -> Compose:
                 ],
                 p=0.2,
             ),
+        ]
+    )
+
+
+def get_industrial_surface_defect_synthesis_augmentation() -> Compose:
+    """Augmentation preset that injects synthetic *surface defects*.
+
+    This is useful for:
+    - self-supervised / reconstruction-style pipelines that benefit from synthetic defects
+    - stress-testing localization + post-processing (thresholding, morphology, components)
+
+    Notes
+    -----
+    For strictly "normal-only" memory-bank methods (e.g. PatchCore), injecting
+    synthetic defects into the training set can hurt performance. Use this
+    preset primarily for algorithms designed to learn from synthetic anomalies.
+    """
+
+    def _scratch(image):
+        return add_scratches(
+            image,
+            num_scratches=random.randint(1, 4),
+            thickness_range=(1, 3),
+            alpha=random.uniform(0.35, 0.85),
+            mode=random.choice(["dark", "bright"]),
+            blur_ksize=3,
+        )
+
+    def _dust(image):
+        return add_dust(
+            image,
+            num_particles=random.randint(10, 80),
+            radius_range=(1, 3),
+            alpha=random.uniform(0.15, 0.5),
+            mode=random.choice(["bright", "dark"]),
+        )
+
+    def _glare(image):
+        return add_specular_highlight(
+            image,
+            intensity=random.uniform(0.3, 1.1),
+            radius_frac_range=(0.06, 0.22),
+        )
+
+    return Compose(
+        [
+            # Keep geometry mild for most inspection images
+            RandomFlip(mode="horizontal", p=0.25),
+            RandomRotate(angle_range=(-5, 5), p=0.15),
+            # Inject a small amount of synthetic defects
+            RandomApply(_scratch, p=0.25),
+            RandomApply(_dust, p=0.25),
+            RandomApply(_glare, p=0.15),
         ]
     )
 

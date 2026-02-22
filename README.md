@@ -111,6 +111,9 @@ pip install pyimgano[faiss]
 # For OpenCLIP backends
 pip install "pyimgano[clip]"
 
+# For MambaAD (Mamba SSM sequence model)
+pip install "pyimgano[mamba]"
+
 # All optional backends
 pip install pyimgano[backends]
 

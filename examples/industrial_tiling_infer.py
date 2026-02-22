@@ -45,7 +45,13 @@ def main() -> None:
         covariance_eps=0.1,
     )
 
-    tiled = TiledDetector(detector=base, tile_size=96, stride=64, score_reduce="max")
+    tiled = TiledDetector(
+        detector=base,
+        tile_size=96,
+        stride=64,
+        score_reduce="max",
+        map_reduce="hann",  # weighted blending to reduce seam artifacts
+    )
     tiled.fit(train)
     calibrate_threshold(tiled, train, input_format=ImageFormat.RGB_U8_HWC, quantile=0.995)
 
@@ -69,4 +75,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

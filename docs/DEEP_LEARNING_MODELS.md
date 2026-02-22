@@ -7,6 +7,7 @@ This guide covers the state-of-the-art deep learning algorithms available in PyI
 | Algorithm | Year | Speed | Accuracy | Memory | Training Time | Use Case |
 |-----------|------|-------|----------|--------|---------------|----------|
 | **AnomalyDINO** ⭐ | 2025 | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Minutes | Few-shot, foundation-style |
+| **MambaAD** ⭐ | 2024 | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Minutes | Patch reconstruction, sequence modeling |
 | **SimpleNet** ⭐ | 2023 | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | Low | Minutes | Production, Fast deployment |
 | **PatchCore** ⭐ | 2022 | ⚡⚡ | ⭐⭐⭐⭐⭐ | Medium | No training | High accuracy needed |
 | **SoftPatch** ⭐ | - | ⚡⚡ | ⭐⭐⭐⭐ | Medium | No training | Noisy-normal robustness, localization |
@@ -173,6 +174,39 @@ anomaly_map = detector.get_anomaly_map(test_images[0])
 - The default embedder uses `torch.hub` to load DINOv2 weights on first run.
 - For offline/enterprise usage, pass a custom `embedder=...`.
 - For faster kNN search on large memory banks, install `pyimgano[faiss]`.
+
+---
+
+### 3.5 MambaAD (NeurIPS 2024) ⭐ NEW
+
+**Sequence-model reconstruction on frozen patch embeddings**
+
+`vision_mambaad` follows a practical MambaAD-style workflow:
+- extract fixed-grid patch embeddings (default: DINOv2)
+- train a small Mamba SSM to reconstruct normal patch patterns
+- use reconstruction error for image scores + pixel anomaly maps
+
+```python
+from pyimgano.models import create_model
+
+# Requires:
+#   pip install "pyimgano[mamba]"
+detector = create_model(
+    "vision_mambaad",
+    device="cuda",   # or "cpu"
+    epochs=5,
+    batch_size=8,
+    lr=1e-3,
+)
+
+detector.fit(train_images)
+scores = detector.decision_function(test_images)
+anomaly_map = detector.get_anomaly_map(test_images[0])
+```
+
+**When to Use:**
+- You want a learnable detector that can model long-range patch dependencies
+- You need pixel-level maps but prefer a reconstruction-style training loop
 
 ---
 

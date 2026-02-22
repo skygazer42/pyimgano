@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 
 ImageInput = Union[str, Path, np.ndarray]
-MapReduce = Literal["max", "mean"]
+MapReduce = Literal["max", "mean", "hann", "gaussian"]
 ScoreReduce = Literal["max", "mean", "topk_mean"]
 
 
@@ -152,8 +152,10 @@ def stitch_maps(
         raise ValueError(f"out_shape must be positive, got {out_shape}")
 
     reduce_mode = str(reduce).lower()
-    if reduce_mode not in ("max", "mean"):
-        raise ValueError(f"Unknown reduce mode: {reduce}. Choose from: max, mean")
+    if reduce_mode not in ("max", "mean", "hann", "gaussian"):
+        raise ValueError(
+            f"Unknown reduce mode: {reduce}. Choose from: max, mean, hann, gaussian"
+        )
 
     if reduce_mode == "max":
         out = np.full((out_h, out_w), -np.inf, dtype=np.float32)
@@ -168,18 +170,64 @@ def stitch_maps(
         out[~np.isfinite(out)] = 0.0
         return out
 
+    def _window(kind: str, tile_size: int) -> NDArray:
+        t = int(tile_size)
+        if t <= 0:
+            raise ValueError(f"tile_size must be positive, got {t}")
+
+        if kind == "mean":
+            return np.ones((t, t), dtype=np.float32)
+
+        if kind == "hann":
+            w = np.hanning(t).astype(np.float32)
+            if float(w.sum()) <= 0:  # pragma: no cover - tiny t edge cases
+                w = np.ones((t,), dtype=np.float32)
+            # Avoid exact zeros at borders to prevent division-by-zero when a
+            # border pixel is only covered by one tile.
+            w = np.maximum(w, 1e-3)
+            return np.outer(w, w).astype(np.float32)
+
+        if kind == "gaussian":
+            if t == 1:
+                return np.ones((1, 1), dtype=np.float32)
+            yy, xx = np.mgrid[0:t, 0:t].astype(np.float32)
+            cy = (t - 1) / 2.0
+            cx = (t - 1) / 2.0
+            y = (yy - cy) / max(cy, 1.0)
+            x = (xx - cx) / max(cx, 1.0)
+            r2 = x * x + y * y
+            sigma2 = 0.5 * 0.5
+            w = np.exp(-0.5 * r2 / sigma2).astype(np.float32)
+            w = np.maximum(w, 1e-3)
+            return w
+
+        raise ValueError(f"Unknown window kind: {kind}")
+
+    weights = _window(reduce_mode, int(tiles[0].tile_size)) if tiles else None
+
     accum = np.zeros((out_h, out_w), dtype=np.float32)
-    counts = np.zeros((out_h, out_w), dtype=np.float32)
+    weight_sum = np.zeros((out_h, out_w), dtype=np.float32)
     for tile, tile_map in zip(tiles, maps):
         arr = np.asarray(tile_map, dtype=np.float32)
         if arr.ndim != 2:
             raise ValueError(f"tile_map must be 2D, got shape {arr.shape}")
-        patch = arr[: tile.valid_h, : tile.valid_w]
-        accum[tile.y0 : tile.y1, tile.x0 : tile.x1] += patch
-        counts[tile.y0 : tile.y1, tile.x0 : tile.x1] += 1.0
 
-    counts = np.maximum(counts, 1.0)
-    return accum / counts
+        patch = arr[: tile.valid_h, : tile.valid_w]
+
+        w = weights
+        if w is None:  # pragma: no cover
+            w_patch = 1.0
+        else:
+            if w.shape != (tile.tile_size, tile.tile_size):
+                w = _window(reduce_mode, int(tile.tile_size))
+            w_patch = w[: tile.valid_h, : tile.valid_w]
+
+        region = (slice(tile.y0, tile.y1), slice(tile.x0, tile.x1))
+        accum[region] += patch * w_patch
+        weight_sum[region] += w_patch
+
+    weight_sum = np.maximum(weight_sum, 1e-6)
+    return accum / weight_sum
 
 
 def _reduce_scores(scores: NDArray, *, mode: ScoreReduce, topk: float) -> float:

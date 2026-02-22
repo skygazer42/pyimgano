@@ -91,6 +91,7 @@ from .augmentation_pipeline import (
     get_weather_augmentation,
     get_anomaly_augmentation,
     get_industrial_camera_robust_augmentation,
+    get_industrial_surface_defect_synthesis_augmentation,
 )
 from .industrial_presets import (
     gray_world_white_balance,
@@ -175,6 +176,7 @@ __all__ = [
     "get_weather_augmentation",
     "get_anomaly_augmentation",
     "get_industrial_camera_robust_augmentation",
+    "get_industrial_surface_defect_synthesis_augmentation",
     # Industrial presets
     "gray_world_white_balance",
     "max_rgb_white_balance",

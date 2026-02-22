@@ -76,8 +76,12 @@ class VisionPatchCore(BaseVisionDeepDetector):
         backbone: str = "wide_resnet50",
         layers: List[str] = None,
         coreset_sampling_ratio: float = 0.1,
+        feature_projection_dim: Optional[int] = None,
+        projection_fit_samples: int = 10,
         n_neighbors: int = 9,
         knn_backend: str = "sklearn",
+        memory_bank_dtype: str = "float32",
+        random_seed: int = 0,
         pretrained: bool = True,
         device: str = "cpu",
         **kwargs,
@@ -105,10 +109,30 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.backbone_name = backbone
         self.layers = layers or ["layer2", "layer3"]
         self.coreset_sampling_ratio = coreset_sampling_ratio
+        self.feature_projection_dim = (
+            int(feature_projection_dim) if feature_projection_dim is not None else None
+        )
+        self.projection_fit_samples = int(projection_fit_samples)
         self.n_neighbors = n_neighbors
         self.knn_backend = knn_backend
+        self.memory_bank_dtype = str(memory_bank_dtype)
+        self.random_seed = int(random_seed)
         self.pretrained = pretrained
         self.device = device
+
+        if self.feature_projection_dim is not None and self.feature_projection_dim < 1:
+            raise ValueError(
+                f"feature_projection_dim must be >= 1 (or None), got {self.feature_projection_dim}"
+            )
+        if self.projection_fit_samples < 1:
+            raise ValueError(
+                f"projection_fit_samples must be >= 1, got {self.projection_fit_samples}"
+            )
+        if self.memory_bank_dtype not in ("float32", "float16"):
+            raise ValueError(
+                "memory_bank_dtype must be 'float32' or 'float16'. "
+                f"Got {self.memory_bank_dtype!r}."
+            )
 
         # Initialize backbone
         self._build_model()
@@ -116,6 +140,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         # Memory bank for patch features
         self.memory_bank: Optional[NDArray] = None
         self.nn_index = None
+        self._projection = None
 
         # Image preprocessing
         transforms = self._tv_transforms
@@ -130,12 +155,13 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.info(
             "Initialized PatchCore with backbone=%s, layers=%s, "
-            "coreset_ratio=%.2f, k=%d, device=%s",
+            "coreset_ratio=%.2f, k=%d, device=%s, proj_dim=%s",
             backbone,
             self.layers,
             coreset_sampling_ratio,
             n_neighbors,
             device,
+            str(self.feature_projection_dim),
         )
 
     def _build_model(self) -> None:
@@ -248,6 +274,40 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         return features.cpu().numpy(), target_size
 
+    def _ensure_projection(self, features_fit: NDArray) -> None:
+        """Create and fit a random projection for PatchCore features if enabled."""
+
+        if self.feature_projection_dim is None:
+            return
+        if self._projection is not None:
+            return
+
+        np = self._np
+        from sklearn.random_projection import GaussianRandomProjection
+
+        fit_mat = np.asarray(features_fit, dtype=np.float32)
+        if fit_mat.ndim != 2:
+            raise ValueError(f"Expected 2D fit matrix, got shape {fit_mat.shape}")
+
+        dim = int(fit_mat.shape[1])
+        if self.feature_projection_dim >= dim:
+            # Nothing to do: requested dim is not a reduction.
+            self._projection = None
+            return
+
+        self._projection = GaussianRandomProjection(
+            n_components=int(self.feature_projection_dim),
+            random_state=int(self.random_seed),
+        )
+        self._projection.fit(fit_mat)
+
+    def _maybe_project(self, features: NDArray) -> NDArray:
+        if self._projection is None:
+            return features
+        np = self._np
+        projected = self._projection.transform(features)
+        return np.asarray(projected, dtype=np.float32)
+
     def _coreset_sampling(self, features: NDArray) -> NDArray:
         """
         Perform greedy coreset selection to reduce memory bank size.
@@ -280,21 +340,24 @@ class VisionPatchCore(BaseVisionDeepDetector):
             100 * self.coreset_sampling_ratio,
         )
 
-        # Greedy k-Center coreset selection
-        selected_indices = []
+        # Greedy k-Center coreset selection.
+        #
+        # Implementation notes:
+        # - Use squared L2 distances to avoid an unnecessary sqrt (monotonic).
+        # - Use an explicit RNG for reproducibility across runs.
+        rng = np.random.default_rng(int(self.random_seed))
 
-        # Start with random point
-        min_distances = np.full(n_samples, np.inf)
-        selected_indices.append(np.random.randint(n_samples))
+        selected_indices: list[int] = []
+        min_distances_sq = np.full(n_samples, np.inf, dtype=np.float64)
+        selected_indices.append(int(rng.integers(0, n_samples)))
 
-        for _ in range(n_coreset - 1):
-            # Update minimum distances to selected set
+        for _ in range(int(n_coreset) - 1):
             last_selected = features[selected_indices[-1]]
-            distances = np.linalg.norm(features - last_selected, axis=1)
-            min_distances = np.minimum(min_distances, distances)
+            diff = features - last_selected
+            distances_sq = np.sum(diff * diff, axis=1)
+            min_distances_sq = np.minimum(min_distances_sq, distances_sq)
 
-            # Select point with maximum minimum distance
-            next_idx = np.argmax(min_distances)
+            next_idx = int(np.argmax(min_distances_sq))
             selected_indices.append(next_idx)
 
         return features[selected_indices]
@@ -324,8 +387,17 @@ class VisionPatchCore(BaseVisionDeepDetector):
         if not X_list:
             raise ValueError("Training set cannot be empty")
 
-        # Extract features from all training images
-        all_features = []
+        # Optional: fit a projection on a small subset of training patches.
+        if self.feature_projection_dim is not None:
+            fit_patches: list[NDArray] = []
+            for image in X_list[: min(int(self.projection_fit_samples), len(X_list))]:
+                feat, _ = self._extract_patch_features(image)
+                fit_patches.append(np.asarray(feat, dtype=np.float32))
+            if fit_patches:
+                self._ensure_projection(np.vstack(fit_patches))
+
+        # Extract features from all training images.
+        all_features: list[NDArray] = []
 
         for idx, image in enumerate(X_list):
             if idx % 10 == 0:
@@ -333,7 +405,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
             try:
                 features, _ = self._extract_patch_features(image)
-                all_features.append(features)
+                features = self._maybe_project(features)
+                all_features.append(np.asarray(features, dtype=np.float32))
             except Exception as e:
                 logger.warning("Failed to process item %d: %s", idx, e)
                 continue
@@ -348,7 +421,13 @@ class VisionPatchCore(BaseVisionDeepDetector):
         )
 
         # Perform coreset sampling
-        self.memory_bank = self._coreset_sampling(all_features)
+        sampled = self._coreset_sampling(all_features)
+        if self.memory_bank_dtype == "float16":
+            sampled = np.asarray(sampled, dtype=np.float16)
+        else:
+            sampled = np.asarray(sampled, dtype=np.float32)
+
+        self.memory_bank = sampled
         logger.info(
             "Memory bank created: %d patches (%.2f%% of original)",
             self.memory_bank.shape[0],
@@ -362,7 +441,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             metric="euclidean",
             n_jobs=-1,
         )
-        self.nn_index.fit(self.memory_bank)
+        self.nn_index.fit(np.asarray(self.memory_bank, dtype=np.float32))
 
         # Compute training scores to establish a threshold (PyOD semantics).
         # This enables `predict()` to return binary labels consistently.
@@ -419,6 +498,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             try:
                 # Extract patch features
                 features, _ = self._extract_patch_features(image)
+                features = self._maybe_project(features)
 
                 # Find k nearest neighbors in memory bank
                 distances, _ = self.nn_index.kneighbors(features)
@@ -458,6 +538,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         # Extract patch features
         features, (h, w) = self._extract_patch_features(image_path)
+        features = self._maybe_project(features)
 
         # Compute patch-level anomaly scores
         distances, _ = self.nn_index.kneighbors(features)

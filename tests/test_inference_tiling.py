@@ -54,3 +54,30 @@ def test_tiled_detector_stitches_maps() -> None:
     assert float(stitched[1:3, 4:6].max()) == 200.0
     assert float(stitched[:1, :].max()) == 0.0
 
+
+def test_tiled_detector_stitches_maps_hann_window() -> None:
+    base = _BatchOnlyDummyDetector()
+    tiled = TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="hann")
+
+    img = np.zeros((6, 6, 3), dtype=np.uint8)
+    img[1:3, 4:6, :] = 200
+
+    maps = tiled.predict_anomaly_map([img])
+    assert maps.shape == (1, 6, 6)
+    stitched = maps[0]
+    assert float(stitched[1:3, 4:6].max()) == 200.0
+    assert float(stitched[:1, :].max()) == 0.0
+
+
+def test_tiled_detector_stitches_maps_gaussian_window() -> None:
+    base = _BatchOnlyDummyDetector()
+    tiled = TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="gaussian")
+
+    img = np.zeros((6, 6, 3), dtype=np.uint8)
+    img[1:3, 4:6, :] = 200
+
+    maps = tiled.predict_anomaly_map([img])
+    assert maps.shape == (1, 6, 6)
+    stitched = maps[0]
+    assert float(stitched[1:3, 4:6].max()) == 200.0
+    assert float(stitched[:1, :].max()) == 0.0

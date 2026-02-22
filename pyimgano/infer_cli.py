@@ -79,7 +79,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--tile-map-reduce",
         default="max",
-        choices=["max", "mean"],
+        choices=["max", "mean", "hann", "gaussian"],
         help="How to blend overlapping tile maps",
     )
     parser.add_argument(

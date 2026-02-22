@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-22
+
+### Added
+- `vision_mambaad` (MambaAD-style patch embedding reconstruction) and a new optional extra: `pyimgano[mamba]`.
+- PatchCore speed/memory knobs:
+  - `feature_projection_dim` + `projection_fit_samples` for random-projection feature reduction.
+  - `memory_bank_dtype` for FP16/FP32 memory-bank storage.
+- Tiled inference map blending modes: `map_reduce` now supports `"hann"` and `"gaussian"` in addition to `"max"`/`"mean"`.
+- Industrial defect-synthesis augmentations:
+  - `add_scratches`, `add_dust`, `add_specular_highlight`
+  - `get_industrial_surface_defect_synthesis_augmentation` preset pipeline.
+
+### Changed
+- PatchCore coreset selection is now deterministic (seeded) and uses squared L2 distances (faster).
+- `pyimgano-infer --tile-map-reduce` choices updated to include `"hann"`/`"gaussian"`.
+- PatchCore CLI presets (`industrial-fast` / `industrial-balanced`) now enable feature projection + FP16 memory bank.
+
 ## [0.3.0] - 2026-02-22
 
 ### Added

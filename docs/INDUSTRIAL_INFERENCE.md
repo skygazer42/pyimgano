@@ -110,3 +110,41 @@ Each JSONL line includes:
 - `label` (0/1 if `threshold_` is available)
 - `input` (path)
 - `anomaly_map.path` + `shape` + `dtype` (if map exported)
+
+## 5) High-resolution tiling (2K/4K inspection images)
+
+Many industrial inspection images are too large to score reliably after a single
+`Resize(224,224)` style preprocessing. For detectors that support numpy inputs + pixel maps,
+wrap them with `TiledDetector` to run overlapping-window inference.
+
+Python API:
+
+```python
+from pyimgano.inference.tiling import TiledDetector
+
+tiled = TiledDetector(
+    detector=detector,
+    tile_size=512,
+    stride=384,              # overlap improves seam quality
+    score_reduce="topk_mean",
+    score_topk=0.1,
+    # Map blending:
+    # - "max": sharp but can leave seams
+    # - "mean": smooth but can blur peaks
+    # - "hann"/"gaussian": weighted blending to reduce seams
+    map_reduce="hann",
+)
+```
+
+CLI flags (JSONL + tiling):
+
+```bash
+pyimgano-infer \
+  --model vision_patchcore \
+  --train-dir /path/to/normal/images \
+  --input /path/to/test/images_or_file \
+  --include-maps \
+  --tile-size 512 \
+  --tile-stride 384 \
+  --tile-map-reduce hann
+```

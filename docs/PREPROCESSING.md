@@ -16,6 +16,7 @@ Comprehensive image preprocessing and enhancement capabilities for anomaly detec
   - [Filters](#filters)
   - [Normalization](#normalization)
   - [Advanced Operations](#advanced-operations)
+- [Augmentation](#augmentation)
 - [Integration with Detectors](#integration-with-detectors)
 - [Best Practices](#best-practices)
 - [Examples](#examples)
@@ -382,6 +383,42 @@ clahe = enhancer.clahe(img, clip_limit=2.0, tile_grid_size=(8, 8))
 - **Sharpen**: Enhance edges and details
 - **Unsharp Mask**: More control over sharpening amount
 - **CLAHE**: Improve contrast in low-contrast regions
+
+## Augmentation
+
+PyImgAno also ships an **augmentation pipeline** system for robustness testing and
+production drift simulation (camera noise, blur, compression artifacts), plus a
+small set of **industrial defect synthesis** operators for surface inspection.
+
+### Preset pipelines
+
+```python
+import numpy as np
+
+from pyimgano.preprocessing import (
+    get_industrial_camera_robust_augmentation,
+    get_industrial_surface_defect_synthesis_augmentation,
+)
+
+img: np.ndarray = ...  # RGB/u8/HWC
+
+camera_aug = get_industrial_camera_robust_augmentation()
+img_cam = camera_aug(img)
+
+defect_aug = get_industrial_surface_defect_synthesis_augmentation()
+img_defect = defect_aug(img)
+```
+
+### Low-level defect synthesis ops
+
+If you want direct control, use the functions in `pyimgano.preprocessing.augmentation`:
+
+- `add_scratches(...)`
+- `add_dust(...)`
+- `add_specular_highlight(...)`
+
+These preserve the basic `(H, W, C)` + `uint8` contract and are designed to be
+composable inside your own pipelines.
 
 ## Integration with Detectors
 

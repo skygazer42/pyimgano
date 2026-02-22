@@ -1062,3 +1062,218 @@ def random_channel_gain(
     if arr.dtype == np.uint8:
         return np.clip(out, 0.0, 255.0).astype(np.uint8)
     return out.astype(arr.dtype)
+
+
+def add_scratches(
+    image: NDArray,
+    *,
+    num_scratches: int = 3,
+    thickness_range: Tuple[int, int] = (1, 3),
+    alpha: float = 0.7,
+    mode: str = "dark",
+    blur_ksize: int = 3,
+) -> NDArray:
+    """Simulate surface scratches by drawing thin line defects.
+
+    Parameters
+    ----------
+    image:
+        Input image (H,W) or (H,W,3).
+    num_scratches:
+        Number of scratch lines to draw.
+    thickness_range:
+        Pixel thickness range for scratches.
+    alpha:
+        Blend strength in [0,1].
+    mode:
+        "dark" (default), "bright", or "random" scratch intensity.
+    blur_ksize:
+        Optional Gaussian blur kernel size for scratch edges (odd; 0 disables).
+    """
+
+    arr = np.asarray(image)
+    if arr.ndim not in (2, 3):
+        raise ValueError(f"Expected 2D or 3D image, got {arr.shape}")
+    if arr.ndim == 3 and arr.shape[2] != 3:
+        raise ValueError(f"Expected color image shape (H,W,3), got {arr.shape}")
+
+    n = int(num_scratches)
+    if n < 0:
+        raise ValueError(f"num_scratches must be >= 0, got {num_scratches}")
+    if n == 0:
+        return arr
+
+    t0, t1 = int(thickness_range[0]), int(thickness_range[1])
+    if t0 <= 0 or t1 <= 0 or t1 < t0:
+        raise ValueError(f"Invalid thickness_range: {thickness_range}")
+
+    a = float(alpha)
+    if not (0.0 <= a <= 1.0):
+        raise ValueError(f"alpha must be in [0,1], got {alpha}")
+
+    h, w = int(arr.shape[0]), int(arr.shape[1])
+    if h == 0 or w == 0:
+        return arr
+
+    mask = np.zeros((h, w), dtype=np.uint8)
+    diag = float(np.hypot(h, w))
+    min_len = max(1.0, 0.15 * diag)
+    max_len = max(min_len, 0.7 * diag)
+
+    for _ in range(n):
+        length = random.uniform(min_len, max_len)
+        angle = random.uniform(0.0, 2.0 * np.pi)
+        x0 = random.randint(0, w - 1)
+        y0 = random.randint(0, h - 1)
+        x1 = int(round(x0 + length * np.cos(angle)))
+        y1 = int(round(y0 + length * np.sin(angle)))
+        x1 = int(np.clip(x1, 0, w - 1))
+        y1 = int(np.clip(y1, 0, h - 1))
+        thickness = random.randint(t0, t1)
+        cv2.line(mask, (x0, y0), (x1, y1), color=255, thickness=int(thickness))
+
+    if blur_ksize:
+        k = int(blur_ksize)
+        if k % 2 == 0:
+            k += 1
+        if k > 1:
+            mask = cv2.GaussianBlur(mask, (k, k), sigmaX=0)
+
+    mask_f = (mask.astype(np.float32) / 255.0) * a
+
+    mode_lower = str(mode).lower()
+    if mode_lower == "dark":
+        target = 0.0
+    elif mode_lower == "bright":
+        target = 255.0
+    elif mode_lower == "random":
+        target = float(random.uniform(0.0, 255.0))
+    else:
+        raise ValueError(f"Unknown mode: {mode}. Choose from: dark, bright, random")
+
+    out = arr.astype(np.float32)
+    if out.ndim == 3:
+        out = out * (1.0 - mask_f[..., None]) + target * mask_f[..., None]
+    else:
+        out = out * (1.0 - mask_f) + target * mask_f
+
+    if arr.dtype == np.uint8:
+        return np.clip(out, 0.0, 255.0).astype(np.uint8)
+    return out.astype(arr.dtype)
+
+
+def add_dust(
+    image: NDArray,
+    *,
+    num_particles: int = 50,
+    radius_range: Tuple[int, int] = (1, 3),
+    alpha: float = 0.35,
+    mode: str = "bright",
+) -> NDArray:
+    """Simulate dust/speck particles (common in production camera pipelines)."""
+
+    arr = np.asarray(image)
+    if arr.ndim not in (2, 3):
+        raise ValueError(f"Expected 2D or 3D image, got {arr.shape}")
+    if arr.ndim == 3 and arr.shape[2] != 3:
+        raise ValueError(f"Expected color image shape (H,W,3), got {arr.shape}")
+
+    n = int(num_particles)
+    if n < 0:
+        raise ValueError(f"num_particles must be >= 0, got {num_particles}")
+    if n == 0:
+        return arr
+
+    r0, r1 = int(radius_range[0]), int(radius_range[1])
+    if r0 <= 0 or r1 <= 0 or r1 < r0:
+        raise ValueError(f"Invalid radius_range: {radius_range}")
+
+    a = float(alpha)
+    if not (0.0 <= a <= 1.0):
+        raise ValueError(f"alpha must be in [0,1], got {alpha}")
+
+    h, w = int(arr.shape[0]), int(arr.shape[1])
+    if h == 0 or w == 0:
+        return arr
+
+    mask = np.zeros((h, w), dtype=np.uint8)
+    for _ in range(n):
+        x = random.randint(0, w - 1)
+        y = random.randint(0, h - 1)
+        radius = random.randint(r0, r1)
+        cv2.circle(mask, (x, y), int(radius), color=255, thickness=-1)
+
+    mask_f = (mask.astype(np.float32) / 255.0) * a
+
+    mode_lower = str(mode).lower()
+    if mode_lower == "bright":
+        target = 255.0
+    elif mode_lower == "dark":
+        target = 0.0
+    elif mode_lower == "random":
+        target = float(random.uniform(0.0, 255.0))
+    else:
+        raise ValueError(f"Unknown mode: {mode}. Choose from: bright, dark, random")
+
+    out = arr.astype(np.float32)
+    if out.ndim == 3:
+        out = out * (1.0 - mask_f[..., None]) + target * mask_f[..., None]
+    else:
+        out = out * (1.0 - mask_f) + target * mask_f
+
+    if arr.dtype == np.uint8:
+        return np.clip(out, 0.0, 255.0).astype(np.uint8)
+    return out.astype(arr.dtype)
+
+
+def add_specular_highlight(
+    image: NDArray,
+    *,
+    intensity: float = 0.6,
+    radius_frac_range: Tuple[float, float] = (0.08, 0.25),
+    center: Optional[Tuple[int, int]] = None,
+) -> NDArray:
+    """Simulate a soft specular highlight / glare spot."""
+
+    arr = np.asarray(image)
+    if arr.ndim not in (2, 3):
+        raise ValueError(f"Expected 2D or 3D image, got {arr.shape}")
+    if arr.ndim == 3 and arr.shape[2] != 3:
+        raise ValueError(f"Expected color image shape (H,W,3), got {arr.shape}")
+
+    h, w = int(arr.shape[0]), int(arr.shape[1])
+    if h == 0 or w == 0:
+        return arr
+
+    inten = float(intensity)
+    if not (0.0 <= inten <= 2.0):
+        raise ValueError(f"intensity must be in [0,2], got {intensity}")
+
+    r_lo, r_hi = float(radius_frac_range[0]), float(radius_frac_range[1])
+    if r_lo <= 0.0 or r_hi <= 0.0 or r_hi < r_lo:
+        raise ValueError(f"Invalid radius_frac_range: {radius_frac_range}")
+
+    if center is None:
+        cx = random.randint(0, w - 1)
+        cy = random.randint(0, h - 1)
+    else:
+        cy, cx = int(center[0]), int(center[1])
+        cx = int(np.clip(cx, 0, w - 1))
+        cy = int(np.clip(cy, 0, h - 1))
+
+    radius = random.uniform(r_lo, r_hi) * float(min(h, w))
+    sigma = max(1.0, radius / 2.5)
+
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    g = np.exp(-0.5 * (((xx - cx) ** 2 + (yy - cy) ** 2) / (sigma**2))).astype(np.float32)
+    g = (g / max(float(g.max()), 1e-6)) * inten
+
+    out = arr.astype(np.float32)
+    if out.ndim == 3:
+        out = out + (255.0 - out) * g[..., None]
+    else:
+        out = out + (255.0 - out) * g
+
+    if arr.dtype == np.uint8:
+        return np.clip(out, 0.0, 255.0).astype(np.uint8)
+    return out.astype(arr.dtype)

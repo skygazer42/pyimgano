@@ -7,13 +7,13 @@ README = (ROOT / "README.md").read_text(encoding="utf-8") if (ROOT / "README.md"
 
 setup(
     name="pyimgano",
-    version="0.2.0",
+    version="0.4.0",
     description="Enterprise-Grade Visual Anomaly Detection Toolkit with 37+ algorithms and 80+ operations",
     long_description=README,
     long_description_content_type="text/markdown",
     author="PyImgAno Contributors",
     author_email="pyimgano@example.com",
-    url="https://github.com/jhlu2019/pyimgano",
+    url="https://github.com/skygazer42/pyimgano",
     packages=find_packages(exclude=("tests", "tests.*")),
     python_requires=">=3.9",
     install_requires=[
@@ -36,11 +36,23 @@ setup(
             "transformers>=4.30.0",
             "accelerate>=0.20.0",
         ],
+        "viz": [
+            "seaborn>=0.11.0",
+        ],
         "anomalib": [
             "anomalib>=0.10.0",
         ],
+        "patchcore_inspection": [
+            "patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git",
+        ],
         "faiss": [
             "faiss-cpu>=1.7.4",
+        ],
+        "clip": [
+            "open_clip_torch>=2.0.0",
+        ],
+        "mamba": [
+            "mamba-ssm>=2.0.0",
         ],
         "dev": [
             "pytest>=7.0.0",
@@ -58,10 +70,10 @@ setup(
             "sphinxcontrib-napoleon>=0.7",
         ],
         "all": [
-            "pyimgano[diffusion,dev,docs]",
+            "pyimgano[backends,diffusion,dev,docs,viz]",
         ],
         "backends": [
-            "pyimgano[anomalib,faiss]",
+            "pyimgano[anomalib,faiss,clip]",
         ],
     },
     include_package_data=True,
@@ -92,15 +104,16 @@ setup(
         "augmentation",
     ],
     project_urls={
-        "Homepage": "https://github.com/jhlu2019/pyimgano",
-        "Documentation": "https://github.com/jhlu2019/pyimgano#readme",
-        "Repository": "https://github.com/jhlu2019/pyimgano",
-        "Bug Tracker": "https://github.com/jhlu2019/pyimgano/issues",
-        "Changelog": "https://github.com/jhlu2019/pyimgano/blob/main/CHANGELOG.md",
+        "Homepage": "https://github.com/skygazer42/pyimgano",
+        "Documentation": "https://github.com/skygazer42/pyimgano#readme",
+        "Repository": "https://github.com/skygazer42/pyimgano",
+        "Bug Tracker": "https://github.com/skygazer42/pyimgano/issues",
+        "Changelog": "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md",
     },
     entry_points={
         "console_scripts": [
             "pyimgano-benchmark=pyimgano.cli:main",
+            "pyimgano-infer=pyimgano.infer_cli:main",
         ],
     },
 )

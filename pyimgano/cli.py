@@ -197,8 +197,10 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
             return {
                 "backbone": "resnet50",
                 "coreset_sampling_ratio": 0.02,
+                "feature_projection_dim": 256,
                 "n_neighbors": 3,
                 "knn_backend": _default_knn_backend(),
+                "memory_bank_dtype": "float16",
             }
         if model_name == "vision_padim":
             return {
@@ -268,8 +270,10 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
             return {
                 "backbone": "resnet50",
                 "coreset_sampling_ratio": 0.05,
+                "feature_projection_dim": 512,
                 "n_neighbors": 5,
                 "knn_backend": _default_knn_backend(),
+                "memory_bank_dtype": "float16",
             }
         if model_name == "vision_padim":
             return {
