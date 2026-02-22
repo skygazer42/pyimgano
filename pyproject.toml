@@ -82,6 +82,8 @@ dev = [
     "pytest-xdist>=3.0.0",
     "black>=23.0.0",
     "isort>=5.12.0",
+    "build>=1.2.0",
+    "twine>=6.0.0",
     "flake8>=6.0.0",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
@@ -99,11 +101,11 @@ backends = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jhlu2019/pyimgano"
-Documentation = "https://github.com/jhlu2019/pyimgano#readme"
-Repository = "https://github.com/jhlu2019/pyimgano"
-"Bug Tracker" = "https://github.com/jhlu2019/pyimgano/issues"
-Changelog = "https://github.com/jhlu2019/pyimgano/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/skygazer42/pyimgano"
+Documentation = "https://github.com/skygazer42/pyimgano#readme"
+Repository = "https://github.com/skygazer42/pyimgano"
+"Bug Tracker" = "https://github.com/skygazer42/pyimgano/issues"
+Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pyimgano-benchmark = "pyimgano.cli:main"

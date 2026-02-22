@@ -80,6 +80,10 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 pip install pyimgano
 ```
 
+> Note: `pip install pyimgano` works after publishing to PyPI. If you are
+> installing from source, use the development installation below. For the
+> release process, see `docs/PUBLISHING.md`.
+
 ### Development Installation
 
 ```bash
