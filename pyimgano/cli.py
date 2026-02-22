@@ -18,14 +18,29 @@ from pyimgano.utils.optional_deps import optional_import
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-benchmark")
-    parser.add_argument("--dataset", required=True, choices=["mvtec", "mvtec_ad", "visa"])
-    parser.add_argument("--root", required=True, help="Dataset root path")
-    parser.add_argument("--category", required=True, help="Dataset category name")
+    parser.add_argument("--dataset", default=None, choices=["mvtec", "mvtec_ad", "visa"])
+    parser.add_argument("--root", default=None, help="Dataset root path")
+    parser.add_argument("--category", default=None, help="Dataset category name")
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="List available model names and exit (default output: text, one per line)",
+    )
+    parser.add_argument(
+        "--model-info",
+        default=None,
+        help="Show tags/metadata/signature/accepted kwargs for a model name and exit",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="When used with --list-models/--model-info, output JSON instead of text",
+    )
     parser.add_argument("--model", default="vision_patchcore", help="Registered model name")
     parser.add_argument(
         "--preset",
         default=None,
-        choices=["industrial-balanced"],
+        choices=["industrial-fast", "industrial-balanced", "industrial-accurate"],
         help="Optional model preset (applied before --model-kwargs). Default: none",
     )
     parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
@@ -141,8 +156,83 @@ def _faiss_available() -> bool:
     return module is not None
 
 
+def _default_knn_backend() -> str:
+    return "faiss" if _faiss_available() else "sklearn"
+
+
 def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any]:
     if preset is None:
+        return {}
+
+    if preset == "industrial-fast":
+        if model_name == "vision_patchcore":
+            return {
+                "backbone": "resnet50",
+                "coreset_sampling_ratio": 0.02,
+                "n_neighbors": 3,
+                "knn_backend": _default_knn_backend(),
+            }
+        if model_name == "vision_padim":
+            return {
+                "backbone": "resnet18",
+                "d_reduced": 32,
+                "image_size": 192,
+            }
+        if model_name == "vision_spade":
+            return {
+                "backbone": "resnet18",
+                "image_size": 192,
+                "k_neighbors": 20,
+                "feature_levels": ["layer2", "layer3"],
+                "gaussian_sigma": 2.0,
+            }
+        if model_name == "vision_anomalydino":
+            return {
+                "knn_backend": _default_knn_backend(),
+                "coreset_sampling_ratio": 0.1,
+                "image_size": 336,
+            }
+        if model_name == "vision_softpatch":
+            return {
+                "knn_backend": _default_knn_backend(),
+                "coreset_sampling_ratio": 0.1,
+                "train_patch_outlier_quantile": 0.1,
+                "image_size": 336,
+            }
+        if model_name == "vision_simplenet":
+            return {
+                "backbone": "resnet50",
+                "epochs": 5,
+                "batch_size": 16,
+            }
+        if model_name == "vision_fastflow":
+            return {
+                "epoch_num": 5,
+                "n_flow_steps": 4,
+                "batch_size": 32,
+            }
+        if model_name == "vision_cflow":
+            return {
+                "epochs": 10,
+                "n_flows": 2,
+                "batch_size": 32,
+            }
+        if model_name == "vision_stfpm":
+            return {
+                "epochs": 10,
+                "batch_size": 32,
+            }
+        if model_name in ("vision_reverse_distillation", "vision_reverse_dist"):
+            return {
+                "epoch_num": 5,
+                "batch_size": 32,
+            }
+        if model_name == "vision_draem":
+            return {
+                "image_size": 256,
+                "epochs": 20,
+                "batch_size": 16,
+            }
         return {}
 
     if preset == "industrial-balanced":
@@ -151,7 +241,7 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
                 "backbone": "resnet50",
                 "coreset_sampling_ratio": 0.05,
                 "n_neighbors": 5,
-                "knn_backend": "faiss" if _faiss_available() else "sklearn",
+                "knn_backend": _default_knn_backend(),
             }
         if model_name == "vision_padim":
             return {
@@ -169,13 +259,13 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
             }
         if model_name == "vision_anomalydino":
             return {
-                "knn_backend": "faiss" if _faiss_available() else "sklearn",
+                "knn_backend": _default_knn_backend(),
                 "coreset_sampling_ratio": 0.2,
                 "image_size": 448,
             }
         if model_name == "vision_softpatch":
             return {
-                "knn_backend": "faiss" if _faiss_available() else "sklearn",
+                "knn_backend": _default_knn_backend(),
                 "coreset_sampling_ratio": 0.2,
                 "train_patch_outlier_quantile": 0.1,
                 "image_size": 448,
@@ -203,12 +293,7 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
                 "epochs": 50,
                 "batch_size": 32,
             }
-        if model_name == "vision_reverse_distillation":
-            return {
-                "epoch_num": 10,
-                "batch_size": 32,
-            }
-        if model_name == "vision_reverse_dist":
+        if model_name in ("vision_reverse_distillation", "vision_reverse_dist"):
             return {
                 "epoch_num": 10,
                 "batch_size": 32,
@@ -221,7 +306,81 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
             }
         return {}
 
-    raise ValueError(f"Unknown preset: {preset!r}. Choose from: industrial-balanced")
+    if preset == "industrial-accurate":
+        if model_name == "vision_patchcore":
+            return {
+                "backbone": "wide_resnet50",
+                "coreset_sampling_ratio": 0.1,
+                "n_neighbors": 9,
+                "knn_backend": _default_knn_backend(),
+            }
+        if model_name == "vision_padim":
+            return {
+                "backbone": "resnet50",
+                "d_reduced": 128,
+                "image_size": 224,
+            }
+        if model_name == "vision_spade":
+            return {
+                "backbone": "wide_resnet50",
+                "image_size": 256,
+                "k_neighbors": 50,
+                "feature_levels": ["layer1", "layer2", "layer3"],
+                "gaussian_sigma": 4.0,
+            }
+        if model_name == "vision_anomalydino":
+            return {
+                "knn_backend": _default_knn_backend(),
+                "coreset_sampling_ratio": 0.5,
+                "image_size": 518,
+            }
+        if model_name == "vision_softpatch":
+            return {
+                "knn_backend": _default_knn_backend(),
+                "coreset_sampling_ratio": 0.5,
+                "train_patch_outlier_quantile": 0.05,
+                "image_size": 518,
+            }
+        if model_name == "vision_simplenet":
+            return {
+                "backbone": "wide_resnet50",
+                "epochs": 20,
+                "batch_size": 16,
+            }
+        if model_name == "vision_fastflow":
+            return {
+                "epoch_num": 20,
+                "n_flow_steps": 8,
+                "batch_size": 32,
+            }
+        if model_name == "vision_cflow":
+            return {
+                "epochs": 50,
+                "n_flows": 8,
+                "batch_size": 16,
+            }
+        if model_name == "vision_stfpm":
+            return {
+                "epochs": 100,
+                "batch_size": 32,
+            }
+        if model_name in ("vision_reverse_distillation", "vision_reverse_dist"):
+            return {
+                "epoch_num": 20,
+                "batch_size": 32,
+            }
+        if model_name == "vision_draem":
+            return {
+                "image_size": 256,
+                "epochs": 100,
+                "batch_size": 16,
+            }
+        return {}
+
+    raise ValueError(
+        f"Unknown preset: {preset!r}. Choose from: "
+        "industrial-fast, industrial-balanced, industrial-accurate"
+    )
 
 
 def _merge_checkpoint_path(
@@ -316,6 +475,76 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if bool(args.list_models) and args.model_info is not None:
+            raise ValueError("--list-models and --model-info are mutually exclusive.")
+
+        if bool(args.list_models):
+            names = MODEL_REGISTRY.available()
+            if bool(args.json):
+                print(json.dumps(names, indent=2))
+            else:
+                for name in names:
+                    print(name)
+            return 0
+
+        if args.model_info is not None:
+            model_name = str(args.model_info)
+            try:
+                entry = MODEL_REGISTRY.info(model_name)
+            except KeyError as exc:
+                raise ValueError(f"Unknown model: {model_name!r}") from exc
+
+            signature = inspect.signature(entry.constructor)
+            accepted, accepts_var_kwargs = _get_model_signature_info(model_name)
+
+            payload = {
+                "name": entry.name,
+                "tags": list(entry.tags),
+                "metadata": dict(entry.metadata),
+                "signature": str(signature),
+                "accepted_kwargs": sorted(accepted),
+                "accepts_var_kwargs": bool(accepts_var_kwargs),
+                "constructor": {
+                    "module": getattr(entry.constructor, "__module__", "<unknown>"),
+                    "qualname": getattr(entry.constructor, "__qualname__", "<unknown>"),
+                },
+            }
+
+            if bool(args.json):
+                print(json.dumps(_to_jsonable(payload), indent=2, sort_keys=True))
+            else:
+                print(f"Name: {payload['name']}")
+                tags = payload["tags"]
+                print(f"Tags: {', '.join(tags) if tags else '<none>'}")
+                print("Metadata:")
+                metadata = payload["metadata"]
+                if metadata:
+                    for key in sorted(metadata):
+                        print(f"  {key}: {metadata[key]}")
+                else:
+                    print("  <none>")
+                print("Signature:")
+                print(f"  {payload['signature']}")
+                print(f"Accepts **kwargs: {'yes' if payload['accepts_var_kwargs'] else 'no'}")
+                print("Accepted kwargs:")
+                for key in payload["accepted_kwargs"]:
+                    print(f"  - {key}")
+            return 0
+
+        missing: list[str] = []
+        if args.dataset is None:
+            missing.append("--dataset")
+        if args.root is None:
+            missing.append("--root")
+        if args.category is None:
+            missing.append("--category")
+        if missing:
+            raise ValueError(
+                "Missing required arguments for benchmarking mode: "
+                f"{', '.join(missing)}. "
+                "Provide them or use --list-models/--model-info."
+            )
+
         split = load_benchmark_split(
             dataset=args.dataset,
             root=args.root,

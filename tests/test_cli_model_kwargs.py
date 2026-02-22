@@ -169,6 +169,48 @@ def test_cli_parser_accepts_preset_industrial_balanced():
         raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
 
 
+def test_cli_parser_accepts_preset_industrial_fast():
+    import pyimgano.cli as cli
+
+    parser = cli._build_parser()
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--preset",
+                "industrial-fast",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
+
+
+def test_cli_parser_accepts_preset_industrial_accurate():
+    import pyimgano.cli as cli
+
+    parser = cli._build_parser()
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--preset",
+                "industrial-accurate",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
+
+
 def test_resolve_preset_kwargs_patchcore_prefers_sklearn_when_no_faiss(monkeypatch):
     import pyimgano.cli as cli
 
@@ -319,3 +361,33 @@ def test_resolve_preset_kwargs_reverse_dist_alias_matches_reverse_distillation()
     a = cli._resolve_preset_kwargs("industrial-balanced", "vision_reverse_distillation")
     b = cli._resolve_preset_kwargs("industrial-balanced", "vision_reverse_dist")
     assert a == b
+
+
+def test_resolve_preset_kwargs_fast_patchcore_includes_speed_defaults(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
+    kwargs = cli._resolve_preset_kwargs("industrial-fast", "vision_patchcore")
+    assert kwargs["backbone"] == "resnet50"
+    assert kwargs["coreset_sampling_ratio"] == 0.02
+    assert kwargs["n_neighbors"] == 3
+    assert kwargs["knn_backend"] == "sklearn"
+
+
+def test_resolve_preset_kwargs_accurate_anomalydino_includes_accuracy_defaults(monkeypatch):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
+    kwargs = cli._resolve_preset_kwargs("industrial-accurate", "vision_anomalydino")
+    assert kwargs["knn_backend"] == "faiss"
+    assert kwargs["coreset_sampling_ratio"] == 0.5
+    assert kwargs["image_size"] == 518
+
+
+def test_resolve_preset_kwargs_reverse_dist_alias_matches_across_presets():
+    import pyimgano.cli as cli
+
+    for preset in ("industrial-fast", "industrial-balanced", "industrial-accurate"):
+        a = cli._resolve_preset_kwargs(preset, "vision_reverse_distillation")
+        b = cli._resolve_preset_kwargs(preset, "vision_reverse_dist")
+        assert a == b
