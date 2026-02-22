@@ -7,12 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
-from pyimgano.models import MODEL_REGISTRY, create_model
-from pyimgano.pipelines.mvtec_visa import evaluate_split, load_benchmark_split
-from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
-from pyimgano.reporting.report import save_run_report
+from pyimgano.models.registry import MODEL_REGISTRY, create_model
 from pyimgano.utils.optional_deps import optional_import
 
 
@@ -35,6 +30,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="When used with --list-models/--model-info, output JSON instead of text",
+    )
+    parser.add_argument(
+        "--tags",
+        action="append",
+        default=None,
+        help=(
+            "Filter --list-models by required tags (comma-separated or repeatable). "
+            "Example: --tags vision,deep"
+        ),
     )
     parser.add_argument("--model", default="vision_patchcore", help="Registered model name")
     parser.add_argument(
@@ -124,11 +128,31 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+_NUMPY, _ = optional_import("numpy")
+
+
+def load_benchmark_split(*args, **kwargs):
+    # Lazy wrapper to keep CLI import light; also makes it easy to monkeypatch
+    # in unit tests without importing cv2-heavy pipeline modules.
+    from pyimgano.pipelines.mvtec_visa import load_benchmark_split as _load_benchmark_split
+
+    return _load_benchmark_split(*args, **kwargs)
+
+
+def evaluate_split(*args, **kwargs):
+    # Lazy wrapper to keep CLI import light; also makes it easy to monkeypatch
+    # in unit tests without importing cv2-heavy pipeline modules.
+    from pyimgano.pipelines.mvtec_visa import evaluate_split as _evaluate_split
+
+    return _evaluate_split(*args, **kwargs)
+
+
 def _to_jsonable(value: Any) -> Any:
-    if isinstance(value, (np.floating, np.integer)):
-        return value.item()
-    if isinstance(value, np.ndarray):
-        return value.tolist()
+    if _NUMPY is not None:
+        if isinstance(value, (_NUMPY.floating, _NUMPY.integer)):  # type: ignore[attr-defined]
+            return value.item()
+        if isinstance(value, _NUMPY.ndarray):  # type: ignore[attr-defined]
+            return value.tolist()
     if isinstance(value, dict):
         return {str(k): _to_jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -475,11 +499,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        # Import model implementations for side effects (registry population).
+        # Keep `pyimgano.cli` importable without heavy deps; discovery/benchmarking
+        # happens inside `main()`.
+        import pyimgano.models  # noqa: F401
+
+        tags_raw = getattr(args, "tags", None)
+
         if bool(args.list_models) and args.model_info is not None:
             raise ValueError("--list-models and --model-info are mutually exclusive.")
 
         if bool(args.list_models):
-            names = MODEL_REGISTRY.available()
+            tags: list[str] = []
+            if tags_raw:
+                for item in tags_raw:
+                    for tag in str(item).split(","):
+                        tag = tag.strip()
+                        if tag:
+                            tags.append(tag)
+
+            names = MODEL_REGISTRY.available(tags=tags or None)
             if bool(args.json):
                 print(json.dumps(names, indent=2))
             else:
@@ -583,6 +622,8 @@ def main(argv: list[str] | None = None) -> int:
 
         postprocess = None
         if args.pixel and args.pixel_postprocess:
+            from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
+
             postprocess = AnomalyMapPostprocess(
                 normalize=True,
                 normalize_method=str(args.pixel_post_norm),
@@ -614,6 +655,8 @@ def main(argv: list[str] | None = None) -> int:
         }
 
         if args.output:
+            from pyimgano.reporting.report import save_run_report
+
             save_run_report(Path(args.output), payload)
         else:
             print(json.dumps(_to_jsonable(payload), indent=2, sort_keys=True))

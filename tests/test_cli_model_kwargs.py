@@ -391,3 +391,52 @@ def test_resolve_preset_kwargs_reverse_dist_alias_matches_across_presets():
         a = cli._resolve_preset_kwargs(preset, "vision_reverse_distillation")
         b = cli._resolve_preset_kwargs(preset, "vision_reverse_dist")
         assert a == b
+
+
+@pytest.mark.parametrize(
+    "preset,model_name",
+    [
+        ("industrial-fast", "vision_patchcore"),
+        ("industrial-fast", "vision_padim"),
+        ("industrial-fast", "vision_spade"),
+        ("industrial-fast", "vision_anomalydino"),
+        ("industrial-fast", "vision_softpatch"),
+        ("industrial-fast", "vision_simplenet"),
+        ("industrial-fast", "vision_fastflow"),
+        ("industrial-fast", "vision_cflow"),
+        ("industrial-fast", "vision_stfpm"),
+        ("industrial-fast", "vision_reverse_distillation"),
+        ("industrial-fast", "vision_reverse_dist"),
+        ("industrial-fast", "vision_draem"),
+        ("industrial-balanced", "vision_patchcore"),
+        ("industrial-balanced", "vision_padim"),
+        ("industrial-balanced", "vision_spade"),
+        ("industrial-balanced", "vision_anomalydino"),
+        ("industrial-balanced", "vision_softpatch"),
+        ("industrial-balanced", "vision_simplenet"),
+        ("industrial-balanced", "vision_fastflow"),
+        ("industrial-balanced", "vision_cflow"),
+        ("industrial-balanced", "vision_stfpm"),
+        ("industrial-balanced", "vision_reverse_distillation"),
+        ("industrial-balanced", "vision_reverse_dist"),
+        ("industrial-balanced", "vision_draem"),
+        ("industrial-accurate", "vision_patchcore"),
+        ("industrial-accurate", "vision_padim"),
+        ("industrial-accurate", "vision_spade"),
+        ("industrial-accurate", "vision_anomalydino"),
+        ("industrial-accurate", "vision_softpatch"),
+        ("industrial-accurate", "vision_simplenet"),
+        ("industrial-accurate", "vision_fastflow"),
+        ("industrial-accurate", "vision_cflow"),
+        ("industrial-accurate", "vision_stfpm"),
+        ("industrial-accurate", "vision_reverse_distillation"),
+        ("industrial-accurate", "vision_reverse_dist"),
+        ("industrial-accurate", "vision_draem"),
+    ],
+)
+def test_industrial_presets_cover_expected_models(monkeypatch, preset, model_name):
+    import pyimgano.cli as cli
+
+    monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
+    kwargs = cli._resolve_preset_kwargs(preset, model_name)
+    assert kwargs != {}

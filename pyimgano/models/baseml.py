@@ -1,8 +1,23 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 from abc import abstractmethod
-import numpy as np
-from pyod.models.base import BaseDetector
+
+from pyimgano.utils.optional_deps import optional_import
+
+
+_pyod_base, _pyod_error = optional_import("pyod.models.base")
+if _pyod_base is not None:
+    BaseDetector = _pyod_base.BaseDetector  # type: ignore[attr-defined]
+else:
+    class BaseDetector:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Optional dependency 'pyod' is required for classical detectors.\n"
+                "Install it via:\n  pip install 'pyod'\n"
+                f"Original error: {_pyod_error}"
+            ) from _pyod_error
 
 
 class BaseVisionDetector(BaseDetector):

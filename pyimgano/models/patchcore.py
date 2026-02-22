@@ -10,21 +10,22 @@ Reference:
     In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 14318-14328).
 """
 
-import logging
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from __future__ import annotations
 
-import cv2
-import numpy as np
-from numpy.typing import NDArray
-import torch
-import torch.nn.functional as F
-from torchvision import models, transforms
+import logging
+from typing import Any, Iterable, List, Optional, Tuple
+
+from pyimgano.utils.optional_deps import require
 
 from .baseCv import BaseVisionDeepDetector
-from .knn_index import KNNIndex, build_knn_index
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
+
+try:  # pragma: no cover - typing-only dependency
+    from numpy.typing import NDArray
+except Exception:  # pragma: no cover - minimal env without numpy
+    NDArray = Any  # type: ignore[misc,assignment]
 
 
 @register_model(
@@ -82,6 +83,15 @@ class VisionPatchCore(BaseVisionDeepDetector):
         """Initialize PatchCore detector."""
         super().__init__(**kwargs)
 
+        self._np = require("numpy", purpose="PatchCore feature processing")
+        self._cv2 = require("cv2", purpose="PatchCore image loading and resizing")
+        self._torch = require("torch", purpose="PatchCore backbone inference")
+        self._F = require("torch.nn.functional", purpose="PatchCore feature resizing")
+        self._tv_models = require("torchvision.models", purpose="PatchCore backbone models")
+        self._tv_transforms = require(
+            "torchvision.transforms", purpose="PatchCore preprocessing transforms"
+        )
+
         if not 0.0 < coreset_sampling_ratio <= 1.0:
             raise ValueError(
                 f"coreset_sampling_ratio must be in (0.0, 1.0], got {coreset_sampling_ratio}"
@@ -103,18 +113,18 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         # Memory bank for patch features
         self.memory_bank: Optional[NDArray] = None
-        self.nn_index: Optional[KNNIndex] = None
+        self.nn_index = None
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            ),
-        ])
+        transforms = self._tv_transforms
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
 
         logger.info(
             "Initialized PatchCore with backbone=%s, layers=%s, "
@@ -124,6 +134,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
     def _build_model(self) -> None:
         """Build feature extraction backbone."""
+        models = self._tv_models
         # TorchVision changed API from `pretrained=True` to `weights=...`.
         # Keep backward compatibility with older torchvision versions.
         if self.backbone_name == "wide_resnet50":
@@ -150,7 +161,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.model.to(self.device)
 
         # Register hooks for feature extraction
-        self.feature_maps: Dict[str, torch.Tensor] = {}
+        self.feature_maps = {}
 
         def get_activation(name: str):
             def hook(module, input, output):
@@ -178,6 +189,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
         features : ndarray of shape (n_patches, feature_dim)
             Extracted patch features
         """
+        cv2 = self._cv2
+        torch = self._torch
+        F = self._F
+
         # Load and preprocess image
         img = cv2.imread(image_path)
         if img is None:
@@ -239,6 +254,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
         coreset : ndarray of shape (n_coreset, feature_dim)
             Selected coreset
         """
+        np = self._np
+
         n_samples = features.shape[0]
         n_coreset = max(1, int(n_samples * self.coreset_sampling_ratio))
 
@@ -289,6 +306,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self : VisionPatchCore
             Fitted detector
         """
+        np = self._np
+        from .knn_index import build_knn_index
+
         logger.info("Fitting PatchCore detector on training images")
 
         X_list = list(X)
@@ -378,6 +398,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         scores : ndarray of shape (n_samples,)
             Anomaly scores (higher = more anomalous)
         """
+        np = self._np
         if self.memory_bank is None or self.nn_index is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
@@ -422,6 +443,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
         anomaly_map : ndarray of shape (H, W)
             Anomaly heatmap (higher values = more anomalous)
         """
+        np = self._np
+        cv2 = self._cv2
         if self.memory_bank is None or self.nn_index is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 

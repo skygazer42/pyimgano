@@ -21,6 +21,16 @@ def test_cli_list_models_outputs_json(capsys):
     assert "vision_patchcore" in parsed
 
 
+def test_cli_list_models_supports_tags_filter(capsys):
+    from pyimgano.cli import main
+
+    code = main(["--list-models", "--tags", "vision,deep"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "vision_patchcore" in out
+    assert "vision_abod" not in out
+
+
 def test_cli_model_info_outputs_text(capsys):
     from pyimgano.cli import main
 
