@@ -56,6 +56,10 @@ from .augmentation import (
     # Advanced
     mixup,
     cutmix,
+    # Industrial camera robustness
+    jpeg_compress,
+    vignette,
+    random_channel_gain,
 )
 
 
@@ -577,6 +581,56 @@ def get_anomaly_augmentation() -> Compose:
         ], p=0.3),
         # Avoid heavy distortions that might hide anomalies
     ])
+
+
+def get_industrial_camera_robust_augmentation() -> Compose:
+    """Augmentation preset focused on industrial camera/lighting drift robustness.
+
+    This targets common production artifacts:
+    - JPEG recompression (edge ringing / blocking)
+    - vignetting (lens / lighting falloff)
+    - mild per-channel gain drift (white balance / illumination changes)
+    """
+
+    def _jpeg(image):
+        return jpeg_compress(image, quality=random.randint(30, 95))
+
+    def _vignette(image):
+        return vignette(image, strength=random.uniform(0.1, 0.5), exponent=2.0)
+
+    def _gain(image):
+        return random_channel_gain(image, gain_range=(0.85, 1.15))
+
+    return Compose(
+        [
+            RandomFlip(mode="horizontal", p=0.5),
+            RandomRotate(angle_range=(-10, 10), p=0.3),
+            ColorJitter(
+                brightness=(0.85, 1.15),
+                contrast=(0.85, 1.15),
+                saturation=(0.9, 1.1),
+                hue=(-6, 6),
+                p=0.4,
+            ),
+            RandomApply(_gain, p=0.35),
+            RandomApply(_jpeg, p=0.25),
+            RandomApply(_vignette, p=0.25),
+            OneOf(
+                [
+                    GaussianNoise(std_range=(5, 20), p=1.0),
+                    SaltPepperNoise(salt_prob=0.01, pepper_prob=0.01, p=1.0),
+                ],
+                p=0.25,
+            ),
+            OneOf(
+                [
+                    MotionBlur(kernel_size_range=(3, 9), p=1.0),
+                    DefocusBlur(radius_range=(2, 6), p=1.0),
+                ],
+                p=0.2,
+            ),
+        ]
+    )
 
 
 class AugmentationPipeline:

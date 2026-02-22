@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-22
+
+### Added
+- New industrial datasets:
+  - `mvtec_loco` (MVTec LOCO AD) via `MVTecLOCODataset`
+  - `mvtec_ad2` (MVTec AD 2, `test_public` split) via `MVTecAD2Dataset`
+- High-resolution tiling inference:
+  - `pyimgano.inference.TiledDetector`
+  - `pyimgano-infer` tiling flags (`--tile-size/--tile-stride/...`)
+- Industrial preprocessing presets: gray-world, max-RGB white balance + homomorphic filtering.
+- Industrial augmentation ops: JPEG recompress, vignetting, random channel gain drift + preset pipeline.
+- Inference API hardening: supports detectors that require ndarray batches for scores/maps.
+- OpenCLIP backend supports numpy image inputs (not just paths).
+- `docs/WEIGHTS.md` for weight/checkpoint management.
+
+### Changed
+- `pyimgano-benchmark --dataset` choices now include `btad`, `mvtec_loco`, and `mvtec_ad2`.
+- `BTADDataset` accepts a `load_masks` kwarg for pipeline/CLI compatibility (BTAD still returns no masks).
+
 ## [0.2.1] - 2026-02-22
 
 ### Added

@@ -13,7 +13,7 @@ from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 from pyimgano.utils.datasets import load_dataset
 
 
-DatasetName = Literal["mvtec", "mvtec_ad", "visa"]
+DatasetName = Literal["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad"]
 
 
 @dataclass(frozen=True)

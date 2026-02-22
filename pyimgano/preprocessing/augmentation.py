@@ -957,3 +957,108 @@ def cutmix(
     result[y1:y2, x1:x2] = image2[y1:y2, x1:x2]
 
     return result
+
+
+def jpeg_compress(image: NDArray, quality: int = 80) -> NDArray:
+    """Simulate JPEG compression artifacts by encode/decode.
+
+    Notes
+    -----
+    - This uses Pillow to avoid BGR/RGB ambiguity in OpenCV JPEG encoding.
+    - Output dtype is always uint8.
+    """
+
+    q = int(quality)
+    if not (1 <= q <= 95):
+        raise ValueError(f"quality must be in [1,95], got {quality}")
+
+    arr = np.asarray(image)
+    if arr.ndim == 2:
+        mode = "L"
+        arr_u8 = arr.astype(np.uint8, copy=False)
+    elif arr.ndim == 3 and arr.shape[2] == 3:
+        mode = "RGB"
+        arr_u8 = arr.astype(np.uint8, copy=False)
+    else:
+        raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
+
+    try:
+        from io import BytesIO
+        from PIL import Image
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "Pillow is required for JPEG compression augmentation.\n"
+            "Install it via:\n  pip install 'pillow'\n"
+            f"Original error: {exc}"
+        ) from exc
+
+    pil = Image.fromarray(arr_u8, mode=mode)
+    buf = BytesIO()
+    pil.save(buf, format="JPEG", quality=q)
+    buf.seek(0)
+    decoded = Image.open(buf)
+    decoded = decoded.convert(mode)
+    out = np.asarray(decoded, dtype=np.uint8)
+    return out
+
+
+def vignette(image: NDArray, strength: float = 0.5, exponent: float = 2.0) -> NDArray:
+    """Apply a simple radial vignetting effect (darkened corners)."""
+
+    s = float(strength)
+    if s < 0.0:
+        raise ValueError(f"strength must be >= 0, got {strength}")
+
+    arr = np.asarray(image)
+    if arr.ndim not in (2, 3):
+        raise ValueError(f"Expected 2D or 3D image, got {arr.shape}")
+
+    h, w = int(arr.shape[0]), int(arr.shape[1])
+    if h == 0 or w == 0:
+        return arr
+
+    yy, xx = np.ogrid[:h, :w]
+    cy = (h - 1) / 2.0
+    cx = (w - 1) / 2.0
+    ny = (yy - cy) / max(cy, 1.0)
+    nx = (xx - cx) / max(cx, 1.0)
+    r2 = nx**2 + ny**2
+
+    mask = 1.0 - s * (r2 ** float(exponent))
+    mask = np.clip(mask, 0.0, 1.0).astype(np.float32)
+
+    out = arr.astype(np.float32)
+    if out.ndim == 3:
+        out = out * mask[..., None]
+    else:
+        out = out * mask
+
+    if arr.dtype == np.uint8:
+        return np.clip(out, 0.0, 255.0).astype(np.uint8)
+    return out.astype(arr.dtype)
+
+
+def random_channel_gain(
+    image: NDArray,
+    gain_range: Tuple[float, float] = (0.9, 1.1),
+) -> NDArray:
+    """Randomly scale each color channel (simple color temperature/exposure drift proxy)."""
+
+    arr = np.asarray(image)
+    if arr.ndim == 2:
+        return arr
+    if arr.ndim != 3 or arr.shape[2] != 3:
+        raise ValueError(f"Expected image shape (H,W,3), got {arr.shape}")
+
+    low, high = float(gain_range[0]), float(gain_range[1])
+    if low <= 0.0 or high <= 0.0 or high < low:
+        raise ValueError(f"Invalid gain_range: {gain_range}")
+
+    gains = np.array(
+        [random.uniform(low, high), random.uniform(low, high), random.uniform(low, high)],
+        dtype=np.float32,
+    )
+    out = arr.astype(np.float32) * gains.reshape(1, 1, 3)
+    if arr.dtype == np.uint8:
+        return np.clip(out, 0.0, 255.0).astype(np.uint8)
+    return out.astype(arr.dtype)

@@ -85,3 +85,29 @@ def test_infer_applies_postprocess_to_maps_only():
     assert out_map is not None
     assert float(out_map.min()) == 0.0
     assert float(out_map.max()) == 1.0
+
+
+def test_infer_supports_batch_only_detectors_for_numpy_inputs():
+    class _BatchOnly:
+        def __init__(self):
+            self.threshold_ = 0.0
+
+        def decision_function(self, X):
+            arr = np.asarray(X)
+            if arr.ndim != 4:
+                raise TypeError("expected batched ndarray (N,H,W,C)")
+            return np.asarray([float(arr[0].max())], dtype=np.float32)
+
+        def predict_anomaly_map(self, X):
+            arr = np.asarray(X)
+            if arr.ndim != 4:
+                raise TypeError("expected batched ndarray (N,H,W,C)")
+            return arr[..., 0].astype(np.float32)
+
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8)]
+    imgs[0][1:3, 2:4, :] = 200
+
+    results = infer(_BatchOnly(), imgs, input_format=ImageFormat.RGB_U8_HWC, include_maps=True)
+    assert results[0].label == 1
+    assert results[0].anomaly_map is not None
+    assert results[0].anomaly_map.shape == (4, 4)

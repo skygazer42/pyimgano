@@ -15,6 +15,7 @@ from .api import (
     result_to_jsonable,
     results_to_jsonable,
 )
+from .tiling import TiledDetector
 
 __all__ = [
     "InferenceResult",
@@ -22,4 +23,5 @@ __all__ = [
     "infer",
     "result_to_jsonable",
     "results_to_jsonable",
+    "TiledDetector",
 ]

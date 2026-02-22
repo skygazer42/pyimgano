@@ -118,6 +118,8 @@ __all__ += [
 # Dataset utilities
 from .datasets import (
     MVTecDataset,
+    MVTecLOCODataset,
+    MVTecAD2Dataset,
     BTADDataset,
     VisADataset,
     CustomDataset,
@@ -126,6 +128,8 @@ from .datasets import (
 
 __all__ += [
     "MVTecDataset",
+    "MVTecLOCODataset",
+    "MVTecAD2Dataset",
     "BTADDataset",
     "VisADataset",
     "CustomDataset",

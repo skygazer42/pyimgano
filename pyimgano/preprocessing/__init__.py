@@ -90,6 +90,12 @@ from .augmentation_pipeline import (
     get_heavy_augmentation,
     get_weather_augmentation,
     get_anomaly_augmentation,
+    get_industrial_camera_robust_augmentation,
+)
+from .industrial_presets import (
+    gray_world_white_balance,
+    homomorphic_filter,
+    max_rgb_white_balance,
 )
 
 __all__ = [
@@ -168,4 +174,9 @@ __all__ = [
     "get_heavy_augmentation",
     "get_weather_augmentation",
     "get_anomaly_augmentation",
+    "get_industrial_camera_robust_augmentation",
+    # Industrial presets
+    "gray_world_white_balance",
+    "max_rgb_white_balance",
+    "homomorphic_filter",
 ]

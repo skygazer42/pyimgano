@@ -64,7 +64,7 @@ def calibrate_threshold(
         raise ValueError(f"quantile must be in (0,1), got {quantile}")
 
     normalized = _normalize_inputs(calibration_inputs, input_format=input_format)
-    scores = np.asarray(detector.decision_function(normalized), dtype=np.float32)
+    scores = _call_decision_function(detector, normalized)
     if scores.size == 0:
         raise ValueError("No scores produced for calibration inputs.")
 
@@ -73,12 +73,42 @@ def calibrate_threshold(
     return threshold
 
 
+def _call_decision_function(detector: Any, inputs: Sequence[Any]) -> np.ndarray:
+    """Best-effort wrapper around `decision_function` for list-vs-batch conventions."""
+
+    try:
+        return np.asarray(detector.decision_function(inputs), dtype=np.float32)
+    except Exception as exc:
+        # Some detectors expect an ndarray batch (N,H,W,C) instead of a list of arrays.
+        if inputs and isinstance(inputs[0], np.ndarray):
+            try:
+                batch = np.stack([np.asarray(x) for x in inputs], axis=0)
+            except Exception:
+                raise exc
+            try:
+                return np.asarray(detector.decision_function(batch), dtype=np.float32)
+            except Exception:
+                raise exc
+        raise
+
+
 def _try_get_maps(detector: Any, inputs: Sequence[Any]) -> list[np.ndarray | None] | None:
     if hasattr(detector, "predict_anomaly_map"):
+        maps = None
         try:
             maps = detector.predict_anomaly_map(inputs)
         except Exception:
-            maps = None
+            # Some detectors expect a batched ndarray for predict_anomaly_map.
+            if inputs and isinstance(inputs[0], np.ndarray):
+                try:
+                    batch = np.stack([np.asarray(x) for x in inputs], axis=0)
+                except Exception:
+                    maps = None
+                else:
+                    try:
+                        maps = detector.predict_anomaly_map(batch)
+                    except Exception:
+                        maps = None
         if maps is not None:
             arr = np.asarray(maps)
             if arr.ndim == 3 and arr.shape[0] == len(inputs):
@@ -112,7 +142,7 @@ def infer(
     """
 
     normalized = _normalize_inputs(inputs, input_format=input_format)
-    scores = np.asarray(detector.decision_function(normalized), dtype=np.float32)
+    scores = _call_decision_function(detector, normalized)
 
     threshold = getattr(detector, "threshold_", None)
     labels: Optional[np.ndarray]

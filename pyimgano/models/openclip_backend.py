@@ -10,7 +10,7 @@ The goal is to make `import pyimgano.models` safe even when optional deps are
 not installed, while still registering model names so they can be discovered.
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -309,7 +309,7 @@ class OpenCLIPViTPatchEmbedder:
 
         return patch_tokens, (grid_h, grid_w)
 
-    def embed(self, image_path: str):
+    def embed(self, image: Union[str, np.ndarray]):
         self._ensure_loaded()
 
         try:
@@ -333,10 +333,22 @@ class OpenCLIPViTPatchEmbedder:
         if self._preprocess is None or self._device_t is None:  # pragma: no cover
             raise RuntimeError("OpenCLIP preprocess not loaded")
 
-        image = Image.open(image_path).convert("RGB")
-        original_w, original_h = image.size
+        if isinstance(image, np.ndarray):
+            image_arr = np.asarray(image)
+            if image_arr.ndim != 3 or image_arr.shape[2] != 3:
+                raise ValueError(
+                    "OpenCLIPViTPatchEmbedder expects RGB images with shape (H, W, 3). "
+                    f"Got {image_arr.shape}."
+                )
+            if image_arr.dtype != np.uint8:
+                image_arr = np.clip(image_arr, 0, 255).astype(np.uint8)
+            original_h, original_w = int(image_arr.shape[0]), int(image_arr.shape[1])
+            pil_image = Image.fromarray(image_arr, mode="RGB")
+        else:
+            pil_image = Image.open(str(image)).convert("RGB")
+            original_w, original_h = pil_image.size
 
-        image_tensor = self._preprocess(image).unsqueeze(0).to(self._device_t)
+        image_tensor = self._preprocess(pil_image).unsqueeze(0).to(self._device_t)
         with torch.no_grad():
             patch_tokens, grid_shape = self._extract_vit_patch_tokens(image_tensor)
 
@@ -538,11 +550,13 @@ class VisionOpenCLIPPromptScore:
         )
         self._text_cache_key = key
 
-    def _embed(self, image_path: str) -> tuple[NDArray, tuple[int, int], tuple[int, int]]:
+    def _embed(
+        self, image: Union[str, np.ndarray]
+    ) -> tuple[NDArray, tuple[int, int], tuple[int, int]]:
         if self.embedder is None:  # pragma: no cover - guarded by __init__
             raise RuntimeError("embedder is required")
 
-        patch_embeddings, grid_shape, original_size = self.embedder.embed(image_path)
+        patch_embeddings, grid_shape, original_size = self.embedder.embed(image)
         patch_embeddings_np = np.asarray(patch_embeddings, dtype=np.float32)
         if patch_embeddings_np.ndim != 2:
             raise ValueError(
@@ -563,12 +577,12 @@ class VisionOpenCLIPPromptScore:
         return patch_embeddings_np, (grid_h, grid_w), (original_h, original_w)
 
     def fit(self, X, y=None):
-        paths = list(X)
-        if not paths:
+        items = list(X)
+        if not items:
             raise ValueError("X must contain at least one training image path.")
 
         self._ensure_text_features()
-        self.decision_scores_ = np.asarray(self.decision_function(paths), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64)
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
@@ -577,10 +591,10 @@ class VisionOpenCLIPPromptScore:
         if self.text_features_normal is None or self.text_features_anomaly is None:  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
-        paths = list(X)
-        scores = np.zeros(len(paths), dtype=np.float64)
-        for i, path in enumerate(paths):
-            patch_embeddings, _grid_shape, _original_size = self._embed(path)
+        items = list(X)
+        scores = np.zeros(len(items), dtype=np.float64)
+        for i, item in enumerate(items):
+            patch_embeddings, _grid_shape, _original_size = self._embed(item)
             patch_scores = _prompt_patch_scores(
                 patch_embeddings,
                 text_features_normal=self.text_features_normal,
@@ -600,12 +614,12 @@ class VisionOpenCLIPPromptScore:
         scores = self.decision_function(X)
         return (scores > self.threshold_).astype(np.int64)
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
+    def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
         self._ensure_text_features()
         if self.text_features_normal is None or self.text_features_anomaly is None:  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
-        patch_embeddings, grid_shape, original_size = self._embed(image_path)
+        patch_embeddings, grid_shape, original_size = self._embed(image)
         patch_scores = _prompt_patch_scores(
             patch_embeddings,
             text_features_normal=self.text_features_normal,
@@ -632,8 +646,8 @@ class VisionOpenCLIPPromptScore:
         return np.asarray(upsampled, dtype=np.float32)
 
     def predict_anomaly_map(self, X):
-        paths = list(X)
-        maps = [self.get_anomaly_map(path) for path in paths]
+        items = list(X)
+        maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
             raise ValueError("X must be non-empty")
 
@@ -705,8 +719,8 @@ class VisionOpenCLIPPatchKNN:
     def predict(self, X):
         return self._core.predict(X)
 
-    def get_anomaly_map(self, image_path: str):
-        return self._core.get_anomaly_map(image_path)
+    def get_anomaly_map(self, image: Union[str, np.ndarray]):
+        return self._core.get_anomaly_map(image)
 
     def predict_anomaly_map(self, X):
         return self._core.predict_anomaly_map(X)

@@ -32,6 +32,39 @@ def test_openclip_promptscore_fit_predict_and_map():
     assert np.isfinite(amap).all()
 
 
+def test_openclip_promptscore_accepts_numpy_inputs_with_custom_embedder():
+    class _ArrayEmbedder:
+        def embed(self, image):
+            arr = np.asarray(image)
+            is_anom = float(arr.max()) > 0.0
+            patches = (
+                np.tile(np.array([[0.0, 1.0]], dtype=np.float32), (4, 1))
+                if is_anom
+                else np.tile(np.array([[1.0, 0.0]], dtype=np.float32), (4, 1))
+            )
+            return patches, (2, 2), (8, 8)
+
+    detector = models.create_model(
+        "vision_openclip_promptscore",
+        embedder=_ArrayEmbedder(),
+        text_features_normal=np.array([1.0, 0.0], dtype=np.float32),
+        text_features_anomaly=np.array([0.0, 1.0], dtype=np.float32),
+        contamination=0.1,
+    )
+
+    normal = np.zeros((8, 8, 3), dtype=np.uint8)
+    anomaly = normal.copy()
+    anomaly[2:4, 2:4, :] = 255
+
+    detector.fit([normal, normal])
+    scores = detector.decision_function([normal, anomaly])
+    assert float(scores[1]) > float(scores[0])
+
+    amap = detector.get_anomaly_map(anomaly)
+    assert amap.shape == (8, 8)
+    assert np.isfinite(amap).all()
+
+
 def test_openclip_promptscore_caches_text_features_by_class_name():
     import torch
 

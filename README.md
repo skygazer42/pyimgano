@@ -20,8 +20,9 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
 - 🎯 **Flexible** - Works with any feature extractor or end-to-end deep learning
 - 🏭 **Industrial Inference (numpy-first)** ⭐ NEW! - Explicit `ImageFormat`, canonical `RGB/u8/HWC` inputs, JSONL `pyimgano-infer` CLI
+- 🧩 **High-Resolution Tiling Inference** ⭐ NEW! - Tiled scoring + anomaly-map stitching for 2K/4K inspection images
 - 🖼️ **Image Preprocessing** - 80+ operations (edge detection, morphology, filters, FFT, texture analysis, segmentation, augmentation)
-- 📊 **Dataset Loaders** ⭐ NEW! - MVTec AD, BTAD, custom datasets with automatic loading
+- 📊 **Dataset Loaders** ⭐ NEW! - MVTec AD, MVTec LOCO AD, MVTec AD 2, VisA, BTAD, custom datasets with automatic loading
 - 📈 **Advanced Visualization** ⭐ NEW! - ROC/PR curves, confusion matrices, t-SNE, anomaly heatmaps
 - 🧪 **Pixel-Level Metrics** ⭐ NEW! - pixel AUROC/AP + **region-aware AUPRO** (FPR-limited integration) for industrial inspection
 - 💾 **Model Management** ⭐ NEW! - Save/load, versioning, profiling, model registry
@@ -318,6 +319,38 @@ pyimgano-benchmark \
 Advanced:
 - Pass additional constructor args with `--model-kwargs '{"contamination": 0.1}'`.
 - `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
+
+### High-Resolution Tiling Inference (2K/4K) ⭐ NEW
+
+Many industrial images are much larger than typical model input sizes. `pyimgano` supports tiled inference
+to improve tiny-defect sensitivity without resizing the entire frame aggressively.
+
+CLI:
+
+```bash
+pyimgano-infer \
+  --model vision_patchcore \
+  --device cuda \
+  --train-dir /path/to/normal/train_images \
+  --calibration-quantile 0.995 \
+  --input /path/to/high_res_images \
+  --include-maps \
+  --tile-size 512 \
+  --tile-stride 384
+```
+
+Python:
+
+```python
+from pyimgano.models import create_model
+from pyimgano.inference import infer, TiledDetector
+
+det = create_model("vision_patchcore", device="cuda")
+det.fit(train_imgs_np, input_format="rgb_u8_hwc")
+
+tiled = TiledDetector(detector=det, tile_size=512, stride=384)
+results = infer(tiled, [img_np], input_format="rgb_u8_hwc", include_maps=True)
+```
 
 ### Example 4: Zero-Shot Detection (WinCLIP - CVPR 2023) ⭐ NEW
 
@@ -732,9 +765,12 @@ dataset = load_dataset('mvtec', './mvtec_ad', category='bottle')
 ```
 
 **Supported Datasets:**
-- MVTec AD (15 categories)
-- BTAD (3 categories)
-- Custom datasets (flexible structure)
+- MVTec AD (15 categories) — `load_dataset("mvtec", ...)`
+- MVTec LOCO AD (5 categories) — `load_dataset("mvtec_loco", ...)`
+- MVTec AD 2 (2025; `test_public` split) — `load_dataset("mvtec_ad2", ...)`
+- VisA — `load_dataset("visa", ...)`
+- BTAD (3 categories) — `load_dataset("btad", ...)`
+- Custom datasets (flexible structure) — `load_dataset("custom", ...)`
 
 ### Advanced Visualization 📈
 ```python

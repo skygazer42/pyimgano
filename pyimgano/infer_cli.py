@@ -58,6 +58,36 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Request anomaly maps if detector supports them",
     )
+    parser.add_argument(
+        "--tile-size",
+        type=int,
+        default=None,
+        help="Optional tile size for high-resolution inference (requires a numpy-capable detector)",
+    )
+    parser.add_argument(
+        "--tile-stride",
+        type=int,
+        default=None,
+        help="Optional tile stride (defaults to tile-size)",
+    )
+    parser.add_argument(
+        "--tile-score-reduce",
+        default="max",
+        choices=["max", "mean", "topk_mean"],
+        help="How to aggregate tile scores into an image score",
+    )
+    parser.add_argument(
+        "--tile-map-reduce",
+        default="max",
+        choices=["max", "mean"],
+        help="How to blend overlapping tile maps",
+    )
+    parser.add_argument(
+        "--tile-score-topk",
+        type=float,
+        default=0.1,
+        help="Top-k fraction used for tile-score reduce mode 'topk_mean'",
+    )
     parser.add_argument("--save-jsonl", default=None, help="Optional JSONL output path")
     parser.add_argument(
         "--save-maps",
@@ -119,6 +149,17 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         detector = create_model(args.model, **model_kwargs)
+        if args.tile_size is not None:
+            from pyimgano.inference.tiling import TiledDetector
+
+            detector = TiledDetector(
+                detector=detector,
+                tile_size=int(args.tile_size),
+                stride=(int(args.tile_stride) if args.tile_stride is not None else None),
+                score_reduce=str(args.tile_score_reduce),
+                score_topk=float(args.tile_score_topk),
+                map_reduce=str(args.tile_map_reduce),
+            )
 
         train_paths: list[str] = []
         if args.train_dir is not None:

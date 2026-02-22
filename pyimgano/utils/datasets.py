@@ -293,6 +293,403 @@ class MVTecDataset(BaseDataset):
         return MVTecDataset.CATEGORIES
 
 
+class MVTecLOCODataset(BaseDataset):
+    """MVTec LOCO AD dataset loader.
+
+    LOCO extends MVTec-style industrial inspection with:
+    - structural anomalies
+    - logical anomalies
+
+    Expected structure (per category):
+        <root>/<category>/
+            train/good/*.png
+            validation/good/*.png               (optional)
+            test/good/*.png
+            test/logical_anomalies/**.png
+            test/structural_anomalies/**.png
+            ground_truth/logical_anomalies/**.png     (optional)
+            ground_truth/structural_anomalies/**.png  (optional)
+
+    Notes
+    -----
+    - Some exports nest anomaly images one-level deeper (e.g. by defect id/name). This loader scans
+      recursively under the anomaly directories.
+    - Mask naming differs across exports. This loader tries multiple candidates and falls back to zeros.
+    """
+
+    CATEGORIES = [
+        "breakfast_box",
+        "juice_bottle",
+        "pushpins",
+        "screw_bag",
+        "splicing_connectors",
+    ]
+
+    _ANOMALY_SPLITS = ("logical_anomalies", "structural_anomalies")
+
+    def __init__(
+        self,
+        root: str,
+        category: str,
+        resize: Optional[Tuple[int, int]] = None,
+        load_masks: bool = True,
+        include_validation_in_train: bool = False,
+    ) -> None:
+        super().__init__(root, category)
+
+        if category not in self.CATEGORIES:
+            raise ValueError(f"Invalid category. Choose from: {self.CATEGORIES}")
+
+        self.resize = resize
+        self.load_masks = load_masks
+        self.include_validation_in_train = bool(include_validation_in_train)
+        self.category_path = self.root / category
+
+        if not self.category_path.exists():
+            raise FileNotFoundError(f"MVTec LOCO category path not found: {self.category_path}")
+
+    @staticmethod
+    def _scan_images(directory: Path) -> List[Path]:
+        if not directory.exists():
+            return []
+        paths: List[Path] = []
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+            paths.extend(sorted(directory.rglob(ext)))
+        return paths
+
+    def _load_images(self, paths: List[Path]) -> List[NDArray]:
+        images: List[NDArray] = []
+        for img_path in paths:
+            img = cv2.imread(str(img_path))
+            if img is None:
+                raise ValueError(f"Failed to load image: {img_path}")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            if self.resize is not None:
+                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+            images.append(img)
+        return images
+
+    def _zeros_mask_for_image(self, image_path: Path) -> NDArray:
+        if self.resize is not None:
+            shape = self.resize
+        else:
+            img = cv2.imread(str(image_path))
+            shape = img.shape[:2] if img is not None else (256, 256)
+        return np.zeros(shape, dtype=np.uint8)
+
+    def _load_mask_for_test_image(self, image_path: Path) -> NDArray:
+        if not self.load_masks:
+            raise RuntimeError("load_masks is False")
+
+        test_dir = self.category_path / "test"
+        gt_dir = self.category_path / "ground_truth"
+
+        try:
+            rel = image_path.relative_to(test_dir)
+        except Exception:
+            return self._zeros_mask_for_image(image_path)
+
+        # Candidate 1: same relative path under ground_truth
+        candidates: List[Path] = []
+        candidates.append(gt_dir / rel)
+
+        # Candidate 2: same dir, stem + _mask (MVTec AD-style)
+        candidates.append((gt_dir / rel).with_name(f"{image_path.stem}_mask{image_path.suffix}"))
+
+        # Candidate 3: some exports store masks with the same name (no suffix) under ground_truth
+        candidates.append((gt_dir / rel).with_name(image_path.name))
+
+        # Candidate 4: some exports add an extra "<stem>/" folder level
+        candidates.append(gt_dir / rel.parent / image_path.stem / image_path.name)
+        candidates.append(
+            gt_dir
+            / rel.parent
+            / image_path.stem
+            / f"{image_path.stem}_mask{image_path.suffix}"
+        )
+
+        mask = None
+        for candidate in candidates:
+            if candidate.exists():
+                mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
+                if mask is not None:
+                    break
+
+        if mask is None:
+            mask = self._zeros_mask_for_image(image_path)
+        elif self.resize is not None:
+            mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+
+        return (mask > 127).astype(np.uint8)
+
+    def get_train_data(self) -> NDArray:
+        train_good_dir = self.category_path / "train" / "good"
+        if not train_good_dir.exists():
+            raise FileNotFoundError(f"Training data not found: {train_good_dir}")
+
+        train_paths = self._scan_images(train_good_dir)
+        if self.include_validation_in_train:
+            val_dir = self.category_path / "validation" / "good"
+            train_paths.extend(self._scan_images(val_dir))
+
+        images = self._load_images(train_paths)
+        if not images:
+            raise ValueError(f"No training images found in: {train_good_dir}")
+        return np.array(images)
+
+    def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
+        test_dir = self.category_path / "test"
+        if not test_dir.exists():
+            raise FileNotFoundError(f"Test data not found: {test_dir}")
+
+        good_paths = self._scan_images(test_dir / "good")
+        anomaly_paths: List[Path] = []
+        for split in self._ANOMALY_SPLITS:
+            anomaly_paths.extend(self._scan_images(test_dir / split))
+
+        test_paths = good_paths + anomaly_paths
+        images = self._load_images(test_paths)
+        labels = np.array([0] * len(good_paths) + [1] * len(anomaly_paths))
+
+        if not self.load_masks:
+            return np.array(images), labels, None
+
+        masks: List[NDArray] = []
+        for p in good_paths:
+            masks.append(self._zeros_mask_for_image(p))
+        for p in anomaly_paths:
+            masks.append(self._load_mask_for_test_image(p))
+
+        return np.array(images), labels, np.array(masks)
+
+    def get_info(self) -> DatasetInfo:
+        train_data = self.get_train_data()
+        test_data, _, _ = self.get_test_data()
+        return DatasetInfo(
+            name="MVTec LOCO AD",
+            categories=self.CATEGORIES,
+            num_train=len(train_data),
+            num_test=len(test_data),
+            image_size=train_data[0].shape[:2],
+            description=f"MVTec LOCO AD - {self.category} category",
+        )
+
+    def get_train_paths(self) -> List[str]:
+        train_good_dir = self.category_path / "train" / "good"
+        if not train_good_dir.exists():
+            raise FileNotFoundError(f"Training data not found: {train_good_dir}")
+
+        train_paths = self._scan_images(train_good_dir)
+        if self.include_validation_in_train:
+            val_dir = self.category_path / "validation" / "good"
+            train_paths.extend(self._scan_images(val_dir))
+
+        out = [str(p) for p in sorted(train_paths)]
+        if not out:
+            raise ValueError(f"No training images found in: {train_good_dir}")
+        return out
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        test_dir = self.category_path / "test"
+        if not test_dir.exists():
+            raise FileNotFoundError(f"Test data not found: {test_dir}")
+
+        good_paths = self._scan_images(test_dir / "good")
+        anomaly_paths: List[Path] = []
+        for split in self._ANOMALY_SPLITS:
+            anomaly_paths.extend(self._scan_images(test_dir / split))
+
+        test_paths = [str(p) for p in list(good_paths) + list(anomaly_paths)]
+        labels = np.array([0] * len(good_paths) + [1] * len(anomaly_paths))
+
+        if not self.load_masks:
+            return test_paths, labels, None
+
+        masks: List[NDArray] = []
+        for p in good_paths:
+            masks.append(self._zeros_mask_for_image(p))
+        for p in anomaly_paths:
+            masks.append(self._load_mask_for_test_image(p))
+
+        return test_paths, labels, np.array(masks)
+
+    @staticmethod
+    def list_categories() -> List[str]:
+        return list(MVTecLOCODataset.CATEGORIES)
+
+
+class MVTecAD2Dataset(BaseDataset):
+    """MVTec AD 2 dataset loader (paths-first).
+
+    Expected structure (per category):
+        <root>/<category>/
+            train/good/*.png
+            validation/good/*.png
+            test_public/good/*.png
+            test_public/bad/*.png
+            test_public/ground_truth/bad/*.png   (optional; usually *_mask.png)
+
+    Notes
+    -----
+    - AD2 also provides private test splits that do not ship public GT. This loader defaults to
+      `split="test_public"` for evaluation.
+    """
+
+    def __init__(
+        self,
+        root: str,
+        category: str,
+        *,
+        split: str = "test_public",
+        resize: Optional[Tuple[int, int]] = None,
+        load_masks: bool = True,
+    ) -> None:
+        super().__init__(root, category)
+        self.split = str(split)
+        self.resize = resize
+        self.load_masks = bool(load_masks)
+
+        self.category_path = self.root / category
+        if not self.category_path.exists():
+            raise FileNotFoundError(f"MVTec AD 2 category path not found: {self.category_path}")
+
+    @staticmethod
+    def _scan_images(directory: Path) -> List[Path]:
+        if not directory.exists():
+            return []
+        paths: List[Path] = []
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+            paths.extend(sorted(directory.rglob(ext)))
+        return paths
+
+    def _load_images(self, paths: List[Path]) -> List[NDArray]:
+        images: List[NDArray] = []
+        for img_path in paths:
+            img = cv2.imread(str(img_path))
+            if img is None:
+                raise ValueError(f"Failed to load image: {img_path}")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            if self.resize is not None:
+                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+            images.append(img)
+        return images
+
+    def _zeros_mask_for_image(self, image_path: Path) -> NDArray:
+        if self.resize is not None:
+            shape = self.resize
+        else:
+            img = cv2.imread(str(image_path))
+            shape = img.shape[:2] if img is not None else (256, 256)
+        return np.zeros(shape, dtype=np.uint8)
+
+    def _load_mask_for_bad_image(self, bad_image_path: Path) -> NDArray:
+        if not self.load_masks:
+            raise RuntimeError("load_masks is False")
+
+        split_dir = self.category_path / self.split
+        gt_bad_dir = split_dir / "ground_truth" / "bad"
+
+        candidates: List[Path] = []
+        candidates.append(gt_bad_dir / bad_image_path.name)
+        candidates.append(gt_bad_dir / f"{bad_image_path.stem}_mask{bad_image_path.suffix}")
+        candidates.append(gt_bad_dir / f"{bad_image_path.stem}_mask.png")
+        candidates.append(gt_bad_dir / f"{bad_image_path.stem}.png")
+
+        mask = None
+        for candidate in candidates:
+            if candidate.exists():
+                mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
+                if mask is not None:
+                    break
+
+        if mask is None:
+            mask = self._zeros_mask_for_image(bad_image_path)
+        elif self.resize is not None:
+            mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+
+        return (mask > 127).astype(np.uint8)
+
+    def get_train_data(self) -> NDArray:
+        train_good_dir = self.category_path / "train" / "good"
+        if not train_good_dir.exists():
+            raise FileNotFoundError(f"Training data not found: {train_good_dir}")
+        train_paths = self._scan_images(train_good_dir)
+        images = self._load_images(train_paths)
+        if not images:
+            raise ValueError(f"No training images found in: {train_good_dir}")
+        return np.array(images)
+
+    def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
+        split_dir = self.category_path / self.split
+        if not split_dir.exists():
+            raise FileNotFoundError(f"Test split not found: {split_dir}")
+
+        good_paths = self._scan_images(split_dir / "good")
+        bad_paths = self._scan_images(split_dir / "bad")
+        test_paths = good_paths + bad_paths
+        images = self._load_images(test_paths)
+        labels = np.array([0] * len(good_paths) + [1] * len(bad_paths))
+
+        if not self.load_masks:
+            return np.array(images), labels, None
+
+        masks: List[NDArray] = []
+        for p in good_paths:
+            masks.append(self._zeros_mask_for_image(p))
+        for p in bad_paths:
+            masks.append(self._load_mask_for_bad_image(p))
+
+        return np.array(images), labels, np.array(masks)
+
+    def get_info(self) -> DatasetInfo:
+        train_data = self.get_train_data()
+        test_data, _, _ = self.get_test_data()
+        return DatasetInfo(
+            name="MVTec AD 2",
+            categories=[self.category] if self.category else [],
+            num_train=len(train_data),
+            num_test=len(test_data),
+            image_size=train_data[0].shape[:2],
+            description=f"MVTec AD 2 - {self.category} category ({self.split})",
+        )
+
+    def get_train_paths(self) -> List[str]:
+        train_good_dir = self.category_path / "train" / "good"
+        if not train_good_dir.exists():
+            raise FileNotFoundError(f"Training data not found: {train_good_dir}")
+        paths = [str(p) for p in self._scan_images(train_good_dir)]
+        if not paths:
+            raise ValueError(f"No training images found in: {train_good_dir}")
+        return paths
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        split_dir = self.category_path / self.split
+        if not split_dir.exists():
+            raise FileNotFoundError(f"Test split not found: {split_dir}")
+
+        good_paths = self._scan_images(split_dir / "good")
+        bad_paths = self._scan_images(split_dir / "bad")
+        test_paths = [str(p) for p in good_paths + bad_paths]
+        labels = np.array([0] * len(good_paths) + [1] * len(bad_paths))
+
+        if not self.load_masks:
+            return test_paths, labels, None
+
+        masks: List[NDArray] = []
+        for p in good_paths:
+            masks.append(self._zeros_mask_for_image(p))
+        for p in bad_paths:
+            masks.append(self._load_mask_for_bad_image(p))
+        return test_paths, labels, np.array(masks)
+
+    @staticmethod
+    def list_categories(root: str) -> List[str]:
+        root_path = Path(root)
+        if not root_path.exists():
+            return []
+        return sorted([p.name for p in root_path.iterdir() if p.is_dir()])
+
+
 class BTADDataset(BaseDataset):
     """BTAD (BeanTech Anomaly Detection) dataset loader.
 
@@ -319,7 +716,8 @@ class BTADDataset(BaseDataset):
         self,
         root: str,
         category: str,
-        resize: Optional[Tuple[int, int]] = None
+        resize: Optional[Tuple[int, int]] = None,
+        load_masks: bool = False,
     ):
         super().__init__(root, category)
 
@@ -327,6 +725,7 @@ class BTADDataset(BaseDataset):
             raise ValueError(f"Invalid category. Choose from: {self.CATEGORIES}")
 
         self.resize = resize
+        self.load_masks = bool(load_masks)  # BTAD does not ship masks; keep for API compatibility.
         self.category_path = self.root / category
 
     def _load_images(self, path: Path) -> List[NDArray]:
@@ -857,7 +1256,7 @@ def load_dataset(
     """Factory function to load datasets.
 
     Args:
-        name: Dataset name ('mvtec', 'btad', 'visa', 'custom')
+        name: Dataset name ('mvtec', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa', 'custom')
         root: Path to dataset root
         category: Category name (required for mvtec and btad)
         **kwargs: Additional arguments for dataset
@@ -872,6 +1271,8 @@ def load_dataset(
     datasets = {
         'mvtec': MVTecDataset,
         'mvtec_ad': MVTecDataset,
+        'mvtec_loco': MVTecLOCODataset,
+        'mvtec_ad2': MVTecAD2Dataset,
         'btad': BTADDataset,
         'visa': VisADataset,
         'custom': CustomDataset,
@@ -883,7 +1284,7 @@ def load_dataset(
 
     dataset_class = datasets[name_lower]
 
-    if name_lower in ['mvtec', 'mvtec_ad', 'btad', 'visa']:
+    if name_lower in ['mvtec', 'mvtec_ad', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa']:
         if category is None:
             raise ValueError(f"Category is required for {name} dataset")
         return dataset_class(root=root, category=category, **kwargs)

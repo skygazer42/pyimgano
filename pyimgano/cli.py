@@ -13,7 +13,11 @@ from pyimgano.utils.optional_deps import optional_import
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-benchmark")
-    parser.add_argument("--dataset", default=None, choices=["mvtec", "mvtec_ad", "visa"])
+    parser.add_argument(
+        "--dataset",
+        default=None,
+        choices=["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad"],
+    )
     parser.add_argument("--root", default=None, help="Dataset root path")
     parser.add_argument("--category", default=None, help="Dataset category name")
     parser.add_argument(
