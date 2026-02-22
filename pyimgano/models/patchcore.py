@@ -13,7 +13,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 from pyimgano.utils.optional_deps import require
 
@@ -27,10 +27,12 @@ try:  # pragma: no cover - typing-only dependency
 except Exception:  # pragma: no cover - minimal env without numpy
     NDArray = Any  # type: ignore[misc,assignment]
 
+ImageInput = Union[str, NDArray]
+
 
 @register_model(
     "vision_patchcore",
-    tags=("vision", "deep", "patchcore", "sota", "cvpr2022"),
+    tags=("vision", "deep", "patchcore", "sota", "cvpr2022", "numpy", "pixel_map"),
     metadata={
         "description": "PatchCore - SOTA patch-level anomaly detection (CVPR 2022)",
         "paper": "Towards Total Recall in Industrial Anomaly Detection",
@@ -129,7 +131,11 @@ class VisionPatchCore(BaseVisionDeepDetector):
         logger.info(
             "Initialized PatchCore with backbone=%s, layers=%s, "
             "coreset_ratio=%.2f, k=%d, device=%s",
-            backbone, self.layers, coreset_sampling_ratio, n_neighbors, device
+            backbone,
+            self.layers,
+            coreset_sampling_ratio,
+            n_neighbors,
+            device,
         )
 
     def _build_model(self) -> None:
@@ -139,9 +145,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         # Keep backward compatibility with older torchvision versions.
         if self.backbone_name == "wide_resnet50":
             try:
-                weights = (
-                    models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
-                )
+                weights = models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
                 self.model = models.wide_resnet50_2(weights=weights)
             except Exception:  # pragma: no cover - fallback for older torchvision
                 self.model = models.wide_resnet50_2(pretrained=self.pretrained)
@@ -166,23 +170,38 @@ class VisionPatchCore(BaseVisionDeepDetector):
         def get_activation(name: str):
             def hook(module, input, output):
                 self.feature_maps[name] = output.detach()
+
             return hook
 
         for layer in self.layers:
             if not hasattr(self.model, layer):
                 raise ValueError(f"Model has no layer named '{layer}'")
-            getattr(self.model, layer).register_forward_hook(
-                get_activation(layer)
-            )
+            getattr(self.model, layer).register_forward_hook(get_activation(layer))
 
-    def _extract_patch_features(self, image_path: str) -> Tuple[NDArray, Tuple[int, int]]:
+    def _load_image_rgb(self, image: ImageInput) -> NDArray:
+        np = self._np
+        cv2 = self._cv2
+
+        if isinstance(image, np.ndarray):
+            if image.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={image.dtype}")
+            if image.ndim != 3 or image.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {image.shape}")
+            return np.ascontiguousarray(image)
+
+        img = cv2.imread(str(image))
+        if img is None:
+            raise ValueError(f"Failed to load image: {image}")
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _extract_patch_features(self, image: ImageInput) -> Tuple[NDArray, Tuple[int, int]]:
         """
         Extract patch-level features from an image.
 
         Parameters
         ----------
-        image_path : str
-            Path to input image
+        image : str | np.ndarray
+            Path to input image, or a canonical RGB/u8/HWC numpy image.
 
         Returns
         -------
@@ -194,11 +213,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         F = self._F
 
         # Load and preprocess image
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {image_path}")
-
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = self._load_image_rgb(image)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
         # Extract features
@@ -216,12 +231,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             if target_size is None:
                 target_size = (int(feat.shape[-2]), int(feat.shape[-1]))
             else:
-                feat = F.interpolate(
-                    feat,
-                    size=target_size,
-                    mode='bilinear',
-                    align_corners=False
-                )
+                feat = F.interpolate(feat, size=target_size, mode="bilinear", align_corners=False)
 
             features_list.append(feat)
 
@@ -265,7 +275,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.debug(
             "Performing coreset sampling: %d -> %d samples (%.1f%%)",
-            n_samples, n_coreset, 100 * self.coreset_sampling_ratio
+            n_samples,
+            n_coreset,
+            100 * self.coreset_sampling_ratio,
         )
 
         # Greedy k-Center coreset selection
@@ -278,10 +290,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         for _ in range(n_coreset - 1):
             # Update minimum distances to selected set
             last_selected = features[selected_indices[-1]]
-            distances = np.linalg.norm(
-                features - last_selected,
-                axis=1
-            )
+            distances = np.linalg.norm(features - last_selected, axis=1)
             min_distances = np.minimum(min_distances, distances)
 
             # Select point with maximum minimum distance
@@ -290,7 +299,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         return features[selected_indices]
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionPatchCore":
+    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPatchCore":
         """
         Fit PatchCore on normal training images.
 
@@ -318,15 +327,15 @@ class VisionPatchCore(BaseVisionDeepDetector):
         # Extract features from all training images
         all_features = []
 
-        for idx, image_path in enumerate(X_list):
+        for idx, image in enumerate(X_list):
             if idx % 10 == 0:
                 logger.debug("Processing image %d/%d", idx + 1, len(X_list))
 
             try:
-                features, _ = self._extract_patch_features(image_path)
+                features, _ = self._extract_patch_features(image)
                 all_features.append(features)
             except Exception as e:
-                logger.warning("Failed to process %s: %s", image_path, e)
+                logger.warning("Failed to process item %d: %s", idx, e)
                 continue
 
         if not all_features:
@@ -335,8 +344,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         # Stack all features
         all_features = np.vstack(all_features)
         logger.info(
-            "Extracted %d patch features (dim=%d)",
-            all_features.shape[0], all_features.shape[1]
+            "Extracted %d patch features (dim=%d)", all_features.shape[0], all_features.shape[1]
         )
 
         # Perform coreset sampling
@@ -344,7 +352,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         logger.info(
             "Memory bank created: %d patches (%.2f%% of original)",
             self.memory_bank.shape[0],
-            100 * self.memory_bank.shape[0] / all_features.shape[0]
+            100 * self.memory_bank.shape[0] / all_features.shape[0],
         )
 
         # Build k-NN index
@@ -364,7 +372,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         logger.info("PatchCore training completed")
         return self
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput]) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -384,7 +392,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
+    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
         """
         Compute anomaly scores for test images.
 
@@ -407,10 +415,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
-        for idx, image_path in enumerate(X_list):
+        for idx, image in enumerate(X_list):
             try:
                 # Extract patch features
-                features, _ = self._extract_patch_features(image_path)
+                features, _ = self._extract_patch_features(image)
 
                 # Find k nearest neighbors in memory bank
                 distances, _ = self.nn_index.kneighbors(features)
@@ -423,13 +431,13 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 scores[idx] = image_score
 
             except Exception as e:
-                logger.warning("Failed to score %s: %s", image_path, e)
+                logger.warning("Failed to score item %d: %s", idx, e)
                 scores[idx] = 0.0
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
+    def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
         """
         Generate pixel-level anomaly heatmap.
 
@@ -462,13 +470,21 @@ class VisionPatchCore(BaseVisionDeepDetector):
             h = w = side
         anomaly_map = patch_scores.reshape(int(h), int(w))
 
-        # Resize to original image size
-        img = cv2.imread(image_path)
-        if img is not None:
+        # Resize to original image size (if known)
+        if isinstance(image_path, np.ndarray):
+            original_h, original_w = int(image_path.shape[0]), int(image_path.shape[1])
             anomaly_map = cv2.resize(
                 anomaly_map,
-                (img.shape[1], img.shape[0]),
-                interpolation=cv2.INTER_CUBIC
+                (original_w, original_h),
+                interpolation=cv2.INTER_CUBIC,
             )
+        else:
+            img = cv2.imread(str(image_path))
+            if img is not None:
+                anomaly_map = cv2.resize(
+                    anomaly_map,
+                    (img.shape[1], img.shape[0]),
+                    interpolation=cv2.INTER_CUBIC,
+                )
 
         return np.asarray(anomaly_map, dtype=np.float32)

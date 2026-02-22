@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal, Optional, Protocol, Tuple
+from typing import Any, Iterable, Literal, Optional, Protocol, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -15,7 +15,9 @@ from .registry import register_model
 class PatchEmbedder(Protocol):
     """Protocol for patch embedders used by :class:`VisionAnomalyDINO`."""
 
-    def embed(self, image_path: str) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
+    def embed(
+        self, image: Union[str, np.ndarray]
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
 
 
 @dataclass
@@ -27,7 +29,7 @@ class _EmbeddedImage:
 
 @register_model(
     "vision_anomalydino",
-    tags=("vision", "deep", "anomalydino", "knn", "dinov2"),
+    tags=("vision", "deep", "anomalydino", "knn", "dinov2", "numpy", "pixel_map"),
     metadata={
         "description": "AnomalyDINO-style DINOv2 patch-kNN detector (few-shot friendly)",
     },
@@ -68,17 +70,14 @@ class VisionAnomalyDINO:
         self.embedder = embedder
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
-            raise ValueError(
-                f"contamination must be in (0, 0.5). Got {self.contamination}."
-            )
+            raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
         self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
         self.n_neighbors = int(n_neighbors)
         self.coreset_sampling_ratio = float(coreset_sampling_ratio)
         if not (0.0 < self.coreset_sampling_ratio <= 1.0):
             raise ValueError(
-                "coreset_sampling_ratio must be in (0, 1]. "
-                f"Got {self.coreset_sampling_ratio}."
+                "coreset_sampling_ratio must be in (0, 1]. " f"Got {self.coreset_sampling_ratio}."
             )
         self.random_seed = int(random_seed)
         self.aggregation_method = aggregation_method
@@ -97,8 +96,8 @@ class VisionAnomalyDINO:
             raise RuntimeError("Model not fitted. Call fit() first.")
         return int(self._memory_bank.shape[0])
 
-    def _embed(self, image_path: str) -> _EmbeddedImage:
-        patch_embeddings, grid_shape, original_size = self.embedder.embed(image_path)
+    def _embed(self, image: Union[str, np.ndarray]) -> _EmbeddedImage:
+        patch_embeddings, grid_shape, original_size = self.embedder.embed(image)
         patch_embeddings_np = np.asarray(patch_embeddings, dtype=np.float32)
         if patch_embeddings_np.ndim != 2:
             raise ValueError(f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}")
@@ -120,12 +119,12 @@ class VisionAnomalyDINO:
             original_size=(original_h, original_w),
         )
 
-    def fit(self, X: Iterable[str], y=None):
-        paths = list(X)
-        if not paths:
-            raise ValueError("X must contain at least one training image path.")
+    def fit(self, X: Iterable[Union[str, np.ndarray]], y=None):
+        items = list(X)
+        if not items:
+            raise ValueError("X must contain at least one training image.")
 
-        embedded_train = [self._embed(path) for path in paths]
+        embedded_train = [self._embed(item) for item in items]
         memory_bank = np.concatenate([e.patch_embeddings for e in embedded_train], axis=0)
 
         if self.coreset_sampling_ratio < 1.0:
@@ -146,7 +145,7 @@ class VisionAnomalyDINO:
         )
         self._knn_index.fit(memory_bank)
 
-        self.decision_scores_ = self.decision_function(paths)
+        self.decision_scores_ = self.decision_function(items)
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
@@ -166,11 +165,11 @@ class VisionAnomalyDINO:
 
         return distances_np.min(axis=1)
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
-        scores = np.zeros(len(paths), dtype=np.float64)
-        for i, path in enumerate(paths):
-            embedded = self._embed(path)
+    def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+        items = list(X)
+        scores = np.zeros(len(items), dtype=np.float64)
+        for i, item in enumerate(items):
+            embedded = self._embed(item)
             patch_scores = self._patch_scores(embedded)
             scores[i] = aggregate_patch_scores(
                 patch_scores,
@@ -179,14 +178,14 @@ class VisionAnomalyDINO:
             )
         return scores
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = self.decision_function(X)
         return (scores > self.threshold_).astype(np.int64)
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
-        embedded = self._embed(image_path)
+    def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
+        embedded = self._embed(image)
         patch_scores = self._patch_scores(embedded)
         patch_grid = reshape_patch_scores(
             patch_scores,
@@ -211,9 +210,9 @@ class VisionAnomalyDINO:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
-        maps = [self.get_anomaly_map(path) for path in paths]
+    def predict_anomaly_map(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+        items = list(X)
+        maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)
 
 
@@ -293,10 +292,19 @@ class TorchHubDinoV2Embedder:
                 patch_size = int(ps)
         self._patch_size = patch_size
 
-    def embed(self, image_path: str) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
+    def embed(
+        self, image: Union[str, np.ndarray]
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
         self._ensure_loaded()
 
-        image = self._Image.open(image_path).convert("RGB")
+        if isinstance(image, np.ndarray):
+            if image.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={image.dtype}")
+            if image.ndim != 3 or image.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {image.shape}")
+            image = self._Image.fromarray(np.ascontiguousarray(image), mode="RGB")
+        else:
+            image = self._Image.open(str(image)).convert("RGB")
         original_w, original_h = image.size
 
         x = self._transform(image).unsqueeze(0).to(self.device)

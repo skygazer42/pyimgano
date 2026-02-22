@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -22,7 +22,7 @@ class _EmbeddedImage:
 
 @register_model(
     "vision_softpatch",
-    tags=("vision", "deep", "softpatch", "patchknn", "robust"),
+    tags=("vision", "deep", "softpatch", "patchknn", "robust", "numpy", "pixel_map"),
     metadata={
         "description": "SoftPatch-inspired robust patch-memory detector (few-shot friendly)",
     },
@@ -70,9 +70,7 @@ class VisionSoftPatch:
 
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
-            raise ValueError(
-                f"contamination must be in (0, 0.5). Got {self.contamination}."
-            )
+            raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
 
         self.knn_backend = str(knn_backend)
         self.n_neighbors = int(n_neighbors)
@@ -82,8 +80,7 @@ class VisionSoftPatch:
         self.coreset_sampling_ratio = float(coreset_sampling_ratio)
         if not (0.0 < self.coreset_sampling_ratio <= 1.0):
             raise ValueError(
-                "coreset_sampling_ratio must be in (0, 1]. "
-                f"Got {self.coreset_sampling_ratio}."
+                "coreset_sampling_ratio must be in (0, 1]. " f"Got {self.coreset_sampling_ratio}."
             )
         self.random_seed = int(random_seed)
 
@@ -111,13 +108,11 @@ class VisionSoftPatch:
             raise RuntimeError("Model not fitted. Call fit() first.")
         return int(self._memory_bank.shape[0])
 
-    def _embed(self, image_path: str) -> _EmbeddedImage:
-        patch_embeddings, grid_shape, original_size = self.embedder.embed(image_path)
+    def _embed(self, image: Union[str, np.ndarray]) -> _EmbeddedImage:
+        patch_embeddings, grid_shape, original_size = self.embedder.embed(image)
         patch_embeddings_np = np.asarray(patch_embeddings, dtype=np.float32)
         if patch_embeddings_np.ndim != 2:
-            raise ValueError(
-                f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}"
-            )
+            raise ValueError(f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}")
 
         grid_h, grid_w = int(grid_shape[0]), int(grid_shape[1])
         if patch_embeddings_np.shape[0] != grid_h * grid_w:
@@ -136,12 +131,12 @@ class VisionSoftPatch:
             original_size=(original_h, original_w),
         )
 
-    def fit(self, X: Iterable[str], y=None):
-        paths = list(X)
-        if not paths:
-            raise ValueError("X must contain at least one training image path.")
+    def fit(self, X: Iterable[Union[str, np.ndarray]], y=None):
+        items = list(X)
+        if not items:
+            raise ValueError("X must contain at least one training image.")
 
-        embedded_train = [self._embed(path) for path in paths]
+        embedded_train = [self._embed(item) for item in items]
         memory_bank = np.concatenate([e.patch_embeddings for e in embedded_train], axis=0)
 
         if self.train_patch_outlier_quantile > 0.0:
@@ -172,7 +167,7 @@ class VisionSoftPatch:
         self._knn_index = build_knn_index(backend=self.knn_backend, n_neighbors=effective_k)
         self._knn_index.fit(memory_bank)
 
-        self.decision_scores_ = self.decision_function(paths)
+        self.decision_scores_ = self.decision_function(items)
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
@@ -192,11 +187,11 @@ class VisionSoftPatch:
 
         return distances_np.min(axis=1)
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
-        scores = np.zeros(len(paths), dtype=np.float64)
-        for i, path in enumerate(paths):
-            embedded = self._embed(path)
+    def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+        items = list(X)
+        scores = np.zeros(len(items), dtype=np.float64)
+        for i, item in enumerate(items):
+            embedded = self._embed(item)
             patch_scores = self._patch_scores(embedded)
             scores[i] = aggregate_patch_scores(
                 patch_scores,
@@ -205,14 +200,14 @@ class VisionSoftPatch:
             )
         return scores
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = self.decision_function(X)
         return (scores > self.threshold_).astype(np.int64)
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
-        embedded = self._embed(image_path)
+    def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
+        embedded = self._embed(image)
         patch_scores = self._patch_scores(embedded)
         patch_grid = reshape_patch_scores(
             patch_scores,
@@ -237,7 +232,7 @@ class VisionSoftPatch:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
-        maps = [self.get_anomaly_map(path) for path in paths]
+    def predict_anomaly_map(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+        items = list(X)
+        maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)

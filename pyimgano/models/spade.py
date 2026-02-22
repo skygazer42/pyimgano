@@ -18,10 +18,10 @@ from typing import Iterable, Optional, Sequence, Tuple, Union
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from scipy.spatial import cKDTree
 from torchvision import models
@@ -79,7 +79,7 @@ class DeepPyramidExtractor(nn.Module):
 
 @register_model(
     "vision_spade",
-    tags=("vision", "deep", "spade", "knn"),
+    tags=("vision", "deep", "spade", "knn", "numpy", "pixel_map"),
     metadata={
         "description": "SPADE - Deep pyramid k-NN localization (ECCV 2020)",
         "paper": "Sub-Image Anomaly Detection with Deep Pyramid Correspondences",
@@ -88,7 +88,7 @@ class DeepPyramidExtractor(nn.Module):
 )
 @register_model(
     "spade",
-    tags=("vision", "deep", "spade", "knn"),
+    tags=("vision", "deep", "spade", "knn", "numpy", "pixel_map"),
     metadata={
         "description": "SPADE (legacy alias) - Deep pyramid k-NN localization",
         "year": 2020,

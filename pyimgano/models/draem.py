@@ -11,14 +11,14 @@ Reference:
 """
 
 import logging
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -27,6 +27,8 @@ from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
+
+ImageInput = Union[str, np.ndarray]
 
 
 class SimpleUNet(nn.Module):
@@ -45,7 +47,10 @@ class SimpleUNet(nn.Module):
         self.dec4 = self._upconv_block(512, 256)
         self.dec3 = self._upconv_block(512, 128)  # 512 because of skip connection
         self.dec2 = self._upconv_block(256, 64)
-        self.dec1 = self._upconv_block(128, out_channels)
+        # The encoder downsamples 3 times (max-pool), so the decoder should
+        # upsample 3 times to match the input resolution. Use a conv block for
+        # the final stage to keep output spatial size aligned with the input.
+        self.dec1 = self._conv_block(128, out_channels)
 
         self.final = nn.Conv2d(out_channels, out_channels, 1)
 
@@ -89,7 +94,7 @@ class SimpleUNet(nn.Module):
 
 
 class ImagePathDataset(Dataset):
-    """Dataset for loading images from paths."""
+    """Dataset for loading images from paths or in-memory numpy arrays."""
 
     def __init__(self, image_paths, transform=None):
         self.image_paths = image_paths
@@ -99,11 +104,19 @@ class ImagePathDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        img_path = self.image_paths[idx]
-        img = cv2.imread(img_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {img_path}")
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        item = self.image_paths[idx]
+        if isinstance(item, np.ndarray):
+            if item.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
+            if item.ndim != 3 or item.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
+            img = np.ascontiguousarray(item)
+        else:
+            img_path = str(item)
+            img = cv2.imread(img_path)
+            if img is None:
+                raise ValueError(f"Failed to load image: {img_path}")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         if self.transform:
             img = self.transform(img)
@@ -131,17 +144,17 @@ class ImagePathDataset(Dataset):
             # Add random noise or texture
             if np.random.rand() > 0.5:
                 # Random noise
-                augmented[:, y:y+h, x:x+w] = torch.rand(3, h, w)
+                augmented[:, y : y + h, x : x + w] = torch.rand(3, h, w)
             else:
                 # Invert region
-                augmented[:, y:y+h, x:x+w] = 1 - augmented[:, y:y+h, x:x+w]
+                augmented[:, y : y + h, x : x + w] = 1 - augmented[:, y : y + h, x : x + w]
 
         return augmented
 
 
 @register_model(
     "vision_draem",
-    tags=("vision", "deep", "draem", "reconstruction", "synthetic"),
+    tags=("vision", "deep", "draem", "reconstruction", "synthetic", "numpy", "pixel_map"),
     metadata={
         "description": "DRAEM - Discriminatively trained reconstruction (ICCV 2021)",
         "paper": "DRAEM: Discriminatively Trained Reconstruction Embedding",
@@ -201,18 +214,23 @@ class VisionDRAEM(BaseVisionDeepDetector):
         self.model.to(self.device)
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((image_size, image_size)),
-            transforms.ToTensor(),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((image_size, image_size)),
+                transforms.ToTensor(),
+            ]
+        )
 
         logger.info(
             "Initialized DRAEM with image_size=%d, epochs=%d, batch_size=%d, device=%s",
-            image_size, epochs, batch_size, device
+            image_size,
+            epochs,
+            batch_size,
+            device,
         )
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionDRAEM":
+    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionDRAEM":
         """
         Train DRAEM on normal images.
 
@@ -282,7 +300,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput]) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -302,7 +320,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
+    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
         """Compute anomaly scores."""
         if not self._is_fitted:
             raise RuntimeError("Model not fitted. Call fit() first.")
@@ -315,12 +333,20 @@ class VisionDRAEM(BaseVisionDeepDetector):
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
         with torch.no_grad():
-            for idx, img_path in enumerate(X_list):
+            for idx, item in enumerate(X_list):
                 try:
-                    img = cv2.imread(img_path)
-                    if img is None:
-                        raise ValueError(f"Failed to load image: {img_path}")
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    if isinstance(item, np.ndarray):
+                        if item.dtype != np.uint8:
+                            raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
+                        if item.ndim != 3 or item.shape[2] != 3:
+                            raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
+                        img = np.ascontiguousarray(item)
+                    else:
+                        img = cv2.imread(str(item))
+                        if img is None:
+                            raise ValueError(f"Failed to load image: {item}")
+                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
                     img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
                     reconstructed = self.model(img_tensor)
@@ -328,22 +354,30 @@ class VisionDRAEM(BaseVisionDeepDetector):
                     scores[idx] = float(error.mean().item())
 
                 except Exception as e:
-                    logger.warning("Failed to score %s: %s", img_path, e)
+                    logger.warning("Failed to score item %d: %s", idx, e)
                     scores[idx] = 0.0
 
         return scores
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
+    def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
         """Generate pixel-level anomaly heatmap."""
         if not self._is_fitted:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {image_path}")
+        if isinstance(image_path, np.ndarray):
+            if image_path.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={image_path.dtype}")
+            if image_path.ndim != 3 or image_path.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {image_path.shape}")
+            img = np.ascontiguousarray(image_path)
+            original_size = (int(img.shape[1]), int(img.shape[0]))  # (W, H)
+        else:
+            img = cv2.imread(str(image_path))
+            if img is None:
+                raise ValueError(f"Failed to load image: {image_path}")
+            original_size = (int(img.shape[1]), int(img.shape[0]))  # (W, H)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        original_size = (img.shape[1], img.shape[0])  # (W, H)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
         self.model.eval()
@@ -356,7 +390,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
         anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
         return anomaly_map
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
         """Generate pixel-level anomaly maps for a batch of images."""
         maps = [self.get_anomaly_map(path) for path in X]
         return np.stack(maps)

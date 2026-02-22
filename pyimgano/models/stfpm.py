@@ -11,14 +11,14 @@ Reference:
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.optim import SGD
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
@@ -28,31 +28,45 @@ from .registry import register_model
 
 logger = logging.getLogger(__name__)
 
+ImageInput = Union[str, np.ndarray]
+
 
 class ImagePathDataset(Dataset):
-    """Dataset for loading images from paths."""
+    """Dataset for loading images from paths or in-memory numpy arrays."""
 
-    def __init__(self, image_paths: List[str], transform=None):
-        self.image_paths = image_paths
+    def __init__(self, image_inputs: List[ImageInput], transform=None):
+        self.image_inputs = image_inputs
         self.transform = transform
 
     def __len__(self):
-        return len(self.image_paths)
+        return len(self.image_inputs)
 
     def __getitem__(self, idx):
-        img_path = self.image_paths[idx]
-        img = cv2.imread(img_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        item = self.image_inputs[idx]
+        if isinstance(item, np.ndarray):
+            if item.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
+            if item.ndim != 3 or item.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
+            img = np.ascontiguousarray(item)
+            meta = idx
+        else:
+            img_path = str(item)
+            img = cv2.imread(img_path)
+            if img is None:
+                raise ValueError(f"Failed to load image: {img_path}")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            meta = img_path
 
         if self.transform:
             img = self.transform(img)
 
-        return img, img_path
+        return img, meta
 
 
 @register_model(
     "vision_stfpm",
-    tags=("vision", "deep", "stfpm", "student-teacher", "pyramid"),
+    tags=("vision", "deep", "stfpm", "student-teacher", "pyramid", "numpy", "pixel_map"),
     metadata={
         "description": "STFPM - Student-Teacher Feature Pyramid Matching (BMVC 2021)",
         "paper": "Student-Teacher Feature Pyramid Matching for Anomaly Detection",
@@ -130,15 +144,14 @@ class VisionSTFPM(BaseVisionDeepDetector):
         self._build_model()
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            ),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((256, 256)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
 
         # Track training statistics
         self.mean_scores: Optional[float] = None
@@ -147,7 +160,12 @@ class VisionSTFPM(BaseVisionDeepDetector):
         logger.info(
             "Initialized STFPM with backbone=%s, layers=%s, "
             "epochs=%d, batch_size=%d, lr=%.3f, device=%s",
-            backbone, self.layers, epochs, batch_size, lr, device
+            backbone,
+            self.layers,
+            epochs,
+            batch_size,
+            lr,
+            device,
         )
 
     def _build_model(self) -> None:
@@ -155,9 +173,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         if self.backbone_name == "resnet18":
             # Teacher network (frozen)
             try:
-                weights = (
-                    models.ResNet18_Weights.DEFAULT if self.pretrained_teacher else None
-                )
+                weights = models.ResNet18_Weights.DEFAULT if self.pretrained_teacher else None
                 self.teacher = models.resnet18(weights=weights)
             except Exception:  # pragma: no cover - fallback for older torchvision
                 self.teacher = models.resnet18(pretrained=self.pretrained_teacher)
@@ -180,11 +196,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         self.teacher.to(self.device)
         self.student.to(self.device)
 
-    def _extract_features(
-        self,
-        model: nn.Module,
-        x: torch.Tensor
-    ) -> Dict[str, torch.Tensor]:
+    def _extract_features(self, model: nn.Module, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         Extract multi-layer features from model.
 
@@ -223,7 +235,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return features
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionSTFPM":
+    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionSTFPM":
         """
         Train student network to match teacher on normal images.
 
@@ -256,12 +268,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         )
 
         # Setup optimizer
-        optimizer = SGD(
-            self.student.parameters(),
-            lr=self.lr,
-            momentum=0.9,
-            weight_decay=0.0001
-        )
+        optimizer = SGD(self.student.parameters(), lr=self.lr, momentum=0.9, weight_decay=0.0001)
 
         # Training loop
         self.student.train()
@@ -318,7 +325,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return self
 
-    def _compute_normalization_stats(self, X: List[str]) -> None:
+    def _compute_normalization_stats(self, X: List[ImageInput]) -> None:
         """Compute mean and std of anomaly scores on training set."""
         logger.debug("Computing normalization statistics")
 
@@ -326,25 +333,24 @@ class VisionSTFPM(BaseVisionDeepDetector):
         scores = []
 
         with torch.no_grad():
-            for img_path in X[:min(100, len(X))]:  # Use subset for efficiency
+            for idx, img in enumerate(X[: min(100, len(X))]):  # Use subset for efficiency
                 try:
-                    score = self._compute_anomaly_score(img_path)
+                    score = self._compute_anomaly_score(img)
                     scores.append(score)
                 except Exception as e:
-                    logger.warning("Failed to score %s: %s", img_path, e)
+                    logger.warning("Failed to score item %d: %s", idx, e)
 
         if scores:
             self.mean_scores = float(np.mean(scores))
             self.std_scores = float(np.std(scores)) + 1e-8
             logger.debug(
-                "Normalization stats: mean=%.4f, std=%.4f",
-                self.mean_scores, self.std_scores
+                "Normalization stats: mean=%.4f, std=%.4f", self.mean_scores, self.std_scores
             )
         else:
             self.mean_scores = 0.0
             self.std_scores = 1.0
 
-    def _compute_anomaly_score(self, image_path: str) -> float:
+    def _compute_anomaly_score(self, image_path: ImageInput) -> float:
         """
         Compute anomaly score for a single image.
 
@@ -359,11 +365,18 @@ class VisionSTFPM(BaseVisionDeepDetector):
             Anomaly score (higher = more anomalous)
         """
         # Load and preprocess image
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {image_path}")
+        if isinstance(image_path, np.ndarray):
+            if image_path.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={image_path.dtype}")
+            if image_path.ndim != 3 or image_path.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {image_path.shape}")
+            img = np.ascontiguousarray(image_path)
+        else:
+            img = cv2.imread(str(image_path))
+            if img is None:
+                raise ValueError(f"Failed to load image: {image_path}")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
         # Extract features
@@ -392,7 +405,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return total_score
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput]) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -412,7 +425,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
+    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
         """
         Compute anomaly scores for test images.
 
@@ -436,22 +449,22 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         logger.info("Computing anomaly scores for %d images", len(X_list))
 
-        for idx, image_path in enumerate(X_list):
+        for idx, image in enumerate(X_list):
             try:
-                score = self._compute_anomaly_score(image_path)
+                score = self._compute_anomaly_score(image)
 
                 # Normalize score
                 score = (score - self.mean_scores) / self.std_scores
                 scores[idx] = score
 
             except Exception as e:
-                logger.warning("Failed to score %s: %s", image_path, e)
+                logger.warning("Failed to score item %d: %s", idx, e)
                 scores[idx] = 0.0
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
+    def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
         """
         Generate pixel-level anomaly heatmap.
 
@@ -469,12 +482,20 @@ class VisionSTFPM(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Load and preprocess image
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {image_path}")
+        if isinstance(image_path, np.ndarray):
+            if image_path.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={image_path.dtype}")
+            if image_path.ndim != 3 or image_path.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {image_path.shape}")
+            img = np.ascontiguousarray(image_path)
+            original_size = (int(img.shape[1]), int(img.shape[0]))  # (W, H)
+        else:
+            img = cv2.imread(str(image_path))
+            if img is None:
+                raise ValueError(f"Failed to load image: {image_path}")
+            original_size = (int(img.shape[1]), int(img.shape[0]))  # (W, H)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        original_size = (img.shape[1], img.shape[0])
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
         # Extract features
@@ -499,12 +520,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
             diff = diff.sum(dim=1, keepdim=True)  # (1, 1, H, W)
 
             # Upsample to common size
-            diff = F.interpolate(
-                diff,
-                size=(64, 64),
-                mode='bilinear',
-                align_corners=False
-            )
+            diff = F.interpolate(diff, size=(64, 64), mode="bilinear", align_corners=False)
 
             anomaly_maps.append(diff)
 
@@ -513,15 +529,11 @@ class VisionSTFPM(BaseVisionDeepDetector):
         anomaly_map = anomaly_map.squeeze().cpu().numpy()
 
         # Resize to original image size
-        anomaly_map = cv2.resize(
-            anomaly_map,
-            original_size,
-            interpolation=cv2.INTER_CUBIC
-        )
+        anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
 
         return anomaly_map
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
         """Generate pixel-level anomaly maps for a batch of images."""
         maps = [self.get_anomaly_map(path) for path in X]
         return np.stack(maps)

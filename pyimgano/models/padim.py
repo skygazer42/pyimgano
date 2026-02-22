@@ -15,13 +15,13 @@ Notes for this implementation:
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from sklearn.random_projection import GaussianRandomProjection
 from torchvision import models, transforms
 
@@ -29,6 +29,8 @@ from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
+
+ImageInput = Union[str, np.ndarray]
 
 
 def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Module:
@@ -49,7 +51,7 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
 
 @register_model(
     "vision_padim",
-    tags=("vision", "deep", "patch", "distribution"),
+    tags=("vision", "deep", "patch", "distribution", "numpy", "pixel_map"),
     metadata={
         "description": "PaDiM - patch distribution modeling (ECCV 2020-style)",
         "paper": "PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization",
@@ -58,7 +60,7 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
 )
 @register_model(
     "padim",
-    tags=("vision", "deep", "patch", "distribution"),
+    tags=("vision", "deep", "patch", "distribution", "numpy", "pixel_map"),
     metadata={
         "description": "PaDiM (legacy alias) - patch distribution modeling",
         "year": 2020,
@@ -141,13 +143,20 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 raise ValueError(f"Backbone {self.backbone_name!r} has no layer {layer!r}")
             getattr(self.model, layer).register_forward_hook(get_activation(layer))
 
-    def _load_image_rgb(self, image_path: str) -> NDArray:
-        img = cv2.imread(image_path)
+    def _load_image_rgb(self, image_path: ImageInput) -> NDArray:
+        if isinstance(image_path, np.ndarray):
+            if image_path.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={image_path.dtype}")
+            if image_path.ndim != 3 or image_path.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {image_path.shape}")
+            return np.ascontiguousarray(image_path)
+
+        img = cv2.imread(str(image_path))
         if img is None:
             raise ValueError(f"Failed to load image: {image_path}")
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def _extract_patch_features(self, image_path: str) -> NDArray:
+    def _extract_patch_features(self, image_path: ImageInput) -> NDArray:
         img = self._load_image_rgb(image_path)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
@@ -171,26 +180,35 @@ class VisionPaDiM(BaseVisionDeepDetector):
         # (H*W, C)
         return features.permute(0, 2, 3, 1).reshape(h * w, c).cpu().numpy()
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionPaDiM":
+    def _describe_input(self, item: ImageInput, idx: int) -> str:
+        if isinstance(item, str):
+            return item
+        return f"<ndarray:{idx} shape={tuple(item.shape)} dtype={item.dtype}>"
+
+    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPaDiM":
         X_list = list(X)
         if not X_list:
             raise ValueError("Training set cannot be empty")
 
         # Fit random projection on a small subset for speed/stability.
         proj_fit = []
-        for image_path in X_list[: min(self.projection_fit_samples, len(X_list))]:
-            proj_fit.append(self._extract_patch_features(image_path))
+        for image in X_list[: min(self.projection_fit_samples, len(X_list))]:
+            proj_fit.append(self._extract_patch_features(image))
         proj_fit_mat = np.vstack(proj_fit)
         self.random_projection.fit(proj_fit_mat)
 
         reduced_features: list[NDArray] = []
-        for image_path in X_list:
+        for idx, image in enumerate(X_list):
             try:
-                feat = self._extract_patch_features(image_path)
+                feat = self._extract_patch_features(image)
                 reduced = self.random_projection.transform(feat)
                 reduced_features.append(reduced)
             except Exception as exc:
-                logger.warning("Failed to process %s: %s", image_path, exc)
+                logger.warning(
+                    "Failed to process %s: %s",
+                    self._describe_input(image, idx),
+                    exc,
+                )
 
         if not reduced_features:
             raise ValueError("Failed to extract features from any training image")
@@ -227,7 +245,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         if self.means is None or self.inv_covs is None or self.patch_shape is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-    def _compute_patch_distances(self, image_path: str) -> NDArray:
+    def _compute_patch_distances(self, image_path: ImageInput) -> NDArray:
         self._check_fitted()
         feat = self._extract_patch_features(image_path)
         reduced = self.random_projection.transform(feat).astype(np.float32, copy=False)  # (P, D)
@@ -237,27 +255,27 @@ class VisionPaDiM(BaseVisionDeepDetector):
         q = np.maximum(q, 0.0)
         return np.sqrt(q, dtype=np.float32)
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
+    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
         self._check_fitted()
         X_list = list(X)
         scores = np.zeros(len(X_list), dtype=np.float32)
 
-        for i, image_path in enumerate(X_list):
+        for i, image in enumerate(X_list):
             try:
-                distances = self._compute_patch_distances(image_path)
+                distances = self._compute_patch_distances(image)
                 scores[i] = float(np.max(distances))
             except Exception as exc:
-                logger.warning("Failed to score %s: %s", image_path, exc)
+                logger.warning("Failed to score %s: %s", self._describe_input(image, i), exc)
                 scores[i] = 0.0
         return scores
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput]) -> NDArray:
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
-    def get_anomaly_map(self, image_path: str) -> NDArray:
+    def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
         distances = self._compute_patch_distances(image_path)
         h, w = self.patch_shape or (0, 0)
         if h * w != distances.shape[0]:
@@ -272,6 +290,6 @@ class VisionPaDiM(BaseVisionDeepDetector):
             interpolation=cv2.INTER_CUBIC,
         ).astype(np.float32, copy=False)
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        maps = [self.get_anomaly_map(path) for path in X]
+    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
+        maps = [self.get_anomaly_map(item) for item in X]
         return np.stack(maps, axis=0)

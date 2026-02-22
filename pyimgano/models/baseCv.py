@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pyimgano.utils.optional_deps import optional_import
 
-
 _torch, _torch_error = optional_import("torch")
 _torchvision, _torchvision_error = optional_import("torchvision")
 _pyod_base_dl, _pyod_error = optional_import("pyod.models.base_dl")
@@ -111,12 +110,23 @@ if _torch is not None and _torchvision is not None and _pyod_base_dl is not None
             X : list of str
                 输入的训练样本，必须是图像文件路径的列表。
             """
-            from pyimgano.datasets import VisionImageDataset
+            import numpy as np
+
+            from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
             # 1. 构建模型
             self.model = self.build_model()
-            # 2. 创建图像数据加载器 (使用训练专用的 transform)
-            train_dataset = VisionImageDataset(image_paths=X, transform=self.train_transform)
+
+            X_list = list(X)
+            if X_list and isinstance(X_list[0], np.ndarray):
+                # Numpy-first industrial workflows: images already decoded in memory.
+                train_dataset = VisionArrayDataset(images=X_list, transform=self.train_transform)
+            else:
+                # Default: list of file paths.
+                train_dataset = VisionImageDataset(
+                    image_paths=X_list, transform=self.train_transform
+                )
+
             train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
             # 3. 准备训练 (来自父类的方法)
@@ -139,20 +149,25 @@ if _torch is not None and _torchvision is not None and _pyod_base_dl is not None
             return self
 
         def decision_function(self, X, batch_size=None):
-            from pyimgano.datasets import VisionImageDataset
+            import numpy as np
+
+            from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
             current_batch_size = batch_size if batch_size is not None else self.batch_size
 
-            # 创建图像数据加载器
-            eval_dataset = VisionImageDataset(image_paths=X, transform=self.eval_transform)
-            eval_loader = DataLoader(
-                eval_dataset, batch_size=current_batch_size, shuffle=False
-            )
+            X_list = list(X)
+            if X_list and isinstance(X_list[0], np.ndarray):
+                eval_dataset = VisionArrayDataset(images=X_list, transform=self.eval_transform)
+            else:
+                eval_dataset = VisionImageDataset(image_paths=X_list, transform=self.eval_transform)
+            eval_loader = DataLoader(eval_dataset, batch_size=current_batch_size, shuffle=False)
 
             # 调用父类的评估方法 evaluating_forward
             scores = self.evaluate(eval_loader)
             return scores
+
 else:
+
     class BaseVisionDeepDetector:  # type: ignore[no-redef]
         def __init__(self, *args, **kwargs):
             missing: list[str] = []

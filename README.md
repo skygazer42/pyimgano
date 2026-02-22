@@ -19,6 +19,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 - 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
 - 🎯 **Flexible** - Works with any feature extractor or end-to-end deep learning
+- 🏭 **Industrial Inference (numpy-first)** ⭐ NEW! - Explicit `ImageFormat`, canonical `RGB/u8/HWC` inputs, JSONL `pyimgano-infer` CLI
 - 🖼️ **Image Preprocessing** - 80+ operations (edge detection, morphology, filters, FFT, texture analysis, segmentation, augmentation)
 - 📊 **Dataset Loaders** ⭐ NEW! - MVTec AD, BTAD, custom datasets with automatic loading
 - 📈 **Advanced Visualization** ⭐ NEW! - ROC/PR curves, confusion matrices, t-SNE, anomaly heatmaps
@@ -155,6 +156,43 @@ predictions = detector.predict(test_paths)  # 0: normal, 1: anomaly
 scores = detector.decision_function(test_paths)  # Anomaly scores
 
 print(f"Detected {predictions.sum()} anomalies")
+```
+
+### Example 1.5: Industrial Inference (numpy-first, explicit ImageFormat)
+
+If you already have decoded frames in memory (e.g. video pipelines), use the
+numpy-first helpers in `pyimgano.inputs` + `pyimgano.inference`.
+
+See: `docs/INDUSTRIAL_INFERENCE.md`
+
+```python
+import numpy as np
+
+from pyimgano.inference import calibrate_threshold, infer
+from pyimgano.inputs import ImageFormat
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_padim",
+    pretrained=False,   # avoids weight downloads
+    device="cpu",
+    image_size=64,      # small demo size
+    d_reduced=8,
+    projection_fit_samples=1,
+    covariance_eps=0.1,
+)
+
+train_frames = [np.zeros((64, 64, 3), dtype=np.uint8) for _ in range(8)]
+detector.fit(train_frames)
+calibrate_threshold(detector, train_frames, input_format=ImageFormat.RGB_U8_HWC, quantile=0.995)
+
+results = infer(
+    detector,
+    train_frames[:2],
+    input_format=ImageFormat.RGB_U8_HWC,
+    include_maps=True,
+)
+print(results[0].score, results[0].label, results[0].anomaly_map.shape)
 ```
 
 ### Example 2: Using Deep Learning (SimpleNet - CVPR 2023)

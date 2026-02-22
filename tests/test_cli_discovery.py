@@ -31,6 +31,19 @@ def test_cli_list_models_supports_tags_filter(capsys):
     assert "vision_abod" not in out
 
 
+def test_cli_list_models_supports_numpy_capability_tag(capsys):
+    from pyimgano.cli import main
+
+    code = main(["--list-models", "--tags", "numpy"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "vision_spade" in out
+    assert "vision_patchcore" in out
+    assert "vision_padim" in out
+    assert "vision_anomalydino" in out
+    assert "vision_softpatch" in out
+
+
 def test_cli_model_info_outputs_text(capsys):
     from pyimgano.cli import main
 

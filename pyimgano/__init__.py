@@ -15,6 +15,8 @@ __version__ = "0.2.0"
 __all__ = [
     # Modules
     "datasets",
+    "inputs",
+    "inference",
     "models",
     "preprocessing",
     "utils",
@@ -34,6 +36,8 @@ __all__ = [
 
 _LAZY_SUBMODULES = {
     "datasets",
+    "inputs",
+    "inference",
     "models",
     "preprocessing",
     "utils",

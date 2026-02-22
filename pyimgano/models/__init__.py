@@ -5,14 +5,14 @@ This module auto-imports all available models and registers them
 in the MODEL_REGISTRY for dynamic model creation.
 """
 
-from importlib import import_module
 import contextlib
 import io
-from typing import Iterable
 import warnings
+from importlib import import_module
+from typing import Iterable
 
-from .baseml import BaseVisionDetector
 from .baseCv import BaseVisionDeepDetector
+from .baseml import BaseVisionDetector
 from .registry import MODEL_REGISTRY, create_model, list_models, register_model
 
 
@@ -31,7 +31,10 @@ def _auto_import(modules: Iterable[str]) -> None:
             # user-facing "please install ..." messages via `print()` at import
             # time. Keep `import pyimgano.models` quiet by default; model-specific
             # dependency errors are surfaced when constructing the model.
-            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            with (
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
                 import_module(f"{__name__}.{module_name}")
         except Exception as exc:  # noqa: BLE001 - Log import failures
             warnings.warn(
@@ -123,6 +126,8 @@ _auto_import(
         "stfpm",  # Student-Teacher Feature Pyramid Matching (BMVC 2021)
         "vae",  # Variational Autoencoder
         "winclip",  # WinCLIP zero-shot CLIP-based (CVPR 2023)
+        # Production wrappers
+        "score_ensemble",  # Score-only ensemble wrapper detector
         # Optional backend wrappers (safe to import; dependencies are checked at runtime)
         "anomalib_backend",
         "patchcore_inspection_backend",

@@ -28,6 +28,26 @@ start with these “pixel-first” detectors (designed for MVTec AD / VisA-style
 | `vision_openclip_patchknn` | Semantics-driven patch kNN | Requires `pyimgano[clip]` (OpenCLIP) or an injected embedder |
 | `vision_dinomaly_anomalib`, `vision_cfa_anomalib` | You already use anomalib | Inference wrappers; require `pyimgano[anomalib]` + a trained checkpoint |
 
+## Industrial Integration (numpy-first)
+
+If your upstream system already gives you decoded numpy frames (video pipelines, cameras, backend services),
+use the **numpy-first** helpers:
+
+- `pyimgano.inputs.ImageFormat` + `normalize_numpy_image` (explicit formats, no guessing)
+- `pyimgano.inference.infer` + `calibrate_threshold`
+
+Recommended starting points:
+
+- `vision_patchcore`, `vision_softpatch`, `vision_anomalydino` (pixel maps + strong baselines)
+- `vision_score_ensemble` (robustness via rank-normalized score ensembling)
+
+Discovery tip:
+
+```bash
+pyimgano-benchmark --list-models --tags numpy
+pyimgano-benchmark --list-models --tags numpy,pixel_map
+```
+
 ## Algorithm Categories
 
 ### 🔥 Top-Tier Algorithms (Start Here)
