@@ -85,7 +85,9 @@ _auto_import(
         "ae",  # Autoencoder
         "ae1svm",  # Autoencoder with One-Class SVM
         "alad",  # Adversarially Learned Anomaly Detection
+        "anogan",  # AnoGAN (PyOD; requires extra deps like pandas/matplotlib)
         "ast",  # Anomaly-aware Student-Teacher (ICCV 2023)
+        "auto_encoder",  # AutoEncoder (PyOD tabular AE) wrapper
         "bayesianpf",  # Bayesian Prompt Flow (CVPR 2025)
         "bgad",  # Background-guided Anomaly Detection (CVPR 2023)
         "cflow",  # Conditional Normalizing Flows (WACV 2022)
