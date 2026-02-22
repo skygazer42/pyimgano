@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-02-22
+
+### Added
+- More PyOD wrappers: `vision_cd`, `vision_dif`, `vision_lunar`, `vision_rgraph`, `vision_sampling`,
+  `vision_so_gaal`, `vision_so_gaal_new`, `vision_auto_encoder`, `vision_anogan`.
+
+## [0.2.0] - 2026-02-22
+
 ### Added
 - **Image Preprocessing Module** (`pyimgano.preprocessing`) ⭐ NEW!
   - **ImageEnhancer** - High-level interface for basic operations (25 operations)
