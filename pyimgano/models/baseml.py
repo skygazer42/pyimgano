@@ -28,6 +28,9 @@ class BaseVisionDetector(BaseDetector):
     @abstractmethod
     def __init__(self, contamination=0.1, feature_extractor=None):
         super(BaseVisionDetector, self).__init__(contamination=contamination)
+        # PyOD compatibility: many utilities (e.g. `predict_proba`) expect
+        # `_classes` to exist. In unsupervised detection this is always binary.
+        self._set_n_classes(None)
 
         if feature_extractor is None:
             # Provide a safe default so classical detectors work out-of-the-box.

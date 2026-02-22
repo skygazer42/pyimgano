@@ -10,11 +10,12 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 __all__ = [
     # Modules
     "datasets",
+    "detectors",
     "inputs",
     "inference",
     "models",
@@ -36,6 +37,7 @@ __all__ = [
 
 _LAZY_SUBMODULES = {
     "datasets",
+    "detectors",
     "inputs",
     "inference",
     "models",

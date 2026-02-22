@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-02-22
+
+### Added
+- Legacy compatibility module: `pyimgano.detectors` with common `*Detector` class names.
+
+### Fixed
+- Ensure `_classes` is initialized for PyOD-backed detectors to keep `predict_proba()` working even when wrappers override `fit()`.
+
 ## [0.5.1] - 2026-02-22
 
 ### Added

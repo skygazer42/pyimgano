@@ -51,6 +51,9 @@ if _torch is not None and _torchvision is not None and _pyod_base_dl is not None
                 verbose=verbose,
                 **kwargs,
             )
+            # PyOD compatibility: many utilities (e.g. `predict_proba`) expect
+            # `_classes` to exist. In unsupervised detection this is always binary.
+            self._set_n_classes(None)
 
             if train_transform is not None:
                 self.train_transform = train_transform

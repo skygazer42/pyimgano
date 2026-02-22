@@ -3,7 +3,7 @@ PyImgAno Documentation
 
 **PyImgAno** is an enterprise-grade visual anomaly detection toolkit with 100+ models and 80+ image processing operations.
 
-.. image:: https://img.shields.io/badge/version-0.5.1-blue.svg
+.. image:: https://img.shields.io/badge/version-0.5.2-blue.svg
    :target: https://github.com/jhlu2019/pyimgano
    :alt: Version
 
