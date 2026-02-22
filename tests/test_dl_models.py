@@ -479,9 +479,7 @@ class TestDLModelsIntegration:
         # Check that anomaly region has higher scores
         # The white square is at [50:150, 50:150]
         h, w = anomaly_map.shape
-        anomaly_region = anomaly_map[
-            int(h * 0.2) : int(h * 0.7), int(w * 0.2) : int(w * 0.7)
-        ]
+        anomaly_region = anomaly_map[int(h * 0.2) : int(h * 0.7), int(w * 0.2) : int(w * 0.7)]
         normal_region = anomaly_map[0 : int(h * 0.2), 0 : int(w * 0.2)]
 
         # Note: This assertion may not always hold for all algorithms
@@ -553,6 +551,99 @@ class TestDLModelComparison:
             # Print for debugging (optional)
             # print(f"{name}: normal={result['normal_mean']:.4f}, "
             #       f"anomaly={result['anomaly_mean']:.4f}")
+
+
+class TestPaDiM:
+    """Test PaDiM algorithm."""
+
+    @pytest.mark.parametrize("device", ["cpu"])
+    def test_initialization(self, device):
+        detector = create_model(
+            "vision_padim",
+            backbone="resnet18",
+            d_reduced=8,
+            image_size=64,
+            pretrained=False,
+            device=device,
+            projection_fit_samples=2,
+            covariance_eps=0.1,
+            random_state=0,
+        )
+        assert detector is not None
+        assert detector.backbone_name == "resnet18"
+        assert detector.d_reduced == 8
+        assert detector.image_size == 64
+
+    @pytest.mark.slow
+    def test_fit_predict(self, sample_images):
+        detector = create_model(
+            "vision_padim",
+            backbone="resnet18",
+            d_reduced=8,
+            image_size=64,
+            pretrained=False,
+            device="cpu",
+            projection_fit_samples=2,
+            covariance_eps=0.1,
+            random_state=0,
+        )
+
+        detector.fit(sample_images["normal"])
+        scores = detector.decision_function(sample_images["all"])
+
+        assert len(scores) == len(sample_images["all"])
+        assert np.all(np.isfinite(scores))
+        assert np.all(scores >= 0)
+
+        anomaly_map = detector.get_anomaly_map(sample_images["anomaly"][0])
+        assert anomaly_map.ndim == 2
+        assert anomaly_map.shape == (64, 64)
+        assert np.all(np.isfinite(anomaly_map))
+
+
+class TestSPADE:
+    """Test SPADE algorithm."""
+
+    @pytest.mark.parametrize("device", ["cpu"])
+    def test_initialization(self, device):
+        detector = create_model(
+            "vision_spade",
+            backbone="resnet18",
+            pretrained=False,
+            image_size=64,
+            k_neighbors=5,
+            feature_levels=["layer2"],
+            gaussian_sigma=0.0,
+            device=device,
+        )
+        assert detector is not None
+        assert detector.backbone_name == "resnet18"
+        assert detector.k_neighbors == 5
+        assert detector.image_size == 64
+
+    @pytest.mark.slow
+    def test_fit_predict(self, sample_images):
+        detector = create_model(
+            "vision_spade",
+            backbone="resnet18",
+            pretrained=False,
+            image_size=64,
+            k_neighbors=5,
+            feature_levels=["layer2"],
+            gaussian_sigma=0.0,
+            device="cpu",
+        )
+
+        detector.fit(sample_images["normal"])
+        scores = detector.decision_function(sample_images["all"])
+
+        assert len(scores) == len(sample_images["all"])
+        assert np.all(np.isfinite(scores))
+
+        anomaly_map = detector.get_anomaly_map(sample_images["anomaly"][0])
+        assert anomaly_map.ndim == 2
+        assert anomaly_map.shape == (64, 64)
+        assert np.all(np.isfinite(anomaly_map))
 
 
 if __name__ == "__main__":

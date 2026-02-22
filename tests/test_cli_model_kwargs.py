@@ -292,3 +292,30 @@ def test_resolve_preset_kwargs_draem_includes_balanced_defaults():
     assert kwargs["epochs"] == 50
     assert kwargs["batch_size"] == 16
     assert kwargs["image_size"] == 256
+
+
+def test_resolve_preset_kwargs_padim_includes_balanced_defaults():
+    import pyimgano.cli as cli
+
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_padim")
+    assert kwargs["backbone"] == "resnet18"
+    assert kwargs["d_reduced"] == 64
+    assert kwargs["image_size"] == 224
+
+
+def test_resolve_preset_kwargs_spade_includes_balanced_defaults():
+    import pyimgano.cli as cli
+
+    kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_spade")
+    assert kwargs["backbone"] == "resnet50"
+    assert kwargs["image_size"] == 256
+    assert kwargs["k_neighbors"] == 50
+    assert kwargs["gaussian_sigma"] == 4.0
+
+
+def test_resolve_preset_kwargs_reverse_dist_alias_matches_reverse_distillation():
+    import pyimgano.cli as cli
+
+    a = cli._resolve_preset_kwargs("industrial-balanced", "vision_reverse_distillation")
+    b = cli._resolve_preset_kwargs("industrial-balanced", "vision_reverse_dist")
+    assert a == b

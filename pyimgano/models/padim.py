@@ -1,182 +1,277 @@
-import numpy as np
-import torch
-from torchvision import models, transforms
-from scipy.spatial.distance import mahalanobis
-import cv2
-import os
-from sklearn.random_projection import GaussianRandomProjection
+"""
+PaDiM: Patch Distribution Modeling for industrial anomaly detection.
 
+PaDiM models per-location (patch) feature distributions from a pretrained
+backbone and scores anomalies via Mahalanobis distance.
+
+Notes for this implementation:
+- Fits on `list[str]` image paths (unified pyimgano interface).
+- Supports pixel-level anomaly maps via `get_anomaly_map()` and
+  `predict_anomaly_map()`.
+- Keeps the historical registry name `padim` for compatibility and adds the
+  canonical name `vision_padim` to match docs/CLI expectations.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Iterable, Optional, Tuple
+
+import cv2
+import numpy as np
+from numpy.typing import NDArray
+import torch
+import torch.nn.functional as F
+from sklearn.random_projection import GaussianRandomProjection
+from torchvision import models, transforms
+
+from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
+
+
+def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Module:
+    if name == "resnet18":
+        try:
+            weights = models.ResNet18_Weights.DEFAULT if pretrained else None
+            return models.resnet18(weights=weights)
+        except Exception:  # pragma: no cover - fallback for older torchvision
+            return models.resnet18(pretrained=pretrained)
+    if name == "resnet50":
+        try:
+            weights = models.ResNet50_Weights.DEFAULT if pretrained else None
+            return models.resnet50(weights=weights)
+        except Exception:  # pragma: no cover - fallback for older torchvision
+            return models.resnet50(pretrained=pretrained)
+    raise ValueError(f"Unsupported backbone: {name!r}. Choose from: resnet18, resnet50")
 
 
 @register_model(
+    "vision_padim",
+    tags=("vision", "deep", "patch", "distribution"),
+    metadata={
+        "description": "PaDiM - patch distribution modeling (ECCV 2020-style)",
+        "paper": "PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization",
+        "year": 2020,
+    },
+)
+@register_model(
     "padim",
     tags=("vision", "deep", "patch", "distribution"),
-    metadata={"description": "PaDiM 风格统计异常检测"},
+    metadata={
+        "description": "PaDiM (legacy alias) - patch distribution modeling",
+        "year": 2020,
+    },
 )
-class PaDiM:
-    """
-    PaDiM - 轻量级异常检测，适合边缘部署
-    只需要存储均值和协方差，内存占用小
-    """
+class VisionPaDiM(BaseVisionDeepDetector):
+    """PaDiM-style anomaly detector (feature distribution per patch location)."""
 
-    def __init__(self, backbone='resnet18', d_reduced=128, device='cpu'):
-        self.device = device
-        self.d_reduced = d_reduced
+    def __init__(
+        self,
+        contamination: float = 0.1,
+        *,
+        backbone: str = "resnet18",
+        d_reduced: int = 128,
+        image_size: int = 224,
+        pretrained: bool = True,
+        device: str = "cpu",
+        projection_fit_samples: int = 10,
+        covariance_eps: float = 0.01,
+        random_state: int = 42,
+        **kwargs,
+    ) -> None:
+        super().__init__(contamination=contamination, **kwargs)
 
-        # 特征提取器
-        if backbone == 'resnet18':
-            self.model = models.resnet18(pretrained=True)
-            self.t_d = 448  # layer2 + layer3的特征维度
+        if d_reduced < 1:
+            raise ValueError(f"d_reduced must be >= 1, got {d_reduced}")
+        if image_size < 32:
+            raise ValueError(f"image_size must be >= 32, got {image_size}")
+        if projection_fit_samples < 1:
+            raise ValueError(f"projection_fit_samples must be >= 1, got {projection_fit_samples}")
+        if covariance_eps <= 0:
+            raise ValueError(f"covariance_eps must be > 0, got {covariance_eps}")
 
+        self.backbone_name = str(backbone)
+        self.d_reduced = int(d_reduced)
+        self.image_size = int(image_size)
+        self.pretrained = bool(pretrained)
+        self.device = str(device)
+        self.projection_fit_samples = int(projection_fit_samples)
+        self.covariance_eps = float(covariance_eps)
+        self.random_state = int(random_state)
+
+        self.model = _build_torchvision_backbone(self.backbone_name, pretrained=self.pretrained)
         self.model.eval()
-        self.model.to(device)
+        self.model.to(self.device)
 
-        # 随机投影降维
+        self.feature_maps: dict[str, torch.Tensor] = {}
+        self._register_hooks()
+
         self.random_projection = GaussianRandomProjection(
-            n_components=d_reduced,
-            random_state=42
+            n_components=self.d_reduced,
+            random_state=self.random_state,
         )
 
-        # 图像预处理
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((self.image_size, self.image_size)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
+            ]
+        )
 
-        # 统计参数
-        self.means = None
-        self.inv_covs = None
+        self.means: Optional[NDArray] = None
+        self.inv_covs: Optional[NDArray] = None
+        self.patch_shape: Optional[Tuple[int, int]] = None
 
-    def extract_features(self, img_path):
-        """提取图像特征"""
-        img = cv2.imread(img_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-        features = {}
-
-        def hook_fn(name):
-            def hook(module, input, output):
-                features[name] = output
+    def _register_hooks(self) -> None:
+        def get_activation(name: str):
+            def hook(_module, _input, output):
+                self.feature_maps[name] = output.detach()
 
             return hook
 
-        # 注册钩子获取中间层特征
-        handles = []
-        for name, layer in self.model.named_modules():
-            if name in ['layer2', 'layer3']:
-                handle = layer.register_forward_hook(hook_fn(name))
-                handles.append(handle)
+        for layer in ("layer2", "layer3"):
+            if not hasattr(self.model, layer):
+                raise ValueError(f"Backbone {self.backbone_name!r} has no layer {layer!r}")
+            getattr(self.model, layer).register_forward_hook(get_activation(layer))
+
+    def _load_image_rgb(self, image_path: str) -> NDArray:
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError(f"Failed to load image: {image_path}")
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _extract_patch_features(self, image_path: str) -> NDArray:
+        img = self._load_image_rgb(image_path)
+        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             _ = self.model(img_tensor)
 
-        for handle in handles:
-            handle.remove()
+        layer2_feat = self.feature_maps["layer2"]  # (1, C2, H2, W2)
+        layer3_feat = self.feature_maps["layer3"]  # (1, C3, H3, W3)
 
-        # 组合layer2和layer3的特征
-        layer2_feat = features['layer2']  # [1, 128, 28, 28]
-        layer3_feat = features['layer3']  # [1, 256, 14, 14]
-
-        # 上采样layer3到layer2的尺寸
-        layer3_feat = torch.nn.functional.interpolate(
-            layer3_feat, size=layer2_feat.shape[-2:], mode='bilinear'
+        layer3_feat = F.interpolate(
+            layer3_feat,
+            size=layer2_feat.shape[-2:],
+            mode="bilinear",
+            align_corners=False,
         )
 
-        # 拼接特征
-        features = torch.cat([layer2_feat, layer3_feat], dim=1)  # [1, 384, 28, 28]
-        B, C, H, W = features.shape
-        features = features.reshape(B, C, H * W).permute(0, 2, 1)  # [1, H*W, C]
+        features = torch.cat([layer2_feat, layer3_feat], dim=1)  # (1, C, H, W)
+        _b, c, h, w = features.shape
+        self.patch_shape = (int(h), int(w))
 
-        return features.squeeze(0).cpu().numpy()
+        # (H*W, C)
+        return features.permute(0, 2, 3, 1).reshape(h * w, c).cpu().numpy()
 
-    def fit(self, train_folder):
-        """训练：计算正常图像的统计参数"""
-        print("训练PaDiM...")
+    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionPaDiM":
+        X_list = list(X)
+        if not X_list:
+            raise ValueError("Training set cannot be empty")
 
-        # 首先确定降维矩阵
-        temp_features = []
-        for i, filename in enumerate(os.listdir(train_folder)):
-            if filename.endswith('.jpg') and i < 10:  # 用前10张确定降维
-                img_path = os.path.join(train_folder, filename)
-                feat = self.extract_features(img_path)
-                temp_features.append(feat)
+        # Fit random projection on a small subset for speed/stability.
+        proj_fit = []
+        for image_path in X_list[: min(self.projection_fit_samples, len(X_list))]:
+            proj_fit.append(self._extract_patch_features(image_path))
+        proj_fit_mat = np.vstack(proj_fit)
+        self.random_projection.fit(proj_fit_mat)
 
-        temp_features = np.vstack(temp_features)
-        self.random_projection.fit(temp_features)
+        reduced_features: list[NDArray] = []
+        for image_path in X_list:
+            try:
+                feat = self._extract_patch_features(image_path)
+                reduced = self.random_projection.transform(feat)
+                reduced_features.append(reduced)
+            except Exception as exc:
+                logger.warning("Failed to process %s: %s", image_path, exc)
 
-        # 提取所有训练图像的特征
-        all_features = []
-        for filename in os.listdir(train_folder):
-            if filename.endswith('.jpg'):
-                img_path = os.path.join(train_folder, filename)
-                try:
-                    features = self.extract_features(img_path)
-                    # 降维
-                    features_reduced = self.random_projection.transform(features)
-                    all_features.append(features_reduced)
-                except Exception as e:
-                    print(f"处理 {filename} 出错: {e}")
+        if not reduced_features:
+            raise ValueError("Failed to extract features from any training image")
 
-        # 计算每个位置的均值和协方差
-        all_features = np.array(all_features)  # [N, H*W, d_reduced]
-        N, n_patches, _ = all_features.shape
+        all_features = np.stack(reduced_features, axis=0)  # (N, P, D)
+        means = np.mean(all_features, axis=0).astype(np.float32, copy=False)  # (P, D)
 
-        self.means = np.mean(all_features, axis=0)  # [H*W, d_reduced]
+        n_images, n_patches, d = all_features.shape
+        if d != self.d_reduced:
+            raise RuntimeError(f"Expected reduced dim={self.d_reduced}, got {d}")
 
-        # 计算协方差（加入正则化避免奇异）
-        self.inv_covs = []
+        inv_covs = np.empty((n_patches, d, d), dtype=np.float32)
+        eye = np.eye(d, dtype=np.float32)
+
+        # Per-location covariance. For small N, fall back to diagonal eps.
         for i in range(n_patches):
-            patch_features = all_features[:, i, :]  # [N, d_reduced]
-            cov = np.cov(patch_features.T) + 0.01 * np.eye(self.d_reduced)
-            inv_cov = np.linalg.inv(cov)
-            self.inv_covs.append(inv_cov)
+            patch_feats = all_features[:, i, :]
+            if n_images < 2:
+                cov = eye * self.covariance_eps
+            else:
+                cov = np.cov(patch_feats, rowvar=False).astype(np.float32, copy=False)
+                cov = cov + eye * self.covariance_eps
+            inv_covs[i] = np.linalg.inv(cov).astype(np.float32, copy=False)
 
-        self.inv_covs = np.array(self.inv_covs)
-        print(f"训练完成！统计参数形状: {self.means.shape}")
+        self.means = means
+        self.inv_covs = inv_covs
 
+        # Calibrate threshold for `predict()`.
+        self.decision_scores_ = self.decision_function(X_list)
+        self._process_decision_scores()
         return self
 
-    def predict(self, img_path):
-        """预测"""
-        # 提取特征
-        features = self.extract_features(img_path)
-        features_reduced = self.random_projection.transform(features)
+    def _check_fitted(self) -> None:
+        if self.means is None or self.inv_covs is None or self.patch_shape is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
 
-        # 计算马氏距离
-        distances = []
-        for i in range(features_reduced.shape[0]):
-            feat = features_reduced[i]
-            mean = self.means[i]
-            inv_cov = self.inv_covs[i]
+    def _compute_patch_distances(self, image_path: str) -> NDArray:
+        self._check_fitted()
+        feat = self._extract_patch_features(image_path)
+        reduced = self.random_projection.transform(feat).astype(np.float32, copy=False)  # (P, D)
 
-            # 马氏距离
-            dist = np.sqrt((feat - mean).T @ inv_cov @ (feat - mean))
-            distances.append(dist)
+        diff = reduced - self.means  # (P, D)
+        q = np.einsum("pd,pde,pe->p", diff, self.inv_covs, diff)
+        q = np.maximum(q, 0.0)
+        return np.sqrt(q, dtype=np.float32)
 
-        distances = np.array(distances)
+    def decision_function(self, X: Iterable[str]) -> NDArray:
+        self._check_fitted()
+        X_list = list(X)
+        scores = np.zeros(len(X_list), dtype=np.float32)
 
-        # 图像级异常分数
-        anomaly_score = np.max(distances)
+        for i, image_path in enumerate(X_list):
+            try:
+                distances = self._compute_patch_distances(image_path)
+                scores[i] = float(np.max(distances))
+            except Exception as exc:
+                logger.warning("Failed to score %s: %s", image_path, exc)
+                scores[i] = 0.0
+        return scores
 
-        # 简单阈值（可根据验证集调整）
-        threshold = 5.0  # 经验值
-        is_anomaly = anomaly_score > threshold
+    def predict(self, X: Iterable[str]) -> NDArray:
+        if not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        scores = self.decision_function(X)
+        return (scores >= self.threshold_).astype(int)
 
-        return {
-            'image': os.path.basename(img_path),
-            'is_normal': not is_anomaly,
-            'prediction': '正常' if not is_anomaly else '异常',
-            'anomaly_score': float(anomaly_score)
-        }
+    def get_anomaly_map(self, image_path: str) -> NDArray:
+        distances = self._compute_patch_distances(image_path)
+        h, w = self.patch_shape or (0, 0)
+        if h * w != distances.shape[0]:
+            raise RuntimeError(
+                f"Patch shape mismatch: {self.patch_shape} -> {h*w} != {distances.shape[0]}"
+            )
 
+        low_res = distances.reshape(h, w)
+        return cv2.resize(
+            low_res,
+            (self.image_size, self.image_size),
+            interpolation=cv2.INTER_CUBIC,
+        ).astype(np.float32, copy=False)
 
-# 使用示例
-if __name__ == "__main__":
-    detector = PaDiM(backbone='resnet18', d_reduced=128)
-    detector.fit("/Computer/data/temp11/程序正常")
-    result = detector.predict("/Computer/data/temp11/程序正常/0a2d861c87144f7b85ceda61854ffa92.jpg")
-    print(result)
+    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+        maps = [self.get_anomaly_map(path) for path in X]
+        return np.stack(maps, axis=0)

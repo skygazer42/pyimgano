@@ -41,7 +41,9 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional checkpoint path for checkpoint-backed models; sets model kwarg checkpoint_path",
     )
-    parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
+    parser.add_argument(
+        "--pixel", action="store_true", help="Compute pixel-level metrics if possible"
+    )
     parser.add_argument(
         "--pixel-aupro-limit",
         type=float,
@@ -151,6 +153,20 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
                 "n_neighbors": 5,
                 "knn_backend": "faiss" if _faiss_available() else "sklearn",
             }
+        if model_name == "vision_padim":
+            return {
+                "backbone": "resnet18",
+                "d_reduced": 64,
+                "image_size": 224,
+            }
+        if model_name == "vision_spade":
+            return {
+                "backbone": "resnet50",
+                "image_size": 256,
+                "k_neighbors": 50,
+                "feature_levels": ["layer1", "layer2", "layer3"],
+                "gaussian_sigma": 4.0,
+            }
         if model_name == "vision_anomalydino":
             return {
                 "knn_backend": "faiss" if _faiss_available() else "sklearn",
@@ -188,6 +204,11 @@ def _resolve_preset_kwargs(preset: str | None, model_name: str) -> dict[str, Any
                 "batch_size": 32,
             }
         if model_name == "vision_reverse_distillation":
+            return {
+                "epoch_num": 10,
+                "batch_size": 32,
+            }
+        if model_name == "vision_reverse_dist":
             return {
                 "epoch_num": 10,
                 "batch_size": 32,
@@ -307,7 +328,10 @@ def main(argv: list[str] | None = None) -> int:
         merged_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
         entry = MODEL_REGISTRY.info(args.model)
-        if bool(entry.metadata.get("requires_checkpoint", False)) and "checkpoint_path" not in merged_kwargs:
+        if (
+            bool(entry.metadata.get("requires_checkpoint", False))
+            and "checkpoint_path" not in merged_kwargs
+        ):
             raise ValueError(
                 f"Model {args.model!r} requires a checkpoint. "
                 "Provide --checkpoint-path or set checkpoint_path in --model-kwargs."

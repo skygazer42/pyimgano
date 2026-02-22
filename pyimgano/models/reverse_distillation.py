@@ -43,6 +43,11 @@ class StudentResNetExtractor(nn.Module):
 
 
 @register_model(
+    "vision_reverse_dist",
+    tags=("vision", "deep", "distillation"),
+    metadata={"description": "Reverse distillation anomaly detector (alias)"},
+)
+@register_model(
     "vision_reverse_distillation",
     tags=("vision", "deep", "distillation"),
     metadata={"description": "Reverse distillation anomaly detector"},
