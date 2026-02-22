@@ -163,9 +163,18 @@ Always include working code examples:
 ```rst
 .. code-block:: python
 
-   from pyimgano.detectors import IsolationForestDetector
+   import numpy as np
+   from pyimgano.models import create_model
 
-   detector = IsolationForestDetector()
+   class IdentityExtractor:
+       def extract(self, X):
+           return np.asarray(X)
+
+   detector = create_model(
+       "vision_iforest",
+       feature_extractor=IdentityExtractor(),
+       contamination=0.1,
+   )
    detector.fit(X_train)
 ```
 
@@ -175,7 +184,8 @@ Link to other parts of documentation:
 
 ```rst
 See :doc:`quickstart` for getting started.
-See :class:`pyimgano.detectors.IsolationForestDetector` for details.
+See :func:`pyimgano.models.create_model` for model creation.
+See :class:`pyimgano.models.iforest.VisionIForest` for the Isolation Forest wrapper.
 See :func:`pyimgano.preprocessing.edge_detection` for usage.
 ```
 

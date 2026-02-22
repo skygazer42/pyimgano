@@ -52,10 +52,11 @@ print(f"PyImgAno version: {pyimgano.__version__}")
 
 ```python
 import numpy as np
-from pyimgano.detectors import IsolationForestDetector
+from pyimgano.models import create_model
 
 # Generate sample data
-# In practice, you would load and preprocess your images
+# In practice, you would load and preprocess your images.
+# Here we use synthetic feature vectors to keep the example runnable anywhere.
 n_normal = 1000
 n_anomaly = 50
 
@@ -72,12 +73,22 @@ X_train = normal_data
 X_test = np.vstack([normal_data[:100], anomaly_data])
 y_test = np.hstack([np.zeros(100), np.ones(n_anomaly)])
 
+# For precomputed features / embeddings, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
 # Create and train detector
-detector = IsolationForestDetector(n_estimators=100)
+detector = create_model(
+    "vision_iforest",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.05,
+    n_estimators=100,
+)
 detector.fit(X_train)
 
 # Predict anomaly scores
-scores = detector.predict_proba(X_test)
+scores = detector.decision_function(X_test)
 predictions = detector.predict(X_test)  # Binary: 0=normal, 1=anomaly
 
 # Evaluate
@@ -102,27 +113,33 @@ Confusion Matrix:
 
 ```python
 import numpy as np
-from pyimgano.detectors import AutoencoderDetector
+from pyimgano.models import create_model
 
 # Same data as above
 X_train = normal_data
 X_test = np.vstack([normal_data[:100], anomaly_data])
 
-# Create and train autoencoder
-detector = AutoencoderDetector(
-    input_dim=100,
-    encoding_dim=32,
-    hidden_dims=[64],
-    epochs=50,
+# Create and train autoencoder (PyOD AutoEncoder wrapper)
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+detector = create_model(
+    "vision_auto_encoder",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.05,
+    epoch_num=50,
     batch_size=32,
-    learning_rate=0.001
+    lr=1e-3,
+    hidden_neuron_list=[64, 32, 64],
+    verbose=0,
 )
 
 # Train (may take a minute)
 detector.fit(X_train)
 
 # Predict
-scores = detector.predict_proba(X_test)
+scores = detector.decision_function(X_test)
 predictions = detector.predict(X_test)
 
 # Evaluate
@@ -325,7 +342,7 @@ from pyimgano.preprocessing import (
     AdvancedImageEnhancer,
     get_medium_augmentation,
 )
-from pyimgano.detectors import IsolationForestDetector
+from pyimgano.models import create_model
 from sklearn.metrics import classification_report
 
 # 1. Load and preprocess training data (normal samples only)
@@ -373,12 +390,19 @@ X_train_aug = np.array([preprocess_image(img) for img in augmented_images])
 X_train = np.vstack([X_train, X_train_aug])
 print(f"Training features with augmentation: {X_train.shape}")
 
+# For precomputed feature vectors, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
 # 4. Train detector
-detector = IsolationForestDetector(
+detector = create_model(
+    "vision_iforest",
+    feature_extractor=IdentityExtractor(),
     n_estimators=100,
-    max_samples='auto',
+    max_samples="auto",
     contamination=0.1,
-    random_state=42
+    random_state=42,
 )
 detector.fit(X_train)
 print("Detector trained successfully")
@@ -398,7 +422,7 @@ y_test = np.hstack([
 
 # 6. Predict
 predictions = detector.predict(X_test)
-scores = detector.predict_proba(X_test)
+scores = detector.decision_function(X_test)
 
 # 7. Evaluate
 from sklearn.metrics import roc_auc_score, classification_report
@@ -523,7 +547,8 @@ print(results)
 ### Use Case 1: Surface Defect Inspection
 
 ```python
-from pyimgano.detectors import LOFDetector
+import numpy as np
+from pyimgano.models import create_model
 from pyimgano.preprocessing import AdvancedImageEnhancer
 
 # For surface defects, use texture features
@@ -543,15 +568,26 @@ def extract_surface_features(image):
     ])
     return features
 
-# Train LOF detector (good for local anomalies)
-detector = LOFDetector(n_neighbors=20)
+# For precomputed feature vectors, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+# Train a kNN detector (fast local baseline)
+detector = create_model(
+    "vision_knn",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+    n_neighbors=20,
+)
 detector.fit(X_train_features)
 ```
 
 ### Use Case 2: PCB Inspection
 
 ```python
-from pyimgano.detectors import AutoencoderDetector
+import numpy as np
+from pyimgano.models import create_model
 from pyimgano.preprocessing import ImageEnhancer
 
 # For PCB, use edge-based features
@@ -566,12 +602,21 @@ def extract_pcb_features(image):
 
     return cleaned.flatten()
 
+# For precomputed feature vectors, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
 # Autoencoder works well for complex patterns
-detector = AutoencoderDetector(
-    input_dim=image_size[0] * image_size[1],
-    encoding_dim=128,
-    hidden_dims=[512, 256],
-    epochs=100
+detector = create_model(
+    "vision_auto_encoder",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+    epoch_num=100,
+    lr=1e-3,
+    batch_size=32,
+    hidden_neuron_list=[512, 256, 128, 256, 512],
+    verbose=0,
 )
 detector.fit(X_train_features)
 ```
@@ -579,7 +624,8 @@ detector.fit(X_train_features)
 ### Use Case 3: Fabric Defect Detection
 
 ```python
-from pyimgano.detectors import VAEDetector
+import numpy as np
+from pyimgano.models import create_model
 from pyimgano.preprocessing import AdvancedImageEnhancer
 
 # For fabric, combine frequency and texture analysis
@@ -601,12 +647,17 @@ def extract_fabric_features(image):
     ])
     return features
 
-# VAE for complex texture patterns
-detector = VAEDetector(
-    input_dim=1000,
-    latent_dim=64,
-    hidden_dims=[512, 256],
-    epochs=100
+# For precomputed feature vectors, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+# KDE is a strong density baseline for smooth feature distributions
+detector = create_model(
+    "vision_kde",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+    bandwidth=1.0,
 )
 detector.fit(X_train_features)
 ```
@@ -614,12 +665,24 @@ detector.fit(X_train_features)
 ### Use Case 4: Real-time Inspection
 
 ```python
-from pyimgano.detectors import KNNDetector
+import numpy as np
+from pyimgano.models import create_model
 from pyimgano.preprocessing import ImageEnhancer
 
 # For real-time, use fast methods
 enhancer = ImageEnhancer()
-detector = KNNDetector(n_neighbors=5)  # Very fast inference
+
+# For precomputed feature vectors, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+detector = create_model(
+    "vision_ecod",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+    n_jobs=-1,
+)
 
 def fast_preprocess(image):
     # Minimal preprocessing
@@ -634,7 +697,7 @@ detector.fit(X_train)
 # Fast inference (<10ms per image)
 import time
 start = time.time()
-score = detector.predict_proba([test_features])[0]
+score = detector.decision_function([test_features])[0]
 inference_time = (time.time() - start) * 1000
 print(f"Inference time: {inference_time:.2f}ms")
 ```
@@ -643,30 +706,14 @@ print(f"Inference time: {inference_time:.2f}ms")
 
 ### 1. Explore More Algorithms
 
-Check out all 37+ algorithms:
+Check out all registered models (100+):
 
 ```python
-from pyimgano import detectors
+from pyimgano.models import list_models
 
-# Statistical
-detectors.IQRDetector
-detectors.MADDetector
-detectors.HistogramBasedDetector
-
-# Distance-based
-detectors.KNNDetector
-detectors.LOFDetector
-
-# Density-based
-detectors.ECODDetector
-detectors.COPODDetector
-
-# Deep learning
-detectors.AutoencoderDetector
-detectors.VAEDetector
-detectors.DeepSVDDDetector
-
-# And many more...
+print("Classical:", list_models(tags=["classical"])[:20])
+print("Deep:", list_models(tags=["deep"])[:20])
+print("Pixel-map:", list_models(tags=["pixel_map"])[:20])
 ```
 
 ### 2. Read Full Documentation
@@ -731,12 +778,13 @@ print(f"GPU available: {torch.cuda.is_available()}")
 **A:**
 
 ```python
-# Save
-detector.save_model('my_detector.pkl')
+from pyimgano.utils.model_utils import load_model, save_model
+
+# Save (pickle-based)
+save_model(detector, "my_detector.pkl", metadata={"model_name": "vision_iforest"})
 
 # Load
-from pyimgano.detectors import IsolationForestDetector
-detector = IsolationForestDetector.load_model('my_detector.pkl')
+detector = load_model("my_detector.pkl")
 ```
 
 ### Q: What image formats are supported?
@@ -771,8 +819,16 @@ pip install -e .
 ### CUDA Out of Memory
 
 ```python
-# Reduce batch size
-detector = AutoencoderDetector(batch_size=16)  # Default is 32
+# Reduce batch size for deep models (example: PyOD AutoEncoder wrapper)
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_auto_encoder",
+    contamination=0.1,
+    epoch_num=10,
+    batch_size=16,
+    verbose=0,
+)
 
 # Or use CPU
 import torch
@@ -783,10 +839,18 @@ torch.cuda.is_available = lambda: False
 
 ```python
 # Reduce epochs for deep learning
-detector = AutoencoderDetector(epochs=10)  # Default is 50
+from pyimgano.models import create_model
+
+detector = create_model(
+    "vision_auto_encoder",
+    contamination=0.1,
+    epoch_num=10,
+    batch_size=32,
+    verbose=0,
+)
 
 # Or use classical methods
-detector = IsolationForestDetector()  # Trains in seconds
+detector = create_model("vision_iforest", contamination=0.1)  # Trains in seconds
 ```
 
 ## Get Help

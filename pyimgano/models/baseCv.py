@@ -146,6 +146,8 @@ if _torch is not None and _torchvision is not None and _pyod_base_dl is not None
 
             # 6. 调用 PyOD 的方法来计算阈值和标签 (继承来的免费功能)
             self._process_decision_scores()
+            # PyOD compatibility: enable `predict_proba()` by initializing `_classes`.
+            self._set_n_classes(y)
             return self
 
         def decision_function(self, X, batch_size=None):

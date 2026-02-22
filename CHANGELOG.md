@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-02-22
+
+### Added
+- `pyimgano-robust-benchmark` adds `--input-mode`:
+  - `numpy` (default): load decoded frames in memory (corruptions enabled)
+  - `paths`: pass file paths to detectors (clean-only; corruptions skipped)
+- Robustness reporting metadata: input mode, corruption mode, and skip reasons when corruptions/pixel metrics cannot run.
+
+### Changed
+- Documentation updated to use the registry-driven API (`pyimgano.models.create_model`, `pyimgano.models.list_models`) instead of `pyimgano.detectors`.
+- Sphinx API reference refreshed to document the registry/factory interface.
+- Benchmark scripts updated to use `create_model` + model registry names.
+
+### Fixed
+- PyOD `predict_proba()` compatibility for vision wrappers by initializing `_classes` during `fit()`.
+
 ## [0.5.0] - 2026-02-22
 
 ### Added

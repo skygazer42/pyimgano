@@ -15,8 +15,14 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'PyImgAno'
 copyright = '2024, PyImgAno Contributors'
 author = 'PyImgAno Contributors'
-release = '0.2.0'
-version = '0.2.0'
+try:
+    import pyimgano as _pyimgano
+except Exception:
+    release = '0.0.0'
+    version = release
+else:
+    release = _pyimgano.__version__
+    version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

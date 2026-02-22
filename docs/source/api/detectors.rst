@@ -1,308 +1,89 @@
-Detectors API Reference
-=======================
+Models / Detectors API Reference
+================================
 
-This page provides detailed API documentation for all anomaly detection algorithms in PyImgAno.
+PyImgAno exposes anomaly detection algorithms through a **registry-driven**
+factory in ``pyimgano.models``.
+
+Most users should prefer:
+
+- ``pyimgano.models.list_models()`` to discover algorithms
+- ``pyimgano.models.create_model()`` to construct an algorithm by name
+
+This keeps imports stable while letting the project grow its model zoo.
+
+Registry (Factory API)
+----------------------
+
+.. automodule:: pyimgano.models.registry
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Base Classes
 ------------
 
-.. automodule:: pyimgano.detectors.base
+.. autoclass:: pyimgano.models.baseml.BaseVisionDetector
    :members:
    :undoc-members:
    :show-inheritance:
 
-Statistical Detectors
----------------------
-
-IQR Detector
-~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.IQRDetector
+.. autoclass:: pyimgano.models.baseCv.BaseVisionDeepDetector
    :members:
    :undoc-members:
    :show-inheritance:
-
-MAD Detector
-~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.MADDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Z-Score Detector
-~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.ZScoreDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Histogram-based Detector
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.HistogramBasedDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Distance-based Detectors
-------------------------
-
-KNN Detector
-~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.KNNDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-LOF Detector
-~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.LOFDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-COF Detector
-~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.COFDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-LOCI Detector
-~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.LOCIDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Density-based Detectors
------------------------
-
-ECOD Detector
-~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.ECODDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-COPOD Detector
-~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.COPODDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Gaussian Mixture Model
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.GMMDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Kernel Density Estimation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.KDEDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Isolation-based Detectors
--------------------------
-
-Isolation Forest
-~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.IsolationForestDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Extended Isolation Forest
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.ExtendedIsolationForestDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Deep Learning Detectors
------------------------
-
-Autoencoder
-~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.AutoencoderDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Variational Autoencoder (VAE)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.VAEDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Deep SVDD
-~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.DeepSVDDDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-DAGMM
-~~~~~
-
-.. autoclass:: pyimgano.detectors.DAGMMDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Memory-augmented Autoencoder
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.MemAEDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Reconstruction-based Detectors
-------------------------------
-
-PCA Detector
-~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.PCADetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Kernel PCA Detector
-~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.KernelPCADetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Robust PCA Detector
-~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.RobustPCADetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-One-Class Methods
------------------
-
-One-Class SVM
-~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.OCSVMDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Ensemble Methods
-----------------
-
-Feature Bagging
-~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.FeatureBaggingDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-LSCP (Locally Selective Combination)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: pyimgano.detectors.LSCPDetector
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Utility Functions
------------------
-
-.. automodule:: pyimgano.detectors.utils
-   :members:
-   :undoc-members:
 
 Examples
 --------
 
-Basic Usage
-~~~~~~~~~~~
+List available models
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from pyimgano.detectors import IsolationForestDetector
+   from pyimgano.models import list_models
+
+   print(list_models()[:20])
+   print(list_models(tags=["classical"])[:20])
+   print(list_models(tags=["pixel_map"])[:20])
+
+Create and run a classical detector (feature vectors)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
    import numpy as np
+   from pyimgano.models import create_model
 
-   # Create detector
-   detector = IsolationForestDetector(
-       n_estimators=100,
-       max_samples='auto',
-       contamination=0.1
+   class IdentityExtractor:
+       def extract(self, X):
+           return np.asarray(X)
+
+   X_train = np.random.randn(1000, 64)
+   X_test = np.random.randn(100, 64)
+
+   det = create_model(
+       "vision_iforest",
+       feature_extractor=IdentityExtractor(),
+       contamination=0.1,
+       n_estimators=200,
    )
+   det.fit(X_train)
+   scores = det.decision_function(X_test)
+   labels = det.predict(X_test)
 
-   # Train
-   X_train = np.random.randn(1000, 50)
-   detector.fit(X_train)
-
-   # Predict
-   X_test = np.random.randn(100, 50)
-   scores = detector.predict_proba(X_test)
-   predictions = detector.predict(X_test)
-
-Deep Learning Usage
-~~~~~~~~~~~~~~~~~~~
+Create and run an industrial pixel-map model (images)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from pyimgano.detectors import AutoencoderDetector
+   from pyimgano.models import create_model
 
-   # Create detector
-   detector = AutoencoderDetector(
-       input_dim=784,  # e.g., 28x28 image flattened
-       encoding_dim=32,
-       hidden_dims=[256, 128],
-       epochs=50,
-       batch_size=32,
-       learning_rate=0.001
-   )
+   det = create_model("vision_patchcore", device="cuda", pretrained=True)
+   det.fit(train_paths)  # list[str] image paths
+   scores = det.decision_function(test_paths)
 
-   # Train
-   detector.fit(X_train)
+Notes
+-----
 
-   # Predict
-   scores = detector.predict_proba(X_test)
-
-Saving and Loading Models
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   # Save trained model
-   detector.save_model('my_detector.pkl')
-
-   # Load model
-   from pyimgano.detectors import IsolationForestDetector
-   loaded_detector = IsolationForestDetector.load_model('my_detector.pkl')
-
-   # Use loaded model
-   scores = loaded_detector.predict_proba(X_test)
+- Use ``pyimgano-benchmark --list-models`` to discover model names from the CLI.
+- Optional backends are loaded lazily and raise install hints when constructed.

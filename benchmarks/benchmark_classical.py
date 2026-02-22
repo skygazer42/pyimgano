@@ -3,8 +3,8 @@ Benchmark classical anomaly detection algorithms.
 
 This script benchmarks statistical and classical machine learning algorithms
 for visual anomaly detection, including:
-- Statistical methods (IQR, MAD, Histogram)
-- Distance-based methods (KNN, LOF)
+- Statistical methods (MAD, HBOS)
+- Distance-based methods (KNN, COF)
 - Density-based methods (ECOD, COPOD)
 - Isolation-based methods (IForest)
 - Ensemble methods
@@ -30,16 +30,7 @@ import matplotlib.pyplot as plt
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from pyimgano.detectors import (
-    IQRDetector,
-    MADDetector,
-    HistogramBasedDetector,
-    KNNDetector,
-    LOFDetector,
-    IsolationForestDetector,
-    ECODDetector,
-    COPODDetector,
-)
+from pyimgano.models import create_model
 
 warnings.filterwarnings('ignore')
 
@@ -98,7 +89,7 @@ def get_memory_usage() -> float:
 
 
 def benchmark_algorithm(
-    detector_class,
+    model_name: str,
     detector_params: dict,
     X_train: np.ndarray,
     y_train: np.ndarray,
@@ -110,8 +101,18 @@ def benchmark_algorithm(
     result = BenchmarkResult(algorithm_name)
 
     try:
+        class IdentityExtractor:
+            def extract(self, X):
+                return np.asarray(X)
+
         # Initialize detector
-        detector = detector_class(**detector_params)
+        detector_kwargs = dict(detector_params)
+        detector_kwargs.setdefault("contamination", 0.1)
+        detector = create_model(
+            model_name,
+            feature_extractor=IdentityExtractor(),
+            **detector_kwargs,
+        )
 
         # Measure training time and memory
         mem_before = get_memory_usage()
@@ -125,7 +126,7 @@ def benchmark_algorithm(
 
         # Measure inference time
         start_time = time.time()
-        scores = detector.predict_proba(X_test)
+        scores = detector.decision_function(X_test)
         inference_time = (time.time() - start_time) / len(X_test)
 
         result.inference_time = inference_time
@@ -155,21 +156,10 @@ def benchmark_statistical_methods(
 
     results = []
 
-    # IQR Detector
-    print("\n1. IQR Detector...")
-    result = benchmark_algorithm(
-        IQRDetector,
-        {},
-        X_train, y_train, X_test, y_test,
-        "IQR"
-    )
-    results.append(result)
-    print(f"   {result}")
-
     # MAD Detector
-    print("\n2. MAD Detector...")
+    print("\n1. MAD Detector...")
     result = benchmark_algorithm(
-        MADDetector,
+        "vision_mad",
         {},
         X_train, y_train, X_test, y_test,
         "MAD"
@@ -177,13 +167,13 @@ def benchmark_statistical_methods(
     results.append(result)
     print(f"   {result}")
 
-    # Histogram-based Detector
-    print("\n3. Histogram-based Detector...")
+    # HBOS (Histogram-based Outlier Score)
+    print("\n2. HBOS (Histogram-based Outlier Score)...")
     result = benchmark_algorithm(
-        HistogramBasedDetector,
-        {'bins': 50},
+        "vision_hbos",
+        {},
         X_train, y_train, X_test, y_test,
-        "Histogram"
+        "HBOS"
     )
     results.append(result)
     print(f"   {result}")
@@ -207,7 +197,7 @@ def benchmark_distance_methods(
     # KNN Detector
     print("\n1. KNN Detector (k=5)...")
     result = benchmark_algorithm(
-        KNNDetector,
+        "vision_knn",
         {'n_neighbors': 5},
         X_train, y_train, X_test, y_test,
         "KNN"
@@ -215,13 +205,13 @@ def benchmark_distance_methods(
     results.append(result)
     print(f"   {result}")
 
-    # LOF Detector
-    print("\n2. LOF Detector (k=20)...")
+    # COF Detector
+    print("\n2. COF Detector (k=20)...")
     result = benchmark_algorithm(
-        LOFDetector,
+        "vision_cof",
         {'n_neighbors': 20},
         X_train, y_train, X_test, y_test,
-        "LOF"
+        "COF"
     )
     results.append(result)
     print(f"   {result}")
@@ -245,7 +235,7 @@ def benchmark_density_methods(
     # ECOD Detector
     print("\n1. ECOD Detector...")
     result = benchmark_algorithm(
-        ECODDetector,
+        "vision_ecod",
         {},
         X_train, y_train, X_test, y_test,
         "ECOD"
@@ -256,7 +246,7 @@ def benchmark_density_methods(
     # COPOD Detector
     print("\n2. COPOD Detector...")
     result = benchmark_algorithm(
-        COPODDetector,
+        "vision_copod",
         {},
         X_train, y_train, X_test, y_test,
         "COPOD"
@@ -283,7 +273,7 @@ def benchmark_isolation_methods(
     # Isolation Forest
     print("\n1. Isolation Forest (100 trees)...")
     result = benchmark_algorithm(
-        IsolationForestDetector,
+        "vision_iforest",
         {'n_estimators': 100},
         X_train, y_train, X_test, y_test,
         "IForest"

@@ -8,10 +8,10 @@ A comprehensive comparison between PyImgAno and PyOD to help you choose the righ
 |--------|----------|------|
 | **Primary Focus** | Visual anomaly detection | General outlier detection |
 | **Best For** | Images, computer vision, industrial inspection | Tabular data, time series, general ML |
-| **Algorithms** | 37+ (visual-focused) | 40+ (general-purpose) |
+| **Algorithms** | 100+ (registry: 118 models) | 40+ (general-purpose) |
 | **Preprocessing** | 80+ image operations | Minimal |
 | **Augmentation** | 30+ augmentation techniques | None |
-| **Maturity** | Beta (v0.2.0) | Stable (v1.1.3+) |
+| **Maturity** | Beta (v0.5.0+) | Stable (v1.1.3+) |
 | **Community** | Growing | Established (6000+ stars) |
 | **Documentation** | Good, improving | Excellent |
 | **Performance** | Optimized for images | Optimized for tabular data |
@@ -60,52 +60,26 @@ A comprehensive comparison between PyImgAno and PyOD to help you choose the righ
 
 ### Algorithms
 
-#### PyImgAno (37+ algorithms)
+#### PyImgAno (100+ models; registry-driven)
 
-**Statistical Methods:**
-- IQR Detector
-- MAD Detector
-- Z-Score Detector
-- Modified Z-Score
-- Histogram-based
+PyImgAno exposes algorithms through a unified registry and factory:
 
-**Distance-based:**
-- KNN (k-Nearest Neighbors)
-- LOF (Local Outlier Factor)
-- COF (Connectivity-based Outlier Factor)
-- LOCI (Local Correlation Integral)
+```python
+from pyimgano.models import list_models
+print(list_models()[:10])
+```
 
-**Density-based:**
-- ECOD (Empirical Cumulative Distribution)
-- COPOD (Copula-based Outlier Detection)
-- Gaussian Mixture Model
-- Kernel Density Estimation
+Example model names you can start with:
 
-**Isolation-based:**
-- Isolation Forest
-- Extended Isolation Forest
+- Classical baselines: `vision_ecod`, `vision_copod`, `vision_iforest`, `vision_knn`, `vision_pca`, `vision_ocsvm`
+- Pixel-map industrial inspection: `vision_patchcore`, `vision_padim`, `vision_softpatch`, `vision_spade`, `vision_stfpm`, `vision_draem`, `vision_anomalydino`, `vision_superad`
 
-**Deep Learning:**
-- Autoencoder (AE)
-- Variational Autoencoder (VAE)
-- Deep SVDD
-- DAGMM (Deep Autoencoding Gaussian Mixture)
-- MemAE (Memory-augmented Autoencoder)
+To discover models from the CLI:
 
-**Reconstruction-based:**
-- PCA (Principal Component Analysis)
-- Kernel PCA
-- Robust PCA
-
-**Ensemble Methods:**
-- Feature Bagging
-- LSCP (Locally Selective Combination)
-
-**Others:**
-- One-Class SVM
-- OCSVM (One-Class Support Vector Machine)
-- ABOD (Angle-based Outlier Detection)
-- FastABOD
+```bash
+pyimgano-benchmark --list-models
+pyimgano-benchmark --list-models --tags pixel_map
+```
 
 #### PyOD (40+ algorithms)
 
@@ -218,17 +192,24 @@ Both libraries have similar memory footprints for shared algorithms.
 #### PyImgAno
 
 ```python
-from pyimgano.detectors import IsolationForestDetector
-from pyimgano.preprocessing import ImageEnhancer
+import numpy as np
 
-# Preprocessing
-enhancer = ImageEnhancer()
-processed = enhancer.detect_edges(image, method='canny')
+from pyimgano.models import create_model
+
+# For tabular / precomputed features, provide an extractor with `.extract(X)`.
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
 
 # Detection
-detector = IsolationForestDetector(n_estimators=100)
+detector = create_model(
+    "vision_iforest",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+    n_estimators=100,
+)
 detector.fit(X_train)
-scores = detector.predict_proba(X_test)
+scores = detector.decision_function(X_test)
 ```
 
 **Characteristics:**
@@ -351,12 +332,25 @@ scores = detector.decision_scores_
 # Use your own preprocessing
 preprocessed_data = your_custom_preprocessing(images)
 
-# Use PyImgAno's visual-specific detectors
-from pyimgano.detectors import VAEDetector
+# Use PyImgAno's registry for consistent construction
+import numpy as np
+from pyimgano.models import create_model
 
-detector = VAEDetector()
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+detector = create_model(
+    "vision_auto_encoder",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+    epoch_num=10,
+    lr=1e-3,
+    batch_size=32,
+    verbose=0,
+)
 detector.fit(preprocessed_data)
-scores = detector.predict_proba(test_data)
+scores = detector.decision_function(test_data)
 ```
 
 ## Migration Guide
@@ -373,16 +367,16 @@ detector.fit(X_train)
 scores = detector.decision_scores_
 
 # PyImgAno approach
-from pyimgano.detectors import KNNDetector
-detector = KNNDetector(n_neighbors=5)
-detector.fit(X_train)
-scores = detector.predict_proba(X_test)
+from pyimgano.models import create_model
+detector = create_model("vision_knn", n_neighbors=5, contamination=0.1)
+detector.fit(train_paths)
+scores = detector.decision_function(test_paths)
 ```
 
 **Key differences:**
-1. `decision_scores_` → `predict_proba()`
-2. Add preprocessing if needed
-3. Add augmentation for training
+1. Registry-driven: `create_model("vision_*")`
+2. Image-first: pass image paths or numpy images
+3. Evaluate with `decision_function()` (scores) and `predict()` (labels)
 
 ### From PyImgAno to PyOD
 
@@ -390,8 +384,8 @@ If you need PyOD's specialized algorithms:
 
 ```python
 # PyImgAno approach
-from pyimgano.detectors import IsolationForestDetector
-detector = IsolationForestDetector(n_estimators=100)
+from pyimgano.models import create_model
+detector = create_model("vision_iforest", n_estimators=100)
 
 # PyOD approach
 from pyod.models.iforest import IForest

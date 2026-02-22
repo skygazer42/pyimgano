@@ -1,9 +1,9 @@
 PyImgAno Documentation
 ======================
 
-**PyImgAno** is an enterprise-grade visual anomaly detection toolkit with 37+ algorithms and 80+ image processing operations.
+**PyImgAno** is an enterprise-grade visual anomaly detection toolkit with 100+ models and 80+ image processing operations.
 
-.. image:: https://img.shields.io/badge/version-0.2.0-blue.svg
+.. image:: https://img.shields.io/badge/version-0.5.1-blue.svg
    :target: https://github.com/jhlu2019/pyimgano
    :alt: Version
 
@@ -44,19 +44,28 @@ Basic Usage
 
 .. code-block:: python
 
-   from pyimgano.detectors import IsolationForestDetector
    import numpy as np
+   from pyimgano.models import create_model
+
+   class IdentityExtractor:
+       def extract(self, X):
+           return np.asarray(X)
 
    # Generate sample data
    X_train = np.random.randn(1000, 100) * 0.5  # Normal samples
    X_test = np.random.randn(100, 100) * 2.0    # Test samples
 
    # Create and train detector
-   detector = IsolationForestDetector(n_estimators=100)
+   detector = create_model(
+       "vision_iforest",
+       feature_extractor=IdentityExtractor(),
+       contamination=0.1,
+       n_estimators=100,
+   )
    detector.fit(X_train)
 
    # Predict anomaly scores
-   scores = detector.predict_proba(X_test)
+   scores = detector.decision_function(X_test)
    predictions = detector.predict(X_test)  # 0=normal, 1=anomaly
 
 With Image Preprocessing
@@ -65,8 +74,9 @@ With Image Preprocessing
 .. code-block:: python
 
    from pyimgano.preprocessing import AdvancedImageEnhancer
-   from pyimgano.detectors import AutoencoderDetector
    import cv2
+   import numpy as np
+   from pyimgano.models import create_model
 
    # Load and preprocess images
    enhancer = AdvancedImageEnhancer()
@@ -76,16 +86,24 @@ With Image Preprocessing
    lbp = enhancer.compute_lbp(image)
    features = lbp.flatten()
 
+   class IdentityExtractor:
+       def extract(self, X):
+           return np.asarray(X)
+
    # Train detector
-   detector = AutoencoderDetector(
-       input_dim=len(features),
-       encoding_dim=128,
-       epochs=50
+   detector = create_model(
+       "vision_auto_encoder",
+       feature_extractor=IdentityExtractor(),
+       contamination=0.1,
+       epoch_num=50,
+       lr=1e-3,
+       batch_size=32,
+       verbose=0,
    )
    detector.fit(training_features)
 
    # Detect anomalies
-   score = detector.predict_proba([features])[0]
+   score = detector.decision_function([features])[0]
 
 Table of Contents
 -----------------

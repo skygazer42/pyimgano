@@ -2,9 +2,8 @@
 Benchmark deep learning anomaly detection algorithms.
 
 This script benchmarks neural network-based algorithms for visual anomaly detection:
-- Autoencoder (AE)
-- Variational Autoencoder (VAE)
-- Deep SVDD
+- Autoencoder (PyOD wrapper)
+- Deep SVDD (core implementation)
 
 Metrics measured:
 - Training time (per epoch)
@@ -28,11 +27,7 @@ import matplotlib.pyplot as plt
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from pyimgano.detectors import (
-    AutoencoderDetector,
-    VAEDetector,
-    DeepSVDDDetector,
-)
+from pyimgano.models import create_model
 
 warnings.filterwarnings('ignore')
 
@@ -108,7 +103,7 @@ def get_model_size(model: torch.nn.Module) -> float:
 
 
 def benchmark_algorithm(
-    detector_class,
+    model_name: str,
     detector_params: dict,
     X_train: np.ndarray,
     y_train: np.ndarray,
@@ -122,8 +117,19 @@ def benchmark_algorithm(
 
     try:
         # Initialize detector
-        detector_params['epochs'] = epochs
-        detector = detector_class(**detector_params)
+        detector_kwargs = dict(detector_params)
+        if model_name.startswith("vision_"):
+            class IdentityExtractor:
+                def extract(self, X):
+                    return np.asarray(X)
+
+            detector = create_model(
+                model_name,
+                feature_extractor=IdentityExtractor(),
+                **detector_kwargs,
+            )
+        else:
+            detector = create_model(model_name, **detector_kwargs)
 
         # Measure training time
         start_time = time.time()
@@ -134,12 +140,13 @@ def benchmark_algorithm(
         result.train_time_per_epoch = total_train_time / epochs
 
         # Get model size
-        if hasattr(detector, 'model'):
-            result.model_size_mb = get_model_size(detector.model)
+        model_attr = getattr(detector, "model", None)
+        if isinstance(model_attr, torch.nn.Module):
+            result.model_size_mb = get_model_size(model_attr)
 
         # Measure inference time
         start_time = time.time()
-        scores = detector.predict_proba(X_test)
+        scores = detector.decision_function(X_test)
         inference_time = (time.time() - start_time) / len(X_test)
 
         result.inference_time = inference_time
@@ -177,36 +184,19 @@ def benchmark_autoencoder(
     input_dim = np.prod(X_train.shape[1:])
 
     # Standard Autoencoder
-    print("\n1. Standard Autoencoder...")
+    print("\n1. AutoEncoder (PyOD wrapper)...")
     result = benchmark_algorithm(
-        AutoencoderDetector,
+        "vision_auto_encoder",
         {
-            'input_dim': input_dim,
-            'encoding_dim': 32,
-            'hidden_dims': [128, 64],
+            'contamination': 0.1,
+            'epoch_num': 10,
             'batch_size': 32,
-            'learning_rate': 0.001,
+            'lr': 0.001,
+            'hidden_neuron_list': [128, 64, 32, 64, 128],
+            'verbose': 0,
         },
         X_train, y_train, X_test, y_test,
-        "Autoencoder",
-        epochs=10
-    )
-    results.append(result)
-    print(f"   {result}")
-
-    # Variational Autoencoder
-    print("\n2. Variational Autoencoder (VAE)...")
-    result = benchmark_algorithm(
-        VAEDetector,
-        {
-            'input_dim': input_dim,
-            'latent_dim': 32,
-            'hidden_dims': [128, 64],
-            'batch_size': 32,
-            'learning_rate': 0.001,
-        },
-        X_train, y_train, X_test, y_test,
-        "VAE",
+        "AutoEncoder",
         epochs=10
     )
     results.append(result)
@@ -231,12 +221,14 @@ def benchmark_deep_svdd(
 
     print("\n1. Deep SVDD...")
     result = benchmark_algorithm(
-        DeepSVDDDetector,
+        "core_deep_svdd",
         {
-            'input_dim': input_dim,
-            'hidden_dims': [128, 64, 32],
+            'n_features': input_dim,
+            'hidden_neurons': [128, 64, 32],
+            'epochs': 10,
             'batch_size': 32,
-            'learning_rate': 0.001,
+            'verbose': 0,
+            'contamination': 0.1,
         },
         X_train, y_train, X_test, y_test,
         "Deep SVDD",

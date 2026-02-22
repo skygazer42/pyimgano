@@ -271,7 +271,7 @@ Complete Workflow
 .. code-block:: python
 
    from pyimgano.preprocessing import AdvancedImageEnhancer
-   from pyimgano.detectors import IsolationForestDetector
+   from pyimgano.models import create_model
    import numpy as np
 
    # 1. Preprocessing
@@ -294,12 +294,21 @@ Complete Workflow
    X_train = np.array([preprocess(img) for img in training_images])
 
    # 3. Train detector
-   detector = IsolationForestDetector(n_estimators=100)
+   class IdentityExtractor:
+       def extract(self, X):
+           return np.asarray(X)
+
+   detector = create_model(
+       "vision_iforest",
+       feature_extractor=IdentityExtractor(),
+       contamination=0.1,
+       n_estimators=100,
+   )
    detector.fit(X_train)
 
    # 4. Test
    test_image = cv2.imread('test.jpg')
    test_features = preprocess(test_image)
-   score = detector.predict_proba([test_features])[0]
+   score = detector.decision_function([test_features])[0]
 
    print(f"Anomaly score: {score:.4f}")

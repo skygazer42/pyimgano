@@ -71,6 +71,9 @@ class BaseVisionDetector(BaseDetector):
         self.decision_scores_ = self.detector.decision_scores_
         # 4. 调用 PyOD 基类的方法，自动计算阈值和标签
         self._process_decision_scores()
+        # PyOD compatibility: enable `predict_proba()` by initializing `_classes`.
+        # Most PyOD detectors call this in their `fit`; our wrappers must too.
+        self._set_n_classes(y)
 
         return self
     def decision_function(self, X):

@@ -321,7 +321,7 @@ Training with Augmentation
        get_medium_augmentation,
        AdvancedImageEnhancer
    )
-   from pyimgano.detectors import AutoencoderDetector
+   from pyimgano.models import create_model
    import numpy as np
    import cv2
 
@@ -352,10 +352,18 @@ Training with Augmentation
    X_train = np.array([preprocess(img) for img in augmented_images])
 
    # Train detector
-   detector = AutoencoderDetector(
-       input_dim=X_train.shape[1],
-       encoding_dim=128,
-       epochs=50
+   class IdentityExtractor:
+       def extract(self, X):
+           return np.asarray(X)
+
+   detector = create_model(
+       "vision_auto_encoder",
+       feature_extractor=IdentityExtractor(),
+       contamination=0.1,
+       epoch_num=50,
+       lr=1e-3,
+       batch_size=32,
+       verbose=0,
    )
    detector.fit(X_train)
 
