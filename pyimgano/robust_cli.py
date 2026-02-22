@@ -41,6 +41,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Resize images/masks to (H, W) before benchmarking. Default: 256 256",
     )
     parser.add_argument(
+        "--input-mode",
+        default="numpy",
+        choices=["numpy", "paths"],
+        help=(
+            "How to feed inputs into the detector. "
+            "'numpy' loads images as RGB uint8 arrays (required for corruptions). "
+            "'paths' feeds file paths to the detector (corruptions are skipped). "
+            "Default: numpy"
+        ),
+    )
+    parser.add_argument(
         "--list-models",
         action="store_true",
         help="List available model names and exit (default output: text, one per line)",
@@ -333,19 +344,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
         preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
-        detector = create_model(
+        model_kwargs = _build_model_kwargs(
             args.model,
-            **_build_model_kwargs(
-                args.model,
-                user_kwargs=user_kwargs,
-                preset_kwargs=preset_kwargs,
-                auto_kwargs={
-                    "device": args.device,
-                    "contamination": float(args.contamination),
-                    "pretrained": bool(args.pretrained),
-                },
-            ),
+            user_kwargs=user_kwargs,
+            preset_kwargs=preset_kwargs,
+            auto_kwargs={
+                "device": args.device,
+                "contamination": float(args.contamination),
+                "pretrained": bool(args.pretrained),
+            },
         )
+
+        def _make_detector():
+            return create_model(args.model, **model_kwargs)
 
         train_paths = list(split.train_paths)
         test_paths = list(split.test_paths)
@@ -354,38 +365,76 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.limit_test is not None:
             test_paths = test_paths[: int(args.limit_test)]
 
-        train_images = [_load_u8_rgb(p, resize=resize_hw) for p in train_paths]
-        test_images = [_load_u8_rgb(p, resize=resize_hw) for p in test_paths]
-        test_labels = np.asarray(split.test_labels[: len(test_images)])
+        test_labels = np.asarray(split.test_labels[: len(test_paths)])
         test_masks = _apply_resize_to_masks(
-            None if split.test_masks is None else np.asarray(split.test_masks[: len(test_images)]),
+            None if split.test_masks is None else np.asarray(split.test_masks[: len(test_paths)]),
             resize=resize_hw,
         )
-        if not bool(args.pixel_segf1):
-            # Robustness benchmarking is primarily meant to be "pixel-first".
-            # If pixel SegF1 is disabled, skip mask/map computation entirely to
-            # keep runs cheap and avoid requiring pixel-capable detectors.
-            test_masks = None
-
         postprocess = AnomalyMapPostprocess() if bool(args.pixel_postprocess) else None
-        corruptions = _resolve_corruptions(str(args.corruptions))
+        requested_corruptions = str(args.corruptions)
+        requested_severities = [int(s) for s in list(args.severities)]
+
+        input_mode = str(args.input_mode)
+        if input_mode == "numpy":
+            train_inputs = [_load_u8_rgb(p, resize=resize_hw) for p in train_paths]
+            test_inputs = [_load_u8_rgb(p, resize=resize_hw) for p in test_paths]
+            corruptions: Sequence[_NamedCorruption] = _resolve_corruptions(requested_corruptions)
+            corruption_mode = "full"
+            corruptions_skipped_reason = None
+        else:
+            train_inputs = train_paths
+            test_inputs = test_paths
+            corruptions = []
+            corruption_mode = "clean_only"
+            corruptions_skipped_reason = (
+                "input_mode=paths: corruptions are skipped because corruptions require numpy inputs."
+            )
+
+        detector = _make_detector()
+
+        notes: list[str] = []
+        pixel_segf1_enabled = bool(args.pixel_segf1)
+        if pixel_segf1_enabled and test_masks is None:
+            pixel_segf1_enabled = False
+            notes.append("pixel_segf1 disabled because dataset split has no masks.")
+
+        supports_maps = hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map")
+        if pixel_segf1_enabled and not supports_maps:
+            pixel_segf1_enabled = False
+            notes.append(
+                "pixel_segf1 disabled because detector does not expose "
+                "predict_anomaly_map() or get_anomaly_map()."
+            )
+
+        if not pixel_segf1_enabled:
+            # Skip mask/map computation entirely to keep runs cheap and avoid
+            # requiring pixel-capable detectors.
+            test_masks = None
 
         report = run_robustness_benchmark(
             detector,
-            train_images=train_images,
-            test_images=test_images,
+            train_images=train_inputs,
+            test_images=test_inputs,
             test_labels=test_labels,
             test_masks=test_masks,
             corruptions=corruptions,
-            severities=[int(s) for s in list(args.severities)],
+            severities=requested_severities,
             seed=int(args.seed),
-            pixel_segf1=bool(args.pixel_segf1),
+            pixel_segf1=pixel_segf1_enabled,
             pixel_threshold_strategy="normal_pixel_quantile",
             pixel_normal_quantile=float(args.pixel_normal_quantile),
             calibration_fraction=float(args.pixel_calibration_fraction),
             calibration_seed=int(args.pixel_calibration_seed),
             postprocess=postprocess,
         )
+        report["input_mode"] = input_mode
+        report["corruption_mode"] = corruption_mode
+        report["requested_corruptions"] = requested_corruptions
+        report["requested_severities"] = requested_severities
+        if corruptions_skipped_reason is not None:
+            report["corruptions_skipped_reason"] = corruptions_skipped_reason
+        if notes:
+            report["notes"] = list(notes)
 
         payload = {
             "dataset": args.dataset,

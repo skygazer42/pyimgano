@@ -146,7 +146,7 @@ def _align_maps_to_masks(
 def _evaluate_condition(
     detector: Any,
     *,
-    images: Sequence[np.ndarray],
+    inputs: Sequence[Any],
     labels: NDArray,
     masks: Optional[NDArray],
     pixel_threshold: Optional[float],
@@ -155,10 +155,10 @@ def _evaluate_condition(
     pro_num_thresholds: int,
 ) -> dict[str, Any]:
     t0 = time.perf_counter()
-    scores = _call_decision_function(detector, images)
+    scores = _call_decision_function(detector, inputs)
     maps = None
     if masks is not None and (hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map")):
-        raw = _extract_raw_maps(detector, images)
+        raw = _extract_raw_maps(detector, inputs)
         maps = _align_maps_to_masks(raw, masks, postprocess=postprocess)
     t1 = time.perf_counter()
 
@@ -172,7 +172,7 @@ def _evaluate_condition(
         pro_num_thresholds=pro_num_thresholds,
     )
 
-    latency_ms = (t1 - t0) * 1000.0 / max(1, int(len(images)))
+    latency_ms = (t1 - t0) * 1000.0 / max(1, int(len(inputs)))
     return {
         "latency_ms_per_image": float(latency_ms),
         "results": results,
@@ -182,8 +182,8 @@ def _evaluate_condition(
 def run_robustness_benchmark(
     detector: Any,
     *,
-    train_images: Sequence[np.ndarray],
-    test_images: Sequence[np.ndarray],
+    train_images: Sequence[Any],
+    test_images: Sequence[Any],
     test_labels: NDArray,
     test_masks: Optional[NDArray],
     corruptions: Sequence[Corruption],
@@ -207,6 +207,13 @@ def run_robustness_benchmark(
 
     if bool(pixel_segf1) and test_masks is None:
         raise ValueError("pixel_segf1=True requires test_masks to be provided.")
+
+    if corruptions:
+        if not test_images or not isinstance(test_images[0], np.ndarray):
+            raise ValueError(
+                "Corruptions require numpy image inputs. "
+                "Provide test_images as RGB uint8 numpy arrays or pass corruptions=[]."
+            )
 
     fit_images, cal_images = _split_fit_calibration(
         list(train_images),
@@ -247,7 +254,7 @@ def run_robustness_benchmark(
         "pixel_normal_quantile": float(pixel_normal_quantile),
         "clean": _evaluate_condition(
             detector,
-            images=test_images,
+            inputs=test_images,
             labels=test_labels,
             masks=test_masks,
             pixel_threshold=pixel_threshold,
@@ -285,7 +292,7 @@ def run_robustness_benchmark(
             out_masks = None if out_masks_list is None else np.stack(out_masks_list, axis=0)
             by_sev[f"severity_{sev_int}"] = _evaluate_condition(
                 detector,
-                images=out_images,
+                inputs=out_images,
                 labels=test_labels,
                 masks=out_masks,
                 pixel_threshold=pixel_threshold,
@@ -297,4 +304,3 @@ def run_robustness_benchmark(
         report["corruptions"][name] = by_sev
 
     return report
-

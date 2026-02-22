@@ -345,6 +345,12 @@ pyimgano-robust-benchmark \
   --output runs/robust_mvtec_bottle_patchcore.json
 ```
 
+Notes:
+- Corruptions require `--input-mode numpy` (default), which feeds detectors **RGB uint8 numpy images**.
+- For models that only accept file paths (many classical baselines), use `--input-mode paths`:
+  - clean-only evaluation (corruptions are skipped)
+  - pixel SegF1 is auto-disabled if the detector does not expose `get_anomaly_map()` / `predict_anomaly_map()`
+
 Docs: `docs/ROBUSTNESS_BENCHMARK.md`
 
 ### High-Resolution Tiling Inference (2K/4K) ⭐ NEW

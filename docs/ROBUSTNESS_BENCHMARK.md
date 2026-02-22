@@ -74,9 +74,10 @@ pyimgano-robust-benchmark \
 Notes:
 - Datasets without segmentation masks (e.g. some exports of BTAD) should run with:
   - `--no-pixel-segf1`
-- Some detectors only support **path inputs**; the robustness CLI currently feeds **numpy RGB**
-  images to enable deterministic corruption application. Use vision models that accept
-  `RGB/u8/HWC` numpy images (e.g. PatchCore / AnomalyDINO / SuperAD-style patch-kNN models).
+- Corruptions require `--input-mode numpy` (default), which feeds detectors **numpy RGB** images.
+  Use vision models that accept `RGB/u8/HWC` numpy images (e.g. PatchCore / AnomalyDINO / SuperAD).
+- For detectors that only accept file paths (many classical baselines), use `--input-mode paths`
+  for clean-only evaluation (corruptions are skipped).
 
 ---
 
@@ -129,4 +130,3 @@ The CLI prints a JSON object (or saves via `--output`) with a structure like:
   - lower quantile → more sensitive, but more false positives
 - If your production normals are noisy, consider evaluating with `vision_softpatch` and the
   `industrial-balanced` preset first.
-
