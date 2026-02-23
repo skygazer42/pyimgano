@@ -327,6 +327,37 @@ Advanced:
 - Pass additional constructor args with `--model-kwargs '{"contamination": 0.1}'`.
 - `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
 
+### Example 4.5: One-Click Benchmark + Run Artifacts (category=all) ⭐ NEW
+
+For “industrial-style” workflows (calibrated threshold + per-image JSONL), run:
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category all \
+  --model vision_patchcore \
+  --preset industrial-balanced \
+  --device cuda
+```
+
+By default this writes a run directory under `runs/`:
+
+```
+runs/<ts>_<dataset>_<model>/
+  report.json
+  config.json
+  categories/<cat>/report.json
+  categories/<cat>/per_image.jsonl
+```
+
+Useful flags:
+- `--output-dir /path/to/run_dir`: choose where artifacts go
+- `--no-save-run`: disable artifact writing (stdout JSON only)
+- `--no-per-image-jsonl`: skip per-image records
+- `--calibration-quantile 0.995`: override train-calibrated score threshold quantile
+- `--limit-train 50 --limit-test 50`: quick smoke runs
+
 ### Robustness Benchmark (Clean + Drift Corruptions) ⭐ NEW
 
 Evaluate a detector on clean test data and a deterministic corruption suite (lighting/JPEG/blur/glare/geo-jitter)

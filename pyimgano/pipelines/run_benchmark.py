@@ -1,0 +1,450 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal, Sequence
+
+import numpy as np
+
+from pyimgano.evaluation import evaluate_detector
+from pyimgano.models.registry import MODEL_REGISTRY, create_model
+from pyimgano.reporting.report import save_jsonl_records, save_run_report
+from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
+
+from .mvtec_visa import load_benchmark_split
+
+
+ScoreThresholdStrategy = Literal["train_quantile", "test_optimal_f1", "median"]
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    dataset: str
+    root: str
+    category: str
+    model: str
+    device: str = "cpu"
+    preset: str | None = None
+    pretrained: bool = True
+    contamination: float = 0.1
+    resize: tuple[int, int] = (256, 256)
+    model_kwargs: dict[str, Any] | None = None
+    score_threshold_strategy: ScoreThresholdStrategy = "train_quantile"
+    calibration_quantile: float | None = None
+    limit_train: int | None = None
+    limit_test: int | None = None
+
+
+def list_dataset_categories(*, dataset: str, root: str) -> list[str]:
+    """Return categories for a dataset name.
+
+    This normalizes minor differences across loaders.
+    """
+
+    def _list_root_dirs(path: str) -> list[str]:
+        root_path = Path(path)
+        if not root_path.exists():
+            return []
+        return sorted(p.name for p in root_path.iterdir() if p.is_dir())
+
+    from pyimgano.datasets import (
+        BTADDataset,
+        MVTecAD2Dataset,
+        MVTecDataset,
+        MVTecLOCODataset,
+        VisADataset,
+    )
+
+    ds = str(dataset).lower()
+    if ds in ("mvtec", "mvtec_ad"):
+        on_disk = set(_list_root_dirs(root))
+        known = set(MVTecDataset.CATEGORIES)
+        found = sorted(on_disk & known)
+        return found or list(MVTecDataset.CATEGORIES)
+    if ds == "mvtec_loco":
+        on_disk = set(_list_root_dirs(root))
+        known = set(MVTecLOCODataset.CATEGORIES)
+        found = sorted(on_disk & known)
+        return found or list(MVTecLOCODataset.CATEGORIES)
+    if ds == "mvtec_ad2":
+        return list(MVTecAD2Dataset.list_categories(root))
+    if ds == "visa":
+        return list(VisADataset.list_categories(root))
+    if ds == "btad":
+        on_disk = set(_list_root_dirs(root))
+        known = set(BTADDataset.CATEGORIES)
+        found = sorted(on_disk & known)
+        return found or list(BTADDataset.CATEGORIES)
+    if ds == "custom":
+        return ["custom"]
+
+    raise ValueError(
+        f"Unknown dataset: {dataset!r}. "
+        "Choose from: mvtec, mvtec_ad, mvtec_loco, mvtec_ad2, visa, btad, custom."
+    )
+
+
+def _default_calibration_quantile(detector: Any, *, fallback: float = 0.995) -> float:
+    contamination = getattr(detector, "contamination", None)
+    try:
+        if contamination is not None:
+            cf = float(contamination)
+            if 0.0 < cf < 0.5:
+                return 1.0 - cf
+    except Exception:
+        pass
+    return float(fallback)
+
+
+def _calibrate_score_threshold(
+    detector: Any,
+    train_inputs: Sequence[str],
+    *,
+    strategy: ScoreThresholdStrategy,
+    calibration_quantile: float | None,
+) -> float | None:
+    if strategy == "test_optimal_f1":
+        return None
+    if strategy == "median":
+        scores = np.asarray(detector.decision_function(list(train_inputs)), dtype=np.float64)
+        if scores.size == 0:
+            raise ValueError("Unable to calibrate threshold: empty train score set.")
+        return float(np.median(scores))
+
+    if strategy != "train_quantile":
+        raise ValueError(
+            f"Unknown score_threshold_strategy: {strategy!r}. "
+            "Choose from: train_quantile, test_optimal_f1, median."
+        )
+
+    q = (
+        float(calibration_quantile)
+        if calibration_quantile is not None
+        else _default_calibration_quantile(detector)
+    )
+    if not 0.0 < q < 1.0:
+        raise ValueError(f"calibration_quantile must be in (0,1), got {q}")
+
+    scores = np.asarray(detector.decision_function(list(train_inputs)), dtype=np.float64)
+    if scores.size == 0:
+        raise ValueError("Unable to calibrate threshold: empty train score set.")
+    return float(np.quantile(scores, q))
+
+
+def _merge_and_filter_model_kwargs(
+    model_name: str,
+    *,
+    model_kwargs: dict[str, Any],
+    auto_defaults: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge caller-provided kwargs with auto defaults and filter to accepted kwargs.
+
+    This keeps the pipeline runner robust across heterogeneous model constructors.
+    """
+
+    try:
+        entry = MODEL_REGISTRY.info(model_name)
+    except Exception as exc:
+        raise ValueError(f"Unknown model: {model_name!r}") from exc
+
+    import inspect
+
+    sig = inspect.signature(entry.constructor)
+    accepts_var_kwargs = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
+    accepted = {
+        name
+        for name, p in sig.parameters.items()
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+
+    merged = dict(model_kwargs)
+    for key, value in auto_defaults.items():
+        merged.setdefault(key, value)
+
+    if accepts_var_kwargs:
+        return merged
+
+    return {k: v for k, v in merged.items() if k in accepted}
+
+
+def run_benchmark_category(
+    *,
+    config: RunConfig,
+    save_run: bool = True,
+    per_image_jsonl: bool = True,
+    output_dir: str | Path | None = None,
+    write_top_level: bool = True,
+) -> dict[str, Any]:
+    """Run a single category benchmark and optionally write artifacts."""
+
+    split = load_benchmark_split(
+        dataset=config.dataset,  # type: ignore[arg-type]
+        root=config.root,
+        category=config.category,
+        resize=tuple(config.resize),
+        load_masks=True,
+    )
+
+    train_paths = list(split.train_paths)
+    test_paths = list(split.test_paths)
+
+    if config.limit_train is not None:
+        train_paths = train_paths[: int(config.limit_train)]
+    if config.limit_test is not None:
+        test_paths = test_paths[: int(config.limit_test)]
+
+    detector = create_model(
+        config.model,
+        **_merge_and_filter_model_kwargs(
+            config.model,
+            model_kwargs=dict(config.model_kwargs or {}),
+            auto_defaults={
+                "device": config.device,
+                "contamination": float(config.contamination),
+                "pretrained": bool(config.pretrained),
+            },
+        ),
+    )
+
+    # Fit and score.
+    detector.fit(train_paths)
+    scores = np.asarray(detector.decision_function(test_paths), dtype=np.float64)
+
+    calibrated_threshold = _calibrate_score_threshold(
+        detector,
+        train_paths,
+        strategy=config.score_threshold_strategy,
+        calibration_quantile=config.calibration_quantile,
+    )
+
+    if calibrated_threshold is None:
+        results = evaluate_detector(
+            split.test_labels,
+            scores,
+            threshold=None,
+            find_best_threshold=True,
+            pixel_labels=split.test_masks,
+            pixel_scores=None,
+        )
+    else:
+        results = evaluate_detector(
+            split.test_labels,
+            scores,
+            threshold=float(calibrated_threshold),
+            find_best_threshold=False,
+            pixel_labels=split.test_masks,
+            pixel_scores=None,
+        )
+
+    threshold_used = float(results["threshold"])
+
+    # Optional: compute pixel metrics using the existing helper.
+    # We call into `evaluate_split` to preserve alignment / resizing behavior.
+    # It will re-fit the detector, but only when pixel metrics are requested in CLI.
+    payload: dict[str, Any] = {
+        "dataset": config.dataset,
+        "category": config.category,
+        "model": config.model,
+        "device": config.device,
+        "preset": config.preset,
+        "resize": list(config.resize),
+        "score_threshold_strategy": config.score_threshold_strategy,
+        "calibration_quantile": config.calibration_quantile,
+        "threshold": threshold_used,
+        "calibrated_threshold": calibrated_threshold,
+        "results": results,
+    }
+
+    if save_run:
+        name = build_run_dir_name(dataset=config.dataset, model=config.model)
+        run_dir = ensure_run_dir(output_dir=output_dir, name=name)
+        paths = build_run_paths(run_dir)
+        paths.categories_dir.mkdir(parents=True, exist_ok=True)
+
+        cat_dir = paths.categories_dir / str(config.category)
+        cat_dir.mkdir(parents=True, exist_ok=True)
+
+        save_run_report(cat_dir / "report.json", payload)
+
+        if per_image_jsonl:
+            y_true = np.asarray(split.test_labels).astype(int).tolist()
+            pred = (scores >= float(threshold_used)).astype(int).tolist()
+
+            records: list[dict[str, Any]] = []
+            for i, path in enumerate(test_paths):
+                rec = {
+                    "index": int(i),
+                    "dataset": str(config.dataset),
+                    "category": str(config.category),
+                    "input": str(path),
+                    "y_true": int(y_true[i]),
+                    "score": float(scores[i]),
+                    "threshold": float(threshold_used),
+                    "pred": int(pred[i]),
+                }
+                records.append(rec)
+
+            save_jsonl_records(cat_dir / "per_image.jsonl", records)
+
+        if write_top_level:
+            save_run_report(paths.config_json, {"config": dict(config.__dict__)})
+            save_run_report(paths.report_json, payload)
+            payload["run_dir"] = str(run_dir)
+
+    return payload
+
+
+def run_benchmark(
+    *,
+    dataset: str,
+    root: str,
+    category: str,
+    model: str,
+    device: str = "cpu",
+    preset: str | None = None,
+    pretrained: bool = True,
+    contamination: float = 0.1,
+    resize: tuple[int, int] = (256, 256),
+    model_kwargs: dict[str, Any] | None = None,
+    score_threshold_strategy: ScoreThresholdStrategy = "train_quantile",
+    calibration_quantile: float | None = None,
+    limit_train: int | None = None,
+    limit_test: int | None = None,
+    save_run: bool = True,
+    per_image_jsonl: bool = True,
+    output_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Run a benchmark for a single category or for all categories."""
+
+    if str(category).lower() != "all":
+        cfg = RunConfig(
+            dataset=str(dataset),
+            root=str(root),
+            category=str(category),
+            model=str(model),
+            device=str(device),
+            preset=(str(preset) if preset is not None else None),
+            pretrained=bool(pretrained),
+            contamination=float(contamination),
+            resize=(int(resize[0]), int(resize[1])),
+            model_kwargs=dict(model_kwargs or {}),
+            score_threshold_strategy=score_threshold_strategy,
+            calibration_quantile=calibration_quantile,
+            limit_train=limit_train,
+            limit_test=limit_test,
+        )
+        return run_benchmark_category(
+            config=cfg,
+            save_run=save_run,
+            per_image_jsonl=per_image_jsonl,
+            output_dir=output_dir,
+        )
+
+    categories = list_dataset_categories(dataset=dataset, root=root)
+    per_category: dict[str, Any] = {}
+
+    name = build_run_dir_name(dataset=str(dataset), model=str(model))
+    run_dir = ensure_run_dir(output_dir=output_dir, name=name) if save_run else None
+    paths = build_run_paths(run_dir) if run_dir is not None else None
+    if paths is not None:
+        paths.categories_dir.mkdir(parents=True, exist_ok=True)
+
+    for cat in categories:
+        cfg = RunConfig(
+            dataset=str(dataset),
+            root=str(root),
+            category=str(cat),
+            model=str(model),
+            device=str(device),
+            preset=(str(preset) if preset is not None else None),
+            pretrained=bool(pretrained),
+            contamination=float(contamination),
+            resize=(int(resize[0]), int(resize[1])),
+            model_kwargs=dict(model_kwargs or {}),
+            score_threshold_strategy=score_threshold_strategy,
+            calibration_quantile=calibration_quantile,
+            limit_train=limit_train,
+            limit_test=limit_test,
+        )
+
+        cat_output_dir = None
+        if paths is not None:
+            cat_output_dir = paths.run_dir  # run_benchmark_category writes under categories/<cat>/
+
+        result = run_benchmark_category(
+            config=cfg,
+            save_run=bool(paths is not None),
+            per_image_jsonl=per_image_jsonl,
+            output_dir=cat_output_dir,
+            write_top_level=False,
+        )
+        per_category[str(cat)] = result
+
+    # Aggregate means for common metrics.
+    def _safe_float(value: Any) -> float | None:
+        try:
+            v = float(value)
+        except Exception:
+            return None
+        if not np.isfinite(v):
+            return None
+        return v
+
+    metrics_to_average = ["auroc", "average_precision"]
+    means: dict[str, float] = {}
+    stds: dict[str, float] = {}
+    for key in metrics_to_average:
+        vals: list[float] = []
+        for cat in categories:
+            res = per_category[str(cat)].get("results", {})
+            v = _safe_float(res.get(key, None))
+            if v is not None:
+                vals.append(v)
+        if vals:
+            arr = np.asarray(vals, dtype=np.float64)
+            means[key] = float(np.mean(arr))
+            stds[key] = float(np.std(arr))
+
+    payload = {
+        "dataset": str(dataset),
+        "category": "all",
+        "model": str(model),
+        "device": str(device),
+        "preset": (str(preset) if preset is not None else None),
+        "resize": [int(resize[0]), int(resize[1])],
+        "score_threshold_strategy": score_threshold_strategy,
+        "calibration_quantile": calibration_quantile,
+        "categories": categories,
+        "mean_metrics": means,
+        "std_metrics": stds,
+        "per_category": per_category,
+    }
+
+    if paths is not None:
+        save_run_report(paths.report_json, payload)
+        save_run_report(
+            paths.config_json,
+            {
+                "config": {
+                    "dataset": str(dataset),
+                    "root": str(root),
+                    "category": "all",
+                    "model": str(model),
+                    "device": str(device),
+                    "preset": (str(preset) if preset is not None else None),
+                    "pretrained": bool(pretrained),
+                    "contamination": float(contamination),
+                    "resize": [int(resize[0]), int(resize[1])],
+                    "model_kwargs": dict(model_kwargs or {}),
+                    "score_threshold_strategy": score_threshold_strategy,
+                    "calibration_quantile": calibration_quantile,
+                    "limit_train": limit_train,
+                    "limit_test": limit_test,
+                }
+            },
+        )
+        payload["run_dir"] = str(paths.run_dir)
+
+    return payload

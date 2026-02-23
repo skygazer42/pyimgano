@@ -16,10 +16,59 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dataset",
         default=None,
-        choices=["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad"],
+        choices=["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad", "custom"],
     )
     parser.add_argument("--root", default=None, help="Dataset root path")
     parser.add_argument("--category", default=None, help="Dataset category name")
+    parser.add_argument(
+        "--resize",
+        type=int,
+        nargs=2,
+        default=(256, 256),
+        metavar=("H", "W"),
+        help="Resize images/masks during dataset loading. Default: 256 256",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Optional run directory for saved artifacts. "
+            "When omitted and --save-run is enabled, writes to runs/<timestamp>_<dataset>_<model>/"
+        ),
+    )
+    parser.add_argument(
+        "--save-run",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Write run artifacts (report.json, per_image.jsonl) to disk. Default: true",
+    )
+    parser.add_argument(
+        "--per-image-jsonl",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Write categories/<cat>/per_image.jsonl when saving a run. Default: true",
+    )
+    parser.add_argument(
+        "--calibration-quantile",
+        type=float,
+        default=None,
+        help=(
+            "Score threshold quantile calibrated from train scores. "
+            "Default: 1-contamination when available, else 0.995."
+        ),
+    )
+    parser.add_argument(
+        "--limit-train",
+        type=int,
+        default=None,
+        help="Optional limit for number of train images (debug/smoke).",
+    )
+    parser.add_argument(
+        "--limit-test",
+        type=int,
+        default=None,
+        help="Optional limit for number of test images (debug/smoke).",
+    )
     parser.add_argument(
         "--list-models",
         action="store_true",
@@ -624,7 +673,7 @@ def main(argv: list[str] | None = None) -> int:
             missing.append("--dataset")
         if args.root is None:
             missing.append("--root")
-        if args.category is None:
+        if args.category is None and str(args.dataset).lower() != "custom":
             missing.append("--category")
         if missing:
             raise ValueError(
@@ -633,13 +682,9 @@ def main(argv: list[str] | None = None) -> int:
                 "Provide them or use --list-models/--model-info."
             )
 
-        split = load_benchmark_split(
-            dataset=args.dataset,
-            root=args.root,
-            category=args.category,
-            resize=(256, 256),
-            load_masks=True,
-        )
+        dataset = str(args.dataset)
+        category = str(args.category) if args.category is not None else "custom"
+        resize = (int(args.resize[0]), int(args.resize[1]))
 
         user_kwargs = _parse_model_kwargs(args.model_kwargs)
         merged_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
@@ -655,18 +700,15 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
-        detector = create_model(
+        model_kwargs = _build_model_kwargs(
             args.model,
-            **_build_model_kwargs(
-                args.model,
-                user_kwargs=merged_kwargs,
-                preset_kwargs=preset_kwargs,
-                auto_kwargs={
-                    "device": args.device,
-                    "contamination": args.contamination,
-                    "pretrained": args.pretrained,
-                },
-            ),
+            user_kwargs=merged_kwargs,
+            preset_kwargs=preset_kwargs,
+            auto_kwargs={
+                "device": args.device,
+                "contamination": args.contamination,
+                "pretrained": args.pretrained,
+            },
         )
 
         postprocess = None
@@ -690,26 +732,65 @@ def main(argv: list[str] | None = None) -> int:
         if bool(args.pixel_segf1) and not bool(args.pixel):
             raise ValueError("--pixel-segf1 requires --pixel.")
 
-        results = evaluate_split(
-            detector,
-            split,
-            compute_pixel_scores=bool(args.pixel),
-            postprocess=postprocess,
-            pro_integration_limit=float(args.pixel_aupro_limit),
-            pro_num_thresholds=int(args.pixel_aupro_thresholds),
-            pixel_segf1=bool(args.pixel_segf1),
-            pixel_threshold_strategy=args.pixel_threshold_strategy,
-            pixel_normal_quantile=float(args.pixel_normal_quantile),
-            calibration_fraction=float(args.pixel_calibration_fraction),
-            calibration_seed=int(args.pixel_calibration_seed),
-        )
+        if bool(args.pixel):
+            if str(category).lower() == "all":
+                raise ValueError("--category all is not yet supported with --pixel.")
 
-        payload = {
-            "dataset": args.dataset,
-            "category": args.category,
-            "model": args.model,
-            "results": results,
-        }
+            detector = create_model(args.model, **model_kwargs)
+            split = load_benchmark_split(
+                dataset=dataset,  # type: ignore[arg-type]
+                root=str(args.root),
+                category=str(category),
+                resize=resize,
+                load_masks=True,
+            )
+            results = evaluate_split(
+                detector,
+                split,
+                compute_pixel_scores=True,
+                postprocess=postprocess,
+                pro_integration_limit=float(args.pixel_aupro_limit),
+                pro_num_thresholds=int(args.pixel_aupro_thresholds),
+                pixel_segf1=bool(args.pixel_segf1),
+                pixel_threshold_strategy=args.pixel_threshold_strategy,
+                pixel_normal_quantile=float(args.pixel_normal_quantile),
+                calibration_fraction=float(args.pixel_calibration_fraction),
+                calibration_seed=int(args.pixel_calibration_seed),
+            )
+            payload: dict[str, Any] = {
+                "dataset": dataset,
+                "category": category,
+                "model": str(args.model),
+                "preset": (str(args.preset) if args.preset is not None else None),
+                "device": str(args.device),
+                "resize": list(resize),
+                "results": results,
+            }
+        else:
+            from pyimgano.pipelines.run_benchmark import run_benchmark
+
+            payload = run_benchmark(
+                dataset=dataset,
+                root=str(args.root),
+                category=str(category),
+                model=str(args.model),
+                device=str(args.device),
+                preset=(str(args.preset) if args.preset is not None else None),
+                pretrained=bool(args.pretrained),
+                contamination=float(args.contamination),
+                resize=resize,
+                model_kwargs=model_kwargs,
+                calibration_quantile=(
+                    float(args.calibration_quantile)
+                    if args.calibration_quantile is not None
+                    else None
+                ),
+                limit_train=(int(args.limit_train) if args.limit_train is not None else None),
+                limit_test=(int(args.limit_test) if args.limit_test is not None else None),
+                save_run=bool(args.save_run),
+                per_image_jsonl=bool(args.per_image_jsonl),
+                output_dir=(str(args.output_dir) if args.output_dir is not None else None),
+            )
 
         if args.output:
             from pyimgano.reporting.report import save_run_report

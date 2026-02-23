@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-02-23
+
+### Added
+- Industrial one-click benchmark runner: `pyimgano.pipelines.run_benchmark` (single category or `category=all`).
+- Run artifacts layout (JSON + JSONL): `report.json`, `config.json`, and per-category `per_image.jsonl`.
+- Reporting helpers:
+  - `pyimgano.reporting.save_jsonl_records`
+  - `pyimgano.reporting.runs` (`build_run_dir_name`, `ensure_run_dir`)
+- Torch-like public surface for benchmark datasets: `pyimgano.datasets.{load_dataset,MVTecDataset,VisADataset,...}`.
+
+### Changed
+- `pyimgano-benchmark` gains industrial pipeline flags:
+  - `--dataset custom`, `--category all`, `--resize H W`
+  - `--output-dir`, `--save-run/--no-save-run`, `--per-image-jsonl/--no-per-image-jsonl`
+  - `--calibration-quantile`, `--limit-train`, `--limit-test`
+- `runs/` is now ignored by default (CLI writes run artifacts by default unless disabled).
+
 ## [0.5.3] - 2026-02-22
 
 ### Added

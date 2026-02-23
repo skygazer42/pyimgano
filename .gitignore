@@ -42,6 +42,7 @@ htmlcov/
 .tox/
 .nox/
 .worktrees/
+runs/
 .coverage
 .coverage.*
 .cache

@@ -12,10 +12,10 @@ from pyimgano.models import create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 from pyimgano.calibration.pixel_threshold import calibrate_normal_pixel_quantile_threshold
 from pyimgano.utils.splits import split_train_calibration
-from pyimgano.utils.datasets import load_dataset
+from pyimgano.datasets import load_dataset
 
 
-DatasetName = Literal["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad"]
+DatasetName = Literal["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad", "custom"]
 
 
 @dataclass(frozen=True)

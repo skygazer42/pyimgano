@@ -109,6 +109,83 @@ print(f"F1: {results['metrics']['f1']:.4f}")
 
 Compare multiple algorithms systematically.
 
+## 🏭 One-Click Industrial Benchmark (CLI + Run Artifacts) ⭐ NEW
+
+`pyimgano-benchmark` supports an “industrial one-click” mode that:
+
+- runs a **single category** or **all categories** (`--category all`)
+- calibrates a **score threshold from train/normal scores** (industrial default)
+- writes a stable run layout on disk (JSON report + per-image JSONL)
+
+### Single Category (writes run artifacts by default)
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore \
+  --preset industrial-balanced \
+  --device cuda
+```
+
+### All Categories (aggregates mean/std)
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category all \
+  --model vision_patchcore \
+  --preset industrial-balanced \
+  --device cuda
+```
+
+### Custom Dataset
+
+Expected structure:
+
+```
+my_dataset/
+  train/normal/*.png
+  test/normal/*.png
+  test/anomaly/*.png
+  # optional masks:
+  ground_truth/anomaly/*_mask.png
+```
+
+Run:
+
+```bash
+pyimgano-benchmark \
+  --dataset custom \
+  --root /path/to/my_dataset \
+  --model vision_ecod \
+  --device cpu
+```
+
+### Output Layout
+
+By default, runs are written under `runs/`:
+
+```
+runs/<ts>_<dataset>_<model>/
+  report.json
+  config.json
+  categories/
+    <category>/report.json
+    <category>/per_image.jsonl
+```
+
+### Useful Flags
+
+- `--output-dir /path/to/run_dir`: place artifacts in a specific directory
+- `--no-save-run`: disable artifact writing (stdout JSON only)
+- `--no-per-image-jsonl`: keep `report.json` only (skip per-image records)
+- `--resize H W`: resize dataset images/masks during loading (default `256 256`)
+- `--calibration-quantile 0.995`: override score threshold quantile
+- `--limit-train N`, `--limit-test N`: quick smoke runs
+
 ### Basic Benchmark
 
 ```python
