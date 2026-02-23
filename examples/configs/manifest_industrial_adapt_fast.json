@@ -1,0 +1,30 @@
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "dataset": {
+    "name": "manifest",
+    "root": "/path/to/fallback_root",
+    "manifest_path": "/path/to/manifest.jsonl",
+    "category": "all",
+    "resize": [256, 256],
+    "input_mode": "paths",
+    "split_policy": {
+      "mode": "benchmark",
+      "scope": "category",
+      "seed": 123,
+      "test_normal_fraction": 0.2
+    }
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-fast",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}
+

@@ -1,7 +1,7 @@
 # PyImgAno Manifest Dataset (JSONL) — Design
 
 **Date:** 2026-02-23  
-**Status:** Draft (approved sections + one open decision)  
+**Status:** Approved (user: industrial defaults, scope=category)  
 
 ## Context
 
@@ -120,15 +120,12 @@ For `image_path` and `mask_path`:
 - If any record in a group is anomalous (`label==1`), the whole group is assigned to `test`.
 - Remaining all-normal groups are split to satisfy `test_normal_fraction`.
 
-### Open decision (needs confirmation)
+### Split scope (resolved)
 
-When `dataset.category=="all"` and auto-splitting is needed, the policy scope
-can be:
+When `dataset.category=="all"` and auto-splitting is needed, we split **within
+each category**:
 
-- `scope="category"` (recommended): split within each category separately.
-- `scope="global"`: split across the entire manifest regardless of category.
-
-Default recommendation: `scope="category"`.
+- `scope="category"` (selected): per-category split for benchmark comparability.
 
 ## Evaluation Semantics
 
@@ -190,4 +187,3 @@ Notes:
 2) `dataset.category="all"` works for multi-category manifests (per-category reports).
 3) Auto-split is deterministic and group-aware when `group_id` exists.
 4) Pixel metrics are computed only when safe; otherwise explicitly skipped with a reason.
-

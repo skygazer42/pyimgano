@@ -14,6 +14,7 @@ See also:
 
 - `docs/RECIPES.md` (config schema + builtin recipes)
 - `docs/CLI_REFERENCE.md` (CLI flags)
+- `docs/MANIFEST_DATASET.md` (JSONL manifest dataset)
 
 ---
 
@@ -29,6 +30,7 @@ examples/configs/industrial_adapt_maps_tiling.json
 2) Edit at least:
 
 - `dataset.root`
+- (manifest only) `dataset.manifest_path`
 - `output.output_dir` (optional; omit to write under `runs/`)
 - `model.device` (`cpu` or `cuda`)
 
@@ -73,3 +75,13 @@ pyimgano-infer --from-run /path/to/run_dir --from-run-category bottle --input /p
 - For high-resolution inference, you can still use `pyimgano-infer` tiling flags (see
   `docs/INDUSTRIAL_INFERENCE.md`).
 
+## Manifest datasets (JSONL)
+
+For real industrial repos (multi-category, mixed sources, group-aware splits),
+prefer the manifest dataset:
+
+- `dataset.name="manifest"`
+- `dataset.manifest_path="/path/to/manifest.jsonl"`
+- optional: `dataset.split_policy` and `group_id` fields inside the manifest
+
+See: `docs/MANIFEST_DATASET.md`

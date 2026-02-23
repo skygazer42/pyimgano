@@ -845,6 +845,7 @@ dataset = load_dataset('mvtec', './mvtec_ad', category='bottle')
 - VisA — `load_dataset("visa", ...)`
 - BTAD (3 categories) — `load_dataset("btad", ...)`
 - Custom datasets (flexible structure) — `load_dataset("custom", ...)`
+- Manifest datasets (JSONL; industrial, multi-category) — see `docs/MANIFEST_DATASET.md`
 
 ### Advanced Visualization 📈
 ```python
