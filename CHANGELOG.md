@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-02-23
+
+### Added
+- Shared CLI helper module: `pyimgano.cli_common` (stable `--model-kwargs` parsing/merging/filtering).
+- Registry introspection utilities:
+  - `pyimgano.models.introspection`
+  - `pyimgano.models.registry.model_info` / `MODEL_REGISTRY.model_info`
+- Computed model capability helper: `pyimgano.models.capabilities`.
+- `pyimgano-benchmark --list-categories` for dataset category discovery.
+- Shared JSON conversion helper: `pyimgano.utils.jsonable.to_jsonable`.
+
+### Changed
+- `pyimgano-infer` and `pyimgano-robust-benchmark` now share model-kwargs behavior via `pyimgano.cli_common`.
+- `pyimgano-benchmark` uses `to_jsonable` for JSON output and `pyimgano.reporting` uses it for report artifacts.
+- CLI discovery flags are mutually exclusive across `--list-models`, `--model-info`, and `--list-categories`.
+
 ## [0.5.4] - 2026-02-23
 
 ### Added
