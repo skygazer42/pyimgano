@@ -31,6 +31,7 @@ class RunConfig:
     contamination: float = 0.1
     resize: tuple[int, int] = (256, 256)
     model_kwargs: dict[str, Any] | None = None
+    load_detector_path: str | None = None
     save_detector_path: str | None = None
     score_threshold_strategy: ScoreThresholdStrategy = "train_quantile"
     calibration_quantile: float | None = None
@@ -166,6 +167,8 @@ def run_benchmark_category(
     save_detector_requested = config.save_detector_path is not None
     save_detector_auto = str(config.save_detector_path).lower() == "auto"
 
+    load_detector_requested = config.load_detector_path is not None
+
     run_dir = None
     paths = None
     if bool(save_run) or (save_detector_requested and save_detector_auto):
@@ -231,17 +234,22 @@ def run_benchmark_category(
         auto_defaults["random_seed"] = int(config.seed)
         auto_defaults["random_state"] = int(config.seed)
 
-    detector = create_model(
-        config.model,
-        **_merge_and_filter_model_kwargs(
-            config.model,
-            model_kwargs=dict(config.model_kwargs or {}),
-            auto_defaults=auto_defaults,
-        ),
-    )
+    if load_detector_requested:
+        from pyimgano.serialization import load_detector
 
-    # Fit and score.
-    detector.fit(train_inputs)
+        detector = load_detector(str(config.load_detector_path))
+    else:
+        detector = create_model(
+            config.model,
+            **_merge_and_filter_model_kwargs(
+                config.model,
+                model_kwargs=dict(config.model_kwargs or {}),
+                auto_defaults=auto_defaults,
+            ),
+        )
+
+        # Fit and score.
+        detector.fit(train_inputs)
 
     if save_detector_requested:
         from pyimgano.serialization import save_detector
@@ -302,6 +310,8 @@ def run_benchmark_category(
         "calibrated_threshold": calibrated_threshold,
         "results": results,
     }
+    if load_detector_requested:
+        payload["loaded_detector_path"] = str(config.load_detector_path)
     if save_detector_requested:
         payload["detector_path"] = str(detector_path)
     payload = stamp_report_payload(payload)
@@ -367,13 +377,19 @@ def run_benchmark(
     limit_test: int | None = None,
     save_run: bool = True,
     per_image_jsonl: bool = True,
+    load_detector_path: str | Path | None = None,
     save_detector_path: str | Path | None = None,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run a benchmark for a single category or for all categories."""
 
+    if load_detector_path is not None and str(save_detector_path).lower() == "auto":
+        raise ValueError("--save-detector auto conflicts with --load-detector.")
+
     if str(category).lower() == "all" and save_detector_path is not None:
         raise ValueError("--save-detector is not supported with --category all.")
+    if str(category).lower() == "all" and load_detector_path is not None:
+        raise ValueError("--load-detector is not supported with --category all.")
 
     if str(category).lower() != "all":
         cfg = RunConfig(
@@ -389,6 +405,7 @@ def run_benchmark(
             contamination=float(contamination),
             resize=(int(resize[0]), int(resize[1])),
             model_kwargs=dict(model_kwargs or {}),
+            load_detector_path=(str(load_detector_path) if load_detector_path is not None else None),
             save_detector_path=(str(save_detector_path) if save_detector_path is not None else None),
             score_threshold_strategy=score_threshold_strategy,
             calibration_quantile=calibration_quantile,

@@ -71,6 +71,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--load-detector",
+        default=None,
+        help=(
+            "Load a previously saved detector (pickle; classical detectors only) and skip fitting. "
+            "Warning: never load pickle files from untrusted sources."
+        ),
+    )
+    parser.add_argument(
         "--per-image-jsonl",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -797,6 +805,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.save_detector is not None and bool(args.pixel):
             raise ValueError("--save-detector is only supported without --pixel.")
+        if args.load_detector is not None and bool(args.pixel):
+            raise ValueError("--load-detector is only supported without --pixel.")
 
         if bool(args.pixel):
             if str(args.input_mode) != "paths":
@@ -860,6 +870,9 @@ def main(argv: list[str] | None = None) -> int:
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
                 save_run=bool(args.save_run),
                 per_image_jsonl=bool(args.per_image_jsonl),
+                load_detector_path=(
+                    str(args.load_detector) if args.load_detector is not None else None
+                ),
                 save_detector_path=(
                     str(args.save_detector) if args.save_detector is not None else None
                 ),
