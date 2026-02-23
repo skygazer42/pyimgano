@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-02-23
+
+### Added
+- Classical feature cache: `pyimgano-benchmark --cache-dir` (speeds up repeated path-based scoring).
+- Run timing breakdown in benchmark reports (`timing` block with load/fit/score/eval durations).
+- Developer audits:
+  - `tools/audit_public_api.py`
+  - `tools/audit_registry.py`
+- Documentation:
+  - `docs/CLI_REFERENCE.md`
+  - `docs/MIGRATION.md`
+
+### Changed
+- Optional dependency errors now include clearer pip install hints (including common module ↔ pip name mismatches).
+
+### CI
+- CI runs the public API + registry audits on Linux/Python 3.11.
+
 ## [0.5.7] - 2026-02-23
 
 ### Added

@@ -74,15 +74,17 @@ def test_build_model_kwargs_does_not_override_user_values():
 def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
     import pyimgano.cli as cli
 
+    import importlib
+
+    pipeline = importlib.import_module("pyimgano.pipelines.run_benchmark")
+
     captured: dict[str, object] = {}
 
-    def fake_create_model(_name: str, **kwargs):
+    def fake_run_benchmark(**kwargs):
         captured.update(kwargs)
-        return object()
+        return {"ok": True}
 
-    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
-    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
-    monkeypatch.setattr(cli, "create_model", fake_create_model)
+    monkeypatch.setattr(pipeline, "run_benchmark", fake_run_benchmark)
 
     code = cli.main(
         [
@@ -101,24 +103,26 @@ def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
         ]
     )
     assert code == 0
-    assert "device" not in captured
-    assert "pretrained" not in captured
-    assert captured["contamination"] == 0.2
+    model_kwargs = captured["model_kwargs"]
+    assert "device" not in model_kwargs
+    assert "pretrained" not in model_kwargs
+    assert model_kwargs["contamination"] == 0.2
 
 
 def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
     import pyimgano.cli as cli
 
+    import importlib
+
+    pipeline = importlib.import_module("pyimgano.pipelines.run_benchmark")
+
     captured: dict[str, object] = {}
 
-    def fake_create_model(name: str, **kwargs):
-        captured["name"] = name
-        captured["kwargs"] = dict(kwargs)
-        return object()
+    def fake_run_benchmark(**kwargs):
+        captured.update(kwargs)
+        return {"ok": True}
 
-    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
-    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
-    monkeypatch.setattr(cli, "create_model", fake_create_model)
+    monkeypatch.setattr(pipeline, "run_benchmark", fake_run_benchmark)
 
     code = cli.main(
         [
@@ -139,13 +143,13 @@ def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
         ]
     )
     assert code == 0
-    assert captured["name"] == "vision_anomalib_checkpoint"
-    kwargs = captured["kwargs"]
-    assert kwargs["checkpoint_path"] == "/x.ckpt"
-    assert kwargs["device"] == "cpu"
-    assert kwargs["contamination"] == 0.2
+    assert captured["model"] == "vision_anomalib_checkpoint"
+    model_kwargs = captured["model_kwargs"]
+    assert model_kwargs["checkpoint_path"] == "/x.ckpt"
+    assert model_kwargs["device"] == "cpu"
+    assert model_kwargs["contamination"] == 0.2
     # The checkpoint wrapper doesn't accept `pretrained`, so the CLI should not pass it.
-    assert "pretrained" not in kwargs
+    assert "pretrained" not in model_kwargs
 
 
 def test_cli_parser_accepts_preset_industrial_balanced():
@@ -272,17 +276,18 @@ def test_build_model_kwargs_user_overrides_preset_values():
 def test_cli_applies_preset_for_patchcore(monkeypatch):
     import pyimgano.cli as cli
 
+    import importlib
+
+    pipeline = importlib.import_module("pyimgano.pipelines.run_benchmark")
+
     captured: dict[str, object] = {}
 
-    def fake_create_model(name: str, **kwargs):
-        captured["name"] = name
-        captured["kwargs"] = dict(kwargs)
-        return object()
+    def fake_run_benchmark(**kwargs):
+        captured.update(kwargs)
+        return {"ok": True}
 
     monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
-    monkeypatch.setattr(cli, "load_benchmark_split", lambda *_a, **_k: object())
-    monkeypatch.setattr(cli, "evaluate_split", lambda *_a, **_k: {"image_metrics": {"auroc": 0.0}})
-    monkeypatch.setattr(cli, "create_model", fake_create_model)
+    monkeypatch.setattr(pipeline, "run_benchmark", fake_run_benchmark)
 
     code = cli.main(
         [
@@ -301,11 +306,11 @@ def test_cli_applies_preset_for_patchcore(monkeypatch):
         ]
     )
     assert code == 0
-    assert captured["name"] == "vision_patchcore"
-    kwargs = captured["kwargs"]
-    assert kwargs["backbone"] == "resnet50"
-    assert kwargs["coreset_sampling_ratio"] == 0.05
-    assert kwargs["knn_backend"] == "sklearn"
+    assert captured["model"] == "vision_patchcore"
+    model_kwargs = captured["model_kwargs"]
+    assert model_kwargs["backbone"] == "resnet50"
+    assert model_kwargs["coreset_sampling_ratio"] == 0.05
+    assert model_kwargs["knn_backend"] == "sklearn"
 
 
 def test_resolve_preset_kwargs_anomalydino_includes_balanced_defaults(monkeypatch):
