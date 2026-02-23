@@ -17,6 +17,7 @@ A comprehensive, production-ready Python toolkit for visual anomaly detection, i
 - 🔥 **120+ Registry Model Entries** - From classical (ECOD, COPOD, KNN, PCA) to recent SOTA methods (including optional backend checkpoint wrappers)
 - 🚀 **Production Ready** - Enterprise-grade code quality, comprehensive testing, CI/CD pipelines
 - 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
+- 🧰 **sklearn Integration** ⭐ NEW! - Wrap registry models as sklearn estimators (`clone()` friendly)
 - ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
 - 🎯 **Flexible** - Works with any feature extractor or end-to-end deep learning
 - 🏭 **Industrial Inference (numpy-first)** ⭐ NEW! - Explicit `ImageFormat`, canonical `RGB/u8/HWC` inputs, JSONL `pyimgano-infer` CLI
@@ -938,6 +939,7 @@ report = tracker.generate_report(exp_id, output_path='report.md')
 - **[Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md)** - Choose the right algorithm
 - **[Preprocessing Guide](docs/PREPROCESSING.md)** ⭐ - Image enhancement and preprocessing
 - **[Evaluation & Benchmarking Guide](docs/EVALUATION_AND_BENCHMARK.md)** ⭐ - Comprehensive evaluation tools
+- **[scikit-learn Integration](docs/SKLEARN_INTEGRATION.md)** ⭐ NEW! - Use registry models in sklearn workflows
 - **[Utilities Guide](examples/utilities_example.py)** ⭐ NEW! - Dataset loading, visualization, model management
 
 ### Reference
