@@ -23,6 +23,7 @@ class RunConfig:
     root: str
     category: str
     model: str
+    input_mode: str = "paths"
     device: str = "cpu"
     preset: str | None = None
     pretrained: bool = True
@@ -138,21 +139,48 @@ def run_benchmark_category(
 ) -> dict[str, Any]:
     """Run a single category benchmark and optionally write artifacts."""
 
-    split = load_benchmark_split(
-        dataset=config.dataset,  # type: ignore[arg-type]
-        root=config.root,
-        category=config.category,
-        resize=tuple(config.resize),
-        load_masks=True,
-    )
+    if config.input_mode == "paths":
+        split = load_benchmark_split(
+            dataset=config.dataset,  # type: ignore[arg-type]
+            root=config.root,
+            category=config.category,
+            resize=tuple(config.resize),
+            load_masks=True,
+        )
+        train_inputs: list[Any] = list(split.train_paths)
+        test_inputs: list[Any] = list(split.test_paths)
+        test_labels = np.asarray(split.test_labels)
+        test_masks = split.test_masks
+    elif config.input_mode == "numpy":
+        from pyimgano.datasets import load_dataset
 
-    train_paths = list(split.train_paths)
-    test_paths = list(split.test_paths)
+        ds = load_dataset(
+            config.dataset,
+            config.root,
+            category=config.category,
+            resize=tuple(config.resize),
+            load_masks=True,
+        )
+        train_data = np.asarray(ds.get_train_data())
+        test_data, test_labels, test_masks = ds.get_test_data()
+        test_data_arr = np.asarray(test_data)
+        train_inputs = [train_data[i] for i in range(int(train_data.shape[0]))]
+        test_inputs = [
+            test_data_arr[i] for i in range(int(test_data_arr.shape[0]))
+        ]
+    else:
+        raise ValueError(
+            f"Unknown input_mode: {config.input_mode!r}. Choose from: paths, numpy."
+        )
 
     if config.limit_train is not None:
-        train_paths = train_paths[: int(config.limit_train)]
+        train_inputs = train_inputs[: int(config.limit_train)]
     if config.limit_test is not None:
-        test_paths = test_paths[: int(config.limit_test)]
+        limit = int(config.limit_test)
+        test_inputs = test_inputs[:limit]
+        test_labels = np.asarray(test_labels)[:limit]
+        if test_masks is not None:
+            test_masks = np.asarray(test_masks)[:limit]
 
     detector = create_model(
         config.model,
@@ -168,32 +196,32 @@ def run_benchmark_category(
     )
 
     # Fit and score.
-    detector.fit(train_paths)
-    scores = np.asarray(detector.decision_function(test_paths), dtype=np.float64)
+    detector.fit(train_inputs)
+    scores = np.asarray(detector.decision_function(test_inputs), dtype=np.float64)
 
     calibrated_threshold = _calibrate_score_threshold(
         detector,
-        train_paths,
+        train_inputs,
         strategy=config.score_threshold_strategy,
         calibration_quantile=config.calibration_quantile,
     )
 
     if calibrated_threshold is None:
         results = evaluate_detector(
-            split.test_labels,
+            test_labels,
             scores,
             threshold=None,
             find_best_threshold=True,
-            pixel_labels=split.test_masks,
+            pixel_labels=test_masks,
             pixel_scores=None,
         )
     else:
         results = evaluate_detector(
-            split.test_labels,
+            test_labels,
             scores,
             threshold=float(calibrated_threshold),
             find_best_threshold=False,
-            pixel_labels=split.test_masks,
+            pixel_labels=test_masks,
             pixel_scores=None,
         )
 
@@ -206,6 +234,7 @@ def run_benchmark_category(
         "dataset": config.dataset,
         "category": config.category,
         "model": config.model,
+        "input_mode": config.input_mode,
         "device": config.device,
         "preset": config.preset,
         "resize": list(config.resize),
@@ -228,16 +257,20 @@ def run_benchmark_category(
         save_run_report(cat_dir / "report.json", payload)
 
         if per_image_jsonl:
-            y_true = np.asarray(split.test_labels).astype(int).tolist()
+            y_true = np.asarray(test_labels).astype(int).tolist()
             pred = (scores >= float(threshold_used)).astype(int).tolist()
 
             records: list[dict[str, Any]] = []
-            for i, path in enumerate(test_paths):
+            for i, item in enumerate(test_inputs):
+                if isinstance(item, (str, Path)):
+                    input_value = str(item)
+                else:
+                    input_value = f"numpy[{i}]"
                 rec = {
                     "index": int(i),
                     "dataset": str(config.dataset),
                     "category": str(config.category),
-                    "input": str(path),
+                    "input": input_value,
                     "y_true": int(y_true[i]),
                     "score": float(scores[i]),
                     "threshold": float(threshold_used),
@@ -261,6 +294,7 @@ def run_benchmark(
     root: str,
     category: str,
     model: str,
+    input_mode: str = "paths",
     device: str = "cpu",
     preset: str | None = None,
     pretrained: bool = True,
@@ -283,6 +317,7 @@ def run_benchmark(
             root=str(root),
             category=str(category),
             model=str(model),
+            input_mode=str(input_mode),
             device=str(device),
             preset=(str(preset) if preset is not None else None),
             pretrained=bool(pretrained),
@@ -316,6 +351,7 @@ def run_benchmark(
             root=str(root),
             category=str(cat),
             model=str(model),
+            input_mode=str(input_mode),
             device=str(device),
             preset=(str(preset) if preset is not None else None),
             pretrained=bool(pretrained),
@@ -370,6 +406,7 @@ def run_benchmark(
         "dataset": str(dataset),
         "category": "all",
         "model": str(model),
+        "input_mode": str(input_mode),
         "device": str(device),
         "preset": (str(preset) if preset is not None else None),
         "resize": [int(resize[0]), int(resize[1])],
@@ -391,6 +428,7 @@ def run_benchmark(
                     "root": str(root),
                     "category": "all",
                     "model": str(model),
+                    "input_mode": str(input_mode),
                     "device": str(device),
                     "preset": (str(preset) if preset is not None else None),
                     "pretrained": bool(pretrained),

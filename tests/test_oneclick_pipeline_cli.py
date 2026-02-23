@@ -32,6 +32,58 @@ def test_list_dataset_categories_visa_uses_visa_pytorch_root(tmp_path):
     assert cats == ["candle", "capsules"]
 
 
+def test_oneclick_pipeline_supports_numpy_input_mode(tmp_path):
+    import numpy as np
+
+    from pyimgano.models.registry import MODEL_REGISTRY
+    from pyimgano.pipelines.run_benchmark import run_benchmark
+
+    class _DummyNumpyDetector:
+        def __init__(self, **kwargs):  # noqa: ANN003 - test stub
+            self.kwargs = dict(kwargs)
+
+        def fit(self, X):  # noqa: ANN001
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            scores: list[float] = []
+            for item in list(X):
+                arr = np.asarray(item)
+                scores.append(float(arr.mean()))
+            return np.asarray(scores, dtype=np.float32)
+
+    MODEL_REGISTRY.register(
+        "test_dummy_numpy_detector",
+        _DummyNumpyDetector,
+        tags=("numpy",),
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom_ds"
+    _write_png(root / "train" / "normal" / "train_0.png", value=120)
+    _write_png(root / "test" / "normal" / "good_0.png", value=120)
+    _write_png(root / "test" / "anomaly" / "bad_0.png", value=240)
+
+    payload = run_benchmark(
+        dataset="custom",
+        root=str(root),
+        category="custom",
+        model="test_dummy_numpy_detector",
+        input_mode="numpy",
+        device="cpu",
+        pretrained=False,
+        save_run=False,
+        per_image_jsonl=False,
+        limit_train=1,
+        limit_test=2,
+    )
+    assert payload["dataset"] == "custom"
+    assert payload["category"] == "custom"
+    assert payload["model"] == "test_dummy_numpy_detector"
+    assert payload["input_mode"] == "numpy"
+    assert "results" in payload
+
+
 def test_cli_oneclick_custom_dataset_writes_run_artifacts(tmp_path, capsys):
     from pyimgano.cli import main
 
