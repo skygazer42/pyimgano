@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from pathlib import Path
+from typing import Any
 
 from pyimgano.utils.optional_deps import optional_import
 
@@ -31,6 +33,7 @@ class BaseVisionDetector(BaseDetector):
         # PyOD compatibility: many utilities (e.g. `predict_proba`) expect
         # `_classes` to exist. In unsupervised detection this is always binary.
         self._set_n_classes(None)
+        self._feature_cache = None
 
         if feature_extractor is None:
             # Provide a safe default so classical detectors work out-of-the-box.
@@ -45,9 +48,33 @@ class BaseVisionDetector(BaseDetector):
             )
         if not hasattr(feature_extractor, 'extract'):
             raise TypeError("feature_extractor 必须有一个名为 'extract' 的方法。")
+        self._base_feature_extractor = feature_extractor
         self.feature_extractor = feature_extractor
 
         self.detector = self._build_detector()
+
+    def set_feature_cache(self, cache_dir: str | Path | None) -> None:
+        """Enable/disable disk feature caching for path inputs."""
+
+        if cache_dir is None:
+            self._feature_cache = None
+            self.feature_extractor = self._base_feature_extractor
+            return
+
+        from pyimgano.cache.features import (
+            CachedFeatureExtractor,
+            FeatureCache,
+            fingerprint_feature_extractor,
+        )
+
+        self._feature_cache = FeatureCache(
+            cache_dir=Path(cache_dir),
+            extractor_fingerprint=fingerprint_feature_extractor(self._base_feature_extractor),
+        )
+        self.feature_extractor = CachedFeatureExtractor(
+            base_extractor=self._base_feature_extractor,
+            cache=self._feature_cache,
+        )
 
     @abstractmethod
     def _build_detector(self):
@@ -79,8 +106,8 @@ class BaseVisionDetector(BaseDetector):
         self._set_n_classes(y)
 
         return self
-    def decision_function(self, X):
 
+    def decision_function(self, X):
         # 1. 从新图像中提取特征
         features = self.feature_extractor.extract(X)
         # 2. 用训练好的经典检测器计算异常分数

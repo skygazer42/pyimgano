@@ -54,6 +54,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help=(
+            "Optional directory for caching extracted classical features when input_mode=paths. "
+            "This can speed up repeated decision_function() calls on the same images."
+        ),
+    )
+    parser.add_argument(
         "--save-run",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -807,6 +815,10 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--save-detector is only supported without --pixel.")
         if args.load_detector is not None and bool(args.pixel):
             raise ValueError("--load-detector is only supported without --pixel.")
+        if args.cache_dir is not None and bool(args.pixel):
+            raise ValueError("--cache-dir is only supported without --pixel.")
+        if args.cache_dir is not None and str(args.input_mode) != "paths":
+            raise ValueError("--cache-dir requires --input-mode paths.")
 
         if bool(args.pixel):
             if str(args.input_mode) != "paths":
@@ -870,6 +882,7 @@ def main(argv: list[str] | None = None) -> int:
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
                 save_run=bool(args.save_run),
                 per_image_jsonl=bool(args.per_image_jsonl),
+                cache_dir=(str(args.cache_dir) if args.cache_dir is not None else None),
                 load_detector_path=(
                     str(args.load_detector) if args.load_detector is not None else None
                 ),

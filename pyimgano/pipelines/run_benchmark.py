@@ -31,6 +31,7 @@ class RunConfig:
     contamination: float = 0.1
     resize: tuple[int, int] = (256, 256)
     model_kwargs: dict[str, Any] | None = None
+    cache_dir: str | None = None
     load_detector_path: str | None = None
     save_detector_path: str | None = None
     score_threshold_strategy: ScoreThresholdStrategy = "train_quantile"
@@ -263,6 +264,10 @@ def run_benchmark_category(
 
         save_detector(detector_path, detector)
 
+    if config.input_mode == "paths" and config.cache_dir is not None:
+        if hasattr(detector, "set_feature_cache"):
+            detector.set_feature_cache(config.cache_dir)
+
     scores = np.asarray(detector.decision_function(test_inputs), dtype=np.float64)
 
     calibrated_threshold = _calibrate_score_threshold(
@@ -377,6 +382,7 @@ def run_benchmark(
     limit_test: int | None = None,
     save_run: bool = True,
     per_image_jsonl: bool = True,
+    cache_dir: str | Path | None = None,
     load_detector_path: str | Path | None = None,
     save_detector_path: str | Path | None = None,
     output_dir: str | Path | None = None,
@@ -405,6 +411,7 @@ def run_benchmark(
             contamination=float(contamination),
             resize=(int(resize[0]), int(resize[1])),
             model_kwargs=dict(model_kwargs or {}),
+            cache_dir=(str(cache_dir) if cache_dir is not None else None),
             load_detector_path=(str(load_detector_path) if load_detector_path is not None else None),
             save_detector_path=(str(save_detector_path) if save_detector_path is not None else None),
             score_threshold_strategy=score_threshold_strategy,
@@ -445,6 +452,7 @@ def run_benchmark(
             contamination=float(contamination),
             resize=(int(resize[0]), int(resize[1])),
             model_kwargs=dict(model_kwargs or {}),
+            cache_dir=(str(cache_dir) if cache_dir is not None else None),
             score_threshold_strategy=score_threshold_strategy,
             calibration_quantile=calibration_quantile,
             limit_train=limit_train,
