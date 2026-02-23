@@ -8,7 +8,7 @@ import numpy as np
 
 from pyimgano.evaluation import evaluate_detector
 from pyimgano.models.registry import MODEL_REGISTRY, create_model
-from pyimgano.reporting.report import save_jsonl_records, save_run_report
+from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
 
 from .mvtec_visa import load_benchmark_split
@@ -244,6 +244,7 @@ def run_benchmark_category(
         "calibrated_threshold": calibrated_threshold,
         "results": results,
     }
+    payload = stamp_report_payload(payload)
 
     if save_run:
         name = build_run_dir_name(dataset=config.dataset, model=config.model)
@@ -425,6 +426,7 @@ def run_benchmark(
         "std_metrics": stds,
         "per_category": per_category,
     }
+    payload = stamp_report_payload(payload)
 
     if paths is not None:
         save_run_report(paths.report_json, payload)

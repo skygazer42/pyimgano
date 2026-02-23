@@ -124,6 +124,9 @@ def test_cli_oneclick_custom_dataset_writes_run_artifacts(tmp_path, capsys):
     assert payload["dataset"] == "custom"
     assert payload["category"] == "custom"
     assert payload["model"] == "vision_ecod"
+    assert payload["schema_version"] == 1
+    assert "timestamp_utc" in payload
+    assert "pyimgano_version" in payload
 
     lines = (out_dir / "categories" / "custom" / "per_image.jsonl").read_text(
         encoding="utf-8"
@@ -208,6 +211,9 @@ def test_cli_oneclick_category_all_writes_aggregated_report(tmp_path):
     assert payload["dataset"] == "mvtec"
     assert payload["category"] == "all"
     assert payload["categories"] == ["bottle"]
+    assert payload["schema_version"] == 1
+    assert "timestamp_utc" in payload
+    assert "pyimgano_version" in payload
     assert "mean_metrics" in payload
     assert "std_metrics" in payload
     assert "per_category" in payload
