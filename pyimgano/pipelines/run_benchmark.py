@@ -251,6 +251,11 @@ def run_benchmark_category(
         paths = build_run_paths(run_dir)
         paths.categories_dir.mkdir(parents=True, exist_ok=True)
 
+        if write_top_level:
+            from pyimgano.reporting.environment import collect_environment
+
+            save_run_report(paths.run_dir / "environment.json", collect_environment())
+
         cat_dir = paths.categories_dir / str(config.category)
         cat_dir.mkdir(parents=True, exist_ok=True)
 
@@ -344,6 +349,9 @@ def run_benchmark(
     paths = build_run_paths(run_dir) if run_dir is not None else None
     if paths is not None:
         paths.categories_dir.mkdir(parents=True, exist_ok=True)
+        from pyimgano.reporting.environment import collect_environment
+
+        save_run_report(paths.run_dir / "environment.json", collect_environment())
 
     for cat in categories:
         cfg = RunConfig(
