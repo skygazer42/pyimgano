@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-02-23
+
+### Added
+- Image IO helpers: `pyimgano.io.image` (`read_image`, `resize_image`, `convert_color`).
+- Dataset catalog helper: `pyimgano.datasets.catalog.list_dataset_categories`.
+- Custom dataset validation: `CustomDataset.validate_structure()` and CLI preflight validation for `--dataset custom`.
+- Benchmark pipeline supports `input_mode=paths|numpy` (with CLI flag `pyimgano-benchmark --input-mode`).
+- Run artifact: `environment.json` (Python/platform/package snapshot).
+- Report metadata stamping: `schema_version`, `timestamp_utc`, `pyimgano_version`.
+
+### Changed
+- Benchmark dataset loaders in `pyimgano.utils.datasets` now route image/mask IO via `pyimgano.io`.
+- `pyimgano.pipelines.run_benchmark.list_dataset_categories` delegates to the dataset catalog.
+
 ## [0.5.5] - 2026-02-23
 
 ### Added
