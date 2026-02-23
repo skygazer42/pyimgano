@@ -1112,6 +1112,74 @@ class CustomDataset(BaseDataset):
         self.resize = resize
         self.load_masks = load_masks
 
+    def validate_structure(self) -> None:
+        """Validate the expected custom dataset folder structure.
+
+        Expected layout:
+            root/
+              train/normal/*.png|*.jpg|*.jpeg|*.bmp
+              test/normal/*.png|*.jpg|*.jpeg|*.bmp
+              test/anomaly/*.png|*.jpg|*.jpeg|*.bmp
+              ground_truth/anomaly/<stem>_mask.png   (required when load_masks=True)
+        """
+
+        def _scan_images(directory: Path) -> List[Path]:
+            if not directory.exists():
+                return []
+            paths: List[Path] = []
+            for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+                paths.extend(sorted(directory.glob(ext)))
+            return paths
+
+        errors: List[str] = []
+
+        train_dir = self.root / "train" / "normal"
+        test_normal_dir = self.root / "test" / "normal"
+        test_anomaly_dir = self.root / "test" / "anomaly"
+
+        if not train_dir.exists():
+            errors.append(f"Missing directory: {train_dir}")
+        if not test_normal_dir.exists():
+            errors.append(f"Missing directory: {test_normal_dir}")
+        if not test_anomaly_dir.exists():
+            errors.append(f"Missing directory: {test_anomaly_dir}")
+
+        train_imgs = _scan_images(train_dir)
+        test_normal_imgs = _scan_images(test_normal_dir)
+        test_anomaly_imgs = _scan_images(test_anomaly_dir)
+
+        if train_dir.exists() and not train_imgs:
+            errors.append(f"No training images found in: {train_dir}")
+        if test_normal_dir.exists() and not test_normal_imgs:
+            errors.append(f"No normal test images found in: {test_normal_dir}")
+        if test_anomaly_dir.exists() and not test_anomaly_imgs:
+            errors.append(f"No anomaly test images found in: {test_anomaly_dir}")
+
+        if self.load_masks:
+            gt_dir = self.root / "ground_truth" / "anomaly"
+            if not gt_dir.exists():
+                errors.append(
+                    f"Missing directory: {gt_dir} (required when load_masks=True)"
+                )
+            else:
+                missing_masks: List[str] = []
+                for img_path in test_anomaly_imgs:
+                    mask_path = gt_dir / f"{img_path.stem}_mask.png"
+                    if not mask_path.exists():
+                        missing_masks.append(str(mask_path))
+                        if len(missing_masks) >= 3:
+                            break
+                if missing_masks:
+                    preview = ", ".join(missing_masks)
+                    errors.append(
+                        "Missing ground-truth masks for anomaly images (expected '<stem>_mask.png'). "
+                        f"Examples: {preview}"
+                    )
+
+        if errors:
+            details = "\n- ".join(errors)
+            raise ValueError(f"Invalid custom dataset structure:\n- {details}")
+
     def _load_images(self, path: Path) -> List[NDArray]:
         """Load all images from a directory."""
         images = []
