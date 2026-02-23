@@ -248,36 +248,28 @@ scores = detector.decision_function(test_paths)
 anomaly_map = detector.get_anomaly_map('test_image.jpg')
 ```
 
-### Example 4: Pixel-First Industrial Benchmarking (MVTec AD / VisA) ⭐ NEW
+### Industrial Workflows (CLI) ⭐ NEW
 
-Run image-level + pixel-level metrics in one command:
+Docs:
+- CLI flags: `docs/CLI_REFERENCE.md`
+- Benchmarking + report schema: `docs/EVALUATION_AND_BENCHMARK.md`
+- Robustness / drift corruptions: `docs/ROBUSTNESS_BENCHMARK.md`
+- Numpy-first inference + tiling: `docs/INDUSTRIAL_INFERENCE.md`
 
-```bash
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --model vision_softpatch \
-  --device cuda \
-  --pixel \
-  --pixel-aupro-limit 0.3 \
-  --pixel-aupro-thresholds 200 \
-  --pixel-postprocess \
-  --pixel-post-norm percentile \
-  --pixel-post-percentiles 1 99 \
-  --output runs/mvtec_bottle_softpatch.json
+#### One-click benchmark + run artifacts
+
+By default, `pyimgano-benchmark` writes a run directory under `runs/`:
+
+```
+runs/<ts>_<dataset>_<model>/
+  report.json
+  config.json
+  environment.json
+  categories/<cat>/report.json
+  categories/<cat>/per_image.jsonl
 ```
 
-Notes:
-- Swap `--model` to compare: `vision_patchcore`, `vision_anomalydino`, `vision_openclip_patchknn`, `vision_openclip_promptscore`.
-- For “noisy normal” training sets, `vision_softpatch` is a robust patch-memory baseline.
-- Tune AUPRO computation via `--pixel-aupro-limit` (FPR limit, commonly `0.3`) and `--pixel-aupro-thresholds` (integration resolution).
-- For deploy-style **single-threshold** pixel evaluation (VAND-style), add:
-  - `--pixel-segf1 --pixel-threshold-strategy normal_pixel_quantile --pixel-normal-quantile 0.999`
-  - This calibrates one pixel threshold from train/good normal pixels and reports `pixel_segf1` + `bg_fpr`.
-- If you train via anomalib, `pyimgano` also provides inference wrappers such as `vision_dinomaly_anomalib` and `vision_cfa_anomalib` (requires `pyimgano[anomalib]` + a trained checkpoint).
-
-Preset tip (popular industrial defaults, no JSON):
+Run a single category:
 
 ```bash
 pyimgano-benchmark \
@@ -286,51 +278,10 @@ pyimgano-benchmark \
   --category bottle \
   --model vision_patchcore \
   --preset industrial-balanced \
-  --device cuda \
-  --pixel
+  --device cuda
 ```
 
-Notes:
-- Presets:
-  - `--preset industrial-fast`: speed-oriented defaults (quick iteration / first run).
-  - `--preset industrial-balanced`: speed/accuracy balanced defaults.
-  - `--preset industrial-accurate`: accuracy-oriented defaults (higher compute by default).
-- Preset model coverage currently includes: `vision_patchcore`, `vision_padim`, `vision_spade`, `vision_anomalydino`, `vision_softpatch`, `vision_simplenet`, `vision_fastflow`, `vision_cflow`, `vision_stfpm`, `vision_reverse_distillation` (alias: `vision_reverse_dist`), `vision_draem`.
-- `--model-kwargs` always overrides preset values when both are provided.
-
-Discover available models:
-
-```bash
-pyimgano-benchmark --list-models
-pyimgano-benchmark --model-info vision_patchcore
-pyimgano-benchmark --model-info vision_patchcore --json
-```
-
-Benchmarking anomalib-trained checkpoints (inference wrappers):
-
-```bash
-# One-time install (keeps anomalib optional):
-pip install "pyimgano[anomalib]"
-
-# Evaluate an anomalib checkpoint with pyimgano's unified CLI + reporting.
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --model vision_patchcore_anomalib \
-  --checkpoint-path /path/to/anomalib/checkpoint.ckpt \
-  --device cuda \
-  --pixel \
-  --output runs/mvtec_bottle_patchcore_anomalib.json
-```
-
-Advanced:
-- Pass additional constructor args with `--model-kwargs '{"contamination": 0.1}'`.
-- `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
-
-### Example 4.5: One-Click Benchmark + Run Artifacts (category=all) ⭐ NEW
-
-For “industrial-style” workflows (calibrated threshold + per-image JSONL), run:
+Run all categories (`--category all`):
 
 ```bash
 pyimgano-benchmark \
@@ -342,27 +293,65 @@ pyimgano-benchmark \
   --device cuda
 ```
 
-By default this writes a run directory under `runs/`:
-
-```
-runs/<ts>_<dataset>_<model>/
-  report.json
-  config.json
-  categories/<cat>/report.json
-  categories/<cat>/per_image.jsonl
-```
-
 Useful flags:
 - `--output-dir /path/to/run_dir`: choose where artifacts go
 - `--no-save-run`: disable artifact writing (stdout JSON only)
 - `--no-per-image-jsonl`: skip per-image records
-- `--calibration-quantile 0.995`: override train-calibrated score threshold quantile
+- `--output report.json`: also write a single JSON report file (in addition to any run artifacts)
 - `--limit-train 50 --limit-test 50`: quick smoke runs
 
-### Robustness Benchmark (Clean + Drift Corruptions) ⭐ NEW
+#### Pixel-first metrics (AUROC/AUPRO/SegF1)
 
-Evaluate a detector on clean test data and a deterministic corruption suite (lighting/JPEG/blur/glare/geo-jitter)
-using a **single fixed pixel threshold** for the entire run:
+Compute pixel metrics when the model exposes anomaly maps:
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_softpatch \
+  --preset industrial-balanced \
+  --device cuda \
+  --pixel \
+  --pixel-aupro-limit 0.3 \
+  --pixel-aupro-thresholds 200 \
+  --pixel-postprocess \
+  --pixel-post-norm percentile \
+  --pixel-post-percentiles 1 99
+```
+
+For deploy-style single-threshold pixel evaluation (VAND-style), add:
+- `--pixel-segf1 --pixel-threshold-strategy normal_pixel_quantile --pixel-normal-quantile 0.999`
+
+#### Model discovery
+
+```bash
+pyimgano-benchmark --list-models
+pyimgano-benchmark --list-models --tags vision,deep
+pyimgano-benchmark --model-info vision_patchcore
+pyimgano-benchmark --model-info vision_patchcore --json
+```
+
+#### Benchmarking anomalib checkpoints (optional backend)
+
+```bash
+pip install "pyimgano[anomalib]"
+
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --model vision_patchcore_anomalib \
+  --checkpoint-path /path/to/anomalib/checkpoint.ckpt \
+  --device cuda \
+  --pixel
+```
+
+Notes:
+- Pass constructor args with `--model-kwargs '{"contamination": 0.1}'`.
+- `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
+
+#### Robustness benchmark (clean + drift corruptions)
 
 ```bash
 pyimgano-robust-benchmark \
@@ -374,24 +363,14 @@ pyimgano-robust-benchmark \
   --device cuda \
   --pixel-normal-quantile 0.999 \
   --corruptions lighting,jpeg,blur,glare,geo_jitter \
-  --severities 1 2 3 4 5 \
-  --output runs/robust_mvtec_bottle_patchcore.json
+  --severities 1 2 3 4 5
 ```
 
 Notes:
 - Corruptions require `--input-mode numpy` (default), which feeds detectors **RGB uint8 numpy images**.
-- For models that only accept file paths (many classical baselines), use `--input-mode paths`:
-  - clean-only evaluation (corruptions are skipped)
-  - pixel SegF1 is auto-disabled if the detector does not expose `get_anomaly_map()` / `predict_anomaly_map()`
+- For models that only accept file paths (many classical baselines), use `--input-mode paths` (clean-only; corruptions skipped).
 
-Docs: `docs/ROBUSTNESS_BENCHMARK.md`
-
-### High-Resolution Tiling Inference (2K/4K) ⭐ NEW
-
-Many industrial images are much larger than typical model input sizes. `pyimgano` supports tiled inference
-to improve tiny-defect sensitivity without resizing the entire frame aggressively.
-
-CLI:
+#### High-resolution tiling inference (2K/4K)
 
 ```bash
 pyimgano-infer \
@@ -403,19 +382,6 @@ pyimgano-infer \
   --include-maps \
   --tile-size 512 \
   --tile-stride 384
-```
-
-Python:
-
-```python
-from pyimgano.models import create_model
-from pyimgano.inference import infer, TiledDetector
-
-det = create_model("vision_patchcore", device="cuda")
-det.fit(train_imgs_np, input_format="rgb_u8_hwc")
-
-tiled = TiledDetector(detector=det, tile_size=512, stride=384)
-results = infer(tiled, [img_np], input_format="rgb_u8_hwc", include_maps=True)
 ```
 
 ### Example 4: Zero-Shot Detection (WinCLIP - CVPR 2023) ⭐ NEW
@@ -497,7 +463,7 @@ scores = detector.decision_function(test_paths)
 anomaly_map = detector.get_anomaly_map(test_paths[0])
 ```
 
-### Example 5: Best Localization (SPADE - ECCV 2020) ⭐ NEW
+### Example 7: Best Localization (SPADE - ECCV 2020) ⭐ NEW
 
 ```python
 # Excellent pixel-level anomaly localization
@@ -513,7 +479,7 @@ scores = detector.decision_function(test_paths)
 anomaly_maps = detector.predict_anomaly_map(test_paths)  # Precise localization
 ```
 
-### Example 6: Self-Supervised Learning (CutPaste - CVPR 2021) ⭐ NEW
+### Example 8: Self-Supervised Learning (CutPaste - CVPR 2021) ⭐ NEW
 
 ```python
 # Train without any anomaly samples
@@ -528,7 +494,7 @@ detector.fit(normal_images_only)  # Only normal images needed
 scores = detector.decision_function(test_paths)
 ```
 
-### Example 7: Comparing Multiple Algorithms
+### Example 9: Comparing Multiple Algorithms
 
 ```python
 import numpy as np
@@ -562,7 +528,7 @@ Comprehensive preprocessing module with **80+ operations** including augmentatio
 
 ```python
 from pyimgano.preprocessing import AdvancedImageEnhancer, PreprocessingMixin
-from pyimgano.models import ECOD
+from pyimgano.models.ecod import VisionECOD
 
 # Method 1: Using Advanced Enhancer
 enhancer = AdvancedImageEnhancer()
@@ -577,16 +543,35 @@ lbp = enhancer.compute_lbp(image, n_points=8, radius=1.0)  # Texture features
 hog_features = enhancer.extract_hog(image, visualize=False)  # HOG features
 
 # Method 2: Using Mixin with Detector
-class ECODWithPreprocessing(PreprocessingMixin, ECOD):
+import cv2
+import numpy as np
+
+
+class FlattenExtractor:
+    def __init__(self, size=(224, 224)):
+        self.size = size
+
+    def extract(self, X):
+        features = []
+        for img in X:
+            arr = np.asarray(img)
+            if arr.shape[:2] != self.size:
+                # cv2.resize expects (W, H)
+                arr = cv2.resize(arr, (self.size[1], self.size[0]))
+            features.append(arr.reshape(-1))
+        return np.stack(features, axis=0)
+
+
+class ECODWithPreprocessing(PreprocessingMixin, VisionECOD):
     def __init__(self):
-        super().__init__()
+        super().__init__(feature_extractor=FlattenExtractor(), contamination=0.1, n_jobs=-1)
         self.setup_preprocessing(enable=True, use_pipeline=True)
         self.add_preprocessing_step('gaussian_blur', ksize=(5, 5))
         self.add_preprocessing_step('normalize', method='minmax')
 
     def fit(self, X, y=None):
         X_processed = self.preprocess_images(X)
-        return super().fit([img.flatten() for img in X_processed], y)
+        return super().fit(X_processed, y)
 
 detector = ECODWithPreprocessing()
 detector.fit(train_images)
@@ -595,7 +580,7 @@ scores = detector.decision_function(test_images)
 # Method 3: Data Augmentation for Training
 from pyimgano.preprocessing import (
     Compose, OneOf, RandomRotate, RandomFlip,
-    ColorJitter, GaussianNoise, get_medium_augmentation
+    ColorJitter, GaussianNoise, MotionBlur, get_medium_augmentation
 )
 
 # Custom augmentation pipeline
