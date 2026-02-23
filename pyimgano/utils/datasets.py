@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Dict
 import numpy as np
 from numpy.typing import NDArray
-import cv2
 from dataclasses import dataclass
+
+from pyimgano.io.image import read_image, resize_image
 
 
 @dataclass
@@ -125,11 +126,10 @@ class MVTecDataset(BaseDataset):
         images = []
 
         for img_path in sorted(path.glob('*.png')):
-            img = cv2.imread(str(img_path))
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = read_image(img_path, color="rgb")
 
             if self.resize is not None:
-                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                img = resize_image(img, self.resize)
 
             images.append(img)
 
@@ -188,9 +188,9 @@ class MVTecDataset(BaseDataset):
                     for img_path in sorted(defect_dir.glob('*.png')):
                         mask_path = mask_dir / f"{img_path.stem}_mask.png"
                         if mask_path.exists():
-                            mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                            mask = read_image(mask_path, color="gray")
                             if self.resize is not None:
-                                mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                                mask = resize_image(mask, self.resize, is_mask=True)
                             # Binary mask
                             mask = (mask > 127).astype(np.uint8)
                             masks.append(mask)
@@ -250,11 +250,11 @@ class MVTecDataset(BaseDataset):
             for img_path in normal_paths:
                 shape = self.resize
                 if shape is None:
-                    img = cv2.imread(str(img_path))
-                    if img is None:
-                        shape = (256, 256)
-                    else:
-                        shape = img.shape[:2]
+                    try:
+                        img = read_image(img_path, color="bgr")
+                    except FileNotFoundError:
+                        img = None
+                    shape = img.shape[:2] if img is not None else (256, 256)
                 masks.append(np.zeros(shape, dtype=np.uint8))
 
         # Anomaly test images (all subdirs except good)
@@ -274,15 +274,21 @@ class MVTecDataset(BaseDataset):
                 mask_path = mask_dir / f"{img_path.stem}_mask.png"
                 mask = None
                 if mask_path.exists():
-                    mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                    try:
+                        mask = read_image(mask_path, color="gray")
+                    except FileNotFoundError:
+                        mask = None
                 if mask is None:
                     shape = self.resize
                     if shape is None:
-                        img = cv2.imread(str(img_path))
+                        try:
+                            img = read_image(img_path, color="bgr")
+                        except FileNotFoundError:
+                            img = None
                         shape = img.shape[:2] if img is not None else (256, 256)
                     mask = np.zeros(shape, dtype=np.uint8)
                 elif self.resize is not None:
-                    mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                    mask = resize_image(mask, self.resize, is_mask=True)
                 masks.append((mask > 127).astype(np.uint8))
 
         return image_paths, np.array(labels), np.array(masks) if self.load_masks else None
@@ -360,12 +366,9 @@ class MVTecLOCODataset(BaseDataset):
     def _load_images(self, paths: List[Path]) -> List[NDArray]:
         images: List[NDArray] = []
         for img_path in paths:
-            img = cv2.imread(str(img_path))
-            if img is None:
-                raise ValueError(f"Failed to load image: {img_path}")
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = read_image(img_path, color="rgb")
             if self.resize is not None:
-                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                img = resize_image(img, self.resize)
             images.append(img)
         return images
 
@@ -373,7 +376,10 @@ class MVTecLOCODataset(BaseDataset):
         if self.resize is not None:
             shape = self.resize
         else:
-            img = cv2.imread(str(image_path))
+            try:
+                img = read_image(image_path, color="bgr")
+            except FileNotFoundError:
+                img = None
             shape = img.shape[:2] if img is not None else (256, 256)
         return np.zeros(shape, dtype=np.uint8)
 
@@ -411,14 +417,17 @@ class MVTecLOCODataset(BaseDataset):
         mask = None
         for candidate in candidates:
             if candidate.exists():
-                mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
-                if mask is not None:
+                try:
+                    mask = read_image(candidate, color="gray")
+                except FileNotFoundError:
+                    mask = None
+                else:
                     break
 
         if mask is None:
             mask = self._zeros_mask_for_image(image_path)
         elif self.resize is not None:
-            mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+            mask = resize_image(mask, self.resize, is_mask=True)
 
         return (mask > 127).astype(np.uint8)
 
@@ -565,12 +574,9 @@ class MVTecAD2Dataset(BaseDataset):
     def _load_images(self, paths: List[Path]) -> List[NDArray]:
         images: List[NDArray] = []
         for img_path in paths:
-            img = cv2.imread(str(img_path))
-            if img is None:
-                raise ValueError(f"Failed to load image: {img_path}")
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = read_image(img_path, color="rgb")
             if self.resize is not None:
-                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                img = resize_image(img, self.resize)
             images.append(img)
         return images
 
@@ -578,7 +584,10 @@ class MVTecAD2Dataset(BaseDataset):
         if self.resize is not None:
             shape = self.resize
         else:
-            img = cv2.imread(str(image_path))
+            try:
+                img = read_image(image_path, color="bgr")
+            except FileNotFoundError:
+                img = None
             shape = img.shape[:2] if img is not None else (256, 256)
         return np.zeros(shape, dtype=np.uint8)
 
@@ -598,14 +607,17 @@ class MVTecAD2Dataset(BaseDataset):
         mask = None
         for candidate in candidates:
             if candidate.exists():
-                mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
-                if mask is not None:
+                try:
+                    mask = read_image(candidate, color="gray")
+                except FileNotFoundError:
+                    mask = None
+                else:
                     break
 
         if mask is None:
             mask = self._zeros_mask_for_image(bad_image_path)
         elif self.resize is not None:
-            mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+            mask = resize_image(mask, self.resize, is_mask=True)
 
         return (mask > 127).astype(np.uint8)
 
@@ -734,11 +746,10 @@ class BTADDataset(BaseDataset):
 
         for ext in ['*.png', '*.jpg', '*.bmp']:
             for img_path in sorted(path.glob(ext)):
-                img = cv2.imread(str(img_path))
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = read_image(img_path, color="rgb")
 
                 if self.resize is not None:
-                    img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                    img = resize_image(img, self.resize)
 
                 images.append(img)
 
@@ -869,13 +880,13 @@ class VisADataset(BaseDataset):
 
         for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
             for img_path in sorted(path.glob(ext)):
-                img = cv2.imread(str(img_path))
-                if img is None:
+                try:
+                    img = read_image(img_path, color="rgb")
+                except FileNotFoundError:
                     continue
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
                 if self.resize is not None:
-                    img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                    img = resize_image(img, self.resize)
 
                 images.append(img)
 
@@ -936,12 +947,12 @@ class VisADataset(BaseDataset):
         bad_img_paths = self._scan_images(bad_dir) if bad_dir.exists() else []
         bad_imgs: List[NDArray] = []
         for img_path in bad_img_paths:
-            img = cv2.imread(str(img_path))
-            if img is None:
+            try:
+                img = read_image(img_path, color="rgb")
+            except FileNotFoundError:
                 continue
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             if self.resize is not None:
-                img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                img = resize_image(img, self.resize)
             bad_imgs.append(img)
 
         images.extend(bad_imgs)
@@ -960,12 +971,16 @@ class VisADataset(BaseDataset):
                     ]
                     for candidate in candidates:
                         if candidate.exists():
-                            mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
-                            break
+                            try:
+                                mask = read_image(candidate, color="gray")
+                            except FileNotFoundError:
+                                mask = None
+                            else:
+                                break
                 if mask is None:
                     mask = np.zeros(img.shape[:2], dtype=np.uint8)
                 elif self.resize is not None:
-                    mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                    mask = resize_image(mask, self.resize, is_mask=True)
                 masks.append((mask > 127).astype(np.uint8))
 
         return (
@@ -1031,13 +1046,17 @@ class VisADataset(BaseDataset):
                 ]
                 for candidate in candidates:
                     if candidate.exists():
-                        mask = cv2.imread(str(candidate), cv2.IMREAD_GRAYSCALE)
-                        break
+                        try:
+                            mask = read_image(candidate, color="gray")
+                        except FileNotFoundError:
+                            mask = None
+                        else:
+                            break
             if mask is None:
                 shape = self.resize or (256, 256)
                 mask = np.zeros(shape, dtype=np.uint8)
             elif self.resize is not None:
-                mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                mask = resize_image(mask, self.resize, is_mask=True)
             masks.append((mask > 127).astype(np.uint8))
 
         return test_paths, labels, np.array(masks)
@@ -1099,11 +1118,10 @@ class CustomDataset(BaseDataset):
 
         for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
             for img_path in sorted(path.glob(ext)):
-                img = cv2.imread(str(img_path))
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = read_image(img_path, color="rgb")
 
                 if self.resize is not None:
-                    img = cv2.resize(img, (self.resize[1], self.resize[0]))
+                    img = resize_image(img, self.resize)
 
                 images.append(img)
 
@@ -1155,9 +1173,9 @@ class CustomDataset(BaseDataset):
                     for img_path in sorted(anomaly_path.glob('*.png')):
                         mask_path = gt_path / f"{img_path.stem}_mask.png"
                         if mask_path.exists():
-                            mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                            mask = read_image(mask_path, color="gray")
                             if self.resize is not None:
-                                mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                                mask = resize_image(mask, self.resize, is_mask=True)
                             mask = (mask > 127).astype(np.uint8)
                             masks.append(mask)
                         else:
@@ -1224,7 +1242,10 @@ class CustomDataset(BaseDataset):
         for img_path in normal_paths:
             shape = self.resize
             if shape is None:
-                img = cv2.imread(str(img_path))
+                try:
+                    img = read_image(img_path, color="bgr")
+                except FileNotFoundError:
+                    img = None
                 shape = img.shape[:2] if img is not None else (256, 256)
             masks.append(np.zeros(shape, dtype=np.uint8))
 
@@ -1233,15 +1254,21 @@ class CustomDataset(BaseDataset):
             mask = None
             mask_path = gt_dir / f"{img_path.stem}_mask.png"
             if mask_path.exists():
-                mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                try:
+                    mask = read_image(mask_path, color="gray")
+                except FileNotFoundError:
+                    mask = None
             if mask is None:
                 shape = self.resize
                 if shape is None:
-                    img = cv2.imread(str(img_path))
+                    try:
+                        img = read_image(img_path, color="bgr")
+                    except FileNotFoundError:
+                        img = None
                     shape = img.shape[:2] if img is not None else (256, 256)
                 mask = np.zeros(shape, dtype=np.uint8)
             elif self.resize is not None:
-                mask = cv2.resize(mask, (self.resize[1], self.resize[0]))
+                mask = resize_image(mask, self.resize, is_mask=True)
             masks.append((mask > 127).astype(np.uint8))
 
         return test_paths, labels, np.array(masks)
