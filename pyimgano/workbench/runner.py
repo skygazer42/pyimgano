@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
@@ -225,6 +225,7 @@ def _run_category(
         "category": str(category),
         "model": str(config.model.name),
         "recipe": str(recipe_name),
+        "seed": (int(config.seed) if config.seed is not None else None),
         "input_mode": str(config.dataset.input_mode),
         "device": str(config.model.device),
         "preset": config.model.preset,
@@ -340,7 +341,59 @@ def run_workbench(
         if run_dir is not None and paths is not None:
             payload["run_dir"] = str(paths.run_dir)
             save_run_report(paths.report_json, payload)
-        return payload
+    return payload
+
+
+def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, Any]) -> dict[str, Any]:
+    """Build a minimal, JSON-friendly payload describing how to run inference.
+
+    Intended for `pyimgano-train --export-infer-config`.
+    """
+
+    model_payload: dict[str, Any] = {
+        "name": str(config.model.name),
+        "preset": config.model.preset,
+        "device": str(config.model.device),
+        "pretrained": bool(config.model.pretrained),
+        "contamination": float(config.model.contamination),
+        "model_kwargs": dict(config.model.model_kwargs),
+        "checkpoint_path": (str(config.model.checkpoint_path) if config.model.checkpoint_path is not None else None),
+    }
+
+    adaptation_payload: dict[str, Any] = {
+        "tiling": {
+            "tile_size": config.adaptation.tiling.tile_size,
+            "stride": config.adaptation.tiling.stride,
+            "score_reduce": config.adaptation.tiling.score_reduce,
+            "score_topk": float(config.adaptation.tiling.score_topk),
+            "map_reduce": config.adaptation.tiling.map_reduce,
+        },
+        "postprocess": (config.adaptation.postprocess.__dict__ if config.adaptation.postprocess is not None else None),
+        "save_maps": bool(config.adaptation.save_maps),
+    }
+
+    out: dict[str, Any] = {
+        "model": model_payload,
+        "adaptation": adaptation_payload,
+    }
+
+    # Prefer the report's run_dir (if present) to keep the payload portable across
+    # output_dir overrides.
+    run_dir = report.get("run_dir", None)
+    if run_dir is not None:
+        out["from_run"] = str(run_dir)
+
+    # Preserve threshold/checkpoint when present (single-category or category-selected exports).
+    if "threshold" in report:
+        out["threshold"] = report.get("threshold")
+    if "checkpoint" in report:
+        out["checkpoint"] = report.get("checkpoint")
+    if "category" in report:
+        out["category"] = report.get("category")
+    if "per_category" in report:
+        out["per_category"] = report.get("per_category")
+
+    return stamp_report_payload(out)
 
     from pyimgano.datasets.catalog import list_dataset_categories
 
@@ -383,6 +436,7 @@ def run_workbench(
         "category": "all",
         "model": str(config.model.name),
         "recipe": str(recipe_name),
+        "seed": (int(config.seed) if config.seed is not None else None),
         "input_mode": str(config.dataset.input_mode),
         "device": str(config.model.device),
         "preset": config.model.preset,

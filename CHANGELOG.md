@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-23
+
+### Added
+- `pyimgano-train --dry-run` for validating and printing effective configs without running.
+- `pyimgano-train --export-infer-config` (writes `artifacts/infer_config.json`).
+- Workbench docs and examples:
+  - `docs/WORKBENCH.md`
+  - `examples/configs/*.json`
+- Workbench reports include `seed` for better provenance.
+
+### Fixed
+- Recipe metadata `callable` paths now point at the actual registered callable (functions included).
+
 ## [0.6.2] - 2026-02-23
 
 ### Added

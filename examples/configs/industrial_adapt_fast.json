@@ -1,0 +1,23 @@
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-fast",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}
+

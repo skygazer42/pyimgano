@@ -1,0 +1,41 @@
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-balanced",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "adaptation": {
+    "save_maps": true,
+    "tiling": {
+      "tile_size": 512,
+      "stride": 384,
+      "score_reduce": "max",
+      "score_topk": 0.1,
+      "map_reduce": "hann"
+    },
+    "postprocess": {
+      "normalize": true,
+      "normalize_method": "percentile",
+      "percentile_range": [1.0, 99.0],
+      "gaussian_sigma": 1.0,
+      "morph_open_ksize": 3,
+      "morph_close_ksize": 3
+    }
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}
+

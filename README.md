@@ -133,6 +133,15 @@ pip install pyimgano[all]
 - PyOD >= 1.1.0
 - scikit-learn >= 0.22.0
 
+### Weights & Cache Policy
+
+- `pyimgano` does **not** ship model weights inside the wheel.
+- When models download weights (torchvision / OpenCLIP / HuggingFace), weights are cached on disk by upstream libraries.
+- Common cache env vars you may want to set on servers/containers:
+  - `TORCH_HOME`
+  - `HF_HOME` / `TRANSFORMERS_CACHE`
+  - `XDG_CACHE_HOME`
+
 ---
 
 ## 🚀 Quick Start
@@ -253,6 +262,7 @@ anomaly_map = detector.get_anomaly_map('test_image.jpg')
 Docs:
 - CLI flags: `docs/CLI_REFERENCE.md`
 - Workbench recipes (`pyimgano-train`) + config format: `docs/RECIPES.md`
+- Workbench quickstart (train → infer): `docs/WORKBENCH.md`
 - Benchmarking + report schema: `docs/EVALUATION_AND_BENCHMARK.md`
 - Robustness / drift corruptions: `docs/ROBUSTNESS_BENCHMARK.md`
 - Numpy-first inference + tiling: `docs/INDUSTRIAL_INFERENCE.md`

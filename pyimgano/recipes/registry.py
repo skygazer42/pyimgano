@@ -63,11 +63,19 @@ class RecipeRegistry:
 
     def recipe_info(self, name: str) -> Dict[str, Any]:
         entry = self.info(name)
+        recipe_obj = entry.recipe
+        callable_path = None
+        module = getattr(recipe_obj, "__module__", None)
+        qualname = getattr(recipe_obj, "__qualname__", None)
+        if module and qualname:
+            callable_path = f"{module}.{qualname}"
+        else:
+            callable_path = f"{type(recipe_obj).__module__}.{type(recipe_obj).__qualname__}"
         return {
             "name": entry.name,
             "tags": list(entry.tags),
             "metadata": dict(entry.metadata),
-            "callable": f"{type(entry.recipe).__module__}.{type(entry.recipe).__qualname__}",
+            "callable": callable_path,
         }
 
 
@@ -100,4 +108,3 @@ def list_recipes(*, tags: Optional[Iterable[str]] = None) -> List[str]:
 
 def recipe_info(name: str) -> Dict[str, Any]:
     return RECIPE_REGISTRY.recipe_info(name)
-

@@ -201,3 +201,11 @@ Best-effort behavior:
 
 For models that download weights (e.g. torchvision / OpenCLIP), weights are
 cached on disk by their upstream libraries (commonly under `~/.cache`).
+
+Notes:
+
+- Workbench run artifacts (`runs/.../`) are intended to stay lightweight (reports, JSONL, `.npy` maps, and small checkpoints).
+- To relocate caches on servers/containers, set environment variables such as:
+  - `TORCH_HOME`
+  - `HF_HOME` / `TRANSFORMERS_CACHE`
+  - `XDG_CACHE_HOME`

@@ -1,0 +1,28 @@
+{
+  "recipe": "micro-finetune-autoencoder",
+  "seed": 123,
+  "dataset": {
+    "name": "custom",
+    "root": "/path/to/custom_dataset",
+    "category": "custom",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_ae",
+    "device": "cuda",
+    "pretrained": false,
+    "contamination": 0.1
+  },
+  "training": {
+    "enabled": true,
+    "epochs": 10,
+    "lr": 0.001,
+    "checkpoint_name": "model.pt"
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": false
+  }
+}
+

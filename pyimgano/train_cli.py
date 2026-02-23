@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from pyimgano.config import load_config
 from pyimgano.recipes.registry import list_recipes, recipe_info
+from pyimgano.reporting.report import save_run_report
 from pyimgano.workbench.config import WorkbenchConfig
 
 
@@ -22,6 +24,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="When used with --list-recipes/--recipe-info, output JSON instead of text",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and print the effective config JSON without running the recipe",
+    )
+    parser.add_argument(
+        "--export-infer-config",
+        action="store_true",
+        help="Write artifacts/infer_config.json to the run directory (requires output.save_run=true)",
     )
 
     # Optional overrides (applied after loading --config).
@@ -104,7 +116,26 @@ def main(argv: list[str] | None = None) -> int:
         from pyimgano.recipes.registry import RECIPE_REGISTRY
 
         recipe = RECIPE_REGISTRY.get(cfg.recipe)
+        if bool(args.dry_run):
+            # Emit the canonical config payload shape used by workbench artifacts.
+            print(json.dumps({"config": asdict(cfg)}, sort_keys=True))
+            return 0
         report = recipe(cfg)
+
+        if bool(args.export_infer_config):
+            if not bool(cfg.output.save_run):
+                raise ValueError("--export-infer-config requires output.save_run=true.")
+            run_dir_raw = report.get("run_dir", None)
+            if run_dir_raw is None:
+                raise ValueError("--export-infer-config requires recipe output to include run_dir.")
+            run_dir = Path(str(run_dir_raw))
+            infer_config_path = run_dir / "artifacts" / "infer_config.json"
+
+            from pyimgano.workbench.runner import build_infer_config_payload
+
+            payload = build_infer_config_payload(config=cfg, report=report)
+            save_run_report(infer_config_path, payload)
+
         print(json.dumps(report, sort_keys=True))
         return 0
 
@@ -117,4 +148,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
