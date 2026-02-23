@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-23
+
+### Added
+- Workbench config loader: `pyimgano.config.load_config` (JSON by default; YAML optional with `PyYAML`).
+- Workbench config normalization: `pyimgano.workbench.WorkbenchConfig`.
+- Recipe registry: `pyimgano.recipes` (`register_recipe`, `list_recipes`, `recipe_info`).
+- Builtin workbench recipe: `industrial-adapt`.
+- New CLI: `pyimgano-train` (recipe discovery + config-driven execution).
+- Workbench run artifact helpers: `build_workbench_run_dir_name` and `build_workbench_run_paths`.
+
 ## [0.5.8] - 2026-02-23
 
 ### Added
