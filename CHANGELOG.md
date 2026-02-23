@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-02-23
+
+### Added
+- Benchmark reproducibility: `pyimgano-benchmark --seed` (best-effort) and persisted in `config.json`.
+- Classical detector serialization helpers: `pyimgano.serialization.save_detector/load_detector` (pickle; restricted safe set).
+- Benchmark pipeline options:
+  - `pyimgano-benchmark --save-detector [PATH|auto]`
+  - `pyimgano-benchmark --load-detector PATH` (skip fit)
+- sklearn integration:
+  - `pyimgano.sklearn_adapter.RegistryModelEstimator`
+  - `docs/SKLEARN_INTEGRATION.md`
+- Contract tests for detector API consistency (`tests/contracts/test_detector_contract.py`).
+- Benchmark docs now describe run directory collision policy.
+
 ## [0.5.6] - 2026-02-23
 
 ### Added
