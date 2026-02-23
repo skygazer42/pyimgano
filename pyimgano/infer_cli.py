@@ -126,18 +126,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         # Import implementations for side effects (registry population).
         import pyimgano.models  # noqa: F401
-        from pyimgano.cli import (
-            _build_model_kwargs,
-            _merge_checkpoint_path,
-            _parse_model_kwargs,
-            _resolve_preset_kwargs,
-        )
+        from pyimgano.cli import _resolve_preset_kwargs
+        from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
 
-        user_kwargs = _parse_model_kwargs(args.model_kwargs)
-        user_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
+        user_kwargs = parse_model_kwargs(args.model_kwargs)
+        user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
         preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
 
-        model_kwargs = _build_model_kwargs(
+        model_kwargs = build_model_kwargs(
             args.model,
             user_kwargs=user_kwargs,
             preset_kwargs=preset_kwargs,
