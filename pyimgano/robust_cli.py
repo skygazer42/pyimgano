@@ -10,6 +10,7 @@ from typing import Any, Callable, Optional, Sequence
 import numpy as np
 from numpy.typing import NDArray
 
+from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
 from pyimgano.models.registry import MODEL_REGISTRY, create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 from pyimgano.reporting.report import save_run_report
@@ -213,23 +214,11 @@ def _apply_resize_to_masks(masks: Optional[NDArray], *, resize: tuple[int, int])
 
 
 def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
-    if text is None:
-        return {}
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"--model-kwargs must be valid JSON. Original error: {exc}") from exc
-    if not isinstance(parsed, dict):
-        raise ValueError("--model-kwargs must be a JSON object (e.g. '{\"k\": 1}').")
-    return dict(parsed)
+    return parse_model_kwargs(text)
 
 
 def _merge_checkpoint_path(user_kwargs: dict[str, Any], *, checkpoint_path: str | None) -> dict[str, Any]:
-    if checkpoint_path is None:
-        return dict(user_kwargs)
-    merged = dict(user_kwargs)
-    merged.setdefault("checkpoint_path", str(checkpoint_path))
-    return merged
+    return merge_checkpoint_path(user_kwargs, checkpoint_path=checkpoint_path)
 
 
 def _resolve_preset_kwargs(preset: str | None, model: str) -> dict[str, Any]:
@@ -247,10 +236,11 @@ def _build_model_kwargs(
     preset_kwargs: dict[str, Any],
     auto_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
-    from pyimgano.cli import _build_model_kwargs as _build  # lazy import
-
-    return dict(
-        _build(model, user_kwargs=user_kwargs, preset_kwargs=preset_kwargs, auto_kwargs=auto_kwargs)
+    return build_model_kwargs(
+        model,
+        user_kwargs=user_kwargs,
+        preset_kwargs=preset_kwargs,
+        auto_kwargs=auto_kwargs,
     )
 
 
