@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.exceptions import NotFittedError
 
 
 class RegistryModelEstimator(BaseEstimator):
@@ -55,7 +56,7 @@ class RegistryModelEstimator(BaseEstimator):
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn signature
         detector = getattr(self, "detector_", None)
         if detector is None:
-            raise AttributeError("Estimator is not fitted. Call fit() before decision_function().")
+            raise NotFittedError("Estimator is not fitted. Call fit() before decision_function().")
         scores = detector.decision_function(X)
         arr = np.asarray(scores)
         if arr.ndim != 1:
@@ -65,7 +66,7 @@ class RegistryModelEstimator(BaseEstimator):
     def predict(self, X):  # noqa: ANN001, ANN201 - sklearn signature
         detector = getattr(self, "detector_", None)
         if detector is None:
-            raise AttributeError("Estimator is not fitted. Call fit() before predict().")
+            raise NotFittedError("Estimator is not fitted. Call fit() before predict().")
 
         if hasattr(detector, "predict"):
             preds = detector.predict(X)
@@ -87,4 +88,3 @@ class RegistryModelEstimator(BaseEstimator):
             )
         scores = self.decision_function(X)
         return (scores >= float(threshold)).astype(int)
-

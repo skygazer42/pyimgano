@@ -31,3 +31,15 @@ def test_sklearn_adapter_fit_score_predict(tmp_path) -> None:
     assert isinstance(preds, np.ndarray)
     assert preds.shape == (2,)
     assert set(np.unique(preds)).issubset({0, 1})
+
+
+def test_sklearn_adapter_supports_clone() -> None:
+    from sklearn.base import clone
+
+    from pyimgano.sklearn_adapter import RegistryModelEstimator
+
+    est = RegistryModelEstimator(model="vision_ecod", contamination=0.1)
+    cloned = clone(est)
+    assert isinstance(cloned, RegistryModelEstimator)
+    assert cloned.get_params()["model"] == "vision_ecod"
+    assert float(cloned.get_params()["contamination"]) == 0.1
