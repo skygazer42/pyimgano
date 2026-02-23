@@ -30,6 +30,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Resize images/masks during dataset loading. Default: 256 256",
     )
     parser.add_argument(
+        "--input-mode",
+        default="paths",
+        choices=["paths", "numpy"],
+        help=(
+            "How to provide inputs to detectors. "
+            "paths=pass file paths to detectors; numpy=decode images into memory first. "
+            "Default: paths"
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         default=None,
         help=(
@@ -764,6 +774,8 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--pixel-segf1 requires --pixel.")
 
         if bool(args.pixel):
+            if str(args.input_mode) != "paths":
+                raise ValueError("--input-mode currently supports only 'paths' when using --pixel.")
             if str(category).lower() == "all":
                 raise ValueError("--category all is not yet supported with --pixel.")
 
@@ -793,6 +805,7 @@ def main(argv: list[str] | None = None) -> int:
                 "category": category,
                 "model": str(args.model),
                 "preset": (str(args.preset) if args.preset is not None else None),
+                "input_mode": str(args.input_mode),
                 "device": str(args.device),
                 "resize": list(resize),
                 "results": results,
@@ -805,6 +818,7 @@ def main(argv: list[str] | None = None) -> int:
                 root=str(args.root),
                 category=str(category),
                 model=str(args.model),
+                input_mode=str(args.input_mode),
                 device=str(args.device),
                 preset=(str(args.preset) if args.preset is not None else None),
                 pretrained=bool(args.pretrained),
