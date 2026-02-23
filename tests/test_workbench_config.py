@@ -65,3 +65,32 @@ def test_workbench_config_invalid_resize_raises():
     with pytest.raises(ValueError):
         WorkbenchConfig.from_dict(raw)
 
+
+def test_workbench_config_manifest_requires_manifest_path():
+    raw = {
+        "dataset": {"name": "manifest", "root": "/tmp/data"},
+        "model": {"name": "vision_patchcore"},
+    }
+    with pytest.raises(ValueError, match=r"dataset\.manifest_path is required"):
+        WorkbenchConfig.from_dict(raw)
+
+
+def test_workbench_config_manifest_parses_split_policy_defaults():
+    raw = {
+        "seed": 7,
+        "dataset": {
+            "name": "manifest",
+            "root": "/tmp/data",
+            "manifest_path": "/tmp/manifest.jsonl",
+            "split_policy": {"test_normal_fraction": 0.3},
+        },
+        "model": {"name": "vision_patchcore"},
+    }
+    cfg = WorkbenchConfig.from_dict(raw)
+    assert cfg.seed == 7
+    assert cfg.dataset.name == "manifest"
+    assert cfg.dataset.manifest_path == "/tmp/manifest.jsonl"
+    assert cfg.dataset.split_policy.seed == 7
+    assert cfg.dataset.split_policy.mode == "benchmark"
+    assert cfg.dataset.split_policy.scope == "category"
+    assert cfg.dataset.split_policy.test_normal_fraction == 0.3

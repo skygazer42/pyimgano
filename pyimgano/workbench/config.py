@@ -83,14 +83,26 @@ def _parse_checkpoint_name(value: Any, *, default: str = "model.pt") -> str:
 
 
 @dataclass(frozen=True)
+class SplitPolicyConfig:
+    """Controls auto-splitting for datasets that support it (e.g. manifest JSONL)."""
+
+    mode: str = "benchmark"
+    scope: str = "category"
+    seed: int | None = None
+    test_normal_fraction: float = 0.2
+
+
+@dataclass(frozen=True)
 class DatasetConfig:
     name: str
     root: str
+    manifest_path: str | None = None
     category: str = "all"
     resize: tuple[int, int] = (256, 256)
     input_mode: str = "paths"
     limit_train: int | None = None
     limit_test: int | None = None
+    split_policy: SplitPolicyConfig = field(default_factory=SplitPolicyConfig)
 
 
 @dataclass(frozen=True)
@@ -144,15 +156,44 @@ class WorkbenchConfig:
         if ds_root is None:
             raise ValueError("dataset.root is required")
 
+        ds_manifest_path = (
+            str(ds_raw["manifest_path"]).strip()
+            if ds_raw.get("manifest_path", None) is not None
+            else None
+        )
+        if ds_manifest_path is not None and not ds_manifest_path:
+            ds_manifest_path = None
+
+        split_raw = ds_raw.get("split_policy", None)
+        if split_raw is None:
+            split_policy = SplitPolicyConfig(seed=seed)
+        else:
+            sp_map = _require_mapping(split_raw, name="dataset.split_policy")
+            sp_seed = _optional_int(sp_map.get("seed", seed), name="dataset.split_policy.seed")
+            tnf = _optional_float(
+                sp_map.get("test_normal_fraction", 0.2),
+                name="dataset.split_policy.test_normal_fraction",
+            )
+            split_policy = SplitPolicyConfig(
+                mode=str(sp_map.get("mode", "benchmark")),
+                scope=str(sp_map.get("scope", "category")),
+                seed=sp_seed,
+                test_normal_fraction=float(tnf if tnf is not None else 0.2),
+            )
+
         dataset = DatasetConfig(
             name=str(ds_name),
             root=str(ds_root),
+            manifest_path=ds_manifest_path,
             category=str(ds_raw.get("category", "all")),
             resize=_parse_resize(ds_raw.get("resize", None), default=(256, 256)),
             input_mode=str(ds_raw.get("input_mode", "paths")),
             limit_train=_optional_int(ds_raw.get("limit_train", None), name="dataset.limit_train"),
             limit_test=_optional_int(ds_raw.get("limit_test", None), name="dataset.limit_test"),
+            split_policy=split_policy,
         )
+        if str(dataset.name).lower() == "manifest" and dataset.manifest_path is None:
+            raise ValueError("dataset.manifest_path is required when dataset.name='manifest'")
 
         model_raw = _require_mapping(top.get("model", {}), name="model")
         model_name = model_raw.get("name", None)
