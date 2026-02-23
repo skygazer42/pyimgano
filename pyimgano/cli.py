@@ -70,6 +70,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional limit for number of test images (debug/smoke).",
     )
     parser.add_argument(
+        "--list-categories",
+        action="store_true",
+        help="List dataset categories for --dataset/--root and exit",
+    )
+    parser.add_argument(
         "--list-models",
         action="store_true",
         help="List available model names and exit (default output: text, one per line)",
@@ -604,8 +609,15 @@ def main(argv: list[str] | None = None) -> int:
 
         tags_raw = getattr(args, "tags", None)
 
-        if bool(args.list_models) and args.model_info is not None:
-            raise ValueError("--list-models and --model-info are mutually exclusive.")
+        discovery_flags = [
+            bool(args.list_models),
+            args.model_info is not None,
+            bool(args.list_categories),
+        ]
+        if sum(1 for f in discovery_flags if f) > 1:
+            raise ValueError(
+                "--list-models, --model-info, and --list-categories are mutually exclusive."
+            )
 
         if bool(args.list_models):
             tags: list[str] = []
@@ -622,6 +634,31 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 for name in names:
                     print(name)
+            return 0
+
+        if bool(args.list_categories):
+            missing: list[str] = []
+            if args.dataset is None:
+                missing.append("--dataset")
+            if args.root is None:
+                missing.append("--root")
+            if missing:
+                raise ValueError(
+                    "Missing required arguments for --list-categories: "
+                    f"{', '.join(missing)}."
+                )
+
+            from pyimgano.pipelines.run_benchmark import list_dataset_categories
+
+            categories = list_dataset_categories(
+                dataset=str(args.dataset),
+                root=str(args.root),
+            )
+            if bool(args.json):
+                print(json.dumps(categories, indent=2))
+            else:
+                for cat in categories:
+                    print(cat)
             return 0
 
         if args.model_info is not None:
