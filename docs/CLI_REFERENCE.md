@@ -92,6 +92,8 @@ pyimgano-infer \
 Optional:
 
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
+- `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
+  - If the run contains multiple categories, pass `--from-run-category NAME`.
 
 ---
 
@@ -137,6 +139,11 @@ Flags override the config (useful for quick experiments):
 
 - `--dataset NAME` / `--root PATH` / `--category CAT`
 - `--model MODEL_NAME` / `--device cpu|cuda`
+
+### Notes
+
+- Training-enabled workbench runs persist checkpoints under `checkpoints/<category>/...` when supported.
+- For reusing a run in deploy-style inference, see `pyimgano-infer --from-run` and `docs/RECIPES.md`.
 
 ---
 

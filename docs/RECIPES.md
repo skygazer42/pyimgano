@@ -48,6 +48,14 @@ It runs a standardized loop:
 - optional anomaly-map postprocess (normalize / blur / morphology)
 - evaluate metrics and write artifacts
 
+### `micro-finetune-autoencoder`
+
+Micro-finetune recipe intended for small autoencoder-style models. It writes a
+checkpoint under `checkpoints/` and produces a workbench-style run report.
+
+For end-to-end “train + eval” runs, you can also enable the `training` section
+inside `industrial-adapt`.
+
 ---
 
 ## Config format
@@ -120,6 +128,26 @@ Notes:
 - `adaptation.tiling.tile_size` enables tiled inference for high-resolution images.
 - `adaptation.postprocess` is applied to anomaly maps (when extracted).
 
+### Training knobs (micro-finetune + checkpoints)
+
+Enable micro-finetune (best-effort) and persist a checkpoint:
+
+```json
+{
+  "training": {
+    "enabled": true,
+    "epochs": 5,
+    "lr": 0.001,
+    "checkpoint_name": "model.pt"
+  }
+}
+```
+
+Notes:
+
+- Checkpoints are written under `checkpoints/<category>/<checkpoint_name>`.
+- `epochs` / `lr` are passed to `detector.fit(...)` when the model supports them.
+
 ---
 
 ## Artifact layout
@@ -145,10 +173,31 @@ All `report.json` payloads include:
 
 ---
 
+## Inference from a workbench run
+
+`pyimgano-infer` can reuse a workbench run directory:
+
+```bash
+pyimgano-infer --from-run runs/my_run --input /path/to/images --save-jsonl out.jsonl
+```
+
+If the run contains multiple categories, pass:
+
+```bash
+pyimgano-infer --from-run runs/my_run --from-run-category bottle --input /path/to/images
+```
+
+Best-effort behavior:
+
+- loads model settings from `config.json`
+- loads a checkpoint when present in `report.json` (when the detector supports it)
+- sets `detector.threshold_` from `report.json` when available
+
+---
+
 ## Model weights policy
 
 `pyimgano` does **not** ship model weights inside the wheel.
 
 For models that download weights (e.g. torchvision / OpenCLIP), weights are
 cached on disk by their upstream libraries (commonly under `~/.cache`).
-

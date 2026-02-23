@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-23
+
+### Added
+- Training utilities: `pyimgano.training.save_checkpoint` and `pyimgano.training.micro_finetune`.
+- Workbench training config (`training.*`) and checkpoint artifacts under `checkpoints/<category>/...`.
+- Builtin micro-finetune recipe: `micro-finetune-autoencoder`.
+- `pyimgano-infer --from-run` for loading model/threshold/checkpoint from a workbench run directory.
+- Optional anomalib recipe skeleton: `anomalib-train` (requires `pyimgano[anomalib]`).
+
 ## [0.6.1] - 2026-02-23
 
 ### Added

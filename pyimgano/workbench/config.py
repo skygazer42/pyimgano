@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping
 
 from pyimgano.workbench.adaptation import AdaptationConfig, MapPostprocessConfig, TilingConfig
@@ -65,6 +66,22 @@ def _parse_percentile_range(
     return (low, high)
 
 
+def _parse_checkpoint_name(value: Any, *, default: str = "model.pt") -> str:
+    if value is None:
+        return str(default)
+    name = str(value).strip()
+    if not name:
+        raise ValueError("training.checkpoint_name must be a non-empty filename")
+    if name in (".", ".."):
+        raise ValueError("training.checkpoint_name must be a filename, got '.'/'..'")
+    if "/" in name or "\\" in name:
+        raise ValueError("training.checkpoint_name must be a filename, not a path")
+    p = Path(name)
+    if p.is_absolute() or p.name != name:
+        raise ValueError("training.checkpoint_name must be a filename, not a path")
+    return name
+
+
 @dataclass(frozen=True)
 class DatasetConfig:
     name: str
@@ -95,6 +112,14 @@ class OutputConfig:
 
 
 @dataclass(frozen=True)
+class TrainingConfig:
+    enabled: bool = False
+    epochs: int | None = None
+    lr: float | None = None
+    checkpoint_name: str = "model.pt"
+
+
+@dataclass(frozen=True)
 class WorkbenchConfig:
     dataset: DatasetConfig
     model: ModelConfig
@@ -102,6 +127,7 @@ class WorkbenchConfig:
     seed: int | None = None
     output: OutputConfig = field(default_factory=OutputConfig)
     adaptation: AdaptationConfig = field(default_factory=AdaptationConfig)
+    training: TrainingConfig = field(default_factory=TrainingConfig)
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "WorkbenchConfig":
@@ -243,6 +269,24 @@ class WorkbenchConfig:
                 save_maps=bool(a_map.get("save_maps", False)),
             )
 
+        training_raw = top.get("training", None)
+        if training_raw is None:
+            training = TrainingConfig()
+        else:
+            t_map = _require_mapping(training_raw, name="training")
+            epochs = _optional_int(t_map.get("epochs", None), name="training.epochs")
+            if epochs is not None and epochs <= 0:
+                raise ValueError("training.epochs must be positive or null")
+            lr = _optional_float(t_map.get("lr", None), name="training.lr")
+            if lr is not None and lr <= 0:
+                raise ValueError("training.lr must be positive or null")
+            training = TrainingConfig(
+                enabled=bool(t_map.get("enabled", False)),
+                epochs=epochs,
+                lr=lr,
+                checkpoint_name=_parse_checkpoint_name(t_map.get("checkpoint_name", None)),
+            )
+
         return cls(
             dataset=dataset,
             model=model,
@@ -250,4 +294,5 @@ class WorkbenchConfig:
             seed=seed,
             output=output,
             adaptation=adaptation,
+            training=training,
         )

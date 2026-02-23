@@ -157,7 +157,37 @@ def _run_category(
     detector = _create_detector(config)
     detector = apply_tiling(detector, config.adaptation.tiling)
 
-    detector.fit(train_inputs)
+    training_report = None
+    checkpoint_meta = None
+    if bool(getattr(config, "training", None) and config.training.enabled):
+        from pyimgano.training.checkpointing import save_checkpoint
+        from pyimgano.training.runner import micro_finetune
+
+        fit_kwargs: dict[str, Any] = {}
+        if config.training.epochs is not None:
+            fit_kwargs["epochs"] = int(config.training.epochs)
+        if config.training.lr is not None:
+            fit_kwargs["lr"] = float(config.training.lr)
+
+        training_report = micro_finetune(
+            detector,
+            train_inputs,
+            seed=config.seed,
+            fit_kwargs=fit_kwargs,
+        )
+
+        if run_dir is not None and bool(config.output.save_run):
+            cat_ckpt_dir = build_workbench_run_paths(run_dir).checkpoints_dir / str(category)
+            cat_ckpt_dir.mkdir(parents=True, exist_ok=True)
+            ckpt_path = cat_ckpt_dir / str(config.training.checkpoint_name)
+            saved = save_checkpoint(detector, ckpt_path)
+            try:
+                rel = saved.relative_to(run_dir)
+                checkpoint_meta = {"path": str(rel)}
+            except Exception:
+                checkpoint_meta = {"path": str(saved)}
+    else:
+        detector.fit(train_inputs)
     threshold = calibrate_detector_threshold(detector, train_inputs, input_format=input_format)
 
     postprocess = build_postprocess(config.adaptation.postprocess)
@@ -202,6 +232,10 @@ def _run_category(
         "threshold": threshold_used,
         "results": eval_results,
     }
+    if training_report is not None:
+        payload["training"] = training_report
+    if checkpoint_meta is not None:
+        payload["checkpoint"] = checkpoint_meta
     payload = stamp_report_payload(payload)
 
     if run_dir is not None and bool(config.output.save_run):
@@ -270,6 +304,8 @@ def run_workbench(
 ) -> dict[str, Any]:
     if bool(config.adaptation.save_maps) and not bool(config.output.save_run):
         raise ValueError("adaptation.save_maps requires output.save_run=true.")
+    if bool(config.training.enabled) and not bool(config.output.save_run):
+        raise ValueError("training.enabled requires output.save_run=true.")
 
     run_dir = None
     paths = None
@@ -363,4 +399,3 @@ def run_workbench(
         save_run_report(paths.report_json, payload)
 
     return payload
-

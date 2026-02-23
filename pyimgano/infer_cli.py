@@ -16,16 +16,27 @@ _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-infer")
-    parser.add_argument("--model", required=True, help="Registered model name")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--model", default=None, help="Registered model name")
+    source.add_argument(
+        "--from-run",
+        default=None,
+        help="Load model + threshold + (optional) checkpoint from a workbench run directory",
+    )
+    parser.add_argument(
+        "--from-run-category",
+        default=None,
+        help="When --from-run has multiple categories, select one category name",
+    )
     parser.add_argument(
         "--preset",
         default=None,
         choices=["industrial-fast", "industrial-balanced", "industrial-accurate"],
         help="Optional model preset (applied before --model-kwargs). Default: none",
     )
-    parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
-    parser.add_argument("--contamination", type=float, default=0.1)
-    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--device", default=None, help="cpu|cuda (model dependent)")
+    parser.add_argument("--contamination", type=float, default=None)
+    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument(
         "--model-kwargs",
         default=None,
@@ -129,22 +140,100 @@ def main(argv: list[str] | None = None) -> int:
         from pyimgano.cli import _resolve_preset_kwargs
         from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
 
-        user_kwargs = parse_model_kwargs(args.model_kwargs)
-        user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
-        preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
+        from_run = args.from_run is not None
+        trained_checkpoint_path = None
+        threshold_from_run = None
 
-        model_kwargs = build_model_kwargs(
-            args.model,
-            user_kwargs=user_kwargs,
-            preset_kwargs=preset_kwargs,
-            auto_kwargs={
-                "device": args.device,
-                "contamination": args.contamination,
-                "pretrained": args.pretrained,
-            },
-        )
+        if from_run:
+            from pyimgano.workbench.load_run import (
+                extract_threshold,
+                load_checkpoint_into_detector,
+                load_report_from_run,
+                load_workbench_config_from_run,
+                resolve_checkpoint_path,
+                select_category_report,
+            )
 
-        detector = create_model(args.model, **model_kwargs)
+            cfg = load_workbench_config_from_run(args.from_run)
+            report = load_report_from_run(args.from_run)
+            _cat_name, cat_report = select_category_report(
+                report,
+                category=(str(args.from_run_category) if args.from_run_category is not None else None),
+            )
+
+            threshold_from_run = extract_threshold(cat_report)
+            trained_checkpoint_path = resolve_checkpoint_path(args.from_run, cat_report)
+
+            model_name = str(cfg.model.name)
+            preset = cfg.model.preset
+            device = str(cfg.model.device)
+            contamination = float(cfg.model.contamination)
+            pretrained = bool(cfg.model.pretrained)
+
+            if args.preset is not None:
+                preset = str(args.preset)
+            if args.device is not None:
+                device = str(args.device)
+            if args.contamination is not None:
+                contamination = float(args.contamination)
+            if args.pretrained is not None:
+                pretrained = bool(args.pretrained)
+
+            base_user_kwargs = dict(cfg.model.model_kwargs)
+            if args.model_kwargs is not None:
+                base_user_kwargs.update(parse_model_kwargs(args.model_kwargs))
+
+            checkpoint_path = (
+                str(args.checkpoint_path)
+                if args.checkpoint_path is not None
+                else (str(cfg.model.checkpoint_path) if cfg.model.checkpoint_path is not None else None)
+            )
+            user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
+
+            preset_kwargs = _resolve_preset_kwargs(preset, model_name)
+            model_kwargs = build_model_kwargs(
+                model_name,
+                user_kwargs=user_kwargs,
+                preset_kwargs=preset_kwargs,
+                auto_kwargs={
+                    "device": device,
+                    "contamination": contamination,
+                    "pretrained": pretrained,
+                },
+            )
+            detector = create_model(model_name, **model_kwargs)
+
+            if trained_checkpoint_path is not None:
+                load_checkpoint_into_detector(detector, trained_checkpoint_path)
+            if threshold_from_run is not None:
+                setattr(detector, "threshold_", float(threshold_from_run))
+        else:
+            if args.model is None:
+                raise ValueError("--model is required when --from-run is not provided")
+
+            model_name = str(args.model)
+            preset_kwargs = _resolve_preset_kwargs(args.preset, model_name)
+
+            device = str(args.device) if args.device is not None else "cpu"
+            contamination = float(args.contamination) if args.contamination is not None else 0.1
+            pretrained = bool(args.pretrained) if args.pretrained is not None else True
+
+            user_kwargs = parse_model_kwargs(args.model_kwargs)
+            user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
+
+            model_kwargs = build_model_kwargs(
+                model_name,
+                user_kwargs=user_kwargs,
+                preset_kwargs=preset_kwargs,
+                auto_kwargs={
+                    "device": device,
+                    "contamination": contamination,
+                    "pretrained": pretrained,
+                },
+            )
+
+            detector = create_model(model_name, **model_kwargs)
+
         if args.tile_size is not None:
             from pyimgano.inference.tiling import TiledDetector
 
@@ -233,6 +322,12 @@ def main(argv: list[str] | None = None) -> int:
         import sys
 
         print(f"error: {exc}", file=sys.stderr)
+        from_run = getattr(args, "from_run", None)
+        if from_run:
+            print(f"context: from_run={from_run!r}", file=sys.stderr)
+            cat = getattr(args, "from_run_category", None)
+            if cat:
+                print(f"context: from_run_category={cat!r}", file=sys.stderr)
         if isinstance(exc, ImportError):
             model_name = getattr(args, "model", None)
             if model_name:
