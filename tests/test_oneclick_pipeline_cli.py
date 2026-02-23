@@ -85,6 +85,40 @@ def test_cli_oneclick_custom_dataset_writes_run_artifacts(tmp_path, capsys):
     assert "\"dataset\"" in stdout
 
 
+def test_cli_oneclick_custom_dataset_validates_structure(tmp_path, capsys):
+    from pyimgano.cli import main
+
+    root = tmp_path / "custom_ds"
+    _write_png(root / "train" / "normal" / "train_0.png", value=120)
+    _write_png(root / "test" / "normal" / "good_0.png", value=120)
+    # Missing: test/anomaly/
+
+    out_dir = tmp_path / "run_out"
+    code = main(
+        [
+            "--dataset",
+            "custom",
+            "--root",
+            str(root),
+            "--model",
+            "vision_ecod",
+            "--device",
+            "cpu",
+            "--no-pretrained",
+            "--limit-train",
+            "1",
+            "--limit-test",
+            "2",
+            "--output-dir",
+            str(out_dir),
+        ]
+    )
+    assert code != 0
+
+    err = capsys.readouterr().err.lower()
+    assert "invalid custom dataset structure" in err
+
+
 def test_cli_oneclick_category_all_writes_aggregated_report(tmp_path):
     from pyimgano.cli import main
 

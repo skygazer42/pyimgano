@@ -708,6 +708,15 @@ def main(argv: list[str] | None = None) -> int:
         category = str(args.category) if args.category is not None else "custom"
         resize = (int(args.resize[0]), int(args.resize[1]))
 
+        if dataset.lower() == "custom":
+            from pyimgano.utils.datasets import CustomDataset
+
+            CustomDataset(
+                root=str(args.root),
+                resize=resize,
+                load_masks=bool(args.pixel),
+            ).validate_structure()
+
         user_kwargs = _parse_model_kwargs(args.model_kwargs)
         merged_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
