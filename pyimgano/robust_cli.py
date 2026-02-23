@@ -441,6 +441,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI surface error
         print(f"error: {exc}", file=sys.stderr)
+        if isinstance(exc, ImportError):
+            model_name = getattr(args, "model", None)
+            if model_name:
+                print(f"context: model={model_name!r}", file=sys.stderr)
         return 1
 
 
