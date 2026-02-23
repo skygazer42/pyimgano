@@ -162,6 +162,20 @@ def run_benchmark_category(
 ) -> dict[str, Any]:
     """Run a single category benchmark and optionally write artifacts."""
 
+    import time
+
+    total_start = time.perf_counter()
+    timing: dict[str, float] = {
+        "load_data_s": 0.0,
+        "create_model_s": 0.0,
+        "load_detector_s": 0.0,
+        "fit_s": 0.0,
+        "score_test_s": 0.0,
+        "calibrate_s": 0.0,
+        "evaluate_s": 0.0,
+        "total_s": 0.0,
+    }
+
     if config.seed is not None:
         _seed_everything(int(config.seed))
 
@@ -183,6 +197,7 @@ def run_benchmark_category(
 
             save_run_report(paths.run_dir / "environment.json", collect_environment())
 
+    load_start = time.perf_counter()
     if config.input_mode == "paths":
         split = load_benchmark_split(
             dataset=config.dataset,  # type: ignore[arg-type]
@@ -216,6 +231,7 @@ def run_benchmark_category(
         raise ValueError(
             f"Unknown input_mode: {config.input_mode!r}. Choose from: paths, numpy."
         )
+    timing["load_data_s"] = float(time.perf_counter() - load_start)
 
     if config.limit_train is not None:
         train_inputs = train_inputs[: int(config.limit_train)]
@@ -236,10 +252,13 @@ def run_benchmark_category(
         auto_defaults["random_state"] = int(config.seed)
 
     if load_detector_requested:
+        load_detector_start = time.perf_counter()
         from pyimgano.serialization import load_detector
 
         detector = load_detector(str(config.load_detector_path))
+        timing["load_detector_s"] = float(time.perf_counter() - load_detector_start)
     else:
+        create_model_start = time.perf_counter()
         detector = create_model(
             config.model,
             **_merge_and_filter_model_kwargs(
@@ -248,9 +267,12 @@ def run_benchmark_category(
                 auto_defaults=auto_defaults,
             ),
         )
+        timing["create_model_s"] = float(time.perf_counter() - create_model_start)
 
         # Fit and score.
+        fit_start = time.perf_counter()
         detector.fit(train_inputs)
+        timing["fit_s"] = float(time.perf_counter() - fit_start)
 
     if save_detector_requested:
         from pyimgano.serialization import save_detector
@@ -268,15 +290,20 @@ def run_benchmark_category(
         if hasattr(detector, "set_feature_cache"):
             detector.set_feature_cache(config.cache_dir)
 
+    score_start = time.perf_counter()
     scores = np.asarray(detector.decision_function(test_inputs), dtype=np.float64)
+    timing["score_test_s"] = float(time.perf_counter() - score_start)
 
+    calibrate_start = time.perf_counter()
     calibrated_threshold = _calibrate_score_threshold(
         detector,
         train_inputs,
         strategy=config.score_threshold_strategy,
         calibration_quantile=config.calibration_quantile,
     )
+    timing["calibrate_s"] = float(time.perf_counter() - calibrate_start)
 
+    eval_start = time.perf_counter()
     if calibrated_threshold is None:
         results = evaluate_detector(
             test_labels,
@@ -295,12 +322,15 @@ def run_benchmark_category(
             pixel_labels=test_masks,
             pixel_scores=None,
         )
+    timing["evaluate_s"] = float(time.perf_counter() - eval_start)
 
     threshold_used = float(results["threshold"])
 
     # Optional: compute pixel metrics using the existing helper.
     # We call into `evaluate_split` to preserve alignment / resizing behavior.
     # It will re-fit the detector, but only when pixel metrics are requested in CLI.
+    timing["total_s"] = float(time.perf_counter() - total_start)
+
     payload: dict[str, Any] = {
         "dataset": config.dataset,
         "category": config.category,
@@ -314,6 +344,7 @@ def run_benchmark_category(
         "threshold": threshold_used,
         "calibrated_threshold": calibrated_threshold,
         "results": results,
+        "timing": dict(timing),
     }
     if load_detector_requested:
         payload["loaded_detector_path"] = str(config.load_detector_path)
