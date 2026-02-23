@@ -28,6 +28,30 @@ def build_run_dir_name(*, dataset: str, model: str, category: str | None = None)
     return "_".join(parts)
 
 
+def build_workbench_run_dir_name(
+    *,
+    dataset: str,
+    recipe: str,
+    model: str,
+    category: str | None = None,
+) -> str:
+    """Build a stable workbench run directory name.
+
+    Format: YYYYMMDD_HHMMSS_<dataset>_<recipe>_<model>[_<category>]
+    """
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    parts = [
+        ts,
+        _sanitize_component(dataset),
+        _sanitize_component(recipe),
+        _sanitize_component(model),
+    ]
+    if category is not None:
+        parts.append(_sanitize_component(category))
+    return "_".join(parts)
+
+
 def ensure_run_dir(*, output_dir: str | Path | None, name: str) -> Path:
     """Create and return the run directory under `runs/` unless overridden."""
 
@@ -63,4 +87,27 @@ def build_run_paths(run_dir: Path) -> RunPaths:
         report_json=run_dir / "report.json",
         config_json=run_dir / "config.json",
         categories_dir=run_dir / "categories",
+    )
+
+
+@dataclass(frozen=True)
+class WorkbenchRunPaths:
+    run_dir: Path
+    report_json: Path
+    config_json: Path
+    environment_json: Path
+    categories_dir: Path
+    checkpoints_dir: Path
+    artifacts_dir: Path
+
+
+def build_workbench_run_paths(run_dir: Path) -> WorkbenchRunPaths:
+    return WorkbenchRunPaths(
+        run_dir=run_dir,
+        report_json=run_dir / "report.json",
+        config_json=run_dir / "config.json",
+        environment_json=run_dir / "environment.json",
+        categories_dir=run_dir / "categories",
+        checkpoints_dir=run_dir / "checkpoints",
+        artifacts_dir=run_dir / "artifacts",
     )
