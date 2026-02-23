@@ -24,25 +24,67 @@ from pyimgano.workbench.maps import save_anomaly_map_npy
 
 def _load_split_paths(
     *,
-    dataset: str,
-    root: str,
+    config: WorkbenchConfig,
     category: str,
-    resize: tuple[int, int],
-) -> tuple[list[str], list[str], np.ndarray, np.ndarray | None]:
+    load_masks: bool,
+) -> tuple[list[str], list[str], list[str], np.ndarray, np.ndarray | None, str | None]:
     from pyimgano.pipelines.mvtec_visa import load_benchmark_split
+
+    dataset = str(config.dataset.name)
+    if dataset.lower() == "manifest":
+        if config.dataset.input_mode != "paths":
+            raise ValueError("dataset.name='manifest' currently supports only dataset.input_mode='paths'.")
+        if config.dataset.manifest_path is None:
+            raise ValueError("dataset.manifest_path is required when dataset.name='manifest'.")
+
+        from pyimgano.datasets.manifest import ManifestSplitPolicy, load_manifest_benchmark_split
+
+        sp = config.dataset.split_policy
+        seed = (
+            int(sp.seed)
+            if sp.seed is not None
+            else (int(config.seed) if config.seed is not None else 0)
+        )
+        policy = ManifestSplitPolicy(
+            mode=str(sp.mode),
+            scope=str(sp.scope),
+            seed=seed,
+            test_normal_fraction=float(sp.test_normal_fraction),
+        )
+        split = load_manifest_benchmark_split(
+            manifest_path=str(config.dataset.manifest_path),
+            root_fallback=str(config.dataset.root),
+            category=str(category),
+            resize=tuple(config.dataset.resize),
+            load_masks=bool(load_masks),
+            split_policy=policy,
+        )
+        calibration = list(split.calibration_paths) if split.calibration_paths else list(split.train_paths)
+        return (
+            list(split.train_paths),
+            calibration,
+            list(split.test_paths),
+            np.asarray(split.test_labels),
+            split.test_masks,
+            split.pixel_skip_reason,
+        )
 
     split = load_benchmark_split(
         dataset=dataset,  # type: ignore[arg-type]
-        root=root,
-        category=category,
-        resize=tuple(resize),
-        load_masks=True,
+        root=str(config.dataset.root),
+        category=str(category),
+        resize=tuple(config.dataset.resize),
+        load_masks=bool(load_masks),
     )
+    train_paths = list(split.train_paths)
+    calibration_paths = list(train_paths)
     return (
-        list(split.train_paths),
+        train_paths,
+        calibration_paths,
         list(split.test_paths),
         np.asarray(split.test_labels),
         split.test_masks,
+        None,
     )
 
 
@@ -126,20 +168,25 @@ def _run_category(
     run_dir: Path | None,
 ) -> dict[str, Any]:
     if config.dataset.input_mode == "paths":
-        train_inputs, test_inputs, test_labels, test_masks = _load_split_paths(
-            dataset=str(config.dataset.name),
-            root=str(config.dataset.root),
+        train_inputs, calibration_inputs, test_inputs, test_labels, test_masks, pixel_skip_reason = _load_split_paths(
+            config=config,
             category=str(category),
-            resize=tuple(config.dataset.resize),
+            load_masks=True,
         )
         input_format = None
     elif config.dataset.input_mode == "numpy":
+        if str(config.dataset.name).lower() == "manifest":
+            raise ValueError(
+                "dataset.name='manifest' currently supports only dataset.input_mode='paths'."
+            )
         train_inputs, test_inputs, test_labels, test_masks = _load_split_numpy(
             dataset=str(config.dataset.name),
             root=str(config.dataset.root),
             category=str(category),
             resize=tuple(config.dataset.resize),
         )
+        calibration_inputs = list(train_inputs)
+        pixel_skip_reason = None
         input_format = "rgb_u8_hwc"
     else:
         raise ValueError(
@@ -148,6 +195,7 @@ def _run_category(
 
     if config.dataset.limit_train is not None:
         train_inputs = list(train_inputs)[: int(config.dataset.limit_train)]
+        calibration_inputs = list(calibration_inputs)[: int(config.dataset.limit_train)]
     if config.dataset.limit_test is not None:
         test_inputs = list(test_inputs)[: int(config.dataset.limit_test)]
         test_labels = np.asarray(test_labels)[: int(config.dataset.limit_test)]
@@ -188,7 +236,7 @@ def _run_category(
                 checkpoint_meta = {"path": str(saved)}
     else:
         detector.fit(train_inputs)
-    threshold = calibrate_detector_threshold(detector, train_inputs, input_format=input_format)
+    threshold = calibrate_detector_threshold(detector, calibration_inputs, input_format=input_format)
 
     postprocess = build_postprocess(config.adaptation.postprocess)
     include_maps = bool(config.adaptation.save_maps or (postprocess is not None))
@@ -233,6 +281,11 @@ def _run_category(
         "threshold": threshold_used,
         "results": eval_results,
     }
+    if pixel_skip_reason is not None:
+        payload["pixel_metrics_status"] = {
+            "enabled": False,
+            "reason": str(pixel_skip_reason),
+        }
     if training_report is not None:
         payload["training"] = training_report
     if checkpoint_meta is not None:
@@ -341,63 +394,21 @@ def run_workbench(
         if run_dir is not None and paths is not None:
             payload["run_dir"] = str(paths.run_dir)
             save_run_report(paths.report_json, payload)
-    return payload
 
+        return payload
 
-def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, Any]) -> dict[str, Any]:
-    """Build a minimal, JSON-friendly payload describing how to run inference.
+    # All categories: aggregate per-category runs into a single report.
+    if dataset.lower() == "manifest":
+        if config.dataset.manifest_path is None:
+            raise ValueError("dataset.manifest_path is required when dataset.name='manifest'.")
+        from pyimgano.datasets.manifest import list_manifest_categories
 
-    Intended for `pyimgano-train --export-infer-config`.
-    """
+        categories = list_manifest_categories(config.dataset.manifest_path)
+    else:
+        from pyimgano.datasets.catalog import list_dataset_categories
 
-    model_payload: dict[str, Any] = {
-        "name": str(config.model.name),
-        "preset": config.model.preset,
-        "device": str(config.model.device),
-        "pretrained": bool(config.model.pretrained),
-        "contamination": float(config.model.contamination),
-        "model_kwargs": dict(config.model.model_kwargs),
-        "checkpoint_path": (str(config.model.checkpoint_path) if config.model.checkpoint_path is not None else None),
-    }
+        categories = list_dataset_categories(dataset=dataset, root=root)
 
-    adaptation_payload: dict[str, Any] = {
-        "tiling": {
-            "tile_size": config.adaptation.tiling.tile_size,
-            "stride": config.adaptation.tiling.stride,
-            "score_reduce": config.adaptation.tiling.score_reduce,
-            "score_topk": float(config.adaptation.tiling.score_topk),
-            "map_reduce": config.adaptation.tiling.map_reduce,
-        },
-        "postprocess": (config.adaptation.postprocess.__dict__ if config.adaptation.postprocess is not None else None),
-        "save_maps": bool(config.adaptation.save_maps),
-    }
-
-    out: dict[str, Any] = {
-        "model": model_payload,
-        "adaptation": adaptation_payload,
-    }
-
-    # Prefer the report's run_dir (if present) to keep the payload portable across
-    # output_dir overrides.
-    run_dir = report.get("run_dir", None)
-    if run_dir is not None:
-        out["from_run"] = str(run_dir)
-
-    # Preserve threshold/checkpoint when present (single-category or category-selected exports).
-    if "threshold" in report:
-        out["threshold"] = report.get("threshold")
-    if "checkpoint" in report:
-        out["checkpoint"] = report.get("checkpoint")
-    if "category" in report:
-        out["category"] = report.get("category")
-    if "per_category" in report:
-        out["per_category"] = report.get("per_category")
-
-    return stamp_report_payload(out)
-
-    from pyimgano.datasets.catalog import list_dataset_categories
-
-    categories = list_dataset_categories(dataset=dataset, root=root)
     per_category: dict[str, Any] = {}
     for cat in categories:
         per_category[str(cat)] = _run_category(
@@ -453,3 +464,55 @@ def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, 
         save_run_report(paths.report_json, payload)
 
     return payload
+
+
+def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, Any]) -> dict[str, Any]:
+    """Build a minimal, JSON-friendly payload describing how to run inference.
+
+    Intended for `pyimgano-train --export-infer-config`.
+    """
+
+    model_payload: dict[str, Any] = {
+        "name": str(config.model.name),
+        "preset": config.model.preset,
+        "device": str(config.model.device),
+        "pretrained": bool(config.model.pretrained),
+        "contamination": float(config.model.contamination),
+        "model_kwargs": dict(config.model.model_kwargs),
+        "checkpoint_path": (str(config.model.checkpoint_path) if config.model.checkpoint_path is not None else None),
+    }
+
+    adaptation_payload: dict[str, Any] = {
+        "tiling": {
+            "tile_size": config.adaptation.tiling.tile_size,
+            "stride": config.adaptation.tiling.stride,
+            "score_reduce": config.adaptation.tiling.score_reduce,
+            "score_topk": float(config.adaptation.tiling.score_topk),
+            "map_reduce": config.adaptation.tiling.map_reduce,
+        },
+        "postprocess": (config.adaptation.postprocess.__dict__ if config.adaptation.postprocess is not None else None),
+        "save_maps": bool(config.adaptation.save_maps),
+    }
+
+    out: dict[str, Any] = {
+        "model": model_payload,
+        "adaptation": adaptation_payload,
+    }
+
+    # Prefer the report's run_dir (if present) to keep the payload portable across
+    # output_dir overrides.
+    run_dir = report.get("run_dir", None)
+    if run_dir is not None:
+        out["from_run"] = str(run_dir)
+
+    # Preserve threshold/checkpoint when present (single-category or category-selected exports).
+    if "threshold" in report:
+        out["threshold"] = report.get("threshold")
+    if "checkpoint" in report:
+        out["checkpoint"] = report.get("checkpoint")
+    if "category" in report:
+        out["category"] = report.get("category")
+    if "per_category" in report:
+        out["per_category"] = report.get("per_category")
+
+    return stamp_report_payload(out)
