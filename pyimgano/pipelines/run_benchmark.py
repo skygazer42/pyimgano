@@ -24,6 +24,7 @@ class RunConfig:
     category: str
     model: str
     input_mode: str = "paths"
+    seed: int | None = None
     device: str = "cpu"
     preset: str | None = None
     pretrained: bool = True
@@ -54,6 +55,25 @@ def _default_calibration_quantile(detector: Any, *, fallback: float = 0.995) -> 
     except Exception:
         pass
     return float(fallback)
+
+
+def _seed_everything(seed: int) -> None:
+    import random
+
+    random.seed(int(seed))
+    np.random.seed(int(seed))
+
+    try:
+        import torch
+    except Exception:
+        return
+
+    try:
+        torch.manual_seed(int(seed))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(int(seed))
+    except Exception:
+        return
 
 
 def _calibrate_score_threshold(
@@ -139,6 +159,9 @@ def run_benchmark_category(
 ) -> dict[str, Any]:
     """Run a single category benchmark and optionally write artifacts."""
 
+    if config.seed is not None:
+        _seed_everything(int(config.seed))
+
     if config.input_mode == "paths":
         split = load_benchmark_split(
             dataset=config.dataset,  # type: ignore[arg-type]
@@ -182,16 +205,21 @@ def run_benchmark_category(
         if test_masks is not None:
             test_masks = np.asarray(test_masks)[:limit]
 
+    auto_defaults: dict[str, Any] = {
+        "device": config.device,
+        "contamination": float(config.contamination),
+        "pretrained": bool(config.pretrained),
+    }
+    if config.seed is not None:
+        auto_defaults["random_seed"] = int(config.seed)
+        auto_defaults["random_state"] = int(config.seed)
+
     detector = create_model(
         config.model,
         **_merge_and_filter_model_kwargs(
             config.model,
             model_kwargs=dict(config.model_kwargs or {}),
-            auto_defaults={
-                "device": config.device,
-                "contamination": float(config.contamination),
-                "pretrained": bool(config.pretrained),
-            },
+            auto_defaults=auto_defaults,
         ),
     )
 
@@ -301,6 +329,7 @@ def run_benchmark(
     category: str,
     model: str,
     input_mode: str = "paths",
+    seed: int | None = None,
     device: str = "cpu",
     preset: str | None = None,
     pretrained: bool = True,
@@ -324,6 +353,7 @@ def run_benchmark(
             category=str(category),
             model=str(model),
             input_mode=str(input_mode),
+            seed=(int(seed) if seed is not None else None),
             device=str(device),
             preset=(str(preset) if preset is not None else None),
             pretrained=bool(pretrained),
@@ -361,6 +391,7 @@ def run_benchmark(
             category=str(cat),
             model=str(model),
             input_mode=str(input_mode),
+            seed=(int(seed) if seed is not None else None),
             device=str(device),
             preset=(str(preset) if preset is not None else None),
             pretrained=bool(pretrained),
@@ -439,6 +470,7 @@ def run_benchmark(
                     "category": "all",
                     "model": str(model),
                     "input_mode": str(input_mode),
+                    "seed": (int(seed) if seed is not None else None),
                     "device": str(device),
                     "preset": (str(preset) if preset is not None else None),
                     "pretrained": bool(pretrained),

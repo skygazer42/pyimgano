@@ -40,6 +40,12 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional RNG seed for reproducible runs (best-effort).",
+    )
+    parser.add_argument(
         "--output-dir",
         default=None,
         help=(
@@ -741,15 +747,20 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
+        auto_kwargs: dict[str, Any] = {
+            "device": args.device,
+            "contamination": args.contamination,
+            "pretrained": args.pretrained,
+        }
+        if args.seed is not None:
+            auto_kwargs["random_seed"] = int(args.seed)
+            auto_kwargs["random_state"] = int(args.seed)
+
         model_kwargs = _build_model_kwargs(
             args.model,
             user_kwargs=merged_kwargs,
             preset_kwargs=preset_kwargs,
-            auto_kwargs={
-                "device": args.device,
-                "contamination": args.contamination,
-                "pretrained": args.pretrained,
-            },
+            auto_kwargs=auto_kwargs,
         )
 
         postprocess = None
@@ -819,6 +830,7 @@ def main(argv: list[str] | None = None) -> int:
                 category=str(category),
                 model=str(args.model),
                 input_mode=str(args.input_mode),
+                seed=(int(args.seed) if args.seed is not None else None),
                 device=str(args.device),
                 preset=(str(args.preset) if args.preset is not None else None),
                 pretrained=bool(args.pretrained),
