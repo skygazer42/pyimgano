@@ -67,6 +67,12 @@ class ModelRegistry:
             raise KeyError(f"Model {name!r} not found in registry")
         return self._registry[name]
 
+    def model_info(self, name: str) -> Dict[str, Any]:
+        from pyimgano.models.introspection import model_entry_info
+
+        entry = self.info(name)
+        return model_entry_info(entry)
+
 
 MODEL_REGISTRY = ModelRegistry()
 
@@ -165,3 +171,8 @@ def list_models(*, tags: Optional[Iterable[str]] = None) -> List[str]:
     """
     return MODEL_REGISTRY.available(tags=tags)
 
+
+def model_info(name: str) -> Dict[str, Any]:
+    """Return a stable, JSON-friendly model info payload."""
+
+    return MODEL_REGISTRY.model_info(name)
