@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from pyimgano.models.registry import MODEL_REGISTRY, create_model
+from pyimgano.utils.jsonable import to_jsonable
 from pyimgano.utils.optional_deps import optional_import
 
 
@@ -227,9 +228,6 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-_NUMPY, _ = optional_import("numpy")
-
-
 def load_benchmark_split(*args, **kwargs):
     # Lazy wrapper to keep CLI import light; also makes it easy to monkeypatch
     # in unit tests without importing cv2-heavy pipeline modules.
@@ -244,19 +242,6 @@ def evaluate_split(*args, **kwargs):
     from pyimgano.pipelines.mvtec_visa import evaluate_split as _evaluate_split
 
     return _evaluate_split(*args, **kwargs)
-
-
-def _to_jsonable(value: Any) -> Any:
-    if _NUMPY is not None:
-        if isinstance(value, (_NUMPY.floating, _NUMPY.integer)):  # type: ignore[attr-defined]
-            return value.item()
-        if isinstance(value, _NUMPY.ndarray):  # type: ignore[attr-defined]
-            return value.tolist()
-    if isinstance(value, dict):
-        return {str(k): _to_jsonable(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_to_jsonable(v) for v in value]
-    return value
 
 
 def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
@@ -685,7 +670,7 @@ def main(argv: list[str] | None = None) -> int:
             }
 
             if bool(args.json):
-                print(json.dumps(_to_jsonable(payload), indent=2, sort_keys=True))
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
             else:
                 print(f"Name: {payload['name']}")
                 tags = payload["tags"]
@@ -834,7 +819,7 @@ def main(argv: list[str] | None = None) -> int:
 
             save_run_report(Path(args.output), payload)
         else:
-            print(json.dumps(_to_jsonable(payload), indent=2, sort_keys=True))
+            print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
 
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI surface error
