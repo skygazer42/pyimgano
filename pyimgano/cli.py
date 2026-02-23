@@ -60,6 +60,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Write run artifacts (report.json, per_image.jsonl) to disk. Default: true",
     )
     parser.add_argument(
+        "--save-detector",
+        nargs="?",
+        const="auto",
+        default=None,
+        help=(
+            "Save the fitted detector to disk (pickle; classical detectors only). "
+            "Optionally provide PATH. When omitted, writes <output-dir>/detector.pkl. "
+            "Warning: never load pickle files from untrusted sources."
+        ),
+    )
+    parser.add_argument(
         "--per-image-jsonl",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -784,6 +795,9 @@ def main(argv: list[str] | None = None) -> int:
         if bool(args.pixel_segf1) and not bool(args.pixel):
             raise ValueError("--pixel-segf1 requires --pixel.")
 
+        if args.save_detector is not None and bool(args.pixel):
+            raise ValueError("--save-detector is only supported without --pixel.")
+
         if bool(args.pixel):
             if str(args.input_mode) != "paths":
                 raise ValueError("--input-mode currently supports only 'paths' when using --pixel.")
@@ -846,6 +860,9 @@ def main(argv: list[str] | None = None) -> int:
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
                 save_run=bool(args.save_run),
                 per_image_jsonl=bool(args.per_image_jsonl),
+                save_detector_path=(
+                    str(args.save_detector) if args.save_detector is not None else None
+                ),
                 output_dir=(str(args.output_dir) if args.output_dir is not None else None),
             )
 

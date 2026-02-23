@@ -31,6 +31,7 @@ class RunConfig:
     contamination: float = 0.1
     resize: tuple[int, int] = (256, 256)
     model_kwargs: dict[str, Any] | None = None
+    save_detector_path: str | None = None
     score_threshold_strategy: ScoreThresholdStrategy = "train_quantile"
     calibration_quantile: float | None = None
     limit_train: int | None = None
@@ -162,6 +163,22 @@ def run_benchmark_category(
     if config.seed is not None:
         _seed_everything(int(config.seed))
 
+    save_detector_requested = config.save_detector_path is not None
+    save_detector_auto = str(config.save_detector_path).lower() == "auto"
+
+    run_dir = None
+    paths = None
+    if bool(save_run) or (save_detector_requested and save_detector_auto):
+        name = build_run_dir_name(dataset=config.dataset, model=config.model)
+        run_dir = ensure_run_dir(output_dir=output_dir, name=name)
+        paths = build_run_paths(run_dir)
+        paths.categories_dir.mkdir(parents=True, exist_ok=True)
+
+        if bool(save_run) and bool(write_top_level):
+            from pyimgano.reporting.environment import collect_environment
+
+            save_run_report(paths.run_dir / "environment.json", collect_environment())
+
     if config.input_mode == "paths":
         split = load_benchmark_split(
             dataset=config.dataset,  # type: ignore[arg-type]
@@ -225,6 +242,19 @@ def run_benchmark_category(
 
     # Fit and score.
     detector.fit(train_inputs)
+
+    if save_detector_requested:
+        from pyimgano.serialization import save_detector
+
+        if save_detector_auto:
+            if paths is None:
+                raise ValueError("save_detector_path=auto requires an output directory.")
+            detector_path = paths.run_dir / "detector.pkl"
+        else:
+            detector_path = Path(str(config.save_detector_path))
+
+        save_detector(detector_path, detector)
+
     scores = np.asarray(detector.decision_function(test_inputs), dtype=np.float64)
 
     calibrated_threshold = _calibrate_score_threshold(
@@ -272,18 +302,13 @@ def run_benchmark_category(
         "calibrated_threshold": calibrated_threshold,
         "results": results,
     }
+    if save_detector_requested:
+        payload["detector_path"] = str(detector_path)
     payload = stamp_report_payload(payload)
 
     if save_run:
-        name = build_run_dir_name(dataset=config.dataset, model=config.model)
-        run_dir = ensure_run_dir(output_dir=output_dir, name=name)
-        paths = build_run_paths(run_dir)
-        paths.categories_dir.mkdir(parents=True, exist_ok=True)
-
-        if write_top_level:
-            from pyimgano.reporting.environment import collect_environment
-
-            save_run_report(paths.run_dir / "environment.json", collect_environment())
+        if paths is None:
+            raise RuntimeError("internal error: expected run paths when save_run=True")
 
         cat_dir = paths.categories_dir / str(config.category)
         cat_dir.mkdir(parents=True, exist_ok=True)
@@ -342,9 +367,13 @@ def run_benchmark(
     limit_test: int | None = None,
     save_run: bool = True,
     per_image_jsonl: bool = True,
+    save_detector_path: str | Path | None = None,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run a benchmark for a single category or for all categories."""
+
+    if str(category).lower() == "all" and save_detector_path is not None:
+        raise ValueError("--save-detector is not supported with --category all.")
 
     if str(category).lower() != "all":
         cfg = RunConfig(
@@ -360,6 +389,7 @@ def run_benchmark(
             contamination=float(contamination),
             resize=(int(resize[0]), int(resize[1])),
             model_kwargs=dict(model_kwargs or {}),
+            save_detector_path=(str(save_detector_path) if save_detector_path is not None else None),
             score_threshold_strategy=score_threshold_strategy,
             calibration_quantile=calibration_quantile,
             limit_train=limit_train,
