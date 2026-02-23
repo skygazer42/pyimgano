@@ -177,6 +177,23 @@ runs/<ts>_<dataset>_<model>/
     <category>/per_image.jsonl
 ```
 
+### Run Directory Naming + Collision Policy
+
+When `--output-dir` is not provided, `pyimgano-benchmark` creates a run directory
+under `runs/` using a timestamp + dataset + model:
+
+- Format: `YYYYMMDD_HHMMSS_<dataset>_<model>` (timestamp is in UTC)
+- Components are sanitized to contain only safe filesystem characters
+
+If the computed directory already exists (for example, two runs start within the
+same second), PyImgAno avoids mixing artifacts by creating a new directory with
+a numeric suffix:
+
+- Example: `runs/20260223_120000_mvtec_vision_ecod_001/`
+
+If you need fully deterministic paths (e.g. CI jobs), always pass an explicit
+`--output-dir`.
+
 ### Useful Flags
 
 - `--output-dir /path/to/run_dir`: place artifacts in a specific directory
