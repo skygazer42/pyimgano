@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-23
+
+### Added
+- Workbench adaptation knobs: tiling inference, anomaly-map postprocess, and optional map saving (`pyimgano.workbench`).
+- Workbench runner for recipe execution with benchmark-compatible artifacts (reports + per-image JSONL + optional anomaly maps).
+- `industrial-adapt` recipe now uses the workbench runner and supports `adaptation.save_maps=true`.
+- Documentation for recipes + `pyimgano-train`: `docs/RECIPES.md`.
+
 ## [0.6.0] - 2026-02-23
 
 ### Added

@@ -1,8 +1,9 @@
 # CLI Reference
 
-PyImgAno provides three primary CLIs:
+PyImgAno provides four primary CLIs:
 
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
+- `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune in future milestones)
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
 
@@ -94,6 +95,51 @@ Optional:
 
 ---
 
+## `pyimgano-train`
+
+Runs a **recipe-driven workbench** run from a JSON-first config file. This is the
+recommended entrypoint for industrial “adaptation-first” workflows where you
+want reproducible artifacts (config, environment snapshot, per-image JSONL, etc.).
+
+See also: `docs/RECIPES.md`
+
+### Discovery
+
+- List recipes: `pyimgano-train --list-recipes`
+- List recipes (JSON): `pyimgano-train --list-recipes --json`
+- Recipe info: `pyimgano-train --recipe-info industrial-adapt`
+- Recipe info (JSON): `pyimgano-train --recipe-info industrial-adapt --json`
+
+### Run a recipe
+
+```bash
+pyimgano-train --config cfg.json
+```
+
+### Artifact layout
+
+Workbench runs follow a benchmark-compatible layout and add extra folders:
+
+```
+<run_dir>/
+  report.json
+  config.json
+  environment.json
+  categories/<cat>/report.json
+  categories/<cat>/per_image.jsonl
+  checkpoints/...
+  artifacts/...
+```
+
+### Common overrides
+
+Flags override the config (useful for quick experiments):
+
+- `--dataset NAME` / `--root PATH` / `--category CAT`
+- `--model MODEL_NAME` / `--device cpu|cuda`
+
+---
+
 ## `pyimgano-robust-benchmark`
 
 Runs clean + corruption robustness evaluation (when supported by the selected model/input mode).
@@ -115,4 +161,3 @@ pyimgano-robust-benchmark \
 
 - Many models have optional backends; when required dependencies are missing, error messages include install hints.
 - For a full model catalog, see `docs/MODEL_INDEX.md` or use `pyimgano-benchmark --list-models`.
-

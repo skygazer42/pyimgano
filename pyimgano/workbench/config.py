@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from pyimgano.workbench.adaptation import AdaptationConfig, MapPostprocessConfig, TilingConfig
+
 
 def _require_mapping(value: Any, *, name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
@@ -44,6 +46,25 @@ def _parse_resize(value: Any, *, default: tuple[int, int]) -> tuple[int, int]:
     return (h, w)
 
 
+def _parse_percentile_range(
+    value: Any,
+    *,
+    default: tuple[float, float] = (1.0, 99.0),
+) -> tuple[float, float]:
+    if value is None:
+        return (float(default[0]), float(default[1]))
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError(
+            f"percentile_range must be a list/tuple of length 2, got {value!r}"
+        )
+    try:
+        low = float(value[0])
+        high = float(value[1])
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        raise ValueError(f"percentile_range must contain floats, got {value!r}") from exc
+    return (low, high)
+
+
 @dataclass(frozen=True)
 class DatasetConfig:
     name: str
@@ -80,6 +101,7 @@ class WorkbenchConfig:
     recipe: str = "industrial-adapt"
     seed: int | None = None
     output: OutputConfig = field(default_factory=OutputConfig)
+    adaptation: AdaptationConfig = field(default_factory=AdaptationConfig)
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "WorkbenchConfig":
@@ -145,11 +167,87 @@ class WorkbenchConfig:
                 per_image_jsonl=bool(out_map.get("per_image_jsonl", True)),
             )
 
+        adaptation_raw = top.get("adaptation", None)
+        if adaptation_raw is None:
+            adaptation = AdaptationConfig()
+        else:
+            a_map = _require_mapping(adaptation_raw, name="adaptation")
+
+            tiling_raw = a_map.get("tiling", None)
+            if tiling_raw is None:
+                tiling = TilingConfig()
+            else:
+                t_map = _require_mapping(tiling_raw, name="adaptation.tiling")
+                tile_size = _optional_int(t_map.get("tile_size", None), name="adaptation.tiling.tile_size")
+                stride = _optional_int(t_map.get("stride", None), name="adaptation.tiling.stride")
+                if tile_size is not None and tile_size <= 0:
+                    raise ValueError("adaptation.tiling.tile_size must be positive or null")
+                if stride is not None and stride <= 0:
+                    raise ValueError("adaptation.tiling.stride must be positive or null")
+                score_topk = _optional_float(t_map.get("score_topk", 0.1), name="adaptation.tiling.score_topk")
+                tiling = TilingConfig(
+                    tile_size=tile_size,
+                    stride=stride,
+                    score_reduce=str(t_map.get("score_reduce", "max")),
+                    score_topk=float(score_topk if score_topk is not None else 0.1),
+                    map_reduce=str(t_map.get("map_reduce", "max")),
+                )
+
+            post_raw = a_map.get("postprocess", None)
+            if post_raw is None:
+                postprocess = None
+            else:
+                p_map = _require_mapping(post_raw, name="adaptation.postprocess")
+                component_threshold = _optional_float(
+                    p_map.get("component_threshold", None),
+                    name="adaptation.postprocess.component_threshold",
+                )
+                postprocess = MapPostprocessConfig(
+                    normalize=bool(p_map.get("normalize", True)),
+                    normalize_method=str(p_map.get("normalize_method", "minmax")),
+                    percentile_range=_parse_percentile_range(p_map.get("percentile_range", None)),
+                    gaussian_sigma=float(
+                        _optional_float(
+                            p_map.get("gaussian_sigma", 0.0),
+                            name="adaptation.postprocess.gaussian_sigma",
+                        )
+                        or 0.0
+                    ),
+                    morph_open_ksize=int(
+                        _optional_int(
+                            p_map.get("morph_open_ksize", 0),
+                            name="adaptation.postprocess.morph_open_ksize",
+                        )
+                        or 0
+                    ),
+                    morph_close_ksize=int(
+                        _optional_int(
+                            p_map.get("morph_close_ksize", 0),
+                            name="adaptation.postprocess.morph_close_ksize",
+                        )
+                        or 0
+                    ),
+                    component_threshold=component_threshold,
+                    min_component_area=int(
+                        _optional_int(
+                            p_map.get("min_component_area", 0),
+                            name="adaptation.postprocess.min_component_area",
+                        )
+                        or 0
+                    ),
+                )
+
+            adaptation = AdaptationConfig(
+                tiling=tiling,
+                postprocess=postprocess,
+                save_maps=bool(a_map.get("save_maps", False)),
+            )
+
         return cls(
             dataset=dataset,
             model=model,
             recipe=recipe,
             seed=seed,
             output=output,
+            adaptation=adaptation,
         )
-

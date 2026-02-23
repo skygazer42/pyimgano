@@ -252,6 +252,7 @@ anomaly_map = detector.get_anomaly_map('test_image.jpg')
 
 Docs:
 - CLI flags: `docs/CLI_REFERENCE.md`
+- Workbench recipes (`pyimgano-train`) + config format: `docs/RECIPES.md`
 - Benchmarking + report schema: `docs/EVALUATION_AND_BENCHMARK.md`
 - Robustness / drift corruptions: `docs/ROBUSTNESS_BENCHMARK.md`
 - Numpy-first inference + tiling: `docs/INDUSTRIAL_INFERENCE.md`
@@ -299,6 +300,18 @@ Useful flags:
 - `--no-per-image-jsonl`: skip per-image records
 - `--output report.json`: also write a single JSON report file (in addition to any run artifacts)
 - `--limit-train 50 --limit-test 50`: quick smoke runs
+
+#### Workbench recipes (`pyimgano-train`) ⭐ NEW
+
+For adaptation-first industrial runs driven by a config file (tiling, map postprocess, map saving),
+use:
+
+```bash
+pyimgano-train --list-recipes
+pyimgano-train --config cfg.json
+```
+
+See: `docs/RECIPES.md`
 
 #### Pixel-first metrics (AUROC/AUPRO/SegF1)
 
