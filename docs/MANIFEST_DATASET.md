@@ -37,6 +37,7 @@ One JSON object per line.
     whole groups to avoid leakage.
 - `meta: object`
   - Optional metadata object; treated as opaque user payload.
+  - When present, the workbench per-image JSONL records include `meta` for each test sample.
 
 ### Example
 

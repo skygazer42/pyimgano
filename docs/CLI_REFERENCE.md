@@ -1,11 +1,12 @@
 # CLI Reference
 
-PyImgAno provides four primary CLIs:
+PyImgAno provides five primary CLIs:
 
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
-- `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune in future milestones)
+- `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
+- `pyimgano-manifest` — generate a JSONL manifest from a `custom`-layout dataset tree
 
 ---
 
@@ -29,6 +30,7 @@ pyimgano-benchmark \
 - Filter models by tags: `pyimgano-benchmark --list-models --tags vision,deep`
 - Model info (constructor signature + accepted kwargs): `pyimgano-benchmark --model-info vision_patchcore`
 - List dataset categories: `pyimgano-benchmark --list-categories --dataset mvtec --root /path/to/mvtec_ad`
+- List manifest categories: `pyimgano-benchmark --list-categories --dataset manifest --manifest-path /path/to/manifest.jsonl`
 
 ### Run Artifacts
 
@@ -144,6 +146,7 @@ Flags override the config (useful for quick experiments):
 
 - Training-enabled workbench runs persist checkpoints under `checkpoints/<category>/...` when supported.
 - For reusing a run in deploy-style inference, see `pyimgano-infer --from-run` and `docs/RECIPES.md`.
+- For manifest datasets, `pyimgano-train --dry-run` validates that `dataset.manifest_path` exists and is readable.
 
 ---
 
@@ -163,6 +166,25 @@ pyimgano-robust-benchmark \
 ```
 
 ---
+
+## `pyimgano-manifest`
+
+Generate a JSONL manifest for the built-in `custom` dataset layout.
+
+Example:
+
+```bash
+pyimgano-manifest \
+  --root /path/to/custom_dataset \
+  --out /path/to/manifest.jsonl \
+  --include-masks
+```
+
+Notes:
+
+- Output is stable and sorted (useful for reproducible diffs).
+- By default, paths are written relative to the output manifest directory.
+- Use `--absolute-paths` to emit absolute paths when you need portability across working directories.
 
 ## Notes
 
