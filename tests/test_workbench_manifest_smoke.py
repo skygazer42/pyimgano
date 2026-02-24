@@ -129,3 +129,93 @@ def test_workbench_manifest_dataset_runs_all_categories(tmp_path: Path) -> None:
         first = json.loads(p.read_text(encoding="utf-8").splitlines()[0])
         assert first["category"] == cat
 
+
+def test_workbench_manifest_per_image_jsonl_includes_meta(tmp_path: Path) -> None:
+    class _DummyDetector:
+        def __init__(self, **kwargs):  # noqa: ANN003 - test stub
+            self.kwargs = dict(kwargs)
+
+        def fit(self, X):  # noqa: ANN001
+            self.fit_inputs = list(X)
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            n = len(list(X))
+            if n == 0:
+                return np.asarray([], dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=n, dtype=np.float32)
+
+    MODEL_REGISTRY.register(
+        "test_workbench_manifest_meta_dummy_detector",
+        _DummyDetector,
+        tags=("vision",),
+        overwrite=True,
+    )
+
+    mdir = tmp_path / "manifest_dir"
+    manifest = mdir / "manifest.jsonl"
+    mdir.mkdir(parents=True, exist_ok=True)
+
+    (mdir / "train.png").touch()
+    (mdir / "good.png").touch()
+    (mdir / "bad.png").touch()
+
+    rows = [
+        {"image_path": "train.png", "category": "bottle", "split": "train"},
+        {
+            "image_path": "good.png",
+            "category": "bottle",
+            "split": "test",
+            "label": 0,
+            "meta": {"frame": 0},
+        },
+        {
+            "image_path": "bad.png",
+            "category": "bottle",
+            "split": "test",
+            "label": 1,
+            "meta": {"frame": 1, "defect": "scratch"},
+        },
+    ]
+
+    manifest.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    out_dir = tmp_path / "run_out"
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "seed": 123,
+            "dataset": {
+                "name": "manifest",
+                "root": str(tmp_path),
+                "manifest_path": str(manifest),
+                "category": "bottle",
+                "resize": [16, 16],
+                "input_mode": "paths",
+            },
+            "model": {
+                "name": "test_workbench_manifest_meta_dummy_detector",
+                "device": "cpu",
+                "pretrained": False,
+                "contamination": 0.1,
+            },
+            "output": {
+                "output_dir": str(out_dir),
+                "save_run": True,
+                "per_image_jsonl": True,
+            },
+        }
+    )
+
+    report = run_workbench(config=cfg, recipe_name="industrial-adapt")
+    assert Path(report["run_dir"]) == out_dir
+
+    p = out_dir / "categories" / "bottle" / "per_image.jsonl"
+    assert p.exists()
+    records = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines()]
+    assert len(records) == 2
+
+    good = [r for r in records if str(r["input"]).endswith("good.png")][0]
+    bad = [r for r in records if str(r["input"]).endswith("bad.png")][0]
+    assert good.get("meta") == {"frame": 0}
+    assert bad.get("meta") == {"frame": 1, "defect": "scratch"}

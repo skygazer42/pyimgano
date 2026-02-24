@@ -191,6 +191,7 @@ class ManifestBenchmarkSplit:
     test_labels: np.ndarray
     test_masks: np.ndarray | None
     pixel_skip_reason: str | None = None
+    test_meta: list[Mapping[str, Any] | None] | None = None
 
 
 def load_manifest_benchmark_split(
@@ -325,6 +326,7 @@ def load_manifest_benchmark_split(
     test_paths: list[str] = []
     test_labels: list[int] = []
     test_mask_paths: list[str | None] = []
+    test_meta: list[Mapping[str, Any] | None] = []
     missing_anomaly_mask = False
 
     for idx, rec in enumerate(records):
@@ -348,6 +350,10 @@ def load_manifest_benchmark_split(
         label = int(rec.label) if rec.label is not None else 0
         test_paths.append(str(_resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path)))
         test_labels.append(label)
+        if rec.meta is None:
+            test_meta.append(None)
+        else:
+            test_meta.append(dict(rec.meta))
 
         if not load_masks:
             test_mask_paths.append(None)
@@ -388,6 +394,7 @@ def load_manifest_benchmark_split(
 
     masks_arr: np.ndarray | None = None
     pixel_skip_reason: str | None = None
+    meta_out: list[Mapping[str, Any] | None] | None = None
     if load_masks:
         if any(p is not None for p in test_mask_paths):
             if any(lab == 1 for lab, p in zip(test_labels, test_mask_paths) if p is None and lab == 1):
@@ -398,6 +405,9 @@ def load_manifest_benchmark_split(
         elif any(p is not None for p in test_mask_paths):
             masks_arr = _load_masks_or_zeros(test_mask_paths, resize=resize)
 
+    if any(m is not None for m in test_meta):
+        meta_out = test_meta
+
     return ManifestBenchmarkSplit(
         train_paths=train_paths,
         calibration_paths=cal_paths,
@@ -405,6 +415,7 @@ def load_manifest_benchmark_split(
         test_labels=np.asarray(test_labels, dtype=np.int64),
         test_masks=masks_arr,
         pixel_skip_reason=pixel_skip_reason,
+        test_meta=meta_out,
     )
 
 

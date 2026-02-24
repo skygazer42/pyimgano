@@ -27,7 +27,15 @@ def _load_split_paths(
     config: WorkbenchConfig,
     category: str,
     load_masks: bool,
-) -> tuple[list[str], list[str], list[str], np.ndarray, np.ndarray | None, str | None]:
+) -> tuple[
+    list[str],
+    list[str],
+    list[str],
+    np.ndarray,
+    np.ndarray | None,
+    str | None,
+    list[Mapping[str, Any] | None] | None,
+]:
     from pyimgano.pipelines.mvtec_visa import load_benchmark_split
 
     dataset = str(config.dataset.name)
@@ -67,6 +75,7 @@ def _load_split_paths(
             np.asarray(split.test_labels),
             split.test_masks,
             split.pixel_skip_reason,
+            split.test_meta,
         )
 
     split = load_benchmark_split(
@@ -84,6 +93,7 @@ def _load_split_paths(
         list(split.test_paths),
         np.asarray(split.test_labels),
         split.test_masks,
+        None,
         None,
     )
 
@@ -168,7 +178,7 @@ def _run_category(
     run_dir: Path | None,
 ) -> dict[str, Any]:
     if config.dataset.input_mode == "paths":
-        train_inputs, calibration_inputs, test_inputs, test_labels, test_masks, pixel_skip_reason = _load_split_paths(
+        train_inputs, calibration_inputs, test_inputs, test_labels, test_masks, pixel_skip_reason, test_meta = _load_split_paths(
             config=config,
             category=str(category),
             load_masks=True,
@@ -187,6 +197,7 @@ def _run_category(
         )
         calibration_inputs = list(train_inputs)
         pixel_skip_reason = None
+        test_meta = None
         input_format = "rgb_u8_hwc"
     else:
         raise ValueError(
@@ -334,6 +345,10 @@ def _run_category(
                 "threshold": float(threshold_used),
                 "pred": int(pred[i]),
             }
+            if test_meta is not None:
+                meta = test_meta[i]
+                if meta is not None:
+                    rec["meta"] = dict(meta)
             if map_paths is not None and map_paths[i] is not None and maps_list is not None:
                 m = maps_list[i]
                 if m is not None:
