@@ -544,6 +544,21 @@ def _preflight_non_manifest(*, config: WorkbenchConfig, issues: list[PreflightIs
         )
         return {"dataset_root": str(root), "ok": False}
 
+    if dataset.lower() == "custom":
+        try:
+            from pyimgano.utils.datasets import CustomDataset
+
+            CustomDataset(root=str(root), load_masks=True).validate_structure()
+        except Exception as exc:  # noqa: BLE001 - validation boundary
+            issues.append(
+                _issue(
+                    "CUSTOM_DATASET_INVALID_STRUCTURE",
+                    "error",
+                    "Custom dataset layout validation failed.",
+                    context={"root": str(root), "error": str(exc)},
+                )
+            )
+
     try:
         categories = list_dataset_categories(
             dataset=dataset,
