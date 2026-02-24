@@ -44,11 +44,16 @@ def list_dataset_categories(*, dataset: str, root: str) -> list[str]:
         known = set(BTADDataset.CATEGORIES)
         found = sorted(on_disk & known)
         return found or list(BTADDataset.CATEGORIES)
+    if ds == "manifest":
+        from pyimgano.datasets.manifest import list_manifest_categories
+
+        # For historical reasons this API only accepts a `root` argument. For
+        # the manifest dataset, `root` is treated as the manifest JSONL path.
+        return list(list_manifest_categories(root))
     if ds == "custom":
         return ["custom"]
 
     raise ValueError(
         f"Unknown dataset: {dataset!r}. "
-        "Choose from: mvtec, mvtec_ad, mvtec_loco, mvtec_ad2, visa, btad, custom."
+        "Choose from: mvtec, mvtec_ad, mvtec_loco, mvtec_ad2, visa, btad, custom, manifest."
     )
-

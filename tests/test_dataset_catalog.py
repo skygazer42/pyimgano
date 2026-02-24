@@ -33,3 +33,21 @@ def test_dataset_catalog_unknown_dataset_raises(tmp_path) -> None:
         return
     raise AssertionError("Expected ValueError")
 
+
+def test_dataset_catalog_manifest_reads_jsonl(tmp_path) -> None:
+    from pyimgano.datasets.catalog import list_dataset_categories
+
+    manifest = tmp_path / "manifest.jsonl"
+    manifest.write_text(
+        '\n'.join(
+            [
+                '{"image_path":"a.png","category":"bottle"}',
+                '{"image_path":"b.png","category":"cable"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cats = list_dataset_categories(dataset="manifest", root=str(manifest))
+    assert cats == ["bottle", "cable"]

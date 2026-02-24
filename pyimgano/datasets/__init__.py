@@ -11,6 +11,7 @@ from .benchmarks import (
     BaseDataset,
     CustomDataset,
     DatasetInfo,
+    ManifestDataset,
     MVTecAD2Dataset,
     MVTecDataset,
     MVTecLOCODataset,
@@ -31,6 +32,7 @@ __all__ = [
     "VisADataset",
     "BTADDataset",
     "CustomDataset",
+    "ManifestDataset",
     "load_dataset",
     # Torch-style datasets / datamodule
     "ImagePathDataset",

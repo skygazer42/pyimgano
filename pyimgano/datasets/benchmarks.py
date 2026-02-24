@@ -15,6 +15,7 @@ from pyimgano.utils.datasets import (  # noqa: F401
     BaseDataset,
     CustomDataset,
     DatasetInfo,
+    ManifestDataset,
     MVTecAD2Dataset,
     MVTecDataset,
     MVTecLOCODataset,
@@ -31,6 +32,6 @@ __all__ = [
     "VisADataset",
     "BTADDataset",
     "CustomDataset",
+    "ManifestDataset",
     "load_dataset",
 ]
-

@@ -123,6 +123,7 @@ from .datasets import (
     BTADDataset,
     VisADataset,
     CustomDataset,
+    ManifestDataset,
     load_dataset,
 )
 
@@ -133,6 +134,7 @@ __all__ += [
     "BTADDataset",
     "VisADataset",
     "CustomDataset",
+    "ManifestDataset",
     "load_dataset",
 ]
 

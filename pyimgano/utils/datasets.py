@@ -1342,6 +1342,122 @@ class CustomDataset(BaseDataset):
         return test_paths, labels, np.array(masks)
 
 
+class ManifestDataset(BaseDataset):
+    """JSONL manifest dataset loader (industrial, multi-category).
+
+    The manifest schema and split rules are documented in `docs/MANIFEST_DATASET.md`.
+
+    Notes
+    -----
+    This dataset is intended for *path-based* workflows (fit on normal, evaluate on
+    normal+anomaly). It uses `pyimgano.datasets.manifest.load_manifest_benchmark_split`
+    under the hood.
+    """
+
+    def __init__(
+        self,
+        root: str,
+        category: str,
+        *,
+        manifest_path: str,
+        resize: Optional[Tuple[int, int]] = None,
+        load_masks: bool = True,
+        split_policy: Optional[Dict] = None,
+    ):
+        super().__init__(root, category)
+        self.manifest_path = str(manifest_path)
+        self.resize = resize
+        self.load_masks = bool(load_masks)
+        self.split_policy = dict(split_policy or {})
+        self._split_cache = None
+
+    @staticmethod
+    def list_categories(*, manifest_path: str) -> List[str]:
+        from pyimgano.datasets.manifest import list_manifest_categories
+
+        return list(list_manifest_categories(manifest_path))
+
+    def _build_policy(self):
+        from pyimgano.datasets.manifest import ManifestSplitPolicy
+
+        sp = dict(self.split_policy)
+        return ManifestSplitPolicy(
+            mode=str(sp.get("mode", "benchmark")),
+            scope=str(sp.get("scope", "category")),
+            seed=int(sp.get("seed", 0)),
+            test_normal_fraction=float(sp.get("test_normal_fraction", 0.2)),
+        )
+
+    def _get_split(self):
+        if self._split_cache is not None:
+            return self._split_cache
+
+        from pyimgano.datasets.manifest import load_manifest_benchmark_split
+
+        resize = self.resize or (256, 256)
+        split = load_manifest_benchmark_split(
+            manifest_path=str(self.manifest_path),
+            root_fallback=str(self.root),
+            category=str(self.category),
+            resize=tuple(resize),
+            load_masks=bool(self.load_masks),
+            split_policy=self._build_policy(),
+        )
+        self._split_cache = split
+        return split
+
+    def get_train_paths(self) -> List[str]:
+        split = self._get_split()
+        # This legacy dataset API has no explicit "val"; include calibration paths in train.
+        out: List[str] = []
+        seen = set()
+        for p in list(split.train_paths) + list(split.calibration_paths):
+            if p in seen:
+                continue
+            seen.add(p)
+            out.append(str(p))
+        if not out:
+            raise ValueError("ManifestDataset produced an empty train_paths list.")
+        return out
+
+    def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
+        split = self._get_split()
+        return list(split.test_paths), np.asarray(split.test_labels), split.test_masks
+
+    def get_train_data(self) -> NDArray:
+        images: List[NDArray] = []
+        for p in self.get_train_paths():
+            img = read_image(p, color="rgb")
+            if self.resize is not None:
+                img = resize_image(img, self.resize)
+            images.append(img)
+        return np.asarray(images)
+
+    def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
+        test_paths, labels, masks = self.get_test_paths()
+        images: List[NDArray] = []
+        for p in test_paths:
+            img = read_image(p, color="rgb")
+            if self.resize is not None:
+                img = resize_image(img, self.resize)
+            images.append(img)
+        return np.asarray(images), np.asarray(labels), masks
+
+    def get_info(self) -> DatasetInfo:
+        train_paths = self.get_train_paths()
+        test_paths, labels, _ = self.get_test_paths()
+
+        size = self.resize or (256, 256)
+        return DatasetInfo(
+            name="Manifest Dataset",
+            categories=[str(self.category)],
+            num_train=len(train_paths),
+            num_test=len(test_paths),
+            image_size=(int(size[0]), int(size[1])),
+            description="JSONL manifest dataset (industrial)",
+        )
+
+
 def load_dataset(
     name: str,
     root: str,
@@ -1351,9 +1467,9 @@ def load_dataset(
     """Factory function to load datasets.
 
     Args:
-        name: Dataset name ('mvtec', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa', 'custom')
+        name: Dataset name ('mvtec', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa', 'custom', 'manifest')
         root: Path to dataset root
-        category: Category name (required for mvtec and btad)
+        category: Category name (required for mvtec/btad/visa-style benchmarks and manifest)
         **kwargs: Additional arguments for dataset
 
     Returns:
@@ -1371,6 +1487,7 @@ def load_dataset(
         'btad': BTADDataset,
         'visa': VisADataset,
         'custom': CustomDataset,
+        'manifest': ManifestDataset,
     }
 
     name_lower = name.lower()
@@ -1379,7 +1496,7 @@ def load_dataset(
 
     dataset_class = datasets[name_lower]
 
-    if name_lower in ['mvtec', 'mvtec_ad', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa']:
+    if name_lower in ['mvtec', 'mvtec_ad', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa', 'manifest']:
         if category is None:
             raise ValueError(f"Category is required for {name} dataset")
         return dataset_class(root=root, category=category, **kwargs)
