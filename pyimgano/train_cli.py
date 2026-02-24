@@ -117,6 +117,23 @@ def main(argv: list[str] | None = None) -> int:
 
         recipe = RECIPE_REGISTRY.get(cfg.recipe)
         if bool(args.dry_run):
+            if str(cfg.dataset.name).lower() == "manifest":
+                mp_raw = cfg.dataset.manifest_path
+                mp = Path(str(mp_raw)) if mp_raw is not None else None
+                if mp is None:
+                    raise ValueError(
+                        "dataset.manifest_path is required when dataset.name='manifest'."
+                    )
+                if not mp.exists():
+                    raise ValueError(f"dataset.manifest_path not found: {mp}")
+                if not mp.is_file():
+                    raise ValueError(f"dataset.manifest_path must be a file: {mp}")
+                try:
+                    with mp.open("r", encoding="utf-8") as f:
+                        f.read(1)
+                except Exception as exc:  # noqa: BLE001 - validation boundary
+                    raise ValueError(f"dataset.manifest_path not readable: {mp}") from exc
+
             # Emit the canonical config payload shape used by workbench artifacts.
             print(json.dumps({"config": asdict(cfg)}, sort_keys=True))
             return 0
