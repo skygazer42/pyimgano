@@ -23,10 +23,20 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Load model + threshold + (optional) checkpoint from a workbench run directory",
     )
+    source.add_argument(
+        "--infer-config",
+        default=None,
+        help="Load model + threshold + (optional) checkpoint from an exported infer_config.json file",
+    )
     parser.add_argument(
         "--from-run-category",
         default=None,
         help="When --from-run has multiple categories, select one category name",
+    )
+    parser.add_argument(
+        "--infer-category",
+        default=None,
+        help="When --infer-config has multiple categories, select one category name",
     )
     parser.add_argument(
         "--preset",
@@ -141,8 +151,10 @@ def main(argv: list[str] | None = None) -> int:
         from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
 
         from_run = args.from_run is not None
+        infer_config_mode = args.infer_config is not None
         trained_checkpoint_path = None
         threshold_from_run = None
+        infer_config_postprocess = None
 
         if from_run:
             from pyimgano.workbench.load_run import (
@@ -207,6 +219,111 @@ def main(argv: list[str] | None = None) -> int:
                 load_checkpoint_into_detector(detector, trained_checkpoint_path)
             if threshold_from_run is not None:
                 setattr(detector, "threshold_", float(threshold_from_run))
+        elif infer_config_mode:
+            from pyimgano.inference.config import (
+                load_infer_config,
+                resolve_infer_checkpoint_path,
+                select_infer_category,
+            )
+            from pyimgano.workbench.load_run import extract_threshold, load_checkpoint_into_detector
+
+            cfg_path = Path(str(args.infer_config))
+            payload = load_infer_config(cfg_path)
+            payload = select_infer_category(
+                payload,
+                category=(str(args.infer_category) if args.infer_category is not None else None),
+            )
+
+            model_payload = payload.get("model", None)
+            if not isinstance(model_payload, dict):
+                raise ValueError("infer-config must contain a JSON object at key 'model'.")
+            model_name = model_payload.get("name", None)
+            if model_name is None:
+                raise ValueError("infer-config model.name is required.")
+            model_name = str(model_name)
+
+            adaptation_payload = payload.get("adaptation", None)
+            if adaptation_payload is None:
+                adaptation_payload = {}
+            if not isinstance(adaptation_payload, dict):
+                raise ValueError("infer-config key 'adaptation' must be a JSON object/dict.")
+
+            threshold_from_run = extract_threshold(payload)
+            trained_checkpoint_path = resolve_infer_checkpoint_path(payload, config_path=cfg_path)
+
+            preset = model_payload.get("preset", None)
+            device = model_payload.get("device", "cpu")
+            contamination = model_payload.get("contamination", 0.1)
+            pretrained = model_payload.get("pretrained", True)
+
+            if args.preset is not None:
+                preset = str(args.preset)
+            if args.device is not None:
+                device = str(args.device)
+            if args.contamination is not None:
+                contamination = float(args.contamination)
+            if args.pretrained is not None:
+                pretrained = bool(args.pretrained)
+
+            base_user_kwargs = dict(model_payload.get("model_kwargs", {}) or {})
+            if args.model_kwargs is not None:
+                base_user_kwargs.update(parse_model_kwargs(args.model_kwargs))
+
+            checkpoint_path = (
+                str(args.checkpoint_path)
+                if args.checkpoint_path is not None
+                else (
+                    str(model_payload.get("checkpoint_path"))
+                    if model_payload.get("checkpoint_path", None) is not None
+                    else None
+                )
+            )
+            user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
+
+            preset_kwargs = _resolve_preset_kwargs(preset, model_name)
+            model_kwargs = build_model_kwargs(
+                model_name,
+                user_kwargs=user_kwargs,
+                preset_kwargs=preset_kwargs,
+                auto_kwargs={
+                    "device": str(device),
+                    "contamination": float(contamination),
+                    "pretrained": bool(pretrained),
+                },
+            )
+            detector = create_model(model_name, **model_kwargs)
+
+            if trained_checkpoint_path is not None:
+                load_checkpoint_into_detector(detector, trained_checkpoint_path)
+            if threshold_from_run is not None:
+                setattr(detector, "threshold_", float(threshold_from_run))
+
+            # Apply default tiling settings from infer-config when the CLI did not
+            # explicitly request tiling.
+            tiling = adaptation_payload.get("tiling", None)
+            if (
+                args.tile_size is None
+                and isinstance(tiling, dict)
+                and tiling.get("tile_size", None) is not None
+            ):
+                args.tile_size = int(tiling.get("tile_size"))
+                if tiling.get("stride", None) is not None:
+                    args.tile_stride = int(tiling.get("stride"))
+                if tiling.get("score_reduce", None) is not None:
+                    args.tile_score_reduce = str(tiling.get("score_reduce"))
+                if tiling.get("map_reduce", None) is not None:
+                    args.tile_map_reduce = str(tiling.get("map_reduce"))
+                if tiling.get("score_topk", None) is not None:
+                    args.tile_score_topk = float(tiling.get("score_topk"))
+
+            # Infer-config may request maps/postprocess by default.
+            post_cfg = adaptation_payload.get("postprocess", None)
+            if isinstance(post_cfg, dict):
+                infer_config_postprocess = dict(post_cfg)
+
+            if not bool(args.include_maps):
+                if bool(adaptation_payload.get("save_maps", False)) or infer_config_postprocess is not None:
+                    args.include_maps = True
         else:
             if args.model is None:
                 raise ValueError("--model is required when --from-run is not provided")
@@ -265,8 +382,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("No input images found.")
 
         postprocess: AnomalyMapPostprocess | None = None
-        if bool(args.postprocess) and bool(args.include_maps):
-            postprocess = AnomalyMapPostprocess()
+        if bool(args.include_maps):
+            if bool(args.postprocess):
+                postprocess = AnomalyMapPostprocess()
+            elif infer_config_postprocess is not None:
+                postprocess = _build_postprocess_from_payload(infer_config_postprocess)
 
         results = infer(
             detector,
@@ -333,6 +453,26 @@ def main(argv: list[str] | None = None) -> int:
             if model_name:
                 print(f"context: model={model_name!r}", file=sys.stderr)
         return 2
+def _build_postprocess_from_payload(payload: dict[str, Any]) -> AnomalyMapPostprocess:
+    pr_raw = payload.get("percentile_range", (1.0, 99.0))
+    if isinstance(pr_raw, (list, tuple)) and len(pr_raw) == 2:
+        pr = (float(pr_raw[0]), float(pr_raw[1]))
+    else:
+        pr = (1.0, 99.0)
+
+    ct = payload.get("component_threshold", None)
+    component_threshold = float(ct) if ct is not None else None
+
+    return AnomalyMapPostprocess(
+        normalize=bool(payload.get("normalize", True)),
+        normalize_method=str(payload.get("normalize_method", "minmax")),
+        percentile_range=pr,
+        gaussian_sigma=float(payload.get("gaussian_sigma", 0.0)),
+        morph_open_ksize=int(payload.get("morph_open_ksize", 0)),
+        morph_close_ksize=int(payload.get("morph_close_ksize", 0)),
+        component_threshold=component_threshold,
+        min_component_area=int(payload.get("min_component_area", 0)),
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover
