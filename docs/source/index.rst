@@ -1,18 +1,15 @@
 PyImgAno Documentation
 ======================
 
-**PyImgAno** is an enterprise-grade visual anomaly detection toolkit with 100+ models and 80+ image processing operations.
-
-.. image:: https://img.shields.io/badge/version-0.5.2-blue.svg
-   :target: https://github.com/jhlu2019/pyimgano
-   :alt: Version
+**PyImgAno** is an enterprise-grade visual anomaly detection toolkit with a large model registry,
+industrial-ready CLIs, and a strong focus on deployable workflows (artifacts, provenance, JSONL output).
 
 .. image:: https://img.shields.io/badge/python-3.9+-blue.svg
    :target: https://www.python.org/downloads/
    :alt: Python Version
 
 .. image:: https://img.shields.io/badge/license-MIT-green.svg
-   :target: https://github.com/jhlu2019/pyimgano/blob/main/LICENSE
+   :target: https://github.com/skygazer42/pyimgano/blob/main/LICENSE
    :alt: License
 
 Overview
@@ -22,11 +19,11 @@ PyImgAno provides a comprehensive toolkit for visual anomaly detection in indust
 
 **Key Features:**
 
-* 🎯 **37+ Algorithms**: Statistical, classical ML, and deep learning methods
+* 🎯 **120+ Registry Model Entries**: Statistical, classical ML, and deep learning methods (native + optional backend wrappers)
 * 🖼️ **80+ Preprocessing Operations**: Edge detection, filtering, texture analysis, and more
-* 🔄 **30+ Augmentation Techniques**: Geometric, color, noise, blur, and weather effects
-* 📊 **Comprehensive Benchmarks**: Performance comparison across algorithms
-* 🚀 **Production Ready**: Optimized for real-world applications
+* 🔄 **Augmentation & Robustness**: Corruptions/augmentations for evaluation and drift testing
+* 📊 **Benchmarks + Workbench**: Benchmark runs and recipe-driven workbench runs with JSON artifacts and per-image JSONL
+* 🏭 **Industrial Inference (JSONL)**: Deploy-style inference via ``pyimgano-infer`` including anomaly maps and defects export
 * 📚 **Well Documented**: Extensive guides, examples, and API reference
 
 Quick Start
@@ -241,10 +238,10 @@ See :doc:`comparison` for a detailed comparison.
 Community
 ---------
 
-* 📖 **Documentation**: https://github.com/jhlu2019/pyimgano
-* 🐛 **Issue Tracker**: https://github.com/jhlu2019/pyimgano/issues
-* 💬 **Discussions**: https://github.com/jhlu2019/pyimgano/discussions
-* ⭐ **Star on GitHub**: https://github.com/jhlu2019/pyimgano
+* 📖 **Documentation**: https://github.com/skygazer42/pyimgano
+* 🐛 **Issue Tracker**: https://github.com/skygazer42/pyimgano/issues
+* 💬 **Discussions**: https://github.com/skygazer42/pyimgano/discussions
+* ⭐ **Star on GitHub**: https://github.com/skygazer42/pyimgano
 
 Contributing
 ------------

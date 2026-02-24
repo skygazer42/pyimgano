@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'PyImgAno'
-copyright = '2024, PyImgAno Contributors'
+copyright = '2026, PyImgAno Contributors'
 author = 'PyImgAno Contributors'
 try:
     import pyimgano as _pyimgano
@@ -36,6 +36,30 @@ extensions = [
     'sphinx.ext.coverage',  # Check documentation coverage
     'sphinx.ext.mathjax',  # Render math equations
     'sphinx.ext.githubpages',  # Create .nojekyll file for GitHub Pages
+]
+
+# Allow docs to build in minimal environments by mocking heavy optional deps.
+# This keeps API pages readable without requiring GPU / large binary wheels.
+autodoc_mock_imports = [
+    "torch",
+    "torchvision",
+    "cv2",
+    "sklearn",
+    "scipy",
+    "pyod",
+    "matplotlib",
+    "seaborn",
+    "numba",
+    "tqdm",
+    # Optional backends
+    "diffusers",
+    "transformers",
+    "accelerate",
+    "anomalib",
+    "faiss",
+    "open_clip",
+    "open_clip_torch",
+    "mamba_ssm",
 ]
 
 # Napoleon settings for NumPy and Google docstrings
@@ -91,7 +115,6 @@ html_static_path = ['_static']
 # Theme options
 html_theme_options = {
     'logo_only': False,
-    'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': True,
     'style_nav_header_background': '#2980B9',
@@ -172,8 +195,7 @@ intersphinx_mapping = {
     'numpy': ('https://numpy.org/doc/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
     'sklearn': ('https://scikit-learn.org/stable/', None),
-    'torch': ('https://pytorch.org/docs/stable/', None),
-    'cv2': ('https://docs.opencv.org/4.x/', None),
+    'torch': ('https://docs.pytorch.org/docs/stable/', None),
 }
 
 # -- Options for todo extension ----------------------------------------------

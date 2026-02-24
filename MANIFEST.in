@@ -24,7 +24,7 @@ recursive-include docs *.md *.rst *.html *.css *.js *.png *.jpg
 recursive-include tests *.py
 
 # Include examples
-recursive-include examples *.py *.ipynb *.md
+recursive-include examples *.py *.ipynb *.md *.json
 
 # Include type stubs
 recursive-include pyimgano py.typed *.pyi

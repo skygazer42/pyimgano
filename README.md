@@ -323,6 +323,37 @@ pyimgano-train --config cfg.json
 
 See: `docs/RECIPES.md`
 
+#### Defects export (mask + regions + ROI) ⭐ NEW
+
+For deploy-friendly outputs beyond a heatmap (binary masks + connected-component regions),
+use `pyimgano-infer --defects`.
+
+Recommended workflow:
+
+1) Run a workbench recipe and export `infer_config.json`:
+
+```bash
+pyimgano-train \
+  --config examples/configs/industrial_adapt_defects_roi.json \
+  --export-infer-config
+```
+
+2) Reuse the exported infer-config for inference + defects:
+
+```bash
+pyimgano-infer \
+  --infer-config /path/to/run_dir/artifacts/infer_config.json \
+  --input /path/to/images \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Docs:
+- `docs/WORKBENCH.md` (train → export infer-config)
+- `docs/INDUSTRIAL_INFERENCE.md` (defects export + ROI notes)
+- `docs/CLI_REFERENCE.md` (all flags)
+
 #### Pixel-first metrics (AUROC/AUPRO/SegF1)
 
 Compute pixel metrics when the model exposes anomaly maps:

@@ -29,11 +29,10 @@ jobs:
         run: |
           cd docs
           make html
-        continue-on-error: true
 
       - name: Upload documentation
         uses: actions/upload-artifact@v5
         with:
           name: documentation
-          path: docs/_build/html/
+          path: docs/build/html/
         if: success()

@@ -81,9 +81,39 @@ After that, users can install from the official index:
 pip install pyimgano
 ```
 
+## Recommended: GitHub Actions release workflow (this repo)
+
+This repository includes a publish workflow:
+
+- `.github/workflows/publish.yml`
+
+It publishes to **PyPI** when a **GitHub Release** is published, and can publish
+to **TestPyPI** via manual dispatch.
+
+### One-time setup (GitHub Secrets)
+
+Add repository secrets (GitHub → Settings → Secrets and variables → Actions):
+
+- `PYPI_API_TOKEN`
+- (optional) `TEST_PYPI_API_TOKEN`
+
+**First-time publish note:** If `pyimgano` has never been uploaded to PyPI
+before, the token must be **account-scoped** (not project-scoped), because
+PyPI does not allow a project-scoped token to create a brand-new project.
+
+### Publish to PyPI (official)
+
+1) Tag and push a release (for example `v0.6.8`).
+2) Create a GitHub Release for that tag and click **Publish release**.
+
+That triggers the workflow and uploads to PyPI automatically.
+
+### Publish to TestPyPI (optional)
+
+GitHub → Actions → "Publish to PyPI" → Run workflow → `test_pypi=true`.
+
 ## Optional: GitHub Actions "Trusted Publishing"
 
 PyPI supports publishing without long-lived secrets via GitHub Actions (OIDC).
 If you want this, set up a "Trusted Publisher" on PyPI that points at this repo,
 and add a release workflow that builds and publishes on tags.
-
