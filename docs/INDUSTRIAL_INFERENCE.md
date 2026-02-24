@@ -157,3 +157,34 @@ pyimgano-infer \
   --tile-stride 384 \
   --tile-map-reduce hann
 ```
+
+## 6) Defects export (mask + regions + ROI)
+
+Industrial deployments often need more than a heatmap:
+
+- a **binary defect mask** (for overlay / QC rules)
+- **regions/instances** (bbox / area / centroid) for downstream analytics
+- optional **ROI** gating so fixtures/background do not dominate false positives
+
+`pyimgano-infer` can emit this structure as a `defects` block in JSONL when enabled:
+
+```bash
+pyimgano-infer \
+  --model vision_patchcore \
+  --train-dir /path/to/train/good \
+  --input /path/to/inputs \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --mask-format png \
+  --pixel-threshold 0.5 \
+  --pixel-threshold-strategy fixed \
+  --roi-xyxy-norm 0.1 0.1 0.9 0.9 \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Notes:
+
+- `--defects` implies `--include-maps` (defects are derived from anomaly maps).
+- ROI gating affects **defects output only** by default (mask/regions), not image-level `score`/`label`.
+- Defect coordinates (`bbox_xyxy`, `centroid_xy`) are in **anomaly-map pixel space**.
+- Pixel threshold provenance is always emitted as `defects.pixel_threshold_provenance` for auditability.

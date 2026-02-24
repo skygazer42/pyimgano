@@ -122,11 +122,44 @@ Notes:
 Optional:
 
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
+- `--defects` — export industrial defect structures (binary mask + connected-component regions)
+  - `--save-masks DIR` + `--mask-format png|npy`
+  - `--pixel-threshold FLOAT` (fixed) or `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`)
+  - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
 - `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
   - If the run contains multiple categories, pass `--from-run-category NAME`.
 - `--infer-config PATH` — load model/threshold/checkpoint from an exported workbench infer-config
   - For example: `runs/.../artifacts/infer_config.json`
   - If the infer-config contains multiple categories, pass `--infer-category NAME`.
+
+Defects export example:
+
+```bash
+pyimgano-infer \
+  --model vision_patchcore \
+  --train-dir /path/to/train/good \
+  --input /path/to/inputs \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --mask-format png \
+  --pixel-threshold 0.5 \
+  --pixel-threshold-strategy fixed \
+  --roi-xyxy-norm 0.1 0.1 0.9 0.9 \
+  --save-jsonl out.jsonl
+```
+
+Each JSONL record includes a `defects` block when `--defects` is enabled:
+
+```json
+{
+  "defects": {
+    "pixel_threshold": 0.5,
+    "pixel_threshold_provenance": {"method": "fixed", "source": "explicit"},
+    "mask": {"path": "masks/000000_x.png", "shape": [256, 256], "dtype": "uint8", "encoding": "png"},
+    "regions": [{"id": 1, "bbox_xyxy": [12, 34, 80, 120], "area": 1532, "centroid_xy": [45.2, 77.8]}]
+  }
+}
+```
 
 ---
 
