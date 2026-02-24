@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-02-24
+
+### Added
+- Workbench `artifacts/infer_config.json` exports a `defects` block (mask/regions/ROI settings) for deploy-style `pyimgano-infer --infer-config` usage.
+
+### Fixed
+- Workbench now ensures custom/lightweight detectors expose a discoverable `contamination` attribute so default threshold calibration and `threshold_provenance` stay consistent.
+
+### Changed
+- `pyimgano.datasets` uses lazy exports for torch-dependent dataset/datamodule helpers, keeping `import pyimgano.datasets` usable in minimal environments.
+
 ## [0.6.6] - 2026-02-24
 
 ### Added

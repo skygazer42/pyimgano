@@ -50,7 +50,7 @@ This writes a run directory containing:
 
 - `report.json` / `config.json` / `environment.json`
 - `categories/<cat>/per_image.jsonl`
-- `artifacts/infer_config.json` (model + adaptation + `threshold` + `threshold_provenance` + optional `checkpoint`)
+- `artifacts/infer_config.json` (model + adaptation + defects + `threshold` + `threshold_provenance` + optional `checkpoint`)
 - optional: `artifacts/maps/*.npy`
 - optional: `checkpoints/<cat>/...`
 
