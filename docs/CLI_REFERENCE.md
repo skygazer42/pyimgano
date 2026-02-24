@@ -96,6 +96,9 @@ Optional:
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
 - `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
   - If the run contains multiple categories, pass `--from-run-category NAME`.
+- `--infer-config PATH` — load model/threshold/checkpoint from an exported workbench infer-config
+  - For example: `runs/.../artifacts/infer_config.json`
+  - If the infer-config contains multiple categories, pass `--infer-category NAME`.
 
 ---
 
