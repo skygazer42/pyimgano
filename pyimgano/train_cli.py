@@ -33,6 +33,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Validate and print the effective config JSON without running the recipe",
     )
     parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Validate dataset health and print a preflight JSON report without running the recipe",
+    )
+    parser.add_argument(
         "--export-infer-config",
         action="store_true",
         help="Write artifacts/infer_config.json to the run directory (requires output.save_run=true)",
@@ -118,6 +123,20 @@ def main(argv: list[str] | None = None) -> int:
         from pyimgano.recipes.registry import RECIPE_REGISTRY
 
         recipe = RECIPE_REGISTRY.get(cfg.recipe)
+        if bool(args.preflight):
+            if bool(args.dry_run):
+                raise ValueError("--preflight and --dry-run are mutually exclusive.")
+
+            from dataclasses import asdict
+
+            from pyimgano.workbench.preflight import run_preflight
+
+            report = run_preflight(config=cfg)
+            payload = {"preflight": asdict(report)}
+            print(json.dumps(payload, sort_keys=True))
+            has_error = any(str(i.severity) == "error" for i in report.issues)
+            return 2 if has_error else 0
+
         if bool(args.dry_run):
             if str(cfg.dataset.name).lower() == "manifest":
                 mp_raw = cfg.dataset.manifest_path
