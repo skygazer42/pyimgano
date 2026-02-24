@@ -86,3 +86,16 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert prov["quantile"] == pytest.approx(0.9)
     assert prov["source"] == "contamination"
     assert prov["contamination"] == pytest.approx(0.1)
+
+    defects = payload["defects"]
+    assert defects["enabled"] is False
+    assert defects["pixel_threshold"] is None
+    assert defects["pixel_threshold_strategy"] == "normal_pixel_quantile"
+    assert defects["pixel_normal_quantile"] == pytest.approx(0.999)
+    assert defects["mask_format"] == "png"
+    assert defects["roi_xyxy_norm"] is None
+    assert defects["min_area"] == 0
+    assert defects["open_ksize"] == 0
+    assert defects["close_ksize"] == 0
+    assert defects["fill_holes"] is False
+    assert defects["max_regions"] is None

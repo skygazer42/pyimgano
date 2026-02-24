@@ -171,7 +171,24 @@ def _create_detector(config: WorkbenchConfig) -> Any:
         preset_kwargs=preset_kwargs,
         auto_kwargs=auto_kwargs,
     )
-    return create_model(config.model.name, **model_kwargs)
+    detector = create_model(config.model.name, **model_kwargs)
+
+    # Many threshold calibration helpers assume a `detector.contamination` attribute
+    # is present. Ensure our WorkbenchConfig contamination is discoverable even for
+    # lightweight / custom detectors that accept `contamination` but don't persist
+    # it as a public attribute.
+    try:
+        existing = getattr(detector, "contamination", None)
+    except Exception:  # noqa: BLE001 - best-effort metadata
+        existing = None
+
+    if existing is None:
+        try:
+            setattr(detector, "contamination", float(config.model.contamination))
+        except Exception:  # noqa: BLE001 - best-effort metadata
+            pass
+
+    return detector
 
 
 def _run_category(
@@ -564,9 +581,36 @@ def build_infer_config_payload(
         "save_maps": bool(config.adaptation.save_maps),
     }
 
+    defects_payload: dict[str, Any] = {
+        "enabled": bool(config.defects.enabled),
+        "pixel_threshold": (
+            float(config.defects.pixel_threshold)
+            if config.defects.pixel_threshold is not None
+            else None
+        ),
+        "pixel_threshold_strategy": str(config.defects.pixel_threshold_strategy),
+        "pixel_normal_quantile": float(config.defects.pixel_normal_quantile),
+        "mask_format": str(config.defects.mask_format),
+        "roi_xyxy_norm": (
+            [float(v) for v in config.defects.roi_xyxy_norm]
+            if config.defects.roi_xyxy_norm is not None
+            else None
+        ),
+        "min_area": int(config.defects.min_area),
+        "open_ksize": int(config.defects.open_ksize),
+        "close_ksize": int(config.defects.close_ksize),
+        "fill_holes": bool(config.defects.fill_holes),
+        "max_regions": (
+            int(config.defects.max_regions)
+            if config.defects.max_regions is not None
+            else None
+        ),
+    }
+
     out: dict[str, Any] = {
         "model": model_payload,
         "adaptation": adaptation_payload,
+        "defects": defects_payload,
     }
 
     # Prefer the report's run_dir (if present) to keep the payload portable across
