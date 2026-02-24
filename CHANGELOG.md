@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-02-24
+
+### Docs
+- Rewrote `README.md` to be shorter and oriented around the industrial CLI/workbench workflow.
+- Updated `README_cn.md` to mirror the new README structure and CLI entry points.
+
 ## [0.6.9] - 2026-02-24
 
 ### Docs

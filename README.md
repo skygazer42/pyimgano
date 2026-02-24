@@ -1,205 +1,112 @@
 # pyimgano
 
-**Enterprise-Grade Visual Anomaly Detection Toolkit**
+Production-oriented **visual anomaly detection** (image-level + pixel-level) for industrial inspection.
+
+`pyimgano` focuses on the practical parts that matter in production:
+
+- **Unified model registry** (120+ registered model entry points; native implementations + optional backends + aliases)
+- **Reproducible CLI runs** (workbench + reports + per-image JSONL)
+- **Deploy-friendly inference** (`pyimgano-infer` → JSONL; optional defect masks + connected-component regions)
+- **Industrial IO** (numpy-first, explicit image formats, high-resolution tiling)
+- **Benchmarking & metrics** (image-level + pixel-level; AUROC/AP/AUPRO/SegF1, etc.)
+- **Data & preprocessing** (dataset helpers + preprocessing/augmentation utilities)
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml/badge.svg)](https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
-A comprehensive, production-ready Python toolkit for visual anomaly detection, integrating **120+ registered model entry points** (native implementations + optional backend wrappers + legacy aliases) from classical machine learning to cutting-edge deep learning (**CVPR 2025**, **CVPR 2024**, **ECCV 2024**, CVPR 2023, ICCV 2023, CVPR 2022, ECCV 2020).
 
 > **Translations:** [中文](README_cn.md) · [日本語](README_ja.md) · [한국어](README_ko.md)
 
----
+## Contents
 
-## ✨ Key Features
+- [Installation](#installation)
+- [Quickstart (CLI)](#quickstart-cli)
+- [Quickstart (Python)](#quickstart-python)
+- [Models & discovery](#models--discovery)
+- [Industrial outputs (defects)](#industrial-outputs-defects)
+- [Optional dependencies](#optional-dependencies)
+- [Weights & cache policy](#weights--cache-policy)
+- [Docs](#docs)
+- [Contributing](#contributing)
+- [License](#license)
+- [Citation](#citation)
 
-- 🔥 **120+ Registry Model Entries** - From classical (ECOD, COPOD, KNN, PCA) to recent SOTA methods (including optional backend checkpoint wrappers)
-- 🚀 **Production Ready** - Enterprise-grade code quality, comprehensive testing, CI/CD pipelines
-- 📦 **Unified API** - Consistent interface across all algorithms with factory pattern
-- 🧰 **sklearn Integration** ⭐ NEW! - Wrap registry models as sklearn estimators (`clone()` friendly)
-- ⚡ **High Performance** - Top-tier algorithms (ECOD, COPOD) optimized for speed and accuracy
-- 🎯 **Flexible** - Works with any feature extractor or end-to-end deep learning
-- 🏭 **Industrial Inference (numpy-first)** ⭐ NEW! - Explicit `ImageFormat`, canonical `RGB/u8/HWC` inputs, JSONL `pyimgano-infer` CLI
-- 🧩 **High-Resolution Tiling Inference** ⭐ NEW! - Tiled scoring + anomaly-map stitching for 2K/4K inspection images
-- 🖼️ **Image Preprocessing** - 80+ operations (edge detection, morphology, filters, FFT, texture analysis, segmentation, augmentation)
-- 📊 **Dataset Loaders** ⭐ NEW! - MVTec AD, MVTec LOCO AD, MVTec AD 2, VisA, BTAD, custom datasets with automatic loading
-- 📈 **Advanced Visualization** ⭐ NEW! - ROC/PR curves, confusion matrices, t-SNE, anomaly heatmaps
-- 🧪 **Pixel-Level Metrics** ⭐ NEW! - pixel AUROC/AP + **region-aware AUPRO** (FPR-limited integration) for industrial inspection
-- 💾 **Model Management** ⭐ NEW! - Save/load, versioning, profiling, model registry
-- 🔬 **Experiment Tracking** ⭐ NEW! - Hyperparameter logging, metric tracking, report generation
-- 🏆 **Built-in Benchmarking** - Compare multiple algorithms systematically
-- 📖 **Well Documented** - Extensive docs, algorithm guide, and examples
-- 🔧 **Easy to Extend** - Plugin architecture with model registry system
-- 🧾 **Auto-generated Model Index** ⭐ NEW! - See `docs/MODEL_INDEX.md` or run `pyimgano-benchmark --list-models`
-
----
-
-## 🏆 Highlights
-
-### State-of-the-Art Algorithms
-
-| Algorithm | Type | Year | Performance | Speed | Use Case |
-|-----------|------|------|-------------|-------|----------|
-| **One-for-More** ⭐ 🚀 | Deep Learning | 2025 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | #1 on MVTec/VisA, continual learning |
-| **BayesianPF** ⭐ 🚀 | Deep Learning | 2025 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Zero-shot Bayesian inference |
-| **Odd-One-Out** ⭐ 🚀 | Deep Learning | 2025 | ⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Neighbor comparison, fast |
-| **CrossMAD** ⭐ 🚀 | Deep Learning | 2025 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Cross-modal harmonization |
-| **InCTRL** ⭐ 🔥 | Deep Learning | 2024 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | In-context learning, few-shot generalist |
-| **RealNet** ⭐ 🔥 | Deep Learning | 2024 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Feature selection, realistic synthesis |
-| **PromptAD** ⭐ 🔥 | Deep Learning | 2024 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Prompt learning, few-shot AD |
-| **GLAD** ⭐ 🔥 | Deep Learning | 2024 | ⭐⭐⭐⭐⭐ | ⚡⚡ | Adaptive diffusion, reconstruction |
-| **AST** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Anomaly-aware training, robust |
-| **DST** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Double student-teacher, complementary |
-| **PANDA** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Prototypical learning, metric-based |
-| **RegAD** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Registration-based, alignment |
-| **GCAD** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡ | Graph convolution, spatial relations |
-| **FAVAE** ⭐ 🆕 | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Feature adaptive VAE, dynamic |
-| **InTra** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Transformer-based, long-range |
-| **WinCLIP** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡ | Zero-shot, no training needed |
-| **SimpleNet** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Ultra-fast SOTA, production |
-| **BGAD** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Background-guided, robust |
-| **DifferNet** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Learnable differences, k-NN |
-| **DSR** ⭐ | Deep Learning | 2023 | ⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Frequency domain, parameter-free |
-| **PatchCore** ⭐ | Deep Learning | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Best accuracy, MVTec champion |
-| **PNI** ⭐ | Deep Learning | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Multi-scale pyramid, fast |
-| **RD++** ⭐ | Deep Learning | 2022 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Enhanced distillation, attention |
-| **ECOD** | Classical | 2022 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Parameter-free, general purpose |
-| **COPOD** | Classical | 2020 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡⚡ | Speed-critical applications |
-| **SPADE** ⭐ | Deep Learning | 2020 | ⭐⭐⭐⭐⭐ | ⚡⚡⚡ | Excellent localization, k-NN |
-| **CSFlow** | Deep Learning | 2022 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Expressive flows, good accuracy |
-| **CutPaste** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡⚡ | Self-supervised, no anomalies |
-| **STFPM** | Deep Learning | 2021 | ⭐⭐⭐⭐ | ⚡⚡ | Student-Teacher, localization |
-
-> **See [Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md) and [Deep Learning Guide](docs/DEEP_LEARNING_MODELS.md) for detailed comparison**
-
----
-
-## 📦 Installation
-
-### Basic Installation
+## Installation
 
 ```bash
 pip install pyimgano
 ```
 
-> Note: `pip install pyimgano` works after publishing to PyPI. If you are
-> installing from source, use the development installation below. For the
-> release process, see `docs/PUBLISHING.md`.
+> Note: `pip install pyimgano` works after publishing to PyPI. Until then, install from source:
+>
+> ```bash
+> git clone https://github.com/skygazer42/pyimgano.git
+> cd pyimgano
+> pip install -e ".[dev]"
+> ```
+>
+> For the release workflow, see `docs/PUBLISHING.md`.
 
-### Development Installation
+## Quickstart (CLI)
+
+### Train (workbench) → export `infer_config.json`
+
+Start from the provided template and edit dataset paths:
 
 ```bash
-git clone https://github.com/skygazer42/pyimgano.git
-cd pyimgano
-pip install -e .[dev]
+pyimgano-train \
+  --config examples/configs/industrial_adapt_defects_roi.json \
+  --export-infer-config
 ```
 
-### With Optional Dependencies
+This writes a run directory (under `runs/` by default) containing:
+
+- `artifacts/infer_config.json` (model + threshold + postprocess + defects config)
+- `report.json` and `per_image.jsonl` (auditable run artifacts)
+
+### Inference → JSONL (+ optional defect masks/regions)
 
 ```bash
-# For diffusion models
-pip install pyimgano[diffusion]
-
-# For advanced visualization (seaborn)
-pip install pyimgano[viz]
-
-# For anomalib checkpoint wrappers (inference-first)
-pip install pyimgano[anomalib]
-
-# For FAISS kNN acceleration
-pip install pyimgano[faiss]
-
-# For OpenCLIP backends
-pip install "pyimgano[clip]"
-
-# For MambaAD (Mamba SSM sequence model)
-pip install "pyimgano[mamba]"
-
-# All optional backends
-pip install pyimgano[backends]
-
-# For documentation
-pip install pyimgano[docs]
-
-# Everything
-pip install pyimgano[all]
+pyimgano-infer \
+  --infer-config /path/to/run_dir/artifacts/infer_config.json \
+  --input /path/to/images \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --save-jsonl /tmp/pyimgano_results.jsonl
 ```
 
-### Requirements
+Guides:
+- `docs/WORKBENCH.md` (train/export flow)
+- `docs/CLI_REFERENCE.md` (all flags + JSONL schema)
+- `docs/INDUSTRIAL_INFERENCE.md` (tiling + defects + ROI notes)
 
-- Python >= 3.9
-- PyTorch >= 1.9.0
-- PyOD >= 1.1.0
-- scikit-learn >= 0.22.0
+## Quickstart (Python)
 
-### Weights & Cache Policy
-
-- `pyimgano` does **not** ship model weights inside the wheel.
-- When models download weights (torchvision / OpenCLIP / HuggingFace), weights are cached on disk by upstream libraries.
-- Common cache env vars you may want to set on servers/containers:
-  - `TORCH_HOME`
-  - `HF_HOME` / `TRANSFORMERS_CACHE`
-  - `XDG_CACHE_HOME`
-
----
-
-## 🚀 Quick Start
-
-### Example 1: Using ECOD (Recommended for First-Time Users)
+### Create a detector from the registry
 
 ```python
-from pyimgano import models, utils
+from pyimgano.models import create_model
 
-# 1. Create feature extractor
-feature_extractor = utils.ImagePreprocessor(
-    resize=(224, 224),
-    output_tensor=False
+detector = create_model(
+    "vision_patchcore",
+    device="cuda",         # or "cpu"
+    contamination=0.1,     # used for threshold defaults when applicable
 )
 
-# 2. Create detector (ECOD: parameter-free, top performance)
-detector = models.create_model(
-    "vision_ecod",
-    feature_extractor=feature_extractor,
-    contamination=0.1,  # Expected anomaly ratio
-    n_jobs=-1  # Use all CPU cores
-)
-
-# 3. Train on normal images
-train_paths = ["normal_1.jpg", "normal_2.jpg", ...]
-detector.fit(train_paths)
-
-# 4. Detect anomalies
-test_paths = ["test_1.jpg", "test_2.jpg", ...]
-predictions = detector.predict(test_paths)  # 0: normal, 1: anomaly
-scores = detector.decision_function(test_paths)  # Anomaly scores
-
-print(f"Detected {predictions.sum()} anomalies")
+detector.fit(train_paths)                 # normal/reference images
+scores = detector.decision_function(test_paths)
 ```
 
-### Example 1.5: Industrial Inference (numpy-first, explicit ImageFormat)
+### Numpy-first industrial inference
 
-If you already have decoded frames in memory (e.g. video pipelines), use the
-numpy-first helpers in `pyimgano.inputs` + `pyimgano.inference`.
-
-See: `docs/INDUSTRIAL_INFERENCE.md`
+If you already have decoded frames/images in memory, prefer the explicit IO helpers:
 
 ```python
 import numpy as np
 
 from pyimgano.inference import calibrate_threshold, infer
 from pyimgano.inputs import ImageFormat
-from pyimgano.models import create_model
-
-detector = create_model(
-    "vision_padim",
-    pretrained=False,   # avoids weight downloads
-    device="cpu",
-    image_size=64,      # small demo size
-    d_reduced=8,
-    projection_fit_samples=1,
-    covariance_eps=0.1,
-)
 
 train_frames = [np.zeros((64, 64, 3), dtype=np.uint8) for _ in range(8)]
 detector.fit(train_frames)
@@ -211,966 +118,98 @@ results = infer(
     input_format=ImageFormat.RGB_U8_HWC,
     include_maps=True,
 )
-print(results[0].score, results[0].label, results[0].anomaly_map.shape)
+print(results[0].score, results[0].label)
 ```
 
-### Example 2: Using Deep Learning (SimpleNet - CVPR 2023)
+Guide: `docs/INDUSTRIAL_INFERENCE.md`
 
-```python
-from pyimgano import models
+## Models & discovery
 
-# State-of-the-art deep learning (CVPR 2023)
-# Ultra-fast training - only 10 epochs needed!
-detector = models.create_model(
-    "vision_simplenet",
-    epochs=10,        # 10x faster than other DL methods
-    batch_size=8,
-    device='cuda'     # GPU acceleration
-)
+`pyimgano` ships **120+ registered model entry points** (native implementations + optional backend wrappers + aliases).
+Some models require optional extras (see below).
 
-detector.fit(train_paths)
-scores = detector.decision_function(test_paths)
-
-# If you need binary labels, threshold the scores.
-# For example (one-class, no labels): choose a quantile threshold from train scores.
-# import numpy as np
-# train_scores = detector.decision_function(train_paths)
-# threshold = np.quantile(train_scores, 0.9)  # 0.9 == 1 - contamination (example)
-# predictions = (scores >= threshold).astype(int)
-```
-
-### Example 3: Maximum Accuracy (PatchCore - CVPR 2022)
-
-```python
-# Best accuracy on MVTec AD benchmark (99.6% AUROC)
-detector = models.create_model(
-    "vision_patchcore",
-    backbone='wide_resnet50',
-    coreset_sampling_ratio=0.1,  # Memory-efficient
-    device='cuda'
-)
-
-detector.fit(train_paths)
-scores = detector.decision_function(test_paths)
-
-# Get pixel-level anomaly heatmap
-anomaly_map = detector.get_anomaly_map('test_image.jpg')
-```
-
-### Industrial Workflows (CLI) ⭐ NEW
-
-Docs:
-- CLI flags: `docs/CLI_REFERENCE.md`
-- Workbench recipes (`pyimgano-train`) + config format: `docs/RECIPES.md`
-- Workbench quickstart (train → infer): `docs/WORKBENCH.md`
-- Benchmarking + report schema: `docs/EVALUATION_AND_BENCHMARK.md`
-- Robustness / drift corruptions: `docs/ROBUSTNESS_BENCHMARK.md`
-- Numpy-first inference + tiling: `docs/INDUSTRIAL_INFERENCE.md`
-
-#### One-click benchmark + run artifacts
-
-By default, `pyimgano-benchmark` writes a run directory under `runs/`:
-
-```
-runs/<ts>_<dataset>_<model>/
-  report.json
-  config.json
-  environment.json
-  categories/<cat>/report.json
-  categories/<cat>/per_image.jsonl
-```
-
-Run a single category:
-
-```bash
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --model vision_patchcore \
-  --preset industrial-balanced \
-  --device cuda
-```
-
-Run all categories (`--category all`):
-
-```bash
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category all \
-  --model vision_patchcore \
-  --preset industrial-balanced \
-  --device cuda
-```
-
-Useful flags:
-- `--output-dir /path/to/run_dir`: choose where artifacts go
-- `--no-save-run`: disable artifact writing (stdout JSON only)
-- `--no-per-image-jsonl`: skip per-image records
-- `--output report.json`: also write a single JSON report file (in addition to any run artifacts)
-- `--limit-train 50 --limit-test 50`: quick smoke runs
-
-#### Workbench recipes (`pyimgano-train`) ⭐ NEW
-
-For adaptation-first industrial runs driven by a config file (tiling, map postprocess, map saving),
-use:
-
-```bash
-pyimgano-train --list-recipes
-pyimgano-train --config cfg.json
-```
-
-See: `docs/RECIPES.md`
-
-#### Defects export (mask + regions + ROI) ⭐ NEW
-
-For deploy-friendly outputs beyond a heatmap (binary masks + connected-component regions),
-use `pyimgano-infer --defects`.
-
-Recommended workflow:
-
-1) Run a workbench recipe and export `infer_config.json`:
-
-```bash
-pyimgano-train \
-  --config examples/configs/industrial_adapt_defects_roi.json \
-  --export-infer-config
-```
-
-2) Reuse the exported infer-config for inference + defects:
-
-```bash
-pyimgano-infer \
-  --infer-config /path/to/run_dir/artifacts/infer_config.json \
-  --input /path/to/images \
-  --defects \
-  --save-masks /tmp/pyimgano_masks \
-  --save-jsonl /tmp/pyimgano_results.jsonl
-```
-
-Docs:
-- `docs/WORKBENCH.md` (train → export infer-config)
-- `docs/INDUSTRIAL_INFERENCE.md` (defects export + ROI notes)
-- `docs/CLI_REFERENCE.md` (all flags)
-
-#### Pixel-first metrics (AUROC/AUPRO/SegF1)
-
-Compute pixel metrics when the model exposes anomaly maps:
-
-```bash
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --model vision_softpatch \
-  --preset industrial-balanced \
-  --device cuda \
-  --pixel \
-  --pixel-aupro-limit 0.3 \
-  --pixel-aupro-thresholds 200 \
-  --pixel-postprocess \
-  --pixel-post-norm percentile \
-  --pixel-post-percentiles 1 99
-```
-
-For deploy-style single-threshold pixel evaluation (VAND-style), add:
-- `--pixel-segf1 --pixel-threshold-strategy normal_pixel_quantile --pixel-normal-quantile 0.999`
-
-#### Model discovery
+Discover models from the CLI:
 
 ```bash
 pyimgano-benchmark --list-models
 pyimgano-benchmark --list-models --tags vision,deep
-pyimgano-benchmark --model-info vision_patchcore
 pyimgano-benchmark --model-info vision_patchcore --json
 ```
 
-#### Benchmarking anomalib checkpoints (optional backend)
+References:
+- `docs/MODEL_INDEX.md` (auto-generated model index)
+- `docs/ALGORITHM_SELECTION_GUIDE.md` (how to pick a baseline)
+- `docs/SOTA_ALGORITHMS.md` and `docs/DEEP_LEARNING_MODELS.md` (deeper dives)
+
+## Industrial outputs (defects)
+
+When `--defects` is enabled, `pyimgano-infer` derives defect structures from the anomaly map:
+
+- binary defect mask (optional artifact output)
+- connected-component regions (area / bbox / per-region score)
+- optional ROI gating and binary morphology (open/close/fill holes)
+
+This is intended for downstream inspection systems that need more than a single anomaly score.
+
+Docs:
+- `docs/CLI_REFERENCE.md` (JSONL schema + examples)
+- `docs/INDUSTRIAL_INFERENCE.md` (defects + ROI configuration)
+
+## Optional dependencies
+
+`pyimgano` is usable with the default dependencies, but some models/backends require extras:
 
 ```bash
-pip install "pyimgano[anomalib]"
-
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --model vision_patchcore_anomalib \
-  --checkpoint-path /path/to/anomalib/checkpoint.ckpt \
-  --device cuda \
-  --pixel
+pip install "pyimgano[diffusion]"   # diffusion-based methods
+pip install "pyimgano[clip]"        # OpenCLIP backends
+pip install "pyimgano[faiss]"       # faster kNN for memory-bank methods
+pip install "pyimgano[anomalib]"    # anomalib checkpoint wrappers (inference-first)
+pip install "pyimgano[backends]"    # clip + faiss + anomalib
+pip install "pyimgano[all]"         # everything (dev/docs/backends/diffusion/viz)
 ```
 
-Notes:
-- Pass constructor args with `--model-kwargs '{"contamination": 0.1}'`.
-- `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must match (conflicts error out).
+## Weights & cache policy
 
-#### Robustness benchmark (clean + drift corruptions)
+- `pyimgano` does **not** ship model weights inside the wheel.
+- When models download weights (torchvision / OpenCLIP / HuggingFace), weights are cached on disk by upstream libraries.
+- Common cache env vars you may want to set on servers/containers:
+  - `TORCH_HOME`
+  - `HF_HOME` / `TRANSFORMERS_CACHE`
+  - `XDG_CACHE_HOME`
 
-```bash
-pyimgano-robust-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --model vision_patchcore \
-  --preset industrial-balanced \
-  --device cuda \
-  --pixel-normal-quantile 0.999 \
-  --corruptions lighting,jpeg,blur,glare,geo_jitter \
-  --severities 1 2 3 4 5
-```
+## Docs
 
-Notes:
-- Corruptions require `--input-mode numpy` (default), which feeds detectors **RGB uint8 numpy images**.
-- For models that only accept file paths (many classical baselines), use `--input-mode paths` (clean-only; corruptions skipped).
+Start here:
+- `docs/QUICKSTART.md`
+- `docs/WORKBENCH.md`
+- `docs/CLI_REFERENCE.md`
 
-#### High-resolution tiling inference (2K/4K)
+Production/industrial:
+- `docs/INDUSTRIAL_INFERENCE.md` (numpy-first IO, tiling, postprocess, defects export)
+- `docs/ROBUSTNESS_BENCHMARK.md` (drift corruptions + evaluation)
+- `docs/MANIFEST_DATASET.md` (JSONL manifest datasets)
 
-```bash
-pyimgano-infer \
-  --model vision_patchcore \
-  --device cuda \
-  --train-dir /path/to/normal/train_images \
-  --calibration-quantile 0.995 \
-  --input /path/to/high_res_images \
-  --include-maps \
-  --tile-size 512 \
-  --tile-stride 384
-```
+Reference:
+- `docs/MODEL_INDEX.md`
+- `docs/PREPROCESSING.md`
+- `docs/EVALUATION_AND_BENCHMARK.md`
+- `docs/PUBLISHING.md` (PyPI release flow)
 
-### Example 4: Zero-Shot Detection (WinCLIP - CVPR 2023) ⭐ NEW
+## Contributing
 
-```python
-# No training needed! Perfect for quick prototyping
-detector = models.create_model(
-    "vision_winclip",
-    clip_model="ViT-B/32",
-    k_shot=0  # Zero-shot mode
-)
+See `CONTRIBUTING.md`.
 
-# Just set the class name and predict
-detector.set_class_name("screw")
-scores = detector.decision_function(test_paths)
-anomaly_maps = detector.predict_anomaly_map(test_paths)  # Pixel-level heatmaps
-```
+## License
 
-### OpenCLIP Backends (Optional) ⭐ NEW
+MIT. See `LICENSE`.
 
-```python
-# Requires:
-#   pip install "pyimgano[clip]"
-#
-# Notes:
-# - OpenCLIP weights are cached by torch (default: ~/.cache/torch).
-# - You can override the cache location via TORCH_HOME.
-detector = models.create_model(
-    "vision_openclip_promptscore",
-    device="cuda",  # or "cpu"
-    contamination=0.1,
-    class_name="screw",
-    openclip_model_name="ViT-B-32",
-    openclip_pretrained="laion2b_s34b_b79k",
-)
-
-detector.fit(train_paths)  # calibrates a threshold from train scores
-scores = detector.decision_function(test_paths)
-anomaly_map = detector.get_anomaly_map(test_paths[0])
-```
-
-### Example 5: Few-Shot Foundation Model (AnomalyDINO - WACV 2025) ⭐ NEW
-
-```python
-from pyimgano.models import create_model
-
-detector = create_model(
-    "vision_anomalydino",
-    device="cuda",        # optional
-    contamination=0.1,
-)
-
-# Fit on normal/reference images (builds a patch memory bank)
-detector.fit(train_paths)
-
-scores = detector.decision_function(test_paths)
-anomaly_map = detector.get_anomaly_map(test_paths[0])
-```
-
-> **Note:** The default embedder uses `torch.hub` to load DINOv2 weights on first run.
-> For offline/enterprise usage, pass a custom `embedder=...`.
-
-### Example 6: Inference-Only Checkpoint Loading (anomalib backend) ⭐ NEW
-
-```python
-from pyimgano.models import create_model
-
-detector = create_model(
-    "vision_anomalib_checkpoint",  # or: vision_patchcore_anomalib, vision_padim_anomalib, ...
-    checkpoint_path="/path/to/anomalib.ckpt",
-    device="cuda",
-    contamination=0.1,
-)
-
-# This does not train: it only calibrates a score threshold from train scores.
-detector.fit(train_paths)
-
-scores = detector.decision_function(test_paths)
-anomaly_map = detector.get_anomaly_map(test_paths[0])
-```
-
-### Example 7: Best Localization (SPADE - ECCV 2020) ⭐ NEW
-
-```python
-# Excellent pixel-level anomaly localization
-detector = models.create_model(
-    "vision_spade",
-    backbone="wide_resnet50",
-    k_neighbors=50,
-    feature_levels=["layer1", "layer2", "layer3"]
-)
-
-detector.fit(train_paths)
-scores = detector.decision_function(test_paths)
-anomaly_maps = detector.predict_anomaly_map(test_paths)  # Precise localization
-```
-
-### Example 8: Self-Supervised Learning (CutPaste - CVPR 2021) ⭐ NEW
-
-```python
-# Train without any anomaly samples
-detector = models.create_model(
-    "vision_cutpaste",
-    backbone="resnet18",
-    augment_type="3way",  # normal, cutpaste, scar
-    epochs=256
-)
-
-detector.fit(normal_images_only)  # Only normal images needed
-scores = detector.decision_function(test_paths)
-```
-
-### Example 9: Comparing Multiple Algorithms
-
-```python
-import numpy as np
-
-algorithms = ["vision_ecod", "vision_copod", "vision_simplenet", "vision_spade"]
-results = {}
-
-for algo_name in algorithms:
-    detector = models.create_model(
-        algo_name,
-        contamination=0.1
-    )
-    detector.fit(train_paths)
-    train_scores = detector.decision_function(train_paths)
-    threshold = np.quantile(train_scores, 0.9)
-    test_scores = detector.decision_function(test_paths)
-    results[algo_name] = (test_scores >= threshold).astype(int)
-
-# Compare results
-for name, preds in results.items():
-    print(f"{name}: {preds.sum()} anomalies detected")
-```
-
----
-
-## 🖼️ Image Preprocessing
-
-Comprehensive preprocessing module with **80+ operations** including augmentation for enhanced anomaly detection:
-
-### Quick Example
-
-```python
-from pyimgano.preprocessing import AdvancedImageEnhancer, PreprocessingMixin
-from pyimgano.models.ecod import VisionECOD
-
-# Method 1: Using Advanced Enhancer
-enhancer = AdvancedImageEnhancer()
-
-# Basic operations
-blurred = enhancer.gaussian_blur(image, ksize=(5, 5))
-edges = enhancer.detect_edges(blurred, method='canny')
-
-# Advanced operations
-retinex = enhancer.retinex_multi(image, sigmas=[15, 80, 250])  # Illumination invariant
-lbp = enhancer.compute_lbp(image, n_points=8, radius=1.0)  # Texture features
-hog_features = enhancer.extract_hog(image, visualize=False)  # HOG features
-
-# Method 2: Using Mixin with Detector
-import cv2
-import numpy as np
-
-
-class FlattenExtractor:
-    def __init__(self, size=(224, 224)):
-        self.size = size
-
-    def extract(self, X):
-        features = []
-        for img in X:
-            arr = np.asarray(img)
-            if arr.shape[:2] != self.size:
-                # cv2.resize expects (W, H)
-                arr = cv2.resize(arr, (self.size[1], self.size[0]))
-            features.append(arr.reshape(-1))
-        return np.stack(features, axis=0)
-
-
-class ECODWithPreprocessing(PreprocessingMixin, VisionECOD):
-    def __init__(self):
-        super().__init__(feature_extractor=FlattenExtractor(), contamination=0.1, n_jobs=-1)
-        self.setup_preprocessing(enable=True, use_pipeline=True)
-        self.add_preprocessing_step('gaussian_blur', ksize=(5, 5))
-        self.add_preprocessing_step('normalize', method='minmax')
-
-    def fit(self, X, y=None):
-        X_processed = self.preprocess_images(X)
-        return super().fit(X_processed, y)
-
-detector = ECODWithPreprocessing()
-detector.fit(train_images)
-scores = detector.decision_function(test_images)
-
-# Method 3: Data Augmentation for Training
-from pyimgano.preprocessing import (
-    Compose, OneOf, RandomRotate, RandomFlip,
-    ColorJitter, GaussianNoise, MotionBlur, get_medium_augmentation
-)
-
-# Custom augmentation pipeline
-aug_pipeline = Compose([
-    RandomFlip(mode="horizontal", p=0.5),
-    RandomRotate(angle_range=(-20, 20), p=0.5),
-    ColorJitter(brightness=(0.8, 1.2), contrast=(0.8, 1.2), p=0.5),
-    OneOf([
-        GaussianNoise(std_range=(10, 25), p=1.0),
-        MotionBlur(kernel_size_range=(5, 15), p=1.0),
-    ], p=0.3),
-])
-
-# Or use preset augmentation
-aug_pipeline = get_medium_augmentation()
-
-# Augment training data
-augmented_images = [aug_pipeline(img) for img in train_images]
-```
-
-### Available Operations (80+)
-
-#### Basic Operations (25)
-| Category | Operations | Count |
-|----------|------------|-------|
-| **Edge Detection** | Canny, Sobel, Laplacian, Scharr, Prewitt, Sobel X/Y | 7 |
-| **Morphology** | Erosion, Dilation, Opening, Closing, Gradient, TopHat, BlackHat | 7 |
-| **Filters** | Gaussian, Bilateral, Median, Box | 4 |
-| **Normalization** | MinMax, Z-Score, L2, Robust | 4 |
-| **Enhancement** | Sharpen, Unsharp Mask, CLAHE | 3 |
-
-#### Advanced Operations (25)
-| Category | Operations | Count |
-|----------|------------|-------|
-| **Frequency Domain** | FFT, IFFT, Lowpass, Highpass, Bandpass, Bandstop | 6 |
-| **Texture Analysis** | Gabor filters, LBP, GLCM features | 3 |
-| **Color Space** | RGB, HSV, LAB, YCrCb, HLS, LUV + conversions | 8 |
-| **Enhancement** | Gamma correction, Contrast stretching, Retinex (SSR, MSR) | 4 |
-| **Denoising** | Non-local means, Anisotropic diffusion | 2 |
-| **Feature Extraction** | HOG, Harris corners, Shi-Tomasi, FAST | 4 |
-| **Adv. Morphology** | Skeleton, Thinning, Convex hull, Distance transform | 4 |
-| **Segmentation** | Otsu, Adaptive, Triangle, Yen, Watershed | 6 |
-| **Pyramids** | Gaussian pyramid, Laplacian pyramid | 2 |
-
-#### Augmentation Operations (30+) ⭐ NEW!
-| Category | Operations | Count |
-|----------|------------|-------|
-| **Geometric** | Rotate, Flip, Scale, Translate, Shear, Perspective, Affine | 7 |
-| **Color** | Brightness, Contrast, Saturation, Hue, Color jitter | 5 |
-| **Noise** | Gaussian, Salt-and-pepper, Poisson, Speckle | 4 |
-| **Blur** | Motion blur, Defocus blur, Glass blur, Zoom blur | 4 |
-| **Weather** | Rain, Fog, Snow, Shadow, Sunflare | 5 |
-| **Occlusion** | Random cutout, Grid mask, Mixup, CutMix | 4 |
-| **Distortion** | Elastic transform, Grid distortion | 2 |
-| **Pipelines** | Compose, OneOf, RandomApply, 5 preset pipelines | 8 |
-
-**See [Preprocessing Guide](docs/PREPROCESSING.md) for detailed usage and best practices**
-
----
-
-## 📚 Available Algorithms
-
-### Classical Machine Learning (19 algorithms)
-
-| Algorithm | Model Name | Key Features |
-|-----------|------------|--------------|
-| **ECOD** ⭐ | `vision_ecod` | Parameter-free, top performance, TKDE 2022 |
-| **COPOD** ⭐ | `vision_copod` | Very fast, parameter-free, ICDM 2020 |
-| **Feature Bagging** ⭐ | `vision_feature_bagging` | Ensemble, high stability |
-| KNN | `vision_knn` | Simple, interpretable |
-| PCA | `vision_pca` | Classic dimensionality reduction |
-| Isolation Forest | `vision_iforest` | Robust, widely used |
-| INNE | `vision_inne` | Fast isolation-based |
-| LOF | `vision_lof` | Density-based, local outliers |
-| COF | `vision_cof` | Connectivity-based |
-| MCD | `vision_mcd` | Robust covariance |
-| One-Class SVM | `vision_ocsvm` | Kernel methods |
-| ABOD | `vision_abod` | Angle-based detection |
-| CBLOF | `vision_cblof` | Cluster-based |
-| HBOS | `vision_hbos` | Histogram-based |
-| KPCA | `vision_kpca` | Kernel PCA |
-| LODA | `vision_loda` | Lightweight online |
-| LOCI | `vision_loci` | Local correlation |
-| SUOD | `vision_suod` | Scalable ensemble |
-| XGBOD | `vision_xgbod` | XGBoost-based |
-
-### Deep Learning (33+ algorithms) 🎉
-
-| Algorithm | Model Name | Key Features |
-|-----------|------------|--------------|
-| **InTra** ⭐ 🆕 | `vision_intra` | Industrial Transformer (ICCV 2023), self-attention |
-| **WinCLIP** ⭐ | `vision_winclip` | Zero-shot CLIP-based (CVPR 2023), no training |
-| **OpenCLIP PromptScore** ⭐ | `vision_openclip_promptscore` | Prompt scoring + anomaly maps (requires `pyimgano[clip]`) |
-| **OpenCLIP PatchKNN** ⭐ | `vision_openclip_patchknn` | OpenCLIP patch embeddings + kNN (requires `pyimgano[clip]`) |
-| **SimpleNet** ⭐ | `vision_simplenet` | Ultra-fast SOTA (CVPR 2023), 10x faster training |
-| **BGAD** ⭐ 🆕 | `vision_bgad` | Background-guided (CVPR 2023), robust to variations |
-| **DifferNet** ⭐ | `vision_differnet` | Learnable differences (WACV 2023), k-NN |
-| **DSR** ⭐ | `vision_dsr` | Deep spectral residual (WACV 2023), frequency domain |
-| **PatchCore** ⭐ | `vision_patchcore` | Best accuracy (CVPR 2022), pixel localization |
-| **PNI** ⭐ | `vision_pni` | Pyramidal normality indexing (CVPR 2022), multi-scale |
-| **RD++** ⭐ 🆕 | `vision_rdplusplus` | Reverse Distillation++ (2022), enhanced attention |
-| **SPADE** ⭐ | `vision_spade` | Deep pyramid k-NN (ECCV 2020), excellent localization |
-| **CutPaste** ⭐ | `vision_cutpaste` | Self-supervised (CVPR 2021), no anomaly data |
-| **DRAEM** ⭐ | `vision_draem` | Synthetic anomalies (ICCV 2021), robust |
-| **CSFlow** | `vision_csflow` | Cross-scale normalizing flows (WACV 2022), expressive |
-| **MemSeg** | `vision_memseg` | Memory-guided segmentation (2022) |
-| **RIAD** | `vision_riad` | Inpainting-based (2020), self-supervised |
-| **DevNet** | `vision_devnet` | Weakly-supervised (KDD 2019), few labels |
-| **CFlow-AD** ⭐ | `vision_cflow` | Conditional flows (WACV 2022), real-time |
-| **DFM** ⭐ | `vision_dfm` | Fast discriminative features, training-free |
-| **STFPM** | `vision_stfpm` | Student-Teacher (BMVC 2021), multi-scale |
-| FastFlow | `vision_fastflow` | Normalizing flows, real-time |
-| PaDiM | `vision_padim` | Patch distribution, edge devices |
-| Deep SVDD | `vision_deep_svdd` | One-class deep learning |
-| VAE | `vision_vae` | Variational autoencoder |
-| AutoEncoder | `vision_ae` | Classic reconstruction |
-| Reverse Distillation | `vision_reverse_dist` | Knowledge distillation |
-| EfficientAD | `vision_efficientad` | Lightweight, resource-efficient |
-| SSIM-based | `vision_ssim` | Structural similarity |
-| ALAD | `vision_alad` | Adversarial learning |
-| AE+SVM | `vision_ae1svm` | Hybrid approach |
-| MO_GAAL | `vision_mo_gaal` | Multi-objective GAN |
-| IMDD | `vision_imdd` | Iterative methods |
-
-⭐ = Recommended for production use
-
----
-
-## 🎯 Use Cases
-
-### Industrial Quality Control
-```python
-# Detect defects in manufactured products
-detector = models.create_model("vision_ecod", ...)
-detector.fit(normal_product_images)
-defect_scores = detector.decision_function(inspection_images)
-```
-
-### Medical Imaging
-```python
-# Identify abnormal X-rays
-detector = models.create_model("vision_deep_svdd", ...)
-detector.fit(normal_xrays)
-abnormal_scores = detector.decision_function(patient_xrays)
-```
-
-### Security & Surveillance
-```python
-# Detect unusual behavior
-detector = models.create_model("vision_copod", ...)
-detector.fit(normal_scene_frames)
-anomaly_scores = detector.decision_function(monitoring_frames)
-```
-
----
-
-## 📊 Algorithm Comparison & Selection
-
-### Quick Selection Guide
-
-| Your Need | Recommended Algorithms | Why |
-|-----------|------------------------|-----|
-| **Best Overall Accuracy** | PatchCore, SPADE, FastFlow | 99%+ AUROC on MVTec AD |
-| **Fastest Training** | SimpleNet, ECOD, COPOD | 10× faster than competitors |
-| **Zero-Shot (No Training)** | WinCLIP | CLIP-based, text prompts |
-| **Best Localization** | SPADE, PatchCore, STFPM | Pixel-perfect anomaly maps |
-| **Limited Data** | WinCLIP, CutPaste, RIAD | Zero-shot or self-supervised |
-| **Real-Time Inference** | SimpleNet, FastFlow, COPOD | 100+ FPS on GPU |
-| **No GPU Available** | ECOD, COPOD, Feature Bagging | CPU-optimized classical ML |
-| **Few Anomaly Labels** | DevNet | Weakly-supervised learning |
-| **Production Deployment** | SimpleNet, ECOD, PatchCore | Stable, well-tested, fast |
-
-### Performance Comparison (MVTec AD Dataset)
-
-| Algorithm | Image AUROC | Pixel AUROC | Training Time | Inference Speed | Memory |
-|-----------|-------------|-------------|---------------|-----------------|---------|
-| **PatchCore** | 99.6% ⭐ | 98.7% ⭐ | Medium | 30-50 FPS | High |
-| **SPADE** | 98.0% | 99.0% ⭐ | Low | 40-60 FPS | Medium |
-| **SimpleNet** | 99.0% | 98.0% | Very Low ⭐ | 100+ FPS ⭐ | Low |
-| **FastFlow** | 99.0% | 98.0% | Low | 60-80 FPS | Medium |
-| **DifferNet** | 97.0% | 97.0% | Medium | 20-40 FPS | Medium |
-| **CutPaste** | 96.0% | N/A | Medium | 50+ FPS | Low |
-| **STFPM** | 97.0% | 98.0% | Medium | 40-60 FPS | Medium |
-| **WinCLIP** | 95.0% | 98.0% | None ⭐ | 5-10 FPS | Low |
-| **ECOD** | 85-90% | N/A | None ⭐ | 200+ FPS ⭐ | Very Low ⭐ |
-| **COPOD** | 85-90% | N/A | None ⭐ | 300+ FPS ⭐ | Very Low ⭐ |
-
-### Decision Tree
-
-```
-Start Here
-│
-├─ Have GPU?
-│  ├─ YES
-│  │  ├─ Need best accuracy? → PatchCore, SPADE
-│  │  ├─ Need speed? → SimpleNet, FastFlow
-│  │  ├─ No training data? → WinCLIP (zero-shot)
-│  │  └─ Need localization? → SPADE, PatchCore
-│  │
-│  └─ NO (CPU only)
-│     ├─ Need speed? → COPOD, ECOD
-│     ├─ Need accuracy? → ECOD, Feature Bagging
-│     └─ General purpose → ECOD (best balance)
-│
-├─ Type of Data?
-│  ├─ Only normal samples → CutPaste, RIAD, WinCLIP
-│  ├─ Few anomaly labels → DevNet
-│  └─ Mixed normal/anomaly → Any algorithm
-│
-└─ Deployment Scenario?
-   ├─ Edge device → PaDiM, EfficientAD
-   ├─ Cloud/Server → PatchCore, SimpleNet
-   └─ Real-time critical → SimpleNet, COPOD
-```
-
----
-
-## 🛠️ Utility Functions
-
-PyImgAno includes comprehensive utility functions for the complete anomaly detection workflow:
-
-### Dataset Loading 📊
-```python
-from pyimgano.utils import MVTecDataset, load_dataset
-
-# Load MVTec AD dataset
-dataset = MVTecDataset(root='./mvtec_ad', category='bottle', resize=(256, 256))
-train_data = dataset.get_train_data()
-test_data, test_labels, test_masks = dataset.get_test_data()
-
-# Or use factory function
-dataset = load_dataset('mvtec', './mvtec_ad', category='bottle')
-```
-
-**Supported Datasets:**
-- MVTec AD (15 categories) — `load_dataset("mvtec", ...)`
-- MVTec LOCO AD (5 categories) — `load_dataset("mvtec_loco", ...)`
-- MVTec AD 2 (2025; `test_public` split) — `load_dataset("mvtec_ad2", ...)`
-- VisA — `load_dataset("visa", ...)`
-- BTAD (3 categories) — `load_dataset("btad", ...)`
-- Custom datasets (flexible structure) — `load_dataset("custom", ...)`
-- Manifest datasets (JSONL; industrial, multi-category) — see `docs/MANIFEST_DATASET.md`
-
-### Advanced Visualization 📈
-```python
-from pyimgano.utils import (
-    plot_roc_curve, plot_confusion_matrix,
-    plot_score_distribution, create_evaluation_report
-)
-
-# ROC curve
-auc_score, fig = plot_roc_curve(y_true, y_scores, save_path='roc.png')
-
-# Confusion matrix
-plot_confusion_matrix(y_true, y_pred, labels=['Normal', 'Anomaly'])
-
-# Score distribution
-plot_score_distribution(normal_scores, anomaly_scores)
-
-# Complete evaluation report
-figures = create_evaluation_report(y_true, y_scores, y_pred, model_name='PatchCore')
-```
-
-**Available Plots:**
-- ROC curves
-- Precision-Recall curves
-- Confusion matrices
-- Score distributions
-- t-SNE feature space visualization
-- Anomaly heatmaps
-- Multi-model comparisons
-- Threshold analysis
-
-### Model Management 💾
-```python
-from pyimgano.utils import save_model, load_model, ModelRegistry, profile_model
-
-# Save/load models
-save_model(detector, 'model.pkl', metadata={'auc': 0.98})
-detector = load_model('model.pkl')
-
-# Model registry
-registry = ModelRegistry('./models')
-registry.register('patchcore_v1', detector, metadata={'version': '1.0'})
-model = registry.load('patchcore_v1')
-
-# Profile performance
-metrics = profile_model(detector, test_data, n_runs=10)
-print(f"Avg time: {metrics['avg_time_ms']:.2f} ms")
-```
-
-**Features:**
-- Save/load with metadata
-- Model registry for version management
-- Checkpointing
-- Performance profiling
-- Model comparison
-- Configuration export
-
-### Experiment Tracking 🔬
-```python
-from pyimgano.utils import ExperimentTracker, track_experiment
-
-# Create tracker
-tracker = ExperimentTracker('./experiments')
-
-# Create experiment
-exp = tracker.create_experiment('patchcore_bottle', model_type='PatchCore')
-exp.log_params({'backbone': 'resnet50', 'lr': 0.001})
-exp.log_metric('auc', 0.98)
-exp.add_tag('production')
-
-# Quick experiment tracking
-exp = track_experiment(
-    'my_experiment',
-    model=detector,
-    train_data=train_imgs,
-    test_data=test_imgs,
-    test_labels=test_labels,
-    backbone='resnet50'
-)
-
-# Generate report
-report = tracker.generate_report(exp_id, output_path='report.md')
-```
-
-**Features:**
-- Hyperparameter logging
-- Metric tracking over time
-- Artifact management
-- Experiment comparison
-- Markdown report generation
-
----
-
-## 📖 Documentation
-
-### Core Guides
-- **[Quick Start Guide](docs/QUICK_START.md)** ⭐ - Get started in 5 minutes
-- **[SOTA Algorithms Guide](docs/SOTA_ALGORITHMS.md)** ⭐ - Latest state-of-the-art algorithms (WinCLIP, SPADE, etc.)
-- **[Deep Learning Models Guide](docs/DEEP_LEARNING_MODELS.md)** ⭐ - Comprehensive deep learning guide
-- **[Algorithm Selection Guide](docs/ALGORITHM_SELECTION_GUIDE.md)** - Choose the right algorithm
-- **[Preprocessing Guide](docs/PREPROCESSING.md)** ⭐ - Image enhancement and preprocessing
-- **[Evaluation & Benchmarking Guide](docs/EVALUATION_AND_BENCHMARK.md)** ⭐ - Comprehensive evaluation tools
-- **[scikit-learn Integration](docs/SKLEARN_INTEGRATION.md)** ⭐ NEW! - Use registry models in sklearn workflows
-- **[Utilities Guide](examples/utilities_example.py)** ⭐ NEW! - Dataset loading, visualization, model management
-
-### Reference
-- **[API Reference](docs/)** - Detailed API documentation
-- **[Examples](examples/)** - Code examples and tutorials
-- **[Contributing](CONTRIBUTING.md)** - Contribution guidelines
-- **[Changelog](CHANGELOG.md)** - Version history
-
----
-
-## 🏗️ Project Structure
-
-```
-pyimgano/
-├── pyimgano/
-│   ├── models/          # 50+ anomaly detection algorithms 🎉
-│   │   ├── Classical ML (19 algorithms)
-│   │   │   ├── ecod.py          # ECOD (TKDE 2022)
-│   │   │   ├── copod.py         # COPOD (ICDM 2020)
-│   │   │   ├── feature_bagging.py
-│   │   │   ├── knn.py, pca.py, lof.py, ...
-│   │   │   └── ...
-│   │   ├── Deep Learning (31 algorithms) 🎉
-│   │   │   ├── intra.py         # InTra Transformer (ICCV 2023) ⭐ 🆕
-│   │   │   ├── winclip.py       # WinCLIP (CVPR 2023) ⭐
-│   │   │   ├── simplenet.py     # SimpleNet (CVPR 2023) ⭐
-│   │   │   ├── bgad.py          # BGAD (CVPR 2023) ⭐ 🆕
-│   │   │   ├── differnet.py     # DifferNet (WACV 2023) ⭐
-│   │   │   ├── dsr.py           # DSR (WACV 2023) ⭐ 🆕
-│   │   │   ├── patchcore.py     # PatchCore (CVPR 2022) ⭐
-│   │   │   ├── pni.py           # PNI (CVPR 2022) ⭐ 🆕
-│   │   │   ├── rdplusplus.py    # RD++ (2022) ⭐ 🆕
-│   │   │   ├── stfpm.py         # STFPM (BMVC 2021) ⭐
-│   │   │   ├── cutpaste.py      # CutPaste (CVPR 2021) ⭐
-│   │   │   ├── draem.py         # DRAEM (ICCV 2021) ⭐
-│   │   │   ├── cflow.py         # CFlow-AD (WACV 2022) ⭐
-│   │   │   ├── csflow.py        # CSFlow (WACV 2022) 🆕
-│   │   │   ├── spade.py         # SPADE (ECCV 2020) ⭐
-│   │   │   ├── memseg.py        # MemSeg (2022)
-│   │   │   ├── riad.py          # RIAD (2020)
-│   │   │   ├── devnet.py        # DevNet (KDD 2019)
-│   │   │   ├── dfm.py           # DFM (training-free) ⭐
-│   │   │   ├── fastflow.py, padim.py, ...
-│   │   │   └── ...
-│   │   ├── registry.py  # Model registry system
-│   │   └── baseml.py    # Base classes
-│   ├── preprocessing/   # Image preprocessing module ⭐ NEW!
-│   │   ├── enhancer.py  # 20+ enhancement operations
-│   │   ├── mixin.py     # Easy integration mixin
-│   │   └── __init__.py
-│   ├── utils/           # Image processing utilities
-│   ├── datasets/        # Data loading utilities
-│   ├── evaluation.py    # Evaluation metrics ⭐
-│   ├── benchmark.py     # Algorithm benchmarking ⭐
-│   └── visualization/   # Visualization tools
-├── tests/               # Comprehensive test suite
-│   ├── test_pyod_models.py      # Classical ML tests
-│   ├── test_dl_models.py        # Deep learning tests
-│   ├── test_preprocessing.py    # Preprocessing tests ⭐ NEW!
-│   ├── test_evaluation.py       # Evaluation tests
-│   └── ...
-├── examples/            # Usage examples
-│   ├── preprocessing_example.py # Preprocessing guide ⭐ NEW!
-│   ├── benchmark_example.py
-│   └── ...
-├── docs/                # Documentation
-│   ├── DEEP_LEARNING_MODELS.md  # DL algorithms guide ⭐
-│   ├── PREPROCESSING.md         # Preprocessing guide ⭐ NEW!
-│   ├── EVALUATION_AND_BENCHMARK.md
-│   ├── ALGORITHM_SELECTION_GUIDE.md
-│   └── ...
-└── .github/             # CI/CD workflows
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=pyimgano --cov-report=html
-
-# Run specific tests
-pytest tests/test_pyod_models.py -v
-
-# Run with multiple Python versions
-tox
-```
-
----
-
-## 🛠️ Development
-
-### Setup Development Environment
-
-```bash
-# Clone repository
-git clone https://github.com/jhlu2019/pyimgano.git
-cd pyimgano
-
-# Install in development mode
-pip install -e .[dev]
-
-# Install pre-commit hooks
-pre-commit install
-```
-
-### Code Quality
-
-We maintain high code quality standards:
-
-```bash
-# Format code
-make format
-
-# Run linters
-make lint
-
-# Type checking
-make type
-
-# Run all checks
-make all
-```
-
-### Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-## 📊 Benchmarks
-
-Based on [ADBench](https://github.com/Minqi824/ADBench) (30 algorithms on 57 datasets):
-
-| Algorithm | Average Rank | Relative Speed |
-|-----------|--------------|----------------|
-| ECOD | 3.5/30 | 1.2× |
-| COPOD | 4.2/30 | 1.0× (fastest) |
-| IForest | 5.8/30 | 2.0× |
-| LODA | 6.1/30 | 1.8× |
-| Deep SVDD | 8.5/30 | 10× |
-
----
-
-## 🔗 Related Projects
-
-- **[PyOD](https://github.com/yzhao062/pyod)** - Python Outlier Detection Library
-- **[Anomalib](https://github.com/openvinotoolkit/anomalib)** - Deep Learning Anomaly Detection
-- **[ADBench](https://github.com/Minqi824/ADBench)** - Anomaly Detection Benchmark
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 📮 Citation
-
-If you use PyImgAno in your research, please cite:
+## Citation
 
 ```bibtex
-@software{pyimgano2025,
+@software{pyimgano2026,
   author = {PyImgAno Contributors},
-  title = {PyImgAno: Enterprise-Grade Visual Anomaly Detection Toolkit},
-  year = {2025},
-  url = {https://github.com/jhlu2019/pyimgano}
+  title = {pyimgano: Production-oriented Visual Anomaly Detection},
+  year = {2026},
+  url = {https://github.com/skygazer42/pyimgano}
 }
 ```
-
----
-
-## 🤝 Acknowledgments
-
-- [PyOD](https://github.com/yzhao062/pyod) for the excellent outlier detection library
-- [Anomalib](https://github.com/openvinotoolkit/anomalib) for deep learning inspiration
-- All contributors and users of PyImgAno
-
----
-
-## 📞 Contact & Support
-
-- **Issues:** [GitHub Issues](https://github.com/jhlu2019/pyimgano/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/jhlu2019/pyimgano/discussions)
-- **Documentation:** [Read the Docs](https://pyimgano.readthedocs.io/)
-
----
-
-**Made with ❤️ by the PyImgAno Team**
