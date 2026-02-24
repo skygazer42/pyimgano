@@ -148,3 +148,22 @@ Run:
 pyimgano-train --config cfg.json
 ```
 
+---
+
+## Generate a Manifest (Custom Layout)
+
+If your data already matches the built-in `custom` dataset layout, you can
+generate a manifest automatically:
+
+```bash
+pyimgano-manifest --root /path/to/custom_dataset --out manifest.jsonl --include-masks
+```
+
+This scans:
+
+- `train/normal/*`
+- `test/normal/*`
+- `test/anomaly/*`
+- optional masks: `ground_truth/anomaly/<stem>_mask.png`
+
+and writes a stable, sorted JSONL output.
