@@ -82,6 +82,24 @@ def _parse_checkpoint_name(value: Any, *, default: str = "model.pt") -> str:
     return name
 
 
+def _parse_roi_xyxy_norm(value: Any) -> tuple[float, float, float, float] | None:
+    if value is None:
+        return None
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        raise ValueError("defects.roi_xyxy_norm must be a list/tuple of length 4 or null")
+
+    try:
+        x1, y1, x2, y2 = (float(v) for v in value)
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        raise ValueError(f"defects.roi_xyxy_norm must contain floats, got {value!r}") from exc
+
+    def _clamp01(v: float) -> float:
+        return float(min(max(v, 0.0), 1.0))
+
+    x1c, y1c, x2c, y2c = (_clamp01(x1), _clamp01(y1), _clamp01(x2), _clamp01(y2))
+    return (min(x1c, x2c), min(y1c, y2c), max(x1c, x2c), max(y1c, y2c))
+
+
 @dataclass(frozen=True)
 class SplitPolicyConfig:
     """Controls auto-splitting for datasets that support it (e.g. manifest JSONL)."""
@@ -132,6 +150,21 @@ class TrainingConfig:
 
 
 @dataclass(frozen=True)
+class DefectsConfig:
+    enabled: bool = False
+    pixel_threshold: float | None = None
+    pixel_threshold_strategy: str = "normal_pixel_quantile"
+    pixel_normal_quantile: float = 0.999
+    mask_format: str = "png"
+    roi_xyxy_norm: tuple[float, float, float, float] | None = None
+    min_area: int = 0
+    open_ksize: int = 0
+    close_ksize: int = 0
+    fill_holes: bool = False
+    max_regions: int | None = None
+
+
+@dataclass(frozen=True)
 class WorkbenchConfig:
     dataset: DatasetConfig
     model: ModelConfig
@@ -140,6 +173,7 @@ class WorkbenchConfig:
     output: OutputConfig = field(default_factory=OutputConfig)
     adaptation: AdaptationConfig = field(default_factory=AdaptationConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
+    defects: DefectsConfig = field(default_factory=DefectsConfig)
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "WorkbenchConfig":
@@ -328,6 +362,49 @@ class WorkbenchConfig:
                 checkpoint_name=_parse_checkpoint_name(t_map.get("checkpoint_name", None)),
             )
 
+        defects_raw = top.get("defects", None)
+        if defects_raw is None:
+            defects = DefectsConfig()
+        else:
+            d_map = _require_mapping(defects_raw, name="defects")
+            pixel_threshold = _optional_float(d_map.get("pixel_threshold", None), name="defects.pixel_threshold")
+            max_regions = _optional_int(d_map.get("max_regions", None), name="defects.max_regions")
+            min_area = int(_optional_int(d_map.get("min_area", 0), name="defects.min_area") or 0)
+            open_ksize = int(_optional_int(d_map.get("open_ksize", 0), name="defects.open_ksize") or 0)
+            close_ksize = int(_optional_int(d_map.get("close_ksize", 0), name="defects.close_ksize") or 0)
+
+            if min_area < 0:
+                raise ValueError("defects.min_area must be >= 0")
+            if open_ksize < 0:
+                raise ValueError("defects.open_ksize must be >= 0")
+            if close_ksize < 0:
+                raise ValueError("defects.close_ksize must be >= 0")
+            if max_regions is not None and max_regions <= 0:
+                raise ValueError("defects.max_regions must be positive or null")
+
+            q = _optional_float(d_map.get("pixel_normal_quantile", 0.999), name="defects.pixel_normal_quantile")
+            qv = float(q if q is not None else 0.999)
+            if not (0.0 < qv <= 1.0):
+                raise ValueError("defects.pixel_normal_quantile must be in (0,1]")
+
+            mask_format = str(d_map.get("mask_format", "png"))
+            if mask_format not in ("png", "npy"):
+                raise ValueError("defects.mask_format must be 'png' or 'npy'")
+
+            defects = DefectsConfig(
+                enabled=bool(d_map.get("enabled", False)),
+                pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
+                pixel_threshold_strategy=str(d_map.get("pixel_threshold_strategy", "normal_pixel_quantile")),
+                pixel_normal_quantile=qv,
+                mask_format=mask_format,
+                roi_xyxy_norm=_parse_roi_xyxy_norm(d_map.get("roi_xyxy_norm", None)),
+                min_area=min_area,
+                open_ksize=open_ksize,
+                close_ksize=close_ksize,
+                fill_holes=bool(d_map.get("fill_holes", False)),
+                max_regions=max_regions,
+            )
+
         return cls(
             dataset=dataset,
             model=model,
@@ -336,4 +413,5 @@ class WorkbenchConfig:
             output=output,
             adaptation=adaptation,
             training=training,
+            defects=defects,
         )

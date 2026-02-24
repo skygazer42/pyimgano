@@ -30,6 +30,19 @@ def test_workbench_config_from_dict_normalizes_types():
             "save_run": False,
             "per_image_jsonl": False,
         },
+        "defects": {
+            "enabled": True,
+            "pixel_threshold": 0.5,
+            "pixel_threshold_strategy": "fixed",
+            "pixel_normal_quantile": 0.999,
+            "mask_format": "png",
+            "roi_xyxy_norm": [0.1, 0.2, 0.8, 0.9],
+            "min_area": 10,
+            "open_ksize": 3,
+            "close_ksize": 5,
+            "fill_holes": True,
+            "max_regions": 7,
+        },
     }
 
     cfg = WorkbenchConfig.from_dict(raw)
@@ -41,6 +54,17 @@ def test_workbench_config_from_dict_normalizes_types():
     assert cfg.output.output_dir == "out"
     assert cfg.output.save_run is False
     assert cfg.output.per_image_jsonl is False
+    assert cfg.defects.enabled is True
+    assert cfg.defects.pixel_threshold == 0.5
+    assert cfg.defects.pixel_threshold_strategy == "fixed"
+    assert cfg.defects.pixel_normal_quantile == 0.999
+    assert cfg.defects.mask_format == "png"
+    assert cfg.defects.roi_xyxy_norm == pytest.approx((0.1, 0.2, 0.8, 0.9))
+    assert cfg.defects.min_area == 10
+    assert cfg.defects.open_ksize == 3
+    assert cfg.defects.close_ksize == 5
+    assert cfg.defects.fill_holes is True
+    assert cfg.defects.max_regions == 7
 
 
 def test_workbench_config_defaults():
@@ -55,6 +79,9 @@ def test_workbench_config_defaults():
     assert cfg.dataset.resize == (256, 256)
     assert cfg.output.save_run is True
     assert cfg.output.per_image_jsonl is True
+    assert cfg.defects.enabled is False
+    assert cfg.defects.pixel_threshold is None
+    assert cfg.defects.roi_xyxy_norm is None
 
 
 def test_workbench_config_invalid_resize_raises():
