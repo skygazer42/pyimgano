@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-02-24
+
+### Added
+- Workbench dataset preflight validation (`pyimgano-train --preflight`) for catching manifest/data issues before training.
+- Workbench reports now include `dataset_summary` (counts, anomaly ratio, pixel-metric gating).
+- Infer-config driven deployment-style inference (`pyimgano-infer --infer-config ...`), including multi-category selection via `--infer-category`.
+- Benchmark CLI can now run manifest datasets (`pyimgano-benchmark --dataset manifest --manifest-path ...`) and propagates manifest `meta` to per-image JSONL.
+
 ## [0.6.4] - 2026-02-24
 
 ### Added
