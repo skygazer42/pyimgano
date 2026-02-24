@@ -37,6 +37,21 @@ def _build_parser() -> argparse.ArgumentParser:
             "If omitted, --root is treated as the manifest path for backwards compatibility."
         ),
     )
+    parser.add_argument(
+        "--manifest-test-normal-fraction",
+        type=float,
+        default=0.2,
+        help=(
+            "When --dataset manifest, fraction of normal samples assigned to test during auto-split. "
+            "Default: 0.2"
+        ),
+    )
+    parser.add_argument(
+        "--manifest-split-seed",
+        type=int,
+        default=None,
+        help="When --dataset manifest, seed for deterministic auto-split. Defaults to --seed or 0.",
+    )
     parser.add_argument("--category", default=None, help="Dataset category name")
     parser.add_argument(
         "--resize",
@@ -849,13 +864,50 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("--category all is not yet supported with --pixel.")
 
             detector = create_model(args.model, **model_kwargs)
-            split = load_benchmark_split(
-                dataset=dataset,  # type: ignore[arg-type]
-                root=str(args.root),
-                category=str(category),
-                resize=resize,
-                load_masks=True,
-            )
+            pixel_skip_reason = None
+            if dataset.lower() == "manifest":
+                import numpy as np
+
+                from pyimgano.datasets.manifest import (
+                    ManifestSplitPolicy,
+                    load_manifest_benchmark_split,
+                )
+                from pyimgano.pipelines.mvtec_visa import BenchmarkSplit
+
+                mp = str(args.root) if args.manifest_path is None else str(args.manifest_path)
+                root_fallback = None if args.manifest_path is None else str(args.root)
+                seed = (
+                    int(args.manifest_split_seed)
+                    if args.manifest_split_seed is not None
+                    else (int(args.seed) if args.seed is not None else 0)
+                )
+                policy = ManifestSplitPolicy(
+                    seed=seed,
+                    test_normal_fraction=float(args.manifest_test_normal_fraction),
+                )
+                ms = load_manifest_benchmark_split(
+                    manifest_path=mp,
+                    root_fallback=root_fallback,
+                    category=str(category),
+                    resize=resize,
+                    load_masks=True,
+                    split_policy=policy,
+                )
+                pixel_skip_reason = ms.pixel_skip_reason
+                split = BenchmarkSplit(
+                    train_paths=list(ms.train_paths),
+                    test_paths=list(ms.test_paths),
+                    test_labels=np.asarray(ms.test_labels),
+                    test_masks=ms.test_masks,
+                )
+            else:
+                split = load_benchmark_split(
+                    dataset=dataset,  # type: ignore[arg-type]
+                    root=str(args.root),
+                    category=str(category),
+                    resize=resize,
+                    load_masks=True,
+                )
             results = evaluate_split(
                 detector,
                 split,
@@ -879,12 +931,18 @@ def main(argv: list[str] | None = None) -> int:
                 "resize": list(resize),
                 "results": results,
             }
+            if pixel_skip_reason is not None:
+                payload["pixel_metrics_status"] = {
+                    "enabled": False,
+                    "reason": str(pixel_skip_reason),
+                }
         else:
             from pyimgano.pipelines.run_benchmark import run_benchmark
 
             payload = run_benchmark(
                 dataset=dataset,
                 root=str(args.root),
+                manifest_path=(str(args.manifest_path) if args.manifest_path is not None else None),
                 category=str(category),
                 model=str(args.model),
                 input_mode=str(args.input_mode),
@@ -902,6 +960,10 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 limit_train=(int(args.limit_train) if args.limit_train is not None else None),
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
+                manifest_split_seed=(
+                    int(args.manifest_split_seed) if args.manifest_split_seed is not None else None
+                ),
+                manifest_test_normal_fraction=float(args.manifest_test_normal_fraction),
                 save_run=bool(args.save_run),
                 per_image_jsonl=bool(args.per_image_jsonl),
                 cache_dir=(str(args.cache_dir) if args.cache_dir is not None else None),

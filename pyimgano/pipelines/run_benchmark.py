@@ -38,14 +38,18 @@ class RunConfig:
     calibration_quantile: float | None = None
     limit_train: int | None = None
     limit_test: int | None = None
+    # Manifest dataset options (only used when dataset="manifest")
+    manifest_path: str | None = None
+    manifest_split_seed: int | None = None
+    manifest_test_normal_fraction: float = 0.2
 
 
-def list_dataset_categories(*, dataset: str, root: str) -> list[str]:
+def list_dataset_categories(*, dataset: str, root: str, manifest_path: str | None = None) -> list[str]:
     """Compatibility wrapper for category discovery."""
 
     from pyimgano.datasets.catalog import list_dataset_categories as _list
 
-    return _list(dataset=dataset, root=root)
+    return _list(dataset=dataset, root=root, manifest_path=manifest_path)
 
 
 def _default_calibration_quantile(detector: Any, *, fallback: float = 0.995) -> float:
@@ -198,19 +202,54 @@ def run_benchmark_category(
             save_run_report(paths.run_dir / "environment.json", collect_environment())
 
     load_start = time.perf_counter()
+    test_meta: list[Mapping[str, Any] | None] | None = None
+    pixel_skip_reason: str | None = None
     if config.input_mode == "paths":
-        split = load_benchmark_split(
-            dataset=config.dataset,  # type: ignore[arg-type]
-            root=config.root,
-            category=config.category,
-            resize=tuple(config.resize),
-            load_masks=True,
-        )
-        train_inputs: list[Any] = list(split.train_paths)
-        test_inputs: list[Any] = list(split.test_paths)
-        test_labels = np.asarray(split.test_labels)
-        test_masks = split.test_masks
+        if str(config.dataset).lower() == "manifest":
+            from pyimgano.datasets.manifest import ManifestSplitPolicy, load_manifest_benchmark_split
+
+            mp = str(config.manifest_path) if config.manifest_path is not None else str(config.root)
+            root_fallback = str(config.root) if config.manifest_path is not None else None
+
+            seed = (
+                int(config.manifest_split_seed)
+                if config.manifest_split_seed is not None
+                else (int(config.seed) if config.seed is not None else 0)
+            )
+            policy = ManifestSplitPolicy(
+                seed=seed,
+                test_normal_fraction=float(config.manifest_test_normal_fraction),
+            )
+            split = load_manifest_benchmark_split(
+                manifest_path=mp,
+                root_fallback=root_fallback,
+                category=str(config.category),
+                resize=tuple(config.resize),
+                load_masks=True,
+                split_policy=policy,
+            )
+            train_inputs = list(split.train_paths)
+            test_inputs = list(split.test_paths)
+            test_labels = np.asarray(split.test_labels)
+            test_masks = split.test_masks
+            pixel_skip_reason = split.pixel_skip_reason
+            test_meta = split.test_meta
+        else:
+            split = load_benchmark_split(
+                dataset=config.dataset,  # type: ignore[arg-type]
+                root=config.root,
+                category=config.category,
+                resize=tuple(config.resize),
+                load_masks=True,
+            )
+            train_inputs = list(split.train_paths)
+            test_inputs = list(split.test_paths)
+            test_labels = np.asarray(split.test_labels)
+            test_masks = split.test_masks
     elif config.input_mode == "numpy":
+        if str(config.dataset).lower() == "manifest":
+            raise ValueError("--input-mode numpy is not supported for --dataset manifest.")
+
         from pyimgano.datasets import load_dataset
 
         ds = load_dataset(
@@ -241,6 +280,8 @@ def run_benchmark_category(
         test_labels = np.asarray(test_labels)[:limit]
         if test_masks is not None:
             test_masks = np.asarray(test_masks)[:limit]
+        if test_meta is not None:
+            test_meta = list(test_meta)[:limit]
 
     auto_defaults: dict[str, Any] = {
         "device": config.device,
@@ -331,6 +372,24 @@ def run_benchmark_category(
     # It will re-fit the detector, but only when pixel metrics are requested in CLI.
     timing["total_s"] = float(time.perf_counter() - total_start)
 
+    dataset_summary: dict[str, Any] = {
+        "train_count": int(len(train_inputs)),
+        "test_count": int(len(test_inputs)),
+        "test_anomaly_count": int(np.sum(np.asarray(test_labels) == 1)),
+        "test_anomaly_ratio": (
+            float(np.mean(np.asarray(test_labels) == 1)) if len(test_inputs) > 0 else None
+        ),
+    }
+    if pixel_skip_reason is not None:
+        dataset_summary["pixel_metrics"] = {"enabled": False, "reason": str(pixel_skip_reason)}
+    elif test_masks is None:
+        dataset_summary["pixel_metrics"] = {
+            "enabled": False,
+            "reason": "No ground-truth test masks available.",
+        }
+    else:
+        dataset_summary["pixel_metrics"] = {"enabled": True, "reason": None}
+
     payload: dict[str, Any] = {
         "dataset": config.dataset,
         "category": config.category,
@@ -343,9 +402,12 @@ def run_benchmark_category(
         "calibration_quantile": config.calibration_quantile,
         "threshold": threshold_used,
         "calibrated_threshold": calibrated_threshold,
+        "dataset_summary": dataset_summary,
         "results": results,
         "timing": dict(timing),
     }
+    if pixel_skip_reason is not None:
+        payload["pixel_metrics_status"] = {"enabled": False, "reason": str(pixel_skip_reason)}
     if load_detector_requested:
         payload["loaded_detector_path"] = str(config.load_detector_path)
     if save_detector_requested:
@@ -381,6 +443,10 @@ def run_benchmark_category(
                     "threshold": float(threshold_used),
                     "pred": int(pred[i]),
                 }
+                if test_meta is not None:
+                    meta = test_meta[i]
+                    if meta is not None:
+                        rec["meta"] = dict(meta)
                 records.append(rec)
 
             save_jsonl_records(cat_dir / "per_image.jsonl", records)
@@ -397,6 +463,7 @@ def run_benchmark(
     *,
     dataset: str,
     root: str,
+    manifest_path: str | Path | None = None,
     category: str,
     model: str,
     input_mode: str = "paths",
@@ -411,6 +478,8 @@ def run_benchmark(
     calibration_quantile: float | None = None,
     limit_train: int | None = None,
     limit_test: int | None = None,
+    manifest_split_seed: int | None = None,
+    manifest_test_normal_fraction: float = 0.2,
     save_run: bool = True,
     per_image_jsonl: bool = True,
     cache_dir: str | Path | None = None,
@@ -449,6 +518,9 @@ def run_benchmark(
             calibration_quantile=calibration_quantile,
             limit_train=limit_train,
             limit_test=limit_test,
+            manifest_path=(str(manifest_path) if manifest_path is not None else None),
+            manifest_split_seed=(int(manifest_split_seed) if manifest_split_seed is not None else None),
+            manifest_test_normal_fraction=float(manifest_test_normal_fraction),
         )
         return run_benchmark_category(
             config=cfg,
@@ -457,7 +529,11 @@ def run_benchmark(
             output_dir=output_dir,
         )
 
-    categories = list_dataset_categories(dataset=dataset, root=root)
+    categories = list_dataset_categories(
+        dataset=dataset,
+        root=root,
+        manifest_path=(str(manifest_path) if manifest_path is not None else None),
+    )
     per_category: dict[str, Any] = {}
 
     name = build_run_dir_name(dataset=str(dataset), model=str(model))
@@ -488,6 +564,9 @@ def run_benchmark(
             calibration_quantile=calibration_quantile,
             limit_train=limit_train,
             limit_test=limit_test,
+            manifest_path=(str(manifest_path) if manifest_path is not None else None),
+            manifest_split_seed=(int(manifest_split_seed) if manifest_split_seed is not None else None),
+            manifest_test_normal_fraction=float(manifest_test_normal_fraction),
         )
 
         cat_output_dir = None
