@@ -120,6 +120,44 @@ def test_manifest_auto_split_is_deterministic(tmp_path: Path) -> None:
     assert any(s1.test_labels == 1), "anomaly labels must be present in test"
 
 
+def test_manifest_auto_split_changes_with_seed_when_choices_exist(tmp_path: Path) -> None:
+    mdir = tmp_path / "m"
+    manifest = mdir / "manifest.jsonl"
+    mdir.mkdir(parents=True, exist_ok=True)
+
+    rows = []
+    for i in range(30):
+        name = f"n_{i}.png"
+        (mdir / name).touch()
+        rows.append({"image_path": name, "category": "bottle"})
+
+    (mdir / "a_0.png").touch()
+    rows.append({"image_path": "a_0.png", "category": "bottle", "label": 1})
+
+    _write_jsonl(manifest, rows)
+
+    s1 = load_manifest_benchmark_split(
+        manifest_path=manifest,
+        root_fallback=None,
+        category="bottle",
+        load_masks=False,
+        split_policy=ManifestSplitPolicy(seed=1, test_normal_fraction=0.2),
+    )
+    s2 = load_manifest_benchmark_split(
+        manifest_path=manifest,
+        root_fallback=None,
+        category="bottle",
+        load_masks=False,
+        split_policy=ManifestSplitPolicy(seed=2, test_normal_fraction=0.2),
+    )
+
+    normal_test_1 = {p for p, lab in zip(s1.test_paths, s1.test_labels) if int(lab) == 0}
+    normal_test_2 = {p for p, lab in zip(s2.test_paths, s2.test_labels) if int(lab) == 0}
+    assert normal_test_1, "expected some normal samples to be assigned to test"
+    assert normal_test_2, "expected some normal samples to be assigned to test"
+    assert normal_test_1 != normal_test_2, "different seeds should affect normal test sampling"
+
+
 def test_group_aware_split_forces_entire_group_to_test(tmp_path: Path) -> None:
     mdir = tmp_path / "m"
     manifest = mdir / "manifest.jsonl"
@@ -223,4 +261,3 @@ def test_masks_loaded_when_complete(tmp_path: Path) -> None:
     assert split.test_masks is not None
     assert split.test_masks.shape == (len(split.test_paths), 6, 8)
     assert np.isin(split.test_masks, [0, 1]).all()
-
