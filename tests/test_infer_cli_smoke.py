@@ -137,6 +137,69 @@ def test_infer_cli_smoke_defects_export(tmp_path, monkeypatch):
     assert len(saved_masks) == 1
 
 
+def test_infer_cli_smoke_defects_roi_gates_defects_only(tmp_path, monkeypatch):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+    masks_dir = tmp_path / "masks"
+
+    class _ROIMapDetector:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            _ = X
+            return np.asarray([1.0], dtype=np.float32)
+
+        def get_anomaly_map(self, item):
+            _ = item
+            m = np.zeros((4, 4), dtype=np.float32)
+            m[0, 3] = 1.0  # hotspot outside ROI (right side)
+            return m
+
+    det = _ROIMapDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--save-masks",
+            str(masks_dir),
+            "--mask-format",
+            "png",
+            "--pixel-threshold",
+            "0.5",
+            "--pixel-threshold-strategy",
+            "fixed",
+            "--roi-xyxy-norm",
+            "0.0",
+            "0.0",
+            "0.5",
+            "1.0",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
+    assert record["score"] == 1.0
+    assert record["label"] == 1
+
+    defects = record["defects"]
+    assert defects["regions"] == []
+
+    mask_path = Path(defects["mask"]["path"])
+    loaded = np.asarray(Image.open(mask_path), dtype=np.uint8)
+    assert int(loaded.max()) == 0
+
+
 def test_infer_cli_train_dir_auto_calibrates_when_threshold_missing(tmp_path, monkeypatch):
     train_dir = tmp_path / "train"
     train_dir.mkdir()
