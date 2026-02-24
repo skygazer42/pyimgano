@@ -50,7 +50,7 @@ This writes a run directory containing:
 
 - `report.json` / `config.json` / `environment.json`
 - `categories/<cat>/per_image.jsonl`
-- `artifacts/infer_config.json`
+- `artifacts/infer_config.json` (model + adaptation + `threshold` + `threshold_provenance` + optional `checkpoint`)
 - optional: `artifacts/maps/*.npy`
 - optional: `checkpoints/<cat>/...`
 
@@ -72,6 +72,8 @@ pyimgano-infer --from-run /path/to/run_dir --from-run-category bottle --input /p
 
 - `pyimgano-infer --from-run` is **best-effort**: it loads model settings, applies `threshold_`,
   and loads checkpoints when the detector supports it.
+- For production shipping, prefer `artifacts/infer_config.json` (`pyimgano-infer --infer-config ...`):
+  it’s a minimal “what inference needs” payload and includes `threshold_provenance` for auditing.
 - For high-resolution inference, you can still use `pyimgano-infer` tiling flags (see
   `docs/INDUSTRIAL_INFERENCE.md`).
 

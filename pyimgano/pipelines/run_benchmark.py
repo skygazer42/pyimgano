@@ -6,6 +6,7 @@ from typing import Any, Literal, Sequence
 
 import numpy as np
 
+from pyimgano.calibration.score_threshold import resolve_calibration_quantile
 from pyimgano.evaluation import evaluate_detector
 from pyimgano.models.registry import MODEL_REGISTRY, create_model
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
@@ -52,18 +53,6 @@ def list_dataset_categories(*, dataset: str, root: str, manifest_path: str | Non
     return _list(dataset=dataset, root=root, manifest_path=manifest_path)
 
 
-def _default_calibration_quantile(detector: Any, *, fallback: float = 0.995) -> float:
-    contamination = getattr(detector, "contamination", None)
-    try:
-        if contamination is not None:
-            cf = float(contamination)
-            if 0.0 < cf < 0.5:
-                return 1.0 - cf
-    except Exception:
-        pass
-    return float(fallback)
-
-
 def _seed_everything(seed: int) -> None:
     import random
 
@@ -89,14 +78,24 @@ def _calibrate_score_threshold(
     *,
     strategy: ScoreThresholdStrategy,
     calibration_quantile: float | None,
-) -> float | None:
+) -> tuple[float | None, dict[str, Any]]:
     if strategy == "test_optimal_f1":
-        return None
+        return None, {
+            "strategy": "test_optimal_f1",
+            "method": "f1",
+            "split": "test",
+            "note": "Uses test labels to pick the threshold (benchmark only).",
+        }
     if strategy == "median":
         scores = np.asarray(detector.decision_function(list(train_inputs)), dtype=np.float64)
         if scores.size == 0:
             raise ValueError("Unable to calibrate threshold: empty train score set.")
-        return float(np.median(scores))
+        return float(np.median(scores)), {
+            "strategy": "median",
+            "method": "median",
+            "split": "train",
+            "train_count": int(len(train_inputs)),
+        }
 
     if strategy != "train_quantile":
         raise ValueError(
@@ -104,18 +103,22 @@ def _calibrate_score_threshold(
             "Choose from: train_quantile, test_optimal_f1, median."
         )
 
-    q = (
-        float(calibration_quantile)
-        if calibration_quantile is not None
-        else _default_calibration_quantile(detector)
+    q, q_source = resolve_calibration_quantile(
+        detector,
+        calibration_quantile=(float(calibration_quantile) if calibration_quantile is not None else None),
     )
-    if not 0.0 < q < 1.0:
-        raise ValueError(f"calibration_quantile must be in (0,1), got {q}")
 
     scores = np.asarray(detector.decision_function(list(train_inputs)), dtype=np.float64)
     if scores.size == 0:
         raise ValueError("Unable to calibrate threshold: empty train score set.")
-    return float(np.quantile(scores, q))
+    return float(np.quantile(scores, q)), {
+        "strategy": "train_quantile",
+        "method": "quantile",
+        "split": "train",
+        "quantile": float(q),
+        "source": str(q_source),
+        "train_count": int(len(train_inputs)),
+    }
 
 
 def _merge_and_filter_model_kwargs(
@@ -336,7 +339,7 @@ def run_benchmark_category(
     timing["score_test_s"] = float(time.perf_counter() - score_start)
 
     calibrate_start = time.perf_counter()
-    calibrated_threshold = _calibrate_score_threshold(
+    calibrated_threshold, threshold_provenance = _calibrate_score_threshold(
         detector,
         train_inputs,
         strategy=config.score_threshold_strategy,
@@ -390,6 +393,13 @@ def run_benchmark_category(
     else:
         dataset_summary["pixel_metrics"] = {"enabled": True, "reason": None}
 
+    threshold_provenance_payload = dict(threshold_provenance)
+    threshold_provenance_payload.setdefault("contamination", float(config.contamination))
+    if config.calibration_quantile is not None:
+        threshold_provenance_payload.setdefault(
+            "calibration_quantile_requested", float(config.calibration_quantile)
+        )
+
     payload: dict[str, Any] = {
         "dataset": config.dataset,
         "category": config.category,
@@ -400,6 +410,7 @@ def run_benchmark_category(
         "resize": list(config.resize),
         "score_threshold_strategy": config.score_threshold_strategy,
         "calibration_quantile": config.calibration_quantile,
+        "threshold_provenance": threshold_provenance_payload,
         "threshold": threshold_used,
         "calibrated_threshold": calibrated_threshold,
         "dataset_summary": dataset_summary,

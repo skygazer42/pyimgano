@@ -80,6 +80,11 @@ for r in results:
     print(r.score, r.label, None if r.anomaly_map is None else r.anomaly_map.shape)
 ```
 
+Notes on threshold calibration:
+
+- A common industrial heuristic is `quantile = 1 - contamination` (e.g. contamination=0.1 → quantile=0.9).
+- For stricter false-positive control on “clean” normal sets, `0.995` or `0.999` are common starting points.
+
 ## 3) Capability tags (`numpy`, `pixel_map`)
 
 Many detectors accept different input types and expose different outputs.
@@ -103,6 +108,10 @@ pyimgano-infer \
   --save-maps /tmp/pyimgano_maps \
   --save-jsonl /tmp/pyimgano_results.jsonl
 ```
+
+By default, `pyimgano-infer` auto-calibrates `threshold_` from train scores when `--train-dir`
+is provided and the detector doesn’t already set `threshold_`. The default quantile matches
+`pyimgano-benchmark`: `1 - contamination` when available, else `0.995`.
 
 Each JSONL line includes:
 

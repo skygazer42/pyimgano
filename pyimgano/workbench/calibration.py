@@ -10,17 +10,19 @@ def resolve_default_quantile(detector: Any, *, fallback: float = 0.995) -> tuple
 
     Returns:
         (quantile, source) where source is one of: "contamination", "fallback".
+
+    Notes:
+        This helper intentionally does not accept an explicit override; callers
+        that need an explicit quantile should call
+        `pyimgano.calibration.score_threshold.resolve_calibration_quantile`.
     """
 
-    contamination = getattr(detector, "contamination", None)
-    try:
-        if contamination is not None:
-            cf = float(contamination)
-            if 0.0 < cf < 0.5:
-                return 1.0 - cf, "contamination"
-    except Exception:
-        pass
-    return float(fallback), "fallback"
+    from pyimgano.calibration.score_threshold import resolve_calibration_quantile
+
+    q, src = resolve_calibration_quantile(detector, calibration_quantile=None, fallback=fallback)
+    if src == "explicit":  # pragma: no cover - guarded by calibration_quantile=None
+        src = "fallback"
+    return float(q), str(src)
 
 
 def _default_quantile(detector: Any, *, fallback: float = 0.995) -> float:

@@ -66,7 +66,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--calibration-quantile",
         type=float,
         default=None,
-        help="Optional score quantile used to set threshold_ (e.g. 0.995). If omitted, keep detector default.",
+        help=(
+            "Optional score quantile used to set threshold_ from train scores (e.g. 0.995). "
+            "Requires --train-dir. When omitted and the detector does not set threshold_ during fit(), "
+            "defaults to 1-contamination when available, else 0.995."
+        ),
     )
     parser.add_argument(
         "--input",
@@ -370,10 +374,28 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(f"No images found in --train-dir={args.train_dir!r}")
             detector.fit(train_paths)
 
-        if args.calibration_quantile is not None:
-            if not train_paths:
-                raise ValueError("--calibration-quantile requires --train-dir")
-            calibrate_threshold(detector, train_paths, quantile=float(args.calibration_quantile))
+        if args.calibration_quantile is not None and not train_paths:
+            raise ValueError("--calibration-quantile requires --train-dir")
+
+        # Industrial-friendly default: when a train set is provided but the detector does
+        # not set a threshold during fit(), auto-calibrate by a quantile on train scores.
+        # This aligns `pyimgano-infer` with workbench/benchmark behavior while preserving
+        # detectors that already provide `threshold_`.
+        if train_paths:
+            threshold_before = getattr(detector, "threshold_", None)
+            should_calibrate = args.calibration_quantile is not None or threshold_before is None
+            if should_calibrate:
+                from pyimgano.calibration.score_threshold import resolve_calibration_quantile
+
+                q, _src = resolve_calibration_quantile(
+                    detector,
+                    calibration_quantile=(
+                        float(args.calibration_quantile)
+                        if args.calibration_quantile is not None
+                        else None
+                    ),
+                )
+                calibrate_threshold(detector, train_paths, quantile=float(q))
 
         inputs: list[str] = []
         for raw in args.input:

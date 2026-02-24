@@ -79,7 +79,10 @@ Key flags:
 
 ### Threshold Calibration
 
-- `--calibration-quantile Q` — override score threshold quantile
+- Default strategy: calibrate `threshold_` as a quantile of **train/normal** scores.
+- Default quantile: `1 - contamination` when available, else `0.995`.
+- Override quantile: `--calibration-quantile Q`
+- Run artifacts include `threshold_provenance` (quantile + where it came from).
 
 ### Model Persistence (Classical Detectors Only)
 
@@ -106,9 +109,15 @@ pyimgano-infer \
   --model vision_padim \
   --train-dir /path/to/train/good \
   --input /path/to/inputs \
-  --calibration-quantile 0.995 \
   --save-jsonl out.jsonl
 ```
+
+Notes:
+
+- When `--train-dir` is provided and the detector does **not** set `threshold_` during `fit()`,
+  `pyimgano-infer` auto-calibrates `threshold_` from train scores (same default quantile as
+  `pyimgano-benchmark`: `1 - contamination` when available, else `0.995`).
+- Pass `--calibration-quantile Q` to override the quantile explicitly.
 
 Optional:
 

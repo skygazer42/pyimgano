@@ -200,7 +200,10 @@ If you need fully deterministic paths (e.g. CI jobs), always pass an explicit
 - `--no-save-run`: disable artifact writing (stdout JSON only)
 - `--no-per-image-jsonl`: keep `report.json` only (skip per-image records)
 - `--resize H W`: resize dataset images/masks during loading (default `256 256`)
-- `--calibration-quantile 0.995`: override score threshold quantile
+- Score threshold calibration defaults to a **train-score quantile**:
+  - default quantile: `1 - contamination` when available, else `0.995`
+  - override: `--calibration-quantile 0.995`
+  - run artifacts include `threshold_provenance` (quantile + source)
 - `--limit-train N`, `--limit-test N`: quick smoke runs
 
 ### Basic Benchmark
