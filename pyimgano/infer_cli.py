@@ -124,6 +124,79 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Apply standard postprocess to anomaly maps (only if --include-maps)",
     )
+
+    # Industrial defects export (mask + regions). Opt-in.
+    parser.add_argument(
+        "--defects",
+        action="store_true",
+        help="Enable defects export: binary mask + connected-component regions (requires anomaly maps)",
+    )
+    parser.add_argument(
+        "--save-masks",
+        default=None,
+        help="Optional directory to save binary defect masks (requires --defects)",
+    )
+    parser.add_argument(
+        "--mask-format",
+        default="png",
+        choices=["png", "npy"],
+        help="Mask artifact format when saving masks (default: png)",
+    )
+    parser.add_argument(
+        "--pixel-threshold",
+        type=float,
+        default=None,
+        help="Optional fixed pixel threshold used to binarize anomaly maps into defect masks",
+    )
+    parser.add_argument(
+        "--pixel-threshold-strategy",
+        default="normal_pixel_quantile",
+        choices=["normal_pixel_quantile", "fixed", "infer_config"],
+        help="How to resolve pixel threshold for defects (default: normal_pixel_quantile)",
+    )
+    parser.add_argument(
+        "--pixel-normal-quantile",
+        type=float,
+        default=0.999,
+        help="Quantile used for pixel threshold calibration on normal pixels (default: 0.999)",
+    )
+    parser.add_argument(
+        "--defect-min-area",
+        type=int,
+        default=0,
+        help="Remove connected components smaller than this area (default: 0)",
+    )
+    parser.add_argument(
+        "--defect-open-ksize",
+        type=int,
+        default=0,
+        help="Morphology open kernel size applied to defect masks (default: 0, disabled)",
+    )
+    parser.add_argument(
+        "--defect-close-ksize",
+        type=int,
+        default=0,
+        help="Morphology close kernel size applied to defect masks (default: 0, disabled)",
+    )
+    parser.add_argument(
+        "--defect-fill-holes",
+        action="store_true",
+        help="Fill internal holes in defect masks",
+    )
+    parser.add_argument(
+        "--defect-max-regions",
+        type=int,
+        default=None,
+        help="Optional maximum number of regions to emit per image (after sorting)",
+    )
+    parser.add_argument(
+        "--roi-xyxy-norm",
+        type=float,
+        nargs=4,
+        default=None,
+        metavar=("X1", "Y1", "X2", "Y2"),
+        help="Optional normalized ROI rectangle (x1 y1 x2 y2 in [0,1]) applied to defects only",
+    )
     return parser
 
 

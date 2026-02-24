@@ -92,3 +92,51 @@ def test_infer_cli_from_run_requires_category_when_multiple(tmp_path, capsys):
     assert "multiple categories" in err.lower()
     assert "--from-run-category" in err
 
+
+def test_infer_cli_accepts_defects_flags_in_parser(tmp_path, capsys):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text("{}", encoding="utf-8")
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    masks_dir = tmp_path / "masks"
+
+    rc = infer_cli.main(
+        [
+            "--from-run",
+            str(run_dir),
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--save-masks",
+            str(masks_dir),
+            "--mask-format",
+            "png",
+            "--pixel-threshold",
+            "0.5",
+            "--pixel-threshold-strategy",
+            "fixed",
+            "--pixel-normal-quantile",
+            "0.999",
+            "--defect-min-area",
+            "1",
+            "--defect-open-ksize",
+            "3",
+            "--defect-close-ksize",
+            "3",
+            "--defect-fill-holes",
+            "--defect-max-regions",
+            "5",
+            "--roi-xyxy-norm",
+            "0.1",
+            "0.2",
+            "0.8",
+            "0.9",
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "Missing config.json" in err
