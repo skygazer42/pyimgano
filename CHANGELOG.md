@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-02-24
+
+### Docs
+- Workbench/recipes docs now describe how to configure and deploy defects export via `infer_config.json`.
+- Added a workbench config template: `examples/configs/industrial_adapt_defects_roi.json`.
+
 ## [0.6.7] - 2026-02-24
 
 ### Added
