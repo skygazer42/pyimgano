@@ -142,6 +142,24 @@ Flags override the config (useful for quick experiments):
 - `--dataset NAME` / `--root PATH` / `--category CAT`
 - `--model MODEL_NAME` / `--device cpu|cuda`
 
+### Preflight dataset validation
+
+Validate dataset health and emit a machine-readable JSON report (no training):
+
+```bash
+pyimgano-train --config cfg.json --preflight
+```
+
+Behavior:
+
+- Prints: `{"preflight": ...}` (JSON) to stdout.
+- Returns exit code `0` when no `severity="error"` issues exist.
+- Returns exit code `2` when any `severity="error"` issue exists.
+
+This is intended for CI and pipeline orchestration (e.g. detect missing files,
+duplicate paths, manifest group split conflicts, or incomplete anomaly masks
+before starting a recipe run).
+
 ### Notes
 
 - Training-enabled workbench runs persist checkpoints under `checkpoints/<category>/...` when supported.
