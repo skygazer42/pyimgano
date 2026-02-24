@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def list_dataset_categories(*, dataset: str, root: str) -> list[str]:
+def list_dataset_categories(*, dataset: str, root: str, manifest_path: str | None = None) -> list[str]:
     """Return categories for a dataset name.
 
     This normalizes minor differences across loaders and prefers on-disk
@@ -47,9 +47,12 @@ def list_dataset_categories(*, dataset: str, root: str) -> list[str]:
     if ds == "manifest":
         from pyimgano.datasets.manifest import list_manifest_categories
 
-        # For historical reasons this API only accepts a `root` argument. For
-        # the manifest dataset, `root` is treated as the manifest JSONL path.
-        return list(list_manifest_categories(root))
+        # Prefer explicit manifest_path; fall back to legacy behavior where
+        # callers passed the JSONL via `root`.
+        mp = str(manifest_path) if manifest_path is not None else str(root)
+        if not mp:
+            raise ValueError("manifest dataset requires --manifest-path (or legacy --root=MANIFEST.jsonl).")
+        return list(list_manifest_categories(mp))
     if ds == "custom":
         return ["custom"]
 

@@ -51,3 +51,25 @@ def test_dataset_catalog_manifest_reads_jsonl(tmp_path) -> None:
 
     cats = list_dataset_categories(dataset="manifest", root=str(manifest))
     assert cats == ["bottle", "cable"]
+
+
+def test_dataset_catalog_manifest_accepts_manifest_path_param(tmp_path) -> None:
+    from pyimgano.datasets.catalog import list_dataset_categories
+
+    root = tmp_path / "root"
+    root.mkdir()
+
+    manifest = tmp_path / "manifest.jsonl"
+    manifest.write_text(
+        '\n'.join(
+            [
+                '{"image_path":"a.png","category":"bottle"}',
+                '{"image_path":"b.png","category":"cable"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cats = list_dataset_categories(dataset="manifest", root=str(root), manifest_path=str(manifest))
+    assert cats == ["bottle", "cable"]

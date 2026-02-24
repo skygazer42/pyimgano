@@ -17,9 +17,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dataset",
         default=None,
-        choices=["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad", "custom"],
+        choices=["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad", "custom", "manifest"],
     )
     parser.add_argument("--root", default=None, help="Dataset root path")
+    parser.add_argument(
+        "--manifest-path",
+        default=None,
+        help=(
+            "Path to a JSONL manifest file when --dataset manifest. "
+            "If omitted, --root is treated as the manifest path for backwards compatibility."
+        ),
+    )
     parser.add_argument("--category", default=None, help="Dataset category name")
     parser.add_argument(
         "--resize",
@@ -668,19 +676,25 @@ def main(argv: list[str] | None = None) -> int:
             missing: list[str] = []
             if args.dataset is None:
                 missing.append("--dataset")
-            if args.root is None:
-                missing.append("--root")
+            ds = "" if args.dataset is None else str(args.dataset)
+            if ds.lower() == "manifest":
+                if args.manifest_path is None and args.root is None:
+                    missing.append("--manifest-path (or legacy --root=MANIFEST.jsonl)")
+            else:
+                if args.root is None:
+                    missing.append("--root")
             if missing:
                 raise ValueError(
                     "Missing required arguments for --list-categories: "
                     f"{', '.join(missing)}."
                 )
 
-            from pyimgano.pipelines.run_benchmark import list_dataset_categories
+            from pyimgano.datasets.catalog import list_dataset_categories
 
             categories = list_dataset_categories(
                 dataset=str(args.dataset),
-                root=str(args.root),
+                root=str(args.root) if args.root is not None else "",
+                manifest_path=(str(args.manifest_path) if args.manifest_path is not None else None),
             )
             if bool(args.json):
                 print(json.dumps(categories, indent=2))
