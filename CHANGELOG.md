@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-24
+
+### Added
+- Manifest dataset (JSONL) support for workbench runs (`dataset.name="manifest"`).
+- `pyimgano-manifest` for generating a JSONL manifest from the built-in `custom` dataset layout.
+- `pyimgano-benchmark --list-categories` supports `--dataset manifest --manifest-path ...`.
+- Workbench per-image JSONL records propagate manifest `meta` when present.
+- `pyimgano-train --dry-run` validates that `dataset.manifest_path` exists and is readable.
+
+### Fixed
+- Workbench `dataset.category="all"` now runs and aggregates per-category runs correctly.
+
 ## [0.6.3] - 2026-02-23
 
 ### Added

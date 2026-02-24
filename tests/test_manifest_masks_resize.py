@@ -60,4 +60,3 @@ def test_manifest_masks_resize_aligns_with_resize_param(tmp_path: Path) -> None:
     # Normal sample mask is all zeros; anomaly sample has a non-empty region.
     assert int(split.test_masks[0].sum()) == 0
     assert int(split.test_masks[1].sum()) > 0
-

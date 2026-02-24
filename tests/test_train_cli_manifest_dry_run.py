@@ -26,7 +26,11 @@ def test_train_cli_dry_run_manifest_validates_manifest_path_exists(tmp_path: Pat
         json.dumps(
             {
                 "recipe": "industrial-adapt",
-                "dataset": {"name": "manifest", "root": str(tmp_path), "manifest_path": str(missing)},
+                "dataset": {
+                    "name": "manifest",
+                    "root": str(tmp_path),
+                    "manifest_path": str(missing),
+                },
                 "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False},
                 "output": {"save_run": False},
             }
@@ -52,7 +56,11 @@ def test_train_cli_dry_run_manifest_succeeds_with_valid_manifest(tmp_path: Path,
         json.dumps(
             {
                 "recipe": "industrial-adapt",
-                "dataset": {"name": "manifest", "root": str(tmp_path), "manifest_path": str(manifest)},
+                "dataset": {
+                    "name": "manifest",
+                    "root": str(tmp_path),
+                    "manifest_path": str(manifest),
+                },
                 "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False},
                 "output": {"save_run": False},
             }
@@ -64,4 +72,3 @@ def test_train_cli_dry_run_manifest_succeeds_with_valid_manifest(tmp_path: Path,
     assert code == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["config"]["dataset"]["name"] == "manifest"
-

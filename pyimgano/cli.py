@@ -17,7 +17,16 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dataset",
         default=None,
-        choices=["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad", "custom", "manifest"],
+        choices=[
+            "mvtec",
+            "mvtec_ad",
+            "mvtec_loco",
+            "mvtec_ad2",
+            "visa",
+            "btad",
+            "custom",
+            "manifest",
+        ],
     )
     parser.add_argument("--root", default=None, help="Dataset root path")
     parser.add_argument(
@@ -685,8 +694,7 @@ def main(argv: list[str] | None = None) -> int:
                     missing.append("--root")
             if missing:
                 raise ValueError(
-                    "Missing required arguments for --list-categories: "
-                    f"{', '.join(missing)}."
+                    "Missing required arguments for --list-categories: " f"{', '.join(missing)}."
                 )
 
             from pyimgano.datasets.catalog import list_dataset_categories

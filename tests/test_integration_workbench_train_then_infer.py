@@ -79,7 +79,12 @@ def test_integration_train_then_infer_from_run(tmp_path, capsys):
                     "pretrained": False,
                     "contamination": 0.1,
                 },
-                "training": {"enabled": True, "epochs": 2, "lr": 0.001, "checkpoint_name": "model.pt"},
+                "training": {
+                    "enabled": True,
+                    "epochs": 2,
+                    "lr": 0.001,
+                    "checkpoint_name": "model.pt",
+                },
                 "output": {"output_dir": str(run_dir), "save_run": True, "per_image_jsonl": False},
             }
         ),
@@ -99,7 +104,9 @@ def test_integration_train_then_infer_from_run(tmp_path, capsys):
     _write_png(inputs / "b.png")
 
     out_jsonl = tmp_path / "out.jsonl"
-    code = infer_main(["--from-run", str(run_dir), "--input", str(inputs), "--save-jsonl", str(out_jsonl)])
+    code = infer_main(
+        ["--from-run", str(run_dir), "--input", str(inputs), "--save-jsonl", str(out_jsonl)]
+    )
     assert code == 0
 
     lines = out_jsonl.read_text(encoding="utf-8").strip().splitlines()
@@ -183,7 +190,12 @@ def test_integration_train_then_infer_from_run_manifest(tmp_path, capsys):
                     "pretrained": False,
                     "contamination": 0.1,
                 },
-                "training": {"enabled": True, "epochs": 2, "lr": 0.001, "checkpoint_name": "model.pt"},
+                "training": {
+                    "enabled": True,
+                    "epochs": 2,
+                    "lr": 0.001,
+                    "checkpoint_name": "model.pt",
+                },
                 "output": {"output_dir": str(run_dir), "save_run": True, "per_image_jsonl": False},
             }
         ),

@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
 
 
@@ -34,7 +33,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--root", required=True, help="Dataset root directory (custom layout)")
     parser.add_argument("--out", required=True, help="Output JSONL path")
-    parser.add_argument("--category", default="custom", help="Category name to stamp into the manifest")
+    parser.add_argument(
+        "--category", default="custom", help="Category name to stamp into the manifest"
+    )
     parser.add_argument(
         "--absolute-paths",
         action="store_true",
@@ -146,4 +147,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

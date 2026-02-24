@@ -70,9 +70,7 @@ class ManifestRecord:
                     f"Manifest line {lineno}: label must be 0/1, got {label_raw!r}."
                 ) from exc
             if label_int not in (0, 1):
-                raise ValueError(
-                    f"Manifest line {lineno}: label must be 0/1, got {label_int!r}."
-                )
+                raise ValueError(f"Manifest line {lineno}: label must be 0/1, got {label_int!r}.")
             label = label_int
 
         mask_path_raw = raw.get("mask_path", None)
@@ -98,9 +96,7 @@ class ManifestRecord:
 
         # Explicit-split validation rules.
         if split == "test" and label is None:
-            raise ValueError(
-                f"Manifest line {lineno}: split='test' requires an explicit label."
-            )
+            raise ValueError(f"Manifest line {lineno}: split='test' requires an explicit label.")
         if split in ("train", "val") and label == 1:
             raise ValueError(
                 f"Manifest line {lineno}: split={split!r} cannot have label=1 (anomaly)."
@@ -132,9 +128,7 @@ def iter_manifest_records(manifest_path: str | Path) -> Iterator[ManifestRecord]
             try:
                 raw = json.loads(text)
             except json.JSONDecodeError as exc:
-                raise ValueError(
-                    f"Manifest line {i}: invalid JSON ({exc.msg})."
-                ) from exc
+                raise ValueError(f"Manifest line {i}: invalid JSON ({exc.msg}).") from exc
             if not isinstance(raw, Mapping):
                 raise ValueError(
                     f"Manifest line {i}: expected a JSON object, got {type(raw).__name__}."
@@ -233,13 +227,11 @@ def load_manifest_benchmark_split(
 
     if policy.scope != "category":
         raise ValueError(
-            "Only split_policy.scope='category' is supported for v1. "
-            f"Got: {policy.scope!r}."
+            "Only split_policy.scope='category' is supported for v1. " f"Got: {policy.scope!r}."
         )
     if policy.mode != "benchmark":
         raise ValueError(
-            "Only split_policy.mode='benchmark' is supported for v1. "
-            f"Got: {policy.mode!r}."
+            "Only split_policy.mode='benchmark' is supported for v1. " f"Got: {policy.mode!r}."
         )
     frac = float(policy.test_normal_fraction)
     if not (0.0 <= frac <= 1.0):
@@ -334,21 +326,41 @@ def load_manifest_benchmark_split(
         gid = str(gid)
 
         if gid in fixed_val:
-            cal_paths.append(str(_resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path)))
+            cal_paths.append(
+                str(
+                    _resolve_existing_path(
+                        rec.image_path, manifest_path=mp, root_fallback=root_path
+                    )
+                )
+            )
             continue
 
         in_test = gid in fixed_test or gid in selected_test_normal
         if not in_test and gid in fixed_train:
-            train_paths.append(str(_resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path)))
+            train_paths.append(
+                str(
+                    _resolve_existing_path(
+                        rec.image_path, manifest_path=mp, root_fallback=root_path
+                    )
+                )
+            )
             continue
         if not in_test and gid not in fixed_test and gid not in selected_test_normal:
             # Unspecified normal group: default to train.
-            train_paths.append(str(_resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path)))
+            train_paths.append(
+                str(
+                    _resolve_existing_path(
+                        rec.image_path, manifest_path=mp, root_fallback=root_path
+                    )
+                )
+            )
             continue
 
         # Test record (explicit or assigned).
         label = int(rec.label) if rec.label is not None else 0
-        test_paths.append(str(_resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path)))
+        test_paths.append(
+            str(_resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path))
+        )
         test_labels.append(label)
         if rec.meta is None:
             test_meta.append(None)
@@ -397,10 +409,14 @@ def load_manifest_benchmark_split(
     meta_out: list[Mapping[str, Any] | None] | None = None
     if load_masks:
         if any(p is not None for p in test_mask_paths):
-            if any(lab == 1 for lab, p in zip(test_labels, test_mask_paths) if p is None and lab == 1):
+            if any(
+                lab == 1 for lab, p in zip(test_labels, test_mask_paths) if p is None and lab == 1
+            ):
                 missing_anomaly_mask = True
         if missing_anomaly_mask:
-            pixel_skip_reason = "Missing mask_path (or missing mask files) for anomaly test samples."
+            pixel_skip_reason = (
+                "Missing mask_path (or missing mask files) for anomaly test samples."
+            )
             masks_arr = None
         elif any(p is not None for p in test_mask_paths):
             masks_arr = _load_masks_or_zeros(test_mask_paths, resize=resize)
@@ -419,7 +435,9 @@ def load_manifest_benchmark_split(
     )
 
 
-def _load_masks_or_zeros(mask_paths: Sequence[str | None], *, resize: tuple[int, int]) -> np.ndarray:
+def _load_masks_or_zeros(
+    mask_paths: Sequence[str | None], *, resize: tuple[int, int]
+) -> np.ndarray:
     import cv2
 
     h, w = int(resize[0]), int(resize[1])

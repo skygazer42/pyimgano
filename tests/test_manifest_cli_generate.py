@@ -63,4 +63,3 @@ def test_manifest_cli_generate_from_custom_layout(tmp_path: Path) -> None:
 
     # Default is relative paths (should not be absolute).
     assert not str(anomaly["image_path"]).startswith("/")
-

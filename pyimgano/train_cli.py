@@ -18,7 +18,9 @@ def _build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--list-recipes", action="store_true", help="List available recipe names")
     mode.add_argument("--recipe-info", default=None, help="Show recipe metadata for a recipe name")
-    mode.add_argument("--config", default=None, help="Path to a workbench config (JSON, optional YAML)")
+    mode.add_argument(
+        "--config", default=None, help="Path to a workbench config (JSON, optional YAML)"
+    )
 
     parser.add_argument(
         "--json",

@@ -55,4 +55,3 @@ def test_manifest_error_conflicting_group_splits(tmp_path: Path) -> None:
             category="c",
             load_masks=False,
         )
-

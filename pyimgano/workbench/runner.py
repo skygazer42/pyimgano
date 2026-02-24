@@ -41,7 +41,9 @@ def _load_split_paths(
     dataset = str(config.dataset.name)
     if dataset.lower() == "manifest":
         if config.dataset.input_mode != "paths":
-            raise ValueError("dataset.name='manifest' currently supports only dataset.input_mode='paths'.")
+            raise ValueError(
+                "dataset.name='manifest' currently supports only dataset.input_mode='paths'."
+            )
         if config.dataset.manifest_path is None:
             raise ValueError("dataset.manifest_path is required when dataset.name='manifest'.")
 
@@ -67,7 +69,9 @@ def _load_split_paths(
             load_masks=bool(load_masks),
             split_policy=policy,
         )
-        calibration = list(split.calibration_paths) if split.calibration_paths else list(split.train_paths)
+        calibration = (
+            list(split.calibration_paths) if split.calibration_paths else list(split.train_paths)
+        )
         return (
             list(split.train_paths),
             calibration,
@@ -178,7 +182,15 @@ def _run_category(
     run_dir: Path | None,
 ) -> dict[str, Any]:
     if config.dataset.input_mode == "paths":
-        train_inputs, calibration_inputs, test_inputs, test_labels, test_masks, pixel_skip_reason, test_meta = _load_split_paths(
+        (
+            train_inputs,
+            calibration_inputs,
+            test_inputs,
+            test_labels,
+            test_masks,
+            pixel_skip_reason,
+            test_meta,
+        ) = _load_split_paths(
             config=config,
             category=str(category),
             load_masks=True,
@@ -247,7 +259,9 @@ def _run_category(
                 checkpoint_meta = {"path": str(saved)}
     else:
         detector.fit(train_inputs)
-    threshold = calibrate_detector_threshold(detector, calibration_inputs, input_format=input_format)
+    threshold = calibrate_detector_threshold(
+        detector, calibration_inputs, input_format=input_format
+    )
 
     postprocess = build_postprocess(config.adaptation.postprocess)
     include_maps = bool(config.adaptation.save_maps or (postprocess is not None))
@@ -379,7 +393,9 @@ def run_workbench(
     run_dir = None
     paths = None
     if bool(config.output.save_run):
-        category_for_name = None if str(config.dataset.category).lower() == "all" else str(config.dataset.category)
+        category_for_name = (
+            None if str(config.dataset.category).lower() == "all" else str(config.dataset.category)
+        )
         name = build_workbench_run_dir_name(
             dataset=str(config.dataset.name),
             recipe=str(recipe_name),
@@ -481,7 +497,9 @@ def run_workbench(
     return payload
 
 
-def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, Any]) -> dict[str, Any]:
+def build_infer_config_payload(
+    *, config: WorkbenchConfig, report: Mapping[str, Any]
+) -> dict[str, Any]:
     """Build a minimal, JSON-friendly payload describing how to run inference.
 
     Intended for `pyimgano-train --export-infer-config`.
@@ -494,7 +512,9 @@ def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, 
         "pretrained": bool(config.model.pretrained),
         "contamination": float(config.model.contamination),
         "model_kwargs": dict(config.model.model_kwargs),
-        "checkpoint_path": (str(config.model.checkpoint_path) if config.model.checkpoint_path is not None else None),
+        "checkpoint_path": (
+            str(config.model.checkpoint_path) if config.model.checkpoint_path is not None else None
+        ),
     }
 
     adaptation_payload: dict[str, Any] = {
@@ -505,7 +525,11 @@ def build_infer_config_payload(*, config: WorkbenchConfig, report: Mapping[str, 
             "score_topk": float(config.adaptation.tiling.score_topk),
             "map_reduce": config.adaptation.tiling.map_reduce,
         },
-        "postprocess": (config.adaptation.postprocess.__dict__ if config.adaptation.postprocess is not None else None),
+        "postprocess": (
+            config.adaptation.postprocess.__dict__
+            if config.adaptation.postprocess is not None
+            else None
+        ),
         "save_maps": bool(config.adaptation.save_maps),
     }
 
