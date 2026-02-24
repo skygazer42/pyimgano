@@ -182,6 +182,20 @@ pyimgano-infer \
   --save-jsonl /tmp/pyimgano_results.jsonl
 ```
 
+If you exported an `infer_config.json` from the workbench (`pyimgano-train --export-infer-config`),
+you can reuse it for inference:
+
+```bash
+pyimgano-infer \
+  --infer-config /path/to/run_dir/artifacts/infer_config.json \
+  --input /path/to/inputs \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+If the infer-config contains `defects.pixel_threshold`, you can omit `--pixel-threshold`.
+
 Notes:
 
 - `--defects` implies `--include-maps` (defects are derived from anomaly maps).

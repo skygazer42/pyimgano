@@ -125,6 +125,7 @@ Optional:
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
   - `--save-masks DIR` + `--mask-format png|npy`
   - `--pixel-threshold FLOAT` (fixed) or `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`)
+  - If you run with `--infer-config`, you can set `defects.pixel_threshold` in `infer_config.json` and omit `--pixel-threshold`.
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
 - `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
   - If the run contains multiple categories, pass `--from-run-category NAME`.

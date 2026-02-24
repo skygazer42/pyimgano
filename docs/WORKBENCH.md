@@ -25,6 +25,7 @@ See also:
 ```
 examples/configs/industrial_adapt_fast.json
 examples/configs/industrial_adapt_maps_tiling.json
+examples/configs/industrial_adapt_defects_roi.json
 ```
 
 2) Edit at least:
@@ -65,6 +66,23 @@ If the run contains multiple categories, select one:
 ```bash
 pyimgano-infer --from-run /path/to/run_dir --from-run-category bottle --input /path/to/images
 ```
+
+6) (Optional) Defects export (mask + regions) using the exported infer-config:
+
+```bash
+pyimgano-infer \
+  --infer-config /path/to/run_dir/artifacts/infer_config.json \
+  --input /path/to/images \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Notes:
+
+- When the infer-config contains `defects.pixel_threshold`, `pyimgano-infer` uses it for defects export
+  (so you can omit `--pixel-threshold`).
+- Other defects extraction knobs (ROI, morphology, min-area, mask format, etc.) are still controlled by CLI flags.
 
 ---
 

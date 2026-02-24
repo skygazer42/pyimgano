@@ -128,6 +128,43 @@ Notes:
 - `adaptation.tiling.tile_size` enables tiled inference for high-resolution images.
 - `adaptation.postprocess` is applied to anomaly maps (when extracted).
 
+### Defects export knobs (mask + regions + ROI)
+
+The `defects` block is stored in the workbench config and exported into
+`artifacts/infer_config.json` when you run `pyimgano-train --export-infer-config`.
+This is intended for deployment-style inference where you want the same settings
+to travel with the model + threshold.
+
+Example:
+
+```json
+{
+  "defects": {
+    "enabled": true,
+    "pixel_threshold": 0.5,
+    "pixel_threshold_strategy": "fixed",
+    "pixel_normal_quantile": 0.999,
+    "mask_format": "png",
+    "roi_xyxy_norm": [0.1, 0.1, 0.9, 0.9],
+    "min_area": 0,
+    "open_ksize": 0,
+    "close_ksize": 0,
+    "fill_holes": false,
+    "max_regions": null
+  }
+}
+```
+
+Notes:
+
+- Workbench training/eval does not currently run defects extraction; this block is for inference export.
+- `pyimgano-infer` reads `defects.pixel_threshold` from infer-config **when `--defects` is enabled**.
+  Other extraction knobs (ROI, morphology, min-area, mask format, etc.) are still controlled by CLI flags.
+- See:
+  - `docs/INDUSTRIAL_INFERENCE.md` (defects export overview)
+  - `docs/CLI_REFERENCE.md` (`pyimgano-infer` flags)
+  - `examples/configs/industrial_adapt_defects_roi.json` (template)
+
 ### Training knobs (micro-finetune + checkpoints)
 
 Enable micro-finetune (best-effort) and persist a checkpoint:
