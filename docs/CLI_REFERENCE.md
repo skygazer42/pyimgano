@@ -32,6 +32,25 @@ pyimgano-benchmark \
 - List dataset categories: `pyimgano-benchmark --list-categories --dataset mvtec --root /path/to/mvtec_ad`
 - List manifest categories: `pyimgano-benchmark --list-categories --dataset manifest --manifest-path /path/to/manifest.jsonl`
 
+### Manifest dataset
+
+Benchmark a manifest JSONL (paths mode):
+
+```bash
+pyimgano-benchmark \
+  --dataset manifest \
+  --root /path/to/fallback_root \
+  --manifest-path /path/to/manifest.jsonl \
+  --category bottle \
+  --model vision_patchcore \
+  --device cuda
+```
+
+Optional split policy knobs:
+
+- `--manifest-test-normal-fraction 0.2`
+- `--manifest-split-seed 123` (defaults to `--seed` or 0)
+
 ### Run Artifacts
 
 By default, run artifacts are written to `runs/<timestamp>_<dataset>_<model>/`:
