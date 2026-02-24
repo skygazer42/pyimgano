@@ -1,55 +1,61 @@
-# PyImgAno 한국어 안내
+# pyimgano（한국어）
 
-PyImgAno 는 결함 탐지를 위한 전처리·증강 도구와 고전/딥러닝 기반 이상 탐지 모델을 포함한 모듈형 툴킷입니다.
+산업 검사(품질/결함) 시나리오를 위한 **이미지 이상 탐지 / 결함 탐지** 툴킷(이미지 레벨 + 픽셀 레벨).
 
-## 목차
+`pyimgano`는 “현업 적용”을 목표로 합니다:
 
-- [주요 기능](#주요-기능)
-- [설치](#설치)
-- [빠른 사용법](#빠른-사용법)
-- [테스트](#테스트)
-- [디렉터리 구조](#디렉터리-구조)
+- **모델 레지스트리**(120+ 모델 엔트리: 구현 + 선택적 백엔드 + 별칭)
+- **재현 가능한 CLI 실행**(workbench + report + per-image JSONL)
+- **배포 친화적 추론 출력**(JSONL, 선택적으로 결함 mask + connected-component regions)
+- **산업용 IO**(numpy-first / 명시적 이미지 포맷 / 고해상도 tiling)
 
-## 주요 기능
-
-- 모델: KPCA, LOCI, XGBOD 등 전통 기법과 FastFlow, DeepSVDD, Reverse Distillation 등 딥러닝 모델 제공.
-- 데이터 처리: MixUp/CutMix/AutoAugment 등 증강, 조명 보정·Top-Hat·Gabor 등 결함 특화 필터.
-- 공장형 API: `models.create_model`, `build_augmentation_pipeline` 으로 일관성 있는 파이프라인 구성.
+> 최신 내용은 영어 `README.md`를 참고하세요(번역은 늦을 수 있습니다).
 
 ## 설치
 
 ```bash
-pip install -e .
-# 확산 모델 기능을 포함하려면
-pip install -e .[diffusion]
+pip install pyimgano
 ```
 
-## 빠른 사용법
+> PyPI 공개 전에는 소스에서 설치:
+>
+> ```bash
+> git clone https://github.com/skygazer42/pyimgano.git
+> cd pyimgano
+> pip install -e ".[dev]"
+> ```
 
-```python
-from pyimgano import models, utils
+## 빠른 시작(CLI)
 
-feature_extractor = utils.ImagePreprocessor(resize=(256, 256), output_tensor=True)
-detector = models.create_model("vision_fastflow", epoch_num=5, batch_size=8)
-detector.fit(["/path/to/img1.jpg", "/path/to/img2.jpg"])
-```
-
-## 테스트
+### 학습(workbench) → `infer_config.json` 내보내기
 
 ```bash
-pip install -e .[dev]
-pytest
+pyimgano-train \
+  --config examples/configs/industrial_adapt_defects_roi.json \
+  --export-infer-config
 ```
 
-## 디렉터리 구조
+### 추론 → JSONL(선택적으로 결함 mask/regions)
 
-```text
-pyimgano/
-├─ models/            # 이상 탐지 모델 모음
-├─ utils/             # 이미지 처리·증강·결함 전처리 유틸리티
-├─ datasets/          # 데이터 모듈 및 변환
-├─ examples/          # 예제 스크립트
-└─ tests/             # 테스트 코드
+```bash
+pyimgano-infer \
+  --infer-config /path/to/run_dir/artifacts/infer_config.json \
+  --input /path/to/images \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --save-jsonl /tmp/pyimgano_results.jsonl
 ```
 
-필수 의존성으로 `pyod`, `torchvision` 등이 있으며, 생성 기반 증강을 위해서는 `diffusers` 를 추가로 설치하세요.
+관련 문서:
+- `docs/WORKBENCH.md`
+- `docs/CLI_REFERENCE.md`
+- `docs/INDUSTRIAL_INFERENCE.md`
+
+## 모델 탐색(CLI)
+
+```bash
+pyimgano-benchmark --list-models
+pyimgano-benchmark --list-models --tags numpy,pixel_map
+pyimgano-benchmark --model-info vision_patchcore --json
+```
+

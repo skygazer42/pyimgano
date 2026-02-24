@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-02-24
+
+### Docs
+- Expanded the README with practical model selection notes (tags like `numpy`/`pixel_map`) and a one-off `pyimgano-infer --model ...` example.
+- Updated translated READMEs to align with the CLI-first industrial workflow entry points.
+
 ## [0.6.10] - 2026-02-24
 
 ### Docs

@@ -81,6 +81,27 @@ Guides:
 - `docs/CLI_REFERENCE.md` (all flags + JSONL schema)
 - `docs/INDUSTRIAL_INFERENCE.md` (tiling + defects + ROI notes)
 
+### One-off inference (no workbench)
+
+For quick experiments you can run `pyimgano-infer` directly from a registered model name:
+
+```bash
+pyimgano-infer \
+  --model vision_patchcore \
+  --preset industrial-balanced \
+  --device cuda \
+  --train-dir /path/to/normal/train_images \
+  --calibration-quantile 0.995 \
+  --input /path/to/images \
+  --include-maps
+```
+
+Notes:
+- Pass extra constructor kwargs via `--model-kwargs '{"backbone":"wide_resnet50","coreset_sampling_ratio":0.1}'`.
+- `--defects` requires anomaly maps. If you don’t pass a fixed `--pixel-threshold`, provide `--train-dir` so the default `normal_pixel_quantile` strategy can calibrate one from normal pixels.
+- High-resolution tiling works best with detectors tagged `numpy,pixel_map`:
+  - add `--tile-size 512 --tile-stride 384` (see `docs/INDUSTRIAL_INFERENCE.md`).
+
 ## Quickstart (Python)
 
 ### Create a detector from the registry
@@ -95,6 +116,20 @@ detector = create_model(
 )
 
 detector.fit(train_paths)                 # normal/reference images
+scores = detector.decision_function(test_paths)
+```
+
+### Classical baseline (CPU-friendly, no pixel maps)
+
+Classical detectors usually expect a `feature_extractor` that turns images into 2D features:
+
+```python
+from pyimgano.models import create_model
+from pyimgano.utils import ImagePreprocessor
+
+extractor = ImagePreprocessor(resize=(224, 224), output_tensor=False)
+detector = create_model("vision_ecod", feature_extractor=extractor, contamination=0.1, n_jobs=-1)
+detector.fit(train_paths)
 scores = detector.decision_function(test_paths)
 ```
 
@@ -133,6 +168,36 @@ Discover models from the CLI:
 ```bash
 pyimgano-benchmark --list-models
 pyimgano-benchmark --list-models --tags vision,deep
+pyimgano-benchmark --model-info vision_patchcore --json
+```
+
+### Recommended baselines (practical)
+
+If you’re doing industrial inspection with anomaly maps / defect localization, start here:
+
+| Goal | Start with | Notes |
+|------|------------|-------|
+| Strong pixel localization baseline | `vision_patchcore` | `numpy,pixel_map`; great default for MVTec/VisA-style data |
+| Robustness to “noisy normal” | `vision_softpatch` | `numpy,pixel_map`; filters outlier patches in the memory bank |
+| Lightweight pixel baseline | `vision_padim` / `vision_spade` | `numpy,pixel_map`; simpler + often easier to tune |
+| Few-shot / small normal set | `vision_anomalydino` | `numpy,pixel_map`; may download DINOv2 weights on first run |
+| CPU-only / precomputed features | `vision_ecod` / `vision_copod` | fast, parameter-free; typically score-only (no pixel maps) |
+| You already train in anomalib | `vision_*_anomalib` / `vision_anomalib_checkpoint` | requires `pyimgano[anomalib]`; wraps trained checkpoints for evaluation/inference |
+
+For a longer discussion, see `docs/ALGORITHM_SELECTION_GUIDE.md`.
+
+### Tags & capabilities
+
+Every registry entry has `tags` + `metadata`. Useful tags include:
+
+- `classical` vs `deep`
+- `pixel_map` → model exposes anomaly maps (`--include-maps`, `--defects`, pixel metrics)
+- `numpy` → model can score **RGB uint8 numpy images** (needed for tiling + robustness corruptions)
+
+To inspect a model’s constructor signature and supported kwargs:
+
+```bash
+pyimgano-benchmark --model-info vision_patchcore
 pyimgano-benchmark --model-info vision_patchcore --json
 ```
 
