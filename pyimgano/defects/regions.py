@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 
-def extract_regions_from_mask(mask_u8: np.ndarray) -> list[dict]:
+def extract_regions_from_mask(mask_u8: np.ndarray, anomaly_map: np.ndarray | None = None) -> list[dict]:
     """Extract connected-component regions from a binary mask (0/255).
 
     Returns regions in anomaly-map coordinate space with:
@@ -17,7 +17,17 @@ def extract_regions_from_mask(mask_u8: np.ndarray) -> list[dict]:
         raise ValueError(f"mask_u8 must be 2D (H, W), got shape {mask_u8.shape}")
 
     binary01 = (np.asarray(mask_u8, dtype=np.uint8) > 0).astype(np.uint8)
-    num_labels, _labels, stats, centroids = cv2.connectedComponentsWithStats(binary01, connectivity=8)
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary01, connectivity=8)
+
+    amap: np.ndarray | None
+    if anomaly_map is None:
+        amap = None
+    else:
+        amap = np.asarray(anomaly_map, dtype=np.float32)
+        if amap.shape != binary01.shape:
+            raise ValueError(
+                f"anomaly_map must have shape {binary01.shape}, got {amap.shape}"
+            )
 
     regions: list[dict] = []
     for label_id in range(1, num_labels):
@@ -40,5 +50,10 @@ def extract_regions_from_mask(mask_u8: np.ndarray) -> list[dict]:
             }
         )
 
-    return regions
+        if amap is not None:
+            region_values = amap[labels == label_id]
+            if region_values.size:
+                regions[-1]["score_max"] = round(float(region_values.max()), 6)
+                regions[-1]["score_mean"] = round(float(region_values.mean()), 6)
 
+    return regions

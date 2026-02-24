@@ -12,3 +12,13 @@ def test_extract_regions_from_mask_finds_bbox_and_area() -> None:
     assert r["bbox_xyxy"] == [3, 2, 6, 4]
     assert r["area"] == int(3 * 4)
 
+
+def test_extract_regions_from_mask_adds_scores_when_map_provided() -> None:
+    mask = np.zeros((4, 4), dtype=np.uint8)
+    mask[1:3, 1:3] = 255
+    amap = np.zeros((4, 4), dtype=np.float32)
+    amap[2, 2] = 0.9
+    regions = extract_regions_from_mask(mask, anomaly_map=amap)
+    r = regions[0]
+    assert r["score_max"] == 0.9
+    assert 0.0 < r["score_mean"] <= r["score_max"]
