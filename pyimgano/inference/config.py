@@ -83,7 +83,7 @@ def select_infer_category(
     out = dict(payload)
     out.pop("per_category", None)
     out["category"] = str(chosen)
-    for key in ("threshold", "checkpoint"):
+    for key in ("threshold", "threshold_provenance", "checkpoint"):
         if key in cat_payload:
             out[key] = cat_payload.get(key)
     return out
@@ -146,4 +146,3 @@ def resolve_infer_checkpoint_path(
         "Tried:\n"
         f"{tried}"
     )
-

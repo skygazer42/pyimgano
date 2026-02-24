@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+import pytest
 
 from pyimgano.models.registry import MODEL_REGISTRY
 
@@ -80,4 +81,8 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
 
     assert payload["model"]["name"] == "test_export_infer_config_dummy_detector"
     assert "threshold" in payload
-
+    prov = payload["threshold_provenance"]
+    assert prov["method"] == "quantile"
+    assert prov["quantile"] == pytest.approx(0.9)
+    assert prov["source"] == "contamination"
+    assert prov["contamination"] == pytest.approx(0.1)

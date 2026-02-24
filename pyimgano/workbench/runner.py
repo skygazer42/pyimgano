@@ -17,7 +17,7 @@ from pyimgano.reporting.runs import (
     ensure_run_dir,
 )
 from pyimgano.workbench.adaptation import apply_tiling, build_postprocess
-from pyimgano.workbench.calibration import calibrate_detector_threshold
+from pyimgano.workbench.calibration import calibrate_detector_threshold, resolve_default_quantile
 from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.maps import save_anomaly_map_npy
 
@@ -245,6 +245,7 @@ def _run_category(
         dataset_summary["pixel_metrics"] = {"enabled": True, "reason": None}
 
     detector = _create_detector(config)
+    threshold_quantile, threshold_quantile_source = resolve_default_quantile(detector)
     detector = apply_tiling(detector, config.adaptation.tiling)
 
     training_report = None
@@ -279,7 +280,10 @@ def _run_category(
     else:
         detector.fit(train_inputs)
     threshold = calibrate_detector_threshold(
-        detector, calibration_inputs, input_format=input_format
+        detector,
+        calibration_inputs,
+        input_format=input_format,
+        quantile=float(threshold_quantile),
     )
 
     postprocess = build_postprocess(config.adaptation.postprocess)
@@ -323,6 +327,13 @@ def _run_category(
         "preset": config.model.preset,
         "resize": [int(config.dataset.resize[0]), int(config.dataset.resize[1])],
         "threshold": threshold_used,
+        "threshold_provenance": {
+            "method": "quantile",
+            "quantile": float(threshold_quantile),
+            "source": str(threshold_quantile_source),
+            "contamination": float(config.model.contamination),
+            "calibration_count": int(len(calibration_inputs)),
+        },
         "dataset_summary": dataset_summary,
         "results": eval_results,
     }
@@ -567,6 +578,8 @@ def build_infer_config_payload(
     # Preserve threshold/checkpoint when present (single-category or category-selected exports).
     if "threshold" in report:
         out["threshold"] = report.get("threshold")
+    if "threshold_provenance" in report:
+        out["threshold_provenance"] = report.get("threshold_provenance")
     if "checkpoint" in report:
         out["checkpoint"] = report.get("checkpoint")
     if "category" in report:

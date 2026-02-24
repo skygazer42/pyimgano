@@ -50,14 +50,19 @@ def test_infer_config_category_selection_propagates_threshold_and_checkpoint(tmp
     payload = {
         "category": "all",
         "threshold": 0.5,
+        "threshold_provenance": {"method": "quantile", "quantile": 0.5},
         "checkpoint": {"path": "ignored.pt"},
         "per_category": {
-            "cat": {"threshold": 0.7, "checkpoint": {"path": "checkpoints/cat/model.pt"}},
+            "cat": {
+                "threshold": 0.7,
+                "threshold_provenance": {"method": "quantile", "quantile": 0.7},
+                "checkpoint": {"path": "checkpoints/cat/model.pt"},
+            },
         },
     }
     out = select_infer_category(payload, category="cat")
     assert out["category"] == "cat"
     assert out["threshold"] == 0.7
+    assert out["threshold_provenance"]["quantile"] == 0.7
     assert out["checkpoint"]["path"] == "checkpoints/cat/model.pt"
     assert "per_category" not in out
-
