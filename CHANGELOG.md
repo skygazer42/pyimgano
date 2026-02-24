@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-24
+
+### Added
+- `threshold_provenance` is now persisted in workbench reports and exported in `artifacts/infer_config.json` for auditable deploy configs.
+- Shared score-threshold quantile resolver (`pyimgano.calibration.resolve_calibration_quantile`) to keep benchmark/workbench/infer defaults consistent.
+- Benchmark reports include `threshold_provenance` (strategy/quantile/source) so runs are self-describing.
+
+### Changed
+- `pyimgano-infer` now auto-calibrates `threshold_` from train scores when `--train-dir` is provided and the detector does not set `threshold_`.
+
+### Docs
+- Documented threshold calibration defaults and provenance fields across CLI + industrial workflow guides.
+
 ## [0.6.5] - 2026-02-24
 
 ### Added
