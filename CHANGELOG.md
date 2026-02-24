@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-02-24
+
+### Docs
+- Improved publishing docs (including GitHub Actions release flow and first-time PyPI token note).
+- Refreshed Sphinx docs landing page and added missing Sphinx pages so `make html` works out of the box.
+- Added a short defects + infer-config quickstart snippet to the README.
+
+### CI
+- Documentation workflow now uploads the correct Sphinx build output path.
+
 ## [0.6.8] - 2026-02-24
 
 ### Docs
