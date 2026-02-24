@@ -49,13 +49,16 @@ def extract_defects_from_anomaly_map(
         mask = mask * roi_mask
 
     regions = extract_regions_from_mask(mask, anomaly_map=amap_roi)
+    regions = sorted(
+        regions,
+        key=lambda r: (
+            -float(r.get("score_max", 0.0) or 0.0),
+            -int(r.get("area", 0) or 0),
+            int(r.get("id", 0) or 0),
+        ),
+    )
     if max_regions is not None:
-        k = int(max_regions)
-        regions = sorted(
-            regions,
-            key=lambda r: (float(r.get("score_max", 0.0)), int(r.get("area", 0))),
-            reverse=True,
-        )[:k]
+        regions = regions[: int(max_regions)]
 
     return {
         "space": {"type": "anomaly_map", "shape": [int(amap.shape[0]), int(amap.shape[1])]},
@@ -64,4 +67,3 @@ def extract_defects_from_anomaly_map(
         "regions": regions,
         "map_stats_roi": map_stats_roi,
     }
-
