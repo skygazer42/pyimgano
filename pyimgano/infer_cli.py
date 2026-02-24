@@ -232,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         trained_checkpoint_path = None
         threshold_from_run = None
         infer_config_postprocess = None
+        infer_config_defects = None
 
         if from_run:
             from pyimgano.workbench.load_run import (
@@ -310,6 +311,11 @@ def main(argv: list[str] | None = None) -> int:
                 payload,
                 category=(str(args.infer_category) if args.infer_category is not None else None),
             )
+            defects_payload = payload.get("defects", None)
+            if defects_payload is not None:
+                if not isinstance(defects_payload, dict):
+                    raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
+                infer_config_defects = dict(defects_payload)
 
             model_payload = payload.get("model", None)
             if not isinstance(model_payload, dict):
@@ -476,12 +482,57 @@ def main(argv: list[str] | None = None) -> int:
         if not inputs:
             raise ValueError("No input images found.")
 
+        if bool(args.defects) and not bool(args.include_maps):
+            args.include_maps = True
+
         postprocess: AnomalyMapPostprocess | None = None
         if bool(args.include_maps):
             if bool(args.postprocess):
                 postprocess = AnomalyMapPostprocess()
             elif infer_config_postprocess is not None:
                 postprocess = _build_postprocess_from_payload(infer_config_postprocess)
+
+        pixel_threshold_value: float | None = None
+        pixel_threshold_provenance: dict[str, Any] | None = None
+        if bool(args.defects):
+            from pyimgano.defects.pixel_threshold import resolve_pixel_threshold
+
+            infer_cfg_thr = None
+            if infer_config_defects is not None:
+                raw_thr = infer_config_defects.get("pixel_threshold", None)
+                if raw_thr is not None:
+                    infer_cfg_thr = float(raw_thr)
+
+            calibration_maps = None
+            if (
+                args.pixel_threshold is None
+                and infer_cfg_thr is None
+                and str(args.pixel_threshold_strategy) == "normal_pixel_quantile"
+            ):
+                if not train_paths:
+                    raise ValueError(
+                        "--defects requires a pixel threshold.\n"
+                        "Provide --pixel-threshold, set defects.pixel_threshold in infer_config.json, "
+                        "or provide --train-dir for normal-pixel quantile calibration."
+                    )
+
+                train_results_for_pixel = infer(
+                    detector,
+                    train_paths,
+                    include_maps=True,
+                    postprocess=postprocess,
+                )
+                calibration_maps = [
+                    r.anomaly_map for r in train_results_for_pixel if r.anomaly_map is not None
+                ]
+
+            pixel_threshold_value, pixel_threshold_provenance = resolve_pixel_threshold(
+                pixel_threshold=(float(args.pixel_threshold) if args.pixel_threshold is not None else None),
+                pixel_threshold_strategy=str(args.pixel_threshold_strategy),
+                infer_config_pixel_threshold=infer_cfg_thr,
+                calibration_maps=calibration_maps,
+                pixel_normal_quantile=float(args.pixel_normal_quantile),
+            )
 
         results = infer(
             detector,
@@ -509,6 +560,11 @@ def main(argv: list[str] | None = None) -> int:
 
         def emit_records() -> list[dict[str, Any]]:
             records: list[dict[str, Any]] = []
+            masks_dir: Path | None = None
+            if args.save_masks is not None:
+                masks_dir = Path(args.save_masks)
+                masks_dir.mkdir(parents=True, exist_ok=True)
+
             for i, (input_path, result) in enumerate(zip(inputs, results)):
                 record = result_to_jsonable(
                     result,
@@ -516,6 +572,58 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 record["index"] = int(i)
                 record["input"] = str(input_path)
+
+                if bool(args.defects):
+                    if result.anomaly_map is None:
+                        raise ValueError(
+                            "Defects export requires anomaly maps, but no anomaly_map was returned.\n"
+                            "Try a detector that supports get_anomaly_map/predict_anomaly_map, and "
+                            "ensure --include-maps (or --defects) is enabled."
+                        )
+                    if pixel_threshold_value is None or pixel_threshold_provenance is None:
+                        raise RuntimeError("Internal error: pixel threshold was not resolved for --defects.")
+
+                    from pyimgano.defects.extract import extract_defects_from_anomaly_map
+                    from pyimgano.defects.io import save_binary_mask
+
+                    defects = extract_defects_from_anomaly_map(
+                        np.asarray(result.anomaly_map, dtype=np.float32),
+                        pixel_threshold=float(pixel_threshold_value),
+                        roi_xyxy_norm=None,
+                        open_ksize=int(args.defect_open_ksize),
+                        close_ksize=int(args.defect_close_ksize),
+                        fill_holes=bool(args.defect_fill_holes),
+                        min_area=int(args.defect_min_area),
+                        max_regions=(int(args.defect_max_regions) if args.defect_max_regions is not None else None),
+                    )
+
+                    mask_meta: dict[str, Any] = {
+                        "shape": [int(d) for d in defects["mask"].shape],
+                        "dtype": str(defects["mask"].dtype),
+                    }
+                    if masks_dir is not None:
+                        stem = Path(input_path).stem
+                        ext = ".png" if str(args.mask_format) == "png" else ".npy"
+                        out_path = masks_dir / f"{i:06d}_{stem}{ext}"
+                        written = save_binary_mask(defects["mask"], out_path, format=str(args.mask_format))
+                        mask_meta.update(
+                            {
+                                "path": str(written),
+                                "encoding": str(args.mask_format),
+                            }
+                        )
+                    else:
+                        mask_meta["encoding"] = str(args.mask_format)
+
+                    record["defects"] = {
+                        "space": defects["space"],
+                        "pixel_threshold": float(pixel_threshold_value),
+                        "pixel_threshold_provenance": dict(pixel_threshold_provenance),
+                        "mask": mask_meta,
+                        "regions": defects["regions"],
+                        "map_stats_roi": defects.get("map_stats_roi", None),
+                    }
+
                 records.append(record)
             return records
 
