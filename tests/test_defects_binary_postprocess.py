@@ -17,3 +17,16 @@ def test_postprocess_binary_mask_removes_small_components() -> None:
     assert int(out[1, 1]) == 0
     assert int(out[6, 6]) == 255
 
+
+def test_postprocess_binary_mask_fill_holes_fills_internal_hole() -> None:
+    mask = np.zeros((10, 10), dtype=np.uint8)
+    mask[2:8, 2:8] = 255
+    mask[4:6, 4:6] = 0  # hole
+    out = postprocess_binary_mask(
+        mask,
+        min_area=0,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=True,
+    )
+    assert int(out[5, 5]) == 255

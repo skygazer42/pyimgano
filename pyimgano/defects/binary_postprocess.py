@@ -54,6 +54,43 @@ def postprocess_binary_mask(
 
 
 def _fill_holes_best_effort(mask_u8: np.ndarray) -> np.ndarray:
-    # Placeholder for Task 5: dependency-light hole filling.
-    return mask_u8
+    binary = (np.asarray(mask_u8, dtype=np.uint8) > 0)
 
+    try:
+        from scipy.ndimage import binary_fill_holes  # type: ignore[import-not-found]
+
+        filled = binary_fill_holes(binary)
+        return filled.astype(np.uint8) * 255
+    except Exception:
+        return _fill_holes_floodfill(mask_u8)
+
+
+def _fill_holes_floodfill(mask_u8: np.ndarray) -> np.ndarray:
+    """Fill internal holes using only OpenCV flood fill (no SciPy required)."""
+
+    mask = (np.asarray(mask_u8, dtype=np.uint8) > 0).astype(np.uint8) * 255
+    h, w = mask.shape
+    if h == 0 or w == 0:
+        return mask
+
+    inv = cv2.bitwise_not(mask)
+    flood = inv.copy()
+
+    flood_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+
+    def _flood_from(x: int, y: int) -> None:
+        if flood[y, x] != 255:
+            return
+        flood_mask.fill(0)
+        cv2.floodFill(flood, flood_mask, (x, y), 0)
+
+    # Flood-fill all border-connected background components.
+    for x in range(w):
+        _flood_from(x, 0)
+        _flood_from(x, h - 1)
+    for y in range(h):
+        _flood_from(0, y)
+        _flood_from(w - 1, y)
+
+    holes = flood
+    return cv2.bitwise_or(mask, holes)
