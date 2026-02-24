@@ -225,6 +225,25 @@ def _run_category(
         if test_masks is not None:
             test_masks = np.asarray(test_masks)[: int(config.dataset.limit_test)]
 
+    dataset_summary: dict[str, Any] = {
+        "train_count": int(len(train_inputs)),
+        "calibration_count": int(len(calibration_inputs)),
+        "test_count": int(len(test_inputs)),
+        "test_anomaly_count": int(np.sum(np.asarray(test_labels) == 1)),
+        "test_anomaly_ratio": (
+            float(np.mean(np.asarray(test_labels) == 1)) if len(test_inputs) > 0 else None
+        ),
+    }
+    if pixel_skip_reason is not None:
+        dataset_summary["pixel_metrics"] = {"enabled": False, "reason": str(pixel_skip_reason)}
+    elif test_masks is None:
+        dataset_summary["pixel_metrics"] = {
+            "enabled": False,
+            "reason": "No ground-truth test masks available.",
+        }
+    else:
+        dataset_summary["pixel_metrics"] = {"enabled": True, "reason": None}
+
     detector = _create_detector(config)
     detector = apply_tiling(detector, config.adaptation.tiling)
 
@@ -304,6 +323,7 @@ def _run_category(
         "preset": config.model.preset,
         "resize": [int(config.dataset.resize[0]), int(config.dataset.resize[1])],
         "threshold": threshold_used,
+        "dataset_summary": dataset_summary,
         "results": eval_results,
     }
     if pixel_skip_reason is not None:
