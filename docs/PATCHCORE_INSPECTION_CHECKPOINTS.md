@@ -16,10 +16,13 @@ This is useful if you want to:
 The PatchCore-Inspection backend is optional.
 
 ```bash
-pip install "pyimgano[patchcore_inspection]"
+pip install "pyimgano"
+pip install "patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git"
 ```
 
-This installs PatchCore-Inspection from GitHub as a dependency.
+Note:
+- PyPI does not allow published packages to declare VCS / direct-URL dependencies in metadata.
+- Therefore `pyimgano` does not install PatchCore-Inspection automatically; install it explicitly as above.
 
 ---
 
@@ -56,4 +59,3 @@ Notes:
 ## 4) References (upstream)
 
 - PatchCore-Inspection repo: https://github.com/amazon-science/patchcore-inspection
-

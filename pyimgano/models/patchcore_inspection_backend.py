@@ -17,7 +17,7 @@ def _build_patchcore_inspection_model(
     device: str,
     faiss_num_workers: int,
 ):
-    require("patchcore", extra="patchcore_inspection", purpose="patchcore-inspection backend detectors")
+    require("patchcore", purpose="patchcore-inspection backend detectors")
 
     from patchcore.patchcore import PatchCore  # type: ignore[import-not-found]
     import patchcore.common  # type: ignore[import-not-found]
@@ -188,4 +188,3 @@ class VisionPatchCoreInspectionCheckpoint:
         pred = self._predict(paths, return_maps=True)
         assert pred.maps is not None
         return pred.maps
-

@@ -19,6 +19,8 @@ _PIP_NAME_OVERRIDES = {
     "open_clip": "open_clip_torch",
     "faiss": "faiss-cpu",
     "mamba_ssm": "mamba-ssm",
+    # Not on PyPI: patchcore-inspection installs as `patchcore`.
+    "patchcore": "patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git",
 }
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyimgano"
-version = "0.6.11"
+version = "0.6.12"
 description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 120+ registry models and 80+ operations"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -68,7 +68,9 @@ anomalib = [
     "anomalib>=0.10.0",
 ]
 patchcore_inspection = [
-    "patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git",
+    # PyPI forbids VCS/direct-URL dependencies in published metadata.
+    # If you need this backend, install PatchCore-Inspection separately:
+    #   pip install 'patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git'
 ]
 faiss = [
     "faiss-cpu>=1.7.4",

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.12] - 2026-02-24
+
+### Packaging
+- Removed a VCS direct-URL optional dependency from published metadata so the project can be uploaded to PyPI.
+
+### Docs
+- Updated PatchCore-Inspection checkpoint docs to install the upstream repo explicitly (instead of via extras).
+
 ## [0.6.11] - 2026-02-24
 
 ### Docs

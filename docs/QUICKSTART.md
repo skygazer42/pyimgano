@@ -33,7 +33,8 @@ pip install "pyimgano[dev]"
 pip install "pyimgano[anomalib]"
 
 # For PatchCore-Inspection checkpoints (amazon-science/patchcore-inspection)
-pip install "pyimgano[patchcore_inspection]"
+# (PatchCore-Inspection is not on PyPI; install from GitHub.)
+pip install "patchcore @ git+https://github.com/amazon-science/patchcore-inspection.git"
 
 # Install everything
 pip install "pyimgano[all]"
