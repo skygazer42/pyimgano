@@ -138,6 +138,10 @@ Optional:
     - `--defect-map-smoothing none|median|gaussian|box`
     - `--defect-map-smoothing-ksize INT`
     - `--defect-map-smoothing-sigma FLOAT` (gaussian only)
+  - Hysteresis thresholding (optional; keeps low regions connected to high seeds):
+    - `--defect-hysteresis`
+    - `--defect-hysteresis-low FLOAT`
+    - `--defect-hysteresis-high FLOAT`
   - Region-level filters (optional):
     - `--defect-min-score-max FLOAT` — drop components whose max anomaly score is below the threshold
     - `--defect-min-score-mean FLOAT` — drop components whose mean anomaly score is below the threshold

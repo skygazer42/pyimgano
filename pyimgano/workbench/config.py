@@ -157,6 +157,13 @@ class MapSmoothingConfig:
 
 
 @dataclass(frozen=True)
+class HysteresisConfig:
+    enabled: bool = False
+    low: float | None = None
+    high: float | None = None
+
+
+@dataclass(frozen=True)
 class DefectsConfig:
     enabled: bool = False
     pixel_threshold: float | None = None
@@ -166,6 +173,7 @@ class DefectsConfig:
     roi_xyxy_norm: tuple[float, float, float, float] | None = None
     border_ignore_px: int = 0
     map_smoothing: MapSmoothingConfig = field(default_factory=MapSmoothingConfig)
+    hysteresis: HysteresisConfig = field(default_factory=HysteresisConfig)
     min_area: int = 0
     min_score_max: float | None = None
     min_score_mean: float | None = None
@@ -442,6 +450,24 @@ class WorkbenchConfig:
                     sigma=ms_sigma_v,
                 )
 
+            hyst_raw = d_map.get("hysteresis", None)
+            if hyst_raw is None:
+                hysteresis = HysteresisConfig()
+            else:
+                hyst_map = _require_mapping(hyst_raw, name="defects.hysteresis")
+                hyst_enabled = bool(hyst_map.get("enabled", False))
+                hyst_low = _optional_float(hyst_map.get("low", None), name="defects.hysteresis.low")
+                hyst_high = _optional_float(hyst_map.get("high", None), name="defects.hysteresis.high")
+                if hyst_low is not None and float(hyst_low) < 0.0:
+                    raise ValueError("defects.hysteresis.low must be >= 0 or null")
+                if hyst_high is not None and float(hyst_high) < 0.0:
+                    raise ValueError("defects.hysteresis.high must be >= 0 or null")
+                hysteresis = HysteresisConfig(
+                    enabled=hyst_enabled,
+                    low=(float(hyst_low) if hyst_low is not None else None),
+                    high=(float(hyst_high) if hyst_high is not None else None),
+                )
+
             defects = DefectsConfig(
                 enabled=bool(d_map.get("enabled", False)),
                 pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
@@ -451,6 +477,7 @@ class WorkbenchConfig:
                 roi_xyxy_norm=_parse_roi_xyxy_norm(d_map.get("roi_xyxy_norm", None)),
                 border_ignore_px=border_ignore_px,
                 map_smoothing=map_smoothing,
+                hysteresis=hysteresis,
                 min_area=min_area,
                 min_score_max=(float(min_score_max) if min_score_max is not None else None),
                 min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),

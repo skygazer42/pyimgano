@@ -10,6 +10,7 @@ from pyimgano.defects.mask import anomaly_map_to_binary_mask
 from pyimgano.defects.regions import extract_regions_from_mask
 from pyimgano.defects.roi import roi_mask_from_xyxy_norm
 from pyimgano.defects.smoothing import smooth_anomaly_map
+from pyimgano.defects.hysteresis import hysteresis_anomaly_map_to_binary_mask
 
 
 def extract_defects_from_anomaly_map(
@@ -21,6 +22,9 @@ def extract_defects_from_anomaly_map(
     map_smoothing_method: str = "none",
     map_smoothing_ksize: int = 0,
     map_smoothing_sigma: float = 0.0,
+    hysteresis_enabled: bool = False,
+    hysteresis_low: float | None = None,
+    hysteresis_high: float | None = None,
     open_ksize: int,
     close_ksize: int,
     fill_holes: bool,
@@ -48,7 +52,12 @@ def extract_defects_from_anomaly_map(
     )
     map_stats_roi = compute_roi_stats(amap, roi_xyxy_norm=roi_xyxy_norm)
 
-    mask = anomaly_map_to_binary_mask(amap_roi, pixel_threshold=float(pixel_threshold))
+    if bool(hysteresis_enabled):
+        high = float(hysteresis_high) if hysteresis_high is not None else float(pixel_threshold)
+        low = float(hysteresis_low) if hysteresis_low is not None else float(high) * 0.5
+        mask = hysteresis_anomaly_map_to_binary_mask(amap_roi, low=float(low), high=float(high))
+    else:
+        mask = anomaly_map_to_binary_mask(amap_roi, pixel_threshold=float(pixel_threshold))
     mask = postprocess_binary_mask(
         mask,
         min_area=int(min_area),

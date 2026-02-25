@@ -108,3 +108,32 @@ def test_extract_defects_from_anomaly_map_can_smooth_maps_before_threshold() -> 
     assert int(out["mask"][1, 1]) == 0
     assert int(out["mask"][6, 6]) == 255
     assert len(out["regions"]) == 1
+
+
+def test_extract_defects_from_anomaly_map_supports_hysteresis_thresholding() -> None:
+    amap = np.zeros((7, 7), dtype=np.float32)
+    amap[0, 0] = 0.6  # low-only island (should be removed)
+    amap[3, 3] = 1.0  # high seed
+    amap[3, 4] = 0.6  # low pixel connected to seed (should be kept)
+
+    out = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.9,
+        roi_xyxy_norm=None,
+        border_ignore_px=0,
+        map_smoothing_method="none",
+        map_smoothing_ksize=0,
+        map_smoothing_sigma=0.0,
+        hysteresis_enabled=True,
+        hysteresis_low=0.5,
+        hysteresis_high=0.9,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions=None,
+    )
+
+    assert int(out["mask"][0, 0]) == 0
+    assert int(out["mask"][3, 4]) == 255
+    assert len(out["regions"]) == 1

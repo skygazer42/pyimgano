@@ -117,6 +117,26 @@ def _apply_defects_defaults_from_payload(
             if v is not None:
                 args.defect_map_smoothing_sigma = float(v)
 
+    # Optional hysteresis thresholding block.
+    hyst_raw = defects_payload.get("hysteresis", None)
+    if hyst_raw is not None:
+        if not isinstance(hyst_raw, dict):
+            raise ValueError("infer-config defects.hysteresis must be a JSON object/dict.")
+
+        enabled = hyst_raw.get("enabled", None)
+        if enabled is True and not bool(getattr(args, "defect_hysteresis", False)):
+            args.defect_hysteresis = True
+
+        if getattr(args, "defect_hysteresis_low", None) is None:
+            v = _coerce_float(hyst_raw.get("low", None), name="hysteresis.low")
+            if v is not None:
+                args.defect_hysteresis_low = float(v)
+
+        if getattr(args, "defect_hysteresis_high", None) is None:
+            v = _coerce_float(hyst_raw.get("high", None), name="hysteresis.high")
+            if v is not None:
+                args.defect_hysteresis_high = float(v)
+
     if getattr(args, "defect_min_score_max", None) is None:
         v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
         if v is not None:
@@ -338,6 +358,23 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="Optional gaussian sigma for map smoothing (default: 0.0)",
+    )
+    parser.add_argument(
+        "--defect-hysteresis",
+        action="store_true",
+        help="Enable hysteresis thresholding (keeps low regions connected to high seeds)",
+    )
+    parser.add_argument(
+        "--defect-hysteresis-low",
+        type=float,
+        default=None,
+        help="Low threshold for hysteresis (default: derived from high threshold)",
+    )
+    parser.add_argument(
+        "--defect-hysteresis-high",
+        type=float,
+        default=None,
+        help="High threshold for hysteresis (default: pixel threshold)",
     )
     parser.add_argument(
         "--defect-min-score-max",
@@ -799,6 +836,17 @@ def main(argv: list[str] | None = None) -> int:
                         map_smoothing_method=str(args.defect_map_smoothing),
                         map_smoothing_ksize=int(args.defect_map_smoothing_ksize),
                         map_smoothing_sigma=float(args.defect_map_smoothing_sigma),
+                        hysteresis_enabled=bool(args.defect_hysteresis),
+                        hysteresis_low=(
+                            float(args.defect_hysteresis_low)
+                            if args.defect_hysteresis_low is not None
+                            else None
+                        ),
+                        hysteresis_high=(
+                            float(args.defect_hysteresis_high)
+                            if args.defect_hysteresis_high is not None
+                            else None
+                        ),
                         open_ksize=int(args.defect_open_ksize),
                         close_ksize=int(args.defect_close_ksize),
                         fill_holes=bool(args.defect_fill_holes),
