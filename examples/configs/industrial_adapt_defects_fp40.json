@@ -1,0 +1,45 @@
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-balanced",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "adaptation": {
+    "save_maps": true
+  },
+  "defects": {
+    "enabled": true,
+    "pixel_threshold_strategy": "normal_pixel_quantile",
+    "pixel_normal_quantile": 0.999,
+    "mask_format": "png",
+    "roi_xyxy_norm": [0.1, 0.1, 0.9, 0.9],
+    "border_ignore_px": 2,
+    "map_smoothing": {"method": "median", "ksize": 3, "sigma": 0.0},
+    "hysteresis": {"enabled": true, "low": null, "high": null},
+    "shape_filters": {"min_fill_ratio": 0.15, "max_aspect_ratio": 6.0, "min_solidity": 0.8},
+    "merge_nearby": {"enabled": true, "max_gap_px": 1},
+    "min_area": 16,
+    "min_score_max": 0.6,
+    "min_score_mean": null,
+    "open_ksize": 0,
+    "close_ksize": 0,
+    "fill_holes": false,
+    "max_regions": 20,
+    "max_regions_sort_by": "score_max"
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}

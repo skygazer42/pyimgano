@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.18] - 2026-02-25
+
+### Defects
+- Added anomaly-map border suppression, optional smoothing, and hysteresis thresholding for more stable defect masks.
+- Added shape filters (`min_fill_ratio` / `max_aspect_ratio` / `min_solidity`) to remove elongated/non-compact fragments.
+- Added region merging (`merge_nearby`) to combine nearby fragments in the exported regions list (mask unchanged).
+- Region ordering and `max_regions` selection are now deterministic and configurable via `max_regions_sort_by: score_max|score_mean|area`.
+
+### Inference
+- `pyimgano-infer --defects` supports image-space bbox mapping (`--defects-image-space`) and overlay export (`--save-overlays DIR`) for FP debugging.
+
+### Workbench
+- Exported `infer_config.json` now includes more `defects.*` defaults (border ignore, smoothing/hysteresis blocks, shape filters, merge settings, and max-regions sorting).
+
+### Docs
+- Updated CLI reference and industrial inference guide with FP40 knobs and recommended usage patterns.
+
+### Tests
+- Added unit and CLI smoke coverage for new defects controls and infer-config defaults.
+
 ## [0.6.17] - 2026-02-25
 
 ### Inference
