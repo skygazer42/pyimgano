@@ -161,7 +161,7 @@ tiled = TiledDetector(
     # Map blending:
     # - "max": sharp but can leave seams
     # - "mean": smooth but can blur peaks
-    # - "hann"/"gaussian": weighted blending to reduce seams
+    # - "hann"/"gaussian": weighted blending to reduce seams (recommended)
     map_reduce="hann",
 )
 ```
@@ -178,6 +178,15 @@ pyimgano-infer \
   --tile-stride 384 \
   --tile-map-reduce hann
 ```
+
+Practical tiling notes:
+
+- Use **overlap** (`tile_stride < tile_size`) to reduce seam artifacts and improve small-defect recall.
+- For `tile_map_reduce`, start with:
+  - `hann` (good default; smooth seams, preserves peaks)
+  - `gaussian` (similar; sometimes smoother)
+  - `max` (crisp peaks but can show seams when overlap is small)
+  - `mean` (smooth but can dilute sharp defects)
 
 ## 6) Defects export (mask + regions + ROI)
 

@@ -315,6 +315,12 @@ class TiledDetector:
         if self.stride <= 0:
             raise ValueError(f"stride must be positive, got {self.stride}")
 
+        # Cache tile coordinate grids per (H,W,tile_size,stride) to avoid recomputing
+        # them for repeated inputs of the same size.
+        self._tile_coords_cache: dict[
+            tuple[int, int, int, int], tuple[tuple[int, int], ...]
+        ] = {}
+
     def fit(self, X, y=None, **kwargs):
         try:
             return self.detector.fit(X, y=y, **kwargs)
@@ -329,7 +335,11 @@ class TiledDetector:
     def _iter_tiles(self, image: NDArray) -> tuple[list[NDArray], list[Tile]]:
         img = np.asarray(image)
         h, w = int(img.shape[0]), int(img.shape[1])
-        coords = iter_tile_coords(h, w, tile_size=self.tile_size, stride=self.stride)
+        cache_key = (h, w, int(self.tile_size), int(self.stride))
+        coords = self._tile_coords_cache.get(cache_key)
+        if coords is None:
+            coords = tuple(iter_tile_coords(h, w, tile_size=self.tile_size, stride=self.stride))
+            self._tile_coords_cache[cache_key] = coords
 
         tiles: list[NDArray] = []
         infos: list[Tile] = []

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from pyimgano.inference.tiling import TiledDetector
+import pyimgano.inference.tiling as tiling
 
 
 class _BatchOnlyDummyDetector:
@@ -31,7 +32,7 @@ class _BatchOnlyDummyDetector:
 
 def test_tiled_detector_score_reduce_max() -> None:
     base = _BatchOnlyDummyDetector()
-    tiled = TiledDetector(detector=base, tile_size=4, stride=3, score_reduce="max")
+    tiled = tiling.TiledDetector(detector=base, tile_size=4, stride=3, score_reduce="max")
 
     img = np.zeros((6, 6, 3), dtype=np.uint8)
     img[2:4, 3:5, :] = 255
@@ -43,7 +44,7 @@ def test_tiled_detector_score_reduce_max() -> None:
 
 def test_tiled_detector_stitches_maps() -> None:
     base = _BatchOnlyDummyDetector()
-    tiled = TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="max")
+    tiled = tiling.TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="max")
 
     img = np.zeros((6, 6, 3), dtype=np.uint8)
     img[1:3, 4:6, :] = 200
@@ -57,7 +58,7 @@ def test_tiled_detector_stitches_maps() -> None:
 
 def test_tiled_detector_stitches_maps_hann_window() -> None:
     base = _BatchOnlyDummyDetector()
-    tiled = TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="hann")
+    tiled = tiling.TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="hann")
 
     img = np.zeros((6, 6, 3), dtype=np.uint8)
     img[1:3, 4:6, :] = 200
@@ -72,7 +73,7 @@ def test_tiled_detector_stitches_maps_hann_window() -> None:
 
 def test_tiled_detector_stitches_maps_gaussian_window() -> None:
     base = _BatchOnlyDummyDetector()
-    tiled = TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="gaussian")
+    tiled = tiling.TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="gaussian")
 
     img = np.zeros((6, 6, 3), dtype=np.uint8)
     img[1:3, 4:6, :] = 200
@@ -83,3 +84,22 @@ def test_tiled_detector_stitches_maps_gaussian_window() -> None:
     # Windowed blending is float math; allow tiny numeric noise across platforms.
     assert np.isclose(float(stitched[1:3, 4:6].max()), 200.0, atol=1e-3)
     assert float(stitched[:1, :].max()) == 0.0
+
+
+def test_tiled_detector_caches_tile_coords(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"count": 0}
+    original = tiling.iter_tile_coords
+
+    def _wrapped(height: int, width: int, *, tile_size: int, stride: int):
+        calls["count"] += 1
+        return original(height, width, tile_size=tile_size, stride=stride)
+
+    monkeypatch.setattr(tiling, "iter_tile_coords", _wrapped)
+
+    base = _BatchOnlyDummyDetector()
+    tiled = tiling.TiledDetector(detector=base, tile_size=4, stride=3, map_reduce="max")
+
+    img = np.zeros((6, 6, 3), dtype=np.uint8)
+    tiled.decision_function([img])
+    tiled.decision_function([img])
+    assert calls["count"] == 1

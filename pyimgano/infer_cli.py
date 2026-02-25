@@ -385,7 +385,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mask-format",
         default="png",
-        choices=["png", "npy"],
+        choices=["png", "npy", "npz"],
         help="Mask artifact format when saving masks (default: png)",
     )
     parser.add_argument(
@@ -1035,7 +1035,15 @@ def main(argv: list[str] | None = None) -> int:
                     }
                     if masks_dir is not None:
                         stem = Path(input_path).stem
-                        ext = ".png" if str(args.mask_format) == "png" else ".npy"
+                        fmt = str(args.mask_format)
+                        if fmt == "png":
+                            ext = ".png"
+                        elif fmt == "npy":
+                            ext = ".npy"
+                        elif fmt == "npz":
+                            ext = ".npz"
+                        else:  # pragma: no cover - guarded by argparse choices
+                            raise ValueError(f"Unknown mask_format: {fmt!r}")
                         out_path = masks_dir / f"{i:06d}_{stem}{ext}"
                         written = save_binary_mask(defects["mask"], out_path, format=str(args.mask_format))
                         mask_meta.update(

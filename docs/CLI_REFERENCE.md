@@ -122,12 +122,17 @@ Notes:
 Optional:
 
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
+- High-resolution tiling (optional; for 2K/4K inspection images):
+  - `--tile-size N` — run tiled inference (wraps the detector in `TiledDetector`)
+  - `--tile-stride N` — tile overlap stride (default: tile-size; smaller = more overlap = fewer seams)
+  - `--tile-map-reduce max|mean|hann|gaussian` — blend overlapping tile maps (`hann`/`gaussian` reduce seams)
+  - `--tile-score-reduce max|mean|topk_mean` + `--tile-score-topk` — aggregate tile scores into an image score
 - `--batch-size N` — run inference in chunks (preserves output order; can reduce peak memory)
 - `--profile` — print stage timing summary to stderr (load model, fit/calibrate, infer, artifacts)
 - `--amp` — best-effort AMP/autocast for torch-backed models (requires torch + CUDA; otherwise runs without AMP)
 - `--include-anomaly-map-values` — embed raw anomaly-map values in JSONL (debug only; very large output)
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
-  - `--save-masks DIR` + `--mask-format png|npy`
+  - `--save-masks DIR` + `--mask-format png|npy|npz` (`npz` is compressed numpy; good for large batches)
   - `--save-overlays DIR` — save per-image debugging overlays (original + heatmap + mask outline/fill)
   - `--defects-image-space` — add `bbox_xyxy_image` to regions when image size is available
   - Pixel threshold options:
