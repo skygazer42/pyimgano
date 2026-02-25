@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.15] - 2026-02-25
+
+### CLI
+- Fixed `pyimgano-train --dry-run` / `--preflight` crashing due to a local `asdict` shadowing bug.
+
 ## [0.6.14] - 2026-02-25
 
 ### Inference

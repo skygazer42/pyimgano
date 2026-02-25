@@ -127,8 +127,6 @@ def main(argv: list[str] | None = None) -> int:
             if bool(args.dry_run):
                 raise ValueError("--preflight and --dry-run are mutually exclusive.")
 
-            from dataclasses import asdict
-
             from pyimgano.workbench.preflight import run_preflight
 
             report = run_preflight(config=cfg)
