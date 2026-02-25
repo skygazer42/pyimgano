@@ -144,6 +144,8 @@ Optional:
 	      - If selected and `--train-dir` is provided, `pyimgano-infer` recalibrates from normal/train maps even if `infer_config.json` contains `defects.pixel_threshold`.
   - When running with `--infer-config` or `--from-run`, the exported `defects.*` settings are used as defaults
     (ROI, morphology, min-area, mask format, max regions, pixel threshold strategy/quantile, etc.). CLI flags override.
+  - When running with `--infer-config` or `--from-run`, exported preprocessing defaults (e.g. `preprocessing.illumination_contrast`)
+    are applied automatically for deploy consistency (when present).
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
     - If ROI is set and you calibrate pixel threshold via `normal_pixel_quantile`, calibration uses ROI pixels only.
   - `--defect-border-ignore-px INT` (optional; ignores N pixels at the anomaly-map border for defects extraction)

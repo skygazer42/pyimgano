@@ -265,6 +265,13 @@ def _run_category(
     threshold_quantile, threshold_quantile_source = resolve_default_quantile(detector)
     detector = apply_tiling(detector, config.adaptation.tiling)
 
+    # Optional preprocessing (e.g. illumination/contrast normalization) applied before scoring.
+    ic = getattr(getattr(config, "preprocessing", None), "illumination_contrast", None)
+    if ic is not None:
+        from pyimgano.inference.preprocessing import PreprocessingDetector
+
+        detector = PreprocessingDetector(detector=detector, illumination_contrast=ic)
+
     training_report = None
     checkpoint_meta = None
     if bool(getattr(config, "training", None) and config.training.enabled):
@@ -648,11 +655,38 @@ def build_infer_config_payload(
         "max_regions_sort_by": str(config.defects.max_regions_sort_by),
     }
 
+    preprocessing_payload: dict[str, Any] | None = None
+    ic = config.preprocessing.illumination_contrast
+    if ic is not None:
+        preprocessing_payload = {
+            "illumination_contrast": {
+                "white_balance": str(ic.white_balance),
+                "homomorphic": bool(ic.homomorphic),
+                "homomorphic_cutoff": float(ic.homomorphic_cutoff),
+                "homomorphic_gamma_low": float(ic.homomorphic_gamma_low),
+                "homomorphic_gamma_high": float(ic.homomorphic_gamma_high),
+                "homomorphic_c": float(ic.homomorphic_c),
+                "homomorphic_per_channel": bool(ic.homomorphic_per_channel),
+                "clahe": bool(ic.clahe),
+                "clahe_clip_limit": float(ic.clahe_clip_limit),
+                "clahe_tile_grid_size": [
+                    int(ic.clahe_tile_grid_size[0]),
+                    int(ic.clahe_tile_grid_size[1]),
+                ],
+                "gamma": (float(ic.gamma) if ic.gamma is not None else None),
+                "contrast_stretch": bool(ic.contrast_stretch),
+                "contrast_lower_percentile": float(ic.contrast_lower_percentile),
+                "contrast_upper_percentile": float(ic.contrast_upper_percentile),
+            }
+        }
+
     out: dict[str, Any] = {
         "model": model_payload,
         "adaptation": adaptation_payload,
         "defects": defects_payload,
     }
+    if preprocessing_payload is not None:
+        out["preprocessing"] = preprocessing_payload
 
     # Prefer the report's run_dir (if present) to keep the payload portable across
     # output_dir overrides.

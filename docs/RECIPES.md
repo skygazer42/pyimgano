@@ -168,6 +168,39 @@ Notes:
 - `adaptation.tiling.tile_size` enables tiled inference for high-resolution images.
 - `adaptation.postprocess` is applied to anomaly maps (when extracted).
 
+### Preprocessing knobs (illumination & contrast; optional)
+
+Industrial inspection deployments often see **illumination drift** (shift changes, exposure drift,
+vignetting, camera auto-white-balance).
+
+`pyimgano` supports an opt-in preprocessing block in the workbench config:
+
+```json
+{
+  "preprocessing": {
+    "illumination_contrast": {
+      "white_balance": "gray_world",
+      "homomorphic": false,
+      "clahe": true,
+      "clahe_clip_limit": 2.0,
+      "clahe_tile_grid_size": [8, 8],
+      "gamma": 0.9,
+      "contrast_stretch": false
+    }
+  }
+}
+```
+
+Notes:
+
+- When set in the workbench config, this preprocessing is applied during the workbench run.
+- When you export an infer-config (`pyimgano-train --export-infer-config`), the same block is written
+  to `artifacts/infer_config.json`.
+- `pyimgano-infer` automatically applies preprocessing when present in `--infer-config` (or `--from-run`),
+  so the deploy path stays consistent.
+- This requires detectors that accept **numpy image inputs**. If your model only supports path inputs,
+  keep `preprocessing` unset (or switch to a `numpy`-capable model).
+
 ### Defects export knobs (mask + regions + ROI)
 
 The `defects` block is stored in the workbench config and exported into

@@ -229,6 +229,10 @@ If the infer-config contains `defects.pixel_threshold`, you can omit `--pixel-th
 If the infer-config contains other `defects.*` settings (ROI, morphology, min-area, mask format, etc.),
 `pyimgano-infer` uses them as defaults when `--defects` is enabled (CLI flags override).
 
+If the infer-config contains `preprocessing.illumination_contrast`, `pyimgano-infer` applies it automatically
+before scoring / anomaly-map extraction (for numpy-capable detectors). This helps keep deploy inference more
+stable under illumination drift.
+
 Workbench template:
 
 - Start from `examples/configs/industrial_adapt_defects_fp40.json` for an FP-reduction baseline (ROI + border ignore + smoothing + hysteresis + shape filters + merge-nearby).

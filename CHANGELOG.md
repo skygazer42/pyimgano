@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.22] - 2026-02-25
+
+### Preprocessing
+- Workbench configs now support an optional `preprocessing.illumination_contrast` block (illumination/contrast normalization knobs).
+- Exported `artifacts/infer_config.json` now includes the preprocessing block when configured.
+- Workbench runs and `pyimgano-infer` now apply the same preprocessing automatically (deploy consistency).
+- CLAHE in `apply_illumination_contrast(...)` is now channel-order independent (no RGB/BGR assumption).
+
+### Infer-config
+- `pyimgano-validate-infer-config` now validates/coerces `preprocessing.illumination_contrast.*` fields when present.
+
+### Tests
+- Added coverage for preprocessing config plumbing and CLAHE channel-order independence.
+
 ## [0.6.21] - 2026-02-25
 
 ### Recipes

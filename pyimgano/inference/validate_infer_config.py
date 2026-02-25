@@ -16,6 +16,7 @@ _ALLOWED_MASK_FORMATS = {"png", "npy", "npz"}
 _ALLOWED_MAP_SMOOTHING_METHODS = {"none", "median", "gaussian", "box"}
 _ALLOWED_TILING_SCORE_REDUCE = {"max", "mean", "topk_mean"}
 _ALLOWED_TILING_MAP_REDUCE = {"max", "mean", "hann", "gaussian"}
+_ALLOWED_WHITE_BALANCE = {"none", "gray_world", "max_rgb"}
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,114 @@ def validate_infer_config_payload(
         model["checkpoint_path"] = str(model["checkpoint_path"])
 
     normalized["model"] = model
+
+    preprocessing_raw = normalized.get("preprocessing", None)
+    preprocessing_map = _optional_mapping(preprocessing_raw, name="preprocessing")
+    if preprocessing_map is not None:
+        preprocessing: dict[str, Any] = dict(preprocessing_map)
+
+        ic_raw = preprocessing.get("illumination_contrast", None)
+        ic_map = _optional_mapping(ic_raw, name="preprocessing.illumination_contrast")
+        if ic_map is not None:
+            ic: dict[str, Any] = dict(ic_map)
+
+            if "white_balance" in ic and ic["white_balance"] is not None:
+                wb = str(ic["white_balance"]).strip().lower()
+                if wb in ("", "none"):
+                    wb = "none"
+                elif wb in ("gray_world", "gray-world", "grayworld"):
+                    wb = "gray_world"
+                elif wb in ("max_rgb", "max-rgb", "maxrgb"):
+                    wb = "max_rgb"
+                if wb not in _ALLOWED_WHITE_BALANCE:
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast.white_balance must be one of: "
+                        f"{sorted(_ALLOWED_WHITE_BALANCE)}"
+                    )
+                ic["white_balance"] = wb
+
+            for key in (
+                "homomorphic",
+                "homomorphic_per_channel",
+                "clahe",
+                "contrast_stretch",
+            ):
+                if key in ic and ic[key] is not None:
+                    ic[key] = _coerce_bool(ic[key], name=f"preprocessing.illumination_contrast.{key}")
+
+            if "homomorphic_cutoff" in ic and ic["homomorphic_cutoff"] is not None:
+                cutoff = _coerce_float(
+                    ic["homomorphic_cutoff"],
+                    name="preprocessing.illumination_contrast.homomorphic_cutoff",
+                )
+                if not (0.0 < float(cutoff) <= 1.0):
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast.homomorphic_cutoff must be in (0,1]."
+                    )
+                ic["homomorphic_cutoff"] = float(cutoff)
+
+            for key in (
+                "homomorphic_gamma_low",
+                "homomorphic_gamma_high",
+                "homomorphic_c",
+                "clahe_clip_limit",
+                "contrast_lower_percentile",
+                "contrast_upper_percentile",
+            ):
+                if key in ic and ic[key] is not None:
+                    ic[key] = _coerce_float(ic[key], name=f"preprocessing.illumination_contrast.{key}")
+
+            if "gamma" in ic and ic["gamma"] is not None:
+                gamma = _coerce_float(ic["gamma"], name="preprocessing.illumination_contrast.gamma")
+                if float(gamma) <= 0.0:
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast.gamma must be > 0."
+                    )
+                ic["gamma"] = float(gamma)
+
+            if "clahe_tile_grid_size" in ic and ic["clahe_tile_grid_size"] is not None:
+                tgs = ic["clahe_tile_grid_size"]
+                if not isinstance(tgs, (list, tuple)) or len(tgs) != 2:
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast.clahe_tile_grid_size must be a list of length 2."
+                    )
+                a = _coerce_int(
+                    tgs[0],
+                    name="preprocessing.illumination_contrast.clahe_tile_grid_size[0]",
+                )
+                b = _coerce_int(
+                    tgs[1],
+                    name="preprocessing.illumination_contrast.clahe_tile_grid_size[1]",
+                )
+                if a <= 0 or b <= 0:
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast.clahe_tile_grid_size must be positive."
+                    )
+                ic["clahe_tile_grid_size"] = [int(a), int(b)]
+
+            # Best-effort range validation (optional keys).
+            if "clahe_clip_limit" in ic and ic["clahe_clip_limit"] is not None:
+                if float(ic["clahe_clip_limit"]) <= 0.0:
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast.clahe_clip_limit must be > 0."
+                    )
+
+            if (
+                "contrast_lower_percentile" in ic
+                and "contrast_upper_percentile" in ic
+                and ic.get("contrast_lower_percentile", None) is not None
+                and ic.get("contrast_upper_percentile", None) is not None
+            ):
+                lo = float(ic["contrast_lower_percentile"])
+                hi = float(ic["contrast_upper_percentile"])
+                if not (0.0 <= lo <= 100.0 and 0.0 <= hi <= 100.0 and lo < hi):
+                    raise ValueError(
+                        "infer-config preprocessing.illumination_contrast contrast percentiles must satisfy 0<=lower<upper<=100."
+                    )
+
+            preprocessing["illumination_contrast"] = ic
+
+        normalized["preprocessing"] = preprocessing
 
     adaptation_raw = normalized.get("adaptation", None)
     adaptation_map = _optional_mapping(adaptation_raw, name="adaptation")
@@ -328,4 +437,3 @@ def validate_infer_config_file(
     p = Path(path)
     payload = load_infer_config(p)
     return validate_infer_config_payload(payload, config_path=p, category=category, check_files=check_files)
-

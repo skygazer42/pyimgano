@@ -191,11 +191,17 @@ def _clahe_u8(
     if img.ndim != 3 or img.shape[2] != 3:
         raise ValueError(f"Expected image shape (H,W,3) or (H,W), got {img.shape}")
 
-    # Treat color input as OpenCV BGR by convention (matches most of this module's usage).
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-    out = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    return np.asarray(out, dtype=np.uint8)
+    # Channel-order independent variant:
+    # apply CLAHE on intensity, then re-scale RGB channels proportionally.
+    img_f = img.astype(np.float32)
+    intensity = np.mean(img_f, axis=2)
+    intensity_u8 = np.clip(intensity, 0.0, 255.0).astype(np.uint8)
+    eq_u8 = np.asarray(clahe.apply(intensity_u8), dtype=np.uint8).astype(np.float32)
+
+    denom = np.maximum(intensity[..., None], 1.0)
+    out = img_f * (eq_u8[..., None] / denom)
+    out = np.clip(out, 0.0, 255.0)
+    return out.astype(np.uint8)
 
 
 def apply_illumination_contrast(

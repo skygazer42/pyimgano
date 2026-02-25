@@ -594,6 +594,7 @@ def main(argv: list[str] | None = None) -> int:
         infer_config_postprocess = None
         defects_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
+        illumination_contrast_knobs = None
 
         t_load_start = time.perf_counter()
         if from_run:
@@ -668,6 +669,14 @@ def main(argv: list[str] | None = None) -> int:
             # Use workbench defects config as deploy defaults for `pyimgano-infer`.
             defects_payload = asdict(cfg.defects)
             defects_payload_source = "from_run"
+
+            # Optional preprocessing defaults from workbench runs.
+            try:
+                ic = cfg.preprocessing.illumination_contrast
+            except Exception:
+                ic = None
+            if ic is not None:
+                illumination_contrast_knobs = ic
         elif infer_config_mode:
             from pyimgano.inference.config import (
                 load_infer_config,
@@ -688,6 +697,20 @@ def main(argv: list[str] | None = None) -> int:
                     raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
                 defects_payload = dict(defects_map)
                 defects_payload_source = "infer_config"
+
+            preprocessing_map = payload.get("preprocessing", None)
+            if preprocessing_map is not None:
+                if not isinstance(preprocessing_map, dict):
+                    raise ValueError("infer-config key 'preprocessing' must be a JSON object/dict.")
+                ic_map = preprocessing_map.get("illumination_contrast", None)
+                if ic_map is not None:
+                    if not isinstance(ic_map, dict):
+                        raise ValueError(
+                            "infer-config key 'preprocessing.illumination_contrast' must be a JSON object/dict."
+                        )
+                    from pyimgano.inference.preprocessing import parse_illumination_contrast_knobs
+
+                    illumination_contrast_knobs = parse_illumination_contrast_knobs(ic_map)
 
             model_payload = payload.get("model", None)
             if not isinstance(model_payload, dict):
@@ -830,6 +853,21 @@ def main(argv: list[str] | None = None) -> int:
                 score_topk=float(args.tile_score_topk),
                 map_reduce=str(args.tile_map_reduce),
             )
+            # Ensure a threshold loaded from --from-run/--infer-config remains visible after wrapping.
+            if threshold_from_run is not None:
+                setattr(detector, "threshold_", float(threshold_from_run))
+
+        # Apply preprocessing outside tiling so illumination/contrast normalization happens
+        # on the full image before tiling.
+        if illumination_contrast_knobs is not None:
+            from pyimgano.inference.preprocessing import PreprocessingDetector
+
+            detector = PreprocessingDetector(
+                detector=detector,
+                illumination_contrast=illumination_contrast_knobs,
+            )
+            if threshold_from_run is not None:
+                setattr(detector, "threshold_", float(threshold_from_run))
 
         t_load_model = time.perf_counter() - t_load_start
 

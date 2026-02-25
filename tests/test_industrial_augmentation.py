@@ -110,3 +110,24 @@ def test_apply_illumination_contrast_runs() -> None:
     out = apply_illumination_contrast(img, knobs=knobs)
     assert out.shape == img.shape
     assert out.dtype == np.uint8
+
+
+def test_clahe_is_channel_order_independent() -> None:
+    """CLAHE should not assume BGR vs RGB.
+
+    The illumination/contrast presets are documented as "channel order does not matter".
+    This test enforces permutation equivariance for CLAHE on 3-channel uint8 inputs:
+
+        f(P(img)) == P(f(img))
+    """
+
+    rng = np.random.RandomState(0)
+    img = rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8)
+
+    knobs = IlluminationContrastKnobs(clahe=True)
+    out_rgb = apply_illumination_contrast(img, knobs=knobs)
+
+    img_swapped = img[..., ::-1]
+    out_swapped = apply_illumination_contrast(img_swapped, knobs=knobs)
+
+    assert np.array_equal(out_rgb, out_swapped[..., ::-1])
