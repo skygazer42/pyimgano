@@ -84,6 +84,11 @@ def _apply_defects_defaults_from_payload(
         if v is not None:
             args.defect_min_area = int(v)
 
+    if int(getattr(args, "defect_border_ignore_px", 0)) == 0:
+        v = _coerce_int(defects_payload.get("border_ignore_px", None), name="border_ignore_px")
+        if v is not None:
+            args.defect_border_ignore_px = int(v)
+
     if getattr(args, "defect_min_score_max", None) is None:
         v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
         if v is not None:
@@ -281,6 +286,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Remove connected components smaller than this area (default: 0)",
+    )
+    parser.add_argument(
+        "--defect-border-ignore-px",
+        type=int,
+        default=0,
+        help="Ignore N pixels at the anomaly-map border for defects extraction (default: 0)",
     )
     parser.add_argument(
         "--defect-min-score-max",
@@ -738,6 +749,7 @@ def main(argv: list[str] | None = None) -> int:
                         np.asarray(result.anomaly_map, dtype=np.float32),
                         pixel_threshold=float(pixel_threshold_value),
                         roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
+                        border_ignore_px=int(args.defect_border_ignore_px),
                         open_ksize=int(args.defect_open_ksize),
                         close_ksize=int(args.defect_close_ksize),
                         fill_holes=bool(args.defect_fill_holes),

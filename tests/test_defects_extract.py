@@ -61,3 +61,25 @@ def test_extract_defects_from_anomaly_map_can_filter_by_region_score() -> None:
     assert len(out["regions"]) == 1
     assert int(out["mask"][2, 2]) == 255
     assert int(out["mask"][6, 6]) == 0
+
+
+def test_extract_defects_from_anomaly_map_can_ignore_border_pixels() -> None:
+    amap = np.zeros((6, 6), dtype=np.float32)
+    amap[0, 0] = 1.0  # border FP candidate
+    amap[2:4, 2:4] = 1.0  # real defect
+
+    out = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions=None,
+        border_ignore_px=1,
+    )
+
+    assert int(out["mask"][0, 0]) == 0
+    assert int(out["mask"][3, 3]) == 255
+    assert len(out["regions"]) == 1

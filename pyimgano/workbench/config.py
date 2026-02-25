@@ -157,6 +157,7 @@ class DefectsConfig:
     pixel_normal_quantile: float = 0.999
     mask_format: str = "png"
     roi_xyxy_norm: tuple[float, float, float, float] | None = None
+    border_ignore_px: int = 0
     min_area: int = 0
     min_score_max: float | None = None
     min_score_mean: float | None = None
@@ -371,12 +372,17 @@ class WorkbenchConfig:
             d_map = _require_mapping(defects_raw, name="defects")
             pixel_threshold = _optional_float(d_map.get("pixel_threshold", None), name="defects.pixel_threshold")
             max_regions = _optional_int(d_map.get("max_regions", None), name="defects.max_regions")
+            border_ignore_px = int(
+                _optional_int(d_map.get("border_ignore_px", 0), name="defects.border_ignore_px") or 0
+            )
             min_area = int(_optional_int(d_map.get("min_area", 0), name="defects.min_area") or 0)
             min_score_max = _optional_float(d_map.get("min_score_max", None), name="defects.min_score_max")
             min_score_mean = _optional_float(d_map.get("min_score_mean", None), name="defects.min_score_mean")
             open_ksize = int(_optional_int(d_map.get("open_ksize", 0), name="defects.open_ksize") or 0)
             close_ksize = int(_optional_int(d_map.get("close_ksize", 0), name="defects.close_ksize") or 0)
 
+            if border_ignore_px < 0:
+                raise ValueError("defects.border_ignore_px must be >= 0")
             if min_area < 0:
                 raise ValueError("defects.min_area must be >= 0")
             if open_ksize < 0:
@@ -406,6 +412,7 @@ class WorkbenchConfig:
                 pixel_normal_quantile=qv,
                 mask_format=mask_format,
                 roi_xyxy_norm=_parse_roi_xyxy_norm(d_map.get("roi_xyxy_norm", None)),
+                border_ignore_px=border_ignore_px,
                 min_area=min_area,
                 min_score_max=(float(min_score_max) if min_score_max is not None else None),
                 min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),

@@ -29,6 +29,42 @@ def apply_roi_to_map(
     return m * roi_mask
 
 
+def apply_border_ignore_to_map(anomaly_map: np.ndarray, *, border_ignore_px: int) -> np.ndarray:
+    """Zero out anomaly-map pixels near the border.
+
+    Industrial anomaly maps often contain edge artifacts (resize padding, tiling
+    seams, sensor border noise). This helper is an opt-in suppression step for
+    defects extraction.
+
+    Args:
+        anomaly_map: HxW anomaly map (float-like). Returned as float32.
+        border_ignore_px: Number of pixels to zero from each border. 0 disables.
+
+    Returns:
+        Float32 anomaly map with border pixels set to 0.
+    """
+
+    m = np.asarray(anomaly_map, dtype=np.float32)
+    n = int(border_ignore_px)
+    if n <= 0:
+        return m
+
+    h, w = int(m.shape[0]), int(m.shape[1])
+    if h <= 0 or w <= 0:
+        return m
+
+    # If the border thickness exceeds the map size, suppress everything.
+    if n * 2 >= h or n * 2 >= w:
+        return np.zeros_like(m, dtype=np.float32)
+
+    out = m.copy()
+    out[:n, :] = 0.0
+    out[-n:, :] = 0.0
+    out[:, :n] = 0.0
+    out[:, -n:] = 0.0
+    return out
+
+
 def compute_roi_stats(
     anomaly_map: np.ndarray,
     roi_xyxy_norm: Sequence[float] | None,
@@ -46,4 +82,3 @@ def compute_roi_stats(
         return {"max": 0.0, "mean": 0.0}
 
     return {"max": float(values.max()), "mean": float(values.mean())}
-
