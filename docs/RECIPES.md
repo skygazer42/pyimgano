@@ -145,14 +145,16 @@ Example:
     "pixel_threshold_strategy": "fixed",
     "pixel_normal_quantile": 0.999,
     "mask_format": "png",
-    "roi_xyxy_norm": [0.1, 0.1, 0.9, 0.9],
-    "min_area": 0,
-    "open_ksize": 0,
-    "close_ksize": 0,
-    "fill_holes": false,
-    "max_regions": null
-  }
-}
+	    "roi_xyxy_norm": [0.1, 0.1, 0.9, 0.9],
+	    "min_area": 0,
+	    "min_score_max": null,
+	    "min_score_mean": null,
+	    "open_ksize": 0,
+	    "close_ksize": 0,
+	    "fill_holes": false,
+	    "max_regions": null
+	  }
+	}
 ```
 
 Notes:

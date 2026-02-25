@@ -20,6 +20,8 @@ def extract_defects_from_anomaly_map(
     close_ksize: int,
     fill_holes: bool,
     min_area: int,
+    min_score_max: float | None = None,
+    min_score_mean: float | None = None,
     max_regions: int | None,
 ) -> dict:
     """Extract industrial "defects" from an anomaly map.
@@ -41,6 +43,9 @@ def extract_defects_from_anomaly_map(
         open_ksize=int(open_ksize),
         close_ksize=int(close_ksize),
         fill_holes=bool(fill_holes),
+        anomaly_map=amap_roi,
+        min_score_max=(float(min_score_max) if min_score_max is not None else None),
+        min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),
     )
 
     if roi_xyxy_norm is not None:

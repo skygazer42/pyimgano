@@ -11,13 +11,16 @@ def postprocess_binary_mask(
     open_ksize: int,
     close_ksize: int,
     fill_holes: bool,
+    anomaly_map: np.ndarray | None = None,
+    min_score_max: float | None = None,
+    min_score_mean: float | None = None,
 ) -> np.ndarray:
     """Postprocess a binary defect mask (uint8, 0/255).
 
     Operations are applied in this order:
     1) morphology open (optional)
     2) morphology close (optional)
-    3) min-area filter via connected components (optional)
+    3) connected-component filtering (optional; min area / min score)
     4) hole filling (optional; may be a no-op if not available)
     """
 
@@ -36,14 +39,46 @@ def postprocess_binary_mask(
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k, k))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    if min_area and min_area > 0:
+    if (min_score_max is not None or min_score_mean is not None) and anomaly_map is None:
+        raise ValueError("min_score_* filters require anomaly_map to be provided.")
+
+    should_filter_components = (
+        (min_area is not None and int(min_area) > 0)
+        or min_score_max is not None
+        or min_score_mean is not None
+    )
+    if should_filter_components:
         binary01 = (mask > 0).astype(np.uint8)
         num_labels, labels, stats, _centroids = cv2.connectedComponentsWithStats(binary01, connectivity=8)
         keep = np.zeros_like(mask, dtype=np.uint8)
+
+        amap = None
+        if anomaly_map is not None:
+            amap = np.asarray(anomaly_map, dtype=np.float32)
+            if amap.shape != binary01.shape:
+                raise ValueError(
+                    "anomaly_map must have the same shape as mask_u8 for score filtering. "
+                    f"Got anomaly_map={amap.shape} vs mask_u8={binary01.shape}."
+                )
+
+        min_score_max_v = float(min_score_max) if min_score_max is not None else None
+        min_score_mean_v = float(min_score_mean) if min_score_mean is not None else None
+
         for label_id in range(1, num_labels):
             area = int(stats[label_id, cv2.CC_STAT_AREA])
-            if area >= int(min_area):
-                keep[labels == label_id] = 255
+            if min_area and int(min_area) > 0 and area < int(min_area):
+                continue
+
+            if amap is not None and (min_score_max_v is not None or min_score_mean_v is not None):
+                region_values = amap[labels == label_id]
+                if region_values.size == 0:
+                    continue
+                if min_score_max_v is not None and float(region_values.max()) < float(min_score_max_v):
+                    continue
+                if min_score_mean_v is not None and float(region_values.mean()) < float(min_score_mean_v):
+                    continue
+
+            keep[labels == label_id] = 255
         mask = keep
 
     if fill_holes:

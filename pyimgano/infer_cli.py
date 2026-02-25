@@ -84,6 +84,16 @@ def _apply_defects_defaults_from_payload(
         if v is not None:
             args.defect_min_area = int(v)
 
+    if getattr(args, "defect_min_score_max", None) is None:
+        v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
+        if v is not None:
+            args.defect_min_score_max = float(v)
+
+    if getattr(args, "defect_min_score_mean", None) is None:
+        v = _coerce_float(defects_payload.get("min_score_mean", None), name="min_score_mean")
+        if v is not None:
+            args.defect_min_score_mean = float(v)
+
     if int(getattr(args, "defect_open_ksize", 0)) == 0:
         v = _coerce_int(defects_payload.get("open_ksize", None), name="open_ksize")
         if v is not None:
@@ -271,6 +281,18 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Remove connected components smaller than this area (default: 0)",
+    )
+    parser.add_argument(
+        "--defect-min-score-max",
+        type=float,
+        default=None,
+        help="Remove components whose max anomaly score is below this (default: none)",
+    )
+    parser.add_argument(
+        "--defect-min-score-mean",
+        type=float,
+        default=None,
+        help="Remove components whose mean anomaly score is below this (default: none)",
     )
     parser.add_argument(
         "--defect-open-ksize",
@@ -615,18 +637,22 @@ def main(argv: list[str] | None = None) -> int:
         if bool(args.defects):
             from pyimgano.defects.pixel_threshold import resolve_pixel_threshold
 
-            infer_cfg_thr = None
             infer_cfg_source = defects_payload_source or "infer_config"
+            strategy = str(args.pixel_threshold_strategy)
+
+            infer_cfg_thr = None
             if defects_payload is not None:
                 raw_thr = defects_payload.get("pixel_threshold", None)
-                if raw_thr is not None:
+                # When the user requests train-dir quantile calibration, ignore any
+                # exported infer-config threshold and recalibrate from normal pixels.
+                if strategy != "normal_pixel_quantile" and raw_thr is not None:
                     infer_cfg_thr = float(raw_thr)
 
             calibration_maps = None
             if (
                 args.pixel_threshold is None
                 and infer_cfg_thr is None
-                and str(args.pixel_threshold_strategy) == "normal_pixel_quantile"
+                and strategy == "normal_pixel_quantile"
             ):
                 if not train_paths:
                     raise ValueError(
@@ -715,6 +741,12 @@ def main(argv: list[str] | None = None) -> int:
                         close_ksize=int(args.defect_close_ksize),
                         fill_holes=bool(args.defect_fill_holes),
                         min_area=int(args.defect_min_area),
+                        min_score_max=(
+                            float(args.defect_min_score_max) if args.defect_min_score_max is not None else None
+                        ),
+                        min_score_mean=(
+                            float(args.defect_min_score_mean) if args.defect_min_score_mean is not None else None
+                        ),
                         max_regions=(int(args.defect_max_regions) if args.defect_max_regions is not None else None),
                     )
 

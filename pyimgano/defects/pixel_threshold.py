@@ -47,9 +47,6 @@ def resolve_pixel_threshold(
         thr = float(pixel_threshold)
         return thr, {"method": "fixed", "source": "explicit", "value": thr}
 
-    if strategy == "fixed":
-        raise ValueError("pixel_threshold_strategy=fixed requires pixel_threshold to be provided.")
-
     if infer_config_pixel_threshold is not None:
         thr = float(infer_config_pixel_threshold)
         src = str(infer_config_source) if infer_config_source else "infer_config"
@@ -58,6 +55,12 @@ def resolve_pixel_threshold(
     if strategy == "infer_config":
         raise ValueError(
             "pixel_threshold_strategy=infer_config requires infer_config_pixel_threshold to be provided."
+        )
+
+    if strategy == "fixed":
+        raise ValueError(
+            "pixel_threshold_strategy=fixed requires a fixed threshold.\n"
+            "Provide pixel_threshold explicitly or infer_config_pixel_threshold."
         )
 
     if strategy != "normal_pixel_quantile":

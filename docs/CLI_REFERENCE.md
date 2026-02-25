@@ -128,10 +128,14 @@ Optional:
     - `--pixel-threshold FLOAT` + `--pixel-threshold-strategy fixed`
     - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
     - `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`; uses `--pixel-normal-quantile`)
+      - If selected, `pyimgano-infer` recalibrates from normal/train maps even if `infer_config.json` contains `defects.pixel_threshold`.
   - When running with `--infer-config` or `--from-run`, the exported `defects.*` settings are used as defaults
     (ROI, morphology, min-area, mask format, max regions, pixel threshold strategy/quantile, etc.). CLI flags override.
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
     - If ROI is set and you calibrate pixel threshold via `normal_pixel_quantile`, calibration uses ROI pixels only.
+  - Region-level filters (optional):
+    - `--defect-min-score-max FLOAT` — drop components whose max anomaly score is below the threshold
+    - `--defect-min-score-mean FLOAT` — drop components whose mean anomaly score is below the threshold
 - `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
   - If the run contains multiple categories, pass `--from-run-category NAME`.
 - `--infer-config PATH` — load model/threshold/checkpoint from an exported workbench infer-config

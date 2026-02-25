@@ -129,7 +129,7 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
                 "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
                 "threshold": 0.7,
                 "checkpoint": {"path": "checkpoints/custom/model.pt"},
-                "defects": {"pixel_threshold": 0.5},
+                "defects": {"pixel_threshold": 0.5, "pixel_threshold_strategy": "fixed"},
             }
         ),
         encoding="utf-8",
@@ -174,8 +174,6 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
             str(masks_dir),
             "--mask-format",
             "png",
-            "--pixel-threshold-strategy",
-            "infer_config",
             "--save-jsonl",
             str(out_jsonl),
         ]
@@ -225,6 +223,7 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
                 "checkpoint": {"path": "checkpoints/custom/model.pt"},
                 "defects": {
                     "pixel_threshold": 0.5,
+                    "pixel_threshold_strategy": "fixed",
                     "roi_xyxy_norm": [0.25, 0.25, 0.75, 0.75],
                     "mask_format": "npy",
                 },
@@ -270,8 +269,6 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
             "--defects",
             "--save-masks",
             str(masks_dir),
-            "--pixel-threshold-strategy",
-            "infer_config",
             "--save-jsonl",
             str(out_jsonl),
         ]

@@ -30,3 +30,45 @@ def test_postprocess_binary_mask_fill_holes_fills_internal_hole() -> None:
         fill_holes=True,
     )
     assert int(out[5, 5]) == 255
+
+
+def test_postprocess_binary_mask_can_filter_components_by_score_max() -> None:
+    mask = np.zeros((4, 4), dtype=np.uint8)
+    mask[0, 0] = 255
+    mask[3, 3] = 255
+
+    amap = np.zeros((4, 4), dtype=np.float32)
+    amap[0, 0] = 0.2
+    amap[3, 3] = 0.9
+
+    out = postprocess_binary_mask(
+        mask,
+        min_area=0,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        anomaly_map=amap,
+        min_score_max=0.5,
+    )
+    assert int(out[0, 0]) == 0
+    assert int(out[3, 3]) == 255
+
+
+def test_postprocess_binary_mask_min_score_filters_require_anomaly_map() -> None:
+    mask = np.zeros((4, 4), dtype=np.uint8)
+    mask[0, 0] = 255
+
+    try:
+        postprocess_binary_mask(
+            mask,
+            min_area=0,
+            open_ksize=0,
+            close_ksize=0,
+            fill_holes=False,
+            min_score_max=0.5,
+        )
+        raised = False
+    except ValueError:
+        raised = True
+
+    assert raised is True

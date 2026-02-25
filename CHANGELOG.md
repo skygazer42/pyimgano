@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.16] - 2026-02-25
+
+### Defects
+- Added region-level score filters for defect mask extraction (`min_score_max` / `min_score_mean`) to reduce noisy false positives.
+
+### Inference
+- `pyimgano-infer` now supports ROI + region-score filtering knobs via `--infer-config` / `--from-run` exported defaults and new CLI flags.
+
+### Docs
+- Documented region score filters and updated the industrial defects recipe template.
+
 ## [0.6.15] - 2026-02-25
 
 ### CLI

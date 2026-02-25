@@ -17,6 +17,18 @@ def test_resolve_pixel_threshold_explicit_threshold_has_provenance() -> None:
     assert prov["method"] == "fixed"
 
 
+def test_resolve_pixel_threshold_fixed_strategy_can_use_infer_config_value() -> None:
+    thr, prov = resolve_pixel_threshold(
+        pixel_threshold=None,
+        pixel_threshold_strategy="fixed",
+        infer_config_pixel_threshold=0.4,
+        calibration_maps=None,
+    )
+    assert thr == 0.4
+    assert prov["source"] == "infer_config"
+    assert prov["method"] == "fixed"
+
+
 def test_resolve_pixel_threshold_quantile_has_q_and_calibration_count() -> None:
     m1 = np.zeros((2, 2), dtype=np.float32)
     m2 = np.ones((2, 2), dtype=np.float32)

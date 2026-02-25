@@ -38,6 +38,8 @@ def test_workbench_config_from_dict_normalizes_types():
             "mask_format": "png",
             "roi_xyxy_norm": [0.1, 0.2, 0.8, 0.9],
             "min_area": 10,
+            "min_score_max": 0.9,
+            "min_score_mean": 0.5,
             "open_ksize": 3,
             "close_ksize": 5,
             "fill_holes": True,
@@ -61,6 +63,8 @@ def test_workbench_config_from_dict_normalizes_types():
     assert cfg.defects.mask_format == "png"
     assert cfg.defects.roi_xyxy_norm == pytest.approx((0.1, 0.2, 0.8, 0.9))
     assert cfg.defects.min_area == 10
+    assert cfg.defects.min_score_max == pytest.approx(0.9)
+    assert cfg.defects.min_score_mean == pytest.approx(0.5)
     assert cfg.defects.open_ksize == 3
     assert cfg.defects.close_ksize == 5
     assert cfg.defects.fill_holes is True

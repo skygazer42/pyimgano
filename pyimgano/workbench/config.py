@@ -158,6 +158,8 @@ class DefectsConfig:
     mask_format: str = "png"
     roi_xyxy_norm: tuple[float, float, float, float] | None = None
     min_area: int = 0
+    min_score_max: float | None = None
+    min_score_mean: float | None = None
     open_ksize: int = 0
     close_ksize: int = 0
     fill_holes: bool = False
@@ -370,6 +372,8 @@ class WorkbenchConfig:
             pixel_threshold = _optional_float(d_map.get("pixel_threshold", None), name="defects.pixel_threshold")
             max_regions = _optional_int(d_map.get("max_regions", None), name="defects.max_regions")
             min_area = int(_optional_int(d_map.get("min_area", 0), name="defects.min_area") or 0)
+            min_score_max = _optional_float(d_map.get("min_score_max", None), name="defects.min_score_max")
+            min_score_mean = _optional_float(d_map.get("min_score_mean", None), name="defects.min_score_mean")
             open_ksize = int(_optional_int(d_map.get("open_ksize", 0), name="defects.open_ksize") or 0)
             close_ksize = int(_optional_int(d_map.get("close_ksize", 0), name="defects.close_ksize") or 0)
 
@@ -381,6 +385,10 @@ class WorkbenchConfig:
                 raise ValueError("defects.close_ksize must be >= 0")
             if max_regions is not None and max_regions <= 0:
                 raise ValueError("defects.max_regions must be positive or null")
+            if min_score_max is not None and float(min_score_max) < 0.0:
+                raise ValueError("defects.min_score_max must be >= 0 or null")
+            if min_score_mean is not None and float(min_score_mean) < 0.0:
+                raise ValueError("defects.min_score_mean must be >= 0 or null")
 
             q = _optional_float(d_map.get("pixel_normal_quantile", 0.999), name="defects.pixel_normal_quantile")
             qv = float(q if q is not None else 0.999)
@@ -399,6 +407,8 @@ class WorkbenchConfig:
                 mask_format=mask_format,
                 roi_xyxy_norm=_parse_roi_xyxy_norm(d_map.get("roi_xyxy_norm", None)),
                 min_area=min_area,
+                min_score_max=(float(min_score_max) if min_score_max is not None else None),
+                min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),
                 open_ksize=open_ksize,
                 close_ksize=close_ksize,
                 fill_holes=bool(d_map.get("fill_holes", False)),
