@@ -196,9 +196,13 @@ pyimgano-infer \
 
 If the infer-config contains `defects.pixel_threshold`, you can omit `--pixel-threshold`.
 
+If the infer-config contains other `defects.*` settings (ROI, morphology, min-area, mask format, etc.),
+`pyimgano-infer` uses them as defaults when `--defects` is enabled (CLI flags override).
+
 Notes:
 
 - `--defects` implies `--include-maps` (defects are derived from anomaly maps).
 - ROI gating affects **defects output only** by default (mask/regions), not image-level `score`/`label`.
+- When calibrating pixel threshold via `normal_pixel_quantile` and ROI is set, calibration uses ROI pixels only.
 - Defect coordinates (`bbox_xyxy`, `centroid_xy`) are in **anomaly-map pixel space**.
 - Pixel threshold provenance is always emitted as `defects.pixel_threshold_provenance` for auditability.

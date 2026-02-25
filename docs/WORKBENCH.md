@@ -82,7 +82,9 @@ Notes:
 
 - When the infer-config contains `defects.pixel_threshold`, `pyimgano-infer` uses it for defects export
   (so you can omit `--pixel-threshold`).
-- Other defects extraction knobs (ROI, morphology, min-area, mask format, etc.) are still controlled by CLI flags.
+- When running with `--infer-config` (or `--from-run`), other defects extraction knobs can also be
+  exported in the `defects` block (ROI, morphology, min-area, mask format, max regions, etc.).
+  `pyimgano-infer` uses these values as defaults, but explicit CLI flags always override.
 
 ---
 

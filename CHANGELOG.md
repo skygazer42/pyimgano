@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.14] - 2026-02-25
+
+### Inference
+- `pyimgano-infer` now applies exported `defects.*` settings from `--infer-config` / `--from-run` as defaults (ROI, morphology, min area, mask format, etc.). Explicit CLI flags override.
+
+### Defects
+- Pixel-threshold calibration via `normal_pixel_quantile` now supports ROI-aware calibration when an ROI is provided (reduces false positives from background/fixtures).
+
+### Docs
+- Updated defects export docs to reflect infer-config defaults and ROI-aware calibration behavior.
+
+### Tests
+- Added coverage for ROI-aware pixel-threshold calibration and infer-config defects defaults.
+
 ## [0.6.13] - 2026-02-25
 
 ### Docs

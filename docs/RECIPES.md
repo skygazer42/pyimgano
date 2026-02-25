@@ -158,8 +158,9 @@ Example:
 Notes:
 
 - Workbench training/eval does not currently run defects extraction; this block is for inference export.
-- `pyimgano-infer` reads `defects.pixel_threshold` from infer-config **when `--defects` is enabled**.
-  Other extraction knobs (ROI, morphology, min-area, mask format, etc.) are still controlled by CLI flags.
+- When you run `pyimgano-infer --infer-config ... --defects`, `pyimgano-infer` uses the exported `defects` block
+  as **defaults** for defects extraction (pixel threshold, ROI, morphology, min-area, mask format, etc.).
+  Explicit CLI flags always override these defaults.
 - See:
   - `docs/INDUSTRIAL_INFERENCE.md` (defects export overview)
   - `docs/CLI_REFERENCE.md` (`pyimgano-infer` flags)

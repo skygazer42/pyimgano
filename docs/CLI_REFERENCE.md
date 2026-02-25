@@ -124,9 +124,14 @@ Optional:
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
   - `--save-masks DIR` + `--mask-format png|npy`
-  - `--pixel-threshold FLOAT` (fixed) or `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`)
-  - If you run with `--infer-config`, you can set `defects.pixel_threshold` in `infer_config.json` and omit `--pixel-threshold`.
+  - Pixel threshold options:
+    - `--pixel-threshold FLOAT` + `--pixel-threshold-strategy fixed`
+    - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
+    - `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`; uses `--pixel-normal-quantile`)
+  - When running with `--infer-config` or `--from-run`, the exported `defects.*` settings are used as defaults
+    (ROI, morphology, min-area, mask format, max regions, pixel threshold strategy/quantile, etc.). CLI flags override.
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
+    - If ROI is set and you calibrate pixel threshold via `normal_pixel_quantile`, calibration uses ROI pixels only.
 - `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
   - If the run contains multiple categories, pass `--from-run-category NAME`.
 - `--infer-config PATH` — load model/threshold/checkpoint from an exported workbench infer-config

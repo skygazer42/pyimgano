@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,111 @@ from pyimgano.models.registry import create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+
+
+def _apply_defects_defaults_from_payload(
+    args: argparse.Namespace,
+    defects_payload: dict[str, Any],
+) -> None:
+    """Apply defaults from an infer-config/run 'defects' payload.
+
+    This keeps `infer_config.json` deploy-friendly: defects settings exported by
+    workbench can travel with the model and be picked up by `pyimgano-infer`,
+    while still allowing explicit CLI flags to override.
+    """
+
+    if not defects_payload:
+        return
+
+    def _coerce_roi(value: Any) -> list[float] | None:
+        if value is None:
+            return None
+        if not isinstance(value, (list, tuple)) or len(value) != 4:
+            raise ValueError("infer-config defects.roi_xyxy_norm must be a list of length 4 or null")
+        try:
+            return [float(v) for v in value]
+        except Exception as exc:  # noqa: BLE001 - CLI boundary
+            raise ValueError(
+                f"infer-config defects.roi_xyxy_norm must contain floats, got {value!r}"
+            ) from exc
+
+    def _coerce_bool(value: Any, *, name: str) -> bool | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return bool(value)
+        raise ValueError(f"infer-config defects.{name} must be a boolean, got {value!r}")
+
+    def _coerce_int(value: Any, *, name: str) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except Exception as exc:  # noqa: BLE001 - CLI boundary
+            raise ValueError(f"infer-config defects.{name} must be an int, got {value!r}") from exc
+
+    def _coerce_float(value: Any, *, name: str) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except Exception as exc:  # noqa: BLE001 - CLI boundary
+            raise ValueError(f"infer-config defects.{name} must be a float, got {value!r}") from exc
+
+    def _coerce_mask_format(value: Any) -> str | None:
+        if value is None:
+            return None
+        fmt = str(value)
+        if fmt not in ("png", "npy"):
+            raise ValueError("infer-config defects.mask_format must be 'png' or 'npy'")
+        return fmt
+
+    # Apply defaults only when the CLI did not explicitly set a value.
+    if args.roi_xyxy_norm is None:
+        roi = _coerce_roi(defects_payload.get("roi_xyxy_norm", None))
+        if roi is not None:
+            args.roi_xyxy_norm = roi
+
+    # Numeric knobs (only apply if still default).
+    if int(getattr(args, "defect_min_area", 0)) == 0:
+        v = _coerce_int(defects_payload.get("min_area", None), name="min_area")
+        if v is not None:
+            args.defect_min_area = int(v)
+
+    if int(getattr(args, "defect_open_ksize", 0)) == 0:
+        v = _coerce_int(defects_payload.get("open_ksize", None), name="open_ksize")
+        if v is not None:
+            args.defect_open_ksize = int(v)
+
+    if int(getattr(args, "defect_close_ksize", 0)) == 0:
+        v = _coerce_int(defects_payload.get("close_ksize", None), name="close_ksize")
+        if v is not None:
+            args.defect_close_ksize = int(v)
+
+    if getattr(args, "defect_max_regions", None) is None:
+        v = defects_payload.get("max_regions", None)
+        if v is not None:
+            args.defect_max_regions = int(v)
+
+    if float(getattr(args, "pixel_normal_quantile", 0.999)) == 0.999:
+        v = _coerce_float(defects_payload.get("pixel_normal_quantile", None), name="pixel_normal_quantile")
+        if v is not None:
+            args.pixel_normal_quantile = float(v)
+
+    if str(getattr(args, "pixel_threshold_strategy", "normal_pixel_quantile")) == "normal_pixel_quantile":
+        v = defects_payload.get("pixel_threshold_strategy", None)
+        if v is not None:
+            args.pixel_threshold_strategy = str(v)
+
+    if str(getattr(args, "mask_format", "png")) == "png":
+        v = _coerce_mask_format(defects_payload.get("mask_format", None))
+        if v is not None:
+            args.mask_format = str(v)
+
+    if not bool(getattr(args, "defect_fill_holes", False)):
+        v = _coerce_bool(defects_payload.get("fill_holes", None), name="fill_holes")
+        if v is True:
+            args.defect_fill_holes = True
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -195,7 +301,10 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs=4,
         default=None,
         metavar=("X1", "Y1", "X2", "Y2"),
-        help="Optional normalized ROI rectangle (x1 y1 x2 y2 in [0,1]) applied to defects only",
+        help=(
+            "Optional normalized ROI rectangle (x1 y1 x2 y2 in [0,1]) applied to defects only. "
+            "When using --infer-config/--from-run, this defaults from the exported defects.roi_xyxy_norm."
+        ),
     )
     return parser
 
@@ -232,7 +341,8 @@ def main(argv: list[str] | None = None) -> int:
         trained_checkpoint_path = None
         threshold_from_run = None
         infer_config_postprocess = None
-        infer_config_defects = None
+        defects_payload: dict[str, Any] | None = None
+        defects_payload_source: str | None = None
 
         if from_run:
             from pyimgano.workbench.load_run import (
@@ -297,6 +407,10 @@ def main(argv: list[str] | None = None) -> int:
                 load_checkpoint_into_detector(detector, trained_checkpoint_path)
             if threshold_from_run is not None:
                 setattr(detector, "threshold_", float(threshold_from_run))
+
+            # Use workbench defects config as deploy defaults for `pyimgano-infer`.
+            defects_payload = asdict(cfg.defects)
+            defects_payload_source = "from_run"
         elif infer_config_mode:
             from pyimgano.inference.config import (
                 load_infer_config,
@@ -311,11 +425,12 @@ def main(argv: list[str] | None = None) -> int:
                 payload,
                 category=(str(args.infer_category) if args.infer_category is not None else None),
             )
-            defects_payload = payload.get("defects", None)
-            if defects_payload is not None:
-                if not isinstance(defects_payload, dict):
+            defects_map = payload.get("defects", None)
+            if defects_map is not None:
+                if not isinstance(defects_map, dict):
                     raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
-                infer_config_defects = dict(defects_payload)
+                defects_payload = dict(defects_map)
+                defects_payload_source = "infer_config"
 
             model_payload = payload.get("model", None)
             if not isinstance(model_payload, dict):
@@ -434,6 +549,9 @@ def main(argv: list[str] | None = None) -> int:
 
             detector = create_model(model_name, **model_kwargs)
 
+        if defects_payload is not None:
+            _apply_defects_defaults_from_payload(args, defects_payload)
+
         if args.tile_size is not None:
             from pyimgano.inference.tiling import TiledDetector
 
@@ -498,8 +616,9 @@ def main(argv: list[str] | None = None) -> int:
             from pyimgano.defects.pixel_threshold import resolve_pixel_threshold
 
             infer_cfg_thr = None
-            if infer_config_defects is not None:
-                raw_thr = infer_config_defects.get("pixel_threshold", None)
+            infer_cfg_source = defects_payload_source or "infer_config"
+            if defects_payload is not None:
+                raw_thr = defects_payload.get("pixel_threshold", None)
                 if raw_thr is not None:
                     infer_cfg_thr = float(raw_thr)
 
@@ -532,6 +651,8 @@ def main(argv: list[str] | None = None) -> int:
                 infer_config_pixel_threshold=infer_cfg_thr,
                 calibration_maps=calibration_maps,
                 pixel_normal_quantile=float(args.pixel_normal_quantile),
+                infer_config_source=str(infer_cfg_source),
+                roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
             )
 
         results = infer(
