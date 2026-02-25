@@ -1,12 +1,13 @@
 # CLI Reference
 
-PyImgAno provides five primary CLIs:
+PyImgAno provides six primary CLIs:
 
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
 - `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
 - `pyimgano-manifest` — generate a JSONL manifest from a `custom`-layout dataset tree
+- `pyimgano-validate-infer-config` — validate an exported `infer_config.json` before deployment
 
 ---
 
@@ -127,6 +128,7 @@ Optional:
   - `--tile-stride N` — tile overlap stride (default: tile-size; smaller = more overlap = fewer seams)
   - `--tile-map-reduce max|mean|hann|gaussian` — blend overlapping tile maps (`hann`/`gaussian` reduce seams)
   - `--tile-score-reduce max|mean|topk_mean` + `--tile-score-topk` — aggregate tile scores into an image score
+- `--seed INT` — best-effort deterministic seeding (also passed as `random_seed/random_state` when supported)
 - `--batch-size N` — run inference in chunks (preserves output order; can reduce peak memory)
 - `--profile` — print stage timing summary to stderr (load model, fit/calibrate, infer, artifacts)
 - `--amp` — best-effort AMP/autocast for torch-backed models (requires torch + CUDA; otherwise runs without AMP)
@@ -200,6 +202,22 @@ Each JSONL record includes a `defects` block when `--defects` is enabled:
   }
 }
 ```
+
+---
+
+## `pyimgano-validate-infer-config`
+
+Validates an exported `infer_config.json` from the workbench before deployment.
+
+```bash
+pyimgano-validate-infer-config runs/.../artifacts/infer_config.json
+```
+
+Notes:
+
+- For multi-category infer-configs, pass `--infer-category NAME`.
+- To skip file existence checks (portable configs), pass `--no-check-files`.
+- To print the normalized payload, pass `--json`.
 
 ---
 

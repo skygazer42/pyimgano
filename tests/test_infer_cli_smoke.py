@@ -81,6 +81,37 @@ def test_infer_cli_smoke(tmp_path, monkeypatch):
     assert len(saved) == 2
 
 
+def test_infer_cli_smoke_seed_calls_seed_everything(tmp_path, monkeypatch):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    called = {"seed": None}
+    import pyimgano.utils.seeding as seeding
+
+    monkeypatch.setattr(seeding, "seed_everything", lambda s: called.update(seed=int(s)))
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--seed",
+            "123",
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert called["seed"] == 123
+
+
 def test_infer_cli_smoke_can_include_anomaly_map_values(tmp_path, monkeypatch):
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()

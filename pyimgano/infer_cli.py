@@ -261,6 +261,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--device", default=None, help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=None)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help=(
+            "Optional random seed for reproducibility (best-effort; passed as "
+            "random_seed/random_state when supported)"
+        ),
+    )
     parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument(
         "--model-kwargs",
@@ -572,6 +581,12 @@ def main(argv: list[str] | None = None) -> int:
         t_infer = 0.0
         t_artifacts = 0.0
 
+        seed = (int(args.seed) if args.seed is not None else None)
+        if seed is not None:
+            from pyimgano.utils.seeding import seed_everything
+
+            seed_everything(int(seed))
+
         from_run = args.from_run is not None
         infer_config_mode = args.infer_config is not None
         trained_checkpoint_path = None
@@ -636,6 +651,11 @@ def main(argv: list[str] | None = None) -> int:
                     "device": device,
                     "contamination": contamination,
                     "pretrained": pretrained,
+                    **(
+                        {"random_seed": int(seed), "random_state": int(seed)}
+                        if seed is not None
+                        else {}
+                    ),
                 },
             )
             detector = create_model(model_name, **model_kwargs)
@@ -724,6 +744,11 @@ def main(argv: list[str] | None = None) -> int:
                     "device": str(device),
                     "contamination": float(contamination),
                     "pretrained": bool(pretrained),
+                    **(
+                        {"random_seed": int(seed), "random_state": int(seed)}
+                        if seed is not None
+                        else {}
+                    ),
                 },
             )
             detector = create_model(model_name, **model_kwargs)
@@ -781,6 +806,11 @@ def main(argv: list[str] | None = None) -> int:
                     "device": device,
                     "contamination": contamination,
                     "pretrained": pretrained,
+                    **(
+                        {"random_seed": int(seed), "random_state": int(seed)}
+                        if seed is not None
+                        else {}
+                    ),
                 },
             )
 
