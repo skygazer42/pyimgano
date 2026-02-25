@@ -137,6 +137,67 @@ def test_infer_cli_smoke_defects_export(tmp_path, monkeypatch):
     assert len(saved_masks) == 1
 
 
+def test_infer_cli_smoke_defects_image_space_and_overlays(tmp_path, monkeypatch):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+    masks_dir = tmp_path / "masks"
+    overlays_dir = tmp_path / "overlays"
+
+    class _MapDetector:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+
+        def get_anomaly_map(self, item):
+            _ = item
+            m = np.zeros((4, 4), dtype=np.float32)
+            m[1:3, 1:3] = 1.0
+            return m
+
+    det = _MapDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--defects-image-space",
+            "--save-overlays",
+            str(overlays_dir),
+            "--save-masks",
+            str(masks_dir),
+            "--mask-format",
+            "png",
+            "--pixel-threshold",
+            "0.5",
+            "--pixel-threshold-strategy",
+            "fixed",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
+    regions = record["defects"]["regions"]
+    assert len(regions) == 1
+    assert regions[0]["bbox_xyxy"] == [1, 1, 2, 2]
+    assert regions[0]["bbox_xyxy_image"] == [2, 2, 5, 5]
+
+    saved_overlays = sorted(overlays_dir.glob("*.png"))
+    assert len(saved_overlays) == 1
+    with Image.open(saved_overlays[0]) as im:
+        assert im.size == (8, 8)
+
+
 def test_infer_cli_smoke_defects_roi_gates_defects_only(tmp_path, monkeypatch):
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()

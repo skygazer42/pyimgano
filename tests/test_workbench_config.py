@@ -82,6 +82,8 @@ def test_workbench_config_defects_shape_filters_parses() -> None:
                 "max_aspect_ratio": 3.0,
                 "min_solidity": 0.8,
             },
+            "merge_nearby": {"enabled": True, "max_gap_px": 2},
+            "max_regions_sort_by": "area",
         },
     }
 
@@ -90,6 +92,9 @@ def test_workbench_config_defects_shape_filters_parses() -> None:
     assert cfg.defects.shape_filters.min_fill_ratio == pytest.approx(0.2)
     assert cfg.defects.shape_filters.max_aspect_ratio == pytest.approx(3.0)
     assert cfg.defects.shape_filters.min_solidity == pytest.approx(0.8)
+    assert cfg.defects.merge_nearby.enabled is True
+    assert cfg.defects.merge_nearby.max_gap_px == 2
+    assert cfg.defects.max_regions_sort_by == "area"
 
 
 def test_workbench_config_defaults():

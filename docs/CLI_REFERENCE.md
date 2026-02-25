@@ -124,6 +124,8 @@ Optional:
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
   - `--save-masks DIR` + `--mask-format png|npy`
+  - `--save-overlays DIR` — save per-image debugging overlays (original + heatmap + mask outline/fill)
+  - `--defects-image-space` — add `bbox_xyxy_image` to regions when image size is available
   - Pixel threshold options:
     - `--pixel-threshold FLOAT` + `--pixel-threshold-strategy fixed`
 	    - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
@@ -146,6 +148,12 @@ Optional:
     - `--defect-min-fill-ratio FLOAT` — drop components whose `area / bbox_area` is below this threshold
     - `--defect-max-aspect-ratio FLOAT` — drop components whose bbox aspect ratio exceeds this threshold
     - `--defect-min-solidity FLOAT` — drop components whose solidity (contour / convex hull) is below this threshold
+  - Region merge (optional; affects regions list only, mask unchanged):
+    - `--defect-merge-nearby`
+    - `--defect-merge-nearby-max-gap-px INT`
+  - Output limiting (optional):
+    - `--defect-max-regions INT`
+    - `--defect-max-regions-sort-by score_max|score_mean|area`
   - Region-level filters (optional):
     - `--defect-min-score-max FLOAT` — drop components whose max anomaly score is below the threshold
     - `--defect-min-score-mean FLOAT` — drop components whose mean anomaly score is below the threshold

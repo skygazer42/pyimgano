@@ -626,6 +626,10 @@ def build_infer_config_payload(
                 else None
             ),
         },
+        "merge_nearby": {
+            "enabled": bool(config.defects.merge_nearby.enabled),
+            "max_gap_px": int(config.defects.merge_nearby.max_gap_px),
+        },
         "min_area": int(config.defects.min_area),
         "min_score_max": (
             float(config.defects.min_score_max) if config.defects.min_score_max is not None else None
@@ -641,6 +645,7 @@ def build_infer_config_payload(
             if config.defects.max_regions is not None
             else None
         ),
+        "max_regions_sort_by": str(config.defects.max_regions_sort_by),
     }
 
     out: dict[str, Any] = {

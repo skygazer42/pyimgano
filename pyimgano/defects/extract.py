@@ -34,6 +34,9 @@ def extract_defects_from_anomaly_map(
     min_solidity: float | None = None,
     min_score_max: float | None = None,
     min_score_mean: float | None = None,
+    merge_nearby_enabled: bool = False,
+    merge_nearby_max_gap_px: int = 0,
+    max_regions_sort_by: str = "score_max",
     max_regions: int | None,
 ) -> dict:
     """Extract industrial "defects" from an anomaly map.
@@ -89,14 +92,39 @@ def extract_defects_from_anomaly_map(
         include_shape_stats=bool(include_shape_stats),
         include_solidity=(min_solidity is not None),
     )
-    regions = sorted(
-        regions,
-        key=lambda r: (
+    if bool(merge_nearby_enabled) and int(merge_nearby_max_gap_px) > 0 and len(regions) > 1:
+        from pyimgano.defects.merge import merge_regions_nearby
+
+        regions = merge_regions_nearby(regions, max_gap_px=int(merge_nearby_max_gap_px))
+    sort_by = str(max_regions_sort_by or "score_max").lower().strip()
+    if sort_by not in ("score_max", "score_mean", "area"):
+        raise ValueError(f"max_regions_sort_by must be one of: score_max|score_mean|area, got {sort_by!r}")
+
+    def _primary(r: dict) -> float:
+        if sort_by == "score_mean":
+            return float(r.get("score_mean", 0.0) or 0.0)
+        if sort_by == "area":
+            return float(r.get("area", 0) or 0)
+        return float(r.get("score_max", 0.0) or 0.0)
+
+    def _sort_key(r: dict) -> tuple:
+        bbox = r.get("bbox_xyxy") or [0, 0, 0, 0]
+        centroid = r.get("centroid_xy") or [0.0, 0.0]
+        return (
+            -_primary(r),
             -float(r.get("score_max", 0.0) or 0.0),
+            -float(r.get("score_mean", 0.0) or 0.0),
             -int(r.get("area", 0) or 0),
+            int(bbox[1]),
+            int(bbox[0]),
+            int(bbox[3]),
+            int(bbox[2]),
+            float(centroid[1]),
+            float(centroid[0]),
             int(r.get("id", 0) or 0),
-        ),
-    )
+        )
+
+    regions = sorted(regions, key=_sort_key)
     if max_regions is not None:
         regions = regions[: int(max_regions)]
 

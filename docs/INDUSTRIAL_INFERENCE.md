@@ -207,6 +207,10 @@ Notes:
 - Use `--defect-border-ignore-px N` to suppress common edge artifacts (padding/tiling seams/sensor borders).
 - Use `--defect-map-smoothing median|gaussian|box` to reduce single-pixel speckles before thresholding.
 - Use `--defect-hysteresis` to keep low anomaly pixels connected to high-confidence seeds (reduces speckle).
+- Use shape filters (`--defect-min-fill-ratio`, `--defect-max-aspect-ratio`, `--defect-min-solidity`) to remove “long thin” border strips and non-compact fragments.
 - Use `--defect-min-score-max` / `--defect-min-score-mean` to drop low-confidence speckles after thresholding.
+- Use `--defect-merge-nearby --defect-merge-nearby-max-gap-px N` to merge nearby fragments in the **regions list** (mask remains unchanged).
+- Use `--defects-image-space` to add `bbox_xyxy_image` for downstream systems that work in original image coordinates.
+- Use `--save-overlays DIR` to export per-image FP debugging overlays (original + heatmap + mask outline/fill).
 - Defect coordinates (`bbox_xyxy`, `centroid_xy`) are in **anomaly-map pixel space**.
 - Pixel threshold provenance is always emitted as `defects.pixel_threshold_provenance` for auditability.

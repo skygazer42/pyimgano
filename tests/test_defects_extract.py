@@ -42,6 +42,82 @@ def test_extract_defects_from_anomaly_map_sorts_and_limits_regions() -> None:
     assert [r["id"] for r in out["regions"]] == [1, 2]
 
 
+def test_extract_defects_from_anomaly_map_region_ordering_is_deterministic() -> None:
+    amap = np.zeros((8, 8), dtype=np.float32)
+    amap[0, 0] = 0.95  # region 1
+    amap[2:4, 2:4] = 0.9  # region 2
+    amap[2:4, 6:8] = 0.9  # region 3 (tie with region 2)
+
+    out1 = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions=None,
+    )
+    out2 = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions=None,
+    )
+
+    assert out1["regions"] == out2["regions"]
+
+
+def test_extract_defects_from_anomaly_map_supports_max_regions_sort_by_area() -> None:
+    amap = np.zeros((8, 8), dtype=np.float32)
+    amap[0, 0] = 0.95  # small but high score
+    amap[2:5, 2:5] = 0.6  # larger region (area 9)
+
+    out = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions_sort_by="area",
+        max_regions=1,
+    )
+
+    assert len(out["regions"]) == 1
+    assert out["regions"][0]["bbox_xyxy"] == [2, 2, 4, 4]
+
+
+def test_extract_defects_from_anomaly_map_supports_max_regions_sort_by_score_mean() -> None:
+    amap = np.zeros((6, 6), dtype=np.float32)
+    # Region A: same max as B, but lower mean.
+    amap[1, 1] = 0.9
+    amap[1, 2] = 0.6
+    # Region B: higher mean.
+    amap[4, 4] = 0.9
+    amap[4, 5] = 0.9
+
+    out = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions_sort_by="score_mean",
+        max_regions=1,
+    )
+
+    assert len(out["regions"]) == 1
+    assert out["regions"][0]["bbox_xyxy"] == [4, 4, 5, 4]
+
+
 def test_extract_defects_from_anomaly_map_can_filter_by_region_score() -> None:
     amap = np.zeros((8, 8), dtype=np.float32)
     amap[1:3, 1:3] = 0.6  # region A (kept)
@@ -162,3 +238,49 @@ def test_extract_defects_from_anomaly_map_can_filter_regions_by_shape() -> None:
     )
     assert len(out["regions"]) == 1
     assert out["regions"][0]["bbox_xyxy"] == [5, 5, 7, 7]
+
+
+def test_extract_defects_from_anomaly_map_can_merge_nearby_regions_without_changing_mask() -> None:
+    amap = np.zeros((10, 10), dtype=np.float32)
+    amap[2:4, 2:4] = 1.0  # blob A (2x2)
+    amap[2:4, 5:7] = 1.0  # blob B (2x2) with a 1px gap between bboxes
+
+    out_no_merge = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        border_ignore_px=0,
+        map_smoothing_method="none",
+        map_smoothing_ksize=0,
+        map_smoothing_sigma=0.0,
+        hysteresis_enabled=False,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions=None,
+    )
+    assert len(out_no_merge["regions"]) == 2
+
+    out_merge = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        border_ignore_px=0,
+        map_smoothing_method="none",
+        map_smoothing_ksize=0,
+        map_smoothing_sigma=0.0,
+        hysteresis_enabled=False,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        merge_nearby_enabled=True,
+        merge_nearby_max_gap_px=1,
+        max_regions=None,
+    )
+
+    assert np.array_equal(out_no_merge["mask"], out_merge["mask"])
+    assert len(out_merge["regions"]) == 1
+    assert out_merge["regions"][0]["bbox_xyxy"] == [2, 2, 6, 3]
+    assert out_merge["regions"][0]["merged_from_ids"] == [1, 2]

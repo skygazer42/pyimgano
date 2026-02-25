@@ -171,6 +171,12 @@ class ShapeFiltersConfig:
 
 
 @dataclass(frozen=True)
+class MergeNearbyConfig:
+    enabled: bool = False
+    max_gap_px: int = 0
+
+
+@dataclass(frozen=True)
 class DefectsConfig:
     enabled: bool = False
     pixel_threshold: float | None = None
@@ -182,6 +188,7 @@ class DefectsConfig:
     map_smoothing: MapSmoothingConfig = field(default_factory=MapSmoothingConfig)
     hysteresis: HysteresisConfig = field(default_factory=HysteresisConfig)
     shape_filters: ShapeFiltersConfig = field(default_factory=ShapeFiltersConfig)
+    merge_nearby: MergeNearbyConfig = field(default_factory=MergeNearbyConfig)
     min_area: int = 0
     min_score_max: float | None = None
     min_score_mean: float | None = None
@@ -189,6 +196,7 @@ class DefectsConfig:
     close_ksize: int = 0
     fill_holes: bool = False
     max_regions: int | None = None
+    max_regions_sort_by: str = "score_max"
 
 
 @dataclass(frozen=True)
@@ -396,6 +404,7 @@ class WorkbenchConfig:
             d_map = _require_mapping(defects_raw, name="defects")
             pixel_threshold = _optional_float(d_map.get("pixel_threshold", None), name="defects.pixel_threshold")
             max_regions = _optional_int(d_map.get("max_regions", None), name="defects.max_regions")
+            max_regions_sort_by = str(d_map.get("max_regions_sort_by", "score_max")).lower().strip()
             border_ignore_px = int(
                 _optional_int(d_map.get("border_ignore_px", 0), name="defects.border_ignore_px") or 0
             )
@@ -415,6 +424,8 @@ class WorkbenchConfig:
                 raise ValueError("defects.close_ksize must be >= 0")
             if max_regions is not None and max_regions <= 0:
                 raise ValueError("defects.max_regions must be positive or null")
+            if max_regions_sort_by not in ("score_max", "score_mean", "area"):
+                raise ValueError("defects.max_regions_sort_by must be one of: score_max|score_mean|area")
             if min_score_max is not None and float(min_score_max) < 0.0:
                 raise ValueError("defects.min_score_max must be >= 0 or null")
             if min_score_mean is not None and float(min_score_mean) < 0.0:
@@ -509,6 +520,23 @@ class WorkbenchConfig:
                     min_solidity=(float(sf_min_solidity) if sf_min_solidity is not None else None),
                 )
 
+            merge_raw = d_map.get("merge_nearby", None)
+            if merge_raw is None:
+                merge_nearby = MergeNearbyConfig()
+            else:
+                merge_map = _require_mapping(merge_raw, name="defects.merge_nearby")
+                merge_enabled = bool(merge_map.get("enabled", False))
+                merge_gap = int(
+                    _optional_int(
+                        merge_map.get("max_gap_px", 0),
+                        name="defects.merge_nearby.max_gap_px",
+                    )
+                    or 0
+                )
+                if merge_gap < 0:
+                    raise ValueError("defects.merge_nearby.max_gap_px must be >= 0")
+                merge_nearby = MergeNearbyConfig(enabled=merge_enabled, max_gap_px=merge_gap)
+
             defects = DefectsConfig(
                 enabled=bool(d_map.get("enabled", False)),
                 pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
@@ -520,6 +548,7 @@ class WorkbenchConfig:
                 map_smoothing=map_smoothing,
                 hysteresis=hysteresis,
                 shape_filters=shape_filters,
+                merge_nearby=merge_nearby,
                 min_area=min_area,
                 min_score_max=(float(min_score_max) if min_score_max is not None else None),
                 min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),
@@ -527,6 +556,7 @@ class WorkbenchConfig:
                 close_ksize=close_ksize,
                 fill_holes=bool(d_map.get("fill_holes", False)),
                 max_regions=max_regions,
+                max_regions_sort_by=max_regions_sort_by,
             )
 
         return cls(

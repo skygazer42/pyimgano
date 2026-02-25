@@ -158,6 +158,21 @@ def _apply_defects_defaults_from_payload(
             if v is not None:
                 args.defect_min_solidity = float(v)
 
+    # Optional merge-nearby block (regions output only; mask unchanged).
+    merge_raw = defects_payload.get("merge_nearby", None)
+    if merge_raw is not None:
+        if not isinstance(merge_raw, dict):
+            raise ValueError("infer-config defects.merge_nearby must be a JSON object/dict.")
+
+        enabled = merge_raw.get("enabled", None)
+        if enabled is True and not bool(getattr(args, "defect_merge_nearby", False)):
+            args.defect_merge_nearby = True
+
+        if int(getattr(args, "defect_merge_nearby_max_gap_px", 0)) == 0:
+            v = _coerce_int(merge_raw.get("max_gap_px", None), name="merge_nearby.max_gap_px")
+            if v is not None:
+                args.defect_merge_nearby_max_gap_px = int(v)
+
     if getattr(args, "defect_min_score_max", None) is None:
         v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
         if v is not None:
@@ -182,6 +197,16 @@ def _apply_defects_defaults_from_payload(
         v = defects_payload.get("max_regions", None)
         if v is not None:
             args.defect_max_regions = int(v)
+
+    if str(getattr(args, "defect_max_regions_sort_by", "score_max")) == "score_max":
+        v = defects_payload.get("max_regions_sort_by", None)
+        if v is not None:
+            vv = str(v).lower().strip()
+            if vv not in ("score_max", "score_mean", "area"):
+                raise ValueError(
+                    "infer-config defects.max_regions_sort_by must be one of: score_max|score_mean|area"
+                )
+            args.defect_max_regions_sort_by = vv
 
     if float(getattr(args, "pixel_normal_quantile", 0.999)) == 0.999:
         v = _coerce_float(defects_payload.get("pixel_normal_quantile", None), name="pixel_normal_quantile")
@@ -322,9 +347,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Enable defects export: binary mask + connected-component regions (requires anomaly maps)",
     )
     parser.add_argument(
+        "--defects-image-space",
+        action="store_true",
+        help="Add bbox_xyxy_image to defects regions (best-effort; requires image size)",
+    )
+    parser.add_argument(
         "--save-masks",
         default=None,
         help="Optional directory to save binary defect masks (requires --defects)",
+    )
+    parser.add_argument(
+        "--save-overlays",
+        default=None,
+        help="Optional directory to save FP debugging overlays (original + heatmap + mask outline/fill)",
     )
     parser.add_argument(
         "--mask-format",
@@ -398,6 +433,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="High threshold for hysteresis (default: pixel threshold)",
     )
     parser.add_argument(
+        "--defect-merge-nearby",
+        action="store_true",
+        help="Merge nearby defect regions in JSONL output (mask unchanged; default: off)",
+    )
+    parser.add_argument(
+        "--defect-merge-nearby-max-gap-px",
+        type=int,
+        default=0,
+        help="Max bbox gap (px) for merging nearby regions (default: 0, disabled)",
+    )
+    parser.add_argument(
         "--defect-min-fill-ratio",
         type=float,
         default=None,
@@ -449,6 +495,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Optional maximum number of regions to emit per image (after sorting)",
+    )
+    parser.add_argument(
+        "--defect-max-regions-sort-by",
+        default="score_max",
+        choices=["score_max", "score_mean", "area"],
+        help="Sort key for max-regions selection (default: score_max)",
     )
     parser.add_argument(
         "--roi-xyxy-norm",
@@ -846,6 +898,11 @@ def main(argv: list[str] | None = None) -> int:
                 masks_dir = Path(args.save_masks)
                 masks_dir.mkdir(parents=True, exist_ok=True)
 
+            overlays_dir: Path | None = None
+            if args.save_overlays is not None:
+                overlays_dir = Path(args.save_overlays)
+                overlays_dir.mkdir(parents=True, exist_ok=True)
+
             for i, (input_path, result) in enumerate(zip(inputs, results)):
                 record = result_to_jsonable(
                     result,
@@ -854,6 +911,7 @@ def main(argv: list[str] | None = None) -> int:
                 record["index"] = int(i)
                 record["input"] = str(input_path)
 
+                saved_defects_mask: np.ndarray | None = None
                 if bool(args.defects):
                     if result.anomaly_map is None:
                         raise ValueError(
@@ -905,8 +963,12 @@ def main(argv: list[str] | None = None) -> int:
                         min_score_mean=(
                             float(args.defect_min_score_mean) if args.defect_min_score_mean is not None else None
                         ),
+                        merge_nearby_enabled=bool(args.defect_merge_nearby),
+                        merge_nearby_max_gap_px=int(args.defect_merge_nearby_max_gap_px),
+                        max_regions_sort_by=str(args.defect_max_regions_sort_by),
                         max_regions=(int(args.defect_max_regions) if args.defect_max_regions is not None else None),
                     )
+                    saved_defects_mask = defects["mask"]
 
                     mask_meta: dict[str, Any] = {
                         "shape": [int(d) for d in defects["mask"].shape],
@@ -934,6 +996,42 @@ def main(argv: list[str] | None = None) -> int:
                         "regions": defects["regions"],
                         "map_stats_roi": defects.get("map_stats_roi", None),
                     }
+
+                    if bool(args.defects_image_space):
+                        try:
+                            from PIL import Image
+
+                            with Image.open(input_path) as im:
+                                w_img, h_img = im.size
+
+                            from pyimgano.defects.space import scale_bbox_xyxy_inclusive
+
+                            src_hw = (int(defects["mask"].shape[0]), int(defects["mask"].shape[1]))
+                            dst_hw = (int(h_img), int(w_img))
+                            for region in record["defects"]["regions"]:
+                                bbox = region.get("bbox_xyxy", None)
+                                if bbox is None:
+                                    continue
+                                region["bbox_xyxy_image"] = scale_bbox_xyxy_inclusive(
+                                    bbox,
+                                    src_hw=src_hw,
+                                    dst_hw=dst_hw,
+                                )
+                        except Exception:
+                            # Best-effort: avoid failing the whole run for a debugging-only knob.
+                            pass
+
+                if overlays_dir is not None:
+                    from pyimgano.defects.overlays import save_overlay_image
+
+                    stem = Path(input_path).stem
+                    out_path = overlays_dir / f"{i:06d}_{stem}.png"
+                    save_overlay_image(
+                        input_path,
+                        anomaly_map=(result.anomaly_map if result.anomaly_map is not None else None),
+                        defect_mask=saved_defects_mask,
+                        out_path=out_path,
+                    )
 
                 records.append(record)
             return records
