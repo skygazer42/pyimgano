@@ -126,9 +126,9 @@ Optional:
   - `--save-masks DIR` + `--mask-format png|npy`
   - Pixel threshold options:
     - `--pixel-threshold FLOAT` + `--pixel-threshold-strategy fixed`
-    - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
-    - `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`; uses `--pixel-normal-quantile`)
-      - If selected, `pyimgano-infer` recalibrates from normal/train maps even if `infer_config.json` contains `defects.pixel_threshold`.
+	    - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
+	    - `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`; uses `--pixel-normal-quantile`)
+	      - If selected and `--train-dir` is provided, `pyimgano-infer` recalibrates from normal/train maps even if `infer_config.json` contains `defects.pixel_threshold`.
   - When running with `--infer-config` or `--from-run`, the exported `defects.*` settings are used as defaults
     (ROI, morphology, min-area, mask format, max regions, pixel threshold strategy/quantile, etc.). CLI flags override.
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)

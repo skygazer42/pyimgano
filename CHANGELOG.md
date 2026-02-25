@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.17] - 2026-02-25
+
+### Inference
+- Fixed `pyimgano-infer --infer-config --defects` so `defects.pixel_threshold` remains usable as a fallback when `pixel_threshold_strategy=normal_pixel_quantile` but `--train-dir` is not provided.
+- When `--train-dir` *is* provided and `pixel_threshold_strategy=normal_pixel_quantile`, `pyimgano-infer` still recalibrates pixel threshold from normal/train maps (even if the infer-config contains a fixed `defects.pixel_threshold`).
+
+### Tests
+- Added coverage for pixel-threshold recalibration vs infer-config fallback behavior.
+
 ## [0.6.16] - 2026-02-25
 
 ### Defects

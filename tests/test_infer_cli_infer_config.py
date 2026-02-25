@@ -129,7 +129,7 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
                 "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
                 "threshold": 0.7,
                 "checkpoint": {"path": "checkpoints/custom/model.pt"},
-                "defects": {"pixel_threshold": 0.5, "pixel_threshold_strategy": "fixed"},
+                "defects": {"pixel_threshold": 0.5},
             }
         ),
         encoding="utf-8",
@@ -193,6 +193,104 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
     assert len(saved_masks) == 2
 
 
+def test_infer_cli_infer_config_recalibrates_pixel_threshold_when_train_dir_provided(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    ckpt_dir = run_dir / "checkpoints" / "custom"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_path = ckpt_dir / "model.pt"
+    ckpt_path.write_text("ckpt", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+                "defects": {"pixel_threshold": 0.9},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    train_dir = tmp_path / "train"
+    train_dir.mkdir()
+    _write_png(train_dir / "train0.png")
+    _write_png(train_dir / "train1.png")
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _DummyMapDetector:
+        def __init__(self):
+            self.threshold_ = None
+            self.loaded = None
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            self.loaded = str(path)
+
+        def fit(self, X):  # noqa: ANN001
+            _ = X
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+        def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
+            s = str(item)
+            if "train0" in s:
+                return np.zeros((4, 4), dtype=np.float32)
+            if "train1" in s:
+                return np.ones((4, 4), dtype=np.float32)
+            return np.zeros((4, 4), dtype=np.float32)
+
+    det = _DummyMapDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--train-dir",
+            str(train_dir),
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--pixel-normal-quantile",
+            "0.5",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
+    defects = record["defects"]
+    assert defects["pixel_threshold"] == 0.5
+    assert defects["pixel_threshold_provenance"]["method"] == "normal_pixel_quantile"
+    assert defects["pixel_threshold_provenance"]["source"] == "train_dir"
+
+
 def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeypatch) -> None:
     run_dir = tmp_path / "run"
     artifacts = run_dir / "artifacts"
@@ -223,7 +321,6 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
                 "checkpoint": {"path": "checkpoints/custom/model.pt"},
                 "defects": {
                     "pixel_threshold": 0.5,
-                    "pixel_threshold_strategy": "fixed",
                     "roi_xyxy_norm": [0.25, 0.25, 0.75, 0.75],
                     "mask_format": "npy",
                 },

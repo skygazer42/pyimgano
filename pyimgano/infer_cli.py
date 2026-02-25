@@ -643,38 +643,39 @@ def main(argv: list[str] | None = None) -> int:
             infer_cfg_thr = None
             if defects_payload is not None:
                 raw_thr = defects_payload.get("pixel_threshold", None)
-                # When the user requests train-dir quantile calibration, ignore any
-                # exported infer-config threshold and recalibrate from normal pixels.
-                if strategy != "normal_pixel_quantile" and raw_thr is not None:
+                if raw_thr is not None:
                     infer_cfg_thr = float(raw_thr)
 
             calibration_maps = None
-            if (
-                args.pixel_threshold is None
-                and infer_cfg_thr is None
-                and strategy == "normal_pixel_quantile"
-            ):
-                if not train_paths:
-                    raise ValueError(
-                        "--defects requires a pixel threshold.\n"
-                        "Provide --pixel-threshold, set defects.pixel_threshold in infer_config.json, "
-                        "or provide --train-dir for normal-pixel quantile calibration."
-                    )
+            infer_cfg_thr_for_resolve = infer_cfg_thr
 
-                train_results_for_pixel = infer(
-                    detector,
-                    train_paths,
-                    include_maps=True,
-                    postprocess=postprocess,
-                )
-                calibration_maps = [
-                    r.anomaly_map for r in train_results_for_pixel if r.anomaly_map is not None
-                ]
+            if args.pixel_threshold is None and strategy == "normal_pixel_quantile":
+                if not train_paths:
+                    if infer_cfg_thr is None:
+                        raise ValueError(
+                            "--defects requires a pixel threshold.\n"
+                            "Provide --pixel-threshold, set defects.pixel_threshold in infer_config.json, "
+                            "or provide --train-dir for normal-pixel quantile calibration."
+                        )
+                else:
+                    # Prefer re-calibration from normal pixels when train data is available,
+                    # even if the infer-config/run contains a pre-set pixel threshold.
+                    infer_cfg_thr_for_resolve = None
+
+                    train_results_for_pixel = infer(
+                        detector,
+                        train_paths,
+                        include_maps=True,
+                        postprocess=postprocess,
+                    )
+                    calibration_maps = [
+                        r.anomaly_map for r in train_results_for_pixel if r.anomaly_map is not None
+                    ]
 
             pixel_threshold_value, pixel_threshold_provenance = resolve_pixel_threshold(
                 pixel_threshold=(float(args.pixel_threshold) if args.pixel_threshold is not None else None),
                 pixel_threshold_strategy=str(args.pixel_threshold_strategy),
-                infer_config_pixel_threshold=infer_cfg_thr,
+                infer_config_pixel_threshold=infer_cfg_thr_for_resolve,
                 calibration_maps=calibration_maps,
                 pixel_normal_quantile=float(args.pixel_normal_quantile),
                 infer_config_source=str(infer_cfg_source),
