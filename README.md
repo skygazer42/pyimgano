@@ -12,6 +12,8 @@ Production-oriented **visual anomaly detection** (image-level + pixel-level) for
 - **Data & preprocessing** (dataset helpers + preprocessing/augmentation utilities)
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/pyimgano.svg)](https://pypi.org/project/pyimgano/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyimgano.svg)](https://pypi.org/project/pyimgano/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml/badge.svg)](https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)

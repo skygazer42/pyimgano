@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.13] - 2026-02-25
+
+### Docs
+- Added PyPI badges to the README now that the project is published.
+- Clarified PyPI token scope guidance for first publish vs subsequent releases.
+
 ## [0.6.12] - 2026-02-24
 
 ### Packaging

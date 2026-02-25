@@ -101,6 +101,11 @@ Add repository secrets (GitHub → Settings → Secrets and variables → Action
 before, the token must be **account-scoped** (not project-scoped), because
 PyPI does not allow a project-scoped token to create a brand-new project.
 
+**After the first publish:** Once the `pyimgano` project exists on PyPI, prefer
+rotating to a **project-scoped** token (scope: project `pyimgano`) and store it
+in the same GitHub secret (`PYPI_API_TOKEN`). Project-scoped tokens reduce blast
+radius if a token is ever leaked.
+
 ### Publish to PyPI (official)
 
 1) Tag and push a release (for example `v0.6.8`).
