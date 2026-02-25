@@ -339,6 +339,27 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Apply standard postprocess to anomaly maps (only if --include-maps)",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=0,
+        help="Optional chunk size for inference (default: 0, disabled)",
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Print stage timing summary to stderr",
+    )
+    parser.add_argument(
+        "--amp",
+        action="store_true",
+        help="Best-effort AMP/autocast for torch-backed models (requires torch + CUDA)",
+    )
+    parser.add_argument(
+        "--include-anomaly-map-values",
+        action="store_true",
+        help="Include raw anomaly map values in JSONL (debug only; very large output)",
+    )
 
     # Industrial defects export (mask + regions). Opt-in.
     parser.add_argument(
@@ -539,9 +560,17 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         # Import implementations for side effects (registry population).
+        import time
+
         import pyimgano.models  # noqa: F401
         from pyimgano.cli import _resolve_preset_kwargs
         from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
+
+        t_total_start = time.perf_counter()
+        t_load_model = 0.0
+        t_fit_calibrate = 0.0
+        t_infer = 0.0
+        t_artifacts = 0.0
 
         from_run = args.from_run is not None
         infer_config_mode = args.infer_config is not None
@@ -551,6 +580,7 @@ def main(argv: list[str] | None = None) -> int:
         defects_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
 
+        t_load_start = time.perf_counter()
         if from_run:
             from pyimgano.workbench.load_run import (
                 extract_threshold,
@@ -771,6 +801,9 @@ def main(argv: list[str] | None = None) -> int:
                 map_reduce=str(args.tile_map_reduce),
             )
 
+        t_load_model = time.perf_counter() - t_load_start
+
+        t_fit_start = time.perf_counter()
         train_paths: list[str] = []
         if args.train_dir is not None:
             train_paths = _collect_image_paths(args.train_dir)
@@ -799,7 +832,7 @@ def main(argv: list[str] | None = None) -> int:
                         else None
                     ),
                 )
-                calibrate_threshold(detector, train_paths, quantile=float(q))
+                calibrate_threshold(detector, train_paths, quantile=float(q), amp=bool(args.amp))
 
         inputs: list[str] = []
         for raw in args.input:
@@ -852,6 +885,8 @@ def main(argv: list[str] | None = None) -> int:
                         train_paths,
                         include_maps=True,
                         postprocess=postprocess,
+                        batch_size=(int(args.batch_size) if int(args.batch_size) > 0 else None),
+                        amp=bool(args.amp),
                     )
                     calibration_maps = [
                         r.anomaly_map for r in train_results_for_pixel if r.anomaly_map is not None
@@ -867,46 +902,59 @@ def main(argv: list[str] | None = None) -> int:
                 roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
             )
 
+        t_fit_calibrate = time.perf_counter() - t_fit_start
+
+        t_infer_start = time.perf_counter()
         results = infer(
             detector,
             inputs,
             include_maps=bool(args.include_maps),
             postprocess=postprocess,
+            batch_size=(int(args.batch_size) if int(args.batch_size) > 0 else None),
+            amp=bool(args.amp),
         )
+        t_infer = time.perf_counter() - t_infer_start
 
-        map_paths: list[str | None] | None = None
+        maps_dir: Path | None = None
         if args.save_maps is not None:
             if not bool(args.include_maps):
                 raise ValueError("--save-maps requires --include-maps")
-            out_dir = Path(args.save_maps)
-            out_dir.mkdir(parents=True, exist_ok=True)
+            maps_dir = Path(args.save_maps)
+            maps_dir.mkdir(parents=True, exist_ok=True)
 
-            map_paths = []
+        masks_dir: Path | None = None
+        if args.save_masks is not None:
+            masks_dir = Path(args.save_masks)
+            masks_dir.mkdir(parents=True, exist_ok=True)
+
+        overlays_dir: Path | None = None
+        if args.save_overlays is not None:
+            overlays_dir = Path(args.save_overlays)
+            overlays_dir.mkdir(parents=True, exist_ok=True)
+
+        out_f = None
+        if args.save_jsonl is not None:
+            out_path = Path(args.save_jsonl)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_f = out_path.open("w", encoding="utf-8")
+
+        try:
+            t_artifacts_start = time.perf_counter()
             for i, (input_path, result) in enumerate(zip(inputs, results)):
-                if result.anomaly_map is None:
-                    map_paths.append(None)
-                    continue
-                stem = Path(input_path).stem
-                out_path = out_dir / f"{i:06d}_{stem}.npy"
-                np.save(out_path, np.asarray(result.anomaly_map, dtype=np.float32))
-                map_paths.append(str(out_path))
+                anomaly_map_path: str | None = None
+                if maps_dir is not None:
+                    if result.anomaly_map is None:
+                        anomaly_map_path = None
+                    else:
+                        stem = Path(input_path).stem
+                        out_path = maps_dir / f"{i:06d}_{stem}.npy"
+                        np.save(out_path, np.asarray(result.anomaly_map, dtype=np.float32))
+                        anomaly_map_path = str(out_path)
 
-        def emit_records() -> list[dict[str, Any]]:
-            records: list[dict[str, Any]] = []
-            masks_dir: Path | None = None
-            if args.save_masks is not None:
-                masks_dir = Path(args.save_masks)
-                masks_dir.mkdir(parents=True, exist_ok=True)
-
-            overlays_dir: Path | None = None
-            if args.save_overlays is not None:
-                overlays_dir = Path(args.save_overlays)
-                overlays_dir.mkdir(parents=True, exist_ok=True)
-
-            for i, (input_path, result) in enumerate(zip(inputs, results)):
                 record = result_to_jsonable(
                     result,
-                    anomaly_map_path=(map_paths[i] if map_paths is not None else None),
+                    anomaly_map_path=anomaly_map_path,
+                    include_anomaly_map_values=bool(args.include_anomaly_map_values),
                 )
                 record["index"] = int(i)
                 record["input"] = str(input_path)
@@ -1033,21 +1081,35 @@ def main(argv: list[str] | None = None) -> int:
                         out_path=out_path,
                     )
 
-                records.append(record)
-            return records
+                line = json.dumps(record, sort_keys=True)
+                if out_f is not None:
+                    out_f.write(line)
+                    out_f.write("\n")
+                else:
+                    print(line)
 
-        records = emit_records()
+            t_artifacts = time.perf_counter() - t_artifacts_start
+        finally:
+            if out_f is not None:
+                out_f.close()
 
-        if args.save_jsonl is not None:
-            out_path = Path(args.save_jsonl)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            with out_path.open("w", encoding="utf-8") as f:
-                for record in records:
-                    f.write(json.dumps(record, sort_keys=True))
-                    f.write("\n")
-        else:
-            for record in records:
-                print(json.dumps(record, sort_keys=True))
+        if bool(args.profile):
+            import sys
+
+            total = time.perf_counter() - t_total_start
+            print(
+                "profile: "
+                + " ".join(
+                    [
+                        f"load_model={t_load_model:.3f}s",
+                        f"fit_calibrate={t_fit_calibrate:.3f}s",
+                        f"infer={t_infer:.3f}s",
+                        f"artifacts={t_artifacts:.3f}s",
+                        f"total={total:.3f}s",
+                    ]
+                ),
+                file=sys.stderr,
+            )
 
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI boundary

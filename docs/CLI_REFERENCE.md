@@ -122,6 +122,10 @@ Notes:
 Optional:
 
 - `--include-maps` + `--save-maps DIR` — write anomaly maps as `.npy`
+- `--batch-size N` — run inference in chunks (preserves output order; can reduce peak memory)
+- `--profile` — print stage timing summary to stderr (load model, fit/calibrate, infer, artifacts)
+- `--amp` — best-effort AMP/autocast for torch-backed models (requires torch + CUDA; otherwise runs without AMP)
+- `--include-anomaly-map-values` — embed raw anomaly-map values in JSONL (debug only; very large output)
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
   - `--save-masks DIR` + `--mask-format png|npy`
   - `--save-overlays DIR` — save per-image debugging overlays (original + heatmap + mask outline/fill)

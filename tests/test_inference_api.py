@@ -1,5 +1,7 @@
 import json
 
+import importlib.util
+
 import numpy as np
 import pytest
 
@@ -111,3 +113,43 @@ def test_infer_supports_batch_only_detectors_for_numpy_inputs():
     assert results[0].label == 1
     assert results[0].anomaly_map is not None
     assert results[0].anomaly_map.shape == (4, 4)
+
+
+def test_infer_supports_batch_size_chunking_preserves_order() -> None:
+    class _Chunkable:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            # score = max pixel intensity (per image)
+            scores: list[float] = []
+            for item in list(X):
+                arr = np.asarray(item)
+                scores.append(float(arr.max()) / 255.0)
+            return np.asarray(scores, dtype=np.float32)
+
+    imgs = [
+        np.zeros((4, 4, 3), dtype=np.uint8),
+        np.ones((4, 4, 3), dtype=np.uint8) * 100,
+        np.ones((4, 4, 3), dtype=np.uint8) * 250,
+    ]
+
+    det = _Chunkable()
+    out = infer(det, imgs, input_format=ImageFormat.RGB_U8_HWC, batch_size=2)
+    assert [r.score for r in out] == pytest.approx([0.0, 100 / 255.0, 250 / 255.0])
+    assert [r.label for r in out] == [0, 0, 1]
+
+
+def test_infer_amp_is_best_effort() -> None:
+    class _ScoreOnly:
+        def decision_function(self, X):
+            return np.asarray([0.1], dtype=np.float32)
+
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8)]
+    has_torch = importlib.util.find_spec("torch") is not None
+    if not has_torch:
+        with pytest.warns(RuntimeWarning, match=r"torch is not installed"):
+            out = infer(_ScoreOnly(), imgs, input_format=ImageFormat.RGB_U8_HWC, amp=True)
+    else:
+        out = infer(_ScoreOnly(), imgs, input_format=ImageFormat.RGB_U8_HWC, amp=True)
+    assert len(out) == 1

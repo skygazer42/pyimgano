@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence, Union
@@ -57,6 +59,7 @@ def calibrate_threshold(
     *,
     input_format: str | ImageFormat | None = None,
     quantile: float = 0.995,
+    amp: bool = False,
 ) -> float:
     """Calibrate `detector.threshold_` by a score quantile on normal samples."""
 
@@ -64,13 +67,52 @@ def calibrate_threshold(
         raise ValueError(f"quantile must be in (0,1), got {quantile}")
 
     normalized = _normalize_inputs(calibration_inputs, input_format=input_format)
-    scores = _call_decision_function(detector, normalized)
+    with _torch_inference_context(amp=bool(amp)):
+        scores = _call_decision_function(detector, normalized)
     if scores.size == 0:
         raise ValueError("No scores produced for calibration inputs.")
 
     threshold = float(np.quantile(scores, float(quantile)))
     setattr(detector, "threshold_", threshold)
     return threshold
+
+
+def _torch_inference_context(*, amp: bool) -> ExitStack:
+    """Best-effort torch inference/autocast context.
+
+    - If torch is missing, yields without error (and warns when amp=True).
+    - If CUDA is unavailable, runs without autocast (and warns when amp=True).
+    """
+
+    stack = ExitStack()
+    if not bool(amp):
+        return stack
+
+    try:
+        import torch  # type: ignore[import-not-found]
+    except Exception:
+        warnings.warn(
+            "AMP requested but torch is not installed; continuing without AMP.\n"
+            "Install torch (and optionally CUDA) for autocast acceleration.",
+            RuntimeWarning,
+        )
+        return stack
+
+    stack.enter_context(torch.inference_mode())
+
+    try:
+        if torch.cuda.is_available():
+            stack.enter_context(torch.cuda.amp.autocast())
+        else:
+            warnings.warn(
+                "AMP requested but CUDA is not available; continuing without autocast.",
+                RuntimeWarning,
+            )
+    except Exception:
+        # Best-effort: never fail inference due to AMP wrapper issues.
+        warnings.warn("AMP context failed to initialize; continuing without autocast.", RuntimeWarning)
+
+    return stack
 
 
 def _call_decision_function(detector: Any, inputs: Sequence[Any]) -> np.ndarray:
@@ -134,6 +176,8 @@ def infer(
     input_format: str | ImageFormat | None = None,
     include_maps: bool = False,
     postprocess: AnomalyMapPostprocess | None = None,
+    batch_size: int | None = None,
+    amp: bool = False,
 ) -> list[InferenceResult]:
     """Run `decision_function` + optional anomaly-map extraction.
 
@@ -142,36 +186,53 @@ def infer(
     """
 
     normalized = _normalize_inputs(inputs, input_format=input_format)
-    scores = _call_decision_function(detector, normalized)
-
     threshold = getattr(detector, "threshold_", None)
-    labels: Optional[np.ndarray]
-    if threshold is not None:
-        labels = (scores >= float(threshold)).astype(int)
-    else:
-        labels = None
 
-    maps: list[np.ndarray | None] | None = None
-    if include_maps:
-        extracted = _try_get_maps(detector, normalized)
-        if extracted is not None:
-            maps = []
-            for m in extracted:
-                if m is None:
-                    maps.append(None)
-                    continue
-                processed = m
-                if postprocess is not None:
-                    processed = postprocess(processed)
-                maps.append(np.asarray(processed, dtype=np.float32))
+    bs: int | None
+    if batch_size is None:
+        bs = None
+    else:
+        bsv = int(batch_size)
+        bs = (bsv if bsv > 0 else None)
+
+    def _infer_chunk(chunk: Sequence[Any]) -> list[InferenceResult]:
+        with _torch_inference_context(amp=bool(amp)):
+            scores = _call_decision_function(detector, chunk)
+
+            labels: Optional[np.ndarray]
+            if threshold is not None:
+                labels = (scores >= float(threshold)).astype(int)
+            else:
+                labels = None
+
+            maps: list[np.ndarray | None] | None = None
+            if include_maps:
+                extracted = _try_get_maps(detector, chunk)
+                if extracted is not None:
+                    maps = []
+                    for m in extracted:
+                        if m is None:
+                            maps.append(None)
+                            continue
+                        processed = m
+                        if postprocess is not None:
+                            processed = postprocess(processed)
+                        maps.append(np.asarray(processed, dtype=np.float32))
+
+        out: list[InferenceResult] = []
+        for i in range(int(scores.shape[0])):
+            label = int(labels[i]) if labels is not None else None
+            anomaly_map = maps[i] if maps is not None else None
+            out.append(InferenceResult(score=float(scores[i]), label=label, anomaly_map=anomaly_map))
+        return out
+
+    if bs is None or bs >= len(normalized):
+        return _infer_chunk(normalized)
 
     results: list[InferenceResult] = []
-    for i in range(int(scores.shape[0])):
-        label = int(labels[i]) if labels is not None else None
-        anomaly_map = maps[i] if maps is not None else None
-        results.append(
-            InferenceResult(score=float(scores[i]), label=label, anomaly_map=anomaly_map)
-        )
+    for start in range(0, len(normalized), int(bs)):
+        chunk = normalized[start : start + int(bs)]
+        results.extend(_infer_chunk(chunk))
     return results
 
 

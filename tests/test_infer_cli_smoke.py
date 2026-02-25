@@ -81,6 +81,36 @@ def test_infer_cli_smoke(tmp_path, monkeypatch):
     assert len(saved) == 2
 
 
+def test_infer_cli_smoke_can_include_anomaly_map_values(tmp_path, monkeypatch):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--include-maps",
+            "--include-anomaly-map-values",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
+    assert "anomaly_map" in record
+    assert "anomaly_map_values" in record
+    assert isinstance(record["anomaly_map_values"], list)
+
+
 def test_infer_cli_smoke_defects_export(tmp_path, monkeypatch):
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()
