@@ -1,20 +1,17 @@
-# PyImgAno vs PyOD: Detailed Comparison
+# PyImgAno vs PyOD vs anomalib: Positioning
 
-A comprehensive comparison between PyImgAno and PyOD to help you choose the right library for your anomaly detection needs.
+A practical comparison to help you choose the right tool for anomaly detection in production.
 
 ## Executive Summary
 
-| Aspect | PyImgAno | PyOD |
-|--------|----------|------|
-| **Primary Focus** | Visual anomaly detection | General outlier detection |
-| **Best For** | Images, computer vision, industrial inspection | Tabular data, time series, general ML |
-| **Algorithms** | 100+ (registry: 118 models) | 40+ (general-purpose) |
-| **Preprocessing** | 80+ image operations | Minimal |
-| **Augmentation** | 30+ augmentation techniques | None |
-| **Maturity** | Beta (v0.5.0+) | Stable (v1.1.3+) |
-| **Community** | Growing | Established (6000+ stars) |
-| **Documentation** | Good, improving | Excellent |
-| **Performance** | Optimized for images | Optimized for tabular data |
+| Aspect | PyImgAno | PyOD | anomalib |
+|--------|----------|------|----------|
+| **Primary Focus** | Production-oriented visual anomaly detection + IO/CLI | General outlier detection library | Vision anomaly detection training/eval framework |
+| **Best For** | Industrial inspection pipelines (JSONL, `infer_config.json`, defects masks/regions) | Tabular/outlier workflows, fast baselines | Research / training loops, reproducing papers, Lightning-style training |
+| **Algorithms** | 120+ registry entry points (native + wrappers + aliases) | Many classic outlier detectors (tabular-first) | Strong vision AD model zoo (deep-first) |
+| **Pixel maps** | First-class (`pixel_map` models + defects export) | Not a focus | First-class |
+| **Workflows** | CLI runs + artifacts + deploy config export | sklearn-style estimator workflows | Training configs + datamodules + checkpoints |
+| **Integration** | “Workbench → deploy bundle → infer JSONL” | “Fit → score/predict” | “Train → checkpoint → infer/eval” |
 
 ## When to Use PyImgAno
 
@@ -56,11 +53,27 @@ A comprehensive comparison between PyImgAno and PyOD to help you choose the righ
 - Customer behavior analysis
 - Medical records (tabular)
 
+## When to Use anomalib
+
+✅ **Choose anomalib if you want:**
+
+1. **Training-first deep AD** - reproducible training pipelines for vision AD
+2. **Model zoo + paper reproduction** - standardized implementations of deep methods
+3. **Lightning-style workflows** - configs, datamodules, trainers
+
+✅ **A common hybrid workflow**
+
+- Train a deep model in anomalib
+- Use `pyimgano` to wrap the checkpoint for:
+  - consistent inference (`pyimgano-infer`)
+  - workbench artifacts (reports + JSONL)
+  - deploy-time defect extraction (mask + connected-component regions)
+
 ## Detailed Feature Comparison
 
 ### Algorithms
 
-#### PyImgAno (100+ models; registry-driven)
+#### PyImgAno (120+ models; registry-driven)
 
 PyImgAno exposes algorithms through a unified registry and factory:
 
@@ -73,6 +86,7 @@ Example model names you can start with:
 
 - Classical baselines: `vision_ecod`, `vision_copod`, `vision_iforest`, `vision_knn`, `vision_pca`, `vision_ocsvm`
 - Pixel-map industrial inspection: `vision_patchcore`, `vision_padim`, `vision_softpatch`, `vision_spade`, `vision_stfpm`, `vision_draem`, `vision_anomalydino`, `vision_superad`
+- anomalib checkpoint wrappers (optional): `vision_*_anomalib`, `vision_anomalib_checkpoint`
 
 To discover models from the CLI:
 

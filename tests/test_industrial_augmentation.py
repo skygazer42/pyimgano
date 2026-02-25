@@ -15,6 +15,13 @@ from pyimgano.preprocessing.augmentation_pipeline import (
     get_industrial_drift_augmentation,
     get_industrial_surface_defect_synthesis_augmentation,
 )
+from pyimgano.preprocessing.industrial_presets import (
+    IlluminationContrastKnobs,
+    apply_illumination_contrast,
+    gray_world_white_balance,
+    homomorphic_filter,
+    max_rgb_white_balance,
+)
 
 
 def test_jpeg_compress_preserves_shape_and_dtype() -> None:
@@ -72,3 +79,34 @@ def test_defect_synthesis_augments_preserve_contract() -> None:
     for out in (out1, out2, out3):
         assert out.shape == img.shape
         assert out.dtype == np.uint8
+
+
+def test_industrial_white_balance_preserves_contract() -> None:
+    img = np.random.randint(0, 255, size=(32, 32, 3), dtype=np.uint8)
+    out1 = gray_world_white_balance(img)
+    out2 = max_rgb_white_balance(img)
+    assert out1.shape == img.shape
+    assert out1.dtype == np.uint8
+    assert out2.shape == img.shape
+    assert out2.dtype == np.uint8
+
+
+def test_industrial_homomorphic_filter_preserves_contract() -> None:
+    img = np.random.randint(0, 255, size=(32, 32, 3), dtype=np.uint8)
+    out = homomorphic_filter(img, cutoff=0.5, gamma_low=0.7, gamma_high=1.5)
+    assert out.shape == img.shape
+    assert out.dtype == np.uint8
+
+
+def test_apply_illumination_contrast_runs() -> None:
+    img = np.random.randint(0, 255, size=(32, 32, 3), dtype=np.uint8)
+    knobs = IlluminationContrastKnobs(
+        white_balance="gray_world",
+        homomorphic=True,
+        clahe=True,
+        gamma=0.9,
+        contrast_stretch=True,
+    )
+    out = apply_illumination_contrast(img, knobs=knobs)
+    assert out.shape == img.shape
+    assert out.dtype == np.uint8

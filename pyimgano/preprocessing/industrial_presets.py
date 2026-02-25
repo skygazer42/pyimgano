@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
@@ -131,3 +132,155 @@ def homomorphic_filter(
     out = np.clip(out, 0.0, 255.0)
     return out.astype(np.uint8)
 
+
+@dataclass(frozen=True)
+class IlluminationContrastKnobs:
+    """Opt-in illumination / contrast preprocessing knobs (industrial-friendly).
+
+    Notes
+    -----
+    - This is intentionally conservative and `uint8`-preserving.
+    - The intended workflow is: apply these knobs *before* feature extraction or
+      patch embedding to reduce camera drift / lighting changes.
+    """
+
+    white_balance: str = "none"  # none|gray_world|max_rgb
+    homomorphic: bool = False
+    homomorphic_cutoff: float = 0.5
+    homomorphic_gamma_low: float = 0.7
+    homomorphic_gamma_high: float = 1.5
+    homomorphic_c: float = 1.0
+    homomorphic_per_channel: bool = True
+
+    clahe: bool = False
+    clahe_clip_limit: float = 2.0
+    clahe_tile_grid_size: tuple[int, int] = (8, 8)
+
+    gamma: float | None = None
+    contrast_stretch: bool = False
+    contrast_lower_percentile: float = 2.0
+    contrast_upper_percentile: float = 98.0
+
+
+def _clahe_u8(
+    image: NDArray,
+    *,
+    clip_limit: float,
+    tile_grid_size: tuple[int, int],
+) -> NDArray:
+    try:
+        import cv2  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "opencv-python is required for CLAHE.\n"
+            "Install it via:\n  pip install 'opencv-python'\n"
+            f"Original error: {exc}"
+        ) from exc
+
+    img = _require_u8(image)
+    tgs = (int(tile_grid_size[0]), int(tile_grid_size[1]))
+    if tgs[0] <= 0 or tgs[1] <= 0:
+        raise ValueError(f"tile_grid_size must be positive ints, got {tile_grid_size}")
+    clip = float(clip_limit)
+    if clip <= 0:
+        raise ValueError(f"clip_limit must be > 0, got {clip_limit}")
+
+    clahe = cv2.createCLAHE(clipLimit=clip, tileGridSize=tgs)
+    if img.ndim == 2:
+        return np.asarray(clahe.apply(img), dtype=np.uint8)
+    if img.ndim != 3 or img.shape[2] != 3:
+        raise ValueError(f"Expected image shape (H,W,3) or (H,W), got {img.shape}")
+
+    # Treat color input as OpenCV BGR by convention (matches most of this module's usage).
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+    out = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+    return np.asarray(out, dtype=np.uint8)
+
+
+def apply_illumination_contrast(
+    image: NDArray,
+    *,
+    knobs: IlluminationContrastKnobs | None = None,
+    white_balance: str | None = None,
+    homomorphic: bool | None = None,
+    clahe: bool | None = None,
+    gamma: float | None = None,
+    contrast_stretch: bool | None = None,
+) -> NDArray:
+    """Apply an opt-in illumination/contrast preprocessing chain.
+
+    Parameters
+    ----------
+    knobs:
+        Optional config object. When provided, individual keyword arguments override it.
+    white_balance:
+        "none" (default), "gray_world", or "max_rgb".
+    homomorphic:
+        Enable homomorphic filtering for illumination normalization.
+    clahe:
+        Enable CLAHE for local contrast enhancement.
+    gamma:
+        Optional gamma correction. Use <1.0 to brighten, >1.0 to darken.
+    contrast_stretch:
+        Enable percentile-based contrast stretching.
+    """
+
+    k = knobs or IlluminationContrastKnobs()
+    wb = str(white_balance if white_balance is not None else k.white_balance).strip().lower()
+    hm = bool(homomorphic) if homomorphic is not None else bool(k.homomorphic)
+    ch = bool(clahe) if clahe is not None else bool(k.clahe)
+    cs = bool(contrast_stretch) if contrast_stretch is not None else bool(k.contrast_stretch)
+
+    out = _require_u8(image)
+
+    if wb in ("none", ""):
+        pass
+    elif wb in ("gray_world", "gray-world", "grayworld"):
+        out = gray_world_white_balance(out)
+    elif wb in ("max_rgb", "max-rgb", "maxrgb"):
+        out = max_rgb_white_balance(out)
+    else:
+        raise ValueError("white_balance must be one of: none, gray_world, max_rgb. " f"Got: {wb!r}.")
+
+    if hm:
+        out = homomorphic_filter(
+            out,
+            cutoff=float(k.homomorphic_cutoff),
+            gamma_low=float(k.homomorphic_gamma_low),
+            gamma_high=float(k.homomorphic_gamma_high),
+            c=float(k.homomorphic_c),
+            per_channel=bool(k.homomorphic_per_channel),
+        )
+
+    if ch:
+        out = _clahe_u8(
+            out,
+            clip_limit=float(k.clahe_clip_limit),
+            tile_grid_size=tuple(k.clahe_tile_grid_size),
+        )
+
+    # Optional contrast shaping.
+    gamma_v = k.gamma if gamma is None else gamma
+    if gamma_v is not None:
+        gv = float(gamma_v)
+        if gv <= 0:
+            raise ValueError(f"gamma must be > 0, got {gamma_v}")
+
+        from pyimgano.preprocessing.advanced_operations import gamma_correction
+
+        out = np.asarray(gamma_correction(out, gamma=gv), dtype=np.uint8)
+
+    if cs:
+        from pyimgano.preprocessing.advanced_operations import contrast_stretching
+
+        out = np.asarray(
+            contrast_stretching(
+                out,
+                lower_percentile=float(k.contrast_lower_percentile),
+                upper_percentile=float(k.contrast_upper_percentile),
+            ),
+            dtype=np.uint8,
+        )
+
+    return np.asarray(out, dtype=np.uint8)

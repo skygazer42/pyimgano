@@ -374,6 +374,76 @@ class ImageEnhancer:
         """Initialize ImageEnhancer."""
         logger.info("Initialized ImageEnhancer")
 
+    # ------------------------------------------------------------------
+    # Industrial illumination / contrast normalization
+    def gray_world_white_balance(self, image: NDArray, eps: float = 1e-6) -> NDArray:
+        """Apply gray-world white balance (uint8-preserving)."""
+
+        from pyimgano.preprocessing.industrial_presets import gray_world_white_balance
+
+        return gray_world_white_balance(image, eps=float(eps))
+
+    def max_rgb_white_balance(self, image: NDArray, eps: float = 1e-6) -> NDArray:
+        """Apply max-RGB white balance (uint8-preserving)."""
+
+        from pyimgano.preprocessing.industrial_presets import max_rgb_white_balance
+
+        return max_rgb_white_balance(image, eps=float(eps))
+
+    def homomorphic_filter(
+        self,
+        image: NDArray,
+        *,
+        cutoff: float = 0.5,
+        gamma_low: float = 0.7,
+        gamma_high: float = 1.5,
+        c: float = 1.0,
+        eps: float = 1e-6,
+        per_channel: bool = True,
+    ) -> NDArray:
+        """Apply homomorphic filtering for illumination normalization."""
+
+        from pyimgano.preprocessing.industrial_presets import homomorphic_filter
+
+        return homomorphic_filter(
+            image,
+            cutoff=float(cutoff),
+            gamma_low=float(gamma_low),
+            gamma_high=float(gamma_high),
+            c=float(c),
+            eps=float(eps),
+            per_channel=bool(per_channel),
+        )
+
+    def illumination_contrast(
+        self,
+        image: NDArray,
+        *,
+        white_balance: str = "none",
+        homomorphic: bool = False,
+        clahe: bool = False,
+        gamma: float | None = None,
+        contrast_stretch: bool = False,
+        knobs=None,
+    ) -> NDArray:
+        """Apply an opt-in industrial illumination/contrast chain.
+
+        This is intended as a production-friendly preprocessing step before
+        feature extraction / patch embedding.
+        """
+
+        from pyimgano.preprocessing.industrial_presets import apply_illumination_contrast
+
+        return apply_illumination_contrast(
+            image,
+            knobs=knobs,
+            white_balance=str(white_balance),
+            homomorphic=bool(homomorphic),
+            clahe=bool(clahe),
+            gamma=gamma,
+            contrast_stretch=bool(contrast_stretch),
+        )
+
     # Edge detection methods
     def detect_edges(
         self,

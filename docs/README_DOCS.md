@@ -67,6 +67,17 @@ docs/
 └── CAPABILITY_ASSESSMENT.md # Capability assessment
 ```
 
+## Recommended reading order (for users)
+
+If you’re updating docs, these pages form the "happy path" for most industrial users:
+
+- `docs/QUICKSTART.md` (install + basic usage)
+- `docs/WORKBENCH.md` (train/eval/export loop; artifacts)
+- `docs/MANIFEST_DATASET.md` (recommended custom dataset format: JSONL manifest, paths-first)
+- `docs/INDUSTRIAL_INFERENCE.md` (numpy-first + tiling + defects output)
+- `docs/FALSE_POSITIVE_DEBUGGING.md` (practical FP tuning with overlays/ROI/filters)
+- `docs/CLI_REFERENCE.md` (CLI flags + JSONL schemas)
+
 ## Writing Documentation
 
 ### Docstring Format

@@ -18,6 +18,61 @@ This guide covers the state-of-the-art deep learning algorithms available in PyI
 
 ---
 
+## Extension points (torch-like)
+
+`pyimgano` is intentionally **registry-driven**: you can plug in your own detectors without changing the rest
+of the stack (CLI, inference, tiling, defects export).
+
+### Detector contract (recommended)
+
+At minimum, implement:
+
+- `fit(X, y=None) -> self`
+- `decision_function(X) -> (N,) scores` (higher = more anomalous)
+
+Optional, but strongly recommended for industrial inspection:
+
+- `predict(X) -> (N,) labels` in `{0,1}` (or expose `threshold_` so downstream tools can binarize)
+- `get_anomaly_map(image) -> (H,W)` **or** `predict_anomaly_map(X) -> (N,H,W)` for pixel-level localization
+
+`pyimgano.inference.infer(...)` and `pyimgano-infer` automatically use these methods when present.
+
+### Minimal template
+
+```python
+import numpy as np
+
+from pyimgano.models.registry import register_model
+
+
+@register_model(
+    "my_detector",
+    tags=("vision", "deep"),
+    metadata={"description": "My custom industrial detector"},
+)
+class MyDetector:
+    def __init__(self, *, contamination: float = 0.1):
+        self.contamination = float(contamination)
+        self.threshold_ = None
+
+    def fit(self, X, y=None):
+        scores = self.decision_function(X)
+        self.threshold_ = float(np.quantile(scores, 1.0 - self.contamination))
+        return self
+
+    def decision_function(self, X):
+        return np.zeros(len(list(X)), dtype=np.float32)
+```
+
+### Optional dependency boundary
+
+If your model depends on heavy/optional libs (OpenCLIP, anomalib, FAISS, etc.):
+
+- keep the import lazy (inside `__init__` / `fit` / `predict_*`)
+- raise a clear `ImportError` with an install hint (`pip install "pyimgano[clip]"`, etc.)
+
+See `pyimgano/utils/optional_deps.py` for helpers used in built-in models.
+
 ## 🏆 State-of-the-Art Models
 
 ### 1. SimpleNet (CVPR 2023) ⭐⭐⭐

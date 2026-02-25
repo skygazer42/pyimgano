@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -26,6 +28,48 @@ class RegistryModelEstimator(BaseEstimator):
         self.model = str(model)
         self._model_kwargs: dict[str, Any] = dict(model_kwargs)
 
+    @staticmethod
+    def _normalize_X(X, *, name: str):  # noqa: ANN001, ANN201 - sklearn signature
+        if X is None:
+            raise TypeError(f"{name} must not be None.")
+        if isinstance(X, (str, Path)):
+            raise TypeError(
+                f"{name} must be an array-like or an iterable of samples; got a single path-like "
+                f"({type(X).__name__}). Wrap it in a list, e.g. [{name}]."
+            )
+        if isinstance(X, np.ndarray):
+            if X.shape[0] == 0:
+                raise ValueError(f"{name} must be non-empty.")
+            return X
+
+        # sklearn style: accept iterables, but reject non-iterables early.
+        if not isinstance(X, Iterable):
+            raise TypeError(f"{name} must be an array-like or an iterable of samples.")
+
+        items = list(X)
+        if not items:
+            raise ValueError(f"{name} must be non-empty.")
+        return items
+
+    @staticmethod
+    def _num_samples(X) -> int | None:  # noqa: ANN001 - sklearn input types
+        try:
+            return int(len(X))
+        except Exception:
+            return None
+
+    @classmethod
+    def _ensure_1d_scores(cls, scores, *, expected: int | None) -> np.ndarray:  # noqa: ANN001
+        arr = np.asarray(scores, dtype=np.float32)
+        if arr.ndim != 1:
+            arr = arr.reshape(-1)
+        if expected is not None and arr.shape[0] != expected:
+            raise ValueError(
+                "Underlying detector returned an unexpected number of scores: "
+                f"expected {expected}, got {arr.shape[0]}."
+            )
+        return arr
+
     # ---------------------------------------------------------------------
     # sklearn parameter protocol
     def get_params(self, deep: bool = True) -> dict[str, Any]:  # noqa: ARG002 - sklearn signature
@@ -43,13 +87,25 @@ class RegistryModelEstimator(BaseEstimator):
     # ---------------------------------------------------------------------
     # estimator behavior
     def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn signature
-        from pyimgano.models.registry import create_model
+        import pyimgano.models  # noqa: F401 - registry population side effects
+        from pyimgano.models.registry import create_model, list_models
 
-        detector = create_model(self.model, **dict(self._model_kwargs))
+        X_norm = self._normalize_X(X, name="X")
+
         try:
-            detector.fit(X, y)
+            detector = create_model(self.model, **dict(self._model_kwargs))
+        except KeyError as exc:
+            available = ", ".join(list_models()[:25])
+            suffix = "" if len(list_models()) <= 25 else ", ..."
+            raise ValueError(
+                f"Unknown model name: {self.model!r}. "
+                f"Available (partial): {available}{suffix}"
+            ) from exc
+
+        try:
+            detector.fit(X_norm, y)
         except TypeError:
-            detector.fit(X)
+            detector.fit(X_norm)
         self.detector_ = detector
         return self
 
@@ -57,22 +113,30 @@ class RegistryModelEstimator(BaseEstimator):
         detector = getattr(self, "detector_", None)
         if detector is None:
             raise NotFittedError("Estimator is not fitted. Call fit() before decision_function().")
-        scores = detector.decision_function(X)
-        arr = np.asarray(scores)
-        if arr.ndim != 1:
-            arr = arr.reshape(-1)
-        return arr
+
+        X_norm = self._normalize_X(X, name="X")
+        expected = self._num_samples(X_norm)
+        scores = detector.decision_function(X_norm)
+        return self._ensure_1d_scores(scores, expected=expected)
 
     def predict(self, X):  # noqa: ANN001, ANN201 - sklearn signature
         detector = getattr(self, "detector_", None)
         if detector is None:
             raise NotFittedError("Estimator is not fitted. Call fit() before predict().")
 
+        X_norm = self._normalize_X(X, name="X")
+        expected = self._num_samples(X_norm)
+
         if hasattr(detector, "predict"):
-            preds = detector.predict(X)
+            preds = detector.predict(X_norm)
             arr = np.asarray(preds, dtype=int)
             if arr.ndim != 1:
                 arr = arr.reshape(-1)
+            if expected is not None and arr.shape[0] != expected:
+                raise ValueError(
+                    "Underlying detector returned an unexpected number of predictions: "
+                    f"expected {expected}, got {arr.shape[0]}."
+                )
 
             # Normalize {1,-1} (sklearn-style) to {0,1} (pyod-style).
             unique = set(np.unique(arr).tolist())
@@ -86,5 +150,10 @@ class RegistryModelEstimator(BaseEstimator):
             raise AttributeError(
                 "Underlying detector does not expose predict() or threshold_."
             )
-        scores = self.decision_function(X)
+        scores = self.decision_function(X_norm)
         return (scores >= float(threshold)).astype(int)
+
+    def score_samples(self, X):  # noqa: ANN001, ANN201 - sklearn signature
+        """Alias for `decision_function` (sklearn convention)."""
+
+        return self.decision_function(X)

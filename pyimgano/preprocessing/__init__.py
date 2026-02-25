@@ -94,6 +94,8 @@ from .augmentation_pipeline import (
     get_industrial_surface_defect_synthesis_augmentation,
 )
 from .industrial_presets import (
+    IlluminationContrastKnobs,
+    apply_illumination_contrast,
     gray_world_white_balance,
     homomorphic_filter,
     max_rgb_white_balance,
@@ -181,4 +183,6 @@ __all__ = [
     "gray_world_white_balance",
     "max_rgb_white_balance",
     "homomorphic_filter",
+    "IlluminationContrastKnobs",
+    "apply_illumination_contrast",
 ]

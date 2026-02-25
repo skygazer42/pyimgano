@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.21] - 2026-02-25
+
+### Recipes
+- Added two builtin industrial recipes:
+  - `industrial-adapt-highres` (tiling + seam-reducing blending defaults)
+  - `industrial-adapt-fp40` (defects FP-reduction defaults for deploy-style inference export)
+
+### Preprocessing
+- Added opt-in industrial illumination/contrast knobs:
+  - `IlluminationContrastKnobs`
+  - `apply_illumination_contrast(...)`
+- `ImageEnhancer` now exposes illumination/contrast helpers for pipeline usage (`illumination_contrast`, white balance, homomorphic filter).
+
+### sklearn integration
+- Hardened `RegistryModelEstimator` with clearer input validation and better model-name errors.
+
+### Docs
+- Added a practical false-positive tuning guide: `docs/FALSE_POSITIVE_DEBUGGING.md` (linked from `docs/INDUSTRIAL_INFERENCE.md`).
+- Quickstart now documents the recommended paths-first / manifest dataset workflow.
+- Updated positioning docs to compare `pyimgano` vs PyOD vs anomalib.
+- Refreshed READMEs to align with the FP40 inference workflow and example configs.
+- Model index generator now includes discovery + extension guidance.
+
+### Tests
+- Expanded detector contract tests with a lightweight deep + pixel-map smoke test (`vision_softpatch` with a stub embedder).
+- Added workbench recipe smoke coverage using the manifest dataset.
+
 ## [0.6.20] - 2026-02-25
 
 ### Infer-config

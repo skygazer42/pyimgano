@@ -260,6 +260,89 @@ class TestSaveLoad:
         detector = models.create_model('vision_ecod', contamination=0.1)
         detector.fit(synthetic_dataset['train'])
 
+
+def _write_manifest_jsonl(path: Path, *, records: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Write as JSONL.
+    import json
+
+    with path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec, sort_keys=True) + "\n")
+
+
+def _write_demo_png(path: Path, *, value: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img = np.ones((32, 32, 3), dtype=np.uint8) * int(value)
+    cv2.imwrite(str(path), img)
+
+
+@pytest.mark.parametrize("recipe_name", ["industrial-adapt-fp40", "industrial-adapt-highres"])
+def test_workbench_recipe_smoke_manifest(tmp_path: Path, recipe_name: str) -> None:
+    pytest.importorskip("pyod")
+
+    # Ensure builtin recipes are registered.
+    import pyimgano.recipes  # noqa: F401
+
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.workbench.config import WorkbenchConfig
+
+    root = tmp_path / "data"
+    train0 = root / "train_0.png"
+    train1 = root / "train_1.png"
+    test0 = root / "test_0.png"
+    test1 = root / "test_1.png"
+
+    _write_demo_png(train0, value=110)
+    _write_demo_png(train1, value=120)
+    _write_demo_png(test0, value=115)
+    _write_demo_png(test1, value=240)
+
+    manifest_path = tmp_path / "manifest.jsonl"
+    records = [
+        {"image_path": str(train0), "category": "demo", "split": "train", "label": 0},
+        {"image_path": str(train1), "category": "demo", "split": "train", "label": 0},
+        {"image_path": str(test0), "category": "demo", "split": "test", "label": 0},
+        {"image_path": str(test1), "category": "demo", "split": "test", "label": 1},
+    ]
+    _write_manifest_jsonl(manifest_path, records=records)
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": recipe_name,
+            "seed": 123,
+            "dataset": {
+                "name": "manifest",
+                "root": str(root),
+                "manifest_path": str(manifest_path),
+                "category": "demo",
+                "resize": [32, 32],
+                "input_mode": "paths",
+                "limit_train": 2,
+                "limit_test": 2,
+            },
+            "model": {
+                "name": "vision_ecod",
+                "device": "cpu",
+                "pretrained": False,
+                "contamination": 0.1,
+            },
+            "output": {
+                "output_dir": str(tmp_path / "runs"),
+                "save_run": True,
+                "per_image_jsonl": True,
+            },
+        }
+    )
+
+    recipe = RECIPE_REGISTRY.get(cfg.recipe)
+    payload = recipe(cfg)
+
+    assert payload.get("recipe") == recipe_name
+    assert payload.get("dataset") == "manifest"
+    assert payload.get("category") == "demo"
+    assert "schema_version" in payload
+
         # Get original predictions
         original_scores = detector.decision_function(synthetic_dataset['test_all'])
 

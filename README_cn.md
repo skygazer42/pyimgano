@@ -46,7 +46,7 @@ pip install pyimgano
 
 ```bash
 pyimgano-train \
-  --config examples/configs/industrial_adapt_defects_roi.json \
+  --config examples/configs/industrial_adapt_defects_fp40.json \
   --export-infer-config
 ```
 
@@ -54,6 +54,12 @@ pyimgano-train \
 
 - `artifacts/infer_config.json`（模型 + 阈值 + 后处理 + defects 配置）
 - `report.json` / `per_image.jsonl`（可审计的运行产物）
+
+可选（部署 bundle）：把一个目录整体拷贝到服务器/容器：
+
+```bash
+pyimgano-train --config cfg.json --export-deploy-bundle
+```
 
 ### 推理 → JSONL（可选导出缺陷 mask/regions）
 
@@ -70,6 +76,7 @@ pyimgano-infer \
 - `docs/WORKBENCH.md`
 - `docs/CLI_REFERENCE.md`
 - `docs/INDUSTRIAL_INFERENCE.md`
+- `docs/FALSE_POSITIVE_DEBUGGING.md`（overlay + 降误报调参流程）
 
 ### 快速推理（不走 workbench）
 
@@ -148,4 +155,5 @@ pip install "pyimgano[all]"         # 全量（dev/docs/backends/diffusion/viz�
 - `docs/WORKBENCH.md`
 - `docs/CLI_REFERENCE.md`
 - `docs/INDUSTRIAL_INFERENCE.md`（numpy-first IO、tiling、defects 导出）
+- `docs/FALSE_POSITIVE_DEBUGGING.md`（误报排查与调参）
 - `docs/MODEL_INDEX.md`（模型索引）

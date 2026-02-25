@@ -43,6 +43,8 @@ Notes:
 - The adapter constructs the underlying detector inside `fit()`.
 - `decision_function()` always returns a 1D numpy array of shape `(N,)`.
 - `predict()` normalizes predictions to `{0, 1}` (PyOD-style).
+- The adapter imports `pyimgano.models` inside `fit()` to ensure registry models
+  are registered (no extra side-effect import required).
 
 ---
 
@@ -85,3 +87,53 @@ auroc = roc_auc_score(y_true, scores)
 - For strict sklearn `OutlierMixin` conventions (inliers=1, outliers=-1),
   convert `preds` yourself if needed.
 
+---
+
+## Common Pitfalls
+
+### Passing a single path string
+
+In sklearn, `X` is expected to be **array-like** (many samples). If you pass a
+single path string, Python treats it as an iterable of characters and most
+detectors will fail in confusing ways.
+
+✅ Correct:
+
+```python
+est.fit(["/path/to/image.png"])
+```
+
+❌ Incorrect:
+
+```python
+est.fit("/path/to/image.png")
+```
+
+### Feature-based vs path-based inputs
+
+Many `pyimgano` models are **vision wrappers** around PyOD detectors. They
+default to a simple image feature extractor so they can run out-of-the-box on
+image paths.
+
+If you already have precomputed feature vectors and want sklearn-native
+workflows, pass an identity-style extractor:
+
+```python
+import numpy as np
+from pyimgano.sklearn_adapter import RegistryModelEstimator
+
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+X_train = np.random.randn(128, 64)
+X_test = np.random.randn(16, 64)
+
+est = RegistryModelEstimator(
+    model="vision_ecod",
+    feature_extractor=IdentityExtractor(),
+    contamination=0.1,
+)
+est.fit(X_train)
+scores = est.decision_function(X_test)
+```

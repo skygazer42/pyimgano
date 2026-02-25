@@ -31,7 +31,7 @@ pip install pyimgano
 
 ```bash
 pyimgano-train \
-  --config examples/configs/industrial_adapt_defects_roi.json \
+  --config examples/configs/industrial_adapt_defects_fp40.json \
   --export-infer-config
 ```
 
@@ -50,6 +50,7 @@ pyimgano-infer \
 - `docs/WORKBENCH.md`
 - `docs/CLI_REFERENCE.md`
 - `docs/INDUSTRIAL_INFERENCE.md`
+- `docs/FALSE_POSITIVE_DEBUGGING.md`
 
 ## 모델 탐색(CLI)
 
@@ -58,4 +59,3 @@ pyimgano-benchmark --list-models
 pyimgano-benchmark --list-models --tags numpy,pixel_map
 pyimgano-benchmark --model-info vision_patchcore --json
 ```
-

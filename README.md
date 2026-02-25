@@ -58,7 +58,7 @@ Start from the provided template and edit dataset paths:
 
 ```bash
 pyimgano-train \
-  --config examples/configs/industrial_adapt_defects_roi.json \
+  --config examples/configs/industrial_adapt_defects_fp40.json \
   --export-infer-config
 ```
 
@@ -66,6 +66,12 @@ This writes a run directory (under `runs/` by default) containing:
 
 - `artifacts/infer_config.json` (model + threshold + postprocess + defects config)
 - `report.json` and `per_image.jsonl` (auditable run artifacts)
+
+Optional (deploy bundle): copy a single directory to servers/containers:
+
+```bash
+pyimgano-train --config cfg.json --export-deploy-bundle
+```
 
 ### Inference → JSONL (+ optional defect masks/regions)
 
@@ -82,6 +88,7 @@ Guides:
 - `docs/WORKBENCH.md` (train/export flow)
 - `docs/CLI_REFERENCE.md` (all flags + JSONL schema)
 - `docs/INDUSTRIAL_INFERENCE.md` (tiling + defects + ROI notes)
+- `docs/FALSE_POSITIVE_DEBUGGING.md` (overlays + FP tuning loop)
 
 ### One-off inference (no workbench)
 
@@ -221,6 +228,7 @@ This is intended for downstream inspection systems that need more than a single 
 Docs:
 - `docs/CLI_REFERENCE.md` (JSONL schema + examples)
 - `docs/INDUSTRIAL_INFERENCE.md` (defects + ROI configuration)
+- `docs/FALSE_POSITIVE_DEBUGGING.md` (how to tune down false positives)
 
 ## Optional dependencies
 

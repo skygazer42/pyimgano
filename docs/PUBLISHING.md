@@ -15,6 +15,27 @@ you need to publish a release to **PyPI**.
 - A PyPI API token (recommended) or a username/password (not recommended)
 - Python 3.9+
 
+## Authentication (Twine)
+
+For token-based auth (recommended), set:
+
+```bash
+export TWINE_USERNAME=__token__
+export TWINE_PASSWORD="pypi-<your-api-token>"
+```
+
+Then:
+
+```bash
+twine upload dist/*
+```
+
+If you see:
+
+- `HTTPError: 403 Forbidden ... Invalid or non-existent authentication information`
+
+it almost always means the token is missing/incorrect, or `TWINE_USERNAME` was not set to `__token__`.
+
 ## 1) Pick a version
 
 PyPI does **not** allow re-uploading the same version.

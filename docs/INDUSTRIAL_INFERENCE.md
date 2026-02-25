@@ -248,3 +248,6 @@ Notes:
 - Use `--save-overlays DIR` to export per-image FP debugging overlays (original + heatmap + mask outline/fill).
 - Defect coordinates (`bbox_xyxy`, `centroid_xy`) are in **anomaly-map pixel space**.
 - Pixel threshold provenance is always emitted as `defects.pixel_threshold_provenance` for auditability.
+
+For practical false-positive tuning workflows (ROI, border suppression, smoothing, hysteresis, shape filters, tiling seams),
+see: `docs/FALSE_POSITIVE_DEBUGGING.md`.

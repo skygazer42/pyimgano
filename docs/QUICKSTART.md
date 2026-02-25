@@ -40,12 +40,65 @@ pip install "patchcore @ git+https://github.com/amazon-science/patchcore-inspect
 pip install "pyimgano[all]"
 ```
 
+Notes:
+
+- Some optional backends are **not on PyPI** (for example `patchcore-inspection`). Because PyPI package metadata
+  does not allow direct VCS URL dependencies, `pyimgano` does not try to vendor these dependencies inside extras.
+  Install them separately when needed.
+
 ### Verify Installation
 
 ```python
 import pyimgano
 print(f"PyImgAno version: {pyimgano.__version__}")
 ```
+
+---
+
+## Recommended dataset inputs (paths-first)
+
+For industrial inspection, the recommended integration pattern is **paths-first**:
+
+- keep images on disk
+- pass `list[str]` paths into `fit(...)` / `decision_function(...)`
+- use workbench runs + `infer_config.json` as the deploy artifact
+
+This avoids large in-memory batches and keeps runs auditable.
+
+### Custom datasets: JSONL manifest
+
+If your data does not match MVTec/VisA layouts, use the manifest dataset:
+
+1) Generate a manifest from a simple custom layout:
+
+```bash
+pyimgano-manifest \
+  --root /path/to/dataset_root \
+  --out /path/to/manifest.jsonl \
+  --category my_category
+```
+
+2) Use it in a workbench config:
+
+```json
+{
+  "recipe": "industrial-adapt",
+  "dataset": {
+    "name": "manifest",
+    "root": "/path/to/dataset_root",
+    "manifest_path": "/path/to/manifest.jsonl",
+    "category": "my_category",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {"name": "vision_patchcore", "device": "cuda", "contamination": 0.1}
+}
+```
+
+References:
+
+- `docs/MANIFEST_DATASET.md`
+- `docs/WORKBENCH.md`
 
 ## Your First Anomaly Detection
 

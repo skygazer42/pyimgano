@@ -536,6 +536,48 @@ pipeline.add_step('clahe', clip_limit=2.0)
 pipeline.add_step('normalize', method='robust')
 ```
 
+### Industrial illumination & contrast normalization (optional)
+
+In production, many false positives are caused by **illumination drift**:
+
+- lighting changes between shifts
+- camera exposure/white balance drift
+- lens vignetting or non-uniform illumination
+
+PyImgAno provides an opt-in, uint8-preserving preset chain:
+
+```python
+import cv2
+
+from pyimgano.preprocessing import IlluminationContrastKnobs, apply_illumination_contrast
+
+img = cv2.imread("frame.png")  # OpenCV BGR uint8
+
+knobs = IlluminationContrastKnobs(
+    white_balance="gray_world",
+    homomorphic=True,
+    clahe=True,
+    gamma=0.9,
+    contrast_stretch=False,
+)
+img2 = apply_illumination_contrast(img, knobs=knobs)
+```
+
+If you prefer the pipeline style:
+
+```python
+from pyimgano.preprocessing import PreprocessingPipeline
+
+pipeline = PreprocessingPipeline().add_step(
+    "illumination_contrast",
+    white_balance="gray_world",
+    homomorphic=True,
+    clahe=True,
+    gamma=0.9,
+)
+img2 = pipeline.transform(img)
+```
+
 ### 2. Order Matters
 
 Apply operations in the right order:

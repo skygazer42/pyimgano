@@ -48,6 +48,37 @@ It runs a standardized loop:
 - optional anomaly-map postprocess (normalize / blur / morphology)
 - evaluate metrics and write artifacts
 
+### `industrial-adapt-highres`
+
+High-resolution tiling preset for industrial inspection images (2K/4K).
+
+This recipe sets practical defaults when the config does not explicitly request tiling:
+
+- `adaptation.tiling.tile_size = 512`
+- `adaptation.tiling.stride = 384` (overlap to reduce seam artifacts)
+- `adaptation.tiling.map_reduce = "hann"` (seam-reducing blending)
+- `adaptation.postprocess` default: percentile normalization + light gaussian blur
+- `adaptation.save_maps = true` (so outputs can be audited and reused for inference)
+
+Use this when you know your images are too large for a single `Resize(256,256)` style flow.
+
+### `industrial-adapt-fp40`
+
+False-positive reduction preset intended for the deploy flow:
+
+1) run workbench and export `infer_config.json`
+2) run inference with `pyimgano-infer --infer-config ... --defects`
+
+This recipe forces `defects.enabled=true` and applies best-effort FP40 defaults for:
+
+- ROI gating (`defects.roi_xyxy_norm`)
+- border suppression (`defects.border_ignore_px`)
+- anomaly-map smoothing + hysteresis
+- shape filters + small-area removal
+- region merging + stable `max_regions`
+
+It also sets `adaptation.save_maps=true` so that infer-config can auto-enable maps/postprocess.
+
 ### `micro-finetune-autoencoder`
 
 Micro-finetune recipe intended for small autoencoder-style models. It writes a
@@ -55,6 +86,15 @@ checkpoint under `checkpoints/` and produces a workbench-style run report.
 
 For end-to-end “train + eval” runs, you can also enable the `training` section
 inside `industrial-adapt`.
+
+### `anomalib-train` (optional; placeholder)
+
+Recipe skeleton intended for future end-to-end anomalib training integration.
+
+For now:
+
+- train in anomalib
+- use `vision_*_anomalib` backends or `vision_anomalib_checkpoint` for evaluation/inference in `pyimgano`
 
 ---
 

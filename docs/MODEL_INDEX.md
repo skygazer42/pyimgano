@@ -4,6 +4,28 @@ This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_in
 
 Total registered model names: **123**
 
+## Discovering models
+
+From the CLI:
+
+```bash
+pyimgano-benchmark --list-models
+pyimgano-benchmark --list-models --tags numpy,pixel_map
+pyimgano-benchmark --model-info vision_patchcore --json
+```
+
+From Python:
+
+```python
+from pyimgano.models import list_models
+print(list_models(tags=["pixel_map"])[:10])
+```
+
+## Adding your own model
+
+Register models via `@register_model(...)` and implement the detector contract (`fit`, `decision_function`).
+See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
+
 | Name | Tags | Year | Backend | Description | Module |
 |---|---|---:|---|---|---|
 | `ae_resnet_unet` | vision, deep, autoencoder |  |  | 基于 ResNet-UNet 的重建式异常检测器 | `pyimgano/models/ae.py` |
