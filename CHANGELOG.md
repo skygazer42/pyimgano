@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.19] - 2026-02-25
+
+### Inference
+- Added streaming inference API: `pyimgano.inference.infer_iter(...)` (recommended for large runs with anomaly maps).
+- `pyimgano-infer` now streams JSONL output and supports chunked inference (`--batch-size`) to reduce peak memory.
+- Added best-effort AMP/autocast for torch-backed models (`--amp`) and a stage timing summary (`--profile`).
+- Added `--include-anomaly-map-values` to embed raw anomaly-map values in JSONL (debug only; very large output).
+
+### Defects
+- Added compressed mask export format `npz` (`--mask-format npz`) for large batches.
+
+### Tiling
+- `TiledDetector` now caches tile coordinate grids per image shape for better throughput on repeated input sizes.
+
+### Docs
+- Documented tiling knobs in the CLI reference and expanded practical guidance for seam blending (`hann`/`gaussian`).
+
+### Tests
+- Added coverage for NPZ mask export and tiling coordinate caching.
+
 ## [0.6.18] - 2026-02-25
 
 ### Defects
