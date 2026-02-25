@@ -83,3 +83,28 @@ def test_extract_defects_from_anomaly_map_can_ignore_border_pixels() -> None:
     assert int(out["mask"][0, 0]) == 0
     assert int(out["mask"][3, 3]) == 255
     assert len(out["regions"]) == 1
+
+
+def test_extract_defects_from_anomaly_map_can_smooth_maps_before_threshold() -> None:
+    amap = np.zeros((9, 9), dtype=np.float32)
+    amap[1, 1] = 1.0  # isolated noise pixel
+    amap[5:8, 5:8] = 1.0  # real defect blob (3x3)
+
+    out = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        border_ignore_px=0,
+        map_smoothing_method="median",
+        map_smoothing_ksize=3,
+        map_smoothing_sigma=0.0,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_regions=None,
+    )
+
+    assert int(out["mask"][1, 1]) == 0
+    assert int(out["mask"][6, 6]) == 255
+    assert len(out["regions"]) == 1

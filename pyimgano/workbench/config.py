@@ -150,6 +150,13 @@ class TrainingConfig:
 
 
 @dataclass(frozen=True)
+class MapSmoothingConfig:
+    method: str = "none"
+    ksize: int = 0
+    sigma: float = 0.0
+
+
+@dataclass(frozen=True)
 class DefectsConfig:
     enabled: bool = False
     pixel_threshold: float | None = None
@@ -158,6 +165,7 @@ class DefectsConfig:
     mask_format: str = "png"
     roi_xyxy_norm: tuple[float, float, float, float] | None = None
     border_ignore_px: int = 0
+    map_smoothing: MapSmoothingConfig = field(default_factory=MapSmoothingConfig)
     min_area: int = 0
     min_score_max: float | None = None
     min_score_mean: float | None = None
@@ -405,6 +413,35 @@ class WorkbenchConfig:
             if mask_format not in ("png", "npy"):
                 raise ValueError("defects.mask_format must be 'png' or 'npy'")
 
+            ms_raw = d_map.get("map_smoothing", None)
+            if ms_raw is None:
+                map_smoothing = MapSmoothingConfig()
+            else:
+                ms_map = _require_mapping(ms_raw, name="defects.map_smoothing")
+                ms_method = str(ms_map.get("method", "none")).lower().strip()
+                if ms_method not in ("none", "median", "gaussian", "box"):
+                    raise ValueError(
+                        "defects.map_smoothing.method must be one of: none|median|gaussian|box"
+                    )
+                ms_ksize = int(
+                    _optional_int(ms_map.get("ksize", 0), name="defects.map_smoothing.ksize") or 0
+                )
+                ms_sigma = _optional_float(ms_map.get("sigma", 0.0), name="defects.map_smoothing.sigma")
+                ms_sigma_v = float(ms_sigma if ms_sigma is not None else 0.0)
+                if ms_ksize < 0:
+                    raise ValueError("defects.map_smoothing.ksize must be >= 0")
+                if ms_sigma_v < 0.0:
+                    raise ValueError("defects.map_smoothing.sigma must be >= 0")
+
+                if ms_method in ("median", "box") and ms_ksize not in (0, 1) and ms_ksize < 3:
+                    raise ValueError("defects.map_smoothing.ksize must be >= 3 for median/box smoothing")
+
+                map_smoothing = MapSmoothingConfig(
+                    method=ms_method,
+                    ksize=ms_ksize,
+                    sigma=ms_sigma_v,
+                )
+
             defects = DefectsConfig(
                 enabled=bool(d_map.get("enabled", False)),
                 pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
@@ -413,6 +450,7 @@ class WorkbenchConfig:
                 mask_format=mask_format,
                 roi_xyxy_norm=_parse_roi_xyxy_norm(d_map.get("roi_xyxy_norm", None)),
                 border_ignore_px=border_ignore_px,
+                map_smoothing=map_smoothing,
                 min_area=min_area,
                 min_score_max=(float(min_score_max) if min_score_max is not None else None),
                 min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),

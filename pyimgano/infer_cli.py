@@ -72,6 +72,16 @@ def _apply_defects_defaults_from_payload(
             raise ValueError("infer-config defects.mask_format must be 'png' or 'npy'")
         return fmt
 
+    def _coerce_smoothing_method(value: Any) -> str | None:
+        if value is None:
+            return None
+        method = str(value).lower().strip()
+        if method in ("none", "median", "gaussian", "box"):
+            return method
+        raise ValueError(
+            "infer-config defects.map_smoothing.method must be one of: none|median|gaussian|box"
+        )
+
     # Apply defaults only when the CLI did not explicitly set a value.
     if args.roi_xyxy_norm is None:
         roi = _coerce_roi(defects_payload.get("roi_xyxy_norm", None))
@@ -88,6 +98,24 @@ def _apply_defects_defaults_from_payload(
         v = _coerce_int(defects_payload.get("border_ignore_px", None), name="border_ignore_px")
         if v is not None:
             args.defect_border_ignore_px = int(v)
+
+    # Optional map smoothing block.
+    ms_raw = defects_payload.get("map_smoothing", None)
+    if ms_raw is not None:
+        if not isinstance(ms_raw, dict):
+            raise ValueError("infer-config defects.map_smoothing must be a JSON object/dict.")
+        if str(getattr(args, "defect_map_smoothing", "none")) == "none":
+            v = _coerce_smoothing_method(ms_raw.get("method", None))
+            if v is not None:
+                args.defect_map_smoothing = str(v)
+        if int(getattr(args, "defect_map_smoothing_ksize", 0)) == 0:
+            v = _coerce_int(ms_raw.get("ksize", None), name="map_smoothing.ksize")
+            if v is not None:
+                args.defect_map_smoothing_ksize = int(v)
+        if float(getattr(args, "defect_map_smoothing_sigma", 0.0)) == 0.0:
+            v = _coerce_float(ms_raw.get("sigma", None), name="map_smoothing.sigma")
+            if v is not None:
+                args.defect_map_smoothing_sigma = float(v)
 
     if getattr(args, "defect_min_score_max", None) is None:
         v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
@@ -292,6 +320,24 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Ignore N pixels at the anomaly-map border for defects extraction (default: 0)",
+    )
+    parser.add_argument(
+        "--defect-map-smoothing",
+        default="none",
+        choices=["none", "median", "gaussian", "box"],
+        help="Optional anomaly-map smoothing method for defects extraction (default: none)",
+    )
+    parser.add_argument(
+        "--defect-map-smoothing-ksize",
+        type=int,
+        default=0,
+        help="Optional smoothing kernel size (method dependent; default: 0)",
+    )
+    parser.add_argument(
+        "--defect-map-smoothing-sigma",
+        type=float,
+        default=0.0,
+        help="Optional gaussian sigma for map smoothing (default: 0.0)",
     )
     parser.add_argument(
         "--defect-min-score-max",
@@ -750,6 +796,9 @@ def main(argv: list[str] | None = None) -> int:
                         pixel_threshold=float(pixel_threshold_value),
                         roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
                         border_ignore_px=int(args.defect_border_ignore_px),
+                        map_smoothing_method=str(args.defect_map_smoothing),
+                        map_smoothing_ksize=int(args.defect_map_smoothing_ksize),
+                        map_smoothing_sigma=float(args.defect_map_smoothing_sigma),
                         open_ksize=int(args.defect_open_ksize),
                         close_ksize=int(args.defect_close_ksize),
                         fill_holes=bool(args.defect_fill_holes),

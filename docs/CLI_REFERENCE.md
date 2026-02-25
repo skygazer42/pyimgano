@@ -134,6 +134,10 @@ Optional:
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
     - If ROI is set and you calibrate pixel threshold via `normal_pixel_quantile`, calibration uses ROI pixels only.
   - `--defect-border-ignore-px INT` (optional; ignores N pixels at the anomaly-map border for defects extraction)
+  - Map smoothing (optional; reduces speckle before thresholding):
+    - `--defect-map-smoothing none|median|gaussian|box`
+    - `--defect-map-smoothing-ksize INT`
+    - `--defect-map-smoothing-sigma FLOAT` (gaussian only)
   - Region-level filters (optional):
     - `--defect-min-score-max FLOAT` — drop components whose max anomaly score is below the threshold
     - `--defect-min-score-mean FLOAT` — drop components whose mean anomaly score is below the threshold

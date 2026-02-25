@@ -204,6 +204,8 @@ Notes:
 - `--defects` implies `--include-maps` (defects are derived from anomaly maps).
 - ROI gating affects **defects output only** by default (mask/regions), not image-level `score`/`label`.
 - When calibrating pixel threshold via `normal_pixel_quantile` and ROI is set, calibration uses ROI pixels only.
+- Use `--defect-border-ignore-px N` to suppress common edge artifacts (padding/tiling seams/sensor borders).
+- Use `--defect-map-smoothing median|gaussian|box` to reduce single-pixel speckles before thresholding.
 - Use `--defect-min-score-max` / `--defect-min-score-mean` to drop low-confidence speckles after thresholding.
 - Defect coordinates (`bbox_xyxy`, `centroid_xy`) are in **anomaly-map pixel space**.
 - Pixel threshold provenance is always emitted as `defects.pixel_threshold_provenance` for auditability.

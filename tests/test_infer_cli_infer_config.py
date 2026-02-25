@@ -279,6 +279,91 @@ def test_infer_cli_supports_infer_config_defects_border_ignore_px(
     assert len(first["defects"]["regions"]) == 1
 
 
+def test_infer_cli_supports_infer_config_defects_map_smoothing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    ckpt_dir = run_dir / "checkpoints" / "custom"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_path = ckpt_dir / "model.pt"
+    ckpt_path.write_text("ckpt", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+                "defects": {
+                    "pixel_threshold": 0.5,
+                    "map_smoothing": {"method": "median", "ksize": 3, "sigma": 0.0},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _DummyMapDetector:
+        def __init__(self):
+            self.threshold_ = None
+            self.loaded = None
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            self.loaded = str(path)
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+        def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
+            _ = item
+            m = np.zeros((9, 9), dtype=np.float32)
+            m[1, 1] = 1.0  # isolated noise pixel
+            m[5:8, 5:8] = 1.0  # defect blob
+            return m
+
+    det = _DummyMapDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    lines = out_jsonl.read_text(encoding="utf-8").strip().splitlines()
+    first = json.loads(lines[0])
+    assert len(first["defects"]["regions"]) == 1
+
+
 def test_infer_cli_infer_config_recalibrates_pixel_threshold_when_train_dir_provided(
     tmp_path: Path,
     monkeypatch,

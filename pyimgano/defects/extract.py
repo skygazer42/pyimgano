@@ -9,6 +9,7 @@ from pyimgano.defects.map_ops import apply_border_ignore_to_map, apply_roi_to_ma
 from pyimgano.defects.mask import anomaly_map_to_binary_mask
 from pyimgano.defects.regions import extract_regions_from_mask
 from pyimgano.defects.roi import roi_mask_from_xyxy_norm
+from pyimgano.defects.smoothing import smooth_anomaly_map
 
 
 def extract_defects_from_anomaly_map(
@@ -17,6 +18,9 @@ def extract_defects_from_anomaly_map(
     pixel_threshold: float,
     roi_xyxy_norm: Sequence[float] | None,
     border_ignore_px: int = 0,
+    map_smoothing_method: str = "none",
+    map_smoothing_ksize: int = 0,
+    map_smoothing_sigma: float = 0.0,
     open_ksize: int,
     close_ksize: int,
     fill_holes: bool,
@@ -36,6 +40,12 @@ def extract_defects_from_anomaly_map(
 
     amap_roi = apply_roi_to_map(amap, roi_xyxy_norm=roi_xyxy_norm)
     amap_roi = apply_border_ignore_to_map(amap_roi, border_ignore_px=int(border_ignore_px))
+    amap_roi = smooth_anomaly_map(
+        amap_roi,
+        method=str(map_smoothing_method),
+        ksize=int(map_smoothing_ksize),
+        sigma=float(map_smoothing_sigma),
+    )
     map_stats_roi = compute_roi_stats(amap, roi_xyxy_norm=roi_xyxy_norm)
 
     mask = anomaly_map_to_binary_mask(amap_roi, pixel_threshold=float(pixel_threshold))
