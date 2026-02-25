@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from pyimgano.inference.api import calibrate_threshold, infer, result_to_jsonable
+from pyimgano.inference.api import InferenceTiming, calibrate_threshold, infer_iter, result_to_jsonable
 from pyimgano.models.registry import create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 
@@ -832,7 +832,14 @@ def main(argv: list[str] | None = None) -> int:
                         else None
                     ),
                 )
-                calibrate_threshold(detector, train_paths, quantile=float(q), amp=bool(args.amp))
+                batch_size = (int(args.batch_size) if int(args.batch_size) > 0 else None)
+                calibrate_threshold(
+                    detector,
+                    train_paths,
+                    quantile=float(q),
+                    batch_size=batch_size,
+                    amp=bool(args.amp),
+                )
 
         inputs: list[str] = []
         for raw in args.input:
@@ -880,17 +887,18 @@ def main(argv: list[str] | None = None) -> int:
                     # even if the infer-config/run contains a pre-set pixel threshold.
                     infer_cfg_thr_for_resolve = None
 
-                    train_results_for_pixel = infer(
+                    batch_size = (int(args.batch_size) if int(args.batch_size) > 0 else None)
+                    calibration_maps = []
+                    for r in infer_iter(
                         detector,
                         train_paths,
                         include_maps=True,
                         postprocess=postprocess,
-                        batch_size=(int(args.batch_size) if int(args.batch_size) > 0 else None),
+                        batch_size=batch_size,
                         amp=bool(args.amp),
-                    )
-                    calibration_maps = [
-                        r.anomaly_map for r in train_results_for_pixel if r.anomaly_map is not None
-                    ]
+                    ):
+                        if r.anomaly_map is not None:
+                            calibration_maps.append(r.anomaly_map)
 
             pixel_threshold_value, pixel_threshold_provenance = resolve_pixel_threshold(
                 pixel_threshold=(float(args.pixel_threshold) if args.pixel_threshold is not None else None),
@@ -904,16 +912,17 @@ def main(argv: list[str] | None = None) -> int:
 
         t_fit_calibrate = time.perf_counter() - t_fit_start
 
-        t_infer_start = time.perf_counter()
-        results = infer(
+        infer_timing = InferenceTiming()
+        batch_size = (int(args.batch_size) if int(args.batch_size) > 0 else None)
+        results_iter = infer_iter(
             detector,
             inputs,
             include_maps=bool(args.include_maps),
             postprocess=postprocess,
-            batch_size=(int(args.batch_size) if int(args.batch_size) > 0 else None),
+            batch_size=batch_size,
             amp=bool(args.amp),
+            timing=infer_timing,
         )
-        t_infer = time.perf_counter() - t_infer_start
 
         maps_dir: Path | None = None
         if args.save_maps is not None:
@@ -939,8 +948,10 @@ def main(argv: list[str] | None = None) -> int:
             out_f = out_path.open("w", encoding="utf-8")
 
         try:
-            t_artifacts_start = time.perf_counter()
-            for i, (input_path, result) in enumerate(zip(inputs, results)):
+            t_loop_start = time.perf_counter()
+            count = 0
+            for i, (input_path, result) in enumerate(zip(inputs, results_iter)):
+                count += 1
                 anomaly_map_path: str | None = None
                 if maps_dir is not None:
                     if result.anomaly_map is None:
@@ -1088,7 +1099,15 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     print(line)
 
-            t_artifacts = time.perf_counter() - t_artifacts_start
+            t_loop = time.perf_counter() - t_loop_start
+            t_infer = float(infer_timing.seconds)
+            t_artifacts = max(0.0, float(t_loop) - float(t_infer))
+
+            if count != len(inputs):
+                raise RuntimeError(
+                    "Internal error: inference iterator produced fewer results than inputs "
+                    f"({count} vs {len(inputs)})."
+                )
         finally:
             if out_f is not None:
                 out_f.close()

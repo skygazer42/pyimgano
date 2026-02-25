@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import warnings
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -19,6 +20,13 @@ class InferenceResult:
     score: float
     label: Optional[int] = None
     anomaly_map: Optional[np.ndarray] = None
+
+
+@dataclass
+class InferenceTiming:
+    """Accumulate best-effort wallclock inference time (seconds)."""
+
+    seconds: float = 0.0
 
 
 def _normalize_inputs(
@@ -59,6 +67,7 @@ def calibrate_threshold(
     *,
     input_format: str | ImageFormat | None = None,
     quantile: float = 0.995,
+    batch_size: int | None = None,
     amp: bool = False,
 ) -> float:
     """Calibrate `detector.threshold_` by a score quantile on normal samples."""
@@ -67,8 +76,26 @@ def calibrate_threshold(
         raise ValueError(f"quantile must be in (0,1), got {quantile}")
 
     normalized = _normalize_inputs(calibration_inputs, input_format=input_format)
+    if not normalized:
+        raise ValueError("calibration_inputs must be non-empty.")
+
+    bs: int | None
+    if batch_size is None:
+        bs = None
+    else:
+        bsv = int(batch_size)
+        bs = (bsv if bsv > 0 else None)
+
+    chunks = [normalized] if bs is None or bs >= len(normalized) else []
+    if not chunks:
+        for start in range(0, len(normalized), int(bs)):
+            chunks.append(normalized[start : start + int(bs)])
+
+    scores_all: list[np.ndarray] = []
     with _torch_inference_context(amp=bool(amp)):
-        scores = _call_decision_function(detector, normalized)
+        for chunk in chunks:
+            scores_all.append(_call_decision_function(detector, chunk))
+    scores = np.concatenate(scores_all, axis=0)
     if scores.size == 0:
         raise ValueError("No scores produced for calibration inputs.")
 
@@ -185,6 +212,36 @@ def infer(
     - For path inputs, `input_format` is ignored and paths are forwarded as-is.
     """
 
+    return list(
+        infer_iter(
+            detector,
+            inputs,
+            input_format=input_format,
+            include_maps=include_maps,
+            postprocess=postprocess,
+            batch_size=batch_size,
+            amp=amp,
+        )
+    )
+
+
+def infer_iter(
+    detector: Any,
+    inputs: Sequence[ImageInput],
+    *,
+    input_format: str | ImageFormat | None = None,
+    include_maps: bool = False,
+    postprocess: AnomalyMapPostprocess | None = None,
+    batch_size: int | None = None,
+    amp: bool = False,
+    timing: InferenceTiming | None = None,
+):
+    """Iterator version of :func:`infer` (doesn't store all outputs).
+
+    This is recommended for large runs with anomaly maps, since keeping per-image
+    float32 maps in memory can be expensive.
+    """
+
     normalized = _normalize_inputs(inputs, input_format=input_format)
     threshold = getattr(detector, "threshold_", None)
 
@@ -195,7 +252,8 @@ def infer(
         bsv = int(batch_size)
         bs = (bsv if bsv > 0 else None)
 
-    def _infer_chunk(chunk: Sequence[Any]) -> list[InferenceResult]:
+    def _yield_chunk(chunk: Sequence[Any]):
+        t0 = time.perf_counter()
         with _torch_inference_context(amp=bool(amp)):
             scores = _call_decision_function(detector, chunk)
 
@@ -218,22 +276,21 @@ def infer(
                         if postprocess is not None:
                             processed = postprocess(processed)
                         maps.append(np.asarray(processed, dtype=np.float32))
+        if timing is not None:
+            timing.seconds += time.perf_counter() - t0
 
-        out: list[InferenceResult] = []
         for i in range(int(scores.shape[0])):
             label = int(labels[i]) if labels is not None else None
             anomaly_map = maps[i] if maps is not None else None
-            out.append(InferenceResult(score=float(scores[i]), label=label, anomaly_map=anomaly_map))
-        return out
+            yield InferenceResult(score=float(scores[i]), label=label, anomaly_map=anomaly_map)
 
     if bs is None or bs >= len(normalized):
-        return _infer_chunk(normalized)
+        yield from _yield_chunk(normalized)
+        return
 
-    results: list[InferenceResult] = []
     for start in range(0, len(normalized), int(bs)):
         chunk = normalized[start : start + int(bs)]
-        results.extend(_infer_chunk(chunk))
-    return results
+        yield from _yield_chunk(chunk)
 
 
 def result_to_jsonable(
