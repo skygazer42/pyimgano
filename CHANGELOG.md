@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.20] - 2026-02-25
+
+### Infer-config
+- Added infer-config validation utilities and CLI: `pyimgano-validate-infer-config`.
+- Added deploy bundle export (`pyimgano-train --export-deploy-bundle`) which writes a `deploy_bundle/` directory containing:
+  - `infer_config.json`
+  - referenced checkpoints (preserving relative paths)
+  - best-effort run metadata when available
+
+### Inference
+- `pyimgano-infer` now supports `--seed` for best-effort reproducibility (also passed as `random_seed/random_state` when supported).
+
+### Docs
+- Updated workbench and CLI reference docs to include deploy bundle + infer-config validation workflows.
+
+### Tests
+- Added coverage for deploy bundle export and tiling defaults loaded from infer-config.
+
 ## [0.6.19] - 2026-02-25
 
 ### Inference
