@@ -55,6 +55,13 @@ This writes a run directory containing:
 - optional: `artifacts/maps/*.npy`
 - optional: `checkpoints/<cat>/...`
 
+Optionally, export a deploy-friendly bundle directory (infer-config + checkpoints + metadata):
+
+```bash
+pyimgano-train --config cfg.json --export-deploy-bundle
+pyimgano-validate-infer-config /path/to/run_dir/deploy_bundle/infer_config.json
+```
+
 5) Reuse the run for inference:
 
 ```bash

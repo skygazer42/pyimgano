@@ -242,6 +242,12 @@ See also: `docs/RECIPES.md`
 pyimgano-train --config cfg.json
 ```
 
+Common outputs:
+
+- `--export-infer-config` — write `artifacts/infer_config.json` into the run directory
+- `--export-deploy-bundle` — write `deploy_bundle/` (includes `infer_config.json` + referenced checkpoints)
+  - Validate the bundle with: `pyimgano-validate-infer-config deploy_bundle/infer_config.json`
+
 ### Artifact layout
 
 Workbench runs follow a benchmark-compatible layout and add extra folders:

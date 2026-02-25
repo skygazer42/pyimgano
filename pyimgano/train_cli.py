@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write artifacts/infer_config.json to the run directory (requires output.save_run=true)",
     )
+    parser.add_argument(
+        "--export-deploy-bundle",
+        action="store_true",
+        help=(
+            "Create a deploy_bundle/ directory under the run directory containing "
+            "infer_config.json + referenced checkpoints + (best-effort) metadata. "
+            "Requires output.save_run=true."
+        ),
+    )
 
     # Optional overrides (applied after loading --config).
     parser.add_argument("--dataset", default=None, help="Override dataset.name from config")
@@ -51,6 +61,83 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default=None, help="Override model.device from config")
 
     return parser
+
+
+def _gather_checkpoint_paths_from_infer_config(payload: dict[str, Any]) -> list[str]:
+    """Collect checkpoint paths referenced by an infer-config payload."""
+
+    out: list[str] = []
+
+    def _add(obj: Any) -> None:
+        if not isinstance(obj, dict):
+            return
+        ckpt = obj.get("checkpoint", None)
+        if not isinstance(ckpt, dict):
+            return
+        raw = ckpt.get("path", None)
+        if raw is None:
+            return
+        text = str(raw).strip()
+        if text:
+            out.append(text)
+
+    _add(payload)
+    per_category = payload.get("per_category", None)
+    if isinstance(per_category, dict):
+        for _cat, cat_payload in per_category.items():
+            _add(cat_payload)
+
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for p in out:
+        if p in seen:
+            continue
+        seen.add(p)
+        uniq.append(p)
+    return uniq
+
+
+def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]) -> Path:
+    """Export a deploy-friendly bundle directory under `run_dir`."""
+
+    bundle_dir = run_dir / "deploy_bundle"
+    if bundle_dir.exists():
+        raise FileExistsError(f"deploy bundle already exists: {bundle_dir}")
+    bundle_dir.mkdir(parents=True, exist_ok=False)
+
+    # Copy the infer-config to a stable location.
+    infer_src = run_dir / "artifacts" / "infer_config.json"
+    if not infer_src.exists():
+        raise FileNotFoundError(f"infer_config.json not found: {infer_src}")
+    shutil.copy2(infer_src, bundle_dir / "infer_config.json")
+
+    # Best-effort: include run-level metadata when present.
+    for name in ("report.json", "config.json", "environment.json"):
+        src = run_dir / name
+        if src.exists():
+            shutil.copy2(src, bundle_dir / name)
+
+    # Copy referenced checkpoints, preserving relative paths so `resolve_infer_checkpoint_path`
+    # works when the bundle is moved to a new machine.
+    for raw in _gather_checkpoint_paths_from_infer_config(infer_config_payload):
+        p = Path(raw)
+        if p.is_absolute():
+            # If an absolute checkpoint is referenced, copy it into the bundle and
+            # rely on users to rewrite infer-config if needed.
+            dst = bundle_dir / "checkpoints_abs" / p.name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(p, dst)
+            continue
+
+        src = (run_dir / p).resolve()
+        if not src.exists():
+            raise FileNotFoundError(f"Checkpoint referenced by infer-config not found: {src}")
+
+        dst = (bundle_dir / p).resolve()
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+    return bundle_dir
 
 
 def _apply_overrides(raw: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
@@ -158,19 +245,36 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         report = recipe(cfg)
 
-        if bool(args.export_infer_config):
+        infer_config_payload: dict[str, Any] | None = None
+        if bool(args.export_infer_config) or bool(args.export_deploy_bundle):
+            if bool(args.export_deploy_bundle) and bool(cfg.defects.enabled) and cfg.defects.pixel_threshold is None:
+                raise ValueError(
+                    "--export-deploy-bundle with defects.enabled=true requires defects.pixel_threshold to be set.\n"
+                    "Deploy bundles are intended to be self-contained for `pyimgano-infer --infer-config ... --defects`."
+                )
             if not bool(cfg.output.save_run):
-                raise ValueError("--export-infer-config requires output.save_run=true.")
+                raise ValueError("--export-infer-config/--export-deploy-bundle require output.save_run=true.")
             run_dir_raw = report.get("run_dir", None)
             if run_dir_raw is None:
-                raise ValueError("--export-infer-config requires recipe output to include run_dir.")
+                raise ValueError("--export-infer-config/--export-deploy-bundle require recipe output to include run_dir.")
             run_dir = Path(str(run_dir_raw))
             infer_config_path = run_dir / "artifacts" / "infer_config.json"
 
             from pyimgano.workbench.runner import build_infer_config_payload
 
-            payload = build_infer_config_payload(config=cfg, report=report)
-            save_run_report(infer_config_path, payload)
+            infer_config_payload = build_infer_config_payload(config=cfg, report=report)
+            save_run_report(infer_config_path, infer_config_payload)
+
+        if bool(args.export_deploy_bundle):
+            if infer_config_payload is None:
+                raise RuntimeError("Internal error: infer-config payload was not built for deploy bundle.")
+            run_dir_raw = report.get("run_dir", None)
+            if run_dir_raw is None:
+                raise ValueError("--export-deploy-bundle requires recipe output to include run_dir.")
+            run_dir = Path(str(run_dir_raw))
+            bundle_dir = _export_deploy_bundle(run_dir=run_dir, infer_config_payload=infer_config_payload)
+            report = dict(report)
+            report["deploy_bundle_dir"] = str(bundle_dir)
 
         print(json.dumps(report, sort_keys=True))
         return 0
