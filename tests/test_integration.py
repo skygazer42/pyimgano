@@ -260,6 +260,24 @@ class TestSaveLoad:
         detector = models.create_model('vision_ecod', contamination=0.1)
         detector.fit(synthetic_dataset['train'])
 
+        # Get original predictions
+        original_scores = detector.decision_function(synthetic_dataset['test_all'])
+
+        # Save
+        model_path = tmp_path / 'detector.pkl'
+        with open(model_path, 'wb') as f:
+            pickle.dump(detector, f)
+
+        # Load
+        with open(model_path, 'rb') as f:
+            loaded_detector = pickle.load(f)
+
+        # Get loaded predictions
+        loaded_scores = loaded_detector.decision_function(synthetic_dataset['test_all'])
+
+        # Compare
+        np.testing.assert_array_almost_equal(original_scores, loaded_scores)
+
 
 def _write_manifest_jsonl(path: Path, *, records: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -342,24 +360,6 @@ def test_workbench_recipe_smoke_manifest(tmp_path: Path, recipe_name: str) -> No
     assert payload.get("dataset") == "manifest"
     assert payload.get("category") == "demo"
     assert "schema_version" in payload
-
-        # Get original predictions
-        original_scores = detector.decision_function(synthetic_dataset['test_all'])
-
-        # Save
-        model_path = tmp_path / 'detector.pkl'
-        with open(model_path, 'wb') as f:
-            pickle.dump(detector, f)
-
-        # Load
-        with open(model_path, 'rb') as f:
-            loaded_detector = pickle.load(f)
-
-        # Get loaded predictions
-        loaded_scores = loaded_detector.decision_function(synthetic_dataset['test_all'])
-
-        # Compare
-        np.testing.assert_array_almost_equal(original_scores, loaded_scores)
 
 
 if __name__ == "__main__":

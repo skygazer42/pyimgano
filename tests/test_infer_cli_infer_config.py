@@ -118,7 +118,7 @@ def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypat
                 "from_run": str(run_dir),
                 "category": "custom",
                 "model": {
-                    "name": "vision_ecod",
+                    "name": "vision_patchcore",
                     "device": "cpu",
                     "pretrained": False,
                     "contamination": 0.1,
@@ -189,6 +189,97 @@ def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypat
 
     assert det.loaded == str(ckpt_path)
     assert det.threshold_ == 0.7
+
+
+def test_infer_cli_errors_when_preprocessing_enabled_on_non_numpy_model(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    ckpt_dir = run_dir / "checkpoints" / "custom"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_path = ckpt_dir / "model.pt"
+    ckpt_path.write_text("ckpt", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "preprocessing": {
+                    "illumination_contrast": {
+                        "white_balance": "gray_world",
+                    }
+                },
+                "adaptation": {
+                    "tiling": {
+                        "tile_size": None,
+                        "stride": None,
+                        "score_reduce": "max",
+                        "score_topk": 0.1,
+                        "map_reduce": "max",
+                    },
+                    "postprocess": None,
+                    "save_maps": False,
+                },
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _NumpyOnlyDetector:
+        def __init__(self):
+            self.threshold_ = None
+            self.loaded = None
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            self.loaded = str(path)
+
+        def decision_function(self, X):  # noqa: ANN001
+            items = list(X)
+            assert items
+            assert all(isinstance(x, np.ndarray) for x in items)
+            assert all(x.dtype == np.uint8 for x in items)
+            assert all(x.ndim == 3 and x.shape[2] == 3 for x in items)
+            return np.linspace(0.0, 1.0, num=len(items), dtype=np.float32)
+
+    det = _NumpyOnlyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "PREPROCESSING_REQUIRES_NUMPY_MODEL" in err
 
 
 def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) -> None:

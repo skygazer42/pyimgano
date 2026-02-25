@@ -232,6 +232,8 @@ If the infer-config contains other `defects.*` settings (ROI, morphology, min-ar
 If the infer-config contains `preprocessing.illumination_contrast`, `pyimgano-infer` applies it automatically
 before scoring / anomaly-map extraction (for numpy-capable detectors). This helps keep deploy inference more
 stable under illumination drift.
+If the selected model does not support numpy inputs, `pyimgano-infer` fails early with
+`PREPROCESSING_REQUIRES_NUMPY_MODEL`.
 
 Workbench template:
 

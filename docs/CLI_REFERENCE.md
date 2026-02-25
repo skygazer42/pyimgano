@@ -146,6 +146,8 @@ Optional:
     (ROI, morphology, min-area, mask format, max regions, pixel threshold strategy/quantile, etc.). CLI flags override.
   - When running with `--infer-config` or `--from-run`, exported preprocessing defaults (e.g. `preprocessing.illumination_contrast`)
     are applied automatically for deploy consistency (when present).
+    - Note: `preprocessing.illumination_contrast` requires a numpy-capable model (tag: `numpy`), otherwise you’ll see
+      `PREPROCESSING_REQUIRES_NUMPY_MODEL`.
   - `--roi-xyxy-norm x1 y1 x2 y2` (optional; gates defects output only)
     - If ROI is set and you calibrate pixel threshold via `normal_pixel_quantile`, calibration uses ROI pixels only.
   - `--defect-border-ignore-px INT` (optional; ignores N pixels at the anomaly-map border for defects extraction)

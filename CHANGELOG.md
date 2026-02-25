@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.23] - 2026-02-25
+
+### Preprocessing
+- `pyimgano-train --preflight` now emits `PREPROCESSING_REQUIRES_NUMPY_MODEL` when `preprocessing.illumination_contrast` is enabled on a model that does not support numpy inputs.
+- `pyimgano-infer` now fails early with `PREPROCESSING_REQUIRES_NUMPY_MODEL` when an infer-config/run requests preprocessing but the selected model is not numpy-capable.
+
+### Examples
+- Added `examples/configs/industrial_adapt_preprocessing_illumination.json` as a starting point for illumination/contrast normalization in industrial runs.
+
+### Docs
+- Documented the preprocessing/model compatibility requirement in the workbench and inference docs.
+
 ## [0.6.22] - 2026-02-25
 
 ### Preprocessing

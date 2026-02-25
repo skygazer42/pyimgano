@@ -37,6 +37,8 @@ def run_preflight(*, config: WorkbenchConfig) -> PreflightReport:
     issues: list[PreflightIssue] = []
     summary: dict[str, Any] = {}
 
+    _preflight_preprocessing_model_compat(config=config, issues=issues)
+
     ds = dataset.lower()
     if ds == "manifest":
         summary = _preflight_manifest(config=config, issues=issues)
@@ -44,6 +46,67 @@ def run_preflight(*, config: WorkbenchConfig) -> PreflightReport:
         summary = _preflight_non_manifest(config=config, issues=issues)
 
     return PreflightReport(dataset=dataset, category=category, summary=summary, issues=issues)
+
+
+def _preflight_preprocessing_model_compat(
+    *,
+    config: WorkbenchConfig,
+    issues: list[PreflightIssue],
+) -> None:
+    try:
+        illumination_contrast = config.preprocessing.illumination_contrast
+    except Exception:  # noqa: BLE001 - best-effort config probing
+        illumination_contrast = None
+
+    if illumination_contrast is None:
+        return
+
+    model_name = str(config.model.name)
+
+    try:
+        import pyimgano.models  # noqa: F401
+    except Exception as exc:  # noqa: BLE001 - best-effort optional import
+        issues.append(
+            _issue(
+                "MODEL_REGISTRY_IMPORT_FAILED",
+                "warning",
+                "Unable to import pyimgano.models to validate preprocessing/model compatibility.",
+                context={"model": model_name, "error": str(exc)},
+            )
+        )
+        return
+
+    from pyimgano.models.capabilities import compute_model_capabilities
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    try:
+        entry = MODEL_REGISTRY.info(model_name)
+    except Exception as exc:  # noqa: BLE001 - registry boundary
+        issues.append(
+            _issue(
+                "MODEL_REGISTRY_LOOKUP_FAILED",
+                "warning",
+                "Unable to look up model in registry to validate preprocessing/model compatibility.",
+                context={"model": model_name, "error": str(exc)},
+            )
+        )
+        return
+
+    caps = compute_model_capabilities(entry)
+    supported_input_modes = tuple(str(m) for m in caps.input_modes)
+    if "numpy" not in supported_input_modes:
+        issues.append(
+            _issue(
+                "PREPROCESSING_REQUIRES_NUMPY_MODEL",
+                "error",
+                "preprocessing.illumination_contrast requires a model that supports numpy inputs.",
+                context={
+                    "model": model_name,
+                    "supported_input_modes": supported_input_modes,
+                    "hint": "Choose a model with tag 'numpy' or disable preprocessing.",
+                },
+            )
+        )
 
 
 def _issue(

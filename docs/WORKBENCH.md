@@ -24,6 +24,7 @@ See also:
 
 ```
 examples/configs/industrial_adapt_fast.json
+examples/configs/industrial_adapt_preprocessing_illumination.json
 examples/configs/industrial_adapt_maps_tiling.json
 examples/configs/industrial_adapt_defects_roi.json
 ```
@@ -103,6 +104,8 @@ Notes:
   it’s a minimal “what inference needs” payload and includes `threshold_provenance` for auditing.
 - For high-resolution inference, you can still use `pyimgano-infer` tiling flags (see
   `docs/INDUSTRIAL_INFERENCE.md`).
+- When using `preprocessing.illumination_contrast`, the detector must support numpy inputs (tag: `numpy`).
+  Otherwise, preflight/CLI will emit `PREPROCESSING_REQUIRES_NUMPY_MODEL`.
 
 ## Manifest datasets (JSONL)
 

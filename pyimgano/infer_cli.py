@@ -15,6 +15,23 @@ from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
 
+def _require_numpy_model_for_preprocessing(model_name: str) -> None:
+    from pyimgano.models.capabilities import compute_model_capabilities
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    entry = MODEL_REGISTRY.info(str(model_name))
+    caps = compute_model_capabilities(entry)
+    supported_input_modes = tuple(str(m) for m in caps.input_modes)
+    if "numpy" in supported_input_modes:
+        return
+
+    raise ValueError(
+        "PREPROCESSING_REQUIRES_NUMPY_MODEL: preprocessing.illumination_contrast requires a model that supports numpy inputs. "
+        f"model={model_name!r} supported_input_modes={supported_input_modes!r}. "
+        "Choose a model with tag 'numpy' (e.g. vision_patchcore) or remove preprocessing from infer-config."
+    )
+
+
 def _apply_defects_defaults_from_payload(
     args: argparse.Namespace,
     defects_payload: dict[str, Any],
@@ -860,6 +877,7 @@ def main(argv: list[str] | None = None) -> int:
         # Apply preprocessing outside tiling so illumination/contrast normalization happens
         # on the full image before tiling.
         if illumination_contrast_knobs is not None:
+            _require_numpy_model_for_preprocessing(model_name)
             from pyimgano.inference.preprocessing import PreprocessingDetector
 
             detector = PreprocessingDetector(
