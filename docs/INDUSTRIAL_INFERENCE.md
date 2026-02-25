@@ -35,7 +35,7 @@ and (optionally) `get_anomaly_map` / `predict_anomaly_map` if available.
 ```python
 import numpy as np
 
-from pyimgano.inference import calibrate_threshold, infer
+from pyimgano.inference import calibrate_threshold, infer, infer_iter
 from pyimgano.inputs import ImageFormat
 from pyimgano.models import create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
@@ -78,6 +78,27 @@ results = infer(
 
 for r in results:
     print(r.score, r.label, None if r.anomaly_map is None else r.anomaly_map.shape)
+```
+
+### Memory tip: stream results with `infer_iter`
+
+If you run inference on many images and you enable anomaly maps, storing every
+`InferenceResult.anomaly_map` in a list can use a lot of memory.
+
+Prefer `infer_iter(...)` to **stream results** without accumulating them:
+
+```python
+for r in infer_iter(
+    detector,
+    test_frames_bgr,
+    input_format=ImageFormat.BGR_U8_HWC,
+    include_maps=True,
+    postprocess=post,
+    batch_size=8,   # optional: chunk inference
+    amp=True,       # optional: best-effort autocast for torch-backed models
+):
+    # Save/consume r.score / r.label / r.anomaly_map immediately
+    pass
 ```
 
 Notes on threshold calibration:
