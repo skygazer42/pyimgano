@@ -164,6 +164,13 @@ class HysteresisConfig:
 
 
 @dataclass(frozen=True)
+class ShapeFiltersConfig:
+    min_fill_ratio: float | None = None
+    max_aspect_ratio: float | None = None
+    min_solidity: float | None = None
+
+
+@dataclass(frozen=True)
 class DefectsConfig:
     enabled: bool = False
     pixel_threshold: float | None = None
@@ -174,6 +181,7 @@ class DefectsConfig:
     border_ignore_px: int = 0
     map_smoothing: MapSmoothingConfig = field(default_factory=MapSmoothingConfig)
     hysteresis: HysteresisConfig = field(default_factory=HysteresisConfig)
+    shape_filters: ShapeFiltersConfig = field(default_factory=ShapeFiltersConfig)
     min_area: int = 0
     min_score_max: float | None = None
     min_score_mean: float | None = None
@@ -468,6 +476,39 @@ class WorkbenchConfig:
                     high=(float(hyst_high) if hyst_high is not None else None),
                 )
 
+            sf_raw = d_map.get("shape_filters", None)
+            if sf_raw is None:
+                shape_filters = ShapeFiltersConfig()
+            else:
+                sf_map = _require_mapping(sf_raw, name="defects.shape_filters")
+                sf_min_fill_ratio = _optional_float(
+                    sf_map.get("min_fill_ratio", None),
+                    name="defects.shape_filters.min_fill_ratio",
+                )
+                sf_max_aspect_ratio = _optional_float(
+                    sf_map.get("max_aspect_ratio", None),
+                    name="defects.shape_filters.max_aspect_ratio",
+                )
+                sf_min_solidity = _optional_float(
+                    sf_map.get("min_solidity", None),
+                    name="defects.shape_filters.min_solidity",
+                )
+
+                if sf_min_fill_ratio is not None and not (0.0 <= float(sf_min_fill_ratio) <= 1.0):
+                    raise ValueError("defects.shape_filters.min_fill_ratio must be in [0,1] or null")
+                if sf_max_aspect_ratio is not None and float(sf_max_aspect_ratio) < 1.0:
+                    raise ValueError("defects.shape_filters.max_aspect_ratio must be >= 1.0 or null")
+                if sf_min_solidity is not None and not (0.0 <= float(sf_min_solidity) <= 1.0):
+                    raise ValueError("defects.shape_filters.min_solidity must be in [0,1] or null")
+
+                shape_filters = ShapeFiltersConfig(
+                    min_fill_ratio=(float(sf_min_fill_ratio) if sf_min_fill_ratio is not None else None),
+                    max_aspect_ratio=(
+                        float(sf_max_aspect_ratio) if sf_max_aspect_ratio is not None else None
+                    ),
+                    min_solidity=(float(sf_min_solidity) if sf_min_solidity is not None else None),
+                )
+
             defects = DefectsConfig(
                 enabled=bool(d_map.get("enabled", False)),
                 pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
@@ -478,6 +519,7 @@ class WorkbenchConfig:
                 border_ignore_px=border_ignore_px,
                 map_smoothing=map_smoothing,
                 hysteresis=hysteresis,
+                shape_filters=shape_filters,
                 min_area=min_area,
                 min_score_max=(float(min_score_max) if min_score_max is not None else None),
                 min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),

@@ -596,7 +596,43 @@ def build_infer_config_payload(
             if config.defects.roi_xyxy_norm is not None
             else None
         ),
+        "border_ignore_px": int(config.defects.border_ignore_px),
+        "map_smoothing": {
+            "method": str(config.defects.map_smoothing.method),
+            "ksize": int(config.defects.map_smoothing.ksize),
+            "sigma": float(config.defects.map_smoothing.sigma),
+        },
+        "hysteresis": {
+            "enabled": bool(config.defects.hysteresis.enabled),
+            "low": (float(config.defects.hysteresis.low) if config.defects.hysteresis.low is not None else None),
+            "high": (
+                float(config.defects.hysteresis.high) if config.defects.hysteresis.high is not None else None
+            ),
+        },
+        "shape_filters": {
+            "min_fill_ratio": (
+                float(config.defects.shape_filters.min_fill_ratio)
+                if config.defects.shape_filters.min_fill_ratio is not None
+                else None
+            ),
+            "max_aspect_ratio": (
+                float(config.defects.shape_filters.max_aspect_ratio)
+                if config.defects.shape_filters.max_aspect_ratio is not None
+                else None
+            ),
+            "min_solidity": (
+                float(config.defects.shape_filters.min_solidity)
+                if config.defects.shape_filters.min_solidity is not None
+                else None
+            ),
+        },
         "min_area": int(config.defects.min_area),
+        "min_score_max": (
+            float(config.defects.min_score_max) if config.defects.min_score_max is not None else None
+        ),
+        "min_score_mean": (
+            float(config.defects.min_score_mean) if config.defects.min_score_mean is not None else None
+        ),
         "open_ksize": int(config.defects.open_ksize),
         "close_ksize": int(config.defects.close_ksize),
         "fill_holes": bool(config.defects.fill_holes),

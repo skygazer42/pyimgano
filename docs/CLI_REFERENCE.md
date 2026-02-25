@@ -142,6 +142,10 @@ Optional:
     - `--defect-hysteresis`
     - `--defect-hysteresis-low FLOAT`
     - `--defect-hysteresis-high FLOAT`
+  - Shape filters (optional; useful to remove long thin strips / speckle fragments):
+    - `--defect-min-fill-ratio FLOAT` — drop components whose `area / bbox_area` is below this threshold
+    - `--defect-max-aspect-ratio FLOAT` — drop components whose bbox aspect ratio exceeds this threshold
+    - `--defect-min-solidity FLOAT` — drop components whose solidity (contour / convex hull) is below this threshold
   - Region-level filters (optional):
     - `--defect-min-score-max FLOAT` — drop components whose max anomaly score is below the threshold
     - `--defect-min-score-mean FLOAT` — drop components whose mean anomaly score is below the threshold

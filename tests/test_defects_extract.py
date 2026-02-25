@@ -137,3 +137,28 @@ def test_extract_defects_from_anomaly_map_supports_hysteresis_thresholding() -> 
     assert int(out["mask"][0, 0]) == 0
     assert int(out["mask"][3, 4]) == 255
     assert len(out["regions"]) == 1
+
+
+def test_extract_defects_from_anomaly_map_can_filter_regions_by_shape() -> None:
+    amap = np.zeros((10, 10), dtype=np.float32)
+    amap[1, 1:7] = 1.0  # long thin line (to be filtered)
+    amap[5:8, 5:8] = 1.0  # square (kept)
+
+    out = extract_defects_from_anomaly_map(
+        amap,
+        pixel_threshold=0.5,
+        roi_xyxy_norm=None,
+        border_ignore_px=0,
+        map_smoothing_method="none",
+        map_smoothing_ksize=0,
+        map_smoothing_sigma=0.0,
+        hysteresis_enabled=False,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        min_area=0,
+        max_aspect_ratio=3.0,
+        max_regions=None,
+    )
+    assert len(out["regions"]) == 1
+    assert out["regions"][0]["bbox_xyxy"] == [5, 5, 7, 7]

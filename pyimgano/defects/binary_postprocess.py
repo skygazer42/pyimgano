@@ -14,6 +14,9 @@ def postprocess_binary_mask(
     anomaly_map: np.ndarray | None = None,
     min_score_max: float | None = None,
     min_score_mean: float | None = None,
+    min_fill_ratio: float | None = None,
+    max_aspect_ratio: float | None = None,
+    min_solidity: float | None = None,
 ) -> np.ndarray:
     """Postprocess a binary defect mask (uint8, 0/255).
 
@@ -46,6 +49,9 @@ def postprocess_binary_mask(
         (min_area is not None and int(min_area) > 0)
         or min_score_max is not None
         or min_score_mean is not None
+        or min_fill_ratio is not None
+        or max_aspect_ratio is not None
+        or min_solidity is not None
     )
     if should_filter_components:
         binary01 = (mask > 0).astype(np.uint8)
@@ -63,6 +69,9 @@ def postprocess_binary_mask(
 
         min_score_max_v = float(min_score_max) if min_score_max is not None else None
         min_score_mean_v = float(min_score_mean) if min_score_mean is not None else None
+        min_fill_ratio_v = float(min_fill_ratio) if min_fill_ratio is not None else None
+        max_aspect_ratio_v = float(max_aspect_ratio) if max_aspect_ratio is not None else None
+        min_solidity_v = float(min_solidity) if min_solidity is not None else None
 
         for label_id in range(1, num_labels):
             area = int(stats[label_id, cv2.CC_STAT_AREA])
@@ -77,6 +86,36 @@ def postprocess_binary_mask(
                     continue
                 if min_score_mean_v is not None and float(region_values.mean()) < float(min_score_mean_v):
                     continue
+
+            if min_fill_ratio_v is not None or max_aspect_ratio_v is not None or min_solidity_v is not None:
+                width = int(stats[label_id, cv2.CC_STAT_WIDTH])
+                height = int(stats[label_id, cv2.CC_STAT_HEIGHT])
+
+                bbox_area = int(width * height) if width > 0 and height > 0 else 0
+                fill_ratio = float(area) / float(bbox_area) if bbox_area > 0 else 0.0
+                if min_fill_ratio_v is not None and fill_ratio < float(min_fill_ratio_v):
+                    continue
+
+                aspect_ratio = float("inf")
+                if width > 0 and height > 0:
+                    aspect_ratio = max(float(width) / float(height), float(height) / float(width))
+                if max_aspect_ratio_v is not None and aspect_ratio > float(max_aspect_ratio_v):
+                    continue
+
+                if min_solidity_v is not None:
+                    component = (labels == label_id).astype(np.uint8)
+                    contours, _hier = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if not contours:
+                        continue
+                    contour = max(contours, key=cv2.contourArea)
+                    hull = cv2.convexHull(contour)
+                    hull_area = float(cv2.contourArea(hull))
+                    contour_area = float(cv2.contourArea(contour))
+                    if hull_area <= 0.0:
+                        continue
+                    solidity = contour_area / hull_area
+                    if solidity < float(min_solidity_v):
+                        continue
 
             keep[labels == label_id] = 255
         mask = keep

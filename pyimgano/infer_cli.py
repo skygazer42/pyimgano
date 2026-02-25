@@ -137,6 +137,27 @@ def _apply_defects_defaults_from_payload(
             if v is not None:
                 args.defect_hysteresis_high = float(v)
 
+    # Optional shape filters block.
+    shape_raw = defects_payload.get("shape_filters", None)
+    if shape_raw is not None:
+        if not isinstance(shape_raw, dict):
+            raise ValueError("infer-config defects.shape_filters must be a JSON object/dict.")
+
+        if getattr(args, "defect_min_fill_ratio", None) is None:
+            v = _coerce_float(shape_raw.get("min_fill_ratio", None), name="shape_filters.min_fill_ratio")
+            if v is not None:
+                args.defect_min_fill_ratio = float(v)
+
+        if getattr(args, "defect_max_aspect_ratio", None) is None:
+            v = _coerce_float(shape_raw.get("max_aspect_ratio", None), name="shape_filters.max_aspect_ratio")
+            if v is not None:
+                args.defect_max_aspect_ratio = float(v)
+
+        if getattr(args, "defect_min_solidity", None) is None:
+            v = _coerce_float(shape_raw.get("min_solidity", None), name="shape_filters.min_solidity")
+            if v is not None:
+                args.defect_min_solidity = float(v)
+
     if getattr(args, "defect_min_score_max", None) is None:
         v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
         if v is not None:
@@ -375,6 +396,24 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="High threshold for hysteresis (default: pixel threshold)",
+    )
+    parser.add_argument(
+        "--defect-min-fill-ratio",
+        type=float,
+        default=None,
+        help="Optional minimum fill ratio (area / bbox_area) for components (default: none)",
+    )
+    parser.add_argument(
+        "--defect-max-aspect-ratio",
+        type=float,
+        default=None,
+        help="Optional maximum aspect ratio for components (default: none)",
+    )
+    parser.add_argument(
+        "--defect-min-solidity",
+        type=float,
+        default=None,
+        help="Optional minimum solidity for components (default: none)",
     )
     parser.add_argument(
         "--defect-min-score-max",
@@ -851,6 +890,15 @@ def main(argv: list[str] | None = None) -> int:
                         close_ksize=int(args.defect_close_ksize),
                         fill_holes=bool(args.defect_fill_holes),
                         min_area=int(args.defect_min_area),
+                        min_fill_ratio=(
+                            float(args.defect_min_fill_ratio) if args.defect_min_fill_ratio is not None else None
+                        ),
+                        max_aspect_ratio=(
+                            float(args.defect_max_aspect_ratio) if args.defect_max_aspect_ratio is not None else None
+                        ),
+                        min_solidity=(
+                            float(args.defect_min_solidity) if args.defect_min_solidity is not None else None
+                        ),
                         min_score_max=(
                             float(args.defect_min_score_max) if args.defect_min_score_max is not None else None
                         ),

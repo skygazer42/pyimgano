@@ -71,6 +71,27 @@ def test_workbench_config_from_dict_normalizes_types():
     assert cfg.defects.max_regions == 7
 
 
+def test_workbench_config_defects_shape_filters_parses() -> None:
+    raw = {
+        "dataset": {"name": "custom", "root": "/tmp/data"},
+        "model": {"name": "vision_patchcore"},
+        "defects": {
+            "enabled": True,
+            "shape_filters": {
+                "min_fill_ratio": 0.2,
+                "max_aspect_ratio": 3.0,
+                "min_solidity": 0.8,
+            },
+        },
+    }
+
+    cfg = WorkbenchConfig.from_dict(raw)
+    assert cfg.defects.enabled is True
+    assert cfg.defects.shape_filters.min_fill_ratio == pytest.approx(0.2)
+    assert cfg.defects.shape_filters.max_aspect_ratio == pytest.approx(3.0)
+    assert cfg.defects.shape_filters.min_solidity == pytest.approx(0.8)
+
+
 def test_workbench_config_defaults():
     raw = {
         "dataset": {"name": "custom", "root": "/tmp/data"},

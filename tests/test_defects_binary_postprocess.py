@@ -72,3 +72,20 @@ def test_postprocess_binary_mask_min_score_filters_require_anomaly_map() -> None
         raised = True
 
     assert raised is True
+
+
+def test_postprocess_binary_mask_can_filter_components_by_shape() -> None:
+    mask = np.zeros((10, 10), dtype=np.uint8)
+    mask[1, 1:7] = 255  # long thin line (aspect ratio ~6)
+    mask[5:8, 5:8] = 255  # square defect (aspect ratio ~1)
+
+    out = postprocess_binary_mask(
+        mask,
+        min_area=0,
+        open_ksize=0,
+        close_ksize=0,
+        fill_holes=False,
+        max_aspect_ratio=3.0,
+    )
+    assert int(out[1, 3]) == 0
+    assert int(out[6, 6]) == 255

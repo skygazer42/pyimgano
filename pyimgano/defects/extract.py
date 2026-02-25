@@ -29,6 +29,9 @@ def extract_defects_from_anomaly_map(
     close_ksize: int,
     fill_holes: bool,
     min_area: int,
+    min_fill_ratio: float | None = None,
+    max_aspect_ratio: float | None = None,
+    min_solidity: float | None = None,
     min_score_max: float | None = None,
     min_score_mean: float | None = None,
     max_regions: int | None,
@@ -67,6 +70,9 @@ def extract_defects_from_anomaly_map(
         anomaly_map=amap_roi,
         min_score_max=(float(min_score_max) if min_score_max is not None else None),
         min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),
+        min_fill_ratio=(float(min_fill_ratio) if min_fill_ratio is not None else None),
+        max_aspect_ratio=(float(max_aspect_ratio) if max_aspect_ratio is not None else None),
+        min_solidity=(float(min_solidity) if min_solidity is not None else None),
     )
 
     if roi_xyxy_norm is not None:
@@ -74,7 +80,15 @@ def extract_defects_from_anomaly_map(
         mask = (mask > 0).astype(np.uint8) * 255
         mask = mask * roi_mask
 
-    regions = extract_regions_from_mask(mask, anomaly_map=amap_roi)
+    include_shape_stats = any(
+        v is not None for v in (min_fill_ratio, max_aspect_ratio, min_solidity)
+    )
+    regions = extract_regions_from_mask(
+        mask,
+        anomaly_map=amap_roi,
+        include_shape_stats=bool(include_shape_stats),
+        include_solidity=(min_solidity is not None),
+    )
     regions = sorted(
         regions,
         key=lambda r: (
