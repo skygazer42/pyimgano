@@ -71,7 +71,7 @@ class CoreABOD:
         self.nn_: NearestNeighbors | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         self.X_train_ = X
         n_train = X.shape[0]
@@ -98,7 +98,7 @@ class CoreABOD:
         self.decision_scores_ = scores
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.X_train_ is None or self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

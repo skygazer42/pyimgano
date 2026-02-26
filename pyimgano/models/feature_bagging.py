@@ -11,8 +11,8 @@ ACM SIGKDD.
 
 Notes
 -----
-This is a native PyImgAno implementation (no `pyod` dependency). It is inspired
-by the PyOD contract but implemented around the `pyimgano` detector API:
+This is a native PyImgAno implementation inspired by common sklearn-style
+outlier-detection contracts, implemented around the `pyimgano` detector API:
 
 - core detectors operate on feature vectors (2D arrays)
 - vision wrappers extract image features and delegate to the core
@@ -45,7 +45,7 @@ def _generate_feature_indices(
 ) -> NDArray[np.int64]:
     """Randomly draw a feature subset.
 
-    Parameters follow the PyOD/Sklearn bagging convention:
+    Parameters follow common bagging conventions:
     - number of sampled features is drawn uniformly from [min_features, max_features]
     """
 
@@ -80,7 +80,7 @@ class _CoreLOF:
         self.detector_: LocalOutlierFactor | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples < 2:
@@ -102,7 +102,7 @@ class _CoreLOF:
         self.decision_scores_ = (-np.asarray(self.detector_.negative_outlier_factor_, dtype=np.float64)).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Base estimator must be fitted before calling decision_function")
 
@@ -150,7 +150,7 @@ class CoreFeatureBagging:
             return _CoreLOF(n_neighbors=self.n_neighbors, n_jobs=self.n_jobs)
         raise ValueError(f"Unknown base_estimator: {self.base_estimator!r}. Supported: 'lof'")
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples, n_features = map(int, X.shape)
         self.n_features_in_ = n_features
@@ -229,7 +229,7 @@ class CoreFeatureBagging:
 
         raise ValueError("combination must be one of {'average', 'max'}")
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.n_features_in_ is None or self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -295,4 +295,3 @@ class VisionFeatureBagging(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

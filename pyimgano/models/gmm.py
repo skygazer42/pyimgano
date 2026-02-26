@@ -59,14 +59,14 @@ class CoreGMM:
         self.gmm_: GaussianMixture | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         self.gmm_ = GaussianMixture(**self.gmm_kwargs)
         self.gmm_.fit(X)
         self.decision_scores_ = self.decision_function(X)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.gmm_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         X = check_array(X, ensure_2d=True, dtype=np.float64)

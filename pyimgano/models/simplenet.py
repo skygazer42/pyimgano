@@ -411,7 +411,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         # Build reference features from training set
         self._build_reference_features(X_list)
 
-        # Compute training scores to establish a threshold (PyOD semantics).
+        # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
         self.decision_scores_ = self.decision_function(X_list)
         self._process_decision_scores()

@@ -10,6 +10,8 @@ This guide helps you choose the right anomaly detection algorithm for your use c
 | **No Parameter Tuning** | ECOD, COPOD | Completely parameter-free |
 | **Speed (Large Datasets)** | COPOD, KNN, ECOD | O(n×d) complexity, highly optimized |
 | **Interpretability** | ECOD, PCA, KNN | Clear mathematical foundation |
+| **Local / Cluster Anomalies** | LoOP, LDOF, LOF | Local neighborhood geometry |
+| **Simple Statistical Baselines** | Mahalanobis, RZScore, PCA-MD | Strong sanity-check baselines |
 | **Small Datasets** | KNN, LOF, OCSVM | Work well with limited data |
 | **High-Dimensional Data** | ECOD, COPOD, PCA | Designed for many features |
 | **Deep Learning** | Deep SVDD, VAE, AE | Learn complex patterns |
@@ -73,7 +75,7 @@ detector = models.create_model(
 - ✅ Works well on high-dimensional data
 
 **Cons:**
-- ❌ Requires PyOD >= 0.9.7
+- ❌ Needs meaningful numeric features; for vision workflows this depends on your feature extractor
 
 **When to use:** Default choice for most applications
 
@@ -97,7 +99,7 @@ detector = models.create_model(
 - ✅ O(n×d) complexity
 
 **Cons:**
-- ❌ Requires PyOD >= 0.9.0
+- ❌ Needs meaningful numeric features; for vision workflows this depends on your feature extractor
 
 **When to use:** When speed is critical, large datasets
 
@@ -498,7 +500,7 @@ for algo in ["vision_ecod", "vision_copod", "vision_deep_svdd"]:
 
 ## Further Resources
 
-- **PyOD Documentation:** https://pyod.readthedocs.io/
+- **scikit-learn Outlier Detection:** https://scikit-learn.org/stable/modules/outlier_detection.html
 - **ADBench Paper:** https://arxiv.org/abs/2206.09426
 - **ECOD Paper:** Li et al., TKDE 2022
 - **COPOD Paper:** Li et al., ICDM 2020

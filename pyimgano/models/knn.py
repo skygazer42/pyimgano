@@ -24,7 +24,7 @@ from .registry import register_model
 
 
 class CoreKNN:
-    """Pure sklearn implementation of a PyOD-style KNN outlier detector."""
+    """Pure sklearn implementation of a sklearn-style KNN outlier detector."""
 
     def __init__(
         self,
@@ -83,7 +83,7 @@ class CoreKNN:
             return np.median(distances, axis=1)
         raise ValueError("method must be one of {'largest', 'mean', 'median'}")
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         self._X_train = X
 
@@ -118,7 +118,7 @@ class CoreKNN:
         self.decision_scores_ = self._aggregate(distances).astype(np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._X_train is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

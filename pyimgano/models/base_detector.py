@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 """Native detector base contract for pyimgano.
 
-This module implements the minimal subset of the PyOD detector contract that
-`pyimgano` relies on across its registry models:
+This module implements a small, dependency-light anomaly detector contract used
+across `pyimgano` registry models:
 
 - contamination-based thresholding (`threshold_`, `labels_`)
 - binary predictions (`predict` returns {0,1})
-- optional probability conversion (`predict_proba` is added in a later task)
+- optional probability conversion (`predict_proba`)
 
-Notes
------
-The design is inspired by PyOD's `BaseDetector` contract.
-PyOD is BSD 2-Clause licensed.
+All detectors follow the same scoring convention:
+**higher score => more anomalous**.
 """
 
 from __future__ import annotations
 
+import inspect
 import warnings
 from typing import Any
 
@@ -39,13 +38,19 @@ class BaseDetector:
                     f"contamination must be in (0, 0.5], got: {contamination}"
                 )
         self.contamination = float(contamination)
+        # Thresholding configuration (default: quantile based on contamination).
+        # This is intentionally attribute-based so subclasses don't need to
+        # thread extra kwargs through every constructor.
+        self.threshold_method = "quantile"  # quantile|pot
+        self.pot_tail_fraction = 0.1
+        self.pot_min_exceedances = 20
 
     # ---------------------------------------------------------------------
     # Subclass API
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like signature
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like signature
         raise NotImplementedError
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like signature
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like signature
         raise NotImplementedError
 
     # ---------------------------------------------------------------------
@@ -77,16 +82,86 @@ class BaseDetector:
             scores = scores.reshape(-1)
         self.decision_scores_ = scores
 
-        # contamination is a float for now. (A future extension could support
-        # objects with an `.eval()` method like PyThresh.)
-        threshold = np.percentile(scores, 100.0 * (1.0 - float(self.contamination)))
+        method = str(getattr(self, "threshold_method", "quantile")).strip().lower()
+
+        if method in {"quantile", "percentile"}:
+            threshold = np.percentile(scores, 100.0 * (1.0 - float(self.contamination)))
+        elif method in {"pot", "peak_over_threshold", "peaks_over_threshold"}:
+            from pyimgano.calibration.pot_threshold import fit_pot_threshold
+
+            threshold, info = fit_pot_threshold(
+                scores,
+                alpha=float(self.contamination),
+                tail_fraction=float(getattr(self, "pot_tail_fraction", 0.1)),
+                min_exceedances=int(getattr(self, "pot_min_exceedances", 20)),
+            )
+            # Expose best-effort diagnostics for users.
+            self.pot_info_ = info
+        else:
+            raise ValueError(f"Unknown threshold_method: {method!r}. Use 'quantile' or 'pot'.")
+
         labels = (scores > threshold).astype(int).ravel()
 
         self.threshold_ = float(threshold)
         self.labels_ = labels
         return self
 
+    def use_pot_thresholding(
+        self,
+        *,
+        tail_fraction: float = 0.1,
+        min_exceedances: int = 20,
+    ) -> "BaseDetector":
+        """Enable POT thresholding for the next call to `_process_decision_scores()`."""
+
+        self.threshold_method = "pot"
+        self.pot_tail_fraction = float(tail_fraction)
+        self.pot_min_exceedances = int(min_exceedances)
+        return self
+
+    def use_quantile_thresholding(self) -> "BaseDetector":
+        """Use simple quantile thresholding derived from `contamination`."""
+
+        self.threshold_method = "quantile"
+        return self
+
     # ---------------------------------------------------------------------
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Return init parameters (sklearn-compatible best-effort)."""
+
+        sig = inspect.signature(self.__class__.__init__)
+        out: dict[str, Any] = {}
+        for name in sig.parameters:
+            if name == "self":
+                continue
+            if hasattr(self, name):
+                out[name] = getattr(self, name)
+
+        if not deep:
+            return out
+
+        # Nested params (very small subset of sklearn's behavior).
+        nested: dict[str, Any] = {}
+        for k, v in out.items():
+            if hasattr(v, "get_params") and callable(getattr(v, "get_params")):
+                try:
+                    for nk, nv in v.get_params(deep=True).items():  # type: ignore[call-arg]
+                        nested[f"{k}__{nk}"] = nv
+                except Exception:
+                    continue
+        out.update(nested)
+        return out
+
+    def set_params(self, **params: Any) -> "BaseDetector":
+        """Set init parameters (sklearn-compatible best-effort)."""
+
+        valid = self.get_params(deep=False)
+        for k, v in params.items():
+            if k not in valid:
+                raise ValueError(f"Invalid parameter {k!r} for {self.__class__.__name__}.")
+            setattr(self, k, v)
+        return self
+
     def predict(self, X, return_confidence: bool = False):  # noqa: ANN001, ANN201
         """Predict binary anomaly labels.
 
@@ -104,7 +179,18 @@ class BaseDetector:
             scores = scores.reshape(-1)
         return (scores > float(self.threshold_)).astype(int).ravel()
 
-    def predict_proba(  # noqa: ANN001, ANN201 - PyOD-like signature
+    def fit_predict(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like helper
+        """Fit detector then return labels for X."""
+
+        self.fit(X, y=y)
+        return self.predict(X)
+
+    def score_samples(self, X):  # noqa: ANN001, ANN201 - sklearn-like alias
+        """Alias for `decision_function` (sklearn naming)."""
+
+        return self.decision_function(X)
+
+    def predict_proba(  # noqa: ANN001, ANN201 - 2-class proba API
         self,
         X,
         method: str = "linear",
@@ -112,7 +198,7 @@ class BaseDetector:
     ):
         """Predict outlier probability as a 2-class array ``[p(inlier), p(outlier)]``.
 
-        This keeps compatibility with the PyOD `BaseDetector.predict_proba` contract.
+        This keeps compatibility with common 2-class `predict_proba` tooling.
         """
 
         if return_confidence:
@@ -146,8 +232,7 @@ class BaseDetector:
             return probs
 
         if method == "unify":
-            # PyOD uses erf unification then clamps to [0,1].
-            # Keep the same behavior for contract compatibility.
+            # Unification via erf, then clamp to [0,1].
             try:
                 from scipy.special import erf  # type: ignore
             except Exception as exc:  # pragma: no cover

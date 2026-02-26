@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native deep-learning detector base contract for pyimgano.
 
-This provides a minimal, PyOD-like deep detector interface used by
+This provides a minimal, sklearn-like deep detector interface used by
 `pyimgano.models.baseCv.BaseVisionDeepDetector` and a few detectors that
 implement `build_model/training_forward/evaluating_forward`.
 
@@ -144,7 +144,7 @@ class BaseDeepLearningDetector(BaseDetector):
         torch.manual_seed(int(seed))
 
     # ------------------------------------------------------------------
-    # Subclass API (PyOD-like)
+    # Subclass API (sklearn-like)
     def build_model(self):  # pragma: no cover
         raise NotImplementedError
 

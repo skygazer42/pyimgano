@@ -16,6 +16,7 @@ __all__ = [
     # Modules
     "datasets",
     "detectors",
+    "features",
     "inputs",
     "inference",
     "models",
@@ -39,6 +40,7 @@ __all__ = [
 _LAZY_SUBMODULES = {
     "datasets",
     "detectors",
+    "features",
     "inputs",
     "inference",
     "models",

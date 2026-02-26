@@ -318,7 +318,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         # Compute normalization statistics on training set
         self._compute_normalization_stats(X_list)
 
-        # Compute training scores to establish a threshold (PyOD semantics).
+        # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
         self.decision_scores_ = self.decision_function(X_list)
         self._process_decision_scores()

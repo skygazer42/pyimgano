@@ -300,7 +300,7 @@ class VisionMambaAD(BaseVisionDeepDetector):
                 loss.backward()
                 opt.step()
 
-        # Calibrate threshold on training images (PyOD-like semantics).
+        # Calibrate threshold on training images (sklearn-like semantics).
         self.decision_scores_ = self.decision_function(items)
         self._process_decision_scores()
         # BaseDeepLearningDetector sets threshold_ but keep our attribute in sync for tooling.

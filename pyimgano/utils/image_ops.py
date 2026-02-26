@@ -104,6 +104,7 @@ class ImagePreprocessor:
                  normalize_std: Optional[Sequence[float]] = None,
                  augmentations: Optional[Iterable[Callable[[Image.Image], Image.Image]]] = None,
                  output_tensor: bool = False,
+                 backend: Literal["pil", "cv2"] = "pil",
                  error_mode: Literal["raise", "zeros"] = "raise",
                  fallback_size: Tuple[int, int] = (224, 224)) -> None:
         self.resize = resize
@@ -112,19 +113,26 @@ class ImagePreprocessor:
         self.normalize_std = normalize_std
         self.augmentations = list(augmentations) if augmentations else []
         self.output_tensor = output_tensor
+        self.backend = str(backend).strip().lower()
         self.error_mode = error_mode
         self.fallback_size = fallback_size
 
     def process(self, path: str) -> np.ndarray:
         try:
-            image = load_image(path)
-            for aug in self.augmentations:
-                image = aug(image)
-            if self.resize is not None:
-                image = resize_image(image, self.resize)
-            if self.crop is not None:
-                image = center_crop(image, self.crop)
-            array = to_numpy(image)
+            if self.backend == "pil":
+                image = load_image(path)
+                for aug in self.augmentations:
+                    image = aug(image)
+                if self.resize is not None:
+                    image = resize_image(image, self.resize)
+                if self.crop is not None:
+                    image = center_crop(image, self.crop)
+                array = to_numpy(image)
+            elif self.backend == "cv2":
+                array = self._process_cv2(path)
+            else:
+                raise ValueError("backend must be one of: 'pil', 'cv2'")
+
             if self.normalize_mean is not None and self.normalize_std is not None:
                 array = normalize_array(array, self.normalize_mean, self.normalize_std)
             if self.output_tensor:
@@ -137,6 +145,42 @@ class ImagePreprocessor:
             if self.output_tensor:
                 return np.zeros((3, height, width), dtype=np.float32)
             return np.zeros((height, width, 3), dtype=np.float32)
+
+    def _process_cv2(self, path: str) -> np.ndarray:
+        """OpenCV backend path processing (returns HWC float32)."""
+
+        try:
+            import cv2  # type: ignore
+        except Exception as exc:  # pragma: no cover
+            raise ImportError(
+                "opencv-python is required for ImagePreprocessor(backend='cv2').\n"
+                "Install it via:\n  pip install 'opencv-python'\n"
+                f"Original error: {exc}"
+            ) from exc
+
+        from pyimgano.io.image import read_image
+
+        img = np.asarray(read_image(path, color="bgr"), dtype=np.uint8)
+        out = img
+
+        # If the user provided augmentations, we assume they accept numpy arrays.
+        for aug in self.augmentations:
+            out = aug(out)
+
+        if self.resize is not None:
+            w, h = int(self.resize[0]), int(self.resize[1])
+            out = cv2.resize(out, (w, h), interpolation=cv2.INTER_AREA)
+
+        if self.crop is not None:
+            crop_w, crop_h = int(self.crop[0]), int(self.crop[1])
+            oh, ow = int(out.shape[0]), int(out.shape[1])
+            if crop_w > ow or crop_h > oh:
+                raise ValueError("Crop size must be <= image size")
+            left = (ow - crop_w) // 2
+            top = (oh - crop_h) // 2
+            out = out[top : top + crop_h, left : left + crop_w]
+
+        return np.asarray(out, dtype=np.float32)
 
     def _fallback_hw(self) -> Tuple[int, int]:
         if self.crop is not None:

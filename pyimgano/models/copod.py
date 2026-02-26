@@ -50,7 +50,7 @@ class CoreCOPOD:
         self._skew_sign: NDArray[np.float64] | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         self._X_sorted = np.sort(X, axis=0)
         self._skew_sign = _skew_sign(X)
@@ -58,7 +58,7 @@ class CoreCOPOD:
         self.decision_scores_ = self.decision_function(X)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._X_sorted is None or self._skew_sign is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

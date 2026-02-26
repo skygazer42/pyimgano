@@ -12,7 +12,7 @@ from sklearn.exceptions import NotFittedError
 class RegistryModelEstimator(BaseEstimator):
     """scikit-learn compatible estimator for registry models.
 
-    This adapter provides a minimal sklearn/PyOD-like contract for `pyimgano`
+    This adapter provides a minimal sklearn-like contract for `pyimgano`
     registry models, without requiring every detector implementation to inherit
     from sklearn's base classes.
 
@@ -138,7 +138,7 @@ class RegistryModelEstimator(BaseEstimator):
                     f"expected {expected}, got {arr.shape[0]}."
                 )
 
-            # Normalize {1,-1} (sklearn-style) to {0,1} (pyod-style).
+            # Normalize {1,-1} (sklearn-style) to {0,1} (sklearn-style).
             unique = set(np.unique(arr).tolist())
             if unique.issubset({-1, 1}):
                 return (arr == -1).astype(int)

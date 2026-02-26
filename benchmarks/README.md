@@ -298,7 +298,7 @@ n_iterations = 20  # Reduced from 100
 ### Missing Dependencies
 
 ```bash
-pip install scikit-learn torch torchvision pyod matplotlib psutil
+pip install scikit-learn torch torchvision matplotlib psutil
 ```
 
 ## Continuous Integration

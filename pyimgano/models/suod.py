@@ -74,7 +74,7 @@ class CoreSUOD:
         n_jobs=None,
         **kwargs,
     ) -> None:
-        # Keep forward-compat: accept extra kwargs from the PyOD/SUOD API
+        # Keep forward-compat: accept extra kwargs from the upstream SUOD API
         # surface without failing, but do not pretend to implement them.
         self._unused_kwargs = dict(kwargs)
 
@@ -109,7 +109,7 @@ class CoreSUOD:
             CoreIForest(n_estimators=150, random_state=rs),
         ]
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples == 0:
@@ -148,7 +148,7 @@ class CoreSUOD:
         self.decision_scores_ = _combine(score_mat_norm, self.combination).astype(np.float64, copy=False)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None or self._scaler is None or not hasattr(self, "_estimators_"):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -203,4 +203,3 @@ class VisionSUOD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

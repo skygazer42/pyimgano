@@ -290,3 +290,117 @@ def apply_illumination_contrast(
         )
 
     return np.asarray(out, dtype=np.uint8)
+
+
+def shading_correction(
+    image: NDArray,
+    *,
+    radius: int = 50,
+    clahe_clip_limit: float = 2.0,
+    clahe_tile_grid_size: tuple[int, int] = (8, 8),
+) -> NDArray:
+    """Shading correction preset: rolling-ball background + CLAHE.
+
+    This is intended for industrial surface images where slow-varying illumination
+    changes dominate the signal.
+
+    Notes
+    -----
+    - Uses a morphological opening as a rolling-ball approximation.
+    - Preserves input shape (grayscale stays grayscale, color stays color).
+    - Output is uint8.
+    """
+
+    img = _require_u8(image)
+
+    from pyimgano.preprocessing.background import estimate_background_rolling_ball
+
+    r = int(radius)
+    if r < 0:
+        raise ValueError(f"radius must be >= 0, got {radius}")
+
+    if img.ndim == 2:
+        bg = estimate_background_rolling_ball(img, radius=r)
+        bias = int(np.round(float(np.median(bg))))
+        corrected = img.astype(np.int16) - bg.astype(np.int16) + bias
+        corrected_u8 = np.clip(corrected, 0, 255).astype(np.uint8)
+        return _clahe_u8(
+            corrected_u8,
+            clip_limit=float(clahe_clip_limit),
+            tile_grid_size=tuple(clahe_tile_grid_size),
+        )
+
+    if img.ndim != 3 or img.shape[2] != 3:
+        raise ValueError(f"Expected image shape (H,W) or (H,W,3), got {img.shape}")
+
+    chans: list[np.ndarray] = []
+    for c in range(3):
+        ch = img[..., c]
+        bg = estimate_background_rolling_ball(ch, radius=r)
+        bias = int(np.round(float(np.median(bg))))
+        corrected = ch.astype(np.int16) - bg.astype(np.int16) + bias
+        chans.append(np.clip(corrected, 0, 255).astype(np.uint8))
+
+    corrected_u8 = np.stack(chans, axis=2)
+    return _clahe_u8(
+        corrected_u8,
+        clip_limit=float(clahe_clip_limit),
+        tile_grid_size=tuple(clahe_tile_grid_size),
+    )
+
+
+def defect_amplification(
+    image: NDArray,
+    *,
+    tophat_ksize: tuple[int, int] = (15, 15),
+    edge_method: str = "sobel",
+    tophat_weight: float = 1.0,
+    edge_weight: float = 0.5,
+    canny_threshold1: int = 50,
+    canny_threshold2: int = 150,
+) -> NDArray:
+    """Defect amplification preset: top-hat + edges.
+
+    This highlights small bright defects and sharp boundaries. Output is grayscale uint8.
+    """
+
+    try:
+        import cv2  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "opencv-python is required for defect amplification.\n"
+            "Install it via:\n  pip install 'opencv-python'\n"
+            f"Original error: {exc}"
+        ) from exc
+
+    img = _require_u8(image)
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    elif img.ndim == 2:
+        gray = img
+    else:
+        raise ValueError(f"Expected image shape (H,W) or (H,W,3), got {img.shape}")
+
+    k0, k1 = int(tophat_ksize[0]), int(tophat_ksize[1])
+    if k0 <= 0 or k1 <= 0:
+        raise ValueError(f"tophat_ksize must be positive ints, got {tophat_ksize}")
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k0, k1))
+    tophat = cv2.morphologyEx(gray, cv2.MORPH_TOPHAT, kernel)
+
+    em = str(edge_method).strip().lower()
+    if em == "sobel":
+        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+        mag = cv2.magnitude(gx, gy)
+        mmax = float(np.max(mag)) if mag.size else 0.0
+        if mmax > 0:
+            edges = np.clip(mag * (255.0 / mmax), 0.0, 255.0).astype(np.uint8)
+        else:
+            edges = np.zeros_like(gray, dtype=np.uint8)
+    elif em == "canny":
+        edges = cv2.Canny(gray, int(canny_threshold1), int(canny_threshold2))
+    else:
+        raise ValueError("edge_method must be one of: sobel, canny")
+
+    out = float(tophat_weight) * tophat.astype(np.float32) + float(edge_weight) * edges.astype(np.float32)
+    return np.clip(out, 0.0, 255.0).astype(np.uint8)

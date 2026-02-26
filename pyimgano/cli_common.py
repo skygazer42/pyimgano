@@ -106,5 +106,11 @@ def build_model_kwargs(
             continue
         if accepts_var_kwargs or key in accepted:
             out[key] = value
-    return out
 
+    # JSON-friendly feature extractor support:
+    # allow `feature_extractor` to be a name or {"name":..., "kwargs":...}.
+    if "feature_extractor" in out:
+        from pyimgano.features.registry import resolve_feature_extractor
+
+        out["feature_extractor"] = resolve_feature_extractor(out["feature_extractor"])
+    return out

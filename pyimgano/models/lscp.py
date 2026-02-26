@@ -104,7 +104,7 @@ class CoreLSCP:
         self.train_scores_: NDArray[np.float64] | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.n_clf < 2:
             raise ValueError("detector_list must contain at least 2 base detectors")
 
@@ -131,7 +131,7 @@ class CoreLSCP:
         self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.X_train_ is None or self.train_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

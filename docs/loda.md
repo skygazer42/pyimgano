@@ -100,13 +100,13 @@ LODA 算法的优势在于其极致的速度和较低的内存消耗。由于其
 
 ## Python 代码示例
 
-下面的代码使用了 `pyod` 库来演示 LODA 算法。首先，请确保您已安装了所需库：
-`pip install pyod numpy matplotlib`
+下面的代码使用 `pyimgano` 内置的 `core_loda` 来演示 LODA 算法。该实现是轻量级的
+随机投影 + 一维直方图密度集成（不依赖任何第三方异常检测库）。
 
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from pyod.models.loda import LODA
+from pyimgano.models import create_model
 
 # -- 1. 生成样本数据 --
 # 生成两组正常的二维高斯分布数据（代表两个大簇）
@@ -126,16 +126,22 @@ contamination_rate = 0.1
 
 # 初始化LODA检测器
 # 使用100个随机投影和20个bins
-clf = LODA(n_random_cuts=100, n_bins=20, contamination=contamination_rate)
-clf.fit(X)
+detector = create_model(
+    "core_loda",
+    n_random_cuts=100,
+    n_bins=20,
+    contamination=contamination_rate,
+)
+detector.fit(X)
 
 # -- 3. 获取预测结果 --
 # y_pred 是二元标签 (0: 正常, 1: 异常)
-y_pred = clf.labels_
+# 注意：labels_ 是训练集上的阈值划分结果；对新数据请使用 predict(X_new)
+y_pred = detector.labels_
 # decision_scores_ 是原始异常分数
-scores = clf.decision_scores_
+scores = detector.decision_scores_
 # 阈值
-threshold = clf.threshold_
+threshold = detector.threshold_
 
 # -- 4. 可视化结果 --
 plt.figure(figsize=(10, 8))

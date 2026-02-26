@@ -444,6 +444,103 @@ class ImageEnhancer:
             contrast_stretch=bool(contrast_stretch),
         )
 
+    def local_contrast_normalization(
+        self,
+        image: NDArray,
+        *,
+        ksize: int = 15,
+        clip: float = 3.0,
+        eps: float = 1e-5,
+    ) -> NDArray:
+        """Fast local contrast normalization (LCN) for grayscale images.
+
+        This performs:
+        - local mean subtraction
+        - division by local standard deviation
+        - clipping to [-clip, +clip]
+        - mapping back to uint8 with 0 mapped to mid-gray (128)
+        """
+
+        arr = np.asarray(image)
+        if arr.ndim == 3:
+            arr = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+        if arr.ndim != 2:
+            raise ValueError(f"Expected grayscale image (H,W) or color (H,W,3), got {arr.shape}")
+
+        k = int(ksize)
+        if k <= 0:
+            raise ValueError(f"ksize must be > 0, got {ksize}")
+        if k % 2 == 0:
+            k += 1  # OpenCV kernels are typically odd-sized; keep it user-friendly.
+
+        c = float(clip)
+        if c <= 0:
+            raise ValueError(f"clip must be > 0, got {clip}")
+
+        e = float(eps)
+        if e <= 0:
+            raise ValueError(f"eps must be > 0, got {eps}")
+
+        x = arr.astype(np.float32)
+        mean = cv2.GaussianBlur(x, (k, k), sigmaX=0.0)
+        mean2 = cv2.GaussianBlur(x * x, (k, k), sigmaX=0.0)
+        var = np.maximum(mean2 - mean * mean, 0.0)
+        std = np.sqrt(var + e)
+        z = (x - mean) / std
+
+        z = np.clip(z, -c, c)
+        out = (z / (2.0 * c) + 0.5) * 255.0
+        return np.rint(np.clip(out, 0.0, 255.0)).astype(np.uint8)
+
+    def jpeg_robust_preprocess(
+        self,
+        image: NDArray,
+        *,
+        strength: float = 0.7,
+    ) -> NDArray:
+        """JPEG-robust preprocessing (denoise + deblock approximation).
+
+        This is a pragmatic, fast preset for pipelines where JPEG artifacts
+        (blocking/ringing) cause false positives.
+        """
+
+        s = float(strength)
+        if s <= 0.0:
+            return np.asarray(image).copy()
+        s = float(min(max(s, 0.0), 1.0))
+
+        arr = np.asarray(image)
+        if arr.dtype != np.uint8:
+            arr = np.clip(arr, 0, 255).astype(np.uint8)
+        if arr.size and int(arr.min()) == int(arr.max()):
+            # Fixed point: avoid shifting a constant frame due to denoiser internals.
+            return arr.copy()
+
+        # Denoise (NLM is fairly robust for JPEG artifacts).
+        h = float(3.0 + 12.0 * s)
+        template = 7
+        search = 21
+        if arr.ndim == 2:
+            den = cv2.fastNlMeansDenoising(arr, None, h=h, templateWindowSize=template, searchWindowSize=search)
+        elif arr.ndim == 3 and arr.shape[2] == 3:
+            den = cv2.fastNlMeansDenoisingColored(
+                arr,
+                None,
+                h=h,
+                hColor=h,
+                templateWindowSize=template,
+                searchWindowSize=search,
+            )
+        else:
+            raise ValueError(f"Expected image shape (H,W) or (H,W,3), got {arr.shape}")
+
+        # Deblock approximation: a mild bilateral filter to smooth within blocks
+        # while keeping edges (defects) reasonably sharp.
+        sigma_color = float(25.0 + 75.0 * s)
+        sigma_space = float(25.0 + 75.0 * s)
+        out = cv2.bilateralFilter(den, d=5, sigmaColor=sigma_color, sigmaSpace=sigma_space)
+        return np.asarray(out, dtype=np.uint8)
+
     # Edge detection methods
     def detect_edges(
         self,
@@ -535,6 +632,77 @@ class ImageEnhancer:
     ) -> NDArray:
         """Apply Gaussian blur."""
         return apply_filter(image, "gaussian", ksize=ksize, sigma=sigma)
+
+    def gaussian_blur_torch(
+        self,
+        image: NDArray,
+        *,
+        kernel_size: int = 5,
+        sigma: float = 1.0,
+        device: str | None = None,
+    ) -> NDArray:
+        """Gaussian blur implemented with torch (GPU when available).
+
+        This is useful for high-throughput pipelines where images are already on
+        GPU or when OpenCV becomes a CPU bottleneck.
+
+        Notes
+        -----
+        - Input is expected to be uint8 in [0,255] (grayscale or BGR/RGB).
+        - Output preserves dtype/shape.
+        """
+
+        arr = np.asarray(image)
+        if arr.ndim == 2:
+            arr = arr[:, :, None]
+            squeeze_back = True
+        else:
+            squeeze_back = False
+
+        if arr.ndim != 3 or arr.shape[2] not in (1, 3):
+            raise ValueError(f"Expected image shape (H,W) or (H,W,3), got {np.asarray(image).shape}")
+
+        k = int(kernel_size)
+        if k <= 0:
+            raise ValueError(f"kernel_size must be > 0, got {kernel_size}")
+        if k % 2 == 0:
+            k += 1
+
+        s = float(sigma)
+        if s <= 0:
+            raise ValueError(f"sigma must be > 0, got {sigma}")
+
+        dev = str(device).strip() if device is not None else None
+        if dev in ("", "none"):
+            dev = None
+
+        # Torch path (CPU fallback if CUDA not present).
+        # Keep everything float32 for speed and determinism.
+        x = torch.from_numpy(arr.transpose(2, 0, 1)).unsqueeze(0).to(dtype=torch.float32)
+        if dev is None:
+            dev = "cuda" if torch.cuda.is_available() else "cpu"
+        x = x.to(dev)
+        x = x / 255.0
+
+        ax = torch.arange(k, device=x.device, dtype=torch.float32) - (k - 1) / 2.0
+        k1 = torch.exp(-(ax * ax) / (2.0 * s * s))
+        k1 = k1 / torch.sum(k1)
+        k2 = (k1[:, None] * k1[None, :]).to(dtype=torch.float32)
+
+        c = int(arr.shape[2])
+        weight = k2.expand(c, 1, k, k).contiguous()
+
+        pad = k // 2
+        x_pad = F.pad(x, (pad, pad, pad, pad), mode="reflect")
+        y = F.conv2d(x_pad, weight, groups=c)
+        y = torch.clamp(y, 0.0, 1.0)
+
+        out = y.squeeze(0).detach().cpu().numpy().transpose(1, 2, 0)
+        out_u8 = np.rint(out * 255.0)
+        out_u8 = np.clip(out_u8, 0.0, 255.0).astype(np.uint8)
+        if squeeze_back:
+            return out_u8[:, :, 0]
+        return out_u8
 
     def bilateral_filter(
         self,

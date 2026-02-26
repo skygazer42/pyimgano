@@ -2,7 +2,7 @@
 """
 MAD (Median Absolute Deviation) robust baseline.
 
-Unlike PyOD's `MAD` implementation (which is 1D-only and may be sensitive to
+Unlike common 1D-only MAD implementations (which can be sensitive to
 `scikit-learn` internal API changes), this implementation is **multivariate**
 and works well for image feature vectors (n_samples, n_features).
 
@@ -31,7 +31,7 @@ _Aggregation = Literal["max", "mean", "l2"]
 
 
 class _RobustMADDetector:
-    """Small sklearn/PyOD-style detector used by :class:`VisionMAD`."""
+    """Small sklearn-style detector used by :class:`VisionMAD`."""
 
     def __init__(
         self,

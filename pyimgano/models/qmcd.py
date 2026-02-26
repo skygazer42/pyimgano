@@ -59,7 +59,7 @@ class CoreQMCD:
 
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
 
         self._scaler = MinMaxScaler()
@@ -68,7 +68,7 @@ class CoreQMCD:
 
         scores = _wrap_around_discrepancy(X_norm, X_norm)
 
-        # Flip scores based on PyOD criterion so "higher = more anomalous"
+        # Flip scores so that "higher = more anomalous" (consistent scoring direction).
         self._is_flipped = False
         skew = float(stats.skew(scores))
         kurt = float(stats.kurtosis(scores))
@@ -79,7 +79,7 @@ class CoreQMCD:
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).ravel()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None or self._scaler is None or self._fitted_data is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -119,4 +119,3 @@ class VisionQMCD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

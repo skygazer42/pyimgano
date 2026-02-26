@@ -20,6 +20,49 @@ from .models import create_model
 
 logger = logging.getLogger(__name__)
 
+_BENCHMARK_PRESETS: dict[str, tuple[str, dict[str, Any]]] = {
+    # Existing fast classical baselines
+    "ECOD": ("ECOD", {"model_name": "vision_ecod"}),
+    "COPOD": ("COPOD", {"model_name": "vision_copod"}),
+    "KNN": ("KNN", {"model_name": "vision_knn", "n_neighbors": 5}),
+    "PCA": ("PCA", {"model_name": "vision_pca"}),
+    "IFOREST": ("IForest", {"model_name": "vision_iforest", "n_estimators": 100}),
+    # New native classical baselines (feature-matrix detectors with vision wrappers)
+    "LOOP": ("LoOP", {"model_name": "vision_loop", "n_neighbors": 15}),
+    "LDOF": ("LDOF", {"model_name": "vision_ldof", "n_neighbors": 20}),
+    "ODIN": ("ODIN", {"model_name": "vision_odin", "n_neighbors": 15}),
+    "RRCF": ("RRCF", {"model_name": "vision_rrcf", "n_trees": 20, "tree_size": 256}),
+    "HST": ("HST", {"model_name": "vision_hst", "n_trees": 25, "max_depth": 10}),
+    "MAHALANOBIS": ("Mahalanobis", {"model_name": "vision_mahalanobis"}),
+    "DTC": ("DTC", {"model_name": "vision_dtc"}),
+    "RZSCORE": ("RZScore", {"model_name": "vision_rzscore"}),
+    "PCA_MD": ("PCA-MD", {"model_name": "vision_pca_md"}),
+    "PCA-MD": ("PCA-MD", {"model_name": "vision_pca_md"}),
+}
+
+
+def build_benchmark_configs(algorithms: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+    """Resolve a list of algorithm names into benchmark configs.
+
+    This helper keeps `quick_benchmark()` lightweight and makes preset behavior testable.
+    Names are case-insensitive and allow simple separators (space/dash/underscore).
+    """
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for algo in algorithms:
+        token = str(algo).strip()
+        if not token:
+            continue
+        key = token.upper().replace(" ", "_").replace("-", "_")
+        preset = _BENCHMARK_PRESETS.get(key)
+        if preset is None:
+            logger.warning("Unknown algorithm: %s, skipping", algo)
+            continue
+        display_name, cfg = preset
+        # Copy so downstream benchmarking cannot mutate the preset store.
+        out[str(display_name)] = dict(cfg)
+    return out
+
 
 class AlgorithmBenchmark:
     """
@@ -144,6 +187,7 @@ class AlgorithmBenchmark:
     ) -> Dict:
         """Benchmark a single algorithm."""
         # Create model
+        algo_config = dict(algo_config)  # avoid mutating the stored config
         model_name = algo_config.pop('model_name')
         if verbose:
             print(f"Creating model: {model_name}")
@@ -167,8 +211,7 @@ class AlgorithmBenchmark:
 
         inference_start = time.time()
         # Use continuous anomaly scores for evaluation/metrics.
-        # `predict()` may return binary labels for some detectors (PyOD semantics),
-        # which would break AUROC/AP computations.
+        # `predict()` returns binary labels, which would break AUROC/AP computations.
         test_scores = detector.decision_function(test_images)
         inference_time = time.time() - inference_start
 
@@ -400,35 +443,18 @@ def quick_benchmark(
     ... )
     """
     if algorithms is None:
-        # Default fast algorithms
-        algorithms = ['ECOD', 'COPOD', 'KNN']
+        # Default fast algorithms (classical-first).
+        algorithms = ["ECOD", "COPOD", "KNN", "Mahalanobis", "RZScore"]
 
-    # Map algorithm names to configurations
-    algo_configs = {}
+    algo_configs = build_benchmark_configs(algorithms)
 
-    for algo in algorithms:
-        algo_upper = algo.upper()
-
-        if algo_upper == 'ECOD':
-            algo_configs['ECOD'] = {'model_name': 'vision_ecod'}
-        elif algo_upper == 'COPOD':
-            algo_configs['COPOD'] = {'model_name': 'vision_copod'}
-        elif algo_upper == 'KNN':
-            algo_configs['KNN'] = {'model_name': 'vision_knn', 'n_neighbors': 5}
-        elif algo_upper == 'PCA':
-            algo_configs['PCA'] = {'model_name': 'vision_pca'}
-        elif algo_upper == 'PATCHCORE':
-            algo_configs['PatchCore'] = {
-                'model_name': 'vision_patchcore',
-                'coreset_sampling_ratio': 0.1
-            }
-        elif algo_upper == 'SIMPLENET':
-            algo_configs['SimpleNet'] = {
-                'model_name': 'vision_simplenet',
-                'epochs': 10
-            }
-        else:
-            logger.warning("Unknown algorithm: %s, skipping", algo)
+    # Keep deep/pixel-map baselines explicit because they can be heavy / optional.
+    for token in algorithms:
+        key = str(token).strip().upper().replace(" ", "_").replace("-", "_")
+        if key == "PATCHCORE":
+            algo_configs["PatchCore"] = {"model_name": "vision_patchcore", "coreset_sampling_ratio": 0.1}
+        if key == "SIMPLENET":
+            algo_configs["SimpleNet"] = {"model_name": "vision_simplenet", "epochs": 10}
 
     # Run benchmark
     benchmark = AlgorithmBenchmark(algo_configs)

@@ -231,21 +231,25 @@ scores = detector.decision_function(X_test)
 - Image-focused API
 - Built-in augmentation support
 
-#### PyOD
+#### Tabular-First Baselines (scikit-learn)
 
 ```python
-from pyod.models.iforest import IForest
+import numpy as np
+from sklearn.ensemble import IsolationForest
 
-# Detection (no preprocessing included)
-detector = IForest(n_estimators=100)
+# Detection (no image preprocessing included)
+detector = IsolationForest(n_estimators=100, random_state=42)
 detector.fit(X_train)
-scores = detector.decision_scores_
+
+# sklearn returns higher=more normal; flip sign so higher=more anomalous
+scores = -detector.score_samples(X_test)
+assert isinstance(scores, np.ndarray)
 ```
 
 **Characteristics:**
-- No preprocessing module (by design)
-- Simple, clean API
-- Focus on detection algorithms
+- No built-in image preprocessing (you provide features)
+- Stable, widely used API
+- Strong classical baselines for tabular / embedding features
 
 ### Documentation Quality
 
@@ -323,7 +327,7 @@ scores = detector.decision_scores_
 
 ## Hybrid Approach
 
-You can use both libraries together!
+You can mix PyImgAno preprocessing/feature extraction with scikit-learn baselines!
 
 ```python
 # Use PyImgAno for preprocessing
@@ -332,12 +336,12 @@ from pyimgano.preprocessing import AdvancedImageEnhancer
 enhancer = AdvancedImageEnhancer()
 features = enhancer.extract_hog(image)
 
-# Use PyOD for detection (if you prefer its algorithms)
-from pyod.models.iforest import IForest
+# Use sklearn for detection (if you prefer standalone classical baselines)
+from sklearn.ensemble import IsolationForest
 
-detector = IForest()
+detector = IsolationForest(random_state=42)
 detector.fit(features_train)
-scores = detector.decision_scores_
+scores = -detector.score_samples(features_test)
 ```
 
 **Or vice versa:**
@@ -372,22 +376,35 @@ scores = detector.decision_function(test_data)
 
 ## Migration Guide
 
-### From PyOD to PyImgAno
+### From scikit-learn to PyImgAno
 
-If you're coming from PyOD and working with images:
+If you're coming from tabular/embedding baselines (e.g. scikit-learn) and want an
+image-first workflow with consistent registry construction:
 
 ```python
-# PyOD approach
-from pyod.models.knn import KNN
-detector = KNN(n_neighbors=5)
-detector.fit(X_train)
-scores = detector.decision_scores_
+# sklearn baseline on feature vectors
+from sklearn.neighbors import LocalOutlierFactor
 
-# PyImgAno approach
+lof = LocalOutlierFactor(n_neighbors=5, novelty=True)
+lof.fit(X_train_features)
+scores = -lof.score_samples(X_test_features)  # higher=more anomalous
+
+# PyImgAno registry-driven detector on image paths (or precomputed embeddings)
+import numpy as np
 from pyimgano.models import create_model
-detector = create_model("vision_knn", n_neighbors=5, contamination=0.1)
-detector.fit(train_paths)
-scores = detector.decision_function(test_paths)
+
+class IdentityExtractor:
+    def extract(self, X):
+        return np.asarray(X)
+
+detector = create_model(
+    "vision_knn",
+    feature_extractor=IdentityExtractor(),
+    n_neighbors=5,
+    contamination=0.1,
+)
+detector.fit(X_train_features)
+scores = detector.decision_function(X_test_features)
 ```
 
 **Key differences:**
@@ -395,24 +412,19 @@ scores = detector.decision_function(test_paths)
 2. Image-first: pass image paths or numpy images
 3. Evaluate with `decision_function()` (scores) and `predict()` (labels)
 
-### From PyImgAno to PyOD
+### From PyImgAno to scikit-learn
 
-If you need PyOD's specialized algorithms:
+If you need a standalone classical baseline outside the registry:
 
 ```python
-# PyImgAno approach
+# PyImgAno approach (feature-based)
 from pyimgano.models import create_model
-detector = create_model("vision_iforest", n_estimators=100)
+detector = create_model("vision_iforest", n_estimators=100, contamination=0.1)
 
-# PyOD approach
-from pyod.models.iforest import IForest
-detector = IForest(n_estimators=100)
+# sklearn approach
+from sklearn.ensemble import IsolationForest
+sk = IsolationForest(n_estimators=100, random_state=42)
 ```
-
-**Key differences:**
-1. Different import paths
-2. May need to add your own preprocessing
-3. Use `decision_scores_` instead of `predict_proba()`
 
 ## Benchmarks
 
@@ -490,25 +502,25 @@ See [CAPABILITY_ASSESSMENT.md](./CAPABILITY_ASSESSMENT.md) for detailed roadmap.
 
 ## References
 
-- **PyOD Repository**: https://github.com/yzhao062/pyod
-- **PyOD Paper**: Zhao, Y., et al. (2019). PyOD: A Python Toolbox for Scalable Outlier Detection. JMLR.
+- **scikit-learn Outlier Detection**: https://scikit-learn.org/stable/modules/outlier_detection.html
 - **PyImgAno Repository**: https://github.com/jhlu2019/pyimgano
 
 ## Frequently Asked Questions
 
-### Q: Can I use PyOD algorithms with PyImgAno preprocessing?
+### Q: Can I use scikit-learn algorithms with PyImgAno preprocessing?
 
-**A:** Yes! Extract features with PyImgAno, then use PyOD detectors:
+**A:** Yes! Extract features with PyImgAno, then use scikit-learn baselines:
 
 ```python
 from pyimgano.preprocessing import AdvancedImageEnhancer
-from pyod.models.iforest import IForest
+from sklearn.ensemble import IsolationForest
 
 enhancer = AdvancedImageEnhancer()
 features = enhancer.extract_hog(image).flatten()
 
-detector = IForest()
+detector = IsolationForest(random_state=42)
 detector.fit(features_train)
+scores = -detector.score_samples(features_test)
 ```
 
 ### Q: Which is faster?
@@ -531,16 +543,14 @@ detector.fit(features_train)
 
 Both projects welcome contributions!
 
-- **PyOD**: https://github.com/yzhao062/pyod/blob/master/CONTRIBUTING.rst
 - **PyImgAno**: https://github.com/jhlu2019/pyimgano/blob/main/CONTRIBUTING.md
 
 ## Support
 
-- **PyOD**: https://github.com/yzhao062/pyod/issues
 - **PyImgAno**: https://github.com/jhlu2019/pyimgano/issues
 
 ---
 
 *Last updated: 2024-11*
 *PyImgAno version: 0.2.0*
-*PyOD version: 1.1.3*
+*Baseline libs: scikit-learn*

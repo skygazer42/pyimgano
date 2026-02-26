@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import zlib
+from pathlib import Path
 from typing import Any, Optional, Sequence
 
 import numpy as np
@@ -209,10 +210,31 @@ def run_robustness_benchmark(
         raise ValueError("pixel_segf1=True requires test_masks to be provided.")
 
     if corruptions:
-        if not test_images or not isinstance(test_images[0], np.ndarray):
+        if not test_images:
+            raise ValueError("test_images must be non-empty when corruptions are enabled.")
+
+        first = test_images[0]
+        if isinstance(first, np.ndarray):
+            pass
+        elif isinstance(first, (str, Path)):
+            # Convenience: allow passing paths; materialize them as uint8 numpy arrays
+            # so corruption functions (and many numpy-first detectors) can run.
+            from pyimgano.io.image import read_image
+
+            loaded: list[np.ndarray] = []
+            for p in test_images:
+                if not isinstance(p, (str, Path)):
+                    raise ValueError(
+                        "When corruptions are enabled and test_images are paths, "
+                        "all test_images items must be str/Path."
+                    )
+                loaded.append(np.asarray(read_image(p, color="bgr"), dtype=np.uint8))
+            test_images = loaded
+        else:
             raise ValueError(
-                "Corruptions require numpy image inputs. "
-                "Provide test_images as RGB uint8 numpy arrays or pass corruptions=[]."
+                "Corruptions require numpy image inputs (or image paths). "
+                f"Got test_images[0]={type(first).__name__}. "
+                "Provide test_images as uint8 numpy arrays, a list of image paths, or pass corruptions=[]."
             )
 
     fit_images, cal_images = _split_fit_calibration(

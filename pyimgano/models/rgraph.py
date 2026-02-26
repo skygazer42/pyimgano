@@ -71,7 +71,7 @@ class CoreRGraph:
         # Use an RBF-like kernel on squared distances.
         return np.exp(-self.gamma * np.square(distances, dtype=np.float64))
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples == 0:
@@ -150,7 +150,7 @@ class CoreRGraph:
         pi_bar /= float(self.transition_steps)
         return pi_bar
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.pi_ is None or self._nn is None or self._train_X is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

@@ -13,7 +13,7 @@ Reference:
 Notes
 -----
 This implementation is inspired by the original SOS algorithm and aligns with
-the common PyOD-style API used across this codebase (decision scores where
+the common sklearn-style API used across this codebase (decision scores where
 higher = more anomalous).
 """
 
@@ -127,7 +127,7 @@ class CoreSOS:
     def _b2o(self, B: np.ndarray) -> np.ndarray:
         return np.prod(1.0 - B, axis=0)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if X.shape[0] < 2:
             self.decision_scores_ = np.zeros(X.shape[0], dtype=np.float64)
@@ -145,7 +145,7 @@ class CoreSOS:
         self.decision_scores_ = np.asarray(O, dtype=np.float64).ravel()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

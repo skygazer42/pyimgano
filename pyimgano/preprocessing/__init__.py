@@ -22,6 +22,12 @@ from .enhancer import (
     normalize_image,
 )
 from .mixin import PreprocessingMixin
+from .guided_filter import guided_filter
+from .background import (
+    estimate_background_rolling_ball,
+    subtract_background_rolling_ball,
+)
+from .tiling import tile_apply
 from .advanced_operations import (
     # Frequency domain
     apply_fft,
@@ -96,9 +102,11 @@ from .augmentation_pipeline import (
 from .industrial_presets import (
     IlluminationContrastKnobs,
     apply_illumination_contrast,
+    defect_amplification,
     gray_world_white_balance,
     homomorphic_filter,
     max_rgb_white_balance,
+    shading_correction,
 )
 
 __all__ = [
@@ -131,6 +139,10 @@ __all__ = [
     # Denoising
     "non_local_means_denoising",
     "anisotropic_diffusion",
+    "guided_filter",
+    "estimate_background_rolling_ball",
+    "subtract_background_rolling_ball",
+    "tile_apply",
     # Feature extraction
     "extract_hog_features",
     "detect_corners",
@@ -185,4 +197,6 @@ __all__ = [
     "homomorphic_filter",
     "IlluminationContrastKnobs",
     "apply_illumination_contrast",
+    "shading_correction",
+    "defect_amplification",
 ]

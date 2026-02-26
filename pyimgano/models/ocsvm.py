@@ -2,13 +2,13 @@
 """One-Class SVM (OCSVM) detector.
 
 This is a native PyImgAno implementation built on scikit-learn's
-`sklearn.svm.OneClassSVM` (no `pyod` dependency).
+`sklearn.svm.OneClassSVM` (no extra outlier-toolbox dependency).
 
 Notes
 -----
 - scikit-learn's `decision_function` returns larger values for inliers.
-  We negate it so that **higher score => more anomalous**, matching PyOD /
-  PyImgAno conventions.
+  We negate it so that **higher score => more anomalous**, matching the
+  PyImgAno convention.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ class CoreOCSVM:
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if X.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
@@ -93,7 +93,7 @@ class CoreOCSVM:
         self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.estimator_ is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -162,4 +162,3 @@ class VisionOCSVM(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

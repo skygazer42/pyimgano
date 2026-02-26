@@ -1,24 +1,29 @@
 # -*- coding: utf-8 -*-
 """
 Vision LODA - 基于LODA算法的视觉异常检测器
-遵循 BaseVisionDetector 架构，不依赖PyOD基类
+遵循 BaseVisionDetector 架构，不依赖外部检测库的基类
 """
 
+import logging
 import numbers
 import warnings
 import numpy as np
 import cv2
 import os
 from sklearn.utils import check_array
-from sklearn.utils.validation import check_is_fitted
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 # 只从本地基类导入
+from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
+
+from ..utils.fitted import require_fitted
+
+logger = logging.getLogger(__name__)
 
 
 # ===================================================================
@@ -65,45 +70,6 @@ def get_optimal_n_bins(data, max_bins=50):
     return optimal_bins
 
 
-def process_decision_scores(scores, contamination):
-    """
-    处理决策分数，计算阈值和标签
-
-    Parameters
-    ----------
-    scores : array-like
-        异常分数
-    contamination : float
-        污染率
-
-    Returns
-    -------
-    threshold : float
-        决策阈值
-    labels : array
-        二分类标签
-    """
-    scores = np.asarray(scores)
-    n_samples = len(scores)
-    n_outliers = int(n_samples * contamination)
-
-    # 计算阈值
-    threshold = np.percentile(scores, 100 * (1 - contamination))
-
-    # 生成标签
-    labels = (scores > threshold).astype(int)
-
-    # 确保异常数量正确
-    if labels.sum() != n_outliers and n_outliers > 0:
-        sorted_indices = np.argsort(scores)
-        labels = np.zeros(n_samples, dtype=int)
-        if n_outliers > 0:
-            labels[sorted_indices[-n_outliers:]] = 1
-            threshold = scores[sorted_indices[-n_outliers]]
-
-    return threshold, labels
-
-
 # ===================================================================
 #                     特征提取器
 # ===================================================================
@@ -147,16 +113,17 @@ class LODAFeatureExtractor:
                 X = self.scaler.transform(X)
             return X
 
-        # 从图像路径提取特征
-        print("提取LODA特征...")
+        # 从图像路径提取特征：物化一次，便于计数与复用迭代器
+        paths = list(X)
+        logger.info("LODA: extracting image features for %d inputs", len(paths))
         features = []
 
-        for img_path in tqdm(X):
+        for img_path in tqdm(paths):
             try:
                 feat = self._extract_single_image(img_path)
                 features.append(feat)
             except Exception as e:
-                print(f"处理 {img_path} 出错: {e}")
+                logger.warning("LODA: failed to extract features for %s: %s", img_path, e)
                 # 添加零特征
                 if len(features) > 0:
                     features.append(np.zeros_like(features[0]))
@@ -227,7 +194,7 @@ class LODAFeatureExtractor:
     tags=("classical", "projection", "density"),
     metadata={"description": "核心 LODA 算法实现"},
 )
-class CoreLODA:
+class CoreLODA(BaseDetector):
     """
     核心LODA算法实现 - 轻量级在线异常检测
 
@@ -244,7 +211,7 @@ class CoreLODA:
     """
 
     def __init__(self, contamination=0.1, n_bins=10, n_random_cuts=100):
-        self.contamination = contamination
+        super().__init__(contamination=contamination)
         self.n_bins = n_bins
         self.n_random_cuts = n_random_cuts
         self.weights = np.ones(n_random_cuts, dtype=float) / n_random_cuts
@@ -255,12 +222,11 @@ class CoreLODA:
         self.limits_ = None
         self.n_bins_ = None  # 用于auto模式
         self.decision_scores_ = None
-        self.threshold_ = None
-        self.labels_ = None
 
     def fit(self, X, y=None):
         """训练LODA模型"""
         X = check_array(X)
+        self._set_n_classes(y)
         n_samples, n_components = X.shape
 
         pred_scores = np.zeros([n_samples, 1])
@@ -278,7 +244,7 @@ class CoreLODA:
             self.limits_ = []
             self.n_bins_ = []
 
-            print("使用自动bin数量确定...")
+            logger.info("LODA: auto-select n_bins per projection")
             for i in range(self.n_random_cuts):
                 # 随机设置一些分量为0（稀疏投影）
                 rands = np.random.permutation(n_components)[:n_zero_components]
@@ -312,7 +278,7 @@ class CoreLODA:
             self.histograms_ = np.zeros((self.n_random_cuts, self.n_bins))
             self.limits_ = np.zeros((self.n_random_cuts, self.n_bins + 1))
 
-            print(f"使用固定bin数量: {self.n_bins}")
+            logger.info("LODA: fixed n_bins=%s", self.n_bins)
             for i in range(self.n_random_cuts):
                 # 随机设置一些分量为0
                 rands = np.random.permutation(n_components)[:n_zero_components]
@@ -338,17 +304,13 @@ class CoreLODA:
 
         # 计算最终分数
         self.decision_scores_ = (pred_scores / self.n_random_cuts).ravel()
-
-        # 计算阈值和标签
-        self.threshold_, self.labels_ = process_decision_scores(
-            self.decision_scores_, self.contamination
-        )
+        self._process_decision_scores()
 
         return self
 
     def decision_function(self, X):
         """计算异常分数"""
-        check_is_fitted(self, ['projections_', 'decision_scores_'])
+        require_fitted(self, ["projections_", "decision_scores_"])
 
         X = check_array(X)
         pred_scores = np.zeros([X.shape[0], 1])
@@ -380,10 +342,7 @@ class CoreLODA:
         pred_scores /= self.n_random_cuts
         return pred_scores.ravel()
 
-    def predict(self, X):
-        """预测标签"""
-        scores = self.decision_function(X)
-        return (scores > self.threshold_).astype(int)
+    # predict() is inherited from BaseDetector
 
 
 # ===================================================================
@@ -450,7 +409,11 @@ class VisionLODA(BaseVisionDetector):
                 method=feature_method,
                 normalize=normalize_features
             )
-            print(f"使用默认特征提取器: method={feature_method}, normalize={normalize_features}")
+            logger.info(
+                "LODA: using default feature extractor (method=%s, normalize=%s)",
+                feature_method,
+                bool(normalize_features),
+            )
 
         # 调用父类构造函数
         super(VisionLODA, self).__init__(
@@ -479,7 +442,7 @@ class VisionLODA(BaseVisionDetector):
             要可视化的投影数量
         """
         if not hasattr(self.detector, 'projections_'):
-            print("请先训练模型")
+            logger.warning("LODA: visualize_projections called before fit()")
             return
 
         n_show = min(n_projections, self.n_random_cuts)
@@ -510,7 +473,7 @@ class VisionLODA(BaseVisionDetector):
             要可视化的直方图数量
         """
         if not hasattr(self.detector, 'histograms_'):
-            print("请先训练模型")
+            logger.warning("LODA: visualize_histograms called before fit()")
             return
 
         n_show = min(n_histograms, self.n_random_cuts)
@@ -540,7 +503,7 @@ class VisionLODA(BaseVisionDetector):
     def visualize_scores(self):
         """可视化异常分数分布"""
         if not hasattr(self.detector, 'decision_scores_'):
-            print("请先训练模型")
+            logger.warning("LODA: visualize_scores called before fit()")
             return
 
         plt.figure(figsize=(10, 5))

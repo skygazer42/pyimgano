@@ -37,7 +37,7 @@ if _torch is not None and _torchvision is not None:
             eval_transform=None,
             **kwargs,
         ):
-            # 调用父类 (pyod.BaseDeepLearningDetector) 的构造函数
+            # 调用父类 (pyimgano.models.base_deep.BaseDeepLearningDetector) 的构造函数
             super(BaseVisionDeepDetector, self).__init__(
                 contamination=contamination,
                 preprocessing=preprocessing,
@@ -51,7 +51,7 @@ if _torch is not None and _torchvision is not None:
                 verbose=verbose,
                 **kwargs,
             )
-            # PyOD compatibility: many utilities (e.g. `predict_proba`) expect
+            # Compatibility: many utilities (e.g. `predict_proba`) expect
             # `_classes` to exist. In unsupervised detection this is always binary.
             self._set_n_classes(None)
 
@@ -78,10 +78,10 @@ if _torch is not None and _torchvision is not None:
                     self.eval_transform = transforms.ToTensor()
 
         # ------------------------------------------------------------------
-        # PyOD deep learning interface (required abstract methods)
+        # Deep learning interface (required abstract methods)
         #
         # Many `pyimgano` vision detectors implement their own `fit` /
-        # `decision_function` without using PyOD's training loop, but still inherit
+        # `decision_function` without using the shared training loop, but still inherit
         # from `BaseDeepLearningDetector` for shared thresholding semantics.
         #
         # To keep those detectors instantiable, we provide default implementations
@@ -137,19 +137,25 @@ if _torch is not None and _torchvision is not None:
 
             # 4. 执行训练循环 (来自父类的方法，它会调用我们子类实现的 training_forward)
             if self.verbose:
-                print(f"开始在 {self.device} 设备上进行训练...")
+                import logging
+
+                logging.getLogger(__name__).info("开始在 %s 设备上进行训练...", self.device)
             self.train(train_loader)
             if self.verbose:
-                print("训练完成。")
+                import logging
+
+                logging.getLogger(__name__).info("训练完成。")
 
             # 5. 计算训练集上的异常分数
             if self.verbose:
-                print("正在计算训练集上的异常分数...")
+                import logging
+
+                logging.getLogger(__name__).info("正在计算训练集上的异常分数...")
             self.decision_scores_ = self.decision_function(X)
 
-            # 6. 调用 PyOD 的方法来计算阈值和标签 (继承来的免费功能)
+            # 6. 调用基类的方法来计算阈值和标签
             self._process_decision_scores()
-            # PyOD compatibility: enable `predict_proba()` by initializing `_classes`.
+            # Compatibility: enable `predict_proba()` by initializing `_classes`.
             self._set_n_classes(y)
             return self
 

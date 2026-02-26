@@ -10,7 +10,13 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__all__ = ["fit_threshold", "calibrate_normal_pixel_quantile_threshold", "resolve_calibration_quantile"]
+__all__ = [
+    "fit_threshold",
+    "calibrate_normal_pixel_quantile_threshold",
+    "resolve_calibration_quantile",
+    "RankCalibrator",
+    "fit_pot_threshold",
+]
 
 _LAZY_EXPORTS = {
     "fit_threshold": ("fewshot", "fit_threshold"),
@@ -19,6 +25,8 @@ _LAZY_EXPORTS = {
         "calibrate_normal_pixel_quantile_threshold",
     ),
     "resolve_calibration_quantile": ("score_threshold", "resolve_calibration_quantile"),
+    "RankCalibrator": ("rank_calibration", "RankCalibrator"),
+    "fit_pot_threshold": ("pot_threshold", "fit_pot_threshold"),
 }
 
 

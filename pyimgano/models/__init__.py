@@ -27,10 +27,10 @@ def _auto_import(modules: Iterable[str]) -> None:
     """
     for module_name in modules:
         try:
-            # Some third-party model backends (e.g. certain PyOD submodules) emit
-            # user-facing "please install ..." messages via `print()` at import
-            # time. Keep `import pyimgano.models` quiet by default; model-specific
-            # dependency errors are surfaced when constructing the model.
+            # Some third-party model backends emit user-facing "please install ..."
+            # messages via `print()` at import time. Keep `import pyimgano.models`
+            # quiet by default; dependency errors are surfaced when constructing
+            # the model.
             with (
                 contextlib.redirect_stdout(io.StringIO()),
                 contextlib.redirect_stderr(io.StringIO()),
@@ -56,23 +56,34 @@ _auto_import(
         "feature_bagging",  # Feature Bagging ensemble method
         "gmm",  # Gaussian Mixture Model density baseline
         "hbos",  # Histogram-Based Outlier Score
-        "iforest",  # Isolation Forest (PyOD)
+        "iforest",  # Isolation Forest
+        "rrcf",  # Random cut forest
+        "hst",  # Half-space trees
         "inne",  # Isolation using Nearest Neighbors
         "Isolationforest",  # Isolation Forest
         "knn",  # K-Nearest Neighbors
+        "knn_degree",  # epsilon-graph degree
         "kpca",  # Kernel Principal Component Analysis
         "k_means",  # K-Means clustering-based detection
         "kde",  # Kernel Density Estimation density baseline
         "loci",  # Local Correlation Integral
+        "loop",  # Local Outlier Probability
         "loda",  # Lightweight On-line Detector of Anomalies
         "lof",  # Local Outlier Factor
+        "ldof",  # Local Distance-based Outlier Factor
+        "odin",  # kNN indegree (ODIN)
         "lscp",  # Locally Selective Combination in Parallel
         "rgraph",  # R-Graph: robust graph-based outlier detection
         "lmdd",  # LMDD
         "mad",  # Median Absolute Deviation
+        "rzscore",  # Robust z-score (median + MAD)
         "mcd",  # Minimum Covariance Determinant
+        "mahalanobis",  # Mahalanobis distance baseline
+        "dtc",  # Distance to centroid baseline
+        "dcorr",  # Distance-correlation influence
         "ocsvm",  # One-Class Support Vector Machine
         "pca",  # Principal Component Analysis
+        "pca_md",  # PCA + Mahalanobis distance
         "qmcd",  # Quantile-based MCD
         "rod",  # Rotation-based Outlier Detection
         "sampling",  # Sampling-based outlier detection
@@ -137,6 +148,8 @@ _auto_import(
         "superad",
         # Optional foundation + sequence modeling
         "mambaad",
+        # Pipelines registered as models
+        "feature_pipeline",
     ]
 )
 

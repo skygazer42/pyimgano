@@ -156,14 +156,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="List available model names and exit (default output: text, one per line)",
     )
     parser.add_argument(
+        "--list-feature-extractors",
+        action="store_true",
+        help="List available feature extractor names and exit (default output: text, one per line)",
+    )
+    parser.add_argument(
         "--model-info",
         default=None,
         help="Show tags/metadata/signature/accepted kwargs for a model name and exit",
     )
     parser.add_argument(
+        "--feature-info",
+        default=None,
+        help="Show tags/metadata/signature/accepted kwargs for a feature extractor name and exit",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
-        help="When used with --list-models/--model-info, output JSON instead of text",
+        help=(
+            "When used with discovery flags (--list-models/--model-info/"
+            "--list-feature-extractors/--feature-info), output JSON instead of text"
+        ),
     )
     parser.add_argument(
         "--tags",
@@ -172,6 +185,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Filter --list-models by required tags (comma-separated or repeatable). "
             "Example: --tags vision,deep"
+        ),
+    )
+    parser.add_argument(
+        "--feature-tags",
+        action="append",
+        default=None,
+        help=(
+            "Filter --list-feature-extractors by required tags (comma-separated or repeatable). "
+            "Example: --feature-tags embeddings"
         ),
     )
     parser.add_argument("--model", default="vision_patchcore", help="Registered model name")
@@ -654,6 +676,11 @@ def _build_model_kwargs(
             continue
         if accepts_var_kwargs or key in accepted:
             out[key] = value
+
+    if "feature_extractor" in out:
+        from pyimgano.features.registry import resolve_feature_extractor
+
+        out["feature_extractor"] = resolve_feature_extractor(out["feature_extractor"])
     return out
 
 
@@ -666,17 +693,22 @@ def main(argv: list[str] | None = None) -> int:
         # Keep `pyimgano.cli` importable without heavy deps; discovery/benchmarking
         # happens inside `main()`.
         import pyimgano.models  # noqa: F401
+        import pyimgano.features  # noqa: F401
 
         tags_raw = getattr(args, "tags", None)
+        feature_tags_raw = getattr(args, "feature_tags", None)
 
         discovery_flags = [
             bool(args.list_models),
             args.model_info is not None,
             bool(args.list_categories),
+            bool(args.list_feature_extractors),
+            args.feature_info is not None,
         ]
         if sum(1 for f in discovery_flags if f) > 1:
             raise ValueError(
-                "--list-models, --model-info, and --list-categories are mutually exclusive."
+                "--list-models, --model-info, --list-categories, "
+                "--list-feature-extractors, and --feature-info are mutually exclusive."
             )
 
         if bool(args.list_models):
@@ -689,6 +721,25 @@ def main(argv: list[str] | None = None) -> int:
                             tags.append(tag)
 
             names = MODEL_REGISTRY.available(tags=tags or None)
+            if bool(args.json):
+                print(json.dumps(names, indent=2))
+            else:
+                for name in names:
+                    print(name)
+            return 0
+
+        if bool(args.list_feature_extractors):
+            from pyimgano.features import list_feature_extractors
+
+            tags: list[str] = []
+            if feature_tags_raw:
+                for item in feature_tags_raw:
+                    for tag in str(item).split(","):
+                        tag = tag.strip()
+                        if tag:
+                            tags.append(tag)
+
+            names = list_feature_extractors(tags=tags or None)
             if bool(args.json):
                 print(json.dumps(names, indent=2))
             else:
@@ -748,6 +799,32 @@ def main(argv: list[str] | None = None) -> int:
                     "qualname": getattr(entry.constructor, "__qualname__", "<unknown>"),
                 },
             }
+
+            if bool(args.json):
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
+            else:
+                print(f"Name: {payload['name']}")
+                tags = payload["tags"]
+                print(f"Tags: {', '.join(tags) if tags else '<none>'}")
+                print("Metadata:")
+                metadata = payload["metadata"]
+                if metadata:
+                    for key in sorted(metadata):
+                        print(f"  {key}: {metadata[key]}")
+                else:
+                    print("  <none>")
+                print("Signature:")
+                print(f"  {payload['signature']}")
+                print(f"Accepts **kwargs: {'yes' if payload['accepts_var_kwargs'] else 'no'}")
+                print("Accepted kwargs:")
+                for key in payload["accepted_kwargs"]:
+                    print(f"  - {key}")
+            return 0
+
+        if args.feature_info is not None:
+            from pyimgano.features import feature_info as _feature_info
+
+            payload = _feature_info(str(args.feature_info))
 
             if bool(args.json):
                 print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))

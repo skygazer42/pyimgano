@@ -30,6 +30,7 @@ def _rank_normalize(scores: NDArray) -> NDArray:
 class EnsembleConfig:
     combine: str = "mean_rank"
     weights: Optional[Sequence[float]] = None
+    trim_fraction: float = 0.1
 
 
 @register_model(
@@ -58,6 +59,7 @@ class VisionScoreEnsemble:
         contamination: float = 0.1,
         combine: str = "mean_rank",
         weights: Optional[Sequence[float]] = None,
+        trim_fraction: float = 0.1,
     ) -> None:
         if not detectors:
             raise ValueError("detectors must be non-empty")
@@ -67,7 +69,11 @@ class VisionScoreEnsemble:
         if not (0.0 < self.contamination < 0.5):
             raise ValueError(f"contamination must be in (0,0.5), got {self.contamination}")
 
-        self.config = EnsembleConfig(combine=str(combine), weights=weights)
+        tf = float(trim_fraction)
+        if not (0.0 <= tf < 0.5):
+            raise ValueError(f"trim_fraction must be in [0,0.5), got {trim_fraction}")
+
+        self.config = EnsembleConfig(combine=str(combine), weights=weights, trim_fraction=tf)
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
@@ -95,6 +101,7 @@ class VisionScoreEnsemble:
 
         combine = self.config.combine
         weights = self.config.weights
+        trim_fraction = float(self.config.trim_fraction)
 
         if weights is not None:
             if len(weights) != stacked.shape[0]:
@@ -108,16 +115,49 @@ class VisionScoreEnsemble:
         else:
             w = None
 
+        def _trimmed_mean(values_2d: NDArray) -> NDArray:
+            m = int(values_2d.shape[0])
+            if m <= 1:
+                return values_2d.reshape(-1)
+            k = int(np.floor(trim_fraction * m))
+            if 2 * k >= m:
+                raise ValueError("trim_fraction too large for number of detectors")
+            sorted_vals = np.sort(values_2d, axis=0)
+            core = sorted_vals[k : m - k, :] if k > 0 else sorted_vals
+            return np.mean(core, axis=0)
+
         if combine == "mean_rank":
             norm = np.stack([_rank_normalize(stacked[i]) for i in range(stacked.shape[0])], axis=0)
             if w is None:
                 return np.mean(norm, axis=0).astype(np.float32, copy=False)
             return np.sum(norm * w[:, None], axis=0).astype(np.float32, copy=False)
 
+        if combine == "max_rank":
+            norm = np.stack([_rank_normalize(stacked[i]) for i in range(stacked.shape[0])], axis=0)
+            if w is not None:
+                raise ValueError("weights are not supported for combine='max_rank'")
+            return np.max(norm, axis=0).astype(np.float32, copy=False)
+
+        if combine == "trimmed_mean_rank":
+            norm = np.stack([_rank_normalize(stacked[i]) for i in range(stacked.shape[0])], axis=0)
+            if w is not None:
+                raise ValueError("weights are not supported for combine='trimmed_mean_rank'")
+            return _trimmed_mean(norm).astype(np.float32, copy=False)
+
         if combine == "mean":
             if w is None:
                 return np.mean(stacked, axis=0).astype(np.float32, copy=False)
             return np.sum(stacked * w[:, None], axis=0).astype(np.float32, copy=False)
+
+        if combine == "max":
+            if w is not None:
+                raise ValueError("weights are not supported for combine='max'")
+            return np.max(stacked, axis=0).astype(np.float32, copy=False)
+
+        if combine == "trimmed_mean":
+            if w is not None:
+                raise ValueError("weights are not supported for combine='trimmed_mean'")
+            return _trimmed_mean(stacked).astype(np.float32, copy=False)
 
         raise ValueError(f"Unknown combine strategy: {combine!r}")
 

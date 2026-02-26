@@ -1,5 +1,5 @@
 """
-Tests for PyOD-based anomaly detection models.
+Smoke tests for classical (non-deep) anomaly detection models.
 """
 
 import numpy as np
@@ -236,13 +236,13 @@ class TestPCA:
         ("vision_lmdd", {"n_iter": 5}),
     ],
 )
-def test_additional_pyod_models_fit_predict(
+def test_additional_classical_models_fit_predict(
     feature_extractor,
     mock_image_paths,
     model_name,
     model_kwargs,
 ):
-    """Smoke-test additional PyOD wrappers added by pyimgano."""
+    """Smoke-test additional classical models registered by pyimgano."""
     train_paths, test_paths = mock_image_paths
     detector = models.create_model(
         model_name,
@@ -294,14 +294,14 @@ def test_lscp_fit_predict(feature_extractor, mock_image_paths):
 
 
 class TestModelRegistry:
-    """Test model registry for PyOD models."""
+    """Test model registry for classical models."""
 
     def test_models_registered(self):
-        """Test that PyOD models are properly registered."""
+        """Test that classical models are properly registered."""
         from pyimgano.models import list_models
 
         all_models = list_models()
-        pyod_models = [
+        classical_models = [
             "vision_ecod",
             "vision_copod",
             "vision_knn",
@@ -327,7 +327,7 @@ class TestModelRegistry:
             "vision_lmdd",
         ]
 
-        for model_name in pyod_models:
+        for model_name in classical_models:
             assert model_name in all_models, f"{model_name} not in registry"
 
     def test_list_by_tags(self):

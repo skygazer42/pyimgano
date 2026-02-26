@@ -73,3 +73,35 @@ def test_run_robustness_benchmark_schema_and_metrics() -> None:
     sev3 = report["corruptions"]["identity"]["severity_3"]["results"]["pixel_metrics"]
     assert sev1["pixel_segf1"] == 1.0
     assert sev3["pixel_segf1"] == 1.0
+
+
+def test_run_robustness_benchmark_can_load_paths_for_corruptions(tmp_path) -> None:
+    import cv2
+
+    # Dummy detector expects numpy images, but we pass file paths to the benchmark.
+    # The benchmark should materialize them as uint8 numpy arrays when corruptions are enabled.
+    img0 = np.zeros((16, 16, 3), dtype=np.uint8)
+    img1 = img0.copy()
+    img1[4:12, 4:12] = 255
+
+    p0 = tmp_path / "good.png"
+    p1 = tmp_path / "bad.png"
+    cv2.imwrite(str(p0), img0)
+    cv2.imwrite(str(p1), img1)
+
+    det = _DummyMapDetector()
+    report = run_robustness_benchmark(
+        det,
+        train_images=[img0, img0, img0],
+        test_images=[str(p0), str(p1)],
+        test_labels=np.array([0, 1], dtype=int),
+        test_masks=None,
+        corruptions=[_IdentityCorruption()],
+        severities=[1],
+        seed=0,
+        pixel_segf1=False,
+    )
+
+    assert "clean" in report
+    assert "corruptions" in report
+    assert "identity" in report["corruptions"]

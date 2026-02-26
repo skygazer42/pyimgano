@@ -2,7 +2,7 @@
 
 This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_index.py`.
 
-Total registered model names: **114**
+Total registered model names: **137**
 
 ## Discovering models
 
@@ -29,9 +29,20 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | Name | Tags | Year | Backend | Description | Module |
 |---|---|---:|---|---|---|
 | `ae_resnet_unet` | vision, deep, autoencoder |  |  | 基于 ResNet-UNet 的重建式异常检测器 | `pyimgano/models/ae.py` |
+| `core_dcorr` | classical, projection, dependence |  |  | Distance-correlation influence (random projections; native) | `pyimgano/models/dcorr.py` |
 | `core_deep_svdd` | deep, torch, one-class |  |  | 核心 DeepSVDD 异常检测器 | `pyimgano/models/deep_svdd.py` |
+| `core_dtc` | classical, distance, baseline |  |  | Distance-to-centroid baseline (L2 to mean) | `pyimgano/models/dtc.py` |
+| `core_hst` | classical, tree, online |  |  | Half-Space Trees (leaf-mass scoring; native) | `pyimgano/models/hst.py` |
+| `core_knn_degree` | classical, neighbors, graph, density |  |  | kNN epsilon-graph degree (radius chosen from kNN distances) | `pyimgano/models/knn_degree.py` |
 | `core_kpca` | classical, kernel, projection |  |  | 核心 Kernel PCA 异常检测器 | `pyimgano/models/kpca.py` |
+| `core_ldof` | classical, neighbors, local |  |  | LDOF - Local Distance-based Outlier Factor (native) | `pyimgano/models/ldof.py` |
 | `core_loda` | classical, projection, density |  |  | 核心 LODA 算法实现 | `pyimgano/models/loda.py` |
+| `core_loop` | classical, neighbors, probability |  |  | LoOP - Local Outlier Probability (native implementation) | `pyimgano/models/loop.py` |
+| `core_mahalanobis` | classical, distance, gaussian |  |  | Mahalanobis distance baseline (mean + covariance) | `pyimgano/models/mahalanobis.py` |
+| `core_odin` | classical, neighbors, graph |  |  | ODIN - indegree-based kNN graph outlier detector (native) | `pyimgano/models/odin.py` |
+| `core_pca_md` | classical, pca, distance |  |  | PCA + Mahalanobis distance (subspace) | `pyimgano/models/pca_md.py` |
+| `core_rrcf` | classical, forest, random-cut |  |  | Random cut forest baseline (RRCF-style tree construction) | `pyimgano/models/rrcf.py` |
+| `core_rzscore` | classical, robust, baseline |  |  | Robust z-score (median + MAD) | `pyimgano/models/rzscore.py` |
 | `cutpaste` | vision, deep, cutpaste, self-supervised, cvpr2021 | 2021 |  | CutPaste (legacy alias) - self-supervised anomaly detection via synthetic cut/paste | `pyimgano/models/cutpaste.py` |
 | `dbscan_anomaly` | vision, classical, clustering |  |  | 基于 DBSCAN 的图像异常检测器 | `pyimgano/models/dbscan.py` |
 | `devnet` | vision, deep, devnet, weakly-supervised, kdd2019 | 2019 |  | DevNet (legacy alias) - weakly-supervised deviation loss anomaly detection | `pyimgano/models/devnet.py` |
@@ -64,6 +75,7 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_crossmad` | vision, deep, crossmad, cross-modal, cvpr2025, sota | 2025 |  | CrossMAD - Cross-Modal Anomaly Detection (CVPR 2025) | `pyimgano/models/crossmad.py` |
 | `vision_csflow_anomalib` | vision, deep, backend, anomalib, csflow |  | anomalib | CS-Flow via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_cutpaste` | vision, deep, cutpaste, self-supervised, cvpr2021 | 2021 |  | CutPaste - self-supervised anomaly detection via synthetic cut/paste (CVPR 2021) | `pyimgano/models/cutpaste.py` |
+| `vision_dcorr` | vision, classical, projection, dependence |  |  | Vision distance-correlation influence detector | `pyimgano/models/dcorr.py` |
 | `vision_deep_svdd` | vision, deep, torch |  |  | 基于 DeepSVDD 的视觉异常检测器 | `pyimgano/models/deep_svdd.py` |
 | `vision_devnet` | vision, deep, devnet, weakly-supervised, kdd2019 | 2019 |  | DevNet - weakly-supervised deviation loss anomaly detection (KDD 2019) | `pyimgano/models/devnet.py` |
 | `vision_dfkde_anomalib` | vision, deep, backend, anomalib, dfkde |  | anomalib | DFKDE via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
@@ -75,35 +87,43 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_draem_anomalib` | vision, deep, backend, anomalib, draem |  | anomalib | DRAEM via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_dsr_anomalib` | vision, deep, backend, anomalib, dsr |  | anomalib | DSR via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_dst` | vision, deep, dst, student-teacher, distillation, sota | 2023 |  | DST - Double Student-Teacher with complementary learning | `pyimgano/models/dst.py` |
+| `vision_dtc` | vision, classical, distance, baseline |  |  | Vision distance-to-centroid baseline | `pyimgano/models/dtc.py` |
 | `vision_ecod` | vision, classical, ecod, parameter-free, high-performance | 2022 |  | ECOD - Empirical CDF-based outlier detector (TKDE 2022) | `pyimgano/models/ecod.py` |
 | `vision_efficientad_anomalib` | vision, deep, backend, anomalib, efficientad |  | anomalib | EfficientAD via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_fastflow` | vision, deep, flow |  |  | FastFlow-based visual anomaly detector | `pyimgano/models/fastflow.py` |
 | `vision_fastflow_anomalib` | vision, deep, backend, anomalib, fastflow |  | anomalib | FastFlow via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_favae` | vision, deep, favae, vae, adaptive, sota | 2023 |  | Feature Adaptive VAE - Dynamic latent space adaptation | `pyimgano/models/favae.py` |
 | `vision_feature_bagging` | vision, ensemble, feature_bagging | 2005 |  | Feature Bagging - random feature-subspace ensemble (native) | `pyimgano/models/feature_bagging.py` |
+| `vision_feature_pipeline` | vision, classical, pipeline |  |  | Feature extractor + core detector pipeline (dynamic vision wrapper). | `pyimgano/models/feature_pipeline.py` |
 | `vision_fre_anomalib` | vision, deep, backend, anomalib, fre |  | anomalib | FRE via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_ganomaly_anomalib` | vision, deep, backend, anomalib, ganomaly |  | anomalib | GANomaly via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_gcad` | vision, deep, gcad, graph, sota | 2023 |  | Graph Convolutional Anomaly Detection - Uses GCN to model spatial relationships | `pyimgano/models/gcad.py` |
 | `vision_glad` | vision, deep, glad, diffusion, adaptive, eccv2024, sota | 2024 |  | GLAD - Global-Local Adaptive Diffusion (ECCV 2024) | `pyimgano/models/glad.py` |
 | `vision_gmm` | vision, classical, gmm, density, baseline |  |  | Gaussian Mixture Model detector (density baseline) | `pyimgano/models/gmm.py` |
 | `vision_hbos` | vision, classical, hbos, histogram, fast |  |  | HBOS - Histogram-based Outlier Score (fast, interpretable baseline) | `pyimgano/models/hbos.py` |
+| `vision_hst` | vision, classical, tree, online |  |  | Vision Half-Space Trees (leaf-mass scoring) | `pyimgano/models/hst.py` |
 | `vision_iforest` | vision, classical, iforest, ensemble, baseline | 2008 |  | Isolation Forest detector (baseline, robust general-purpose) | `pyimgano/models/iforest.py` |
 | `vision_imdd` | vision, classical |  |  | Vision wrapper for IMDD deviation detector | `pyimgano/models/imdd.py` |
 | `vision_inctrl` | vision, deep, inctrl, few-shot, generalist, cvpr2024, sota | 2024 |  | InCTRL - In-context Residual Learning for generalist AD (CVPR 2024) | `pyimgano/models/inctrl.py` |
 | `vision_inne` | vision, classical, isolation, inne, fast | 2014 |  | INNE - Isolation using Nearest-Neighbor Ensembles (ICDMW 2014) | `pyimgano/models/inne.py` |
 | `vision_kde` | vision, classical, kde, density, baseline |  |  | Kernel Density Estimation detector (density baseline) | `pyimgano/models/kde.py` |
 | `vision_knn` | vision, classical, neighbors, knn | 2000 |  | Vision wrapper for KNN outlier detector | `pyimgano/models/knn.py` |
+| `vision_knn_degree` | vision, classical, neighbors, graph, density |  |  | Vision kNN epsilon-graph degree | `pyimgano/models/knn_degree.py` |
 | `vision_kpca` | vision, classical, kernel |  |  | 基于 Kernel PCA 的视觉异常检测器 | `pyimgano/models/kpca.py` |
+| `vision_ldof` | vision, classical, neighbors, local |  |  | Vision LDOF - Local Distance-based Outlier Factor | `pyimgano/models/ldof.py` |
 | `vision_lmdd` | vision, classical, lmdd, baseline |  |  | LMDD deviation detector (native implementation) | `pyimgano/models/lmdd.py` |
 | `vision_loci` | vision, classical, loci |  |  | Vision wrapper for LOCI outlier detector (native) | `pyimgano/models/loci.py` |
 | `vision_loda` | vision, classical |  |  | 基于 LODA 的视觉异常检测器 | `pyimgano/models/loda.py` |
+| `vision_loop` | vision, classical, neighbors, probability |  |  | Vision LoOP - Local Outlier Probability | `pyimgano/models/loop.py` |
 | `vision_lscp` | vision, classical, ensemble, lscp |  |  | LSCP - locally selective combination ensemble (native) | `pyimgano/models/lscp.py` |
 | `vision_mad` | vision, classical, mad, robust, baseline |  |  | Multivariate MAD robust baseline (median + MAD robust z-score) | `pyimgano/models/mad.py` |
+| `vision_mahalanobis` | vision, classical, distance, gaussian |  |  | Vision Mahalanobis baseline (mean + covariance) | `pyimgano/models/mahalanobis.py` |
 | `vision_mambaad` | vision, deep, mambaad, mamba, ssm, numpy, pixel_map | 2024 |  | MambaAD-style patch embedding reconstruction with Mamba SSM (NeurIPS 2024) | `pyimgano/models/mambaad.py` |
 | `vision_mcd` | vision, classical, statistical, mcd, robust | 1999 |  | MCD - Robust covariance-based outlier detector (MinCovDet backend) | `pyimgano/models/mcd.py` |
 | `vision_memseg` | vision, deep, memseg, memory, segmentation, pixel_map | 2022 |  | MemSeg - memory-guided anomaly segmentation (ICCV 2022-style) | `pyimgano/models/memseg.py` |
 | `vision_ocsvm` | vision, classical, svm, one-class, ocsvm |  |  | One-Class SVM outlier detector (sklearn backend) | `pyimgano/models/ocsvm.py` |
 | `vision_oddoneout` | vision, deep, oddoneout, neighbors, cvpr2025, sota | 2025 |  | Odd-One-Out - Neighbor Comparison AD (CVPR 2025) | `pyimgano/models/oddoneout.py` |
+| `vision_odin` | vision, classical, neighbors, graph |  |  | Vision ODIN - indegree-based kNN graph detector | `pyimgano/models/odin.py` |
 | `vision_oneformore` | vision, deep, oneformore, continual, diffusion, cvpr2025, sota | 2025 |  | One-for-More - Continual Diffusion Model (CVPR 2025, #1 on MVTec/VisA) | `pyimgano/models/oneformore.py` |
 | `vision_openclip_patchknn` | vision, deep, clip, openclip, backend, knn |  | openclip | OpenCLIP patch embedding + kNN detector (requires pyimgano[clip]) | `pyimgano/models/openclip_backend.py` |
 | `vision_openclip_promptscore` | vision, deep, clip, openclip, backend, prompt |  | openclip | OpenCLIP prompt scoring detector (requires pyimgano[clip]) | `pyimgano/models/openclip_backend.py` |
@@ -114,6 +134,7 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_patchcore_anomalib` | vision, deep, backend, anomalib, patchcore |  | anomalib | PatchCore via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_patchcore_inspection_checkpoint` | vision, deep, backend, patchcore_inspection, patchcore |  | patchcore_inspection | PatchCore (amazon-science/patchcore-inspection) checkpoint wrapper (optional backend) | `pyimgano/models/patchcore_inspection_backend.py` |
 | `vision_pca` | vision, classical, linear, pca | 2003 |  | Vision wrapper for PCA-based outlier detector | `pyimgano/models/pca.py` |
+| `vision_pca_md` | vision, classical, pca, distance |  |  | Vision PCA + Mahalanobis distance (subspace) | `pyimgano/models/pca_md.py` |
 | `vision_promptad` | vision, deep, promptad, few-shot, prompt, cvpr2024, sota | 2024 |  | PromptAD - Prompt learning with only normal samples (CVPR 2024) | `pyimgano/models/promptad.py` |
 | `vision_qmcd` | vision, classical, qmcd, robust, baseline |  |  | QMCD wrap-around discrepancy detector (robust-statistical baseline) | `pyimgano/models/qmcd.py` |
 | `vision_realnet` | vision, deep, realnet, feature-selection, cvpr2024, sota | 2024 |  | RealNet - Feature Selection with Realistic Synthetic Anomaly (CVPR 2024) | `pyimgano/models/realnet.py` |
@@ -125,6 +146,8 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_riad` | vision, deep, riad, reconstruction, self-supervised, pixel_map | 2020 |  | RIAD - reconstruction by adjacent image decomposition (2020-style) | `pyimgano/models/riad.py` |
 | `vision_rkde_anomalib` | vision, deep, backend, anomalib, rkde |  | anomalib | R-KDE via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_rod` | vision, classical, rod, baseline |  |  | Rotation-based Outlier Detection (baseline) | `pyimgano/models/rod.py` |
+| `vision_rrcf` | vision, classical, forest, random-cut |  |  | Vision random cut forest baseline (RRCF-style) | `pyimgano/models/rrcf.py` |
+| `vision_rzscore` | vision, classical, robust, baseline |  |  | Vision robust z-score (median + MAD) | `pyimgano/models/rzscore.py` |
 | `vision_sampling` | vision, classical, sampling, distance |  |  | Sampling-based distance outlier detector (native) | `pyimgano/models/sampling.py` |
 | `vision_score_ensemble` | vision, ensemble, score |  |  | Score-only ensemble wrapper (mean of rank-normalized scores by default) | `pyimgano/models/score_ensemble.py` |
 | `vision_simplenet` | vision, deep, simplenet, fast, sota, cvpr2023 | 2023 |  | SimpleNet - Ultra-fast SOTA anomaly detection (CVPR 2023) | `pyimgano/models/simplenet.py` |

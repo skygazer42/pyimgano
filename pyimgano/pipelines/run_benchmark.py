@@ -154,9 +154,16 @@ def _merge_and_filter_model_kwargs(
         merged.setdefault(key, value)
 
     if accepts_var_kwargs:
-        return merged
+        out = merged
+    else:
+        out = {k: v for k, v in merged.items() if k in accepted}
 
-    return {k: v for k, v in merged.items() if k in accepted}
+    if "feature_extractor" in out:
+        from pyimgano.features.registry import resolve_feature_extractor
+
+        out["feature_extractor"] = resolve_feature_extractor(out["feature_extractor"])
+    return out
+
 
 
 def run_benchmark_category(

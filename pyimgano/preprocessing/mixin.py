@@ -170,6 +170,82 @@ class PreprocessingMixin:
             # No preprocessing
             return image
 
+    def preprocess_image_masked(
+        self,
+        image: Union[str, NDArray],
+        *,
+        mask: NDArray,
+        operation: Optional[str] = None,
+        invert_mask: bool = False,
+        **kwargs,
+    ) -> NDArray:
+        """Apply preprocessing only within a binary ROI mask.
+
+        Parameters
+        ----------
+        image:
+            Image path or image array.
+        mask:
+            Binary mask of shape (H,W). Non-zero values are treated as ROI.
+        operation:
+            Single operation to apply (if not using pipeline). If using pipeline mode,
+            pass operation=None to apply the full pipeline inside the ROI.
+        invert_mask:
+            If True, apply enhancement outside the ROI instead.
+        """
+
+        if isinstance(image, str):
+            img = cv2.imread(image)
+            if img is None:
+                raise ValueError(f"Failed to load image: {image}")
+        else:
+            img = np.asarray(image)
+
+        m = np.asarray(mask)
+        if m.ndim == 3:
+            m = m[..., 0]
+        if m.ndim != 2:
+            raise ValueError(f"mask must be 2D (H,W), got shape {m.shape}")
+        if m.shape[0] != img.shape[0] or m.shape[1] != img.shape[1]:
+            raise ValueError(f"mask shape must match image H,W. Got mask={m.shape} image={img.shape}")
+
+        roi = m.astype(bool)
+        if bool(invert_mask):
+            roi = ~roi
+
+        # Compute enhanced image using the same routing as preprocess_image.
+        if not self.preprocessing_enabled:
+            enhanced = img
+        elif self.use_preprocessing_pipeline and hasattr(self, "preprocessing_pipeline"):
+            if len(self.preprocessing_pipeline) == 0:
+                enhanced = img
+            else:
+                enhanced = self.preprocessing_pipeline.transform(img)
+        elif operation is not None:
+            if not hasattr(self.enhancer, operation):
+                raise ValueError(f"Unknown operation: {operation}")
+            func = getattr(self.enhancer, operation)
+            enhanced = func(img, **kwargs)
+        else:
+            enhanced = img
+
+        out = np.asarray(img).copy()
+        enh = np.asarray(enhanced)
+
+        # Make shapes compatible (common case: grayscale enhancer output for color input).
+        if out.ndim == 3 and enh.ndim == 2:
+            enh = np.repeat(enh[:, :, None], out.shape[2], axis=2)
+        if out.shape != enh.shape:
+            raise ValueError(f"Enhanced image shape must match input. Got {enh.shape} vs {out.shape}")
+
+        if out.ndim == 3:
+            roi_idx = roi[:, :, None]
+        else:
+            roi_idx = roi
+
+        out[roi_idx] = enh.astype(out.dtype, copy=False)[roi_idx]
+        return out
+
     def preprocess_images(
         self,
         images: List[Union[str, NDArray]],

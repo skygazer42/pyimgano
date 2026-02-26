@@ -12,7 +12,7 @@ via Sampling. NeurIPS (NIPS 2013).
 
 Notes
 -----
-This is a native PyImgAno implementation (no `pyod` dependency).
+This is a native PyImgAno implementation (no third-party outlier library dependency).
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class CoreSampling:
             raise ValueError("subset_size as float must be in (0.0, 1.0]")
         return max(1, int(subset_f * n_samples))
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples == 0:
@@ -79,7 +79,7 @@ class CoreSampling:
         self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.subset_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -129,4 +129,3 @@ class VisionSampling(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

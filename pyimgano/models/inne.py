@@ -15,8 +15,8 @@ IEEE International Conference on Data Mining Workshop.
 Notes
 -----
 This implementation is based on the INNE algorithm and is compatible with the
-PyOD-style detector contract used across PyImgAno, but is implemented natively
-without importing `pyod`.
+sklearn-style detector contract used across PyImgAno, but is implemented natively
+without requiring external outlier-toolkits.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ class CoreINNE:
         self.max_samples_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, accept_sparse=False, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples < 2:
@@ -65,7 +65,7 @@ class CoreINNE:
         if self.n_estimators < 1:
             raise ValueError(f"n_estimators must be >= 1, got {self.n_estimators}")
 
-        # Resolve max_samples following the PyOD convention.
+        # Resolve max_samples following a common convention.
         if isinstance(self.max_samples, str):
             if self.max_samples == "auto":
                 max_samples = min(8, n_samples)
@@ -124,7 +124,7 @@ class CoreINNE:
 
             self._ratio[i] = 1.0 - (cnn_radius + _MIN_FLOAT) / (centroid_radius + _MIN_FLOAT)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.max_samples_ is None or not hasattr(self, "_centroids"):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 

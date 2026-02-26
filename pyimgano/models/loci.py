@@ -87,12 +87,12 @@ class CoreLOCI:
 
         return outlier_scores
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         self.decision_scores_ = self._calculate_scores(X)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         X = check_array(X, ensure_2d=True, dtype=np.float64)

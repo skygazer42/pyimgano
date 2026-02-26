@@ -173,6 +173,34 @@ def list_models(*, tags: Optional[Iterable[str]] = None) -> List[str]:
 
 
 def model_info(name: str) -> Dict[str, Any]:
-    """Return a stable, JSON-friendly model info payload."""
+    """Return a stable, JSON-friendly model info payload.
 
-    return MODEL_REGISTRY.model_info(name)
+    Notes
+    -----
+    `ModelRegistry.model_info()` is intentionally a minimal, generic
+    introspection payload. This module-level helper enriches the payload with
+    computed capabilities for convenience in CLI/workbench discovery.
+    """
+
+    from pyimgano.models.capabilities import compute_model_capabilities
+    from pyimgano.models.introspection import model_entry_info
+
+    entry = MODEL_REGISTRY.info(name)
+    payload = model_entry_info(entry)
+
+    caps = compute_model_capabilities(entry)
+    caps_payload = {
+        "input_modes": list(caps.input_modes),
+        "supports_pixel_map": bool(caps.supports_pixel_map),
+        "supports_checkpoint": bool(caps.supports_checkpoint),
+        "requires_checkpoint": bool(caps.requires_checkpoint),
+        "supports_save_load": bool(caps.supports_save_load),
+    }
+    payload["capabilities"] = caps_payload
+    # Convenience top-level aliases (stable for CLI output).
+    payload["input_modes"] = list(caps.input_modes)
+    payload["supports_pixel_map"] = bool(caps.supports_pixel_map)
+    payload["supports_checkpoint"] = bool(caps.supports_checkpoint)
+    payload["requires_checkpoint"] = bool(caps.requires_checkpoint)
+    payload["supports_save_load"] = bool(caps.supports_save_load)
+    return payload

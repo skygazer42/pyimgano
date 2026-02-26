@@ -71,7 +71,7 @@ class CoreCOF:
 
         return float(np.sum(weights * cost_desc))
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_train = X.shape[0]
         self.X_train_ = X
@@ -118,7 +118,7 @@ class CoreCOF:
         self.decision_scores_ = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if (
             self.X_train_ is None
             or self.n_neighbors_ is None

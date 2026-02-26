@@ -143,25 +143,30 @@ def frequency_filter(
     f = np.fft.fft2(image)
     fshift = np.fft.fftshift(f)
 
-    # Create mask
-    mask = np.zeros((rows, cols), np.float32)
+    # Create mask (vectorized)
+    ft = str(filter_type).strip().lower()
+    cutoff = float(cutoff_frequency)
+    if cutoff <= 0:
+        raise ValueError(f"cutoff_frequency must be > 0, got {cutoff_frequency}")
 
-    for i in range(rows):
-        for j in range(cols):
-            distance = np.sqrt((i - crow)**2 + (j - ccol)**2)
+    y, x = np.ogrid[:rows, :cols]
+    dist = np.sqrt((y - crow) ** 2 + (x - ccol) ** 2)
 
-            if filter_type == "lowpass":
-                if distance <= cutoff_frequency:
-                    mask[i, j] = 1
-            elif filter_type == "highpass":
-                if distance > cutoff_frequency:
-                    mask[i, j] = 1
-            elif filter_type == "bandpass":
-                if cutoff_frequency <= distance <= cutoff_frequency * 2:
-                    mask[i, j] = 1
-            elif filter_type == "bandstop":
-                if distance < cutoff_frequency or distance > cutoff_frequency * 2:
-                    mask[i, j] = 1
+    if ft == "lowpass":
+        mask = (dist <= cutoff).astype(np.float32)
+    elif ft == "highpass":
+        mask = (dist > cutoff).astype(np.float32)
+    elif ft == "bandpass":
+        hi = cutoff * 2.0
+        mask = ((dist >= cutoff) & (dist <= hi)).astype(np.float32)
+    elif ft == "bandstop":
+        hi = cutoff * 2.0
+        mask = ((dist < cutoff) | (dist > hi)).astype(np.float32)
+    else:
+        raise ValueError(
+            "filter_type must be one of: lowpass, highpass, bandpass, bandstop. "
+            f"Got: {filter_type!r}"
+        )
 
     # Apply mask
     fshift = fshift * mask
@@ -528,34 +533,16 @@ def anisotropic_diffusion(
     Returns:
         Smoothed image
     """
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Delegate to the dedicated implementation (keeps advanced_operations lightweight).
+    from pyimgano.preprocessing.anisotropic_diffusion import anisotropic_diffusion as _pm_diffusion
 
-    img = image.astype(np.float32)
-
-    for _ in range(niter):
-        # Calculate gradients
-        nabla_n = np.roll(img, -1, axis=0) - img  # North
-        nabla_s = np.roll(img, 1, axis=0) - img   # South
-        nabla_e = np.roll(img, -1, axis=1) - img  # East
-        nabla_w = np.roll(img, 1, axis=1) - img   # West
-
-        # Calculate diffusion coefficients
-        if option == 1:
-            c_n = np.exp(-(nabla_n / kappa) ** 2)
-            c_s = np.exp(-(nabla_s / kappa) ** 2)
-            c_e = np.exp(-(nabla_e / kappa) ** 2)
-            c_w = np.exp(-(nabla_w / kappa) ** 2)
-        else:
-            c_n = 1.0 / (1.0 + (nabla_n / kappa) ** 2)
-            c_s = 1.0 / (1.0 + (nabla_s / kappa) ** 2)
-            c_e = 1.0 / (1.0 + (nabla_e / kappa) ** 2)
-            c_w = 1.0 / (1.0 + (nabla_w / kappa) ** 2)
-
-        # Update image
-        img += gamma * (c_n * nabla_n + c_s * nabla_s + c_e * nabla_e + c_w * nabla_w)
-
-    return np.clip(img, 0, 255).astype(np.uint8)
+    return _pm_diffusion(
+        image,
+        niter=int(niter),
+        kappa=float(kappa),
+        gamma=float(gamma),
+        option=int(option),
+    )
 
 
 # Feature Extraction

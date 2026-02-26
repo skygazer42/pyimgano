@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from .base_detector import BaseDetector
+from pyimgano.features.protocols import FeatureExtractor, FittableFeatureExtractor
+from pyimgano.features.registry import resolve_feature_extractor
 
 
 class BaseVisionDetector(BaseDetector):
@@ -17,8 +19,8 @@ class BaseVisionDetector(BaseDetector):
     @abstractmethod
     def __init__(self, contamination=0.1, feature_extractor=None):
         super(BaseVisionDetector, self).__init__(contamination=contamination)
-        # PyOD compatibility: many utilities (e.g. `predict_proba`) expect
-        # `_classes` to exist. In unsupervised detection this is always binary.
+        # Compatibility: some utilities (e.g. `predict_proba`) expect `_classes` to exist.
+        # In unsupervised detection this is always binary.
         self._set_n_classes(None)
         self._feature_cache = None
 
@@ -33,10 +35,14 @@ class BaseVisionDetector(BaseDetector):
                 output_tensor=False,
                 error_mode="zeros",
             )
-        if not hasattr(feature_extractor, 'extract'):
-            raise TypeError("feature_extractor 必须有一个名为 'extract' 的方法。")
+
+        # Allow JSON-friendly specs: {"name": "...", "kwargs": {...}}.
+        feature_extractor = resolve_feature_extractor(feature_extractor)
+        if not isinstance(feature_extractor, FeatureExtractor):
+            raise TypeError("feature_extractor 必须实现 .extract(inputs) -> np.ndarray")
         self._base_feature_extractor = feature_extractor
         self.feature_extractor = feature_extractor
+        self._feature_extractor_fitted = False
 
         self.detector = self._build_detector()
 
@@ -81,15 +87,23 @@ class BaseVisionDetector(BaseDetector):
             输入的训练样本，通常是图像文件路径的列表。
         """
         # 1. 使用插件化的特征提取器，将图像转换为特征向量
+        extractor = self.feature_extractor
+        if extractor is None or not isinstance(extractor, FeatureExtractor):
+            raise TypeError("feature_extractor 必须实现 .extract(inputs) -> np.ndarray")
+
+        # Optional: allow extractors to learn normalization/projection from the training set.
+        if (not self._feature_extractor_fitted) and isinstance(extractor, FittableFeatureExtractor):
+            extractor.fit(X, y=y)
+            self._feature_extractor_fitted = True
+
         features = self.feature_extractor.extract(X)
         # 2. 使用特征向量来训练内部的经典检测器
         self.detector.fit(features)
         # 3. 将训练分数同步到 self.decision_scores_，以便父类处理
         self.decision_scores_ = self.detector.decision_scores_
-        # 4. 调用 PyOD 基类的方法，自动计算阈值和标签
+        # 4. 调用基类的方法，自动计算阈值和标签
         self._process_decision_scores()
-        # PyOD compatibility: enable `predict_proba()` by initializing `_classes`.
-        # Most PyOD detectors call this in their `fit`; our wrappers must too.
+        # Compatibility: enable `predict_proba()` by initializing `_classes`.
         self._set_n_classes(y)
 
         return self

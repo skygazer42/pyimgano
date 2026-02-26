@@ -3,7 +3,7 @@
 IForest (Isolation Forest) detector.
 
 We use scikit-learn's `IsolationForest` and expose it via the unified `pyimgano`
-vision API. The anomaly score is mapped to the PyOD convention:
+vision API. The anomaly score is mapped to the `pyimgano` scoring convention:
 
 - higher score => more anomalous
 """
@@ -21,7 +21,7 @@ from .registry import register_model
 
 
 class CoreIForest:
-    """Sklearn-backed Isolation Forest with PyOD-style scoring semantics."""
+    """Sklearn-backed Isolation Forest with sklearn-style scoring semantics."""
 
     def __init__(
         self,
@@ -51,7 +51,7 @@ class CoreIForest:
         self.iforest_: IsolationForest | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         # We compute thresholding ourselves via BaseDetector, so keep sklearn's
         # internal contamination handling out of the way.
@@ -60,11 +60,11 @@ class CoreIForest:
         self.decision_scores_ = self.decision_function(X)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.iforest_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         X = check_array(X, ensure_2d=True, dtype=np.float64)
-        # sklearn: lower score => more abnormal. Invert to match PyOD convention.
+        # sklearn: lower score => more abnormal. Invert to match `pyimgano` convention.
         return (-self.iforest_.score_samples(X)).astype(np.float64).ravel()
 
 
@@ -110,4 +110,3 @@ class VisionIForest(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreIForest(**self._detector_kwargs)
-

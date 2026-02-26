@@ -12,7 +12,7 @@ covariance determinant estimator. Technometrics.
 Notes
 -----
 This is a native implementation for PyImgAno using scikit-learn's
-`sklearn.covariance.MinCovDet` (no `pyod` dependency).
+`sklearn.covariance.MinCovDet` (no extra outlier-toolbox dependency).
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ class CoreMCD:
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if X.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
@@ -85,7 +85,7 @@ class CoreMCD:
         )
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.estimator_ is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -139,4 +139,3 @@ class VisionMCD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Vision CBLOF - 基于聚类的视觉异常检测器
-遵循 BaseVisionDetector 架构，不依赖PyOD的基础类
+遵循 BaseVisionDetector 架构，不依赖外部检测库的基础类
 """
 
+import logging
 import warnings
 import numpy as np
 import cv2
@@ -12,77 +13,23 @@ from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.utils.validation import check_array, check_is_fitted
+from sklearn.utils.validation import check_array
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 # 只从本地基类导入
+from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
+from ..utils.param_check import check_parameter
+from ..utils.fitted import require_fitted
 
 
 # ===================================================================
-#                     工具函数（替代PyOD的工具）
+#                     日志
 # ===================================================================
 
-def check_parameter(param, low=None, high=None, param_name='parameter',
-                    include_left=True, include_right=True):
-    """参数范围检查"""
-    if low is not None:
-        if include_left:
-            if param < low:
-                raise ValueError(f"{param_name} = {param} 必须 >= {low}")
-        else:
-            if param <= low:
-                raise ValueError(f"{param_name} = {param} 必须 > {low}")
-
-    if high is not None:
-        if include_right:
-            if param > high:
-                raise ValueError(f"{param_name} = {param} 必须 <= {high}")
-        else:
-            if param >= high:
-                raise ValueError(f"{param_name} = {param} 必须 < {high}")
-
-
-def process_decision_scores(scores, contamination):
-    """
-    处理决策分数，计算阈值和标签
-
-    Parameters
-    ----------
-    scores : array-like
-        异常分数
-    contamination : float
-        污染率
-
-    Returns
-    -------
-    threshold : float
-        决策阈值
-    labels : array
-        二分类标签（0=正常，1=异常）
-    """
-    scores = np.asarray(scores)
-    n_samples = len(scores)
-    n_outliers = int(n_samples * contamination)
-
-    # 计算阈值
-    threshold = np.percentile(scores, 100 * (1 - contamination))
-
-    # 生成标签
-    labels = (scores > threshold).astype(int)
-
-    # 确保恰好有n_outliers个异常
-    if labels.sum() != n_outliers:
-        # 根据分数排序，标记top-k个为异常
-        sorted_indices = np.argsort(scores)
-        labels = np.zeros(n_samples, dtype=int)
-        labels[sorted_indices[-n_outliers:]] = 1
-        threshold = scores[sorted_indices[-n_outliers]]
-
-    return threshold, labels
-
+logger = logging.getLogger(__name__)
 
 # ===================================================================
 #                     特征提取器类
@@ -134,16 +81,17 @@ class ImageFeatureExtractor:
                     X = self.pca.transform(X)
             return X
 
-        # 从图像路径提取特征
-        print("提取图像特征...")
+        # 从图像路径提取特征：物化一次，便于计数与复用迭代器
+        paths = list(X)
+        logger.info("CBLOF: extracting image features for %d inputs", len(paths))
         features = []
 
-        for img_path in tqdm(X):
+        for img_path in tqdm(paths):
             try:
                 feat = self._extract_single_image_features(img_path)
                 features.append(feat)
             except Exception as e:
-                print(f"处理 {img_path} 出错: {e}")
+                logger.warning("CBLOF: failed to extract features for %s: %s", img_path, e)
                 # 添加零特征
                 if len(features) > 0:
                     features.append(np.zeros_like(features[0]))
@@ -157,8 +105,11 @@ class ImageFeatureExtractor:
             features = self.scaler.fit_transform(features)
             if self.reduce_dim and features.shape[1] > self.n_components:
                 features = self.pca.fit_transform(features)
-                print(f"PCA降维: {features.shape[1]} 维")
-                print(f"保留方差: {self.pca.explained_variance_ratio_.sum():.2%}")
+                logger.info(
+                    "CBLOF: PCA reduced to %d dims (kept variance %.2f%%)",
+                    int(features.shape[1]),
+                    float(self.pca.explained_variance_ratio_.sum() * 100.0),
+                )
             self.is_fitted = True
         else:
             features = self.scaler.transform(features)
@@ -261,7 +212,7 @@ class ImageFeatureExtractor:
 #                     核心CBLOF算法（独立实现）
 # ===================================================================
 
-class CoreCBLOF:
+class CoreCBLOF(BaseDetector):
     """
     核心CBLOF算法 - 独立实现，不依赖PyOD
 
@@ -288,9 +239,8 @@ class CoreCBLOF:
                  beta=5,
                  use_weights=False,
                  random_state=None):
-
+        super().__init__(contamination=contamination)
         self.n_clusters = n_clusters
-        self.contamination = contamination
         self.alpha = alpha
         self.beta = beta
         self.use_weights = use_weights
@@ -311,6 +261,7 @@ class CoreCBLOF:
     def fit(self, X, y=None):
         """训练CBLOF模型"""
         X = check_array(X)
+        self._set_n_classes(y)
         n_samples, n_features = X.shape
 
         # 参数验证
@@ -339,18 +290,14 @@ class CoreCBLOF:
         self._set_small_large_clusters(n_samples)
 
         # 计算异常分数
-        self.decision_scores_ = self._compute_scores(X, self.cluster_labels_)
-
-        # 计算阈值和标签
-        self.threshold_, self.labels_ = process_decision_scores(
-            self.decision_scores_, self.contamination
-        )
+        self.decision_scores_ = self._compute_scores(X, self.cluster_labels_).ravel()
+        self._process_decision_scores()
 
         return self
 
     def decision_function(self, X):
         """计算异常分数"""
-        check_is_fitted(self, ['cluster_centers_', 'threshold_'])
+        require_fitted(self, ["cluster_centers_", "threshold_"])
         X = check_array(X)
 
         # 预测聚类标签
@@ -358,11 +305,6 @@ class CoreCBLOF:
 
         # 计算异常分数
         return self._compute_scores(X, labels)
-
-    def predict(self, X):
-        """预测标签"""
-        scores = self.decision_function(X)
-        return (scores > self.threshold_).astype(int)
 
     def _set_small_large_clusters(self, n_samples):
         """区分大簇和小簇"""
@@ -399,9 +341,12 @@ class CoreCBLOF:
         self.large_cluster_labels_ = sorted_indices[:threshold]
         self.small_cluster_labels_ = sorted_indices[threshold:]
 
-        print(f"聚类分析:")
-        print(f"  大簇数量: {len(self.large_cluster_labels_)}")
-        print(f"  小簇数量: {len(self.small_cluster_labels_)}")
+        logger.info(
+            "CBLOF cluster split: large=%d small=%d (n_clusters=%d)",
+            len(self.large_cluster_labels_),
+            len(self.small_cluster_labels_),
+            self.n_clusters_,
+        )
 
     def _compute_scores(self, X, labels):
         """计算异常分数"""
@@ -513,7 +458,11 @@ class VisionCBLOF(BaseVisionDetector):
                 reduce_dim=reduce_dim,
                 n_components=n_components
             )
-            print(f"使用默认特征提取器: method={feature_method}, PCA={reduce_dim}")
+            logger.info(
+                "CBLOF: using default feature extractor (method=%s, pca=%s)",
+                feature_method,
+                bool(reduce_dim),
+            )
 
         # 调用父类构造函数
         super(VisionCBLOF, self).__init__(
@@ -538,7 +487,7 @@ class VisionCBLOF(BaseVisionDetector):
     def visualize_clusters(self):
         """可视化聚类结果"""
         if not hasattr(self.detector, 'cluster_labels_'):
-            print("请先训练模型")
+            logger.warning("CBLOF: visualize_clusters called before fit()")
             return
 
         # 获取聚类信息

@@ -11,6 +11,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
 - Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.
 - Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
+- Improved the native detector contract (`BaseDetector`):
+  - Added sklearn-style parameter helpers (`get_params` / `set_params`).
+  - Added convenience methods (`fit_predict`, `score_samples`).
+  - Added optional POT (Peaks Over Threshold) tail thresholding mode for converting scores to labels.
+- Added new native classical detectors (both `core_*` and `vision_*` variants where applicable):
+  - LoOP (`core_loop` / `vision_loop`)
+  - LDOF (`core_ldof` / `vision_ldof`)
+  - ODIN (`core_odin` / `vision_odin`)
+  - RRCF-style random cut forest baseline (`core_rrcf` / `vision_rrcf`)
+  - Half-Space Trees (`core_hst` / `vision_hst`)
+  - Mahalanobis baseline (`core_mahalanobis` / `vision_mahalanobis`)
+  - Distance-to-centroid baseline (`core_dtc` / `vision_dtc`)
+  - Robust z-score baseline (`core_rzscore` / `vision_rzscore`)
+  - kNN graph degree detector (`core_knn_degree` / `vision_knn_degree`)
+  - Distance-correlation influence (`core_dcorr` / `vision_dcorr`)
+  - PCA + Mahalanobis (`core_pca_md` / `vision_pca_md`)
+- Added `vision_feature_pipeline` to compose feature extractors with `core_*` detectors via a single registry model.
+
+### Feature Extractors
+- Added a first-class feature extractor subsystem (`pyimgano.features`) with a registry API and runtime protocol validation.
+- Added extractors:
+  - `IdentityExtractor` (canonical)
+  - `HOGExtractor`, `LBPExtractor`, `GaborBankExtractor`
+  - `ColorHistogramExtractor`, `EdgeStatsExtractor`, `FFTLowFreqExtractor`, `PatchStatsExtractor`
+  - `MultiExtractor` (concat) and `PCAProjector` / `StandardScalerExtractor` (fit/transform)
+- Added optional disk caching for feature vectors when inputs are file paths (useful for large datasets).
+
+### Calibration
+- Added rank-based calibration helpers for unsupervised score alignment.
+- Added POT thresholding utility (`pyimgano.calibration.pot_threshold`) and integrated it into the base detector contract.
+
+### Preprocessing
+- Vectorized `frequency_filter` to remove O(HW) Python loops (faster and more stable on large images; optimize performance).
+- Added guided filter, Perona–Malik anisotropic diffusion, rolling-ball background subtraction, and high-res tiling + blending helpers.
+- Added industrial presets (shading correction, defect amplification, JPEG artifact robustness) and mask-aware enhancement.
+- Added a best-effort torch (GPU) Gaussian blur path with CPU fallback.
+
+### CLI / Pipelines
+- Added `pyimgano-features` CLI to list feature extractors and precompute feature vectors.
+- Added `pyimgano.pipelines.feature_pipeline` helpers and benchmark support for a `cache_dir` to persist feature vectors.
+
+### Utilities
+- Added consistent project logging utilities and deterministic `random_state` helpers.
+- Added score normalization helpers and lightweight parallel utilities.
+- Added typing helpers for stable public annotations.
 
 ### Packaging
 - Removed `pyod` from core dependencies.
@@ -18,6 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs
 - Updated examples/quickstart snippets to use `vision_deep_svdd` in place of the removed `vision_auto_encoder` wrapper.
 - Added migration notes for the PyOD removal.
+- Added:
+  - `docs/FEATURE_EXTRACTORS.md`
+  - `docs/INDUSTRIAL_PREPROCESSING_COOKBOOK.md`
+  - `docs/TUTORIAL_CLASSICAL_ON_EMBEDDINGS.md`
+- Added algorithm pages for new classical detectors (`loop`, `ldof`, `odin`, `rrcf`, `hst`) and refreshed the selection guide + comparisons.
+
+### Tests
+- Added extensive coverage for the native detector contract, calibration utilities, feature extractors, preprocessing ops, and CLI smoke checks.
 
 ## [0.6.23] - 2026-02-25
 

@@ -218,7 +218,7 @@ class VisionDFM(BaseVisionDeepDetector):
             logger.warning("Singular covariance matrix, using pseudo-inverse")
             self.inv_cov = np.linalg.pinv(cov_estimator.covariance_)
 
-        # Compute training scores to establish a threshold (PyOD semantics).
+        # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
         diff = features - self.mean
         train_scores = np.sqrt(np.einsum("ij,jk,ik->i", diff, self.inv_cov, diff))

@@ -20,11 +20,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 
 
-class IdentityFeatureExtractor:
-    """Default feature extractor for legacy detectors operating on feature vectors."""
-
-    def extract(self, X):
-        return np.asarray(X)
+from pyimgano.features.identity import IdentityExtractor as IdentityFeatureExtractor
 
 
 def _ensure_extractor(feature_extractor):
