@@ -5,20 +5,20 @@ from pyimgano.utils.optional_deps import optional_import
 
 _torch, _torch_error = optional_import("torch")
 _torchvision, _torchvision_error = optional_import("torchvision")
-_pyod_base_dl, _pyod_error = optional_import("pyod.models.base_dl")
 
 
-if _torch is not None and _torchvision is not None and _pyod_base_dl is not None:
+if _torch is not None and _torchvision is not None:
     import torch  # type: ignore
-    from pyod.models.base_dl import BaseDeepLearningDetector  # type: ignore
     from torch.utils.data import DataLoader  # type: ignore
     from torchvision import transforms  # type: ignore
+
+    from .base_deep import BaseDeepLearningDetector
 
     # --- 核心基类 ---
     class BaseVisionDeepDetector(BaseDeepLearningDetector):
         """
         所有基于深度学习的端到端视觉异常检测算法的基类。
-        本类继承自 PyOD 的 BaseDeepLearningDetector，复用了其完整的训练框架，
+        本类继承自 `pyimgano` 的 BaseDeepLearningDetector，复用了其训练框架，
         """
 
         def __init__(
@@ -180,14 +180,12 @@ else:
                 missing.append("torch")
             if _torchvision is None:
                 missing.append("torchvision")
-            if _pyod_base_dl is None:
-                missing.append("pyod")
 
             missing_text = ", ".join(missing) if missing else "<unknown>"
             raise ImportError(
                 "Deep-learning detectors require extra dependencies.\n"
                 f"Missing: {missing_text}\n"
                 "Install them via (example):\n"
-                "  pip install 'torch' 'torchvision' 'pyod'\n"
-                f"Original errors:\n  torch: {_torch_error}\n  torchvision: {_torchvision_error}\n  pyod: {_pyod_error}"
+                "  pip install 'torch' 'torchvision'\n"
+                f"Original errors:\n  torch: {_torch_error}\n  torchvision: {_torchvision_error}"
             )
