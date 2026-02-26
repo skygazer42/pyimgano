@@ -34,6 +34,11 @@ def test_no_pyod_imports_in_native_bases_and_utils() -> None:
         repo_root / "pyimgano/models/knn.py",
         repo_root / "pyimgano/models/pca.py",
         repo_root / "pyimgano/models/kde.py",
+        repo_root / "pyimgano/models/gmm.py",
+        repo_root / "pyimgano/models/iforest.py",
+        repo_root / "pyimgano/models/sos.py",
+        repo_root / "pyimgano/models/sod.py",
+        repo_root / "pyimgano/models/rod.py",
     ]
 
     for path in targets:
