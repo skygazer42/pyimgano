@@ -1,212 +1,188 @@
 # -*- coding: utf-8 -*-
 """
-COF (Connectivity-Based Outlier Factor) wrapper.
+COF (Connectivity-Based Outlier Factor) detector.
 
-COF considers the connectivity between data points to identify outliers.
-It's an improvement over LOF for datasets with varying densities.
+COF compares the average chaining distance (ACD) of a point against the average
+ACD of its k nearest neighbors.
 
 Reference:
     Tang, J., Chen, Z., Fu, A.W.C. and Cheung, D.W., 2002.
     Enhancing effectiveness of outlier detections for low density patterns.
-    Pacific-Asia Conference on Knowledge Discovery and Data Mining.
 """
 
 from __future__ import annotations
 
-import logging
-from typing import Iterable, Optional, Union
+from typing import Iterable
 
 import numpy as np
-from numpy.typing import NDArray
+from scipy.spatial import distance_matrix
+from sklearn.utils import check_array
 
+from ..utils.param_check import check_parameter
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
-logger = logging.getLogger(__name__)
 
-try:
-    from pyod.models.cof import COF as _PyODCOF
+def _acd_weights(k: int) -> np.ndarray:
+    # Weight for the j-th neighbor (1-indexed in the original formula).
+    j = np.arange(1, k + 1, dtype=np.float64)
+    return (2.0 * (k + 1.0 - j)) / ((k + 1.0) * k)
 
-    _PYOD_AVAILABLE = True
-    _IMPORT_ERROR = None
-except ImportError as exc:
-    _PyODCOF = None
-    _PYOD_AVAILABLE = False
-    _IMPORT_ERROR = exc
+
+class CoreCOF:
+    """Native COF implementation (fast, stores train pairwise distances)."""
+
+    def __init__(self, *, contamination: float = 0.1, n_neighbors: int = 20) -> None:
+        self.contamination = float(contamination)
+        self.n_neighbors = int(n_neighbors)
+        check_parameter(self.n_neighbors, low=1, param_name="n_neighbors")
+
+        self.n_neighbors_: int | None = None
+        self.X_train_: np.ndarray | None = None
+        self._dist_train: np.ndarray | None = None
+        self._neighbors_train: np.ndarray | None = None
+        self._ac_dist_train: np.ndarray | None = None
+        self.decision_scores_: np.ndarray | None = None
+
+    def _ac_dist_for_point(
+        self,
+        *,
+        chain_order: np.ndarray,
+        dist_to_query: np.ndarray,
+        dist_train: np.ndarray,
+        k: int,
+    ) -> float:
+        """Compute average chaining distance for one query point."""
+
+        weights = _acd_weights(k)
+        cost_desc = np.zeros(k, dtype=np.float64)
+
+        prev: list[int] = []
+        for j in range(k):
+            idx = int(chain_order[j])
+
+            # Minimum distance to the current chain: either to the query itself
+            # (dist_to_query[idx]) or to any previous selected training point.
+            best = float(dist_to_query[idx])
+            if prev:
+                best = min(best, float(np.min(dist_train[idx, prev])))
+            cost_desc[j] = best
+            prev.append(idx)
+
+        return float(np.sum(weights * cost_desc))
+
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        n_train = X.shape[0]
+        self.X_train_ = X
+
+        if n_train <= 1:
+            self.n_neighbors_ = 0
+            self._dist_train = None
+            self._neighbors_train = None
+            self._ac_dist_train = np.zeros(n_train, dtype=np.float64)
+            self.decision_scores_ = np.zeros(n_train, dtype=np.float64)
+            return self
+
+        k = min(self.n_neighbors, n_train - 1)
+        self.n_neighbors_ = int(k)
+
+        dist = np.asarray(distance_matrix(X, X), dtype=np.float64)
+        self._dist_train = dist
+
+        # Neighbor ordering (excluding self).
+        neighbors = np.zeros((n_train, k), dtype=int)
+        for i in range(n_train):
+            order = np.argsort(dist[i])
+            neighbors[i] = order[1 : k + 1]
+        self._neighbors_train = neighbors
+
+        # Precompute ACD for each training point.
+        ac_dist = np.zeros(n_train, dtype=np.float64)
+        for i in range(n_train):
+            order = neighbors[i]
+            dist_to_query = dist[i]
+            ac_dist[i] = self._ac_dist_for_point(
+                chain_order=order,
+                dist_to_query=dist_to_query,
+                dist_train=dist,
+                k=k,
+            )
+        self._ac_dist_train = ac_dist
+
+        # COF score for training points.
+        scores = np.zeros(n_train, dtype=np.float64)
+        for i in range(n_train):
+            denom = float(np.sum(ac_dist[neighbors[i]]))
+            scores[i] = 0.0 if denom <= 0.0 else float(ac_dist[i] * k / denom)
+        self.decision_scores_ = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
+        return self
+
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+        if (
+            self.X_train_ is None
+            or self.n_neighbors_ is None
+            or self._ac_dist_train is None
+            or self._neighbors_train is None
+            or self.decision_scores_ is None
+        ):
+            raise RuntimeError("Detector must be fitted before calling decision_function")
+
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        if self.n_neighbors_ == 0:
+            return np.zeros(X.shape[0], dtype=np.float64)
+
+        k = int(self.n_neighbors_)
+        # Distances from query to training points.
+        dist_q = np.asarray(distance_matrix(X, self.X_train_), dtype=np.float64)
+
+        scores = np.zeros(X.shape[0], dtype=np.float64)
+        for i in range(X.shape[0]):
+            order = np.argsort(dist_q[i])[:k]
+            acd = self._ac_dist_for_point(
+                chain_order=order,
+                dist_to_query=dist_q[i],
+                dist_train=self._dist_train if self._dist_train is not None else distance_matrix(self.X_train_, self.X_train_),
+                k=k,
+            )
+            denom = float(np.sum(self._ac_dist_train[order]))
+            scores[i] = 0.0 if denom <= 0.0 else float(acd * k / denom)
+
+        return np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
 
 
 @register_model(
     "vision_cof",
     tags=("vision", "classical", "neighbors", "cof"),
     metadata={
-        "description": "COF - Connectivity-based outlier detector",
+        "description": "COF - Connectivity-based outlier detector (native)",
         "paper": "Tang et al., PAKDD 2002",
         "year": 2002,
         "density_based": True,
     },
 )
 class VisionCOF(BaseVisionDetector):
-    """
-    Vision-compatible COF detector for anomaly detection.
-
-    COF uses connectivity patterns between data points to detect outliers.
-    It's particularly effective for datasets with varying local densities.
-
-    Parameters
-    ----------
-    feature_extractor : object
-        Feature extractor with an 'extract' method.
-    contamination : float, default=0.1
-        Expected proportion of outliers (0 < contamination < 0.5).
-    n_neighbors : int, default=20
-        Number of neighbors to use.
-
-    Attributes
-    ----------
-    decision_scores_ : ndarray of shape (n_samples,)
-        Outlier scores of training data.
-    threshold_ : float
-        Threshold for binary classification.
-    labels_ : ndarray of shape (n_samples,)
-        Binary labels (0: normal, 1: outlier).
-
-    Examples
-    --------
-    >>> from pyimgano import models, utils
-    >>> extractor = utils.ImagePreprocessor(resize=(224, 224))
-    >>> detector = models.create_model(
-    ...     "vision_cof",
-    ...     feature_extractor=extractor,
-    ...     n_neighbors=20
-    ... )
-    >>> detector.fit(train_paths)
-    >>> predictions = detector.predict(test_paths)
-
-    Notes
-    -----
-    - COF is effective for varying density datasets
-    - More robust than LOF in some cases
-    - Computational complexity: O(n²)
-
-    References
-    ----------
-    .. [1] Tang, J., Chen, Z., Fu, A.W.C. and Cheung, D.W., 2002.
-           Enhancing effectiveness of outlier detections for low density patterns.
-           Pacific-Asia Conference on Knowledge Discovery and Data Mining.
-    """
+    """Vision-compatible COF detector."""
 
     def __init__(
         self,
         *,
-        feature_extractor,
+        feature_extractor=None,
         contamination: float = 0.1,
         n_neighbors: int = 20,
     ) -> None:
-        if not _PYOD_AVAILABLE:
-            raise ImportError(
-                "PyOD is not available. Install it with:\n"
-                "  pip install 'pyod>=1.1.0'\n"
-                f"Original error: {_IMPORT_ERROR}"
-            )
-
-        if not 0 < contamination < 0.5:
-            raise ValueError(f"contamination must be in (0, 0.5), got {contamination}")
-
-        if n_neighbors < 1:
-            raise ValueError(f"n_neighbors must be >= 1, got {n_neighbors}")
-
-        self.n_neighbors = n_neighbors
         self._detector_kwargs = {
-            "contamination": contamination,
-            "n_neighbors": n_neighbors,
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
         }
-
-        logger.debug(
-            "Initializing VisionCOF with contamination=%.2f, n_neighbors=%d",
-            contamination,
-            n_neighbors,
-        )
-
-        super().__init__(
-            contamination=contamination,
-            feature_extractor=feature_extractor,
-        )
+        super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
-        """Build the underlying PyOD COF detector."""
-        return _PyODCOF(**self._detector_kwargs)
+        return CoreCOF(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None):
-        """
-        Fit the COF detector on training images.
+    def fit(self, X: Iterable[str], y=None):
+        return super().fit(X, y=y)
 
-        Parameters
-        ----------
-        X : iterable of str
-            Training image paths.
-        y : ndarray, optional
-            Not used, present for API consistency.
+    def decision_function(self, X):
+        return super().decision_function(X)
 
-        Returns
-        -------
-        self : VisionCOF
-            Fitted estimator.
-        """
-        logger.info("Fitting COF detector on images")
-
-        try:
-            features = self.feature_extractor.extract(X)
-            features = np.asarray(features, dtype=np.float64)
-
-            if features.ndim != 2:
-                raise ValueError(f"Expected 2D features, got shape {features.shape}")
-
-            if np.isnan(features).any() or np.isinf(features).any():
-                raise ValueError("Features contain NaN or Inf values")
-
-            logger.debug("Feature shape: %s", features.shape)
-
-            self.detector.fit(features)
-            self.decision_scores_ = self.detector.decision_scores_
-            self._process_decision_scores()
-
-            logger.info("COF fit complete. Threshold: %.4f", self.threshold_)
-
-        except Exception as e:
-            logger.error("COF fitting failed: %s", e)
-            raise
-
-        return self
-
-    def decision_function(self, X: Union[Iterable[str], NDArray]) -> NDArray[np.float64]:
-        """
-        Compute anomaly scores for test images.
-
-        Parameters
-        ----------
-        X : iterable of str or ndarray
-            Test image paths or pre-extracted features.
-
-        Returns
-        -------
-        scores : ndarray of shape (n_samples,)
-            Anomaly scores (higher = more anomalous).
-        """
-        if not hasattr(self.detector, "decision_scores_"):
-            raise RuntimeError("Detector must be fitted before prediction")
-
-        try:
-            features = self.feature_extractor.extract(X)
-            features = np.asarray(features, dtype=np.float64)
-
-            if features.ndim != 2:
-                raise ValueError(f"Expected 2D features, got shape {features.shape}")
-
-            scores = self.detector.decision_function(features)
-            logger.debug("Computed COF scores for %d samples", len(scores))
-
-            return scores
-
-        except Exception as e:
-            logger.error("COF prediction failed: %s", e)
-            raise

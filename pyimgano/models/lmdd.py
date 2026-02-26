@@ -1,40 +1,38 @@
 # -*- coding: utf-8 -*-
 """
-LMDD wrapper.
+LMDD (Linear Model Deviation-based Detector).
 
-Provides PyOD's LMDD detector via the unified `pyimgano` vision API.
+LMDD employs the concept of a smoothing factor which indicates how much the
+dissimilarity can be reduced by removing a subset of elements from the dataset.
+
+Reference:
+    Arning, A., Agrawal, R. and Raghavan, P., 1996.
+    A Linear Method for Deviation Detection in Large Databases.
+
+Implementation Note
+-------------------
+Our IMDD core implementation already matches the LMDD scoring mechanics used in
+common open-source references, so `vision_lmdd` reuses `CoreIMDD`.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Optional
 
 from .baseml import BaseVisionDetector
+from .imdd import CoreIMDD
 from .registry import register_model
-
-logger = logging.getLogger(__name__)
-
-try:
-    from pyod.models.lmdd import LMDD as _PyODLMDD
-
-    _PYOD_AVAILABLE = True
-    _IMPORT_ERROR = None
-except ImportError as exc:
-    _PyODLMDD = None
-    _PYOD_AVAILABLE = False
-    _IMPORT_ERROR = exc
 
 
 @register_model(
     "vision_lmdd",
     tags=("vision", "classical", "lmdd", "baseline"),
     metadata={
-        "description": "LMDD via PyOD (baseline)",
+        "description": "LMDD deviation detector (native implementation)",
     },
 )
 class VisionLMDD(BaseVisionDetector):
-    """Vision-compatible LMDD detector (PyOD LMDD)."""
+    """Vision-compatible LMDD detector."""
 
     def __init__(
         self,
@@ -44,29 +42,17 @@ class VisionLMDD(BaseVisionDetector):
         n_iter: int = 50,
         dis_measure: str = "aad",
         random_state: Optional[int] = None,
+        **kwargs,
     ) -> None:
-        if not _PYOD_AVAILABLE:
-            raise ImportError(
-                "PyOD is not available. Install it with:\n"
-                "  pip install 'pyod>=1.1.0'\n"
-                f"Original error: {_IMPORT_ERROR}"
-            )
-
-        if not 0 < float(contamination) < 0.5:
-            raise ValueError(
-                f"contamination must be in (0, 0.5), got {contamination}"
-            )
-
         self._detector_kwargs = {
             "contamination": float(contamination),
             "n_iter": int(n_iter),
             "dis_measure": str(dis_measure),
             "random_state": random_state,
+            **dict(kwargs),
         }
-
-        logger.debug("Initializing VisionLMDD with kwargs=%s", self._detector_kwargs)
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
-        return _PyODLMDD(**self._detector_kwargs)
+        return CoreIMDD(**self._detector_kwargs)
 
