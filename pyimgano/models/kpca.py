@@ -6,33 +6,11 @@ from __future__ import annotations
 import numpy as np
 from sklearn.decomposition import KernelPCA
 from sklearn.utils import check_array, check_random_state
-from sklearn.utils.validation import check_is_fitted
-
-from pyod.models.base import BaseDetector
 
 from .baseml import BaseVisionDetector
+from .base_detector import BaseDetector
 from .registry import register_model
-
-
-def _check_parameter(param, low=None, high=None, *, include_left=True,
-                     include_right=True, name="parameter") -> None:
-    """参数范围校验，保持与 PyOD 版本一致的行为。"""
-
-    if low is not None:
-        if include_left:
-            if param < low:
-                raise ValueError(f"{name}={param} 必须 >= {low}")
-        else:
-            if param <= low:
-                raise ValueError(f"{name}={param} 必须 > {low}")
-
-    if high is not None:
-        if include_right:
-            if param > high:
-                raise ValueError(f"{name}={param} 必须 <= {high}")
-        else:
-            if param >= high:
-                raise ValueError(f"{name}={param} 必须 < {high}")
+from ..utils.param_check import check_parameter
 
 
 class _PyODKernelPCA(KernelPCA):
@@ -174,13 +152,13 @@ class CoreKPCA(BaseDetector):
         else:
             self.n_selected_components_ = self.n_selected_components
 
-        _check_parameter(
+        check_parameter(
             self.n_selected_components_,
             low=1,
             high=n_components,
             include_left=True,
             include_right=True,
-            name="n_selected_components",
+            param_name="n_selected_components",
         )
 
         self.kpca = _PyODKernelPCA(
@@ -219,7 +197,8 @@ class CoreKPCA(BaseDetector):
         return self
 
     def decision_function(self, X):
-        check_is_fitted(self, ["decision_scores_", "threshold_", "labels_"])
+        if self.kpca is None or self.n_selected_components_ is None:
+            raise RuntimeError("Detector must be fitted before calling decision_function")
         X = check_array(X)
 
         kernel = self.kpca.kernel_callable
