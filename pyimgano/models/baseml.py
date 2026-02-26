@@ -6,20 +6,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
-from pyimgano.utils.optional_deps import optional_import
-
-
-_pyod_base, _pyod_error = optional_import("pyod.models.base")
-if _pyod_base is not None:
-    BaseDetector = _pyod_base.BaseDetector  # type: ignore[attr-defined]
-else:
-    class BaseDetector:  # type: ignore[no-redef]
-        def __init__(self, *args, **kwargs):
-            raise ImportError(
-                "Optional dependency 'pyod' is required for classical detectors.\n"
-                "Install it via:\n  pip install 'pyod'\n"
-                f"Original error: {_pyod_error}"
-            ) from _pyod_error
+from .base_detector import BaseDetector
 
 
 class BaseVisionDetector(BaseDetector):
@@ -80,7 +67,7 @@ class BaseVisionDetector(BaseDetector):
     def _build_detector(self):
         """
     定义并返回一个具体的、经典的异常检测器实例。
-        例如: from pyod.models.lof import LOF; return LOF()
+        例如: return sklearn.neighbors.LocalOutlierFactor(...)
         """
         pass
 
