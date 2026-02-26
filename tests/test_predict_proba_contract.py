@@ -3,16 +3,15 @@ import pytest
 
 
 def test_predict_proba_works_for_vision_iforest_on_features() -> None:
-    pytest.importorskip("pyod")
-
     from pyimgano.models import create_model
 
     class IdentityExtractor:
         def extract(self, X):
             return np.asarray(X)
 
-    X_train = np.random.randn(64, 8)
-    X_test = np.random.randn(16, 8)
+    rng = np.random.default_rng(0)
+    X_train = rng.standard_normal((64, 8))
+    X_test = rng.standard_normal((16, 8))
 
     detector = create_model(
         "vision_iforest",
@@ -26,4 +25,3 @@ def test_predict_proba_works_for_vision_iforest_on_features() -> None:
     assert proba.shape == (len(X_test), 2)
     assert np.all(proba >= 0.0)
     assert np.all(proba <= 1.0)
-

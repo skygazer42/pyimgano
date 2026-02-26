@@ -10,7 +10,7 @@ from numba import njit
 from scipy import stats
 from sklearn.utils import check_array, check_random_state
 
-from pyod.utils import check_parameter
+from ..utils.param_check import check_parameter
 
 from .baseml import BaseVisionDetector
 from .registry import register_model

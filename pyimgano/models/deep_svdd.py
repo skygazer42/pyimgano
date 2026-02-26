@@ -32,7 +32,7 @@ OPTIMIZER_DICT = {
 
 
 def _get_activation(name: str) -> nn.Module:
-    from pyimgano.utils.torch_utility import get_activation_by_name
+    from ..utils.torch_activations import get_activation_by_name
 
     return get_activation_by_name(name)
 

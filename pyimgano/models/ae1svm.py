@@ -5,8 +5,8 @@ from torch import nn
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
-from pyod.utils.stat_models import pairwise_distances_no_broadcast
-from pyod.utils.torch_utility import get_activation_by_name
+from ..utils.pairwise import pairwise_distances_no_broadcast
+from ..utils.torch_activations import get_activation_by_name
 
 
 class Flatten(nn.Module):
