@@ -103,3 +103,67 @@ class BaseDetector:
         if scores.ndim != 1:
             scores = scores.reshape(-1)
         return (scores > float(self.threshold_)).astype(int).ravel()
+
+    def predict_proba(  # noqa: ANN001, ANN201 - PyOD-like signature
+        self,
+        X,
+        method: str = "linear",
+        return_confidence: bool = False,
+    ):
+        """Predict outlier probability as a 2-class array ``[p(inlier), p(outlier)]``.
+
+        This keeps compatibility with the PyOD `BaseDetector.predict_proba` contract.
+        """
+
+        if return_confidence:
+            raise NotImplementedError(
+                "return_confidence is not implemented in native BaseDetector"
+            )
+
+        if not hasattr(self, "decision_scores_"):
+            raise RuntimeError("Model must be fitted before calling predict_proba().")
+
+        train_scores = np.asarray(self.decision_scores_, dtype=np.float64).reshape(-1)
+        test_scores = np.asarray(self.decision_function(X), dtype=np.float64).reshape(-1)
+
+        n_classes = int(getattr(self, "_classes", 2) or 2)
+        if n_classes < 2:
+            n_classes = 2
+
+        probs = np.zeros((len(test_scores), n_classes), dtype=np.float64)
+
+        if method == "linear":
+            lo = float(np.min(train_scores))
+            hi = float(np.max(train_scores))
+            denom = hi - lo
+            if denom <= 0.0:
+                outlier = np.zeros_like(test_scores, dtype=np.float64)
+            else:
+                outlier = (test_scores - lo) / denom
+                outlier = np.clip(outlier, 0.0, 1.0)
+            probs[:, 1] = outlier
+            probs[:, 0] = 1.0 - outlier
+            return probs
+
+        if method == "unify":
+            # PyOD uses erf unification then clamps to [0,1].
+            # Keep the same behavior for contract compatibility.
+            try:
+                from scipy.special import erf  # type: ignore
+            except Exception as exc:  # pragma: no cover
+                raise ImportError(
+                    "scipy is required for predict_proba(method='unify'). "
+                    "Install it via:\n  pip install 'scipy'\n"
+                    f"Original error: {exc}"
+                ) from exc
+
+            mu = float(np.mean(train_scores))
+            sigma = float(np.std(train_scores))
+            denom = max(sigma * float(np.sqrt(2.0)), 1e-12)
+            pre = (test_scores - mu) / denom
+            outlier = np.clip(erf(pre), 0.0, 1.0)
+            probs[:, 1] = outlier
+            probs[:, 0] = 1.0 - outlier
+            return probs
+
+        raise ValueError(f"method {method!r} is not a valid probability conversion method")
