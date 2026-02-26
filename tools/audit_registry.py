@@ -3,12 +3,22 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
+
+
+def _ensure_repo_root_on_sys_path() -> None:
+    # When invoked as `python tools/<script>.py`, Python sets sys.path[0] to
+    # `tools/` rather than the repo root. Add the repo root so `import pyimgano`
+    # works without requiring an editable install.
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
 
 
 def audit_registry(*, limit: int | None = None) -> list[str]:
     """Validate that registry entries can be introspected and JSON-encoded."""
 
+    _ensure_repo_root_on_sys_path()
     import pyimgano.models as models
     from pyimgano.models.registry import model_info
     from pyimgano.utils.jsonable import to_jsonable
@@ -52,4 +62,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

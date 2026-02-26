@@ -3,12 +3,22 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
+
+
+def _ensure_repo_root_on_sys_path() -> None:
+    # When invoked as `python tools/<script>.py`, Python sets sys.path[0] to
+    # `tools/` rather than the repo root. Add the repo root so `import pyimgano`
+    # works without requiring an editable install.
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
 
 
 def audit_public_api() -> list[str]:
     """Return a list of human-readable issues with the public API."""
 
+    _ensure_repo_root_on_sys_path()
     import pyimgano
 
     issues: list[str] = []
@@ -45,4 +55,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
