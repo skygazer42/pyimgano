@@ -49,6 +49,11 @@ def test_no_pyod_imports_in_native_bases_and_utils() -> None:
         repo_root / "pyimgano/models/ocsvm.py",
         repo_root / "pyimgano/models/kpca.py",
         repo_root / "pyimgano/models/inne.py",
+        repo_root / "pyimgano/models/feature_bagging.py",
+        repo_root / "pyimgano/models/lscp.py",
+        repo_root / "pyimgano/models/suod.py",
+        repo_root / "pyimgano/models/rgraph.py",
+        repo_root / "pyimgano/models/sampling.py",
     ]
 
     for path in targets:

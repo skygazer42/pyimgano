@@ -224,6 +224,10 @@ class TestPCA:
         ("vision_ocsvm", {"kernel": "rbf"}),
         ("vision_kpca", {"n_components": 20, "random_state": 42}),
         ("vision_inne", {"n_estimators": 20, "random_state": 42}),
+        ("vision_feature_bagging", {"n_estimators": 5, "max_features": 0.8, "random_state": 42}),
+        ("vision_suod", {"random_state": 42}),
+        ("vision_rgraph", {"transition_steps": 5, "n_nonzero": 5, "gamma": 1.0}),
+        ("vision_sampling", {"subset_size": 10, "random_state": 42}),
         ("vision_sos", {"perplexity": 4.5}),
         ("vision_sod", {"n_neighbors": 10, "ref_set": 5}),
         ("vision_rod", {}),
@@ -257,6 +261,38 @@ def test_additional_pyod_models_fit_predict(
     assert np.all(np.isfinite(scores))
 
 
+def test_lscp_fit_predict(feature_extractor, mock_image_paths):
+    """Smoke-test LSCP (requires an explicit detector_list)."""
+
+    from pyimgano.models.knn import CoreKNN
+
+    train_paths, test_paths = mock_image_paths
+
+    detector_list = [
+        CoreKNN(n_neighbors=5, method="largest"),
+        CoreKNN(n_neighbors=10, method="mean"),
+    ]
+
+    detector = models.create_model(
+        "vision_lscp",
+        feature_extractor=feature_extractor,
+        contamination=0.1,
+        detector_list=detector_list,
+        random_state=42,
+        local_region_size=20,
+        n_bins=5,
+    )
+
+    detector.fit(train_paths)
+    predictions = detector.predict(test_paths)
+    scores = detector.decision_function(test_paths)
+
+    assert predictions.shape == (len(test_paths),)
+    assert scores.shape == (len(test_paths),)
+    assert set(predictions).issubset({0, 1})
+    assert np.all(np.isfinite(scores))
+
+
 class TestModelRegistry:
     """Test model registry for PyOD models."""
 
@@ -278,6 +314,11 @@ class TestModelRegistry:
             "vision_ocsvm",
             "vision_kpca",
             "vision_inne",
+            "vision_feature_bagging",
+            "vision_lscp",
+            "vision_suod",
+            "vision_rgraph",
+            "vision_sampling",
             "vision_sos",
             "vision_sod",
             "vision_rod",
