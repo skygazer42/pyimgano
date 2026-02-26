@@ -51,7 +51,6 @@ _auto_import(
         "cof",  # Connectivity-based Outlier Factor
         "copod",  # Copula-based Outlier Detection (ICDM 2020)
         "crossmad",  # Cross-Modal Anomaly Detection (CVPR 2025)
-        "cd",  # Cook's distance outlier detection
         "dbscan",  # Density-Based Spatial Clustering
         "ecod",  # Empirical Cumulative Outlier Detection (TKDE 2022)
         "feature_bagging",  # Feature Bagging ensemble method
@@ -80,14 +79,11 @@ _auto_import(
         "sod",  # Subspace Outlier Detection
         "sos",  # Stochastic Outlier Selection
         "suod",  # Scalable Unsupervised Outlier Detection
-        "xgbod",  # Extreme Gradient Boosting Outlier Detection
         # Deep learning algorithms
         "ae",  # Autoencoder
         "ae1svm",  # Autoencoder with One-Class SVM
         "alad",  # Adversarially Learned Anomaly Detection
-        "anogan",  # AnoGAN (PyOD; requires extra deps like pandas/matplotlib)
         "ast",  # Anomaly-aware Student-Teacher (ICCV 2023)
-        "auto_encoder",  # AutoEncoder (PyOD tabular AE) wrapper
         "bayesianpf",  # Bayesian Prompt Flow (CVPR 2025)
         "bgad",  # Background-guided Anomaly Detection (CVPR 2023)
         "cflow",  # Conditional Normalizing Flows (WACV 2022)
@@ -95,7 +91,6 @@ _auto_import(
         "cutpaste",  # CutPaste self-supervised learning (CVPR 2021)
         "deep_svdd",  # Deep Support Vector Data Description
         "devnet",  # Deviation Networks (KDD 2019)
-        "dif",  # Deep Isolation Forest (DIF)
         "dfm",  # Discriminative Feature Modeling
         "differnet",  # DifferNet learnable difference detector (WACV 2023)
         "draem",  # Discriminatively Reconstructed Embedding (ICCV 2021)
@@ -109,9 +104,7 @@ _auto_import(
         "imdd",  # Image-level Multi-scale Discriminative Detector
         "inctrl",  # In-context Residual Learning (CVPR 2024)
         "intra",  # Industrial Transformer (ICCV 2023)
-        "lunar",  # LUNAR deep outlier detection
         "memseg",  # Memory-guided Segmentation
-        "mo_gaal",  # Multi-Objective Generative Adversarial Active Learning
         "oddoneout",  # Odd-One-Out neighbor comparison (CVPR 2025)
         "one_svm_cnn",  # One-Class SVM with CNN features
         "oneformore",  # One-for-More continual diffusion (CVPR 2025)
@@ -127,8 +120,6 @@ _auto_import(
         "reverse_distillation",  # Reverse Distillation
         "riad",  # Reconstruction from Adjacent Image Decomposition
         "simplenet",  # SimpleNet ultra-fast detector (CVPR 2023)
-        "so_gaal",  # Single-Objective Generative Adversarial Active Learning (SO-GAAL)
-        "so_gaal_new",  # SO-GAAL (new backend / implementation)
         "spade",  # Sub-image Anomaly Detection with SPADE (ECCV 2020)
         "ssim",  # Structural Similarity-based detection
         "ssim_struct",  # SSIM with structural features

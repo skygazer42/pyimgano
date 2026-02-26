@@ -297,8 +297,6 @@ def _write_demo_png(path: Path, *, value: int) -> None:
 
 @pytest.mark.parametrize("recipe_name", ["industrial-adapt-fp40", "industrial-adapt-highres"])
 def test_workbench_recipe_smoke_manifest(tmp_path: Path, recipe_name: str) -> None:
-    pytest.importorskip("pyod")
-
     # Ensure builtin recipes are registered.
     import pyimgano.recipes  # noqa: F401
 

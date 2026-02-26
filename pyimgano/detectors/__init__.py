@@ -32,7 +32,7 @@ def _ensure_extractor(feature_extractor):
 
 
 # ---------------------------------------------------------------------------
-# Classical / shallow wrappers (PyOD-backed)
+# Classical / shallow wrappers (native)
 # ---------------------------------------------------------------------------
 
 
@@ -195,37 +195,45 @@ class FeatureBaggingDetector(_VisionFeatureBagging):
 # ---------------------------------------------------------------------------
 
 
-from pyimgano.models.auto_encoder import VisionAutoEncoder as _VisionAutoEncoder
+from pyimgano.models.deep_svdd import VisionDeepSVDD as _VisionDeepSVDD
 
 
-def _normalize_ae_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+def _normalize_legacy_autoencoder_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(kwargs)
     # Common legacy aliases
-    if "epochs" in normalized and "epoch_num" not in normalized:
-        normalized["epoch_num"] = normalized.pop("epochs")
+    if "epoch_num" in normalized and "epochs" not in normalized:
+        normalized["epochs"] = normalized.pop("epoch_num")
     if "learning_rate" in normalized and "lr" not in normalized:
         normalized["lr"] = normalized.pop("learning_rate")
 
-    # Legacy "hidden_dims" + "encoding_dim" -> symmetric hidden_neuron_list
-    if "hidden_neuron_list" not in normalized:
+    # Legacy hidden_neuron_list -> hidden_neurons
+    if "hidden_neuron_list" in normalized and "hidden_neurons" not in normalized:
+        normalized["hidden_neurons"] = normalized.pop("hidden_neuron_list")
+
+    # Legacy "hidden_dims" + "encoding_dim" -> symmetric hidden_neurons
+    if "hidden_neurons" not in normalized:
         hidden_dims = normalized.pop("hidden_dims", None)
         encoding_dim = normalized.pop("encoding_dim", None)
         if hidden_dims is not None and encoding_dim is not None:
             hidden_dims_list = list(hidden_dims)
-            normalized["hidden_neuron_list"] = (
+            normalized["hidden_neurons"] = (
                 hidden_dims_list + [int(encoding_dim)] + list(reversed(hidden_dims_list))
             )
     # Legacy input_dim is inferred from features; keep as noop for compatibility.
     normalized.pop("input_dim", None)
+
+    # The legacy "AutoencoderDetector" implies a reconstruction-flavored model.
+    # We map it to DeepSVDD in autoencoder mode for a close behavior match.
+    normalized.setdefault("use_autoencoder", True)
     return normalized
 
 
-class AutoencoderDetector(_VisionAutoEncoder):
+class AutoencoderDetector(_VisionDeepSVDD):
     def __init__(self, *, feature_extractor=None, contamination: float = 0.1, **kwargs) -> None:
         super().__init__(
             feature_extractor=_ensure_extractor(feature_extractor),
             contamination=contamination,
-            **_normalize_ae_kwargs(kwargs),
+            **_normalize_legacy_autoencoder_kwargs(kwargs),
         )
 
 
@@ -249,4 +257,3 @@ __all__ = [
     # Deep (feature-based)
     "AutoencoderDetector",
 ]
-

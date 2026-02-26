@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Models
+- Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
+- Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.
+- Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
+
+### Packaging
+- Removed `pyod` from core dependencies.
+
+### Docs
+- Updated examples/quickstart snippets to use `vision_deep_svdd` in place of the removed `vision_auto_encoder` wrapper.
+- Added migration notes for the PyOD removal.
+
 ## [0.6.23] - 2026-02-25
 
 ### Preprocessing

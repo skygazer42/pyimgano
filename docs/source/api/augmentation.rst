@@ -357,11 +357,14 @@ Training with Augmentation
            return np.asarray(X)
 
    detector = create_model(
-       "vision_auto_encoder",
+       "vision_deep_svdd",
        feature_extractor=IdentityExtractor(),
        contamination=0.1,
-       epoch_num=50,
        lr=1e-3,
+       n_features=X_train.shape[1],
+       hidden_neurons=[256, 64, 256],
+       use_autoencoder=True,
+       epochs=50,
        batch_size=32,
        verbose=0,
    )

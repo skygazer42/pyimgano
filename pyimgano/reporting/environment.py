@@ -42,7 +42,6 @@ def collect_environment() -> dict[str, Any]:
         "numpy": _dist_version("numpy"),
         "opencv_python": _dist_version("opencv-python"),
         "scikit_learn": _dist_version("scikit-learn"),
-        "pyod": _dist_version("pyod"),
         "torch": _dist_version("torch"),
         "torchvision": _dist_version("torchvision"),
     }
@@ -61,4 +60,3 @@ def collect_environment() -> dict[str, Any]:
         "packages": packages,
         "torch": torch_info,
     }
-

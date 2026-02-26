@@ -2,8 +2,8 @@
 Benchmark deep learning anomaly detection algorithms.
 
 This script benchmarks neural network-based algorithms for visual anomaly detection:
-- Autoencoder (PyOD wrapper)
-- Deep SVDD (core implementation)
+- DeepSVDD (autoencoder mode)
+- DeepSVDD (core implementation)
 
 Metrics measured:
 - Training time (per epoch)
@@ -183,20 +183,22 @@ def benchmark_autoencoder(
     results = []
     input_dim = np.prod(X_train.shape[1:])
 
-    # Standard Autoencoder
-    print("\n1. AutoEncoder (PyOD wrapper)...")
+    # DeepSVDD in autoencoder mode (reconstruction + SVDD distance)
+    print("\n1. DeepSVDD (autoencoder mode)...")
     result = benchmark_algorithm(
-        "vision_auto_encoder",
+        "core_deep_svdd",
         {
             'contamination': 0.1,
-            'epoch_num': 10,
+            'n_features': input_dim,
+            'use_autoencoder': True,
+            'epochs': 10,
             'batch_size': 32,
             'lr': 0.001,
-            'hidden_neuron_list': [128, 64, 32, 64, 128],
+            'hidden_neurons': [128, 64, 32],
             'verbose': 0,
         },
         X_train, y_train, X_test, y_test,
-        "AutoEncoder",
+        "DeepSVDD (AE mode)",
         epochs=10
     )
     results.append(result)

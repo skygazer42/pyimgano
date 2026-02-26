@@ -48,7 +48,6 @@ dependencies = [
     "torchvision>=0.10.0",
     "Pillow>=8.0.0",
     "opencv-python>=4.5.0",
-    "pyod>=1.1.0,<3.0.0",  # ECOD/COPOD require >=0.9.7, scipy fix in >=1.0.9
     "joblib>=1.0.0",
     "matplotlib>=3.3.0",
     "numba>=0.51",
@@ -220,7 +219,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "cv2.*",
-    "pyod.*",
     "sklearn.*",
     "torch.*",
     "torchvision.*",

@@ -173,19 +173,21 @@ from pyimgano.models import create_model
 X_train = normal_data
 X_test = np.vstack([normal_data[:100], anomaly_data])
 
-# Create and train autoencoder (PyOD AutoEncoder wrapper)
+# Create and train DeepSVDD (native torch implementation)
 class IdentityExtractor:
     def extract(self, X):
         return np.asarray(X)
 
 detector = create_model(
-    "vision_auto_encoder",
+    "vision_deep_svdd",
     feature_extractor=IdentityExtractor(),
     contamination=0.05,
-    epoch_num=50,
-    batch_size=32,
     lr=1e-3,
-    hidden_neuron_list=[64, 32, 64],
+    n_features=X_train.shape[1],
+    hidden_neurons=[64, 32, 64],
+    use_autoencoder=True,
+    epochs=50,
+    batch_size=32,
     verbose=0,
 )
 
@@ -198,7 +200,7 @@ predictions = detector.predict(X_test)
 
 # Evaluate
 auc = roc_auc_score(y_test, scores)
-print(f"Autoencoder AUC-ROC: {auc:.4f}")
+print(f"DeepSVDD AUC-ROC: {auc:.4f}")
 ```
 
 ## Preprocessing Images
@@ -661,15 +663,17 @@ class IdentityExtractor:
     def extract(self, X):
         return np.asarray(X)
 
-# Autoencoder works well for complex patterns
+# DeepSVDD works well for complex feature patterns
 detector = create_model(
-    "vision_auto_encoder",
+    "vision_deep_svdd",
     feature_extractor=IdentityExtractor(),
     contamination=0.1,
-    epoch_num=100,
     lr=1e-3,
     batch_size=32,
-    hidden_neuron_list=[512, 256, 128, 256, 512],
+    n_features=X_train_features.shape[1],
+    hidden_neurons=[512, 256, 128],
+    use_autoencoder=True,
+    epochs=100,
     verbose=0,
 )
 detector.fit(X_train_features)
@@ -873,13 +877,13 @@ pip install -e .
 ### CUDA Out of Memory
 
 ```python
-# Reduce batch size for deep models (example: PyOD AutoEncoder wrapper)
+# Reduce batch size for deep models (example: DeepSVDD)
 from pyimgano.models import create_model
 
 detector = create_model(
-    "vision_auto_encoder",
+    "vision_deep_svdd",
     contamination=0.1,
-    epoch_num=10,
+    epochs=10,
     batch_size=16,
     verbose=0,
 )
@@ -896,9 +900,9 @@ torch.cuda.is_available = lambda: False
 from pyimgano.models import create_model
 
 detector = create_model(
-    "vision_auto_encoder",
+    "vision_deep_svdd",
     contamination=0.1,
-    epoch_num=10,
+    epochs=10,
     batch_size=32,
     verbose=0,
 )

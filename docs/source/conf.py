@@ -46,7 +46,6 @@ autodoc_mock_imports = [
     "cv2",
     "sklearn",
     "scipy",
-    "pyod",
     "matplotlib",
     "seaborn",
     "numba",

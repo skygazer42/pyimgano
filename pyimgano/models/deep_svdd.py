@@ -11,9 +11,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 from torch.utils.data import DataLoader, TensorDataset
 
-from pyod.models.base import BaseDetector
-
-from .baseCv import BaseVisionDeepDetector
+from ..utils.param_check import check_parameter
+from .base_detector import BaseDetector
+from .baseml import BaseVisionDetector
 from .registry import register_model
 
 
@@ -58,11 +58,12 @@ class InnerDeepSVDD(nn.Module):
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
         self.dropout_rate = dropout_rate
-        self.net = self._build_network()
+        self.encoder = self._build_encoder()
+        self.decoder = self._build_decoder() if self.use_autoencoder else None
         self.center = None
 
     # ------------------------------------------------------------------
-    def _build_network(self) -> nn.Sequential:
+    def _build_encoder(self) -> nn.Sequential:
         layers = nn.Sequential()
         layers.add_module("linear0", nn.Linear(self.n_features, self.hidden_neurons[0], bias=False))
         layers.add_module("act0", _get_activation(self.hidden_activation))
@@ -82,38 +83,47 @@ class InnerDeepSVDD(nn.Module):
         layers.add_module(
             f"act{len(self.hidden_neurons) - 1}", _get_activation(self.hidden_activation)
         )
-
-        if self.use_autoencoder:
-            for idx in range(len(self.hidden_neurons) - 1, 0, -1):
-                layers.add_module(
-                    f"linear_d{idx}",
-                    nn.Linear(self.hidden_neurons[idx], self.hidden_neurons[idx - 1], bias=False),
-                )
-                layers.add_module(f"act_d{idx}", _get_activation(self.hidden_activation))
-                layers.add_module(f"drop_d{idx}", nn.Dropout(self.dropout_rate))
-
-            layers.add_module("recon", nn.Linear(self.hidden_neurons[0], self.n_features, bias=False))
-            layers.add_module("recon_act", _get_activation(self.output_activation))
-
         return layers
 
     @torch.no_grad()
     def init_center(self, features: torch.Tensor, eps: float = 0.1) -> None:
         self.eval()
-        representation = {}
-        handle = self.net._modules.get("net_output").register_forward_hook(
-            lambda module, inp, out: representation.update({"net_output": out})
-        )
-        _ = self.forward(features)
-        handle.remove()
-
-        center = representation["net_output"].mean(dim=0)
+        center = self.encode(features).mean(dim=0)
         center = torch.where((center.abs() < eps) & (center < 0), torch.full_like(center, -eps), center)
         center = torch.where((center.abs() < eps) & (center > 0), torch.full_like(center, eps), center)
         self.center = center.detach()
 
+    def _build_decoder(self) -> nn.Sequential:
+        layers = nn.Sequential()
+
+        # Decode from representation space back to the input feature space.
+        for idx in range(len(self.hidden_neurons) - 1, 0, -1):
+            layers.add_module(
+                f"linear_d{idx}",
+                nn.Linear(self.hidden_neurons[idx], self.hidden_neurons[idx - 1], bias=False),
+            )
+            layers.add_module(f"act_d{idx}", _get_activation(self.hidden_activation))
+            layers.add_module(f"drop_d{idx}", nn.Dropout(self.dropout_rate))
+
+        layers.add_module("recon", nn.Linear(self.hidden_neurons[0], self.n_features, bias=False))
+        layers.add_module("recon_act", _get_activation(self.output_activation))
+        return layers
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        """Return the representation vector used for SVDD distance scoring."""
+
+        return self.encoder(x)
+
+    def reconstruct(self, z: torch.Tensor) -> torch.Tensor:
+        if self.decoder is None:
+            raise RuntimeError("reconstruct() requires use_autoencoder=True")
+        return self.decoder(z)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+        z = self.encode(x)
+        if self.use_autoencoder:
+            return self.reconstruct(z)
+        return z
 
 
 @register_model(
@@ -122,11 +132,11 @@ class InnerDeepSVDD(nn.Module):
     metadata={"description": "核心 DeepSVDD 异常检测器"},
 )
 class CoreDeepSVDD(BaseDetector):
-    """核心 DeepSVDD 实现，复用 PyOD BaseDetector 接口。"""
+    """核心 DeepSVDD 实现（native BaseDetector contract）。"""
 
     def __init__(
         self,
-        n_features: int,
+        n_features: int | None = None,
         *,
         center=None,
         use_autoencoder: bool = False,
@@ -134,6 +144,7 @@ class CoreDeepSVDD(BaseDetector):
         hidden_activation: str = "relu",
         output_activation: str = "sigmoid",
         optimizer: str = "adam",
+        lr: float = 1e-3,
         epochs: int = 100,
         batch_size: int = 32,
         dropout_rate: float = 0.2,
@@ -145,13 +156,14 @@ class CoreDeepSVDD(BaseDetector):
         contamination: float = 0.1,
     ) -> None:
         super().__init__(contamination=contamination)
-        self.n_features = n_features
+        self.n_features = int(n_features) if n_features is not None else None
         self.center = center
         self.use_autoencoder = use_autoencoder
         self.hidden_neurons = hidden_neurons or [64, 32]
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
         self.optimizer_name = optimizer
+        self.lr = float(lr)
         self.epochs = epochs
         self.batch_size = batch_size
         self.dropout_rate = dropout_rate
@@ -168,21 +180,30 @@ class CoreDeepSVDD(BaseDetector):
             torch.manual_seed(self.random_state)
             np.random.seed(self.random_state)
 
-        from ..utils.utility import check_parameter  # type: ignore
-
         check_parameter(
             dropout_rate,
-            0,
-            1,
+            low=0,
+            high=1,
             include_left=True,
             include_right=False,
             param_name="dropout_rate",
+        )
+        check_parameter(
+            self.lr,
+            low=0,
+            include_left=False,
+            param_name="lr",
         )
 
     # ------------------------------------------------------------------
     def fit(self, X, y=None):
         X = check_array(X)
         self._set_n_classes(y)
+
+        if self.n_features is None:
+            self.n_features = int(X.shape[1])
+        elif int(X.shape[1]) != int(self.n_features):
+            raise ValueError(f"Expected n_features={self.n_features}, got {X.shape[1]}")
 
         if self.preprocessing:
             self.scaler = StandardScaler()
@@ -208,7 +229,11 @@ class CoreDeepSVDD(BaseDetector):
             self.model.init_center(tensor_data)
             self.center = self.model.center
         else:
-            self.center = torch.tensor(self.center, dtype=torch.float32)
+            center_arr = np.asarray(self.center, dtype=np.float32).reshape(-1)
+            rep_dim = int(self.hidden_neurons[-1])
+            if center_arr.shape[0] != rep_dim:
+                raise ValueError(f"Expected center shape ({rep_dim},), got {center_arr.shape}")
+            self.center = torch.tensor(center_arr, dtype=torch.float32)
 
         dataset = TensorDataset(tensor_data, tensor_data)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
@@ -216,7 +241,7 @@ class CoreDeepSVDD(BaseDetector):
         optimizer_cls = OPTIMIZER_DICT.get(self.optimizer_name.lower())
         if optimizer_cls is None:
             raise ValueError(f"未知优化器: {self.optimizer_name}")
-        optimizer = optimizer_cls(self.model.parameters(), weight_decay=self.l2_weight)
+        optimizer = optimizer_cls(self.model.parameters(), lr=self.lr, weight_decay=self.l2_weight)
 
         best_loss = float("inf")
 
@@ -226,10 +251,11 @@ class CoreDeepSVDD(BaseDetector):
 
             for batch_x, _ in dataloader:
                 optimizer.zero_grad()
-                outputs = self.model(batch_x)
-                dist = torch.sum((outputs - self.center) ** 2, dim=-1)
+                rep = self.model.encode(batch_x)
+                dist = torch.sum((rep - self.center) ** 2, dim=-1)
                 if self.use_autoencoder:
-                    loss = dist.mean() + torch.mean(torch.square(outputs - batch_x))
+                    recon = self.model.reconstruct(rep)
+                    loss = dist.mean() + torch.mean(torch.square(recon - batch_x))
                 else:
                     loss = dist.mean()
 
@@ -264,8 +290,8 @@ class CoreDeepSVDD(BaseDetector):
 
         self.model.eval()
         with torch.no_grad():
-            outputs = self.model(tensor_data)
-            dist = torch.sum((outputs - self.center) ** 2, dim=-1)
+            rep = self.model.encode(tensor_data)
+            dist = torch.sum((rep - self.center) ** 2, dim=-1)
 
         return dist.numpy()
 
@@ -275,19 +301,21 @@ class CoreDeepSVDD(BaseDetector):
     tags=("vision", "deep", "torch"),
     metadata={"description": "基于 DeepSVDD 的视觉异常检测器"},
 )
-class VisionDeepSVDD(BaseVisionDeepDetector):
-    """结合 BaseVisionDeepDetector 的视觉版 DeepSVDD。"""
+class VisionDeepSVDD(BaseVisionDetector):
+    """视觉版 DeepSVDD：对图像提取特征后，在特征空间训练 DeepSVDD。"""
 
     def __init__(
         self,
-        n_features: int,
         *,
+        feature_extractor=None,
+        n_features: int | None = None,
         center=None,
         use_autoencoder: bool = False,
         hidden_neurons=None,
         hidden_activation: str = "relu",
         output_activation: str = "sigmoid",
         optimizer: str = "adam",
+        lr: float = 1e-3,
         epochs: int = 100,
         batch_size: int = 32,
         dropout_rate: float = 0.2,
@@ -299,7 +327,19 @@ class VisionDeepSVDD(BaseVisionDeepDetector):
         contamination: float = 0.1,
         **kwargs,
     ) -> None:
-        self.detector_params = dict(
+        if feature_extractor is None:
+            # DeepSVDD is sensitive to input dimensionality. The BaseVisionDetector
+            # default (224x224 flattened pixels) can be too large for a simple MLP.
+            # Use a smaller default while still supporting paths input.
+            from pyimgano.utils.image_ops import ImagePreprocessor
+
+            feature_extractor = ImagePreprocessor(
+                resize=(32, 32),
+                output_tensor=False,
+                error_mode="zeros",
+            )
+
+        self._detector_kwargs = dict(
             n_features=n_features,
             center=center,
             use_autoencoder=use_autoencoder,
@@ -307,6 +347,7 @@ class VisionDeepSVDD(BaseVisionDeepDetector):
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             optimizer=optimizer,
+            lr=lr,
             epochs=epochs,
             batch_size=batch_size,
             dropout_rate=dropout_rate,
@@ -316,15 +357,16 @@ class VisionDeepSVDD(BaseVisionDeepDetector):
             verbose=verbose,
             random_state=random_state,
             contamination=contamination,
+            **dict(kwargs),
         )
 
-        super().__init__(
-            contamination=contamination,
-            preprocessing=preprocessing,
-            epoch_num=epochs,
-            batch_size=batch_size,
-            **kwargs,
-        )
+        super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
-        return CoreDeepSVDD(**self.detector_params)
+        return CoreDeepSVDD(**self._detector_kwargs)
+
+    def fit(self, X: Iterable[str], y=None):
+        return super().fit(X, y=y)
+
+    def decision_function(self, X):
+        return super().decision_function(X)
