@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 
-_PYOD_IMPORT_RE = re.compile(r"^\\s*(?:from\\s+pyod\\b|import\\s+pyod\\b)", re.MULTILINE)
+_PYOD_IMPORT_RE = re.compile(r"^\s*(?:from\s+pyod\b|import\s+pyod\b)", re.MULTILINE)
 
 
 def _assert_no_pyod_imports(path: Path) -> None:
@@ -28,6 +28,12 @@ def test_no_pyod_imports_in_native_bases_and_utils() -> None:
         repo_root / "pyimgano/models/base_deep.py",
         repo_root / "pyimgano/models/baseml.py",
         repo_root / "pyimgano/models/baseCv.py",
+        # As we port models off PyOD, extend this list.
+        repo_root / "pyimgano/models/ecod.py",
+        repo_root / "pyimgano/models/copod.py",
+        repo_root / "pyimgano/models/knn.py",
+        repo_root / "pyimgano/models/pca.py",
+        repo_root / "pyimgano/models/kde.py",
     ]
 
     for path in targets:
@@ -37,4 +43,3 @@ def test_no_pyod_imports_in_native_bases_and_utils() -> None:
     utils_dir = repo_root / "pyimgano/utils"
     for path in utils_dir.rglob("*.py"):
         _assert_no_pyod_imports(path)
-

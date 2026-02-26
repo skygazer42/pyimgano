@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-KNN (K-Nearest Neighbors) outlier detector wrapper.
+KNN (K-Nearest Neighbors) outlier detector.
 
-KNN is a simple and effective outlier detection method based on the distance
-to k-nearest neighbors. It's easy to understand and implement.
+KNN is a classic distance-based outlier detection method: points that are far
+from their k nearest neighbors are considered outliers.
 
 Reference:
     Ramaswamy, S., Rastogi, R. and Shim, K., 2000.
@@ -16,28 +16,124 @@ from __future__ import annotations
 from typing import Iterable
 
 import numpy as np
+from sklearn.neighbors import NearestNeighbors
+from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
-try:  # pragma: no cover - optional dependency guard
-    from pyod.models.knn import KNN as _PyODKNN
-except ImportError as exc:  # pragma: no cover - surface install guidance
-    _PyODKNN = None
-    _IMPORT_ERROR = exc
-else:
-    _IMPORT_ERROR = None
 
+class CoreKNN:
+    """Pure sklearn implementation of a PyOD-style KNN outlier detector."""
 
-class CoreKNN(_PyODKNN if _PyODKNN is not None else object):
-    """Shallow wrapper bridging PyOD KNN to registry."""
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_neighbors: int = 5,
+        method: str = "largest",
+        algorithm: str = "auto",
+        leaf_size: int = 30,
+        metric: str = "minkowski",
+        p: int = 2,
+        metric_params=None,
+        n_jobs: int = 1,
+        radius: float | None = None,  # API compat (unused)
+        **nn_kwargs,
+    ) -> None:
+        self.contamination = float(contamination)
+        self.n_neighbors = int(n_neighbors)
+        self.method = str(method)
+        self.algorithm = str(algorithm)
+        self.leaf_size = int(leaf_size)
+        self.metric = str(metric)
+        self.p = int(p)
+        self.metric_params = metric_params
+        self.n_jobs = int(n_jobs)
+        self.radius = radius
+        self._nn_kwargs = dict(nn_kwargs)
 
-    def __init__(self, *args, **kwargs):
-        if _PyODKNN is None:
-            raise ImportError(
-                "pyod.models.knn is unavailable. Install pyod to use KNN."
-            ) from _IMPORT_ERROR
-        super().__init__(*args, **kwargs)  # type: ignore[misc]
+        # Avoid ambiguous overrides: these must be passed explicitly.
+        reserved = {
+            "n_neighbors",
+            "radius",
+            "algorithm",
+            "leaf_size",
+            "metric",
+            "p",
+            "metric_params",
+            "n_jobs",
+        }
+        bad = reserved.intersection(self._nn_kwargs)
+        if bad:
+            bad_s = ", ".join(sorted(bad))
+            raise TypeError(f"Pass {bad_s} explicitly (not via **kwargs)")
+
+        self._nn: NearestNeighbors | None = None
+        self._k_effective: int | None = None
+        self._X_train: np.ndarray | None = None
+        self.decision_scores_: np.ndarray | None = None
+
+    def _aggregate(self, distances: np.ndarray) -> np.ndarray:
+        if self.method == "largest":
+            return distances.max(axis=1)
+        if self.method == "mean":
+            return distances.mean(axis=1)
+        if self.method == "median":
+            return np.median(distances, axis=1)
+        raise ValueError("method must be one of {'largest', 'mean', 'median'}")
+
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        self._X_train = X
+
+        n_train = X.shape[0]
+        if n_train <= 1:
+            # Not enough points to define neighbors; treat everything as equally normal.
+            self._k_effective = 0
+            self._nn = None
+            self.decision_scores_ = np.zeros(n_train, dtype=np.float64)
+            return self
+
+        if self.n_neighbors < 1:
+            raise ValueError("n_neighbors must be >= 1")
+
+        k = min(self.n_neighbors, n_train - 1)
+        self._k_effective = int(k)
+
+        self._nn = NearestNeighbors(
+            n_neighbors=k + 1,  # include self; dropped when scoring training points
+            algorithm=self.algorithm,
+            leaf_size=self.leaf_size,
+            metric=self.metric,
+            p=self.p,
+            metric_params=self.metric_params,
+            n_jobs=self.n_jobs,
+            **self._nn_kwargs,
+        )
+        self._nn.fit(X)
+
+        distances, _ = self._nn.kneighbors(X, n_neighbors=k + 1, return_distance=True)
+        distances = distances[:, 1:]  # drop self-distance
+        self.decision_scores_ = self._aggregate(distances).astype(np.float64)
+        return self
+
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+        if self._X_train is None:
+            raise RuntimeError("Detector must be fitted before calling decision_function")
+
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        if self._k_effective is None:
+            raise RuntimeError("Internal error: missing k")
+        if self._k_effective == 0:
+            return np.zeros(X.shape[0], dtype=np.float64)
+        if self._nn is None:
+            raise RuntimeError("Internal error: missing neighbor index")
+
+        distances, _ = self._nn.kneighbors(
+            X, n_neighbors=self._k_effective, return_distance=True
+        )
+        return self._aggregate(distances).astype(np.float64).ravel()
 
 
 @register_model(
@@ -52,57 +148,7 @@ class CoreKNN(_PyODKNN if _PyODKNN is not None else object):
     },
 )
 class VisionKNN(BaseVisionDetector):
-    """
-    Vision-compatible KNN detector for anomaly detection.
-
-    KNN detects outliers based on the distance to their k-nearest neighbors.
-    Points that are far from their neighbors are considered outliers.
-
-    Parameters
-    ----------
-    feature_extractor : object
-        Feature extractor with an 'extract' method that converts images to features.
-    contamination : float, optional (default=0.1)
-        The amount of contamination of the data set.
-    n_neighbors : int, optional (default=5)
-        Number of neighbors to use by default.
-    method : str, optional (default='largest')
-        {'largest', 'mean', 'median'}
-        - 'largest': use the distance to the kth neighbor as the outlier score
-        - 'mean': use the average of all k neighbors as the outlier score
-        - 'median': use the median of the distance to k neighbors as the outlier score
-    radius : float, optional (default=1.0)
-        Range of parameter space to use by default for radius_neighbors queries.
-    algorithm : str, optional (default='auto')
-        {'auto', 'ball_tree', 'kd_tree', 'brute'}
-        Algorithm used to compute the nearest neighbors.
-    leaf_size : int, optional (default=30)
-        Leaf size passed to BallTree or KDTree.
-    metric : str or callable, optional (default='minkowski')
-        Metric used for distance computation.
-    p : int, optional (default=2)
-        Parameter for the Minkowski metric.
-    n_jobs : int, optional (default=1)
-        The number of parallel jobs to run for neighbors search.
-
-    Attributes
-    ----------
-    decision_scores_ : numpy array of shape (n_samples,)
-        The outlier scores of the training data.
-
-    Examples
-    --------
-    >>> from pyimgano import models, utils
-    >>> feature_extractor = utils.ImagePreprocessor(resize=(224, 224))
-    >>> detector = models.create_model(
-    ...     "vision_knn",
-    ...     feature_extractor=feature_extractor,
-    ...     n_neighbors=10,
-    ...     method='largest'
-    ... )
-    >>> detector.fit(train_image_paths)
-    >>> predictions = detector.predict(test_image_paths)
-    """
+    """Vision-compatible KNN detector for anomaly detection."""
 
     def __init__(
         self,
@@ -110,14 +156,28 @@ class VisionKNN(BaseVisionDetector):
         feature_extractor=None,
         contamination: float = 0.1,
         n_neighbors: int = 5,
-        method: str = 'largest',
-        **kwargs
+        method: str = "largest",
+        radius: float = 1.0,
+        algorithm: str = "auto",
+        leaf_size: int = 30,
+        metric: str = "minkowski",
+        p: int = 2,
+        metric_params=None,
+        n_jobs: int = 1,
+        **kwargs,
     ):
         self.detector_kwargs = dict(
             contamination=contamination,
             n_neighbors=n_neighbors,
             method=method,
-            **kwargs
+            radius=radius,
+            algorithm=algorithm,
+            leaf_size=leaf_size,
+            metric=metric,
+            p=p,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            **kwargs,
         )
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
@@ -125,40 +185,7 @@ class VisionKNN(BaseVisionDetector):
         return CoreKNN(**self.detector_kwargs)
 
     def fit(self, X: Iterable[str], y=None):
-        """
-        Fit detector using training images.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Training image paths.
-        y : ignored
-            Not used, present for API consistency.
-
-        Returns
-        -------
-        self : object
-            Fitted estimator.
-        """
-        features = np.asarray(self.feature_extractor.extract(X))
-        self.detector.fit(features)
-        self.decision_scores_ = self.detector.decision_scores_
-        self._process_decision_scores()
-        return self
+        return super().fit(X, y=y)
 
     def decision_function(self, X):
-        """
-        Predict raw anomaly score of X using the fitted detector.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Test image paths.
-
-        Returns
-        -------
-        anomaly_scores : numpy array of shape (n_samples,)
-            The anomaly score of the input samples.
-        """
-        features = np.asarray(self.feature_extractor.extract(X))
-        return self.detector.decision_function(features)
+        return super().decision_function(X)

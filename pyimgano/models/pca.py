@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-PCA (Principal Component Analysis) outlier detector wrapper.
+PCA (Principal Component Analysis) outlier detector.
 
-PCA-based outlier detection uses the reconstruction error from principal
-components to identify anomalies. Classic and widely used method.
+PCA-based outlier detection uses reconstruction error from principal components
+to identify anomalies. Samples with large reconstruction error are more likely
+to be anomalous.
 
 Reference:
     Shyu, M.L., Chen, S.C., Sarinnapakorn, K. and Chang, L., 2003.
@@ -16,28 +17,91 @@ from __future__ import annotations
 from typing import Iterable
 
 import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
-try:  # pragma: no cover - optional dependency guard
-    from pyod.models.pca import PCA as _PyODPCA
-except ImportError as exc:  # pragma: no cover - surface install guidance
-    _PyODPCA = None
-    _IMPORT_ERROR = exc
-else:
-    _IMPORT_ERROR = None
 
+class CorePCA:
+    """Minimal PCA reconstruction-error detector (sklearn backend)."""
 
-class CorePCA(_PyODPCA if _PyODPCA is not None else object):
-    """Shallow wrapper bridging PyOD PCA to registry."""
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_components=None,
+        n_selected_components: int | None = None,
+        whiten: bool = False,
+        svd_solver: str = "auto",
+        weighted: bool = True,  # API compat (currently unused)
+        standardization: bool = True,
+        random_state=None,
+        **pca_kwargs,
+    ) -> None:
+        self.contamination = float(contamination)
+        self.n_components = n_components
+        self.n_selected_components = n_selected_components
+        self.whiten = bool(whiten)
+        self.svd_solver = str(svd_solver)
+        self.weighted = bool(weighted)
+        self.standardization = bool(standardization)
+        self.random_state = random_state
+        self._pca_kwargs = dict(pca_kwargs)
 
-    def __init__(self, *args, **kwargs):
-        if _PyODPCA is None:
-            raise ImportError(
-                "pyod.models.pca is unavailable. Install pyod to use PCA."
-            ) from _IMPORT_ERROR
-        super().__init__(*args, **kwargs)  # type: ignore[misc]
+        self.scaler_: StandardScaler | None = None
+        self.pca_: PCA | None = None
+        self.decision_scores_: np.ndarray | None = None
+
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+
+        X_proc = X
+        if self.standardization:
+            self.scaler_ = StandardScaler()
+            X_proc = self.scaler_.fit_transform(X_proc)
+
+        self.pca_ = PCA(
+            n_components=self.n_components,
+            whiten=self.whiten,
+            svd_solver=self.svd_solver,
+            random_state=self.random_state,
+            **self._pca_kwargs,
+        )
+        self.pca_.fit(X_proc)
+
+        self.decision_scores_ = self.decision_function(X)
+        return self
+
+    def decision_function(self, X):  # noqa: ANN001, ANN201
+        if self.pca_ is None:
+            raise RuntimeError("Detector must be fitted before calling decision_function")
+
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        X_proc = X
+        if self.standardization:
+            if self.scaler_ is None:
+                raise RuntimeError("Internal error: missing scaler")
+            X_proc = self.scaler_.transform(X_proc)
+
+        Z = self.pca_.transform(X_proc)
+
+        if self.n_selected_components is not None:
+            k = int(self.n_selected_components)
+            if k < 1:
+                raise ValueError("n_selected_components must be >= 1")
+            k = min(k, Z.shape[1])
+            Z_masked = np.zeros_like(Z)
+            Z_masked[:, :k] = Z[:, :k]
+            X_recon = self.pca_.inverse_transform(Z_masked)
+        else:
+            X_recon = self.pca_.inverse_transform(Z)
+
+        # Reconstruction error in the (optionally) standardized space.
+        err = np.sum((X_proc - X_recon) ** 2, axis=1)
+        return err.astype(np.float64).ravel()
 
 
 @register_model(
@@ -52,56 +116,7 @@ class CorePCA(_PyODPCA if _PyODPCA is not None else object):
     },
 )
 class VisionPCA(BaseVisionDetector):
-    """
-    Vision-compatible PCA detector for anomaly detection.
-
-    PCA detects outliers by measuring the reconstruction error when projecting
-    data onto principal components. High reconstruction errors indicate anomalies.
-
-    Parameters
-    ----------
-    feature_extractor : object
-        Feature extractor with an 'extract' method that converts images to features.
-    contamination : float, optional (default=0.1)
-        The amount of contamination of the data set.
-    n_components : int, float, str or None, optional (default=None)
-        Number of components to keep.
-        - If int, keep n_components.
-        - If float between 0 and 1, select the number of components such that
-          the amount of variance explained is greater than n_components.
-        - If 'mle', Mingen's MLE is used to guess the dimension.
-        - If None, min(n_samples, n_features) - 1 components are kept.
-    n_selected_components : int, optional (default=None)
-        Number of selected principal components for calculating the outlier scores.
-        If not set, use all principal components.
-    whiten : bool, optional (default=False)
-        When True, the components_ vectors are divided by n_samples times
-        components_ to ensure uncorrelated outputs with unit component-wise variances.
-    svd_solver : str, optional (default='auto')
-        {'auto', 'full', 'arpack', 'randomized'}
-    weighted : bool, optional (default=True)
-        If True, the eigenvalues are used in score computation.
-    standardization : bool, optional (default=True)
-        If True, perform standardization first to convert data to zero mean and unit variance.
-
-    Attributes
-    ----------
-    decision_scores_ : numpy array of shape (n_samples,)
-        The outlier scores of the training data.
-
-    Examples
-    --------
-    >>> from pyimgano import models, utils
-    >>> feature_extractor = utils.ImagePreprocessor(resize=(224, 224))
-    >>> detector = models.create_model(
-    ...     "vision_pca",
-    ...     feature_extractor=feature_extractor,
-    ...     n_components=0.95,  # Keep 95% variance
-    ...     contamination=0.1
-    ... )
-    >>> detector.fit(train_image_paths)
-    >>> scores = detector.decision_function(test_image_paths)
-    """
+    """Vision-compatible PCA detector for anomaly detection."""
 
     def __init__(
         self,
@@ -109,12 +124,13 @@ class VisionPCA(BaseVisionDetector):
         feature_extractor=None,
         contamination: float = 0.1,
         n_components=None,
-        n_selected_components=None,
+        n_selected_components: int | None = None,
         whiten: bool = False,
-        svd_solver: str = 'auto',
+        svd_solver: str = "auto",
         weighted: bool = True,
         standardization: bool = True,
-        **kwargs
+        random_state=None,
+        **kwargs,
     ):
         self.detector_kwargs = dict(
             contamination=contamination,
@@ -124,7 +140,8 @@ class VisionPCA(BaseVisionDetector):
             svd_solver=svd_solver,
             weighted=weighted,
             standardization=standardization,
-            **kwargs
+            random_state=random_state,
+            **kwargs,
         )
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
@@ -132,40 +149,8 @@ class VisionPCA(BaseVisionDetector):
         return CorePCA(**self.detector_kwargs)
 
     def fit(self, X: Iterable[str], y=None):
-        """
-        Fit detector using training images.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Training image paths.
-        y : ignored
-            Not used, present for API consistency.
-
-        Returns
-        -------
-        self : object
-            Fitted estimator.
-        """
-        features = np.asarray(self.feature_extractor.extract(X))
-        self.detector.fit(features)
-        self.decision_scores_ = self.detector.decision_scores_
-        self._process_decision_scores()
-        return self
+        return super().fit(X, y=y)
 
     def decision_function(self, X):
-        """
-        Predict raw anomaly score of X using the fitted detector.
+        return super().decision_function(X)
 
-        Parameters
-        ----------
-        X : iterable of str
-            Test image paths.
-
-        Returns
-        -------
-        anomaly_scores : numpy array of shape (n_samples,)
-            The anomaly score of the input samples.
-        """
-        features = np.asarray(self.feature_extractor.extract(X))
-        return self.detector.decision_function(features)

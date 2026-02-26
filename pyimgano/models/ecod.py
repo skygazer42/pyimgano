@@ -1,44 +1,110 @@
 # -*- coding: utf-8 -*-
 """
-ECOD (Empirical Cumulative Distribution-based Outlier Detection) wrapper.
+ECOD (Empirical Cumulative Distribution-based Outlier Detection).
 
 ECOD is a parameter-free, highly interpretable outlier detection algorithm
-based on empirical CDF functions. It's one of the top-performing methods
-on standard benchmarks.
+based on empirical CDF functions.
 
 Reference:
     Li, Z., Zhao, Y., Botta, N., Ionescu, C. and Hu, X., 2022.
     ECOD: Unsupervised Outlier Detection Using Empirical Cumulative
     Distribution Functions. IEEE Transactions on Knowledge and Data
     Engineering (TKDE).
-
-Requirements:
-    - PyOD >= 0.9.7 (ECOD added in this version)
-    - PyOD >= 1.0.9 recommended (scipy compatibility fix)
 """
 
 from __future__ import annotations
 
-import logging
-from typing import Iterable, Optional, Union
+from typing import Iterable
 
 import numpy as np
 from numpy.typing import NDArray
+from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
-logger = logging.getLogger(__name__)
 
-try:
-    from pyod.models.ecod import ECOD as _PyODECOD
+def _skew_sign(X: NDArray[np.floating]) -> NDArray[np.float64]:
+    """Compute per-feature skewness sign using a stable, dependency-free formula."""
+    X = np.asarray(X, dtype=np.float64)
+    mean = X.mean(axis=0)
+    centered = X - mean
+    m2 = np.mean(centered**2, axis=0)
+    m3 = np.mean(centered**3, axis=0)
+    denom = np.power(m2, 1.5)
+    skew = np.divide(m3, denom, out=np.zeros_like(m3), where=denom > 0.0)
+    return np.sign(skew).astype(np.float64)
 
-    _PYOD_AVAILABLE = True
-    _IMPORT_ERROR = None
-except ImportError as exc:
-    _PyODECOD = None
-    _PYOD_AVAILABLE = False
-    _IMPORT_ERROR = exc
+
+class CoreECOD:
+    """Pure NumPy + sklearn-style implementation of ECOD.
+
+    Notes
+    -----
+    This implementation uses the empirical CDF computed on the training set and
+    evaluates test points against that fixed distribution (no test leakage).
+    """
+
+    def __init__(self, *, contamination: float = 0.1, n_jobs: int = 1, eps: float = 1e-12):
+        self.contamination = float(contamination)
+        self.n_jobs = int(n_jobs)  # kept for API compatibility (currently unused)
+        self.eps = float(eps)
+
+        self._X_sorted: NDArray[np.float64] | None = None
+        self._skew_sign: NDArray[np.float64] | None = None
+        self.decision_scores_: NDArray[np.float64] | None = None
+
+    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        self._X_sorted = np.sort(X, axis=0)
+        self._skew_sign = _skew_sign(X)
+
+        self.decision_scores_ = self.decision_function(X)
+        return self
+
+    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn/pyod-like API
+        if self._X_sorted is None or self._skew_sign is None:
+            raise RuntimeError("Detector must be fitted before calling decision_function")
+
+        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        n_train, n_features = self._X_sorted.shape
+        if X.shape[1] != n_features:
+            raise ValueError(
+                f"Expected {n_features} features, got {X.shape[1]}"
+            )
+
+        # Compute feature-wise tail scores and sum.
+        scores_by_feature = np.empty((X.shape[0], n_features), dtype=np.float64)
+
+        for j in range(n_features):
+            col_sorted = self._X_sorted[:, j]
+            x_col = X[:, j]
+
+            # Left-tail: P(X_train <= x)
+            cdf_l = np.searchsorted(col_sorted, x_col, side="right") / float(n_train)
+            # Right-tail: P(X_train >= x) = P(-X_train <= -x)
+            cdf_r = (n_train - np.searchsorted(col_sorted, x_col, side="left")) / float(
+                n_train
+            )
+
+            cdf_l = np.clip(cdf_l, self.eps, 1.0)
+            cdf_r = np.clip(cdf_r, self.eps, 1.0)
+            u_l = -np.log(cdf_l)
+            u_r = -np.log(cdf_r)
+
+            s = self._skew_sign[j]
+            if s > 0:
+                u_skew = u_r
+            elif s < 0:
+                u_skew = u_l
+            else:
+                u_skew = u_l + u_r
+
+            o = np.maximum(u_l, u_r)
+            o = np.maximum(u_skew, o)
+            scores_by_feature[:, j] = o
+
+        return scores_by_feature.sum(axis=1).ravel()
 
 
 @register_model(
@@ -55,57 +121,7 @@ except ImportError as exc:
     },
 )
 class VisionECOD(BaseVisionDetector):
-    """
-    Vision-compatible ECOD detector for anomaly detection.
-
-    ECOD uses empirical cumulative distribution functions to detect outliers
-    without requiring parameter tuning. It's highly interpretable and consistently
-    ranks among the top performers in benchmarks.
-
-    Parameters
-    ----------
-    feature_extractor : object
-        Feature extractor with an 'extract' method.
-    contamination : float, default=0.1
-        Expected proportion of outliers in the dataset (0 < contamination < 0.5).
-    n_jobs : int, default=1
-        Number of parallel jobs. -1 uses all processors.
-
-    Attributes
-    ----------
-    decision_scores_ : ndarray of shape (n_samples,)
-        Outlier scores of training data.
-    threshold_ : float
-        Threshold for binary classification.
-    labels_ : ndarray of shape (n_samples,)
-        Binary labels (0: normal, 1: outlier).
-
-    Examples
-    --------
-    >>> from pyimgano import models, utils
-    >>> extractor = utils.ImagePreprocessor(resize=(224, 224))
-    >>> detector = models.create_model(
-    ...     "vision_ecod",
-    ...     feature_extractor=extractor,
-    ...     contamination=0.1
-    ... )
-    >>> detector.fit(train_paths)
-    >>> predictions = detector.predict(test_paths)
-
-    Notes
-    -----
-    - ECOD is parameter-free and does not require hyperparameter tuning
-    - Works well on high-dimensional data
-    - Computationally efficient (O(n*d) complexity)
-    - Provides interpretable outlier scores
-
-    References
-    ----------
-    .. [1] Li, Z., Zhao, Y., Botta, N., Ionescu, C. and Hu, X., 2022.
-           ECOD: Unsupervised Outlier Detection Using Empirical Cumulative
-           Distribution Functions. IEEE Transactions on Knowledge and Data
-           Engineering.
-    """
+    """Vision-compatible ECOD detector for anomaly detection."""
 
     def __init__(
         self,
@@ -113,141 +129,28 @@ class VisionECOD(BaseVisionDetector):
         feature_extractor=None,
         contamination: float = 0.1,
         n_jobs: int = 1,
+        eps: float = 1e-12,
     ) -> None:
-        if not _PYOD_AVAILABLE:
-            raise ImportError(
-                "PyOD is not available. Install it with:\n"
-                "  pip install 'pyod>=1.1.0'\n"
-                f"Original error: {_IMPORT_ERROR}"
-            )
-
-        # Validate contamination
-        if not 0 < contamination < 0.5:
-            raise ValueError(
-                f"contamination must be in (0, 0.5), got {contamination}"
-            )
-
-        self.n_jobs = n_jobs
-        self._detector_kwargs = {"contamination": contamination, "n_jobs": n_jobs}
-
-        logger.debug(
-            "Initializing VisionECOD with contamination=%.2f, n_jobs=%d",
-            contamination,
-            n_jobs,
-        )
-
-        super().__init__(
-            contamination=contamination,
-            feature_extractor=feature_extractor,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_jobs": int(n_jobs),
+            "eps": float(eps),
+        }
+        super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
-        """Build the underlying PyOD ECOD detector."""
-        return _PyODECOD(**self._detector_kwargs)
+        return CoreECOD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None):
-        """
-        Fit the ECOD detector on training images.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Training image paths.
-        y : ndarray, optional
-            Not used, present for API consistency.
-
-        Returns
-        -------
-        self : VisionECOD
-            Fitted estimator.
-
-        Raises
-        ------
-        ValueError
-            If feature extraction fails or produces invalid features.
-        """
-        paths = list(X)
-        logger.info("Fitting ECOD detector on %d images", len(paths))
-        if not paths:
+    # Keep explicit type hints for path-like inputs (BaseVisionDetector handles the work).
+    def fit(self, X: Iterable[str], y=None):
+        try:
+            is_empty = len(X) == 0  # type: ignore[arg-type]
+        except TypeError:
+            is_empty = False
+        if is_empty:
             raise ValueError("Training set cannot be empty")
 
-        try:
-            features = self.feature_extractor.extract(paths)
-            features = np.asarray(features, dtype=np.float64)
+        return super().fit(X, y=y)
 
-            if features.ndim != 2:
-                raise ValueError(
-                    f"Expected 2D features, got shape {features.shape}"
-                )
-
-            if np.isnan(features).any() or np.isinf(features).any():
-                raise ValueError("Features contain NaN or Inf values")
-
-            logger.debug("Feature shape: %s", features.shape)
-
-            self.detector.fit(features)
-            self.decision_scores_ = self.detector.decision_scores_
-            self._process_decision_scores()
-
-            logger.info(
-                "ECOD fit complete. Threshold: %.4f, "
-                "Score range: [%.4f, %.4f]",
-                self.threshold_,
-                self.decision_scores_.min(),
-                self.decision_scores_.max(),
-            )
-
-        except Exception as e:
-            logger.error("ECOD fitting failed: %s", e)
-            raise
-
-        return self
-
-    def decision_function(
-        self, X: Union[Iterable[str], NDArray]
-    ) -> NDArray[np.float64]:
-        """
-        Compute anomaly scores for test images.
-
-        Parameters
-        ----------
-        X : iterable of str or ndarray
-            Test image paths or pre-extracted features.
-
-        Returns
-        -------
-        scores : ndarray of shape (n_samples,)
-            Anomaly scores (higher = more anomalous).
-
-        Raises
-        ------
-        ValueError
-            If features are invalid.
-        RuntimeError
-            If detector is not fitted.
-        """
-        if not hasattr(self.detector, "decision_scores_"):
-            raise RuntimeError("Detector must be fitted before prediction")
-
-        try:
-            features = self.feature_extractor.extract(X)
-            features = np.asarray(features, dtype=np.float64)
-
-            if features.ndim != 2:
-                raise ValueError(
-                    f"Expected 2D features, got shape {features.shape}"
-                )
-
-            scores = self.detector.decision_function(features)
-            logger.debug(
-                "Computed scores for %d samples. Range: [%.4f, %.4f]",
-                len(scores),
-                scores.min(),
-                scores.max(),
-            )
-
-            return scores
-
-        except Exception as e:
-            logger.error("ECOD prediction failed: %s", e)
-            raise
+    def decision_function(self, X):
+        return super().decision_function(X)
