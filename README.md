@@ -25,6 +25,7 @@ Production-oriented **visual anomaly detection** (image-level + pixel-level) for
 - [Installation](#installation)
 - [Quickstart (CLI)](#quickstart-cli)
 - [Quickstart (Python)](#quickstart-python)
+- [Synthetic anomaly generation](#synthetic-anomaly-generation)
 - [Models & discovery](#models--discovery)
 - [Industrial outputs (defects)](#industrial-outputs-defects)
 - [Optional dependencies](#optional-dependencies)
@@ -166,6 +167,30 @@ print(results[0].score, results[0].label)
 ```
 
 Guide: `docs/INDUSTRIAL_INFERENCE.md`
+
+## Synthetic anomaly generation
+
+When real defects are scarce, `pyimgano` can generate **small, controlled** synthetic anomalies
+for smoke tests / robustness checks / pixel-mask pipelines.
+
+CLI: generate a tiny dataset + masks + JSONL manifest:
+
+```bash
+pyimgano-synthesize \
+  --in-dir /path/to/normal_images \
+  --out-root ./out_synth_dataset \
+  --category synthetic_demo \
+  --presets scratch stain tape edge_wear \
+  --roi-mask /path/to/roi_mask.png \
+  --blend alpha \
+  --alpha 0.9 \
+  --n-train 50 \
+  --n-test-normal 20 \
+  --n-test-anomaly 20 \
+  --seed 0
+```
+
+Guide: `docs/SYNTHETIC_ANOMALY_GENERATION.md`
 
 ## Models & discovery
 

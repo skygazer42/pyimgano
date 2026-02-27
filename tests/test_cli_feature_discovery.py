@@ -8,6 +8,7 @@ def test_cli_list_feature_extractors_outputs_text(capsys) -> None:
     assert code == 0
     out = capsys.readouterr().out
     assert "identity" in out
+    assert "torchvision_backbone_gem" in out
 
 
 def test_cli_list_feature_extractors_outputs_json(capsys) -> None:
@@ -19,6 +20,7 @@ def test_cli_list_feature_extractors_outputs_json(capsys) -> None:
     parsed = json.loads(out)
     assert isinstance(parsed, list)
     assert "identity" in parsed
+    assert "torchvision_backbone_gem" in parsed
 
 
 def test_cli_feature_info_outputs_text(capsys) -> None:
@@ -38,4 +40,3 @@ def test_cli_feature_discovery_flags_are_mutually_exclusive(capsys) -> None:
     assert code != 0
     err = capsys.readouterr().err
     assert "mutually" in err.lower() or "exclusive" in err.lower()
-

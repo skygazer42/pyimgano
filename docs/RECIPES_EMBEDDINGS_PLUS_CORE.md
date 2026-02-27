@@ -74,3 +74,63 @@ det = create_model(
 Use `pyimgano-synthesize` to generate a tiny dataset + manifest, then run a
 pipeline detector on it (see `tests/test_e2e_synth_embedding_core_pipeline.py`).
 
+CLI:
+
+```bash
+pyimgano-synthesize \
+  --in-dir /path/to/normal_images \
+  --out-root ./out_synth_dataset \
+  --category synthetic \
+  --presets scratch stain tape \
+  --blend alpha \
+  --alpha 0.9 \
+  --n-train 50 \
+  --n-test-normal 10 \
+  --n-test-anomaly 10 \
+  --seed 0
+```
+
+Python:
+
+```python
+import numpy as np
+
+from pyimgano.datasets.manifest import load_manifest_benchmark_split
+from pyimgano.models import create_model
+from pyimgano.synthesize_cli import synthesize_dataset
+
+# 1) Synthesize a dataset + manifest.
+synthesize_dataset(
+    in_dir="/path/to/normal_images",
+    out_root="./out_synth_dataset",
+    category="synthetic",
+    preset="scratch",
+    presets=["scratch", "stain", "tape"],  # mixture sampling
+    seed=0,
+    n_train=50,
+    n_test_normal=10,
+    n_test_anomaly=10,
+)
+
+# 2) Load split from manifest.
+split = load_manifest_benchmark_split(
+    manifest_path="./out_synth_dataset/manifest.jsonl",
+    root_fallback="./out_synth_dataset",
+    category="synthetic",
+    resize=(224, 224),
+    load_masks=False,
+)
+
+# 3) Embedding + classical core pipeline.
+det = create_model(
+    "vision_embedding_core",
+    contamination=0.1,
+    embedding_extractor="torchvision_backbone",
+    embedding_kwargs={"backbone": "resnet18", "pretrained": False, "device": "cpu"},
+    core_detector="core_ecod",
+)
+
+det.fit(split.train_paths)
+scores = np.asarray(det.decision_function(split.test_paths), dtype=np.float64)
+print(scores[:5])
+```

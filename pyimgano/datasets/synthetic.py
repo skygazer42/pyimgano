@@ -36,6 +36,8 @@ class SyntheticAnomalyDataset(Dataset):
     - Deterministic per-index given the same `seed`.
     - Intended for experimentation and quick industrial pipelines (not a full
       training framework).
+    - For multi-modal defect sampling, build the synthesizer with
+      `make_preset_mixture([...])` and pass it via `synthesizer=...`.
     """
 
     def __init__(
@@ -87,4 +89,3 @@ class SyntheticAnomalyDataset(Dataset):
             path=str(path),
             meta=meta,
         )
-

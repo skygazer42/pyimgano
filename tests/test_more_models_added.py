@@ -27,3 +27,10 @@ def test_cli_list_models_includes_native_models_added_in_pyod_removal(capsys):
     assert "vision_so_gaal_new" not in names
     assert "vision_mo_gaal" not in names
     assert "vision_xgbod" not in names
+
+    # Industrial upgrade: synthesis + embeddings + pixel-map baselines.
+    assert "ssim_template_map" in names
+    assert "ssim_struct_map" in names
+    assert "core_torch_autoencoder" in names
+    assert "vision_torch_autoencoder" in names
+    assert "vision_resnet18_ecod" in names

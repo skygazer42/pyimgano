@@ -13,11 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mask primitives (blobs/ellipses/scratches) + alpha/Poisson blending utilities
   - CutPaste variants and an `AnomalySynthesizer` pipeline with deterministic seeding + ROI constraints
   - Built-in presets: `scratch`, `stain`, `pit`, `glare`, `rust`, `oil`, `crack`
+- Expanded synthesis mask primitives with more industrial shapes:
+  - Brush strokes (`random_brush_stroke_mask`)
+  - Spatter/droplets (`random_spatter_mask`)
+  - Edge-band wear (`random_edge_band_mask`)
+- Expanded built-in synthesis presets:
+  - `brush`, `spatter`, `tape`, `marker`, `burn`, `bubble`, `fiber`, `wrinkle`, `texture`, `edge_wear`
+- Added preset mixture support (`make_preset_mixture`) to sample multiple defect types.
 - Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly.
 - Added `TextureSourceBank` to support industrial texture-driven synthesis variants.
 - Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
   - Added `--preview` mode (grid output) for fast preset debugging.
   - Added `--from-manifest` mode to sample normals from a JSONL manifest and append synthetic anomalies.
+  - Added `--presets` to sample from a preset mixture and attach chosen preset metadata to manifest records.
+  - Added `--roi-mask` to constrain anomalies to an allowed region (useful for fixtures/background exclusion).
 
 ### Robustness
 - Robustness benchmark corruptions can now optionally emit masks; benchmark updates labels based on returned masks so image-level metrics remain consistent.
@@ -62,6 +71,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Distance-correlation influence (`core_dcorr` / `vision_dcorr`)
   - PCA + Mahalanobis (`core_pca_md` / `vision_pca_md`)
 - Added `vision_feature_pipeline` to compose feature extractors with `core_*` detectors via a single registry model.
+- Added pixel-map capable SSIM template baselines:
+  - `ssim_template_map` and `ssim_struct_map` (return `predict_anomaly_map`)
+- Added torch-based reconstruction baselines:
+  - `core_torch_autoencoder` (MLP autoencoder on feature matrices)
+  - `vision_torch_autoencoder` (feature extractor + autoencoder core)
+- Added lightweight preconfigured industrial wrappers (embedding + core):
+  - `vision_resnet18_ecod`, `vision_resnet18_iforest`, `vision_resnet18_knn`, `vision_resnet18_torch_ae`
+- Refined `vision_crossmad` to be safe-by-default and align with `BaseDetector` score/threshold semantics.
 
 ### Feature Extractors
 - Added a first-class feature extractor subsystem (`pyimgano.features`) with a registry API and runtime protocol validation.
@@ -71,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ColorHistogramExtractor`, `EdgeStatsExtractor`, `FFTLowFreqExtractor`, `PatchStatsExtractor`
   - `MultiExtractor` (concat) and `PCAProjector` / `StandardScalerExtractor` (fit/transform)
 - Added embedding-focused extractors:
+  - `torchvision_backbone_gem` (GeM pooled conv feature map embeddings; safe `pretrained=False` default)
   - `torchvision_vit_tokens` (ViT token embeddings)
   - `normalize` (embedding normalization / power transform)
 - Added feature pipeline spec support (string/dict extractor specs) and feature export helpers (`FeatureExport`).

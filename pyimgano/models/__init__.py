@@ -110,6 +110,7 @@ _auto_import(
         "csflow",  # Cross-scale Flows (WACV 2022)
         "cutpaste",  # CutPaste self-supervised learning (CVPR 2021)
         "deep_svdd",  # Deep Support Vector Data Description
+        "torch_autoencoder",  # Torch MLP autoencoder on embeddings/features
         "devnet",  # Deviation Networks (KDD 2019)
         "dfm",  # Discriminative Feature Modeling
         "differnet",  # DifferNet learnable difference detector (WACV 2023)
@@ -144,6 +145,7 @@ _auto_import(
         "simplenet",  # SimpleNet ultra-fast detector (CVPR 2023)
         "spade",  # Sub-image Anomaly Detection with SPADE (ECCV 2020)
         "ssim",  # Structural Similarity-based detection
+        "ssim_map",  # SSIM pixel-map template baselines
         "ssim_struct",  # SSIM with structural features
         "stfpm",  # Student-Teacher Feature Pyramid Matching (BMVC 2021)
         "student_teacher_lite",  # Lite student-teacher via embedding regression

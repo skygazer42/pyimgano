@@ -24,7 +24,7 @@ image_u8 = np.zeros((256, 256, 3), dtype=np.uint8)
 
 syn = AnomalySynthesizer(
     SynthSpec(
-        preset="scratch",   # scratch|stain|pit|glare|rust|oil|crack
+        preset="scratch",   # see preset list below
         blend="alpha",      # alpha|poisson
         alpha=0.9,
         probability=1.0,
@@ -48,6 +48,16 @@ Current built-in presets:
 - `rust`: corrosion / rust-like organic blobs with speckle texture
 - `oil`: darker organic oil stains
 - `crack`: thin fracture-like lines
+- `brush`: thick paint/ink brush strokes
+- `spatter`: small droplets / spatter (many tiny blobs)
+- `tape`: rectangular tape / patch regions (often brighter or stained)
+- `marker`: broad marker stroke (strong tint)
+- `burn`: heat/burn marks (dark organic regions)
+- `bubble`: circular bubble-like defects (bright/dark)
+- `fiber`: thin fibers/hairs (curved scratches)
+- `wrinkle`: crease/wrinkle waves (wavy stroke)
+- `texture`: self-crop texture injection via organic mask
+- `edge_wear`: defects concentrated near image borders (edge band)
 
 Get preset names:
 
@@ -58,7 +68,118 @@ print(get_preset_names())
 
 ---
 
-## 3) CLI: `pyimgano-synthesize`
+## 3) Preset Mixtures (Industrial Sampling)
+
+In many factories, defects are *multi-modal*. Instead of a single defect type,
+sample from a **mixture**.
+
+Python:
+
+```python
+import numpy as np
+from pyimgano.synthesis import AnomalySynthesizer, SynthSpec, make_preset_mixture
+
+img = np.zeros((256, 256, 3), dtype=np.uint8)
+
+mix_fn = make_preset_mixture(["scratch", "stain", "tape", "edge_wear"])
+syn = AnomalySynthesizer(
+    SynthSpec(preset="scratch", probability=1.0, blend="alpha", alpha=0.9),
+    preset_fn=mix_fn,
+)
+
+res = syn(img, seed=0)
+print(res.meta.get("preset"), res.meta.get("preset_mixture"))
+```
+
+CLI:
+
+```bash
+pyimgano-synthesize \
+  --in-dir /path/to/normal_images \
+  --out-root ./out_synth_dataset \
+  --category synthetic_demo \
+  --presets scratch stain tape edge_wear \
+  --blend alpha \
+  --alpha 0.9 \
+  --n-train 50 \
+  --n-test-normal 20 \
+  --n-test-anomaly 20 \
+  --seed 0
+```
+
+The output manifest will attach `meta` to anomaly samples including:
+- `meta.preset`: the chosen preset for that sample
+- `meta.preset_mixture`: the mixture list
+
+---
+
+## 4) ROI Mask Constraint (Keep Defects Inside Region)
+
+Many inspection systems have a “valid ROI” (ignore background/fixtures).
+
+Python:
+
+```python
+import numpy as np
+from pyimgano.synthesis import AnomalySynthesizer, SynthSpec
+
+img = np.zeros((128, 128, 3), dtype=np.uint8)
+roi = np.zeros((128, 128), dtype=np.uint8)
+roi[16:112, 16:112] = 255
+
+syn = AnomalySynthesizer(SynthSpec(preset="scratch", probability=1.0))
+res = syn(img, seed=0, roi_mask=roi)
+```
+
+CLI:
+
+```bash
+pyimgano-synthesize \
+  --in-dir /path/to/normal_images \
+  --out-root ./out_synth_dataset \
+  --preset scratch \
+  --roi-mask /path/to/roi_mask.png \
+  --seed 0
+```
+
+If the ROI is empty or too restrictive, synthesis may fall back to a normal
+sample (label `0` and empty mask).
+
+---
+
+## 5) Dataset Wrapper: `SyntheticAnomalyDataset`
+
+If you're using a torch-style `DataLoader`, you can inject synthetic anomalies
+on-the-fly (deterministic per index).
+
+```python
+from pyimgano.datasets.synthetic import SyntheticAnomalyDataset
+from pyimgano.synthesis import AnomalySynthesizer, SynthSpec, make_preset_mixture
+
+mix_fn = make_preset_mixture(["scratch", "stain", "tape"])
+syn = AnomalySynthesizer(
+    SynthSpec(preset="scratch", probability=1.0, blend="alpha", alpha=0.9),
+    preset_fn=mix_fn,
+)
+
+ds = SyntheticAnomalyDataset(
+    image_paths=train_paths,
+    synthesizer=syn,
+    p_anomaly=0.5,
+    seed=0,
+)
+
+item = ds[0]
+print(item.label, item.mask_u8.shape, item.meta.get("preset"))
+```
+
+Notes:
+- When an anomaly is injected, `item.meta` includes `preset` and `blend`.
+- For ROI restrictions, pass `roi_mask=(H,W) uint8` when constructing the dataset.
+
+---
+
+## 6) CLI: `pyimgano-synthesize`
 
 Generate a **tiny dataset** in the built-in `custom` layout, including a JSONL manifest:
 
@@ -134,7 +255,7 @@ split = load_manifest_benchmark_split(
 
 ---
 
-## 4) Building Masks With Perlin + Poisson Blend
+## 7) Building Masks With Perlin + Poisson Blend
 
 Internally, the synthesis pipeline relies on:
 - Perlin/fBm noise (mask generation)

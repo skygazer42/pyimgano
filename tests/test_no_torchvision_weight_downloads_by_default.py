@@ -29,9 +29,27 @@ def test_no_torchvision_weight_downloads_by_default(monkeypatch) -> None:
     ext3 = create_feature_extractor("torchvision_vit_tokens")
     ext3.extract([__import__("numpy").zeros((32, 32, 3), dtype="uint8")])
 
+    ext4 = create_feature_extractor("torchvision_backbone_gem", image_size=32)
+    ext4.extract([__import__("numpy").zeros((32, 32, 3), dtype="uint8")])
+
     # Selected detectors historically used pretrained=True defaults. Instantiating
     # them must not attempt downloads unless explicitly enabled.
     from pyimgano.models import create_model
 
     create_model("efficient_ad")
     create_model("ae_resnet_unet")
+
+    # CrossMAD should also be safe-by-default even when fitting (which triggers
+    # embedding extraction).
+    import numpy as np
+
+    det = create_model(
+        "vision_crossmad",
+        backbone="resnet18",
+        image_size=32,
+        device="cpu",
+        num_prototypes=2,
+        pretrained=False,
+        contamination=0.5,
+    )
+    det.fit([np.zeros((32, 32, 3), dtype="uint8")])

@@ -51,6 +51,7 @@ _auto_import(
         "patch_stats",
         "structural",
         "torchvision_backbone",
+        "torchvision_backbone_gem",
         "torchvision_multilayer",
         "torchvision_vit_tokens",
         "patch_grid",

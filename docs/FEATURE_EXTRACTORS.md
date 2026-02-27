@@ -76,4 +76,9 @@ Names are registered under `pyimgano.features.list_feature_extractors()`.
 | `multi` | `pipeline` | Concatenate multiple extractors |
 | `pca_projector` | `pipeline` | PCA projection on top of a base extractor |
 | `standard_scaler` | `pipeline` | StandardScaler on top of a base extractor |
-
+| `normalize` | `pipeline` | Power/L2 normalization on top of a base extractor (useful for embeddings) |
+| `torchvision_backbone` | `embeddings` | Torchvision backbone embeddings (global pooled; safe `pretrained=False` default) |
+| `torchvision_backbone_gem` | `embeddings` | Torchvision conv feature map + GeM pooling (compact, strong baseline) |
+| `torchvision_multilayer` | `embeddings` | Torchvision multi-layer embeddings (concatenated) |
+| `torchvision_vit_tokens` | `embeddings` | Torchvision ViT token embeddings |
+| `openclip_embed` | `embeddings` | Optional OpenCLIP embeddings (`pyimgano[clip]`) |

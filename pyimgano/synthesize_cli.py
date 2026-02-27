@@ -11,6 +11,8 @@ import numpy as np
 from pyimgano.datasets.manifest import iter_manifest_records
 from pyimgano.manifest_cli import generate_manifest_from_custom_layout
 from pyimgano.synthesis.presets import get_preset_names
+from pyimgano.synthesis.presets import make_preset_mixture
+from pyimgano.synthesis.masks import ensure_u8_mask
 from pyimgano.synthesis.synthesizer import AnomalySynthesizer, SynthSpec
 
 
@@ -43,11 +45,19 @@ def _build_parser() -> argparse.ArgumentParser:
     src.add_argument("--from-manifest", default=None, help="Input manifest JSONL (source normals)")
     parser.add_argument("--out-root", required=True, help="Output dataset root directory")
     parser.add_argument("--category", default="synthetic", help="Category name in manifest")
-    parser.add_argument(
+    preset_group = parser.add_mutually_exclusive_group()
+    preset_group.add_argument(
         "--preset",
         default="scratch",
         choices=get_preset_names(),
         help="Synthetic anomaly preset name",
+    )
+    preset_group.add_argument(
+        "--presets",
+        default=None,
+        nargs="+",
+        choices=get_preset_names(),
+        help="Sample presets from a mixture each time (e.g. --presets scratch stain tape)",
     )
     parser.add_argument(
         "--blend",
@@ -57,6 +67,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--alpha", type=float, default=0.9, help="Alpha for alpha blending (0..1)")
     parser.add_argument("--seed", type=int, default=0, help="RNG seed (deterministic output)")
+    parser.add_argument(
+        "--roi-mask",
+        default=None,
+        help="Optional ROI mask path (non-zero => allowed anomaly region). Resized to match each image.",
+    )
     parser.add_argument(
         "--preview",
         action="store_true",
@@ -112,6 +127,80 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _read_roi_mask(path: str | Path) -> np.ndarray:
+    import cv2  # local import
+
+    p = Path(path)
+    img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise FileNotFoundError(f"Failed to read ROI mask: {p}")
+    return ensure_u8_mask(np.asarray(img, dtype=np.uint8))
+
+
+def _resize_roi_mask(roi_u8: np.ndarray, *, shape_hw: tuple[int, int]) -> np.ndarray:
+    import cv2  # local import
+
+    h, w = int(shape_hw[0]), int(shape_hw[1])
+    roi = np.asarray(roi_u8, dtype=np.uint8)
+    if roi.shape == (h, w):
+        return roi
+    resized = cv2.resize(roi, (w, h), interpolation=cv2.INTER_NEAREST)
+    return ensure_u8_mask(np.asarray(resized, dtype=np.uint8), shape_hw=(h, w))
+
+
+def _make_synthesizer(
+    *,
+    preset: str,
+    presets: list[str] | None,
+    blend: str,
+    alpha: float,
+) -> AnomalySynthesizer:
+    if presets:
+        preset_names = [str(p).strip().lower() for p in list(presets)]
+        preset_fn = make_preset_mixture(preset_names)
+        spec_preset = preset_names[0]
+        return AnomalySynthesizer(
+            SynthSpec(preset=str(spec_preset), probability=1.0, blend=str(blend), alpha=float(alpha)),
+            preset_fn=preset_fn,
+        )
+
+    return AnomalySynthesizer(
+        SynthSpec(preset=str(preset), probability=1.0, blend=str(blend), alpha=float(alpha))
+    )
+
+
+def _attach_meta_to_manifest_records(
+    records: list[dict[str, Any]],
+    *,
+    meta_by_filename: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not meta_by_filename:
+        return records
+
+    out: list[dict[str, Any]] = []
+    for rec in records:
+        r = dict(rec)
+        lab = r.get("label", None)
+        if lab is not None and int(lab) == 1:
+            try:
+                fname = Path(str(r.get("image_path", ""))).name
+            except Exception:
+                fname = ""
+            meta = meta_by_filename.get(fname)
+            if meta is not None:
+                r["meta"] = dict(meta)
+        out.append(r)
+    return out
+
+
+def _rewrite_manifest_jsonl(path: str | Path, records: list[dict[str, Any]]) -> None:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
 def _resolve_manifest_path(raw: str, *, manifest_path: Path, root_fallback: Path | None) -> Path:
     p = Path(str(raw))
     if p.is_absolute():
@@ -137,12 +226,14 @@ def synthesize_preview_grid(
     in_dir: str | Path,
     out_root: str | Path,
     preset: str,
+    presets: list[str] | None = None,
     blend: str,
     alpha: float,
     seed: int,
     n: int,
     cols: int,
     preview_out: str | Path | None,
+    roi_mask_path: str | Path | None = None,
 ) -> Path:
     """Generate a preview grid image for a synthesis preset (smoke/debug)."""
 
@@ -156,9 +247,8 @@ def synthesize_preview_grid(
 
     out_path = out_root_path / "preview.png" if preview_out is None else Path(preview_out)
 
-    syn = AnomalySynthesizer(
-        SynthSpec(preset=str(preset), probability=1.0, blend=str(blend), alpha=float(alpha))
-    )
+    syn = _make_synthesizer(preset=str(preset), presets=presets, blend=str(blend), alpha=float(alpha))
+    roi_raw = None if roi_mask_path is None else _read_roi_mask(roi_mask_path)
 
     rng = np.random.default_rng(int(seed))
     n = max(1, int(n))
@@ -174,8 +264,8 @@ def synthesize_preview_grid(
         if base is None:
             raise ValueError(f"Failed to load image: {base_path}")
         base_u8 = np.asarray(base, dtype=np.uint8)
-
-        res = syn(base_u8, seed=(int(seed) + 1009 * i))
+        roi = None if roi_raw is None else _resize_roi_mask(roi_raw, shape_hw=base_u8.shape[:2])
+        res = syn(base_u8, seed=(int(seed) + 1009 * i), roi_mask=roi)
         imgs.append(res.image_u8)
         masks.append(res.mask_u8)
 
@@ -190,9 +280,11 @@ def synthesize_dataset(
     out_root: str | Path,
     category: str = "synthetic",
     preset: str = "scratch",
+    presets: list[str] | None = None,
     blend: str = "alpha",
     alpha: float = 0.9,
     seed: int = 0,
+    roi_mask_path: str | Path | None = None,
     n_train: int = 8,
     n_test_normal: int = 4,
     n_test_anomaly: int = 4,
@@ -245,7 +337,9 @@ def synthesize_dataset(
         dst = test_normal_dir / f"good_{i:05d}{p.suffix.lower()}"
         shutil.copyfile(str(p), str(dst))
 
-    syn = AnomalySynthesizer(SynthSpec(preset=str(preset), probability=1.0, blend=str(blend), alpha=float(alpha)))
+    syn = _make_synthesizer(preset=str(preset), presets=presets, blend=str(blend), alpha=float(alpha))
+    roi_raw = None if roi_mask_path is None else _read_roi_mask(roi_mask_path)
+    meta_by_filename: dict[str, dict[str, Any]] = {}
 
     # Generate anomalies by synthesizing from test-normal items (with replacement).
     for i in range(n_test_anomaly):
@@ -258,27 +352,42 @@ def synthesize_dataset(
             raise ValueError(f"Failed to load image: {base_path}")
         base_u8 = np.asarray(base, dtype=np.uint8)
 
-        res = syn(base_u8, seed=(int(seed) + 1009 * i))
-        out_img = res.image_u8
-        out_mask = res.mask_u8
+        accepted = False
+        for t in range(10):
+            roi = None if roi_raw is None else _resize_roi_mask(roi_raw, shape_hw=base_u8.shape[:2])
+            res = syn(base_u8, seed=(int(seed) + 1009 * i + 7919 * t), roi_mask=roi)
+            out_img = res.image_u8
+            out_mask = res.mask_u8
 
-        out_name = f"bad_{i:05d}.png"
-        img_out = test_anomaly_dir / out_name
-        mask_out = gt_anomaly_dir / f"{Path(out_name).stem}_mask.png"
+            if int(res.label) == 1 and int(np.sum(out_mask > 0)) > 0:
+                out_name = f"bad_{i:05d}.png"
+                img_out = test_anomaly_dir / out_name
+                mask_out = gt_anomaly_dir / f"{Path(out_name).stem}_mask.png"
 
-        _write_u8_bgr(img_out, out_img)
-        _write_u8_bgr(mask_out, out_mask)
+                _write_u8_bgr(img_out, out_img)
+                _write_u8_bgr(mask_out, out_mask)
+                meta_by_filename[out_name] = dict(res.meta)
+                accepted = True
+                break
+
+        if not accepted:
+            # ROI constraints can prevent anomalies. Fall back to a normal sample.
+            out_name = f"good_synth_{i:05d}.png"
+            img_out = test_normal_dir / out_name
+            _write_u8_bgr(img_out, np.asarray(base_u8, dtype=np.uint8))
 
     if manifest_path is None:
         manifest_path = out_root_path / "manifest.jsonl"
 
-    records = generate_manifest_from_custom_layout(
+    records_raw = generate_manifest_from_custom_layout(
         root=out_root_path,
         out_path=manifest_path,
         category=str(category),
         absolute_paths=bool(absolute_paths),
         include_masks=True,
     )
+    records = _attach_meta_to_manifest_records(records_raw, meta_by_filename=meta_by_filename)
+    _rewrite_manifest_jsonl(manifest_path, records)
     return records
 
 
@@ -288,9 +397,11 @@ def synthesize_dataset_from_manifest(
     out_root: str | Path,
     category: str = "synthetic",
     preset: str = "scratch",
+    presets: list[str] | None = None,
     blend: str = "alpha",
     alpha: float = 0.9,
     seed: int = 0,
+    roi_mask_path: str | Path | None = None,
     source_category: str | None = None,
     source_split: str | None = None,
     source_label: int | None = 0,
@@ -374,6 +485,10 @@ def synthesize_dataset_from_manifest(
     syn = AnomalySynthesizer(
         SynthSpec(preset=str(preset), probability=1.0, blend=str(blend), alpha=float(alpha))
     )
+    if presets:
+        syn = _make_synthesizer(preset=str(preset), presets=presets, blend=str(blend), alpha=float(alpha))
+    roi_raw = None if roi_mask_path is None else _read_roi_mask(roi_mask_path)
+    meta_by_filename: dict[str, dict[str, Any]] = {}
 
     # Generate one anomaly per selected normal.
     test_normals = _iter_images(test_normal_dir)
@@ -385,27 +500,41 @@ def synthesize_dataset_from_manifest(
             raise ValueError(f"Failed to load image: {p}")
         base_u8 = np.asarray(base, dtype=np.uint8)
 
-        res = syn(base_u8, seed=(int(seed) + 1009 * i))
-        out_img = res.image_u8
-        out_mask = res.mask_u8
+        accepted = False
+        for t in range(10):
+            roi = None if roi_raw is None else _resize_roi_mask(roi_raw, shape_hw=base_u8.shape[:2])
+            res = syn(base_u8, seed=(int(seed) + 1009 * i + 7919 * t), roi_mask=roi)
+            out_img = res.image_u8
+            out_mask = res.mask_u8
 
-        out_name = f"bad_{i:05d}.png"
-        img_out = test_anomaly_dir / out_name
-        mask_out = gt_anomaly_dir / f"{Path(out_name).stem}_mask.png"
+            if int(res.label) == 1 and int(np.sum(out_mask > 0)) > 0:
+                out_name = f"bad_{i:05d}.png"
+                img_out = test_anomaly_dir / out_name
+                mask_out = gt_anomaly_dir / f"{Path(out_name).stem}_mask.png"
 
-        _write_u8_bgr(img_out, out_img)
-        _write_u8_bgr(mask_out, out_mask)
+                _write_u8_bgr(img_out, out_img)
+                _write_u8_bgr(mask_out, out_mask)
+                meta_by_filename[out_name] = dict(res.meta)
+                accepted = True
+                break
+
+        if not accepted:
+            out_name = f"good_synth_{i:05d}.png"
+            img_out = test_normal_dir / out_name
+            _write_u8_bgr(img_out, np.asarray(base_u8, dtype=np.uint8))
 
     if out_manifest_path is None:
         out_manifest_path = out_root_path / "manifest.jsonl"
 
-    records = generate_manifest_from_custom_layout(
+    records_raw = generate_manifest_from_custom_layout(
         root=out_root_path,
         out_path=out_manifest_path,
         category=str(category),
         absolute_paths=True,
         include_masks=True,
     )
+    records = _attach_meta_to_manifest_records(records_raw, meta_by_filename=meta_by_filename)
+    _rewrite_manifest_jsonl(out_manifest_path, records)
     return records
 
 
@@ -421,12 +550,14 @@ def main(argv: list[str] | None = None) -> int:
                 in_dir=str(args.in_dir),
                 out_root=str(args.out_root),
                 preset=str(args.preset),
+                presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 seed=int(args.seed),
                 n=int(args.preview_n),
                 cols=int(args.preview_cols),
                 preview_out=(None if args.preview_out is None else str(args.preview_out)),
+                roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
             )
             return 0
 
@@ -436,9 +567,11 @@ def main(argv: list[str] | None = None) -> int:
                 out_root=str(args.out_root),
                 category=str(args.category),
                 preset=str(args.preset),
+                presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 seed=int(args.seed),
+                roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
                 source_category=(
                     None if args.from_manifest_category is None else str(args.from_manifest_category)
                 ),
@@ -456,9 +589,11 @@ def main(argv: list[str] | None = None) -> int:
                 out_root=str(args.out_root),
                 category=str(args.category),
                 preset=str(args.preset),
+                presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 seed=int(args.seed),
+                roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
                 n_train=int(args.n_train),
                 n_test_normal=int(args.n_test_normal),
                 n_test_anomaly=int(args.n_test_anomaly),

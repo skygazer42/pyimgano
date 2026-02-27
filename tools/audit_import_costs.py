@@ -10,7 +10,17 @@ It is NOT a strict CI gate by default, but it is useful before releases.
 
 import argparse
 import importlib
+import sys
 import time
+from pathlib import Path
+
+
+def _ensure_repo_root_on_sys_path() -> None:
+    # When invoked as `python tools/<script>.py`, Python sets sys.path[0] to
+    # `tools/` rather than the repo root. Add the repo root so `import pyimgano`
+    # works without requiring an editable install.
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
 
 
 def _time_import(mod: str) -> float:
@@ -21,6 +31,7 @@ def _time_import(mod: str) -> float:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _ensure_repo_root_on_sys_path()
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--modules",
@@ -50,4 +61,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
