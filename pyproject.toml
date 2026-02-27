@@ -117,6 +117,7 @@ pyimgano-infer = "pyimgano.infer_cli:main"
 pyimgano-robust-benchmark = "pyimgano.robust_cli:main"
 pyimgano-train = "pyimgano.train_cli:main"
 pyimgano-manifest = "pyimgano.manifest_cli:main"
+pyimgano-synthesize = "pyimgano.synthesize_cli:main"
 pyimgano-validate-infer-config = "pyimgano.validate_infer_config_cli:main"
 pyimgano-features = "pyimgano.feature_cli:main"
 

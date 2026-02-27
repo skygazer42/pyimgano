@@ -26,6 +26,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -186,6 +187,47 @@ class CoreRGraph:
 
 
 @register_model(
+    "core_rgraph",
+    tags=("classical", "core", "features", "rgraph", "graph"),
+    metadata={
+        "description": "Core graph random-walk outlier detector on feature matrices (native wrapper)",
+        "input": "features",
+    },
+)
+class CoreRGraphModel(CoreFeatureDetector):
+    """Core (feature-matrix) RGraph detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        transition_steps: int = 10,
+        n_nonzero: int = 10,
+        gamma: float = 50.0,
+        preprocessing: bool = True,
+        metric: str = "minkowski",
+        p: int = 2,
+        eps: float = 1e-12,
+        **kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            transition_steps=int(transition_steps),
+            n_nonzero=int(n_nonzero),
+            gamma=float(gamma),
+            preprocessing=bool(preprocessing),
+            metric=str(metric),
+            p=int(p),
+            eps=float(eps),
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreRGraph(**self._backend_kwargs)
+
+
+@register_model(
     "vision_rgraph",
     tags=("vision", "classical", "rgraph", "graph"),
     metadata={"description": "Graph random-walk outlier detector (native, simplified)"},
@@ -245,4 +287,3 @@ class VisionRGraph(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

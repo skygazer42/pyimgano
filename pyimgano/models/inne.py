@@ -31,6 +31,7 @@ from sklearn.utils import check_array
 from sklearn.utils.validation import check_random_state
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 _MIN_FLOAT = np.finfo(float).eps
@@ -153,6 +154,39 @@ class CoreINNE:
         # The isolation scores are averaged to produce the anomaly score.
         scores = np.mean(isolation_scores, axis=0).reshape(-1)
         return scores.astype(np.float64, copy=False)
+
+
+@register_model(
+    "core_inne",
+    tags=("classical", "core", "features", "isolation", "inne", "fast"),
+    metadata={
+        "description": "Core INNE on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Bandaragoda et al., ICDM 2014",
+        "year": 2014,
+    },
+)
+class CoreINNEModel(CoreFeatureDetector):
+    """Core (feature-matrix) INNE detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_estimators: int = 200,
+        max_samples: int | float | str = "auto",
+        random_state=None,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_estimators=int(n_estimators),
+            max_samples=max_samples,
+            random_state=random_state,
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreINNE(**self._backend_kwargs)
 
 
 @register_model(

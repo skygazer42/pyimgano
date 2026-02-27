@@ -37,3 +37,11 @@ def test_feature_registry_rejects_duplicate_registration() -> None:
     with pytest.raises(KeyError, match="already exists"):
         r.register("x", _Dummy)
 
+
+def test_feature_info_exposes_output_dim_hint_when_available() -> None:
+    from pyimgano.features import feature_info
+
+    info = feature_info("structural")
+    assert info["name"] == "structural"
+    assert "output_dim_hint" in info
+    assert info["output_dim_hint"] == 15

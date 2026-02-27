@@ -274,3 +274,53 @@ def apply_geo_jitter(
         out_mask = (np.asarray(warped_mask, dtype=np.uint8) > 0).astype(np.uint8, copy=False)
 
     return out_img, out_mask
+
+
+def apply_synthesis_preset(
+    image: NDArray,
+    *,
+    mask: Optional[NDArray],
+    severity: int,
+    rng: np.random.Generator,
+    preset: str = "scratch",
+    blend: str = "alpha",
+) -> tuple[NDArray, Optional[NDArray]]:
+    """Apply a synthetic anomaly preset as a robustness condition.
+
+    Unlike typical corruptions (jpeg/blur), this corruption may introduce a new
+    anomaly mask. The robustness benchmark can optionally update labels based on
+    returned masks.
+    """
+
+    arr = _as_u8_image(image)
+    s = _validate_severity(severity)
+    strength = float(s) / 5.0
+
+    # Map severity to blending strength.
+    alpha = float(np.clip(0.35 + 0.55 * strength, 0.0, 1.0))
+
+    from pyimgano.synthesis.synthesizer import AnomalySynthesizer, SynthSpec
+
+    syn = AnomalySynthesizer(
+        SynthSpec(
+            preset=str(preset),
+            probability=1.0,
+            blend=str(blend),
+            alpha=alpha,
+        )
+    )
+    res = syn(arr, rng=rng)
+    out_img = res.image_u8
+    out_mask = res.mask_u8
+
+    if mask is None:
+        return out_img, out_mask
+
+    mask_arr = np.asarray(mask)
+    if mask_arr.shape != out_mask.shape:
+        raise ValueError(
+            f"Synthesis corruption mask shape mismatch: input mask {mask_arr.shape} vs synth {out_mask.shape}"
+        )
+
+    merged = ((mask_arr > 0) | (out_mask > 0)).astype(np.uint8)  # keep binary {0,1}
+    return out_img, merged

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Synthesis
+- Added `pyimgano.synthesis` package for industrial synthetic anomaly generation:
+  - Perlin/fBm noise (`perlin_noise_2d`, `fractal_perlin_noise_2d`)
+  - Mask primitives (blobs/ellipses/scratches) + alpha/Poisson blending utilities
+  - CutPaste variants and an `AnomalySynthesizer` pipeline with deterministic seeding + ROI constraints
+  - Built-in presets: `scratch`, `stain`, `pit`, `glare`
+- Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly.
+- Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
+
+### Robustness
+- Robustness benchmark corruptions can now optionally emit masks; benchmark updates labels based on returned masks so image-level metrics remain consistent.
+- Added a synthesis-style robustness corruption helper (`apply_synthesis_preset`).
+
+### Preprocessing
+- Added MSRCR-lite Retinex illumination normalization (`msrcr_lite`) and an industrial preset helper `retinex_illumination_normalization`.
+
+### Recipes
+- Added a best-effort builtin recipe `classical-struct-iforest-synth` to run a classical baseline on a generated synthetic manifest dataset.
+
+### Docs
+- Added `docs/SYNTHETIC_ANOMALY_GENERATION.md` and updated the industrial preprocessing cookbook with synthesis usage.
+
 ### Models
 - Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
 - Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.

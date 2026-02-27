@@ -17,6 +17,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -66,6 +67,49 @@ class CoreIForest:
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         # sklearn: lower score => more abnormal. Invert to match `pyimgano` convention.
         return (-self.iforest_.score_samples(X)).astype(np.float64).ravel()
+
+
+@register_model(
+    "core_iforest",
+    tags=("classical", "core", "features", "iforest", "ensemble", "baseline"),
+    metadata={
+        "description": "Core Isolation Forest on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Liu et al., Isolation Forest (ICDM 2008)",
+        "year": 2008,
+    },
+)
+class CoreIForestModel(CoreFeatureDetector):
+    """Core (feature-matrix) Isolation Forest detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_estimators: int = 100,
+        max_samples: Union[str, int] = "auto",
+        max_features: float = 1.0,
+        bootstrap: bool = False,
+        n_jobs: int = 1,
+        random_state: Optional[int] = None,
+        verbose: int = 0,
+        **kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_estimators=int(n_estimators),
+            max_samples=max_samples,
+            max_features=float(max_features),
+            bootstrap=bool(bootstrap),
+            n_jobs=int(n_jobs),
+            random_state=random_state,
+            verbose=int(verbose),
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreIForest(**self._backend_kwargs)
 
 
 @register_model(

@@ -48,3 +48,16 @@ def test_defect_amplification_highlights_small_bright_defect() -> None:
     assert out.shape == img.shape
     assert out.dtype == np.uint8
     assert int(out.max()) > 0
+
+
+def test_retinex_illumination_normalization_smoke() -> None:
+    from pyimgano.preprocessing.industrial_presets import retinex_illumination_normalization
+
+    img = np.ones((32, 32, 3), dtype=np.uint8) * 50
+    img[..., 1] = 120
+    img[..., 2] = 200
+    out = retinex_illumination_normalization(img, sigmas=(5.0, 15.0), clip_percentiles=(2.0, 98.0))
+
+    assert out.shape == img.shape
+    assert out.dtype == np.uint8
+    assert np.isfinite(out.astype(np.float32)).all()

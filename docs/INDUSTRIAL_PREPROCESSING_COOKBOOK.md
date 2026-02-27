@@ -92,8 +92,26 @@ out = tile_apply(
 )
 ```
 
+## 8. Synthetic Anomalies (For Debug / Bootstrapping)
+
+When you have **very few real defects**, you can generate a small synthetic set to:
+- sanity-check your pipeline end-to-end
+- validate manifest + mask handling
+- stress-test robustness
+
+```python
+import numpy as np
+from pyimgano.synthesis import AnomalySynthesizer, SynthSpec
+
+image_u8 = np.zeros((256, 256, 3), dtype=np.uint8)
+
+syn = AnomalySynthesizer(SynthSpec(preset="scratch", blend="alpha", alpha=0.9))
+res = syn(image_u8, seed=42)
+out_img = res.image_u8
+mask = res.mask_u8
+```
+
 ## Notes
 
 - Most helpers assume `uint8` images. Keep your preprocessing explicit and deterministic.
 - Prefer a small number of strong steps over stacking many weak transforms.
-

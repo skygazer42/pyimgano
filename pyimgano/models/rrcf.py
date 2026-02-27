@@ -92,7 +92,7 @@ def _path_length(root: _RCTNode, x: np.ndarray) -> int:
 
 @register_model(
     "core_rrcf",
-    tags=("classical", "forest", "random-cut"),
+    tags=("classical", "core", "features", "forest", "random-cut"),
     metadata={"description": "Random cut forest baseline (RRCF-style tree construction)"},
 )
 class CoreRRCF(BaseDetector):
@@ -188,4 +188,3 @@ class VisionRRCF(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreRRCF(**self._detector_kwargs)
-

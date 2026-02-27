@@ -15,6 +15,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -75,6 +76,58 @@ class CoreGMM:
 
 
 @register_model(
+    "core_gmm",
+    tags=("classical", "core", "features", "gmm", "density", "baseline"),
+    metadata={
+        "description": "Core Gaussian Mixture Model detector on feature matrices (native wrapper)",
+        "input": "features",
+        "type": "density",
+    },
+)
+class CoreGMMModel(CoreFeatureDetector):
+    """Core (feature-matrix) GMM detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_components: int = 1,
+        covariance_type: str = "full",
+        tol: float = 1e-3,
+        reg_covar: float = 1e-6,
+        max_iter: int = 100,
+        n_init: int = 1,
+        init_params: str = "kmeans",
+        weights_init=None,
+        means_init=None,
+        precisions_init=None,
+        random_state: Optional[int] = None,
+        warm_start: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_components=int(n_components),
+            covariance_type=str(covariance_type),
+            tol=float(tol),
+            reg_covar=float(reg_covar),
+            max_iter=int(max_iter),
+            n_init=int(n_init),
+            init_params=str(init_params),
+            weights_init=weights_init,
+            means_init=means_init,
+            precisions_init=precisions_init,
+            random_state=random_state,
+            warm_start=bool(warm_start),
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreGMM(**self._backend_kwargs)
+
+
+@register_model(
     "vision_gmm",
     tags=("vision", "classical", "gmm", "density", "baseline"),
     metadata={
@@ -130,4 +183,3 @@ class VisionGMM(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

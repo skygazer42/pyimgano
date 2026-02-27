@@ -296,7 +296,11 @@ def run_robustness_benchmark(
             rng = np.random.default_rng(cond_seed)
 
             out_images: list[np.ndarray] = []
-            out_masks_list: list[np.ndarray] | None = [] if test_masks is not None else None
+            # Collect masks if:
+            # - the dataset provides masks (test_masks != None), OR
+            # - the corruption generates masks (e.g. synthesis-based corruption).
+            out_masks_list: list[np.ndarray] = []
+            has_masks = test_masks is not None
 
             for i, img in enumerate(test_images):
                 m = None
@@ -306,16 +310,34 @@ def run_robustness_benchmark(
                 out_img, out_m = corr(img, m, severity=sev_int, rng=rng)
                 out_images.append(np.asarray(out_img, dtype=np.uint8))
 
-                if out_masks_list is not None:
-                    if out_m is None:
-                        out_m = m
-                    out_masks_list.append((np.asarray(out_m) > 0).astype(np.uint8, copy=False))
+                mask_candidate = out_m if out_m is not None else m
+                if mask_candidate is not None:
+                    has_masks = True
+                    out_masks_list.append(
+                        (np.asarray(mask_candidate) > 0).astype(np.uint8, copy=False)
+                    )
+                else:
+                    # Keep shape-aligned placeholder so we can stack later if any
+                    # sample provides a mask.
+                    h, w = int(out_images[-1].shape[0]), int(out_images[-1].shape[1])
+                    out_masks_list.append(np.zeros((h, w), dtype=np.uint8))
 
-            out_masks = None if out_masks_list is None else np.stack(out_masks_list, axis=0)
+            out_masks = None
+            if has_masks:
+                out_masks = np.stack(out_masks_list, axis=0)
+
+            # If the corruption introduces new anomaly pixels, update labels so
+            # image-level metrics remain consistent with masks.
+            out_labels = np.asarray(test_labels).reshape(-1)
+            if out_masks is not None:
+                mask_any = (out_masks.reshape(out_masks.shape[0], -1).max(axis=1) > 0).astype(
+                    np.int64
+                )
+                out_labels = np.maximum(out_labels.astype(np.int64, copy=False), mask_any)
             by_sev[f"severity_{sev_int}"] = _evaluate_condition(
                 detector,
                 inputs=out_images,
-                labels=test_labels,
+                labels=out_labels,
                 masks=out_masks,
                 pixel_threshold=pixel_threshold,
                 postprocess=postprocess,

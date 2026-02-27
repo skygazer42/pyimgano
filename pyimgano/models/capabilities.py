@@ -52,10 +52,20 @@ def _constructor_supports_pixel_map(constructor: Any) -> bool:
 def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
     tags = set(str(t) for t in entry.tags)
 
-    supports_numpy = "numpy" in tags or _constructor_supports_numpy(entry.constructor)
-    input_modes = ["paths"]
-    if supports_numpy:
-        input_modes.append("numpy")
+    is_core = bool(entry.name.startswith("core_") or ("core" in tags))
+
+    supports_numpy_images = "numpy" in tags or _constructor_supports_numpy(entry.constructor)
+
+    # Input-mode semantics:
+    # - `paths`: list[str|Path] pointing to images on disk (vision wrappers)
+    # - `numpy`: list[np.ndarray] images already decoded in memory (vision wrappers)
+    # - `features`: 2D feature matrix (N,D) for classical/tabular style cores
+    if is_core:
+        input_modes = ["features"]
+    else:
+        input_modes = ["paths"]
+        if supports_numpy_images:
+            input_modes.append("numpy")
 
     supports_pixel_map = ("pixel_map" in tags) or _constructor_supports_pixel_map(
         entry.constructor
@@ -78,4 +88,3 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
         requires_checkpoint=bool(requires_checkpoint),
         supports_save_load=bool(supports_save_load),
     )
-

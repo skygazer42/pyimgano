@@ -13,8 +13,6 @@ Key Features:
 - Strong localization through window-based attention
 - No fine-tuning required
 """
-
-import warnings
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -23,17 +21,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 
+from pyimgano.utils.optional_deps import require
+
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
-try:
-    import clip
-except ImportError:
-    clip = None
-    warnings.warn(
-        "CLIP not installed. Install with: pip install git+https://github.com/openai/CLIP.git",
-        UserWarning,
-    )
+clip = None  # imported lazily inside WinCLIPDetector.__init__
 
 
 class WindowAttention:
@@ -145,11 +138,10 @@ class WinCLIPDetector(BaseVisionDeepDetector):
     ):
         super().__init__(**kwargs)
 
-        if clip is None:
-            raise ImportError(
-                "CLIP is required for WinCLIP. "
-                "Install with: pip install git+https://github.com/openai/CLIP.git"
-            )
+        # `clip` is an optional dependency (OpenAI CLIP repo). We intentionally
+        # avoid importing it at module import time to keep registry discovery
+        # (`import pyimgano.models`) quiet and dependency-light.
+        self._clip = require("clip", purpose="WinCLIPDetector (OpenAI CLIP)")
 
         self.clip_model_name = clip_model
         self.window_size = window_size
@@ -180,7 +172,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
             self.text_prompts = text_prompts
 
         # Load CLIP model
-        self.model, self.preprocess = clip.load(clip_model, device=self.device)
+        self.model, self.preprocess = self._clip.load(clip_model, device=self.device)
         self.model.eval()
 
         # Window attention
@@ -210,14 +202,14 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         """Encode text prompts into CLIP features."""
         with torch.no_grad():
             # Encode normal prompts
-            normal_tokens = clip.tokenize(self.formatted_prompts["normal"]).to(
+            normal_tokens = self._clip.tokenize(self.formatted_prompts["normal"]).to(
                 self.device
             )
             normal_features = self.model.encode_text(normal_tokens)
             normal_features = F.normalize(normal_features, dim=-1)
 
             # Encode anomaly prompts
-            anomaly_tokens = clip.tokenize(self.formatted_prompts["anomaly"]).to(
+            anomaly_tokens = self._clip.tokenize(self.formatted_prompts["anomaly"]).to(
                 self.device
             )
             anomaly_features = self.model.encode_text(anomaly_tokens)

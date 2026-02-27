@@ -30,6 +30,7 @@ from sklearn.utils import check_array, check_random_state
 
 from ..utils.param_check import check_parameter
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 _MAX_INT = int(np.iinfo(np.int32).max)
@@ -244,6 +245,49 @@ class CoreFeatureBagging:
         for i, (est, feats) in enumerate(zip(self.estimators_, self.estimators_features_)):
             score_mat[:, i] = np.asarray(est.decision_function(X[:, feats]), dtype=np.float64).reshape(-1)
         return self._combine_scores(score_mat).astype(np.float64, copy=False)
+
+
+@register_model(
+    "core_feature_bagging",
+    tags=("classical", "core", "features", "ensemble", "feature_bagging"),
+    metadata={
+        "description": "Core Feature Bagging ensemble on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Lazarevic & Kumar, KDD 2005",
+        "year": 2005,
+    },
+)
+class CoreFeatureBaggingModel(CoreFeatureDetector):
+    """Core (feature-matrix) Feature Bagging detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_estimators: int = 10,
+        max_features: Union[int, float] = 1.0,
+        bootstrap_features: bool = False,
+        random_state: Optional[int] = None,
+        combination: str = "average",
+        base_estimator: str = "lof",
+        n_jobs: int = 1,
+        n_neighbors: int = 20,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_estimators=int(n_estimators),
+            max_features=max_features,
+            bootstrap_features=bool(bootstrap_features),
+            random_state=random_state,
+            combination=str(combination),
+            base_estimator=str(base_estimator),
+            n_jobs=int(n_jobs),
+            n_neighbors=int(n_neighbors),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreFeatureBagging(**self._backend_kwargs)
 
 
 @register_model(

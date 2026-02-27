@@ -75,7 +75,7 @@ class FeatureRegistry:
 
         entry = self.info(name)
         signature, accepted, accepts_var_kwargs = get_constructor_signature_info(entry.constructor)
-        return {
+        payload: Dict[str, Any] = {
             "name": entry.name,
             "tags": list(entry.tags),
             "metadata": dict(entry.metadata),
@@ -87,6 +87,9 @@ class FeatureRegistry:
                 "qualname": getattr(entry.constructor, "__qualname__", "<unknown>"),
             },
         }
+        if "output_dim_hint" in entry.metadata:
+            payload["output_dim_hint"] = entry.metadata.get("output_dim_hint")
+        return payload
 
 
 FEATURE_REGISTRY = FeatureRegistry()

@@ -21,6 +21,7 @@ from numpy.typing import NDArray
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -105,6 +106,38 @@ class CoreECOD:
             scores_by_feature[:, j] = o
 
         return scores_by_feature.sum(axis=1).ravel()
+
+
+@register_model(
+    "core_ecod",
+    tags=("classical", "core", "features", "ecod", "parameter-free", "interpretable"),
+    metadata={
+        "description": "Core ECOD on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Li et al., TKDE 2022",
+        "year": 2022,
+        "parameter_free": True,
+    },
+)
+class CoreECODModel(CoreFeatureDetector):
+    """Core (feature-matrix) ECOD detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_jobs: int = 1,
+        eps: float = 1e-12,
+    ) -> None:
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_jobs": int(n_jobs),
+            "eps": float(eps),
+        }
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreECOD(**self._backend_kwargs)
 
 
 @register_model(

@@ -22,6 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -105,6 +106,49 @@ class CorePCA:
 
 
 @register_model(
+    "core_pca",
+    tags=("classical", "core", "features", "linear", "pca"),
+    metadata={
+        "description": "Core PCA reconstruction-error detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "ICDM 2003",
+        "year": 2003,
+    },
+)
+class CorePCAModel(CoreFeatureDetector):
+    """Core (feature-matrix) PCA detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_components=None,
+        n_selected_components: int | None = None,
+        whiten: bool = False,
+        svd_solver: str = "auto",
+        weighted: bool = True,
+        standardization: bool = True,
+        random_state=None,
+        **kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_components=n_components,
+            n_selected_components=n_selected_components,
+            whiten=bool(whiten),
+            svd_solver=str(svd_solver),
+            weighted=bool(weighted),
+            standardization=bool(standardization),
+            random_state=random_state,
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CorePCA(**self._backend_kwargs)
+
+
+@register_model(
     "vision_pca",
     tags=("vision", "classical", "linear", "pca"),
     metadata={
@@ -153,4 +197,3 @@ class VisionPCA(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

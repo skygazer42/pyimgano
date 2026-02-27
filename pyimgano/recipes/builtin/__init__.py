@@ -10,4 +10,5 @@ from .classical_recipes import (  # noqa: F401
     classical_colorhist_mahalanobis,
     classical_hog_ecod,
     classical_lbp_loop,
+    classical_struct_iforest_synth,
 )

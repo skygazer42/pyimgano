@@ -349,6 +349,27 @@ def shading_correction(
     )
 
 
+def retinex_illumination_normalization(
+    image: NDArray,
+    *,
+    sigmas: tuple[float, ...] = (15.0, 80.0, 250.0),
+    clip_percentiles: tuple[float, float] = (1.0, 99.0),
+) -> NDArray:
+    """Retinex illumination normalization preset (MSRCR-lite).
+
+    This is a pragmatic, `uint8`-preserving illumination normalization step for
+    industrial pipelines.
+    """
+
+    img = _require_u8(image)
+    from pyimgano.preprocessing.retinex import msrcr_lite
+
+    return np.asarray(
+        msrcr_lite(img, sigmas=tuple(float(s) for s in sigmas), clip_percentiles=clip_percentiles),
+        dtype=np.uint8,
+    )
+
+
 def defect_amplification(
     image: NDArray,
     *,

@@ -30,6 +30,7 @@ from numpy.typing import NDArray
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -162,6 +163,45 @@ class CoreSUOD:
 
         score_mat_norm = self._scaler.transform(score_mat)
         return _combine(score_mat_norm, self.combination).astype(np.float64, copy=False)
+
+
+@register_model(
+    "core_suod",
+    tags=("classical", "core", "features", "ensemble", "suod"),
+    metadata={
+        "description": "Core SUOD-style score ensemble on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Zhao et al., 2021",
+        "year": 2021,
+    },
+)
+class CoreSUODModel(CoreFeatureDetector):
+    """Core (feature-matrix) SUOD-style ensemble with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        base_estimators: Optional[Sequence[object]] = None,
+        combination: str = "average",
+        random_state: Optional[int] = None,
+        standardize: str = "zscore",
+        n_jobs=None,
+        **kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            base_estimators=base_estimators,
+            contamination=float(contamination),
+            combination=str(combination),
+            random_state=random_state,
+            standardize=str(standardize),
+            n_jobs=n_jobs,
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreSUOD(**self._backend_kwargs)
 
 
 @register_model(

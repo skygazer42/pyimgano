@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @register_model(
     "core_dtc",
-    tags=("classical", "distance", "baseline"),
+    tags=("classical", "core", "features", "distance", "baseline"),
     metadata={"description": "Distance-to-centroid baseline (L2 to mean)"},
 )
 class CoreDTC(BaseDetector):
@@ -59,4 +59,3 @@ class VisionDTC(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreDTC(**self._detector_kwargs)
-

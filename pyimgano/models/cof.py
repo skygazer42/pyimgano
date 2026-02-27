@@ -20,6 +20,7 @@ from sklearn.utils import check_array
 
 from ..utils.param_check import check_parameter
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -152,6 +153,35 @@ class CoreCOF:
 
 
 @register_model(
+    "core_cof",
+    tags=("classical", "core", "features", "neighbors", "cof", "density"),
+    metadata={
+        "description": "Core COF detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Tang et al., PAKDD 2002",
+        "year": 2002,
+    },
+)
+class CoreCOFModel(CoreFeatureDetector):
+    """Core (feature-matrix) COF detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_neighbors: int = 20,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_neighbors=int(n_neighbors),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreCOF(**self._backend_kwargs)
+
+
+@register_model(
     "vision_cof",
     tags=("vision", "classical", "neighbors", "cof"),
     metadata={
@@ -185,4 +215,3 @@ class VisionCOF(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

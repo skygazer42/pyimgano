@@ -25,6 +25,7 @@ from sklearn.covariance import MinCovDet
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -96,6 +97,42 @@ class CoreMCD:
             )
 
         return np.asarray(self.estimator_.mahalanobis(X), dtype=np.float64).reshape(-1)
+
+
+@register_model(
+    "core_mcd",
+    tags=("classical", "core", "features", "statistical", "mcd", "robust"),
+    metadata={
+        "description": "Core MCD robust covariance outlier detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Rousseeuw & Driessen, Technometrics 1999",
+        "year": 1999,
+        "robust": True,
+    },
+)
+class CoreMCDModel(CoreFeatureDetector):
+    """Core (feature-matrix) MCD detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        support_fraction: Optional[float] = None,
+        random_state: Optional[int] = None,
+        assume_centered: bool = False,
+        max_features: int = 4096,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            support_fraction=support_fraction,
+            random_state=random_state,
+            assume_centered=bool(assume_centered),
+            max_features=int(max_features),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreMCD(**self._backend_kwargs)
 
 
 @register_model(

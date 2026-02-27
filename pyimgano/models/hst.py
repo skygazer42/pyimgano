@@ -90,7 +90,7 @@ def _leaf(node: _HSTNode, x: np.ndarray, *, max_depth: int) -> _HSTNode:
 
 @register_model(
     "core_hst",
-    tags=("classical", "tree", "online"),
+    tags=("classical", "core", "features", "tree", "online"),
     metadata={"description": "Half-Space Trees (leaf-mass scoring; native)"},
 )
 class CoreHST(BaseDetector):
@@ -192,4 +192,3 @@ class VisionHST(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreHST(**self._detector_kwargs)
-

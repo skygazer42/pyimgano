@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @register_model(
     "core_mahalanobis",
-    tags=("classical", "distance", "gaussian"),
+    tags=("classical", "core", "features", "distance", "gaussian"),
     metadata={"description": "Mahalanobis distance baseline (mean + covariance)"},
 )
 class CoreMahalanobis(BaseDetector):
@@ -94,4 +94,3 @@ class VisionMahalanobis(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreMahalanobis(**self._detector_kwargs)
-

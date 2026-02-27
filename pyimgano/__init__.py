@@ -22,6 +22,7 @@ __all__ = [
     "models",
     "pipelines",
     "preprocessing",
+    "synthesis",
     "utils",
     "visualization",
     # Evaluation
@@ -34,6 +35,10 @@ __all__ = [
     # Benchmark
     "AlgorithmBenchmark",
     "quick_benchmark",
+    # Synthesis
+    "AnomalySynthesizer",
+    "SynthSpec",
+    "SynthResult",
 ]
 
 
@@ -46,6 +51,7 @@ _LAZY_SUBMODULES = {
     "models",
     "pipelines",
     "preprocessing",
+    "synthesis",
     "utils",
     "visualization",
 }
@@ -61,6 +67,10 @@ _LAZY_EXPORTS = {
     "compute_classification_metrics": ("evaluation", "compute_classification_metrics"),
     "find_optimal_threshold": ("evaluation", "find_optimal_threshold"),
     "print_evaluation_summary": ("evaluation", "print_evaluation_summary"),
+    # Synthesis
+    "AnomalySynthesizer": ("synthesis.synthesizer", "AnomalySynthesizer"),
+    "SynthSpec": ("synthesis.synthesizer", "SynthSpec"),
+    "SynthResult": ("synthesis.synthesizer", "SynthResult"),
 }
 
 

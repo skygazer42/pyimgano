@@ -22,6 +22,7 @@ from sklearn.svm import OneClassSVM
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -111,6 +112,51 @@ class CoreOCSVM:
         # sklearn: positive => inlier. We flip the sign.
         scores = -np.asarray(self.estimator_.decision_function(X_eval), dtype=np.float64).reshape(-1)
         return scores
+
+
+@register_model(
+    "core_ocsvm",
+    tags=("classical", "core", "features", "svm", "one-class", "ocsvm"),
+    metadata={
+        "description": "Core One-Class SVM detector on feature matrices (native wrapper)",
+        "input": "features",
+    },
+)
+class CoreOCSVMModel(CoreFeatureDetector):
+    """Core (feature-matrix) OCSVM detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        kernel: str = "rbf",
+        nu: Optional[float] = None,
+        gamma: str | float = "scale",
+        degree: int = 3,
+        coef0: float = 0.0,
+        tol: float = 1e-3,
+        shrinking: bool = True,
+        cache_size: float = 200.0,
+        max_iter: int = -1,
+        preprocessing: bool = True,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            kernel=str(kernel),
+            nu=nu,
+            gamma=gamma,
+            degree=int(degree),
+            coef0=float(coef0),
+            tol=float(tol),
+            shrinking=bool(shrinking),
+            cache_size=float(cache_size),
+            max_iter=int(max_iter),
+            preprocessing=bool(preprocessing),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreOCSVM(**self._backend_kwargs)
 
 
 @register_model(

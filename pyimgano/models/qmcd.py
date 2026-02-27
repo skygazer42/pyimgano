@@ -22,6 +22,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -89,6 +90,27 @@ class CoreQMCD:
         if self._is_flipped:
             scores = self.decision_scores_.max() + self.decision_scores_.min() - scores
         return np.asarray(scores, dtype=np.float64).ravel()
+
+
+@register_model(
+    "core_qmcd",
+    tags=("classical", "core", "features", "qmcd", "robust", "baseline"),
+    metadata={
+        "description": "Core QMCD discrepancy detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Fang et al., 2001",
+        "year": 2001,
+    },
+)
+class CoreQMCDModel(CoreFeatureDetector):
+    """Core (feature-matrix) QMCD detector with BaseDetector thresholding."""
+
+    def __init__(self, *, contamination: float = 0.1) -> None:
+        self._backend_kwargs = {"contamination": float(contamination)}
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreQMCD(**self._backend_kwargs)
 
 
 @register_model(

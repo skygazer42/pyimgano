@@ -20,3 +20,7 @@ class Corruption(Protocol):
         rng: np.random.Generator,
     ) -> tuple[NDArray, Optional[NDArray]]: ...
 
+    # Notes:
+    # - Most corruptions keep `mask` unchanged.
+    # - Some corruptions (e.g. synthesis-based) may return a new mask. The
+    #   robustness benchmark can update labels based on returned masks.

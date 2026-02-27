@@ -94,7 +94,7 @@ def _test_contrib(
 
 @register_model(
     "core_dcorr",
-    tags=("classical", "projection", "dependence"),
+    tags=("classical", "core", "features", "projection", "dependence"),
     metadata={"description": "Distance-correlation influence (random projections; native)"},
 )
 class CoreDCorr(BaseDetector):
@@ -198,4 +198,3 @@ class VisionDCorr(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreDCorr(**self._detector_kwargs)
-

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 @register_model(
     "core_knn_degree",
-    tags=("classical", "neighbors", "graph", "density"),
+    tags=("classical", "core", "features", "neighbors", "graph", "density"),
     metadata={"description": "kNN epsilon-graph degree (radius chosen from kNN distances)"},
 )
 class CoreKNNGraphDegree(BaseDetector):

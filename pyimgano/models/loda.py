@@ -191,7 +191,7 @@ class LODAFeatureExtractor:
 
 @register_model(
     "core_loda",
-    tags=("classical", "projection", "density"),
+    tags=("classical", "core", "features", "projection", "density"),
     metadata={"description": "核心 LODA 算法实现"},
 )
 class CoreLODA(BaseDetector):

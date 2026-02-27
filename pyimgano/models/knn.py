@@ -20,6 +20,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -134,6 +135,51 @@ class CoreKNN:
             X, n_neighbors=self._k_effective, return_distance=True
         )
         return self._aggregate(distances).astype(np.float64).ravel()
+
+
+@register_model(
+    "core_knn",
+    tags=("classical", "core", "features", "neighbors", "knn"),
+    metadata={
+        "description": "Core KNN outlier detector on feature matrices (native wrapper)",
+        "input": "features",
+    },
+)
+class CoreKNNModel(CoreFeatureDetector):
+    """Core (feature-matrix) KNN detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_neighbors: int = 5,
+        method: str = "largest",
+        algorithm: str = "auto",
+        leaf_size: int = 30,
+        metric: str = "minkowski",
+        p: int = 2,
+        metric_params=None,
+        n_jobs: int = 1,
+        radius: float | None = None,
+        **nn_kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_neighbors=int(n_neighbors),
+            method=str(method),
+            algorithm=str(algorithm),
+            leaf_size=int(leaf_size),
+            metric=str(metric),
+            p=int(p),
+            metric_params=metric_params,
+            n_jobs=int(n_jobs),
+            radius=radius,
+            **dict(nn_kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreKNN(**self._backend_kwargs)
 
 
 @register_model(

@@ -212,6 +212,14 @@ class ImageFeatureExtractor:
 #                     核心CBLOF算法（独立实现）
 # ===================================================================
 
+@register_model(
+    "core_cblof",
+    tags=("classical", "core", "features", "clustering", "cblof"),
+    metadata={
+        "description": "Core CBLOF detector on feature matrices (native implementation)",
+        "input": "features",
+    },
+)
 class CoreCBLOF(BaseDetector):
     """
     核心CBLOF算法 - 独立实现，不依赖PyOD

@@ -64,7 +64,7 @@ class _PyODKernelPCA(KernelPCA):
 
 @register_model(
     "core_kpca",
-    tags=("classical", "kernel", "projection"),
+    tags=("classical", "core", "features", "kernel", "projection"),
     metadata={"description": "核心 Kernel PCA 异常检测器"},
 )
 class CoreKPCA(BaseDetector):

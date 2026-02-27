@@ -25,6 +25,7 @@ from numpy.typing import NDArray
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -106,6 +107,39 @@ class CoreHBOS:
             idx = np.clip(idx, 0, log_prob.shape[0] - 1)
             scores += log_prob[idx]
         return scores.ravel()
+
+
+@register_model(
+    "core_hbos",
+    tags=("classical", "core", "features", "hbos", "histogram", "fast", "baseline"),
+    metadata={
+        "description": "Core HBOS on feature matrices (native wrapper)",
+        "input": "features",
+        "interpretable": True,
+        "fast": True,
+    },
+)
+class CoreHBOSModel(CoreFeatureDetector):
+    """Core (feature-matrix) HBOS detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_bins: int = 10,
+        alpha: float = 0.1,
+        eps: float = 1e-12,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_bins=int(n_bins),
+            alpha=float(alpha),
+            eps=float(eps),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreHBOS(**self._backend_kwargs)
 
 
 @register_model(

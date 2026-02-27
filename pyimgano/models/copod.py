@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -97,6 +98,38 @@ class CoreCOPOD:
             scores_by_feature[:, j] = o
 
         return scores_by_feature.sum(axis=1).ravel()
+
+
+@register_model(
+    "core_copod",
+    tags=("classical", "core", "features", "copod", "parameter-free", "interpretable"),
+    metadata={
+        "description": "Core COPOD on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Li et al., ICDM 2020",
+        "year": 2020,
+        "parameter_free": True,
+    },
+)
+class CoreCOPODModel(CoreFeatureDetector):
+    """Core (feature-matrix) COPOD detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_jobs: int = 1,
+        eps: float = 1e-12,
+    ) -> None:
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_jobs": int(n_jobs),
+            "eps": float(eps),
+        }
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreCOPOD(**self._backend_kwargs)
 
 
 @register_model(

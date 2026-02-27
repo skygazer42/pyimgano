@@ -128,7 +128,7 @@ class InnerDeepSVDD(nn.Module):
 
 @register_model(
     "core_deep_svdd",
-    tags=("deep", "torch", "one-class"),
+    tags=("deep", "core", "features", "torch", "one-class"),
     metadata={"description": "核心 DeepSVDD 异常检测器"},
 )
 class CoreDeepSVDD(BaseDetector):

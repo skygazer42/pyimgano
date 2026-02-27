@@ -25,6 +25,7 @@ from sklearn.metrics import pairwise_distances
 from sklearn.utils import check_array, check_random_state
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -92,6 +93,41 @@ class CoreSampling:
             **(self.metric_params or {}),
         )
         return np.min(distances, axis=1).astype(np.float64, copy=False).reshape(-1)
+
+
+@register_model(
+    "core_sampling",
+    tags=("classical", "core", "features", "sampling", "distance"),
+    metadata={
+        "description": "Core sampling-based distance outlier detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Sugiyama & Borgwardt, NeurIPS 2013",
+        "year": 2013,
+    },
+)
+class CoreSamplingModel(CoreFeatureDetector):
+    """Core (feature-matrix) Sampling detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        subset_size: float | int = 20,
+        metric: str = "minkowski",
+        metric_params: Optional[dict[str, Any]] = None,
+        random_state: Optional[int] = None,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            subset_size=subset_size,
+            metric=str(metric),
+            metric_params=metric_params,
+            random_state=random_state,
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreSampling(**self._backend_kwargs)
 
 
 @register_model(

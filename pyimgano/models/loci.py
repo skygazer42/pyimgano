@@ -19,6 +19,7 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -100,6 +101,39 @@ class CoreLOCI:
 
 
 @register_model(
+    "core_loci",
+    tags=("classical", "core", "features", "loci", "density"),
+    metadata={
+        "description": "Core LOCI detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Papadimitriou et al., 2003",
+        "year": 2003,
+    },
+)
+class CoreLOCIModel(CoreFeatureDetector):
+    """Core (feature-matrix) LOCI detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        alpha: float = 0.5,
+        k: float = 3.0,
+        **kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            alpha=float(alpha),
+            k=float(k),
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreLOCI(**self._backend_kwargs)
+
+
+@register_model(
     "vision_loci",
     tags=("vision", "classical", "loci"),
     metadata={"description": "Vision wrapper for LOCI outlier detector (native)"},
@@ -130,4 +164,3 @@ class VisionLOCI(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

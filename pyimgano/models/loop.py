@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 @register_model(
     "core_loop",
-    tags=("classical", "neighbors", "probability"),
+    tags=("classical", "core", "features", "neighbors", "probability"),
     metadata={"description": "LoOP - Local Outlier Probability (native implementation)"},
 )
 class CoreLoOP(BaseDetector):
@@ -151,4 +151,3 @@ class VisionLoOP(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreLoOP(**self._detector_kwargs)
-

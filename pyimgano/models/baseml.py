@@ -47,10 +47,19 @@ class BaseVisionDetector(BaseDetector):
         self.detector = self._build_detector()
 
     def set_feature_cache(self, cache_dir: str | Path | None) -> None:
-        """Enable/disable disk feature caching for path inputs."""
+        """Enable/disable disk feature caching.
+
+        Notes
+        -----
+        When enabled, caching is applied in a best-effort way:
+        - If inputs are all paths (str/Path), cache extracted feature rows by file metadata.
+        - If inputs are all numpy arrays, cache extracted feature rows by hashing array content.
+        - Mixed inputs fall back to no caching.
+        """
 
         if cache_dir is None:
             self._feature_cache = None
+            self._array_feature_cache = None
             self.feature_extractor = self._base_feature_extractor
             return
 
@@ -59,14 +68,30 @@ class BaseVisionDetector(BaseDetector):
             FeatureCache,
             fingerprint_feature_extractor,
         )
+        from pyimgano.cache.array_features import (
+            ArrayFeatureCache,
+            CachedArrayFeatureExtractor,
+        )
+
+        cache_root = Path(cache_dir)
+        fp = fingerprint_feature_extractor(self._base_feature_extractor)
 
         self._feature_cache = FeatureCache(
-            cache_dir=Path(cache_dir),
-            extractor_fingerprint=fingerprint_feature_extractor(self._base_feature_extractor),
+            cache_dir=cache_root / "paths",
+            extractor_fingerprint=fp,
         )
-        self.feature_extractor = CachedFeatureExtractor(
+        self._array_feature_cache = ArrayFeatureCache(
+            cache_dir=cache_root / "arrays",
+            extractor_fingerprint=fp,
+        )
+
+        extractor = CachedFeatureExtractor(
             base_extractor=self._base_feature_extractor,
             cache=self._feature_cache,
+        )
+        self.feature_extractor = CachedArrayFeatureExtractor(
+            base_extractor=extractor,
+            cache=self._array_feature_cache,
         )
 
     @abstractmethod

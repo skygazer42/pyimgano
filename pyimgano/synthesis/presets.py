@@ -1,0 +1,191 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Callable, Optional
+
+import numpy as np
+
+from .masks import (
+    ScratchSpec,
+    random_blob_mask,
+    random_ellipse_mask,
+    random_scratch_mask,
+)
+from .perlin import fractal_perlin_noise_2d
+
+
+@dataclass(frozen=True)
+class PresetResult:
+    overlay_u8: np.ndarray
+    mask_u8: np.ndarray
+    meta: dict[str, object]
+
+
+PresetFn = Callable[[np.ndarray, np.random.Generator], PresetResult]
+
+
+def _as_u8_image(image: np.ndarray) -> np.ndarray:
+    arr = np.asarray(image)
+    if arr.dtype != np.uint8:
+        raise ValueError(f"Expected uint8 image, got dtype={arr.dtype}")
+    if arr.ndim == 2:
+        return arr
+    if arr.ndim == 3 and arr.shape[2] == 3:
+        return arr
+    raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
+
+
+def _apply_tint(
+    base: np.ndarray,
+    mask_u8: np.ndarray,
+    *,
+    rng: np.random.Generator,
+    strength: float,
+    mode: str,
+) -> np.ndarray:
+    img = np.asarray(base, dtype=np.uint8)
+    m = (np.asarray(mask_u8) > 0)
+    if not np.any(m):
+        return img
+
+    s = float(np.clip(strength, 0.0, 1.0))
+    out = img.astype(np.float32)
+
+    if out.ndim == 2:
+        if mode == "darken":
+            out[m] = out[m] * (1.0 - 0.7 * s)
+        elif mode == "brighten":
+            out[m] = out[m] + (255.0 - out[m]) * (0.8 * s)
+        else:
+            raise ValueError(f"Unknown mode: {mode!r}")
+        return np.clip(out, 0.0, 255.0).astype(np.uint8)
+
+    # Color tint (BGR-ish, but visually fine either way for synthesis).
+    tint = rng.uniform(0.0, 255.0, size=(3,)).astype(np.float32)
+    tint = (tint * 0.15 + np.array([30.0, 60.0, 90.0], dtype=np.float32) * 0.85).astype(
+        np.float32
+    )
+
+    if mode == "stain":
+        out[m] = out[m] * (1.0 - 0.35 * s) + tint * (0.35 * s)
+    elif mode == "darken":
+        out[m] = out[m] * (1.0 - 0.75 * s)
+    elif mode == "brighten":
+        out[m] = out[m] + (255.0 - out[m]) * (0.85 * s)
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}")
+
+    return np.clip(out, 0.0, 255.0).astype(np.uint8)
+
+
+def _preset_scratch(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    img = _as_u8_image(image_u8)
+    h, w = int(img.shape[0]), int(img.shape[1])
+    spec = ScratchSpec(
+        thickness=int(rng.integers(1, 4)),
+        length_fraction=float(rng.uniform(0.25, 0.65)),
+        jitter=float(rng.uniform(0.05, 0.25)),
+        blur_sigma=float(rng.uniform(0.0, 1.2)),
+    )
+    mask = random_scratch_mask((h, w), rng=rng, num_scratches=int(rng.integers(1, 4)), spec=spec)
+    strength = float(rng.uniform(0.4, 1.0))
+    overlay = _apply_tint(img, mask, rng=rng, strength=strength, mode="darken")
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta={"preset": "scratch", "strength": strength},
+    )
+
+
+def _preset_stain(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    img = _as_u8_image(image_u8)
+    h, w = int(img.shape[0]), int(img.shape[1])
+
+    # Perlin-based mask tends to create organic stains.
+    base_res = (max(2, h // 64), max(2, w // 64))
+    noise = fractal_perlin_noise_2d((h, w), base_res, rng=rng, octaves=4, persistence=0.55)
+    thr = float(rng.uniform(0.55, 0.78))
+    mask = ((noise >= thr).astype(np.uint8) * 255).astype(np.uint8)
+
+    # Smooth and tighten the mask a bit.
+    try:
+        import cv2  # type: ignore
+    except Exception:
+        cv2 = None
+    if cv2 is not None:
+        blur = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=2.0)
+        mask = ((blur >= 0.5).astype(np.uint8) * 255).astype(np.uint8)
+
+    strength = float(rng.uniform(0.35, 1.0))
+    overlay = _apply_tint(img, mask, rng=rng, strength=strength, mode="stain")
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta={"preset": "stain", "threshold": thr, "strength": strength},
+    )
+
+
+def _preset_pit(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    img = _as_u8_image(image_u8)
+    h, w = int(img.shape[0]), int(img.shape[1])
+
+    radius = max(2, int(round(min(h, w) * float(rng.uniform(0.01, 0.05)))))
+    mask = random_blob_mask(
+        (h, w),
+        rng=rng,
+        num_blobs=int(rng.integers(1, 4)),
+        radius_range=(max(2, radius // 2), max(3, radius)),
+        blur_sigma=float(rng.uniform(0.8, 2.0)),
+        threshold=0.4,
+    )
+    strength = float(rng.uniform(0.5, 1.0))
+    overlay = _apply_tint(img, mask, rng=rng, strength=strength, mode="darken")
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta={"preset": "pit", "strength": strength},
+    )
+
+
+def _preset_glare(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    img = _as_u8_image(image_u8)
+    h, w = int(img.shape[0]), int(img.shape[1])
+
+    mask = random_ellipse_mask(
+        (h, w),
+        rng=rng,
+        num_ellipses=int(rng.integers(1, 3)),
+        axis_range=(max(6, min(h, w) // 12), max(8, min(h, w) // 5)),
+        blur_sigma=float(rng.uniform(1.0, 3.0)),
+        threshold=0.4,
+    )
+    strength = float(rng.uniform(0.3, 1.0))
+    overlay = _apply_tint(img, mask, rng=rng, strength=strength, mode="brighten")
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta={"preset": "glare", "strength": strength},
+    )
+
+
+_PRESETS: dict[str, PresetFn] = {
+    "scratch": _preset_scratch,
+    "stain": _preset_stain,
+    "pit": _preset_pit,
+    "glare": _preset_glare,
+}
+
+
+def get_preset_names() -> list[str]:
+    return sorted(_PRESETS.keys())
+
+
+def make_preset(name: str) -> PresetFn:
+    key = str(name).strip().lower()
+    fn = _PRESETS.get(key)
+    if fn is None:
+        raise ValueError(
+            f"Unknown synthesis preset: {name!r}. Available: {', '.join(get_preset_names())}"
+        )
+    return fn
+

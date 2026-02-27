@@ -106,8 +106,10 @@ from .industrial_presets import (
     gray_world_white_balance,
     homomorphic_filter,
     max_rgb_white_balance,
+    retinex_illumination_normalization,
     shading_correction,
 )
+from .retinex import RetinexConfig, msrcr_lite
 
 __all__ = [
     # Main classes
@@ -136,6 +138,8 @@ __all__ = [
     "contrast_stretching",
     "retinex_ssr",
     "retinex_msr",
+    "RetinexConfig",
+    "msrcr_lite",
     # Denoising
     "non_local_means_denoising",
     "anisotropic_diffusion",
@@ -198,5 +202,6 @@ __all__ = [
     "IlluminationContrastKnobs",
     "apply_illumination_contrast",
     "shading_correction",
+    "retinex_illumination_normalization",
     "defect_amplification",
 ]

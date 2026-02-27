@@ -21,6 +21,7 @@ from sklearn.utils import check_array
 
 from ..utils.param_check import check_parameter
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -126,6 +127,37 @@ class CoreABOD:
 
 
 @register_model(
+    "core_abod",
+    tags=("classical", "core", "features", "abod", "neighbors"),
+    metadata={
+        "description": "Core ABOD detector on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Kriegel et al., 2008",
+        "year": 2008,
+    },
+)
+class CoreABODModel(CoreFeatureDetector):
+    """Core (feature-matrix) ABOD detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_neighbors: int = 10,
+        method: str = "fast",
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_neighbors=int(n_neighbors),
+            method=str(method),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreABOD(**self._backend_kwargs)
+
+
+@register_model(
     "vision_abod",
     tags=("vision", "classical", "abod"),
     metadata={"description": "基于 ABOD 的视觉异常检测器 (native)"},
@@ -156,4 +188,3 @@ class VisionABOD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

@@ -17,6 +17,8 @@ _PIP_NAME_OVERRIDES = {
     "PIL": "Pillow",
     "sklearn": "scikit-learn",
     "open_clip": "open_clip_torch",
+    # OpenAI CLIP (GitHub only; used by WinCLIP). The import name is `clip`.
+    "clip": "clip @ git+https://github.com/openai/CLIP.git",
     "faiss": "faiss-cpu",
     "mamba_ssm": "mamba-ssm",
     # Not on PyPI: patchcore-inspection installs as `patchcore`.

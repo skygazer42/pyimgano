@@ -52,6 +52,23 @@ def main(argv: list[str] | None = None) -> int:
         default=True,
         help="Call extractor.fit() before extract() when available. Default: true",
     )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help=(
+            "Optional device hint for extractors that support it (e.g. torch extractors). "
+            "Example: cpu|cuda. When provided, sets extractor.device if present."
+        ),
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help=(
+            "Optional extraction batch size. When provided and the extractor supports it, "
+            "uses extractor.extract_batched(..., batch_size=N)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     from pyimgano.features import create_feature_extractor
@@ -66,12 +83,27 @@ def main(argv: list[str] | None = None) -> int:
 
     extractor = create_feature_extractor(str(args.extractor), **_parse_kwargs(args.extractor_kwargs))
 
+    # Best-effort: allow setting a common `.device` attribute without forcing every
+    # extractor to implement a full config protocol.
+    if args.device is not None and hasattr(extractor, "device"):
+        try:
+            setattr(extractor, "device", str(args.device))
+        except Exception:
+            pass
+
     if bool(args.fit):
         fit = getattr(extractor, "fit", None)
         if callable(fit):
             fit(paths)
 
-    feats = np.asarray(extractor.extract(paths))
+    if args.batch_size is not None:
+        extract_batched = getattr(extractor, "extract_batched", None)
+        if callable(extract_batched):
+            feats = np.asarray(extract_batched(paths, batch_size=int(args.batch_size)))
+        else:
+            feats = np.asarray(extractor.extract(paths))
+    else:
+        feats = np.asarray(extractor.extract(paths))
     if feats.ndim == 1:
         feats = feats.reshape(-1, 1)
     if feats.shape[0] != len(paths):
@@ -96,4 +128,3 @@ if __name__ == "__main__":  # pragma: no cover
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         raise
-

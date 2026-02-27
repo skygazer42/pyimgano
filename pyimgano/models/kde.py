@@ -15,6 +15,7 @@ from sklearn.neighbors import KernelDensity
 from sklearn.utils import check_array
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -78,6 +79,52 @@ class CoreKDE:
 
 
 @register_model(
+    "core_kde",
+    tags=("classical", "core", "features", "kde", "density", "baseline"),
+    metadata={
+        "description": "Core Kernel Density Estimation detector on feature matrices (native wrapper)",
+        "input": "features",
+        "type": "density",
+    },
+)
+class CoreKDEModel(CoreFeatureDetector):
+    """Core (feature-matrix) KDE detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        bandwidth: float = 1.0,
+        algorithm: str = "auto",
+        leaf_size: int = 30,
+        metric: str = "minkowski",
+        metric_params: dict[str, Any] | None = None,
+        kernel: str = "gaussian",
+        atol: float = 0.0,
+        rtol: float = 0.0,
+        breadth_first: bool = True,
+        **kde_kwargs,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            bandwidth=float(bandwidth),
+            algorithm=str(algorithm),
+            leaf_size=int(leaf_size),
+            metric=str(metric),
+            metric_params=dict(metric_params) if metric_params is not None else None,
+            kernel=str(kernel),
+            atol=float(atol),
+            rtol=float(rtol),
+            breadth_first=bool(breadth_first),
+            **dict(kde_kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreKDE(**self._backend_kwargs)
+
+
+@register_model(
     "vision_kde",
     tags=("vision", "classical", "kde", "density", "baseline"),
     metadata={
@@ -122,4 +169,3 @@ class VisionKDE(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

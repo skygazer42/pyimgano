@@ -19,3 +19,14 @@ def test_registry_model_info_includes_capabilities_payload() -> None:
     assert info["input_modes"] == caps["input_modes"]
     assert info["supports_save_load"] == caps["supports_save_load"]
 
+
+def test_core_models_are_reported_as_features_input_mode() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+
+    from pyimgano.models.registry import model_info
+
+    info = model_info("core_deep_svdd")
+    assert info["name"] == "core_deep_svdd"
+    assert "capabilities" in info
+    assert info["capabilities"]["input_modes"] == ["features"]
+    assert info["input_modes"] == ["features"]

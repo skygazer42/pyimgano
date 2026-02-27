@@ -22,6 +22,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,40 @@ class _RobustMADDetector:
         if self.aggregation == "l2":
             return np.linalg.norm(z, axis=1)
         raise ValueError(f"Unknown aggregation: {self.aggregation}. Choose from: max, mean, l2")
+
+
+class CoreMAD(_RobustMADDetector):
+    """Public alias for the MAD backend (sklearn-style core)."""
+
+
+@register_model(
+    "core_mad",
+    tags=("classical", "core", "features", "mad", "robust", "baseline"),
+    metadata={
+        "description": "Core multivariate MAD baseline on feature matrices (native wrapper)",
+        "input": "features",
+    },
+)
+class CoreMADModel(CoreFeatureDetector):
+    """Core (feature-matrix) MAD detector with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        aggregation: _Aggregation = "max",
+        eps: float = 1e-12,
+        consistency_correction: bool = True,
+    ) -> None:
+        self._backend_kwargs = dict(
+            aggregation=str(aggregation),
+            eps=float(eps),
+            consistency_correction=bool(consistency_correction),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreMAD(**self._backend_kwargs)
 
 
 @register_model(

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @register_model(
     "core_pca_md",
-    tags=("classical", "pca", "distance"),
+    tags=("classical", "core", "features", "pca", "distance"),
     metadata={"description": "PCA + Mahalanobis distance (subspace)"},
 )
 class CorePCAMahalanobis(BaseDetector):
@@ -107,4 +107,3 @@ class VisionPCAMahalanobis(BaseVisionDetector):
 
     def _build_detector(self):
         return CorePCAMahalanobis(**self._detector_kwargs)
-

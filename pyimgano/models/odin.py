@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 @register_model(
     "core_odin",
-    tags=("classical", "neighbors", "graph"),
+    tags=("classical", "core", "features", "neighbors", "graph"),
     metadata={"description": "ODIN - indegree-based kNN graph outlier detector (native)"},
 )
 class CoreODIN(BaseDetector):
@@ -132,4 +132,3 @@ class VisionODIN(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreODIN(**self._detector_kwargs)
-

@@ -44,6 +44,9 @@ __all__ = [
     "to_tensor_normalized",
     "DataLoaderConfig",
     "VisionDataModule",
+    # Synthetic anomalies
+    "SyntheticAnomalyDataset",
+    "SyntheticItem",
 ]
 
 
@@ -56,6 +59,8 @@ _LAZY_EXPORTS = {
     "to_tensor_normalized": ("transforms", "to_tensor_normalized"),
     "DataLoaderConfig": ("datamodule", "DataLoaderConfig"),
     "VisionDataModule": ("datamodule", "VisionDataModule"),
+    "SyntheticAnomalyDataset": ("synthetic", "SyntheticAnomalyDataset"),
+    "SyntheticItem": ("synthetic", "SyntheticItem"),
 }
 
 

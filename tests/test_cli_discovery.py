@@ -44,6 +44,16 @@ def test_cli_list_models_supports_numpy_capability_tag(capsys):
     assert "vision_softpatch" in out
 
 
+def test_cli_list_models_supports_core_tag(capsys):
+    from pyimgano.cli import main
+
+    code = main(["--list-models", "--tags", "core"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "core_knn" in out
+    assert "vision_knn" not in out
+
+
 def test_cli_model_info_outputs_text(capsys):
     from pyimgano.cli import main
 

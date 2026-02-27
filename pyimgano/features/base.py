@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import inspect
 from typing import Any, Iterable
 
 import numpy as np
@@ -49,3 +50,42 @@ class BaseFeatureExtractor(ABC):
             rows.append(feats)
 
         return np.concatenate(rows, axis=0)
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Return init parameters (sklearn-style best-effort).
+
+        This mirrors the detector `get_params/set_params` API, which makes
+        feature extractors easier to serialize in workbench configs.
+        """
+
+        sig = inspect.signature(self.__class__.__init__)
+        out: dict[str, Any] = {}
+        for name in sig.parameters:
+            if name == "self":
+                continue
+            if hasattr(self, name):
+                out[name] = getattr(self, name)
+
+        if not deep:
+            return out
+
+        nested: dict[str, Any] = {}
+        for k, v in out.items():
+            if hasattr(v, "get_params") and callable(getattr(v, "get_params")):
+                try:
+                    for nk, nv in v.get_params(deep=True).items():  # type: ignore[call-arg]
+                        nested[f"{k}__{nk}"] = nv
+                except Exception:
+                    continue
+        out.update(nested)
+        return out
+
+    def set_params(self, **params: Any) -> "BaseFeatureExtractor":
+        """Set init parameters (sklearn-style best-effort)."""
+
+        valid = self.get_params(deep=False)
+        for k, v in params.items():
+            if k not in valid:
+                raise ValueError(f"Invalid parameter {k!r} for {self.__class__.__name__}.")
+            setattr(self, k, v)
+        return self

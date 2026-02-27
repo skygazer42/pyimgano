@@ -26,7 +26,7 @@ _Agg = Literal["mean", "max", "l2"]
 
 @register_model(
     "core_rzscore",
-    tags=("classical", "robust", "baseline"),
+    tags=("classical", "core", "features", "robust", "baseline"),
     metadata={"description": "Robust z-score (median + MAD)"},
 )
 class CoreRZScore(BaseDetector):
@@ -104,4 +104,3 @@ class VisionRZScore(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreRZScore(**self._detector_kwargs)
-
