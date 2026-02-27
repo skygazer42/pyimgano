@@ -181,3 +181,123 @@ def random_scratch_mask(
         mask = ((blurred >= 0.2).astype(np.uint8) * 255).astype(np.uint8)
 
     return mask
+
+
+def random_curve_scratch_mask(
+    shape_hw: tuple[int, int],
+    *,
+    rng: np.random.Generator,
+    num_scratches: int = 2,
+    spec: ScratchSpec | None = None,
+    curvature: float = 0.25,
+) -> np.ndarray:
+    """Curved scratch mask: random-walk polyline with optional blur."""
+
+    import cv2
+
+    h, w = _as_hw(shape_hw)
+    n = max(1, int(num_scratches))
+    s = ScratchSpec() if spec is None else spec
+
+    mask = np.zeros((h, w), dtype=np.uint8)
+    min_dim = float(min(h, w))
+    length = max(6.0, float(s.length_fraction) * min_dim)
+
+    step = 8.0
+    steps = max(3, int(round(length / step)))
+    curv = float(max(0.0, curvature))
+
+    for _ in range(n):
+        x = float(rng.uniform(0.0, float(w - 1)))
+        y = float(rng.uniform(0.0, float(h - 1)))
+        angle = float(rng.uniform(0.0, 2.0 * np.pi))
+
+        pts: list[tuple[int, int]] = []
+        for _i in range(steps + 1):
+            pts.append((int(np.clip(round(x), 0, w - 1)), int(np.clip(round(y), 0, h - 1))))
+            angle = angle + float(rng.normal(0.0, 1.0) * curv)
+            x = x + step * math.cos(angle) + float(rng.normal(0.0, 1.0) * float(s.jitter) * 2.0)
+            y = y + step * math.sin(angle) + float(rng.normal(0.0, 1.0) * float(s.jitter) * 2.0)
+
+        cv2.polylines(
+            mask,
+            [np.asarray(pts, dtype=np.int32).reshape(-1, 1, 2)],
+            isClosed=False,
+            color=255,
+            thickness=max(1, int(s.thickness)),
+            lineType=cv2.LINE_AA,
+        )
+
+    mask = ((mask > 0).astype(np.uint8) * 255).astype(np.uint8)
+    if float(s.blur_sigma) > 0.0:
+        blurred = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(s.blur_sigma))
+        mask = ((blurred >= 0.2).astype(np.uint8) * 255).astype(np.uint8)
+    return mask
+
+
+def random_crack_mask(
+    shape_hw: tuple[int, int],
+    *,
+    rng: np.random.Generator,
+    num_cracks: int = 1,
+    thickness_range: tuple[int, int] = (1, 2),
+    length_fraction: float = 0.8,
+    curvature: float = 0.35,
+    blur_sigma: float = 0.6,
+    branch_prob: float = 0.25,
+) -> np.ndarray:
+    """Crack-like mask: longer, slightly branching random-walk polylines."""
+
+    import cv2
+
+    h, w = _as_hw(shape_hw)
+    n = max(1, int(num_cracks))
+    t0, t1 = int(thickness_range[0]), int(thickness_range[1])
+    if t0 < 1 or t1 < 1 or t0 > t1:
+        raise ValueError(f"Invalid thickness_range: {thickness_range!r}")
+
+    mask = np.zeros((h, w), dtype=np.uint8)
+    min_dim = float(min(h, w))
+    length = max(12.0, float(length_fraction) * min_dim)
+
+    step = 7.0
+    steps = max(6, int(round(length / step)))
+    curv = float(max(0.0, curvature))
+    bp = float(np.clip(branch_prob, 0.0, 1.0))
+
+    def _draw_one(start_x: float, start_y: float, start_angle: float, *, steps_local: int, thickness: int) -> None:
+        x, y, angle = float(start_x), float(start_y), float(start_angle)
+        pts: list[tuple[int, int]] = []
+        for _i in range(steps_local + 1):
+            pts.append((int(np.clip(round(x), 0, w - 1)), int(np.clip(round(y), 0, h - 1))))
+            angle = angle + float(rng.normal(0.0, 1.0) * curv)
+            x = x + step * math.cos(angle)
+            y = y + step * math.sin(angle)
+        cv2.polylines(
+            mask,
+            [np.asarray(pts, dtype=np.int32).reshape(-1, 1, 2)],
+            isClosed=False,
+            color=255,
+            thickness=max(1, int(thickness)),
+            lineType=cv2.LINE_AA,
+        )
+
+    for _ in range(n):
+        x0 = float(rng.uniform(0.0, float(w - 1)))
+        y0 = float(rng.uniform(0.0, float(h - 1)))
+        a0 = float(rng.uniform(0.0, 2.0 * np.pi))
+        thickness = int(rng.integers(t0, t1 + 1))
+        _draw_one(x0, y0, a0, steps_local=steps, thickness=thickness)
+
+        # Optional small branch.
+        if float(rng.uniform(0.0, 1.0)) < bp:
+            bx = float(rng.uniform(0.0, float(w - 1)))
+            by = float(rng.uniform(0.0, float(h - 1)))
+            ba = float(rng.uniform(0.0, 2.0 * np.pi))
+            _draw_one(bx, by, ba, steps_local=max(4, steps // 2), thickness=max(1, thickness - 1))
+
+    mask = ((mask > 0).astype(np.uint8) * 255).astype(np.uint8)
+    if float(blur_sigma) > 0.0:
+        blurred = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        mask = ((blurred >= 0.2).astype(np.uint8) * 255).astype(np.uint8)
+    return mask

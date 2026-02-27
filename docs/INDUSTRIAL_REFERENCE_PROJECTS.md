@@ -33,16 +33,25 @@ Framework-style (pipelines + config):
 - `DoMaLi94/industrial-image-anomaly-detection` (MIT)
 
 Method implementations (conceptual reference only):
-- PatchCore: `amazon-science/patchcore-inspection` (Apache-2.0)
+- PatchCore: `amazon-science/patchcore-inspection` (Apache-2.0; **can be large to clone**)
+- PatchCore (unofficial, lightweight): `tiskw/patchcore-ad` (MIT)
+- SPADE (no training; deep pyramid correspondences): `byungjae89/SPADE-pytorch` (Apache-2.0)
+- MahalanobisAD (Gaussian deep features): `byungjae89/MahalanobisAD-pytorch` (Apache-2.0)
+- PaDiM (unofficial): `xiahaifeng1995/PaDiM-Anomaly-Detection-Localization-master` (Apache-2.0)
 - SimpleNet: `DonaldRR/SimpleNet` (MIT)
 - DRAEM: `VitjanZ/DRAEM` (MIT)
 - CutPaste: `LilitYolyan/CutPaste` (MIT)
 - Dinomaly: `guojiajeremy/Dinomaly` (Apache-2.0)
 - MuSc: `xrli-U/MuSc` (MIT)
+- RealNet: `cnulab/RealNet` (MIT)
+- RD++ (Reverse Distillation++): `tientrandinh/Revisiting-Reverse-Distillation` (MIT)
+- PUAD (Prompt-based): `LeapMind/PUAD` (Apache-2.0)
+- STFPM: `gdwang08/STFPM` (**GPL-3.0**; study-only, do not copy code into MIT project)
 
 Augmentation/synthesis toolkits (conceptual reference):
 - `albumentations-team/albumentations` (MIT)
 - `kornia/kornia` (Apache-2.0)
+- WE-PaDiM (wavelet enhanced): `BioHPC/WE-PaDiM` (MIT; method reference)
 
 Classical outlier detection (API/contract reference only):
 - `yzhao062/pyod` (BSD-2-Clause; API patterns; *not* used as a dependency)

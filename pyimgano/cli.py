@@ -874,31 +874,51 @@ def main(argv: list[str] | None = None) -> int:
                 load_masks=bool(args.pixel),
             ).validate_structure()
 
+        requested_model = str(args.model)
+        model_name = requested_model
+        preset_model_auto_kwargs: dict[str, Any] = {}
+
+        try:
+            entry = MODEL_REGISTRY.info(model_name)
+        except KeyError:
+            # Allow short preset names (JSON-ready configs) for industrial workflows.
+            from pyimgano.cli_presets import resolve_model_preset
+
+            preset = resolve_model_preset(model_name)
+            if preset is None:
+                raise
+
+            model_name = str(preset.model)
+            preset_model_auto_kwargs = dict(preset.kwargs)
+            entry = MODEL_REGISTRY.info(model_name)
+
         user_kwargs = _parse_model_kwargs(args.model_kwargs)
         merged_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
-        entry = MODEL_REGISTRY.info(args.model)
         if (
             bool(entry.metadata.get("requires_checkpoint", False))
             and "checkpoint_path" not in merged_kwargs
         ):
             raise ValueError(
-                f"Model {args.model!r} requires a checkpoint. "
+                f"Model {requested_model!r} requires a checkpoint. "
                 "Provide --checkpoint-path or set checkpoint_path in --model-kwargs."
             )
 
-        preset_kwargs = _resolve_preset_kwargs(args.preset, args.model)
-        auto_kwargs: dict[str, Any] = {
+        preset_kwargs = _resolve_preset_kwargs(args.preset, model_name)
+        auto_kwargs: dict[str, Any] = dict(preset_model_auto_kwargs)
+        auto_kwargs.update(
+            {
             "device": args.device,
             "contamination": args.contamination,
             "pretrained": args.pretrained,
-        }
+            }
+        )
         if args.seed is not None:
             auto_kwargs["random_seed"] = int(args.seed)
             auto_kwargs["random_state"] = int(args.seed)
 
         model_kwargs = _build_model_kwargs(
-            args.model,
+            model_name,
             user_kwargs=merged_kwargs,
             preset_kwargs=preset_kwargs,
             auto_kwargs=auto_kwargs,
@@ -940,7 +960,7 @@ def main(argv: list[str] | None = None) -> int:
             if str(category).lower() == "all":
                 raise ValueError("--category all is not yet supported with --pixel.")
 
-            detector = create_model(args.model, **model_kwargs)
+            detector = create_model(model_name, **model_kwargs)
             pixel_skip_reason = None
             if dataset.lower() == "manifest":
                 import numpy as np
@@ -1021,7 +1041,7 @@ def main(argv: list[str] | None = None) -> int:
                 root=str(args.root),
                 manifest_path=(str(args.manifest_path) if args.manifest_path is not None else None),
                 category=str(category),
-                model=str(args.model),
+                model=str(model_name),
                 input_mode=str(args.input_mode),
                 seed=(int(args.seed) if args.seed is not None else None),
                 device=str(args.device),

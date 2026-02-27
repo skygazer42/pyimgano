@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+from pathlib import Path
+
 from pyimgano.utils.optional_deps import optional_import
 
 _torch, _torch_error = optional_import("torch")
@@ -76,6 +78,9 @@ if _torch is not None and _torchvision is not None:
                     self.eval_transform = default_eval_transforms()
                 else:
                     self.eval_transform = transforms.ToTensor()
+
+            # Optional eval-time tensor cache (best-effort).
+            self._eval_tensor_cache = None
 
         # ------------------------------------------------------------------
         # Deep learning interface (required abstract methods)
@@ -170,12 +175,43 @@ if _torch is not None and _torchvision is not None:
             if X_list and isinstance(X_list[0], np.ndarray):
                 eval_dataset = VisionArrayDataset(images=X_list, transform=self.eval_transform)
             else:
-                eval_dataset = VisionImageDataset(image_paths=X_list, transform=self.eval_transform)
+                if getattr(self, "_eval_tensor_cache", None) is not None:
+                    from pyimgano.cache.deep_embeddings import CachedVisionImageDataset
+
+                    eval_dataset = CachedVisionImageDataset(
+                        image_paths=[str(p) for p in X_list],
+                        transform=self.eval_transform,
+                        cache=self._eval_tensor_cache,  # type: ignore[arg-type]
+                    )
+                else:
+                    eval_dataset = VisionImageDataset(image_paths=[str(p) for p in X_list], transform=self.eval_transform)
             eval_loader = DataLoader(eval_dataset, batch_size=current_batch_size, shuffle=False)
 
             # 调用父类的评估方法 evaluating_forward
             scores = self.evaluate(eval_loader)
             return scores
+
+        def set_eval_cache(self, cache_dir: str | Path | None) -> None:
+            """Enable/disable eval-time tensor caching for path inputs.
+
+            Notes
+            -----
+            - Intended for repeated scoring runs on the same image paths.
+            - Only applied for path inputs (not for numpy inputs).
+            - Uses a fingerprint of the eval_transform to reduce cache collisions.
+            """
+
+            if cache_dir is None:
+                self._eval_tensor_cache = None
+                return
+
+            from pyimgano.cache.deep_embeddings import TensorCache, fingerprint_transform
+
+            fp = fingerprint_transform(self.eval_transform)
+            self._eval_tensor_cache = TensorCache(
+                cache_dir=Path(cache_dir),
+                transform_fingerprint=str(fp),
+            )
 
 else:
 

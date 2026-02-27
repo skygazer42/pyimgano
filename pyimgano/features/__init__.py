@@ -52,10 +52,12 @@ _auto_import(
         "structural",
         "torchvision_backbone",
         "torchvision_multilayer",
+        "torchvision_vit_tokens",
         "patch_grid",
         "openclip_embed",
         "multi",
         "pca_projector",
         "scaler",
+        "normalize",
     ]
 )

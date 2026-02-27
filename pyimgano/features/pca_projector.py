@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 from .base import BaseFeatureExtractor
 from .identity import IdentityExtractor
 from .protocols import FeatureExtractor, FittableFeatureExtractor
-from .registry import register_feature_extractor
+from .registry import register_feature_extractor, resolve_feature_extractor
 
 
 @register_feature_extractor(
@@ -22,12 +22,15 @@ class PCAProjector(BaseFeatureExtractor):
     def __init__(
         self,
         *,
-        base_extractor: FeatureExtractor | None = None,
+        base_extractor: FeatureExtractor | str | dict | None = None,
         n_components: int | float = 0.95,
         whiten: bool = False,
         random_state: int | None = None,
     ) -> None:
-        self.base_extractor = base_extractor if base_extractor is not None else IdentityExtractor()
+        if base_extractor is None:
+            base_extractor = IdentityExtractor()
+        # Allow JSON-friendly specs: {"name": "...", "kwargs": {...}}.
+        self.base_extractor = resolve_feature_extractor(base_extractor)
         self.n_components = n_components
         self.whiten = bool(whiten)
         self.random_state = random_state
@@ -58,4 +61,3 @@ class PCAProjector(BaseFeatureExtractor):
             X = X.reshape(-1, 1)
         Z = self._pca.transform(X)
         return np.asarray(Z, dtype=np.float32)
-

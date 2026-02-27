@@ -59,6 +59,22 @@ They can accept either paths or numpy arrays (extractor-dependent).
 
 This lets you build “industrial baselines” without writing new Python classes.
 
+Example (feature vectors via `identity` extractor):
+
+```python
+from pyimgano.models import create_model
+
+pipe = create_model(
+    "vision_feature_pipeline",
+    contamination=0.1,
+    feature_extractor="identity",
+    core_detector="core_ecod",
+    core_kwargs={},
+)
+```
+
+See: `examples/feature_pipeline_core_detectors.py`
+
 ---
 
 ## Caching (Paths + Numpy Arrays)
@@ -70,4 +86,3 @@ When repeatedly evaluating classical detectors, feature extraction dominates run
 - `cache_dir/arrays/`: cached features for numpy inputs (keyed by array hash + extractor fingerprint)
 
 This is optional, local-only, and can be cleared safely.
-

@@ -53,6 +53,7 @@ _auto_import(
         "crossmad",  # Cross-Modal Anomaly Detection (CVPR 2025)
         "dbscan",  # Density-Based Spatial Clustering
         "ecod",  # Empirical Cumulative Outlier Detection (TKDE 2022)
+        "extra_trees_density",  # Random trees embedding density baseline
         "feature_bagging",  # Feature Bagging ensemble method
         "gmm",  # Gaussian Mixture Model density baseline
         "hbos",  # Histogram-Based Outlier Score
@@ -66,11 +67,14 @@ _auto_import(
         "kpca",  # Kernel Principal Component Analysis
         "k_means",  # K-Means clustering-based detection
         "kde",  # Kernel Density Estimation density baseline
+        "kde_ratio",  # KDE density-contrast (dual bandwidth)
+        "lid",  # Local Intrinsic Dimensionality (kNN-distance statistic)
         "loci",  # Local Correlation Integral
         "loop",  # Local Outlier Probability
         "loda",  # Lightweight On-line Detector of Anomalies
         "lof",  # Local Outlier Factor
         "ldof",  # Local Distance-based Outlier Factor
+        "neighborhood_entropy",  # kNN distance entropy baseline
         "odin",  # kNN indegree (ODIN)
         "lscp",  # Locally Selective Combination in Parallel
         "rgraph",  # R-Graph: robust graph-based outlier detection
@@ -79,13 +83,18 @@ _auto_import(
         "rzscore",  # Robust z-score (median + MAD)
         "mcd",  # Minimum Covariance Determinant
         "mahalanobis",  # Mahalanobis distance baseline
+        "mst_outlier",  # MST-based outlier baseline
         "dtc",  # Distance to centroid baseline
+        "cook_distance",  # Influence score (PCA residual + leverage)
+        "studentized_residual",  # Robust standardized PCA residual
         "dcorr",  # Distance-correlation influence
+        "elliptic_envelope",  # Robust covariance / Mahalanobis baseline
         "ocsvm",  # One-Class Support Vector Machine
         "pca",  # Principal Component Analysis
         "pca_md",  # PCA + Mahalanobis distance
         "qmcd",  # Quantile-based MCD
         "rod",  # Rotation-based Outlier Detection
+        "random_projection_knn",  # RP + kNN distance
         "sampling",  # Sampling-based outlier detection
         "sod",  # Subspace Outlier Detection
         "sos",  # Stochastic Outlier Selection
@@ -120,8 +129,10 @@ _auto_import(
         "one_svm_cnn",  # One-Class SVM with CNN features
         "oneformore",  # One-for-More continual diffusion (CVPR 2025)
         "padim",  # Patch Distribution Modeling
+        "padim_lite",  # PaDiM-like Gaussian baseline on embeddings (image-level)
         "panda",  # Prototypical Anomaly Network (ICCV 2023)
         "patchcore",  # PatchCore patch-level detection (CVPR 2022)
+        "patchcore_lite",  # PatchCore-like memory bank (image-level)
         "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
         "promptad",  # Prompt-based Few-Shot Anomaly Detection (CVPR 2024)
         "pni",  # Pyramidal Normality Indexing (CVPR 2022)
@@ -135,10 +146,13 @@ _auto_import(
         "ssim",  # Structural Similarity-based detection
         "ssim_struct",  # SSIM with structural features
         "stfpm",  # Student-Teacher Feature Pyramid Matching (BMVC 2021)
+        "student_teacher_lite",  # Lite student-teacher via embedding regression
         "vae",  # Variational Autoencoder
         "winclip",  # WinCLIP zero-shot CLIP-based (CVPR 2023)
         # Production wrappers
         "score_ensemble",  # Score-only ensemble wrapper detector
+        "core_score_standardizer",  # Standardize scores for core detectors
+        "vision_score_standardizer",  # Standardize scores for vision detectors
         # Optional backend wrappers (safe to import; dependencies are checked at runtime)
         "anomalib_backend",
         "patchcore_inspection_backend",
@@ -150,6 +164,9 @@ _auto_import(
         "mambaad",
         # Pipelines registered as models
         "feature_pipeline",
+        "vision_embedding_core",
+        # Preconfigured industrial wrappers (lightweight pipelines)
+        "industrial_wrappers",
     ]
 )
 

@@ -15,6 +15,7 @@ __all__ = [
     "calibrate_normal_pixel_quantile_threshold",
     "resolve_calibration_quantile",
     "RankCalibrator",
+    "ScoreStandardizer",
     "fit_pot_threshold",
 ]
 
@@ -26,6 +27,7 @@ _LAZY_EXPORTS = {
     ),
     "resolve_calibration_quantile": ("score_threshold", "resolve_calibration_quantile"),
     "RankCalibrator": ("rank_calibration", "RankCalibrator"),
+    "ScoreStandardizer": ("score_standardization", "ScoreStandardizer"),
     "fit_pot_threshold": ("pot_threshold", "fit_pot_threshold"),
 }
 

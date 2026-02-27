@@ -20,8 +20,51 @@ from __future__ import annotations
 from typing import Optional
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .imdd import CoreIMDD
 from .registry import register_model
+
+
+@register_model(
+    "core_lmdd",
+    tags=("classical", "core", "features", "lmdd", "imdd"),
+    metadata={
+        "description": "LMDD deviation detector for feature matrices (native wrapper)",
+        "type": "deviation",
+    },
+)
+class CoreLMDDDetector(CoreFeatureDetector):
+    """Feature-matrix LMDD detector (`core_*`).
+
+    Notes
+    -----
+    LMDD and IMDD share the same scoring mechanics in our implementation,
+    so this wrapper reuses :class:`pyimgano.models.imdd.CoreIMDD`.
+    """
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_iter: int = 50,
+        dis_measure: str = "aad",
+        random_state: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        self.n_iter = int(n_iter)
+        self.dis_measure = str(dis_measure)
+        self.random_state = random_state
+        self.kwargs = dict(kwargs)
+        super().__init__(contamination=contamination)
+
+    def _build_detector(self):  # noqa: ANN201
+        return CoreIMDD(
+            contamination=float(self.contamination),
+            n_iter=int(self.n_iter),
+            dis_measure=str(self.dis_measure),
+            random_state=self.random_state,
+            **dict(self.kwargs),
+        )
 
 
 @register_model(
@@ -55,4 +98,3 @@ class VisionLMDD(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreIMDD(**self._detector_kwargs)
-

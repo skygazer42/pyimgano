@@ -24,6 +24,7 @@ from typing import Iterable
 import numpy as np
 from sklearn.utils import check_array
 
+from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
@@ -161,6 +162,44 @@ class CoreSOS:
 
 
 @register_model(
+    "core_sos",
+    tags=("classical", "core", "features", "sos", "probabilistic"),
+    metadata={
+        "description": "SOS (Stochastic Outlier Selection) for feature matrices (native wrapper)",
+        "type": "probabilistic",
+    },
+)
+class CoreSOSDetector(CoreFeatureDetector):
+    """Feature-matrix SOS detector (`core_*`).
+
+    This wraps :class:`CoreSOS` into the native :class:`CoreFeatureDetector` contract:
+    - `fit()` computes `decision_scores_` and derives `threshold_` via contamination
+    - `decision_function()` returns scores (higher => more anomalous)
+    """
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        perplexity: float = 4.5,
+        metric: str = "euclidean",
+        eps: float = 1e-5,
+    ) -> None:
+        self.perplexity = float(perplexity)
+        self.metric = str(metric)
+        self.eps = float(eps)
+        super().__init__(contamination=contamination)
+
+    def _build_detector(self):  # noqa: ANN201
+        return CoreSOS(
+            contamination=float(self.contamination),
+            perplexity=float(self.perplexity),
+            metric=str(self.metric),
+            eps=float(self.eps),
+        )
+
+
+@register_model(
     "vision_sos",
     tags=("vision", "classical", "sos", "probabilistic", "baseline"),
     metadata={
@@ -196,4 +235,3 @@ class VisionSOS(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

@@ -301,3 +301,52 @@ class VisionLSCP(BaseVisionDetector):
     def decision_function(self, X):
         return super().decision_function(X)
 
+
+@register_model(
+    "vision_lscp_spec",
+    tags=("vision", "classical", "ensemble", "lscp"),
+    metadata={"description": "LSCP ensemble with JSON-friendly base-detector specs"},
+)
+class VisionLSCPSpec(BaseVisionDetector):
+    """Vision-friendly LSCP wrapper that accepts detector specs.
+
+    `detector_specs` can be:
+    - model name strings (e.g. "core_ecod")
+    - dict specs {"name": "...", "kwargs": {...}}
+    - already-instantiated detector objects
+    """
+
+    def __init__(
+        self,
+        *,
+        feature_extractor=None,
+        contamination: float = 0.1,
+        detector_specs: Sequence[object] | None = None,
+        local_region_size: int = 30,
+        local_max_features: float = 1.0,
+        n_bins: int = 10,
+        random_state: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        if detector_specs is None:
+            raise ValueError("VisionLSCPSpec requires 'detector_specs' (non-empty).")
+
+        if kwargs:
+            unknown = ", ".join(sorted(kwargs))
+            raise TypeError(f"Unknown LSCP parameters: {unknown}")
+
+        self._specs = list(detector_specs)
+        self._core_kwargs = dict(
+            local_region_size=int(local_region_size),
+            local_max_features=float(local_max_features),
+            n_bins=int(n_bins),
+            random_state=random_state,
+            contamination=float(contamination),
+        )
+        super().__init__(contamination=contamination, feature_extractor=feature_extractor)
+
+    def _build_detector(self):
+        from pyimgano.models.ensemble_spec import resolve_model_specs
+
+        dets = resolve_model_specs(self._specs, default_contamination=float(self.contamination))
+        return CoreLSCP(detector_list=dets, **self._core_kwargs)

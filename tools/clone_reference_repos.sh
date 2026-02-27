@@ -15,6 +15,7 @@ Usage:
 Options:
   --dir DIR     Target directory for clones (default: .cache/pyimgano_refs)
   --jobs N      Parallel clone jobs (default: 2)
+  --include-heavy  Also clone very large repos (may take a long time)
   --help        Show this help text
 
 Notes:
@@ -27,6 +28,7 @@ EOF
 
 DIR=".cache/pyimgano_refs"
 JOBS="2"
+INCLUDE_HEAVY="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -37,6 +39,10 @@ while [[ $# -gt 0 ]]; do
     --jobs)
       JOBS="${2:-}"
       shift 2
+      ;;
+    --include-heavy)
+      INCLUDE_HEAVY="1"
+      shift 1
       ;;
     --help|-h)
       usage
@@ -54,17 +60,33 @@ done
 mkdir -p "$DIR"
 
 declare -a REPOS=(
+  # Framework-style (pipelines + config)
   "https://github.com/openvinotoolkit/anomalib.git"
-  "https://github.com/amazon-science/patchcore-inspection.git"
+  # Method implementations (conceptual reference only)
+  "https://github.com/tiskw/patchcore-ad.git"
+  "https://github.com/byungjae89/SPADE-pytorch.git"
+  "https://github.com/byungjae89/MahalanobisAD-pytorch.git"
+  "https://github.com/xiahaifeng1995/PaDiM-Anomaly-Detection-Localization-master.git"
   "https://github.com/DoMaLi94/industrial-image-anomaly-detection.git"
   "https://github.com/DonaldRR/SimpleNet.git"
   "https://github.com/VitjanZ/DRAEM.git"
   "https://github.com/LilitYolyan/CutPaste.git"
   "https://github.com/guojiajeremy/Dinomaly.git"
   "https://github.com/xrli-U/MuSc.git"
+  # Additional industrial/method references (study-only)
+  "https://github.com/cnulab/RealNet.git"
+  "https://github.com/tientrandinh/Revisiting-Reverse-Distillation.git"
+  "https://github.com/gdwang08/STFPM.git"
+  "https://github.com/LeapMind/PUAD.git"
+  "https://github.com/BioHPC/WE-PaDiM.git"
   "https://github.com/yzhao062/pyod.git"
   "https://github.com/albumentations-team/albumentations.git"
   "https://github.com/kornia/kornia.git"
+)
+
+declare -a HEAVY_REPOS=(
+  # This repo can be very large due to included assets/weights. Keep it opt-in.
+  "https://github.com/amazon-science/patchcore-inspection.git"
 )
 
 clone_one() {
@@ -77,7 +99,14 @@ clone_one() {
     return 0
   fi
   echo "[clone] $name"
-  if git clone --depth 1 "$url" "$out"; then
+  # Study-only clones should be as light as possible:
+  # - avoid fetching LFS objects (often large weights/assets)
+  # - prefer partial clone when supported by remote
+  # NOTE: Use `--no-checkout` to avoid downloading large blobs at clone time
+  # (some repos store weights/assets directly in git). You can inspect files via:
+  #   git -C <repo> show HEAD:path/to/file
+  # or enable a sparse checkout later.
+  if GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 --filter=blob:none --no-checkout "$url" "$out"; then
     echo "[ok] $name"
     return 0
   fi
@@ -93,10 +122,18 @@ export DIR
 
 if command -v xargs >/dev/null 2>&1; then
   printf "%s\n" "${REPOS[@]}" | xargs -n 1 -P "$JOBS" bash -lc 'clone_one "$@"' _
+  if [[ "$INCLUDE_HEAVY" == "1" ]]; then
+    printf "%s\n" "${HEAVY_REPOS[@]}" | xargs -n 1 -P "$JOBS" bash -lc 'clone_one "$@"' _
+  fi
 else
   for r in "${REPOS[@]}"; do
     clone_one "$r"
   done
+  if [[ "$INCLUDE_HEAVY" == "1" ]]; then
+    for r in "${HEAVY_REPOS[@]}"; do
+      clone_one "$r"
+    done
+  fi
 fi
 
 echo ""

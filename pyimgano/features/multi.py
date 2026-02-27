@@ -8,7 +8,7 @@ import numpy as np
 
 from .base import BaseFeatureExtractor
 from .protocols import FeatureExtractor, FittableFeatureExtractor
-from .registry import register_feature_extractor
+from .registry import register_feature_extractor, resolve_feature_extractor
 
 
 @register_feature_extractor(
@@ -17,10 +17,16 @@ from .registry import register_feature_extractor
     metadata={"description": "Concatenate outputs of multiple feature extractors"},
 )
 class MultiExtractor(BaseFeatureExtractor):
-    def __init__(self, extractors: Sequence[FeatureExtractor]) -> None:
+    def __init__(self, extractors: Sequence[Any]) -> None:
         if not extractors:
             raise ValueError("extractors must be non-empty")
-        self.extractors = list(extractors)
+        resolved: list[FeatureExtractor] = []
+        for spec in list(extractors):
+            ext = resolve_feature_extractor(spec)
+            if not isinstance(ext, FeatureExtractor):
+                raise TypeError("Each extractor must implement .extract(inputs) -> np.ndarray")
+            resolved.append(ext)
+        self.extractors = resolved
 
     def fit(self, inputs: Iterable[Any], y: Any | None = None) -> "MultiExtractor":
         items = list(inputs)
@@ -44,4 +50,3 @@ class MultiExtractor(BaseFeatureExtractor):
             mats.append(m.astype(np.float32, copy=False))
 
         return np.concatenate(mats, axis=1)
-

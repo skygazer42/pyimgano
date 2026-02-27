@@ -26,6 +26,7 @@ import numpy as np
 from sklearn.preprocessing import RobustScaler
 from sklearn.utils import check_array
 
+from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
@@ -312,6 +313,39 @@ class CoreROD:
 
 
 @register_model(
+    "core_rod",
+    tags=("classical", "core", "features", "rod"),
+    metadata={
+        "description": "ROD (Rotation-based Outlier Detection) for feature matrices (native wrapper)",
+        "type": "geometric",
+    },
+)
+class CoreRODDetector(CoreFeatureDetector):
+    """Feature-matrix ROD detector (`core_*`)."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        parallel_execution: bool = False,
+        max_subspaces: int | None = 256,
+        random_state: int = 0,
+    ) -> None:
+        self.parallel_execution = bool(parallel_execution)
+        self.max_subspaces = max_subspaces
+        self.random_state = int(random_state)
+        super().__init__(contamination=contamination)
+
+    def _build_detector(self):  # noqa: ANN201
+        return CoreROD(
+            contamination=float(self.contamination),
+            parallel_execution=bool(self.parallel_execution),
+            max_subspaces=self.max_subspaces,
+            random_state=int(self.random_state),
+        )
+
+
+@register_model(
     "vision_rod",
     tags=("vision", "classical", "rod", "baseline"),
     metadata={
@@ -346,4 +380,3 @@ class VisionROD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

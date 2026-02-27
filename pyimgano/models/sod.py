@@ -19,6 +19,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import check_array
 
 from ..utils.param_check import check_parameter
+from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
@@ -159,6 +160,39 @@ class CoreSOD:
 
 
 @register_model(
+    "core_sod",
+    tags=("classical", "core", "features", "sod", "subspace"),
+    metadata={
+        "description": "SOD (Subspace Outlier Detection) for feature matrices (native wrapper)",
+        "type": "subspace",
+    },
+)
+class CoreSODDetector(CoreFeatureDetector):
+    """Feature-matrix SOD detector (`core_*`)."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_neighbors: int = 20,
+        ref_set: int = 10,
+        alpha: float = 0.8,
+    ) -> None:
+        self.n_neighbors = int(n_neighbors)
+        self.ref_set = int(ref_set)
+        self.alpha = float(alpha)
+        super().__init__(contamination=contamination)
+
+    def _build_detector(self):  # noqa: ANN201
+        return CoreSOD(
+            contamination=float(self.contamination),
+            n_neighbors=int(self.n_neighbors),
+            ref_set=int(self.ref_set),
+            alpha=float(self.alpha),
+        )
+
+
+@register_model(
     "vision_sod",
     tags=("vision", "classical", "sod", "subspace", "baseline"),
     metadata={
@@ -194,4 +228,3 @@ class VisionSOD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

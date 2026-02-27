@@ -24,7 +24,7 @@ image_u8 = np.zeros((256, 256, 3), dtype=np.uint8)
 
 syn = AnomalySynthesizer(
     SynthSpec(
-        preset="scratch",   # scratch|stain|pit|glare
+        preset="scratch",   # scratch|stain|pit|glare|rust|oil|crack
         blend="alpha",      # alpha|poisson
         alpha=0.9,
         probability=1.0,
@@ -45,6 +45,9 @@ Current built-in presets:
 - `stain`: organic blotches (Perlin-style masks)
 - `pit`: small dark pits (point-like defects)
 - `glare`: bright specular blobs / exposure flare
+- `rust`: corrosion / rust-like organic blobs with speckle texture
+- `oil`: darker organic oil stains
+- `crack`: thin fracture-like lines
 
 Get preset names:
 
@@ -70,6 +73,39 @@ pyimgano-synthesize \
   --n-train 50 \
   --n-test-normal 20 \
   --n-test-anomaly 20 \
+  --seed 0
+```
+
+### Preview Mode (Grid)
+
+To preview a preset without writing a dataset:
+
+```bash
+pyimgano-synthesize \
+  --in-dir /path/to/normal_images \
+  --out-root ./out_synth_dataset \
+  --preset rust \
+  --preview \
+  --preview-out ./out_synth_dataset/preview.png \
+  --preview-n 16 \
+  --preview-cols 4 \
+  --seed 0
+```
+
+### From-Manifest Mode (Augment Existing Dataset)
+
+To synthesize anomalies from a manifest (source normals) and write a new
+`custom`-layout dataset under `--out-root`:
+
+```bash
+pyimgano-synthesize \
+  --from-manifest ./manifest.jsonl \
+  --from-manifest-category bottle \
+  --from-manifest-split train \
+  --from-manifest-n 200 \
+  --out-root ./out_augmented \
+  --manifest ./out_augmented/manifest.jsonl \
+  --preset scratch \
   --seed 0
 ```
 
@@ -106,4 +142,3 @@ Internally, the synthesis pipeline relies on:
 - Alpha blending + Poisson blending (OpenCV `seamlessClone`)
 
 If you need a custom recipe, build your own preset and use `AnomalySynthesizer(preset_fn=...)`.
-

@@ -26,13 +26,87 @@ def _collect_paths(root: Path, *, pattern: str) -> list[str]:
     return paths
 
 
+def _resolve_manifest_paths(
+    *,
+    manifest_path: Path,
+    category: str | None,
+    split: str | None,
+    label: int | None,
+    root_fallback: Path | None,
+) -> list[str]:
+    from pyimgano.datasets.manifest import iter_manifest_records
+
+    cat = None if category is None else str(category)
+    split_f = None if split is None else str(split).strip().lower()
+    label_f = None if label is None else int(label)
+
+    out: list[str] = []
+    for rec in iter_manifest_records(manifest_path):
+        if cat is not None and str(rec.category) != cat:
+            continue
+        if split_f is not None:
+            if rec.split is None or str(rec.split) != split_f:
+                continue
+        if label_f is not None:
+            if rec.label is None or int(rec.label) != label_f:
+                continue
+
+        raw = str(rec.image_path)
+        p = Path(raw)
+        if p.is_absolute():
+            out.append(str(p))
+            continue
+
+        # Resolve relative paths relative to the manifest file, then optionally
+        # fall back to an explicit root.
+        cand1 = (manifest_path.parent / p).resolve()
+        if cand1.exists():
+            out.append(str(cand1))
+            continue
+
+        if root_fallback is not None:
+            cand2 = (root_fallback / p).resolve()
+            if cand2.exists():
+                out.append(str(cand2))
+                continue
+
+        raise FileNotFoundError(
+            f"Manifest image_path not found: {raw!r}. Tried {cand1} and {cand2 if root_fallback else '<no root>'}."
+        )
+
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pyimgano-features")
-    parser.add_argument("--root", required=True, help="Root directory containing images")
+    parser.add_argument("--root", required=False, help="Root directory containing images")
     parser.add_argument(
         "--pattern",
         default="**/*.*",
         help="Glob pattern relative to --root. Default: **/*.*",
+    )
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help="Optional JSONL manifest path (enables manifest input mode; overrides --root/--pattern)",
+    )
+    parser.add_argument("--manifest-category", default=None, help="Optional category filter for --manifest")
+    parser.add_argument(
+        "--manifest-split",
+        default=None,
+        choices=["train", "val", "test"],
+        help="Optional split filter for --manifest",
+    )
+    parser.add_argument(
+        "--manifest-label",
+        default=None,
+        choices=["0", "1"],
+        help="Optional label filter for --manifest (0 normal, 1 anomaly)",
+    )
+    parser.add_argument(
+        "--manifest-root-fallback",
+        default=None,
+        help="Optional root fallback for resolving relative manifest paths",
     )
     parser.add_argument("--output", required=True, help="Output .npy path for feature matrix")
     parser.add_argument(
@@ -69,17 +143,42 @@ def main(argv: list[str] | None = None) -> int:
             "uses extractor.extract_batched(..., batch_size=N)."
         ),
     )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help=(
+            "Optional directory for disk caching extracted features when inputs are paths. "
+            "This speeds up repeated runs with the same extractor config."
+        ),
+    )
     args = parser.parse_args(argv)
 
     from pyimgano.features import create_feature_extractor
 
-    root = Path(str(args.root))
-    if not root.is_dir():
-        raise ValueError(f"--root must be a directory, got {root}")
-
-    paths = _collect_paths(root, pattern=str(args.pattern))
-    if not paths:
-        raise ValueError("No files matched --pattern under --root")
+    manifest_path = None if args.manifest is None else Path(str(args.manifest))
+    if manifest_path is None:
+        if args.root is None:
+            raise ValueError("Provide either --root or --manifest.")
+        root = Path(str(args.root))
+        if not root.is_dir():
+            raise ValueError(f"--root must be a directory, got {root}")
+        paths = _collect_paths(root, pattern=str(args.pattern))
+        if not paths:
+            raise ValueError("No files matched --pattern under --root")
+    else:
+        if not manifest_path.exists():
+            raise FileNotFoundError(f"--manifest not found: {manifest_path}")
+        root_fb = None if args.manifest_root_fallback is None else Path(str(args.manifest_root_fallback))
+        label = None if args.manifest_label is None else int(args.manifest_label)
+        paths = _resolve_manifest_paths(
+            manifest_path=manifest_path,
+            category=args.manifest_category,
+            split=args.manifest_split,
+            label=label,
+            root_fallback=root_fb,
+        )
+        if not paths:
+            raise ValueError("No manifest records matched the provided filters.")
 
     extractor = create_feature_extractor(str(args.extractor), **_parse_kwargs(args.extractor_kwargs))
 
@@ -95,6 +194,14 @@ def main(argv: list[str] | None = None) -> int:
         fit = getattr(extractor, "fit", None)
         if callable(fit):
             fit(paths)
+
+    if args.cache_dir is not None:
+        from pyimgano.cache.features import CachedFeatureExtractor, FeatureCache, fingerprint_feature_extractor
+
+        cache_root = Path(str(args.cache_dir))
+        fp = fingerprint_feature_extractor(extractor)
+        cache = FeatureCache(cache_dir=cache_root, extractor_fingerprint=fp)
+        extractor = CachedFeatureExtractor(base_extractor=extractor, cache=cache)
 
     if args.batch_size is not None:
         extract_batched = getattr(extractor, "extract_batched", None)

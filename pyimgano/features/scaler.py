@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from .base import BaseFeatureExtractor
 from .identity import IdentityExtractor
 from .protocols import FeatureExtractor, FittableFeatureExtractor
-from .registry import register_feature_extractor
+from .registry import register_feature_extractor, resolve_feature_extractor
 
 
 @register_feature_extractor(
@@ -22,11 +22,13 @@ class StandardScalerExtractor(BaseFeatureExtractor):
     def __init__(
         self,
         *,
-        base_extractor: FeatureExtractor | None = None,
+        base_extractor: FeatureExtractor | str | dict | None = None,
         with_mean: bool = True,
         with_std: bool = True,
     ) -> None:
-        self.base_extractor = base_extractor if base_extractor is not None else IdentityExtractor()
+        if base_extractor is None:
+            base_extractor = IdentityExtractor()
+        self.base_extractor = resolve_feature_extractor(base_extractor)
         self.with_mean = bool(with_mean)
         self.with_std = bool(with_std)
         self._scaler: StandardScaler | None = None
@@ -56,4 +58,3 @@ class StandardScalerExtractor(BaseFeatureExtractor):
             X = X.reshape(-1, 1)
         Z = self._scaler.transform(X)
         return np.asarray(Z, dtype=np.float32)
-

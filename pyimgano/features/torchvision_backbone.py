@@ -59,32 +59,9 @@ def _make_device(device: str):  # noqa: ANN001, ANN201
 
 
 def _load_torchvision_backbone(backbone: str, *, pretrained: bool):
-    import torch.nn as nn
-    import torchvision.models as models
+    from pyimgano.utils.torchvision_safe import load_torchvision_backbone
 
-    name = str(backbone).strip()
-
-    if hasattr(models, "get_model") and hasattr(models, "get_model_weights"):
-        weights = None
-        if pretrained:
-            weights_enum = models.get_model_weights(name)
-            weights = weights_enum.DEFAULT
-        model = models.get_model(name, weights=weights)
-        transform = weights.transforms() if weights is not None else None
-    else:  # pragma: no cover - fallback for older torchvision
-        ctor = getattr(models, name)
-        model = ctor(pretrained=bool(pretrained))
-        transform = None
-
-    # Remove classification head to expose embeddings.
-    if hasattr(model, "fc"):
-        model.fc = nn.Identity()  # type: ignore[attr-defined]
-    elif hasattr(model, "classifier"):
-        model.classifier = nn.Identity()  # type: ignore[attr-defined]
-    elif hasattr(model, "head"):
-        model.head = nn.Identity()  # type: ignore[attr-defined]
-
-    return model, transform
+    return load_torchvision_backbone(str(backbone), pretrained=bool(pretrained))
 
 
 @dataclass

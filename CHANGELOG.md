@@ -12,13 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Perlin/fBm noise (`perlin_noise_2d`, `fractal_perlin_noise_2d`)
   - Mask primitives (blobs/ellipses/scratches) + alpha/Poisson blending utilities
   - CutPaste variants and an `AnomalySynthesizer` pipeline with deterministic seeding + ROI constraints
-  - Built-in presets: `scratch`, `stain`, `pit`, `glare`
+  - Built-in presets: `scratch`, `stain`, `pit`, `glare`, `rust`, `oil`, `crack`
 - Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly.
+- Added `TextureSourceBank` to support industrial texture-driven synthesis variants.
 - Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
+  - Added `--preview` mode (grid output) for fast preset debugging.
+  - Added `--from-manifest` mode to sample normals from a JSONL manifest and append synthetic anomalies.
 
 ### Robustness
 - Robustness benchmark corruptions can now optionally emit masks; benchmark updates labels based on returned masks so image-level metrics remain consistent.
 - Added a synthesis-style robustness corruption helper (`apply_synthesis_preset`).
+- Added `pyimgano.datasets.CorruptionsDataset` to apply deterministic corruptions in torch-style pipelines.
 
 ### Preprocessing
 - Added MSRCR-lite Retinex illumination normalization (`msrcr_lite`) and an industrial preset helper `retinex_illumination_normalization`.
@@ -33,6 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
 - Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.
 - Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
+- Added more native core detectors (feature-matrix first) with optional `vision_*` wrappers:
+  - `core_elliptic_envelope`, `core_mst_outlier`, `core_lid`
+  - `core_cook_distance`, `core_studentized_residual`
+  - `core_extra_trees_density`, `core_random_projection_knn`, `core_kde_ratio`, `core_neighborhood_entropy`
+- Added/modernized pipeline models:
+  - `vision_embedding_core` (deep embedding extractor + classical core detector)
+  - `vision_score_standardizer` and `core_score_standardizer` (score standardization wrappers)
+  - `vision_score_ensemble` and `core_score_ensemble` (spec-friendly score ensembles)
 - Improved the native detector contract (`BaseDetector`):
   - Added sklearn-style parameter helpers (`get_params` / `set_params`).
   - Added convenience methods (`fit_predict`, `score_samples`).
@@ -58,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `HOGExtractor`, `LBPExtractor`, `GaborBankExtractor`
   - `ColorHistogramExtractor`, `EdgeStatsExtractor`, `FFTLowFreqExtractor`, `PatchStatsExtractor`
   - `MultiExtractor` (concat) and `PCAProjector` / `StandardScalerExtractor` (fit/transform)
+- Added embedding-focused extractors:
+  - `torchvision_vit_tokens` (ViT token embeddings)
+  - `normalize` (embedding normalization / power transform)
+- Added feature pipeline spec support (string/dict extractor specs) and feature export helpers (`FeatureExport`).
 - Added optional disk caching for feature vectors when inputs are file paths (useful for large datasets).
 
 ### Calibration
@@ -73,11 +89,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### CLI / Pipelines
 - Added `pyimgano-features` CLI to list feature extractors and precompute feature vectors.
 - Added `pyimgano.pipelines.feature_pipeline` helpers and benchmark support for a `cache_dir` to persist feature vectors.
+- Added CLI support for lightweight industrial model presets (preset names resolve to model+kwargs).
 
 ### Utilities
 - Added consistent project logging utilities and deterministic `random_state` helpers.
 - Added score normalization helpers and lightweight parallel utilities.
 - Added typing helpers for stable public annotations.
+- Added best-effort AMP helper (`pyimgano.utils.torch_amp`) and an optional eval-time tensor cache for deep vision models.
 
 ### Packaging
 - Removed `pyod` from core dependencies.
@@ -89,6 +107,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docs/FEATURE_EXTRACTORS.md`
   - `docs/INDUSTRIAL_PREPROCESSING_COOKBOOK.md`
   - `docs/TUTORIAL_CLASSICAL_ON_EMBEDDINGS.md`
+  - `docs/INDUSTRIAL_EMBEDDING_PLUS_CORE.md`
+  - `docs/RECIPES_EMBEDDINGS_PLUS_CORE.md`
+  - `docs/ARCHITECTURE_DEEP_CONTRACTS.md`
+  - `docs/DEEP_MODELS_STATUS.md`
 - Added algorithm pages for new classical detectors (`loop`, `ldof`, `odin`, `rrcf`, `hst`) and refreshed the selection guide + comparisons.
 
 ### Tests

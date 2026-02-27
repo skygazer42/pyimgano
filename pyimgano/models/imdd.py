@@ -12,6 +12,7 @@ from sklearn.utils import check_array, check_random_state
 
 from ..utils.param_check import check_parameter
 
+from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
@@ -103,6 +104,39 @@ class CoreIMDD:
             if diff >= 0:
                 res[k] = diff + best_delta
         return res
+
+
+@register_model(
+    "core_imdd",
+    tags=("classical", "core", "features", "imdd", "lmdd"),
+    metadata={
+        "description": "IMDD/LMDD deviation detector for feature matrices (native wrapper)",
+        "type": "deviation",
+    },
+)
+class CoreIMDDDetector(CoreFeatureDetector):
+    """Feature-matrix IMDD/LMDD detector (`core_*`)."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_iter: int = 50,
+        dis_measure: str = "aad",
+        random_state=None,
+    ) -> None:
+        self.n_iter = int(n_iter)
+        self.dis_measure = str(dis_measure)
+        self.random_state = random_state
+        super().__init__(contamination=contamination)
+
+    def _build_detector(self):  # noqa: ANN201
+        return CoreIMDD(
+            contamination=float(self.contamination),
+            n_iter=int(self.n_iter),
+            dis_measure=str(self.dis_measure),
+            random_state=self.random_state,
+        )
 
 
 @register_model(

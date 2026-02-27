@@ -47,6 +47,9 @@ __all__ = [
     # Synthetic anomalies
     "SyntheticAnomalyDataset",
     "SyntheticItem",
+    # Robustness / corruptions
+    "CorruptionsDataset",
+    "CorruptionItem",
 ]
 
 
@@ -61,6 +64,8 @@ _LAZY_EXPORTS = {
     "VisionDataModule": ("datamodule", "VisionDataModule"),
     "SyntheticAnomalyDataset": ("synthetic", "SyntheticAnomalyDataset"),
     "SyntheticItem": ("synthetic", "SyntheticItem"),
+    "CorruptionsDataset": ("corruptions", "CorruptionsDataset"),
+    "CorruptionItem": ("corruptions", "CorruptionItem"),
 }
 
 

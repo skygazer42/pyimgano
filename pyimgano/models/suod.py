@@ -243,3 +243,45 @@ class VisionSUOD(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
+
+
+@register_model(
+    "vision_suod_spec",
+    tags=("vision", "classical", "ensemble", "suod"),
+    metadata={"description": "SUOD-style ensemble with JSON-friendly base-estimator specs"},
+)
+class VisionSUODSpec(BaseVisionDetector):
+    """Vision-friendly SUOD wrapper that accepts base-estimator specs."""
+
+    def __init__(
+        self,
+        *,
+        feature_extractor=None,
+        contamination: float = 0.1,
+        base_estimator_specs: Optional[Sequence[object]] = None,
+        combination: str = "average",
+        random_state: Optional[int] = None,
+        standardize: str = "zscore",
+        n_jobs=None,
+        **kwargs,
+    ) -> None:
+        self._specs = None if base_estimator_specs is None else list(base_estimator_specs)
+        self._detector_kwargs = dict(
+            contamination=float(contamination),
+            combination=str(combination),
+            random_state=random_state,
+            standardize=str(standardize),
+            n_jobs=n_jobs,
+            **dict(kwargs),
+        )
+        super().__init__(contamination=contamination, feature_extractor=feature_extractor)
+
+    def _build_detector(self):
+        from pyimgano.models.ensemble_spec import resolve_model_specs
+
+        specs = self._specs
+        if specs is not None:
+            ests = resolve_model_specs(specs, default_contamination=float(self.contamination))
+        else:
+            ests = None
+        return CoreSUOD(base_estimators=ests, **self._detector_kwargs)

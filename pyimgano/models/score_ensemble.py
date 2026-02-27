@@ -64,7 +64,9 @@ class VisionScoreEnsemble:
         if not detectors:
             raise ValueError("detectors must be non-empty")
 
+        # Accept detector instances OR specs (name strings / {"name":..,"kwargs":..}).
         self.detectors = list(detectors)
+        self.detectors_ = None  # resolved + fitted detectors
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
             raise ValueError(f"contamination must be in (0,0.5), got {self.contamination}")
@@ -82,7 +84,17 @@ class VisionScoreEnsemble:
         if not items:
             raise ValueError("X must be non-empty")
 
-        for det in self.detectors:
+        from pyimgano.models.ensemble_spec import resolve_model_specs
+
+        # Allow using decision_function() before fit(): in that case `detectors_`
+        # may already be resolved. Reuse them to avoid losing state.
+        if self.detectors_ is None:
+            self.detectors_ = resolve_model_specs(
+                self.detectors, default_contamination=float(self.contamination)
+            )
+        detectors = self.detectors_
+
+        for det in detectors:
             fit = getattr(det, "fit", None)
             if callable(fit):
                 fit(items)
@@ -166,8 +178,17 @@ class VisionScoreEnsemble:
         if not items:
             return np.zeros((0,), dtype=np.float32)
 
+        if self.detectors_ is None:
+            # Score-only ensembles should be usable without an explicit fit()
+            # when detectors are already instantiated.
+            from pyimgano.models.ensemble_spec import resolve_model_specs
+
+            self.detectors_ = resolve_model_specs(
+                self.detectors, default_contamination=float(self.contamination)
+            )
+
         per_detector: list[NDArray] = []
-        for det in self.detectors:
+        for det in self.detectors_:
             scores = det.decision_function(items)
             scores_np = np.asarray(scores, dtype=np.float64)
             if scores_np.shape[0] != len(items):
@@ -181,3 +202,34 @@ class VisionScoreEnsemble:
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = np.asarray(self.decision_function(X), dtype=np.float64)
         return (scores >= float(self.threshold_)).astype(np.int64)
+
+
+@register_model(
+    "core_score_ensemble",
+    tags=("classical", "core", "features", "ensemble", "score"),
+    metadata={
+        "description": "Score-only ensemble wrapper for feature-matrix detectors (spec-friendly)",
+    },
+)
+class CoreScoreEnsemble(VisionScoreEnsemble):
+    """Alias of :class:`VisionScoreEnsemble` for feature-matrix workflows (`core_*`)."""
+
+    def __init__(
+        self,
+        detectors: Sequence[Any] | None = None,
+        *,
+        contamination: float = 0.1,
+        combine: str = "mean_rank",
+        weights: Optional[Sequence[float]] = None,
+        trim_fraction: float = 0.1,
+    ) -> None:
+        # Keep core smoke tests cheap: provide a lightweight default ensemble.
+        if detectors is None:
+            detectors = ["core_ecod", "core_knn", "core_copod"]
+        super().__init__(
+            detectors=detectors,
+            contamination=float(contamination),
+            combine=str(combine),
+            weights=weights,
+            trim_fraction=float(trim_fraction),
+        )
