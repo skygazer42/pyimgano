@@ -94,7 +94,8 @@ def calibrate_threshold(
     scores_all: list[np.ndarray] = []
     with _torch_inference_context(amp=bool(amp)):
         for chunk in chunks:
-            scores_all.append(_call_decision_function(detector, chunk))
+            scores, _maps = _call_decision_function_with_optional_maps(detector, chunk)
+            scores_all.append(scores)
     scores = np.concatenate(scores_all, axis=0)
     if scores.size == 0:
         raise ValueError("No scores produced for calibration inputs.")
@@ -145,8 +146,51 @@ def _torch_inference_context(*, amp: bool) -> ExitStack:
 def _call_decision_function(detector: Any, inputs: Sequence[Any]) -> np.ndarray:
     """Best-effort wrapper around `decision_function` for list-vs-batch conventions."""
 
+    scores, _maps = _call_decision_function_with_optional_maps(detector, inputs)
+    return np.asarray(scores, dtype=np.float32)
+
+
+def _normalize_decision_scores(scores: Any, *, n_expected: int) -> np.ndarray:
+    arr = np.asarray(scores, dtype=np.float32)
+    if arr.ndim != 1:
+        arr = arr.reshape(-1)
+    if int(arr.shape[0]) != int(n_expected):
+        raise ValueError(
+            f"decision_function returned {int(arr.shape[0])} scores for {int(n_expected)} inputs."
+        )
+    return arr
+
+
+def _normalize_decision_maps(maps: Any, *, n_expected: int) -> np.ndarray:
+    arr = np.asarray(maps, dtype=np.float32)
+    if arr.ndim < 3:
+        raise ValueError(
+            "decision_function returned maps with ndim < 3. Expected shape like (N,H,W)[,...]."
+        )
+    if int(arr.shape[0]) != int(n_expected):
+        raise ValueError(
+            f"decision_function returned maps for N={int(arr.shape[0])}, expected {int(n_expected)}."
+        )
+    return arr
+
+
+def _call_decision_function_with_optional_maps(
+    detector: Any, inputs: Sequence[Any]
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Call decision_function and accept either scores or (scores, maps).
+
+    Some industrial pixel-map detectors can compute the score and anomaly map in a
+    single forward pass. To avoid double work, allow:
+        decision_function(X) -> scores
+        decision_function(X) -> (scores, maps)
+    """
+
+    n_expected = int(len(inputs))
+    if n_expected == 0:
+        return np.zeros((0,), dtype=np.float32), None
+
     try:
-        return np.asarray(detector.decision_function(inputs), dtype=np.float32)
+        out = detector.decision_function(inputs)
     except Exception as exc:
         # Some detectors expect an ndarray batch (N,H,W,C) instead of a list of arrays.
         if inputs and isinstance(inputs[0], np.ndarray):
@@ -155,10 +199,20 @@ def _call_decision_function(detector: Any, inputs: Sequence[Any]) -> np.ndarray:
             except Exception:
                 raise exc
             try:
-                return np.asarray(detector.decision_function(batch), dtype=np.float32)
+                out = detector.decision_function(batch)
             except Exception:
                 raise exc
-        raise
+        else:
+            raise
+
+    if isinstance(out, (tuple, list)) and len(out) == 2:
+        scores_any, maps_any = out
+        scores = _normalize_decision_scores(scores_any, n_expected=n_expected)
+        maps = _normalize_decision_maps(maps_any, n_expected=n_expected)
+        return scores, maps
+
+    scores = _normalize_decision_scores(out, n_expected=n_expected)
+    return scores, None
 
 
 def _try_get_maps(detector: Any, inputs: Sequence[Any]) -> list[np.ndarray | None] | None:
@@ -255,7 +309,9 @@ def infer_iter(
     def _yield_chunk(chunk: Sequence[Any]):
         t0 = time.perf_counter()
         with _torch_inference_context(amp=bool(amp)):
-            scores = _call_decision_function(detector, chunk)
+            scores, maps_from_decision = _call_decision_function_with_optional_maps(
+                detector, chunk
+            )
 
             labels: Optional[np.ndarray]
             if threshold is not None:
@@ -265,7 +321,15 @@ def infer_iter(
 
             maps: list[np.ndarray | None] | None = None
             if include_maps:
-                extracted = _try_get_maps(detector, chunk)
+                extracted: list[np.ndarray | None] | None
+                if maps_from_decision is not None:
+                    extracted = [
+                        np.asarray(maps_from_decision[i], dtype=np.float32)
+                        for i in range(int(scores.shape[0]))
+                    ]
+                else:
+                    extracted = _try_get_maps(detector, chunk)
+
                 if extracted is not None:
                     maps = []
                     for m in extracted:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Literal, Optional
@@ -11,6 +12,7 @@ from pyimgano.features.registry import register_feature_extractor
 
 
 _InputColor = Literal["rgb", "bgr"]
+_Pool = Literal["avg", "max", "gem", "cls"]
 
 
 def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
@@ -64,6 +66,33 @@ def _load_torchvision_backbone(backbone: str, *, pretrained: bool):
     return load_torchvision_backbone(str(backbone), pretrained=bool(pretrained))
 
 
+@contextmanager
+def _maybe_autocast(torch, *, device, enabled: bool):  # noqa: ANN001 - torch is dynamic
+    if not enabled:
+        yield
+        return
+
+    # Best-effort: only enable autocast on CUDA by default. CPU autocast can
+    # be surprising (bf16 availability, different numerics) and is rarely the
+    # industrial default for inference.
+    dev_type = str(getattr(device, "type", "cpu"))
+    if dev_type != "cuda":
+        yield
+        return
+
+    try:  # pragma: no cover - depends on torch version/backend
+        from torch.cuda.amp import autocast
+
+        with autocast(dtype=torch.float16):
+            yield
+    except Exception:  # noqa: BLE001 - best-effort
+        try:  # pragma: no cover
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                yield
+        except Exception:
+            yield
+
+
 @dataclass
 @register_feature_extractor(
     "torchvision_backbone",
@@ -84,32 +113,89 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
 
     backbone: str = "resnet18"
     pretrained: bool = False
+    pool: _Pool = "avg"
+    pool_node: str = "layer4"
+    gem_p: float = 3.0
+    gem_eps: float = 1e-6
+
     device: str = "cpu"
     batch_size: int = 16
     input_color: _InputColor = "rgb"
 
     # When not using weights-provided transforms, fall back to this size+norm.
     image_size: int = 224
+    channels_last: bool = False
+    amp: bool = False
+    compile: bool = False
+
+    # Optional disk cache for path inputs (embedding rows keyed by path+mtime+extractor config).
+    cache_dir: str | None = None
 
     def __post_init__(self) -> None:
         # Lazy init: don't load weights / models during registry import.
         self._model = None
         self._transform = None
         self._device = None
+        self._cache = None
+        self.last_cache_stats_ = {"hits": 0, "misses": 0, "enabled": False}
+
+        pool = str(self.pool).strip().lower()
+        if pool not in ("avg", "max", "gem", "cls"):
+            raise ValueError("pool must be one of: avg|max|gem|cls")
+        self.pool = pool  # type: ignore[assignment]
+
+        if self.cache_dir is not None:
+            from pyimgano.cache.embeddings import EmbeddingCache, fingerprint_payload
+
+            payload = {
+                "type": "torchvision_backbone",
+                "backbone": str(self.backbone),
+                "pretrained": bool(self.pretrained),
+                "pool": str(self.pool),
+                "pool_node": str(self.pool_node),
+                "gem_p": float(self.gem_p),
+                "gem_eps": float(self.gem_eps),
+                "image_size": int(self.image_size),
+                "input_color": str(self.input_color),
+            }
+            fp = fingerprint_payload(payload)
+            self._cache = EmbeddingCache(cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp)
 
     def _ensure_ready(self) -> None:
         if self._model is not None:
             return
 
         import torch
+        import torch.nn.functional as F
         import torchvision.transforms as T
 
+        pool = str(self.pool).strip().lower()
         model, weight_transform = _load_torchvision_backbone(
             str(self.backbone), pretrained=bool(self.pretrained)
         )
         dev = _make_device(str(self.device))
+
+        if pool == "gem":
+            from torchvision.models.feature_extraction import create_feature_extractor
+
+            node = str(self.pool_node)
+            model = create_feature_extractor(model, return_nodes={node: "feat"})
+
         model.to(dev)
         model.eval()
+
+        if bool(self.channels_last):
+            try:  # pragma: no cover - best-effort
+                model.to(memory_format=torch.channels_last)
+            except Exception:
+                pass
+
+        if bool(self.compile) and str(getattr(dev, "type", "cpu")) == "cuda" and hasattr(torch, "compile"):
+            try:  # pragma: no cover - compilation is backend dependent
+                model = torch.compile(model, mode="reduce-overhead")  # type: ignore[assignment]
+            except Exception:
+                # Best-effort: keep uncompiled model.
+                pass
 
         if weight_transform is not None:
             transform = weight_transform
@@ -128,19 +214,60 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         self._transform = transform
         self._device = dev
         self._torch = torch
+        self._F = F
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
         items = list(inputs)
         if not items:
             return np.zeros((0, 1), dtype=np.float64)
 
+        if self._cache is not None and all(isinstance(it, (str, Path)) for it in items):
+            paths = [str(p) for p in items]
+            cached_rows: dict[str, np.ndarray] = {}
+            missing: list[str] = []
+
+            for p in paths:
+                row = self._cache.load(p)
+                if row is None:
+                    missing.append(p)
+                else:
+                    cached_rows[p] = np.asarray(row, dtype=np.float64).reshape(-1)
+
+            if missing:
+                feats_missing = np.asarray(self._extract_uncached(missing), dtype=np.float64)
+                if feats_missing.ndim == 1:
+                    feats_missing = feats_missing.reshape(-1, 1)
+                if feats_missing.shape[0] != len(missing):
+                    raise ValueError(
+                        "torchvision_backbone extractor must return one row per path. "
+                        f"Got shape {feats_missing.shape} for {len(missing)} inputs."
+                    )
+                for i, p in enumerate(missing):
+                    row = np.asarray(feats_missing[i], dtype=np.float32).reshape(-1)
+                    self._cache.save(p, row)
+                    cached_rows[p] = row.astype(np.float64, copy=False)
+
+            self.last_cache_stats_ = {
+                "enabled": True,
+                "hits": int(len(paths) - len(missing)),
+                "misses": int(len(missing)),
+            }
+            rows = [cached_rows[p] for p in paths]
+            return np.stack(rows, axis=0).astype(np.float64, copy=False)
+
+        self.last_cache_stats_ = {"enabled": False, "hits": 0, "misses": int(len(items))}
+        return self._extract_uncached(items)
+
+    def _extract_uncached(self, items: list[Any]) -> np.ndarray:
         self._ensure_ready()
         assert self._model is not None
         assert self._transform is not None
         assert self._device is not None
 
         torch = self._torch
+        F = self._F
         bs = max(1, int(self.batch_size))
+        pool = str(self.pool).strip().lower()
 
         rows: list[np.ndarray] = []
         from pyimgano.utils.torch_infer import torch_inference
@@ -151,14 +278,64 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
                 pil_imgs = [_as_pil_rgb(it, input_color=self.input_color) for it in batch_items]
                 x = torch.stack([self._transform(im) for im in pil_imgs], dim=0)
                 x = x.to(self._device)
-                out = self._model(x)
-                if isinstance(out, (tuple, list)):
-                    out = out[0]
-                out_t = torch.as_tensor(out)
-                if out_t.ndim > 2:
-                    out_t = torch.flatten(out_t, start_dim=1)
-                out_np = out_t.detach().cpu().numpy().astype(np.float64, copy=False)
+
+                if bool(self.channels_last):
+                    try:  # pragma: no cover - best-effort
+                        x = x.contiguous(memory_format=torch.channels_last)
+                    except Exception:
+                        pass
+
+                with _maybe_autocast(torch, device=self._device, enabled=bool(self.amp)):
+                    if pool == "gem":
+                        out = self._model(x)["feat"]
+                        out_t = torch.as_tensor(out)
+                        if out_t.ndim == 4:
+                            from pyimgano.features.pooling import gem_pool2d
+
+                            emb = gem_pool2d(out_t, p=float(self.gem_p), eps=float(self.gem_eps))
+                        else:
+                            emb = torch.flatten(out_t, start_dim=1)
+                    elif pool == "cls":
+                        emb = self._vit_cls_embedding(x)
+                    else:
+                        out = self._model(x)
+                        if isinstance(out, (tuple, list)):
+                            out = out[0]
+                        out_t = torch.as_tensor(out)
+                        if out_t.ndim == 4:
+                            if pool == "max":
+                                out_t = F.adaptive_max_pool2d(out_t, output_size=(1, 1))
+                            else:
+                                out_t = F.adaptive_avg_pool2d(out_t, output_size=(1, 1))
+                            emb = torch.flatten(out_t, start_dim=1)
+                        elif out_t.ndim > 2:
+                            emb = torch.flatten(out_t, start_dim=1)
+                        else:
+                            emb = out_t
+
+                out_np = emb.detach().cpu().numpy().astype(np.float64, copy=False)
                 rows.append(out_np)
 
         feats = np.concatenate(rows, axis=0)
         return np.asarray(feats, dtype=np.float64)
+
+    def _vit_cls_embedding(self, x):  # noqa: ANN001, ANN201 - torch tensor
+        torch = self._torch
+        if torch is None:  # pragma: no cover - should be initialized in _ensure_ready
+            raise RuntimeError("Internal error: torch not initialized")
+
+        model = self._model
+        if model is None:
+            raise RuntimeError("Internal error: model not initialized")
+
+        if not hasattr(model, "_process_input"):
+            raise TypeError("Backbone does not support ViT token extraction (missing _process_input).")
+        if not hasattr(model, "encoder") or not hasattr(model, "class_token"):
+            raise TypeError("pool='cls' requires a torchvision VisionTransformer backbone.")
+
+        xt = model._process_input(x)  # type: ignore[attr-defined]
+        n = int(xt.shape[0])
+        cls = model.class_token.expand(n, -1, -1)  # type: ignore[attr-defined]
+        tokens = torch.cat([cls, xt], dim=1)
+        tokens = model.encoder(tokens)  # type: ignore[attr-defined]
+        return tokens[:, 0, :]

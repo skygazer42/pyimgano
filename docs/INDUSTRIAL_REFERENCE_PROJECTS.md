@@ -28,6 +28,19 @@ Policy for `pyimgano`:
 
 The list below is intentionally mixed: frameworks, single-method repos, and augmentation toolkits.
 
+Datasets / benchmarks (read the papers + check licenses before redistribution):
+- MVTec AD 2 dataset page (CC BY-NC-SA 4.0): https://www.mvtec.com/company/research/datasets/mvtec-ad-2
+  - paper: https://arxiv.org/abs/2503.21622
+- Real-IAD (multi-view industrial IAD; access-gated): https://realiad4ad.github.io/Real-IAD/
+  - D3 paper: https://arxiv.org/abs/2504.14221
+- RAD (robotic multi-view; viewpoint/lighting shifts): https://rad-iad.github.io/
+  - paper: https://arxiv.org/abs/2411.12179
+- ReinAD (reinforced inspection): https://reinad.ai/
+- VAND @ CVPR 2025 (Visual Anomaly & Novelty Detection workshop; evaluation conventions, baselines):
+  - schedule: https://cvpr2025.thecvf.com/virtual/2025/workshop/36626
+  - openaccess: https://openaccess.thecvf.com/CVPR2025_workshops/VAND.html
+- MMAD (ICLR 2025 multimodal AD benchmark): https://github.com/jam-cc/MMAD
+
 Framework-style (pipelines + config):
 - `openvinotoolkit/anomalib` (Apache-2.0)
 - `DoMaLi94/industrial-image-anomaly-detection` (MIT)
@@ -47,6 +60,9 @@ Method implementations (conceptual reference only):
 - RD++ (Reverse Distillation++): `tientrandinh/Revisiting-Reverse-Distillation` (MIT)
 - PUAD (Prompt-based): `LeapMind/PUAD` (Apache-2.0)
 - STFPM: `gdwang08/STFPM` (**GPL-3.0**; study-only, do not copy code into MIT project)
+- RAD (robotic multi-view dataset + baselines): `kaichen-z/RAD` (check upstream license; study-only clone)
+- ReinAD (reinforced inspection): `FangshuoX/ReinAD` (check upstream license; study-only clone)
+- AnomalyAny (CVPR 2025; diffusion-style anomaly generation ideas): `EPFL-IMOS/AnomalyAny` (check upstream license; study-only clone)
 
 Augmentation/synthesis toolkits (conceptual reference):
 - `albumentations-team/albumentations` (MIT)
@@ -55,6 +71,10 @@ Augmentation/synthesis toolkits (conceptual reference):
 
 Classical outlier detection (API/contract reference only):
 - `yzhao062/pyod` (BSD-2-Clause; API patterns; *not* used as a dependency)
+
+Indexes / survey repositories (good for keeping up-to-date; do not treat as authoritative implementations):
+- Awesome IAD list: `M-3LAB/awesome-industrial-anomaly-detection`
+- IAD-Survey (paper+code index): `IHPCRits/IAD-Survey`
 
 ---
 

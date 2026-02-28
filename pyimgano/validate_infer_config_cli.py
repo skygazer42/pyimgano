@@ -6,6 +6,15 @@ import sys
 from pathlib import Path
 
 
+def _ensure_repo_root_on_sys_path() -> None:
+    # When invoked as `python pyimgano/validate_infer_config_cli.py`, Python sets sys.path[0]
+    # to `pyimgano/` rather than the repo root. Add the repo root so `import pyimgano` works
+    # without requiring an editable install.
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyimgano-validate-infer-config",
@@ -34,6 +43,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _ensure_repo_root_on_sys_path()
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -69,4 +79,3 @@ def main(argv: list[str] | None = None) -> int:
         msg += f" checkpoint={ckpt}"
     print(msg)
     return 0
-

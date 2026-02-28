@@ -60,6 +60,9 @@ def strip_classification_head(model: Any):
         model.classifier = nn.Identity()  # type: ignore[attr-defined]
     elif hasattr(model, "head"):
         model.head = nn.Identity()  # type: ignore[attr-defined]
+    elif hasattr(model, "heads"):
+        # Torchvision VisionTransformer uses `.heads`.
+        model.heads = nn.Identity()  # type: ignore[attr-defined]
     return model
 
 
@@ -69,4 +72,3 @@ def load_torchvision_backbone(name: str, *, pretrained: bool):
     model, transform = load_torchvision_model(str(name), pretrained=bool(pretrained))
     model = strip_classification_head(model)
     return model, transform
-

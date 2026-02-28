@@ -1,10 +1,80 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, Mapping, Sequence
 
 import cv2
 import numpy as np
 from PIL import Image
+
+
+def _sanitize_stem(stem: str) -> str:
+    # Keep filenames portable across filesystems.
+    safe = []
+    for ch in str(stem):
+        if ch.isalnum() or ch in ("-", "_"):
+            safe.append(ch)
+        else:
+            safe.append("_")
+    out = "".join(safe).strip("._")
+    return out or "image"
+
+
+def _format_regions_suffix(regions: Sequence[Mapping[str, Any]] | None) -> str:
+    if not regions:
+        return "__r0"
+
+    ids: list[str] = []
+    for r in list(regions)[:3]:
+        rid = r.get("id", None)
+        if rid is None:
+            continue
+        try:
+            ids.append(str(int(rid)))
+        except Exception:
+            continue
+    id_part = "-".join(ids) if ids else "x"
+
+    top = regions[0]
+    parts = [f"r{id_part}"]
+
+    smax = top.get("score_max", None)
+    if smax is not None:
+        try:
+            parts.append(f"smax{float(smax):.3f}")
+        except Exception:
+            pass
+
+    smean = top.get("score_mean", None)
+    if smean is not None:
+        try:
+            parts.append(f"smean{float(smean):.3f}")
+        except Exception:
+            pass
+
+    area = top.get("area", None)
+    if area is not None:
+        try:
+            parts.append(f"a{int(area)}")
+        except Exception:
+            pass
+
+    return "__" + "_".join(parts)
+
+
+def build_overlay_filename(
+    *,
+    index: int,
+    stem: str,
+    regions: Sequence[Mapping[str, Any]] | None,
+    ext: str = ".png",
+) -> str:
+    """Build a debug-friendly overlay filename including defect region summary."""
+
+    suffix = _format_regions_suffix(regions)
+    safe_stem = _sanitize_stem(stem)
+    extension = str(ext) if str(ext).startswith(".") else f".{ext}"
+    return f"{int(index):06d}_{safe_stem}{suffix}{extension}"
 
 
 def save_overlay_image(
@@ -78,4 +148,3 @@ def save_overlay_image(
     out_u8 = np.clip(canvas, 0.0, 255.0).astype(np.uint8)
     Image.fromarray(out_u8, mode="RGB").save(out)
     return out
-

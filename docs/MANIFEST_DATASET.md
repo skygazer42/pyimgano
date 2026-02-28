@@ -38,6 +38,10 @@ One JSON object per line.
 - `meta: object`
   - Optional metadata object; treated as opaque user payload.
   - When present, the workbench per-image JSONL records include `meta` for each test sample.
+  - Recommended keys for industrial multi-view / multi-condition datasets:
+    - `meta.view_id`: camera/view identifier (e.g. `"cam0"` or `0`)
+    - `meta.condition`: lighting/station/config label (e.g. `"day"` / `"night"` / `"station_3"`)
+    - `meta.group_id`: leakage-safe group ID (same physical item, same capture sequence, etc.)
 
 ### Example
 
@@ -81,7 +85,7 @@ If `split` is missing, the default policy is **benchmark-style**:
 
 ### Group-aware splitting (`group_id`)
 
-If `group_id` is present:
+If `group_id` (or `meta.group_id`) is present:
 
 - groups are indivisible units (no leakage)
 - if any record in a group is anomalous (`label==1`), the whole group goes to `test`

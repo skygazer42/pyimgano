@@ -150,8 +150,15 @@ def _merge_and_filter_model_kwargs(
     }
 
     merged = dict(model_kwargs)
+    auto_passthrough = {"contamination", "random_state", "random_seed"}
     for key, value in auto_defaults.items():
-        merged.setdefault(key, value)
+        if key in merged:
+            continue
+        # Auto defaults are CLI/workbench-driven defaults (device/seed/etc).
+        # Do not pass unknown auto keys into constructors that accept **kwargs:
+        # many wrappers forward **kwargs into sklearn backends which will error.
+        if key in accepted or (accepts_var_kwargs and key in auto_passthrough):
+            merged[key] = value
 
     if accepts_var_kwargs:
         out = merged
@@ -424,6 +431,15 @@ def run_benchmark_category(
         "results": results,
         "timing": dict(timing),
     }
+    try:
+        from pyimgano.reporting.report_schema import extract_reference_context
+
+        ref_ctx = extract_reference_context(detector)
+        if ref_ctx is not None:
+            payload["reference"] = dict(ref_ctx)
+    except Exception:
+        # Best-effort: never fail benchmarking due to optional schema enrichment.
+        pass
     if pixel_skip_reason is not None:
         payload["pixel_metrics_status"] = {"enabled": False, "reason": str(pixel_skip_reason)}
     if load_detector_requested:

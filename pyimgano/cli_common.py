@@ -101,10 +101,14 @@ def build_model_kwargs(
             if accepts_var_kwargs or key in accepted:
                 out[key] = value
     out.update(user_kwargs)
+    auto_passthrough = {"contamination", "random_state", "random_seed"}
     for key, value in auto_kwargs.items():
         if key in out:
             continue
-        if accepts_var_kwargs or key in accepted:
+        # Auto kwargs are CLI-provided defaults (device/contamination/pretrained/seed-ish).
+        # Even if a constructor accepts **kwargs, passing unknown auto keys can be unsafe:
+        # many classical wrappers forward **kwargs into sklearn backends that will error.
+        if key in accepted or (accepts_var_kwargs and key in auto_passthrough):
             out[key] = value
 
     # JSON-friendly feature extractor support:

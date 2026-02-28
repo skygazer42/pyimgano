@@ -193,6 +193,32 @@ def _attach_meta_to_manifest_records(
     return out
 
 
+def _ensure_synthesis_meta_fields(meta: dict[str, Any], *, fallback_preset_id: str) -> dict[str, Any]:
+    """Normalize synthesis meta for stable downstream consumption.
+
+    Requirements (v4):
+    - `meta.severity`: float in [0,1] (defaults to 1.0)
+    - `meta.preset_id`: stable preset identifier string
+    """
+
+    m = dict(meta)
+
+    try:
+        sev = float(m.get("severity", 1.0))
+    except Exception:
+        sev = 1.0
+    m["severity"] = float(np.clip(sev, 0.0, 1.0))
+
+    preset_id = m.get("preset_id", None)
+    if preset_id is None:
+        preset_id = m.get("preset", None)
+    if preset_id is None:
+        preset_id = fallback_preset_id
+    m["preset_id"] = str(preset_id)
+
+    return m
+
+
 def _rewrite_manifest_jsonl(path: str | Path, records: list[dict[str, Any]]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -366,7 +392,9 @@ def synthesize_dataset(
 
                 _write_u8_bgr(img_out, out_img)
                 _write_u8_bgr(mask_out, out_mask)
-                meta_by_filename[out_name] = dict(res.meta)
+                meta_by_filename[out_name] = _ensure_synthesis_meta_fields(
+                    dict(res.meta), fallback_preset_id=str(preset)
+                )
                 accepted = True
                 break
 
@@ -514,7 +542,9 @@ def synthesize_dataset_from_manifest(
 
                 _write_u8_bgr(img_out, out_img)
                 _write_u8_bgr(mask_out, out_mask)
-                meta_by_filename[out_name] = dict(res.meta)
+                meta_by_filename[out_name] = _ensure_synthesis_meta_fields(
+                    dict(res.meta), fallback_preset_id=str(preset)
+                )
                 accepted = True
                 break
 

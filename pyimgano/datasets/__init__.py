@@ -35,6 +35,10 @@ __all__ = [
     "CustomDataset",
     "ManifestDataset",
     "load_dataset",
+    # Dataset → manifest converters (paths-first)
+    "convert_mvtec_ad2_to_manifest",
+    "convert_real_iad_to_manifest",
+    "convert_rad_to_manifest",
     # Torch-style datasets / datamodule
     "ImagePathDataset",
     "VisionImageDataset",
@@ -66,6 +70,10 @@ _LAZY_EXPORTS = {
     "SyntheticItem": ("synthetic", "SyntheticItem"),
     "CorruptionsDataset": ("corruptions", "CorruptionsDataset"),
     "CorruptionItem": ("corruptions", "CorruptionItem"),
+    # Dataset → manifest converters
+    "convert_mvtec_ad2_to_manifest": ("mvtec_ad2", "convert_mvtec_ad2_to_manifest"),
+    "convert_real_iad_to_manifest": ("real_iad", "convert_real_iad_to_manifest"),
+    "convert_rad_to_manifest": ("rad", "convert_rad_to_manifest"),
 }
 
 

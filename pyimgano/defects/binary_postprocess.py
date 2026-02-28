@@ -11,6 +11,7 @@ def postprocess_binary_mask(
     open_ksize: int,
     close_ksize: int,
     fill_holes: bool,
+    dilate_ksize: int = 0,
     anomaly_map: np.ndarray | None = None,
     min_score_max: float | None = None,
     min_score_mean: float | None = None,
@@ -123,6 +124,11 @@ def postprocess_binary_mask(
     if fill_holes:
         # Filled in Task 5; keep behavior best-effort and dependency-light.
         mask = _fill_holes_best_effort(mask)
+
+    if dilate_ksize and int(dilate_ksize) > 0:
+        k = int(dilate_ksize)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+        mask = cv2.dilate(mask, kernel, iterations=1)
 
     return mask
 

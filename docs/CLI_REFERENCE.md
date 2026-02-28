@@ -1,13 +1,17 @@
 # CLI Reference
 
-PyImgAno provides six primary CLIs:
+PyImgAno provides the following CLIs:
 
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
 - `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
+- `pyimgano-defects` — standalone anomaly-map → mask → regions defects export
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
 - `pyimgano-manifest` — generate a JSONL manifest from a `custom`-layout dataset tree
+- `pyimgano-datasets` — dataset converter discovery + metadata
+- `pyimgano-synthesize` — anomaly synthesis + manifest generation
 - `pyimgano-validate-infer-config` — validate an exported `infer_config.json` before deployment
+- `pyimgano-features` — feature/embedding extractor discovery + extraction utilities
 
 ---
 
@@ -134,14 +138,18 @@ Optional:
 - `--amp` — best-effort AMP/autocast for torch-backed models (requires torch + CUDA; otherwise runs without AMP)
 - `--include-anomaly-map-values` — embed raw anomaly-map values in JSONL (debug only; very large output)
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
+  - `--defects-preset industrial-defects-fp40` — FP reduction defaults (ROI/border/smoothing/hysteresis/shape filters)
+  - `--defects-regions-jsonl PATH` — write per-image regions payloads to a dedicated JSONL file
   - `--save-masks DIR` + `--mask-format png|npy|npz` (`npz` is compressed numpy; good for large batches)
+  - `--defects-mask-space roi|full` — when ROI is set, export ROI-only or full-size masks (regions are always ROI-gated)
+  - `--defects-mask-dilate INT` — optional mask dilation for industrial fill/coverage
   - `--save-overlays DIR` — save per-image debugging overlays (original + heatmap + mask outline/fill)
   - `--defects-image-space` — add `bbox_xyxy_image` to regions when image size is available
   - Pixel threshold options:
     - `--pixel-threshold FLOAT` + `--pixel-threshold-strategy fixed`
-	    - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
-	    - `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`; uses `--pixel-normal-quantile`)
-	      - If selected and `--train-dir` is provided, `pyimgano-infer` recalibrates from normal/train maps even if `infer_config.json` contains `defects.pixel_threshold`.
+    - `--pixel-threshold-strategy infer_config` (uses `defects.pixel_threshold` from `infer_config.json` / a workbench run)
+    - `--pixel-threshold-strategy normal_pixel_quantile` (requires `--train-dir`; uses `--pixel-normal-quantile`)
+      - If selected and `--train-dir` is provided, `pyimgano-infer` recalibrates from normal/train maps even if `infer_config.json` contains `defects.pixel_threshold`.
   - When running with `--infer-config` or `--from-run`, the exported `defects.*` settings are used as defaults
     (ROI, morphology, min-area, mask format, max regions, pixel threshold strategy/quantile, etc.). CLI flags override.
   - When running with `--infer-config` or `--from-run`, exported preprocessing defaults (e.g. `preprocessing.illumination_contrast`)
@@ -172,6 +180,9 @@ Optional:
   - Region-level filters (optional):
     - `--defect-min-score-max FLOAT` — drop components whose max anomaly score is below the threshold
     - `--defect-min-score-mean FLOAT` — drop components whose mean anomaly score is below the threshold
+  - Mask morphology (optional):
+    - `--defect-open-ksize INT` / `--defect-close-ksize INT`
+    - `--defect-fill-holes`
 - `--from-run RUN_DIR` — load model/threshold/checkpoint from a prior `pyimgano-train` workbench run
   - If the run contains multiple categories, pass `--from-run-category NAME`.
 - `--infer-config PATH` — load model/threshold/checkpoint from an exported workbench infer-config

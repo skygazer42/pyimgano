@@ -15,7 +15,7 @@ Score convention: higher reconstruction error => more anomalous.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -305,6 +305,64 @@ class VisionTorchAutoencoder(BaseVisionDetector):
     def decision_function(self, X):  # noqa: ANN001, ANN201
         return super().decision_function(X)
 
+@register_model(
+    "vision_embedding_torch_autoencoder",
+    tags=("vision", "deep", "torch", "autoencoder", "embeddings", "pipeline"),
+    metadata={
+        "description": (
+            "Industrial preset: deep embeddings (torchvision_backbone) -> torch MLP autoencoder -> recon error"
+        ),
+    },
+)
+class VisionEmbeddingTorchAutoencoder(BaseVisionDetector):
+    """Opinionated, stable defaults for 'embeddings -> torch AE'."""
 
-__all__ = ["CoreTorchAutoencoder", "VisionTorchAutoencoder"]
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        device: str = "cpu",
+        embedding_extractor: str | object = "torchvision_backbone",
+        embedding_kwargs: Mapping[str, object] | None = None,
+        ae_kwargs: Mapping[str, object] | None = None,
+    ) -> None:
+        dev = str(device)
 
+        if embedding_kwargs is None and str(embedding_extractor) == "torchvision_backbone":
+            embedding_kwargs = {
+                "backbone": "resnet18",
+                "pretrained": False,
+                "pool": "avg",
+                "device": dev,
+            }
+
+        if embedding_kwargs:
+            feature_extractor = {"name": str(embedding_extractor), "kwargs": dict(embedding_kwargs)}
+        else:
+            feature_extractor = embedding_extractor
+
+        # Stability-first defaults: moderate AE size, preprocessing on, deterministic seed-friendly.
+        default_ae = {
+            "hidden_dims": (64, 32),
+            "activation": "relu",
+            "dropout": 0.0,
+            "epochs": 30,
+            "batch_size": 64,
+            "lr": 1e-3,
+            "weight_decay": 0.0,
+            "device": dev,
+            "preprocessing": True,
+            "random_state": 0,
+        }
+        merged_ae = dict(default_ae)
+        if ae_kwargs is not None:
+            merged_ae.update(dict(ae_kwargs))
+
+        self._detector_kwargs = dict(merged_ae)
+        super().__init__(contamination=float(contamination), feature_extractor=feature_extractor)
+
+    def _build_detector(self):
+        return _MLPAutoencoder(**self._detector_kwargs)
+
+
+__all__ = ["CoreTorchAutoencoder", "VisionTorchAutoencoder", "VisionEmbeddingTorchAutoencoder"]

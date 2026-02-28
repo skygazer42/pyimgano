@@ -96,18 +96,19 @@ def evaluate_split(
 
     if bool(pixel_segf1):
         strategy = "normal_pixel_quantile" if pixel_threshold_strategy is None else str(pixel_threshold_strategy)
-        if strategy != "normal_pixel_quantile":
+        if strategy not in ("normal_pixel_quantile", "supervised_segf1"):
             raise ValueError(
                 "Unsupported pixel_threshold_strategy. "
-                "Supported: normal_pixel_quantile. "
+                "Supported: normal_pixel_quantile, supervised_segf1. "
                 f"Got: {pixel_threshold_strategy!r}"
             )
 
-        train_paths, calibration_paths = split_train_calibration(
-            train_paths,
-            calibration_fraction=float(calibration_fraction),
-            seed=int(calibration_seed),
-        )
+        if strategy == "normal_pixel_quantile":
+            train_paths, calibration_paths = split_train_calibration(
+                train_paths,
+                calibration_fraction=float(calibration_fraction),
+                seed=int(calibration_seed),
+            )
 
     detector.fit(train_paths)
     scores = detector.decision_function(split.test_paths)
@@ -144,24 +145,37 @@ def evaluate_split(
                 "Ensure the detector exposes predict_anomaly_map() or get_anomaly_map()."
             )
 
-        calib_paths = calibration_paths if calibration_paths else list(train_paths)
-        if not calib_paths:
-            raise ValueError("pixel_segf1=True requires a non-empty calibration set.")
+        strategy = "normal_pixel_quantile" if pixel_threshold_strategy is None else str(pixel_threshold_strategy)
+        if strategy == "normal_pixel_quantile":
+            calib_paths = calibration_paths if calibration_paths else list(train_paths)
+            if not calib_paths:
+                raise ValueError("pixel_segf1=True requires a non-empty calibration set.")
 
-        raw_maps = _extract_raw_maps_from_detector(detector, calib_paths)
-        cal_vals: list[np.ndarray] = []
-        for m in raw_maps:
-            arr = np.asarray(m, dtype=np.float32)
-            if arr.ndim != 2:
-                raise ValueError(f"Expected 2D anomaly map for calibration, got {arr.shape}")
-            if postprocess is not None:
-                arr = np.asarray(postprocess(arr), dtype=np.float32)
-            cal_vals.append(arr.reshape(-1))
+            raw_maps = _extract_raw_maps_from_detector(detector, calib_paths)
+            cal_vals: list[np.ndarray] = []
+            for m in raw_maps:
+                arr = np.asarray(m, dtype=np.float32)
+                if arr.ndim != 2:
+                    raise ValueError(f"Expected 2D anomaly map for calibration, got {arr.shape}")
+                if postprocess is not None:
+                    arr = np.asarray(postprocess(arr), dtype=np.float32)
+                cal_vals.append(arr.reshape(-1))
 
-        pixel_threshold = calibrate_normal_pixel_quantile_threshold(
-            np.concatenate(cal_vals, axis=0),
-            q=float(pixel_normal_quantile),
-        )
+            pixel_threshold = calibrate_normal_pixel_quantile_threshold(
+                np.concatenate(cal_vals, axis=0),
+                q=float(pixel_normal_quantile),
+            )
+        elif strategy == "supervised_segf1":
+            from pyimgano.calibration.pixel_threshold_supervised import (
+                calibrate_supervised_segf1_threshold,
+            )
+
+            pixel_threshold = calibrate_supervised_segf1_threshold(
+                np.asarray(pixel_scores_used, dtype=np.float32),
+                np.asarray(split.test_masks),
+            )
+        else:  # pragma: no cover - guarded by earlier validation
+            raise ValueError(f"Unsupported pixel_threshold_strategy: {pixel_threshold_strategy!r}")
 
     return evaluate_detector(
         split.test_labels,

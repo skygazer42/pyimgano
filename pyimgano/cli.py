@@ -230,7 +230,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pixel-threshold-strategy",
         default=None,
-        choices=["normal_pixel_quantile"],
+        choices=["normal_pixel_quantile", "supervised_segf1"],
         help=(
             "Pixel threshold calibration strategy used for --pixel-segf1. "
             "Default: normal_pixel_quantile"
@@ -671,10 +671,14 @@ def _build_model_kwargs(
             if accepts_var_kwargs or key in accepted:
                 out[key] = value
     out.update(user_kwargs)
+    auto_passthrough = {"contamination", "random_state", "random_seed"}
     for key, value in auto_kwargs.items():
         if key in out:
             continue
-        if accepts_var_kwargs or key in accepted:
+        # Auto kwargs are CLI-provided defaults (device/contamination/pretrained/seed-ish).
+        # Even if a constructor accepts **kwargs, passing unknown auto keys can be unsafe:
+        # many classical wrappers forward **kwargs into sklearn backends that will error.
+        if key in accepted or (accepts_var_kwargs and key in auto_passthrough):
             out[key] = value
 
     if "feature_extractor" in out:

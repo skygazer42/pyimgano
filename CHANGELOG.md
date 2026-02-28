@@ -19,14 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Edge-band wear (`random_edge_band_mask`)
 - Expanded built-in synthesis presets:
   - `brush`, `spatter`, `tape`, `marker`, `burn`, `bubble`, `fiber`, `wrinkle`, `texture`, `edge_wear`
+- Added shift/misalignment stress-test presets:
+  - `illumination` (global gradient / vignetting)
+  - `warp` (slight affine misalignment)
 - Added preset mixture support (`make_preset_mixture`) to sample multiple defect types.
-- Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly.
+- `AnomalySynthesizer` now supports multiple defects per image (`num_defects`) and a global severity scalar (`severity`).
+- Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly, including severity curriculum controls.
 - Added `TextureSourceBank` to support industrial texture-driven synthesis variants.
 - Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
   - Added `--preview` mode (grid output) for fast preset debugging.
   - Added `--from-manifest` mode to sample normals from a JSONL manifest and append synthetic anomalies.
-  - Added `--presets` to sample from a preset mixture and attach chosen preset metadata to manifest records.
+  - Added `--presets` to sample from a preset mixture and attach chosen preset metadata to manifest records (`meta.preset_id`).
   - Added `--roi-mask` to constrain anomalies to an allowed region (useful for fixtures/background exclusion).
+  - Manifest anomaly records now include `meta.severity` (0..1) for curriculum-style workflows.
 
 ### Robustness
 - Robustness benchmark corruptions can now optionally emit masks; benchmark updates labels based on returned masks so image-level metrics remain consistent.
@@ -41,6 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Docs
 - Added `docs/SYNTHETIC_ANOMALY_GENERATION.md` and updated the industrial preprocessing cookbook with synthesis usage.
+- Added industrial “MVP loop” documentation: `docs/INDUSTRIAL_MVP_LOOP.md` (synthesize → infer → defects).
+- Added a v4 research-to-implementation mapping doc: `docs/PAPER_TO_MODULE_MAP_V4.md`.
+- Updated the reference study index: `docs/INDUSTRIAL_REFERENCE_PROJECTS.md`.
+- Added reference-based inspection recipes: `docs/RECIPES_REFERENCE_BASED_INSPECTION.md`.
+- Added embedding/core selection guidance: `docs/CORE_SELECTION_ON_EMBEDDINGS.md`.
+- Added dataset notes:
+  - `docs/DATASET_MVTEC_AD2_NOTES.md`
+  - `docs/DATASET_REAL_WORLD_IAD_NOTES.md`
 
 ### Models
 - Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
@@ -73,9 +86,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `vision_feature_pipeline` to compose feature extractors with `core_*` detectors via a single registry model.
 - Added pixel-map capable SSIM template baselines:
   - `ssim_template_map` and `ssim_struct_map` (return `predict_anomaly_map`)
+- Added additional pixel-map template baselines:
+  - `vision_template_ncc_map` (local NCC similarity → anomaly map)
+  - `vision_phase_correlation_map` (translation alignment → abs-diff anomaly map)
+- Added reference-based pixel-map baseline:
+  - `vision_ref_patch_distance_map` (torchvision feature-map patch distance vs a golden reference)
 - Added torch-based reconstruction baselines:
   - `core_torch_autoencoder` (MLP autoencoder on feature matrices)
   - `vision_torch_autoencoder` (feature extractor + autoencoder core)
+- Added a tiny VQ-VAE reconstruction baseline (`vqvae_conv`) and an embedding-first AE route (`vision_embedding_torch_autoencoder`).
 - Added lightweight preconfigured industrial wrappers (embedding + core):
   - `vision_resnet18_ecod`, `vision_resnet18_iforest`, `vision_resnet18_knn`, `vision_resnet18_torch_ae`
 - Refined `vision_crossmad` to be safe-by-default and align with `BaseDetector` score/threshold semantics.
@@ -133,6 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 - Added extensive coverage for the native detector contract, calibration utilities, feature extractors, preprocessing ops, and CLI smoke checks.
+- Added guardrail tests for inference flags (`--include-maps` vs `--defects`), OpenCLIP no-download defaults, and torch-tensor inputs for `core_*` models.
 
 ## [0.6.23] - 2026-02-25
 

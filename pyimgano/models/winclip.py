@@ -103,7 +103,14 @@ class WindowAttention:
         return anomaly_map
 
 
-@register_model("winclip")
+@register_model(
+    "winclip",
+    tags=("vision", "deep", "winclip", "clip", "pixel_map"),
+    metadata={
+        "description": "WinCLIP (legacy name) - Zero-/Few-shot CLIP-based anomaly detection",
+        "year": 2023,
+    },
+)
 class WinCLIPDetector(BaseVisionDeepDetector):
     """WinCLIP zero-shot anomaly detector.
 
@@ -408,7 +415,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
 
 @register_model(
     "vision_winclip",
-    tags=("vision", "deep", "winclip", "clip"),
+    tags=("vision", "deep", "winclip", "clip", "pixel_map"),
     metadata={
         "description": "WinCLIP - Zero-/Few-shot CLIP-based anomaly detection (CVPR 2023)",
         "paper": "WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation",

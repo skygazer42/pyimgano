@@ -12,19 +12,51 @@ This script is intentionally conservative and text-based.
 
 import sys
 from pathlib import Path
+import re
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class UpstreamRef:
+    path: Path
+    lineno: int
+    marker: str
+
+
+_GITHUB_RE = re.compile(r"github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
+_ORG_REPO_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\b")
 
 
 def _iter_py_files(root: Path) -> list[Path]:
     out: list[Path] = []
     for p in root.rglob("*.py"):
-        if p.name == "__pycache__":
-            continue
         out.append(p)
     return out
 
 
-def _extract_upstreams(py_files: list[Path]) -> dict[str, list[Path]]:
-    upstream_to_files: dict[str, list[Path]] = {}
+def _normalize_upstream(marker: str) -> tuple[str, str | None]:
+    """Return (key, url) for notice matching and user-friendly reporting."""
+
+    text = str(marker).strip()
+    if not text:
+        return "", None
+
+    m = _GITHUB_RE.search(text)
+    if m is not None:
+        org_repo = m.group(1)
+        return org_repo, f"https://github.com/{org_repo}"
+
+    m = _ORG_REPO_RE.match(text)
+    if m is not None:
+        org_repo = m.group(1)
+        return org_repo, f"https://github.com/{org_repo}"
+
+    # Fallback: keep the raw marker as the key.
+    return text, None
+
+
+def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
+    upstream_to_refs: dict[str, list[UpstreamRef]] = {}
     for p in py_files:
         try:
             text = p.read_text(encoding="utf-8", errors="replace")
@@ -33,7 +65,7 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[Path]]:
         if "UPSTREAM:" not in text:
             continue
 
-        for line in text.splitlines():
+        for lineno, line in enumerate(text.splitlines(), start=1):
             if "UPSTREAM:" not in line:
                 continue
             # Accept formats like:
@@ -42,9 +74,11 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[Path]]:
             marker = line.split("UPSTREAM:", 1)[1].strip()
             if not marker:
                 continue
-            upstream = marker
-            upstream_to_files.setdefault(upstream, []).append(p)
-    return upstream_to_files
+            key, _url = _normalize_upstream(marker)
+            if not key:
+                continue
+            upstream_to_refs.setdefault(key, []).append(UpstreamRef(path=p, lineno=int(lineno), marker=marker))
+    return upstream_to_refs
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,31 +100,51 @@ def main(argv: list[str] | None = None) -> int:
 
     if not notice_path.exists():
         print("error: UPSTREAM markers found but third_party/NOTICE.md is missing", file=sys.stderr)
-        for up, files in upstreams.items():
-            print(f"- UPSTREAM: {up}", file=sys.stderr)
-            for f in sorted(files):
-                rel = f.relative_to(repo_root)
-                print(f"  - file: {rel}", file=sys.stderr)
+        for key, refs in sorted(upstreams.items(), key=lambda kv: kv[0].lower()):
+            _key, url = _normalize_upstream(key)
+            print(f"- UPSTREAM: {key}", file=sys.stderr)
+            if url is not None:
+                print(f"  - url: {url}", file=sys.stderr)
+            for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
+                rel = ref.path.relative_to(repo_root)
+                print(f"  - referenced by: {rel}:{ref.lineno}", file=sys.stderr)
         return 1
 
     notice = notice_path.read_text(encoding="utf-8", errors="replace")
+    notice_l = notice.lower()
 
-    missing: dict[str, list[Path]] = {}
-    for up, files in upstreams.items():
-        # Require that the upstream marker text appears somewhere in NOTICE.md.
-        # This is strict but keeps compliance easy to reason about.
-        if up not in notice:
-            missing[up] = files
+    missing: dict[str, list[UpstreamRef]] = {}
+    for key, refs in upstreams.items():
+        # Match either:
+        # - the normalized key (org/repo), or
+        # - a derived GitHub URL, or
+        # - the raw marker content (as typed in code).
+        # This keeps the audit strict about coverage while allowing NOTICE.md
+        # to use a stable canonical form.
+        _key, url = _normalize_upstream(key)
+        needles = [str(_key)]
+        if url is not None:
+            needles.append(str(url))
+        needles.extend([str(r.marker) for r in refs])
+
+        if not any(n.lower() in notice_l for n in needles if n):
+            missing[key] = refs
 
     if missing:
         print("error: missing third-party notice entries for copied code:", file=sys.stderr)
-        for up, files in sorted(missing.items(), key=lambda kv: kv[0].lower()):
-            print(f"- UPSTREAM not found in third_party/NOTICE.md: {up}", file=sys.stderr)
-            for f in sorted(files):
-                rel = f.relative_to(repo_root)
-                print(f"  - referenced by: {rel}", file=sys.stderr)
+        for key, refs in sorted(missing.items(), key=lambda kv: kv[0].lower()):
+            _key, url = _normalize_upstream(key)
+            print(f"- UPSTREAM not found in third_party/NOTICE.md: {key}", file=sys.stderr)
+            if url is not None and url.lower() not in notice_l:
+                print(f"  - suggested url: {url}", file=sys.stderr)
+            for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
+                rel = ref.path.relative_to(repo_root)
+                print(f"  - referenced by: {rel}:{ref.lineno}  (UPSTREAM: {ref.marker})", file=sys.stderr)
         print("", file=sys.stderr)
-        print("Fix: add an entry to third_party/NOTICE.md for each UPSTREAM marker.", file=sys.stderr)
+        print(
+            "Fix: add an entry to third_party/NOTICE.md for each upstream repo referenced by UPSTREAM markers.",
+            file=sys.stderr,
+        )
         return 1
 
     print(f"OK: found {len(upstreams)} UPSTREAM marker(s) and all are covered in third_party/NOTICE.md")
@@ -99,4 +153,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main(sys.argv[1:]))
-

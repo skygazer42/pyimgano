@@ -17,6 +17,8 @@ from .masks import (
     random_spatter_mask,
 )
 from .perlin import fractal_perlin_noise_2d
+from .illumination import apply_illumination_shift
+from .warp import apply_slight_warp
 
 
 @dataclass(frozen=True)
@@ -586,6 +588,34 @@ def _preset_edge_wear(image_u8: np.ndarray, rng: np.random.Generator) -> PresetR
     )
 
 
+def _preset_illumination(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    """Global illumination gradient / vignetting (shift-like stress test)."""
+
+    img = _as_u8_image(image_u8)
+    overlay, mask, meta = apply_illumination_shift(img, rng=rng)
+    m = dict(meta)
+    m["preset"] = "illumination"
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta=m,
+    )
+
+
+def _preset_warp(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    """Slight geometric warp (misalignment stress test)."""
+
+    img = _as_u8_image(image_u8)
+    overlay, mask, meta = apply_slight_warp(img, rng=rng)
+    m = dict(meta)
+    m["preset"] = "warp"
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta=m,
+    )
+
+
 _PRESETS: dict[str, PresetFn] = {
     "scratch": _preset_scratch,
     "stain": _preset_stain,
@@ -604,6 +634,8 @@ _PRESETS: dict[str, PresetFn] = {
     "wrinkle": _preset_wrinkle,
     "texture": _preset_texture,
     "edge_wear": _preset_edge_wear,
+    "illumination": _preset_illumination,
+    "warp": _preset_warp,
 }
 
 

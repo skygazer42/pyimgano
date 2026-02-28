@@ -63,6 +63,7 @@ _auto_import(
         "inne",  # Isolation using Nearest Neighbors
         "Isolationforest",  # Isolation Forest
         "knn",  # K-Nearest Neighbors
+        "core_knn_cosine",  # kNN cosine distance baseline (embeddings)
         "knn_degree",  # epsilon-graph degree
         "kpca",  # Kernel Principal Component Analysis
         "k_means",  # K-Means clustering-based detection
@@ -83,6 +84,7 @@ _auto_import(
         "rzscore",  # Robust z-score (median + MAD)
         "mcd",  # Minimum Covariance Determinant
         "mahalanobis",  # Mahalanobis distance baseline
+        "core_mahalanobis_shrinkage",  # Mahalanobis with covariance shrinkage (embeddings)
         "mst_outlier",  # MST-based outlier baseline
         "dtc",  # Distance to centroid baseline
         "cook_distance",  # Influence score (PCA residual + leverage)
@@ -134,6 +136,7 @@ _auto_import(
         "panda",  # Prototypical Anomaly Network (ICCV 2023)
         "patchcore",  # PatchCore patch-level detection (CVPR 2022)
         "patchcore_lite",  # PatchCore-like memory bank (image-level)
+        "patchcore_online",  # PatchCore-lite with incremental memory updates (study-only)
         "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
         "promptad",  # Prompt-based Few-Shot Anomaly Detection (CVPR 2024)
         "pni",  # Pyramidal Normality Indexing (CVPR 2022)
@@ -147,9 +150,13 @@ _auto_import(
         "ssim",  # Structural Similarity-based detection
         "ssim_map",  # SSIM pixel-map template baselines
         "ssim_struct",  # SSIM with structural features
+        "template_ncc_map",  # NCC pixel-map template baseline
+        "phase_corr_map",  # Phase correlation pixel-map template baseline
+        "ref_patch_distance",  # Reference-based patch distance pixel-map baseline
         "stfpm",  # Student-Teacher Feature Pyramid Matching (BMVC 2021)
         "student_teacher_lite",  # Lite student-teacher via embedding regression
         "vae",  # Variational Autoencoder
+        "vqvae",  # VQ-VAE reconstruction baseline
         "winclip",  # WinCLIP zero-shot CLIP-based (CVPR 2023)
         # Production wrappers
         "score_ensemble",  # Score-only ensemble wrapper detector
@@ -159,6 +166,7 @@ _auto_import(
         "anomalib_backend",
         "patchcore_inspection_backend",
         "openclip_backend",
+        "openclip_patch_map",
         # Foundation-style PoC models (safe to import; weights are loaded lazily at runtime)
         "anomalydino",
         "superad",

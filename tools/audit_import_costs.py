@@ -15,6 +15,18 @@ import time
 from pathlib import Path
 
 
+_HEAVY_ROOT_MODULES = (
+    # Common "keep out of import pyimgano" modules.
+    "torch",
+    "cv2",
+    "open_clip",
+    "diffusers",
+    "faiss",
+    "anomalib",
+    "mamba_ssm",
+)
+
+
 def _ensure_repo_root_on_sys_path() -> None:
     # When invoked as `python tools/<script>.py`, Python sets sys.path[0] to
     # `tools/` rather than the repo root. Add the repo root so `import pyimgano`
@@ -23,11 +35,28 @@ def _ensure_repo_root_on_sys_path() -> None:
     sys.path.insert(0, str(repo_root))
 
 
-def _time_import(mod: str) -> float:
+def _heavy_roots_from_modules(modules: set[str]) -> set[str]:
+    out: set[str] = set()
+    for root in _HEAVY_ROOT_MODULES:
+        if root in modules:
+            out.add(root)
+            continue
+        prefix = f"{root}."
+        if any(m.startswith(prefix) for m in modules):
+            out.add(root)
+    return out
+
+
+def _time_import(mod: str) -> tuple[float, set[str]]:
     t0 = time.perf_counter()
+    before = set(sys.modules.keys())
     importlib.import_module(mod)
     t1 = time.perf_counter()
-    return float(t1 - t0)
+    after = set(sys.modules.keys())
+
+    newly_loaded = after - before
+    heavy_new = _heavy_roots_from_modules(newly_loaded)
+    return float(t1 - t0), heavy_new
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,15 +76,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     mods = [str(m) for m in args.modules]
-    results: list[tuple[str, float]] = []
+    results: list[tuple[str, float, set[str]]] = []
     for m in mods:
-        dt = _time_import(m)
-        results.append((m, dt))
+        dt, heavy_new = _time_import(m)
+        results.append((m, dt, heavy_new))
 
     results.sort(key=lambda kv: kv[1], reverse=True)
     print("Import costs (seconds):")
-    for m, dt in results:
-        print(f"- {m:30s} {dt:8.3f}s")
+    for m, dt, heavy_new in results:
+        extra = ""
+        if heavy_new:
+            extra = f"  (new heavy imports: {', '.join(sorted(heavy_new))})"
+        print(f"- {m:30s} {dt:8.3f}s{extra}")
     return 0
 
 

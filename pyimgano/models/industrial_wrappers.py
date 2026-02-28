@@ -27,6 +27,7 @@ def _default_torchvision_embedding_extractor(
     *,
     backbone: str = "resnet18",
     pretrained: bool = False,
+    pool: str = "avg",
     device: str = "cpu",
     image_size: int = 224,
 ) -> dict[str, Any]:
@@ -36,6 +37,7 @@ def _default_torchvision_embedding_extractor(
         "kwargs": {
             "backbone": str(backbone),
             "pretrained": bool(pretrained),
+            "pool": str(pool),
             "device": str(device),
             "image_size": int(image_size),
         },
@@ -244,6 +246,7 @@ class VisionResNet18KNN(VisionEmbeddingCoreDetector):
             embedding_kwargs = _default_torchvision_embedding_extractor(
                 backbone=str(backbone),
                 pretrained=bool(pretrained),
+                pool="avg",
                 device=str(device),
                 image_size=int(image_size),
             )["kwargs"]
@@ -252,6 +255,82 @@ class VisionResNet18KNN(VisionEmbeddingCoreDetector):
             embedding_extractor=embedding_extractor,
             embedding_kwargs=embedding_kwargs,
             core_detector="core_knn",
+            core_kwargs=dict(core_kwargs or {}),
+        )
+
+
+@register_model(
+    "vision_resnet18_knn_cosine",
+    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "neighbors", "cosine"),
+    metadata={
+        "description": "Industrial baseline: resnet18 embeddings (safe) + core_knn_cosine",
+    },
+)
+class VisionResNet18KNNCosine(VisionEmbeddingCoreDetector):
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        embedding_extractor: str | Any = "torchvision_backbone",
+        embedding_kwargs: Mapping[str, Any] | None = None,
+        core_kwargs: Mapping[str, Any] | None = None,
+        backbone: str = "resnet18",
+        pretrained: bool = False,
+        device: str = "cpu",
+        image_size: int = 224,
+        pool: str = "avg",
+    ) -> None:
+        if embedding_kwargs is None and str(embedding_extractor) == "torchvision_backbone":
+            embedding_kwargs = _default_torchvision_embedding_extractor(
+                backbone=str(backbone),
+                pretrained=bool(pretrained),
+                pool=str(pool),
+                device=str(device),
+                image_size=int(image_size),
+            )["kwargs"]
+        super().__init__(
+            contamination=float(contamination),
+            embedding_extractor=embedding_extractor,
+            embedding_kwargs=embedding_kwargs,
+            core_detector="core_knn_cosine",
+            core_kwargs=dict(core_kwargs or {}),
+        )
+
+
+@register_model(
+    "vision_resnet18_mahalanobis_shrinkage",
+    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "distance", "gaussian", "shrinkage"),
+    metadata={
+        "description": "Industrial baseline: resnet18 embeddings (safe) + core_mahalanobis_shrinkage",
+    },
+)
+class VisionResNet18MahalanobisShrinkage(VisionEmbeddingCoreDetector):
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        embedding_extractor: str | Any = "torchvision_backbone",
+        embedding_kwargs: Mapping[str, Any] | None = None,
+        core_kwargs: Mapping[str, Any] | None = None,
+        backbone: str = "resnet18",
+        pretrained: bool = False,
+        device: str = "cpu",
+        image_size: int = 224,
+        pool: str = "avg",
+    ) -> None:
+        if embedding_kwargs is None and str(embedding_extractor) == "torchvision_backbone":
+            embedding_kwargs = _default_torchvision_embedding_extractor(
+                backbone=str(backbone),
+                pretrained=bool(pretrained),
+                pool=str(pool),
+                device=str(device),
+                image_size=int(image_size),
+            )["kwargs"]
+        super().__init__(
+            contamination=float(contamination),
+            embedding_extractor=embedding_extractor,
+            embedding_kwargs=embedding_kwargs,
+            core_detector="core_mahalanobis_shrinkage",
             core_kwargs=dict(core_kwargs or {}),
         )
 
@@ -280,6 +359,7 @@ class VisionResNet18TorchAE(VisionEmbeddingCoreDetector):
             embedding_kwargs = _default_torchvision_embedding_extractor(
                 backbone=str(backbone),
                 pretrained=bool(pretrained),
+                pool="avg",
                 device=str(device),
                 image_size=int(image_size),
             )["kwargs"]
@@ -300,5 +380,7 @@ __all__ = [
     "VisionResNet18ECOD",
     "VisionResNet18IForest",
     "VisionResNet18KNN",
+    "VisionResNet18KNNCosine",
+    "VisionResNet18MahalanobisShrinkage",
     "VisionResNet18TorchAE",
 ]

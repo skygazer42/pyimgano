@@ -54,6 +54,7 @@ _auto_import(
         "torchvision_backbone_gem",
         "torchvision_multilayer",
         "torchvision_vit_tokens",
+        "torchvision_patch_tokens",
         "patch_grid",
         "openclip_embed",
         "multi",

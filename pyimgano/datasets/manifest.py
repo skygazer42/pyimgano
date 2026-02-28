@@ -9,6 +9,8 @@ from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 import numpy as np
 
+from pyimgano.utils.path_normalize import normalize_path
+
 
 @dataclass(frozen=True)
 class ManifestSplitPolicy:
@@ -155,7 +157,7 @@ def _resolve_existing_path(
     manifest_path: Path,
     root_fallback: Path | None,
 ) -> Path:
-    raw = str(raw_value)
+    raw = normalize_path(str(raw_value))
     p = Path(raw)
     if p.is_absolute():
         if p.exists():
@@ -194,7 +196,8 @@ def load_manifest_benchmark_split(
     root_fallback: str | Path | None,
     category: str,
     resize: tuple[int, int] = (256, 256),
-    load_masks: bool = True,
+    load_masks: bool | str = True,
+    missing_mask_policy: str = "skip",
     split_policy: ManifestSplitPolicy | None = None,
 ) -> ManifestBenchmarkSplit:
     """Load a benchmark-style split from a JSONL manifest.
@@ -211,7 +214,14 @@ def load_manifest_benchmark_split(
     resize:
         Target (H, W) for masks (and for consistency with benchmark loaders).
     load_masks:
-        When false, masks are not loaded and pixel metrics can’t be computed.
+        - When false, masks are not loaded and pixel metrics can’t be computed.
+        - When true, masks are loaded when available.
+        - When "auto", masks are loaded only when at least one `mask_path` is present
+          in the resolved test split; otherwise pixel metrics are disabled.
+    missing_mask_policy:
+        Policy when `load_masks` is enabled but anomaly masks are missing.
+        - "skip" (default): disable pixel metrics and return `pixel_skip_reason`.
+        - "error": raise a ValueError.
     split_policy:
         Auto split policy used when records are missing `split`.
     """
@@ -219,6 +229,20 @@ def load_manifest_benchmark_split(
     mp = Path(manifest_path)
     root_path = None if root_fallback is None else Path(root_fallback)
     policy = split_policy or ManifestSplitPolicy()
+
+    missing_mask_policy_norm = str(missing_mask_policy).strip().lower()
+    if missing_mask_policy_norm not in ("skip", "error"):
+        raise ValueError(
+            "missing_mask_policy must be one of: skip, error. "
+            f"Got: {missing_mask_policy!r}"
+        )
+
+    load_masks_mode = load_masks
+    load_masks_norm: str | None = None
+    if isinstance(load_masks_mode, str):
+        load_masks_norm = str(load_masks_mode).strip().lower()
+        if load_masks_norm != "auto":
+            raise ValueError("load_masks must be a bool or 'auto'.")
 
     cat = str(category)
     records: list[ManifestRecord] = [r for r in iter_manifest_records(mp) if str(r.category) == cat]
@@ -239,10 +263,34 @@ def load_manifest_benchmark_split(
             f"split_policy.test_normal_fraction must be in [0,1]. Got: {policy.test_normal_fraction!r}."
         )
 
-    # Group records (group-aware split when group_id present).
+    def _group_id_for_record(rec: ManifestRecord, *, idx: int) -> str:
+        gid = rec.group_id
+        meta_gid = None
+        if rec.meta is not None:
+            try:
+                meta_gid = rec.meta.get("group_id", None)
+            except Exception:  # noqa: BLE001 - best-effort metadata probing
+                meta_gid = None
+
+        if gid is not None and meta_gid is not None:
+            a = str(gid).strip()
+            b = str(meta_gid).strip()
+            if a and b and a != b:
+                raise ValueError(
+                    "Manifest record has conflicting group identifiers: "
+                    f"group_id={a!r} meta.group_id={b!r}."
+                )
+
+        if gid is not None and str(gid).strip():
+            return str(gid).strip()
+        if meta_gid is not None and str(meta_gid).strip():
+            return str(meta_gid).strip()
+        return f"__ungrouped__{idx}"
+
+    # Group records (group-aware split when group_id/meta.group_id present).
     group_to_indices: dict[str, list[int]] = {}
     for idx, rec in enumerate(records):
-        g = rec.group_id if rec.group_id is not None else f"__ungrouped__{idx}"
+        g = _group_id_for_record(rec, idx=idx)
         group_to_indices.setdefault(str(g), []).append(int(idx))
 
     group_ids = list(group_to_indices.keys())
@@ -320,10 +368,10 @@ def load_manifest_benchmark_split(
     test_mask_paths: list[str | None] = []
     test_meta: list[Mapping[str, Any] | None] = []
     missing_anomaly_mask = False
+    any_mask_field_present = False
 
     for idx, rec in enumerate(records):
-        gid = rec.group_id if rec.group_id is not None else f"__ungrouped__{idx}"
-        gid = str(gid)
+        gid = str(_group_id_for_record(rec, idx=idx))
 
         if gid in fixed_val:
             cal_paths.append(
@@ -367,9 +415,12 @@ def load_manifest_benchmark_split(
         else:
             test_meta.append(dict(rec.meta))
 
-        if not load_masks:
+        if load_masks_norm is None and not bool(load_masks_mode):
             test_mask_paths.append(None)
             continue
+
+        if rec.mask_path is not None and str(rec.mask_path).strip():
+            any_mask_field_present = True
 
         if label == 1:
             if rec.mask_path is None:
@@ -407,18 +458,36 @@ def load_manifest_benchmark_split(
     masks_arr: np.ndarray | None = None
     pixel_skip_reason: str | None = None
     meta_out: list[Mapping[str, Any] | None] | None = None
-    if load_masks:
-        if any(p is not None for p in test_mask_paths):
+    # Determine whether masks should be loaded.
+    should_load_masks = bool(load_masks_mode) if load_masks_norm is None else True
+    if load_masks_norm == "auto":
+        should_load_masks = any_mask_field_present
+
+    if not should_load_masks and load_masks_norm == "auto":
+        pixel_skip_reason = "load_masks=auto skipped mask loading (no mask_path entries present)."
+
+    if should_load_masks:
+        has_any_masks = any(p is not None for p in test_mask_paths)
+
+        if has_any_masks:
             if any(
                 lab == 1 for lab, p in zip(test_labels, test_mask_paths) if p is None and lab == 1
             ):
                 missing_anomaly_mask = True
+
         if missing_anomaly_mask:
-            pixel_skip_reason = (
-                "Missing mask_path (or missing mask files) for anomaly test samples."
-            )
+            msg = "Missing mask_path (or missing mask files) for anomaly test samples."
+            if missing_mask_policy_norm == "error":
+                raise ValueError(msg)
+            pixel_skip_reason = msg
             masks_arr = None
-        elif any(p is not None for p in test_mask_paths):
+        elif not has_any_masks:
+            if any_mask_field_present:
+                pixel_skip_reason = "mask_path entries present but no mask files were found on disk."
+            else:
+                pixel_skip_reason = "No mask_path entries found in manifest test records."
+            masks_arr = None
+        else:
             masks_arr = _load_masks_or_zeros(test_mask_paths, resize=resize)
 
     if any(m is not None for m in test_meta):

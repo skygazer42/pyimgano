@@ -389,6 +389,10 @@ class DiffusionAugmentor:
         if not _DIFFUSERS_AVAILABLE:
             raise ImportError("diffusers is required for DiffusionAugmentor")
 
+        # Industrial safety default: do not implicitly download weights.
+        # Callers must opt in by setting local_files_only=False explicitly.
+        kwargs.setdefault("local_files_only", True)
+
         self.pipeline_type = pipeline
         self.device = device
 

@@ -5,46 +5,61 @@ import json
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
-
-
-def _iter_images(directory: Path) -> list[Path]:
-    if not directory.exists():
-        return []
-    out: list[Path] = []
-    for p in sorted(directory.iterdir()):
-        if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS:
-            out.append(p)
-    return out
-
-
-def _relpath(path: Path, *, base: Path, absolute: bool) -> str:
-    if absolute:
-        return str(path.resolve())
-    try:
-        return str(path.resolve().relative_to(base.resolve()))
-    except Exception:
-        # Fall back to a best-effort relative path.
-        return str(path)
-
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-manifest")
 
-    parser.add_argument("--root", required=True, help="Dataset root directory (custom layout)")
-    parser.add_argument("--out", required=True, help="Output JSONL path")
+    mode = parser.add_mutually_exclusive_group(required=False)
+    mode.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate an existing JSONL manifest (required keys + optional file existence checks)",
+    )
+
     parser.add_argument(
-        "--category", default="custom", help="Category name to stamp into the manifest"
+        "--dataset",
+        default="custom",
+        help="Dataset converter name (default: custom). Use `pyimgano-datasets list` to discover.",
+    )
+
+    parser.add_argument(
+        "--root",
+        required=False,
+        help="Dataset root directory (for conversion) or root fallback (for validation).",
+    )
+    parser.add_argument("--out", required=False, help="Output JSONL path (for conversion).")
+    parser.add_argument(
+        "--manifest",
+        required=False,
+        help="Manifest JSONL path to validate (required when --validate).",
+    )
+    parser.add_argument(
+        "--category",
+        default=None,
+        help=(
+            "Category name to stamp into the manifest (conversion) or to validate (validation). "
+            "When omitted in conversion, a dataset-specific default is used."
+        ),
     )
     parser.add_argument(
         "--absolute-paths",
         action="store_true",
-        help="Write absolute paths instead of paths relative to the manifest output directory",
+        help="Write absolute paths instead of relative paths (conversion only).",
     )
     parser.add_argument(
         "--include-masks",
         action="store_true",
-        help="Include mask_path entries when ground_truth/anomaly masks exist",
+        help="Include mask_path entries when ground-truth masks exist (conversion only).",
+    )
+    parser.add_argument(
+        "--no-check-files",
+        action="store_true",
+        help="Skip file existence checks when validating a manifest (validation only).",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print a JSON validation report to stdout (validation only).",
     )
 
     return parser
@@ -58,71 +73,17 @@ def generate_manifest_from_custom_layout(
     absolute_paths: bool = False,
     include_masks: bool = False,
 ) -> list[dict[str, Any]]:
-    """Generate a JSONL manifest from the built-in `custom` dataset layout.
+    """Backwards-compatible helper for the built-in `custom` layout."""
 
-    Expected directory structure (same as `CustomDataset`):
+    from pyimgano.datasets.converters import convert_custom_layout_to_manifest
 
-    root/
-      train/normal/*.png|*.jpg|*.jpeg|*.bmp
-      test/normal/*.png|*.jpg|*.jpeg|*.bmp
-      test/anomaly/*.png|*.jpg|*.jpeg|*.bmp
-      ground_truth/anomaly/<stem>_mask.png   (optional)
-    """
-
-    root_path = Path(root)
-    out_file = Path(out_path)
-    out_dir = out_file.parent
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    cat = str(category).strip() or "custom"
-
-    train_dir = root_path / "train" / "normal"
-    test_normal_dir = root_path / "test" / "normal"
-    test_anomaly_dir = root_path / "test" / "anomaly"
-    gt_anomaly_dir = root_path / "ground_truth" / "anomaly"
-
-    records: list[dict[str, Any]] = []
-
-    for p in _iter_images(train_dir):
-        records.append(
-            {
-                "image_path": _relpath(p, base=out_dir, absolute=absolute_paths),
-                "category": cat,
-                "split": "train",
-            }
-        )
-
-    for p in _iter_images(test_normal_dir):
-        records.append(
-            {
-                "image_path": _relpath(p, base=out_dir, absolute=absolute_paths),
-                "category": cat,
-                "split": "test",
-                "label": 0,
-            }
-        )
-
-    for p in _iter_images(test_anomaly_dir):
-        rec: dict[str, Any] = {
-            "image_path": _relpath(p, base=out_dir, absolute=absolute_paths),
-            "category": cat,
-            "split": "test",
-            "label": 1,
-        }
-        if include_masks:
-            mask_candidate = gt_anomaly_dir / f"{p.stem}_mask.png"
-            if mask_candidate.exists():
-                rec["mask_path"] = _relpath(mask_candidate, base=out_dir, absolute=absolute_paths)
-        records.append(rec)
-
-    # Stable output order for reproducibility.
-    records.sort(key=lambda r: (str(r.get("split", "")), str(r.get("image_path", ""))))
-
-    with out_file.open("w", encoding="utf-8") as f:
-        for rec in records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-
-    return records
+    return convert_custom_layout_to_manifest(
+        root=root,
+        out_path=out_path,
+        category=category,
+        absolute_paths=absolute_paths,
+        include_masks=include_masks,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -130,10 +91,46 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        generate_manifest_from_custom_layout(
+        if bool(args.validate):
+            if args.manifest is None:
+                raise ValueError("--manifest is required when --validate is enabled")
+
+            from pyimgano.datasets.manifest_validate import validate_manifest_file
+
+            report = validate_manifest_file(
+                manifest_path=str(args.manifest),
+                root_fallback=(str(args.root) if args.root is not None else None),
+                check_files=(not bool(args.no_check_files)),
+                category=(str(args.category) if args.category is not None else None),
+            )
+
+            if bool(args.json):
+                print(json.dumps(report.to_jsonable(), indent=2, sort_keys=True))
+            else:
+                for w in report.warnings:
+                    print(f"warning: {w}")
+                if report.errors:
+                    for e in report.errors:
+                        print(f"error: {e}")
+
+            return 0 if report.ok else 1
+
+        # Conversion mode.
+        if args.root is None:
+            raise ValueError("--root is required for conversion (omit only with --validate)")
+        if args.out is None:
+            raise ValueError("--out is required for conversion (omit only with --validate)")
+
+        from pyimgano.datasets.converters import convert_dataset_to_manifest, get_dataset_converter
+
+        # Validate converter name early (helpful error).
+        _ = get_dataset_converter(str(args.dataset))
+
+        convert_dataset_to_manifest(
+            dataset=str(args.dataset),
             root=str(args.root),
             out_path=str(args.out),
-            category=str(args.category),
+            category=(str(args.category) if args.category is not None else None),
             absolute_paths=bool(args.absolute_paths),
             include_masks=bool(args.include_masks),
         )
@@ -147,3 +144,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
+

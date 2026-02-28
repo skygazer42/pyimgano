@@ -49,6 +49,20 @@ def _torchvision_embedding_extractor(
         },
     }
 
+def _core_score_standardizer(
+    *,
+    base_detector: str,
+    base_kwargs: Mapping[str, Any] | None = None,
+    method: str = "rank",
+) -> dict[str, Any]:
+    """JSON-friendly kwargs for `core_score_standardizer`."""
+
+    return {
+        "base_detector": str(base_detector),
+        "base_kwargs": dict(base_kwargs or {}),
+        "method": str(method),
+    }
+
 
 INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
     "industrial-structural-ecod": ModelPreset(
@@ -89,6 +103,43 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_detector": "core_ecod",
         },
         description="Embeddings route: torchvision backbone embeddings -> ECOD.",
+    ),
+    "industrial-embed-knn-cosine": ModelPreset(
+        name="industrial-embed-knn-cosine",
+        model="vision_embedding_core",
+        kwargs={
+            "embedding_extractor": "torchvision_backbone",
+            "embedding_kwargs": _torchvision_embedding_extractor(backbone="resnet18")["kwargs"],
+            "core_detector": "core_knn_cosine",
+            "core_kwargs": {"n_neighbors": 5, "method": "largest", "normalize": True},
+        },
+        description="Embeddings route: torchvision backbone embeddings -> cosine kNN distance.",
+    ),
+    "industrial-embed-mahalanobis-shrinkage": ModelPreset(
+        name="industrial-embed-mahalanobis-shrinkage",
+        model="vision_embedding_core",
+        kwargs={
+            "embedding_extractor": "torchvision_backbone",
+            "embedding_kwargs": _torchvision_embedding_extractor(backbone="resnet18")["kwargs"],
+            "core_detector": "core_mahalanobis_shrinkage",
+            "core_kwargs": {"assume_centered": False},
+        },
+        description="Embeddings route: torchvision backbone embeddings -> Mahalanobis (Ledoit-Wolf shrinkage).",
+    ),
+    "industrial-embed-mahalanobis-shrinkage-rank": ModelPreset(
+        name="industrial-embed-mahalanobis-shrinkage-rank",
+        model="vision_embedding_core",
+        kwargs={
+            "embedding_extractor": "torchvision_backbone",
+            "embedding_kwargs": _torchvision_embedding_extractor(backbone="resnet18")["kwargs"],
+            "core_detector": "core_score_standardizer",
+            "core_kwargs": _core_score_standardizer(
+                base_detector="core_mahalanobis_shrinkage",
+                base_kwargs={"assume_centered": False},
+                method="rank",
+            ),
+        },
+        description="Recommended: embeddings -> Mahalanobis shrinkage -> rank standardization ([0,1]).",
     ),
     "industrial-embed-lid": ModelPreset(
         name="industrial-embed-lid",
@@ -135,4 +186,3 @@ __all__ = [
     "list_industrial_classical_presets",
     "get_industrial_classical_preset",
 ]
-

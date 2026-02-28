@@ -75,6 +75,10 @@ declare -a REPOS=(
   "https://github.com/xrli-U/MuSc.git"
   # Additional industrial/method references (study-only)
   "https://github.com/cnulab/RealNet.git"
+  "https://github.com/kaichen-z/RAD.git"
+  "https://github.com/FangshuoX/ReinAD.git"
+  "https://github.com/EPFL-IMOS/AnomalyAny.git"
+  "https://github.com/jam-cc/MMAD.git"
   "https://github.com/tientrandinh/Revisiting-Reverse-Distillation.git"
   "https://github.com/gdwang08/STFPM.git"
   "https://github.com/LeapMind/PUAD.git"
@@ -82,6 +86,9 @@ declare -a REPOS=(
   "https://github.com/yzhao062/pyod.git"
   "https://github.com/albumentations-team/albumentations.git"
   "https://github.com/kornia/kornia.git"
+  # Indexes / surveys
+  "https://github.com/M-3LAB/awesome-industrial-anomaly-detection.git"
+  "https://github.com/IHPCRits/IAD-Survey.git"
 )
 
 declare -a HEAVY_REPOS=(

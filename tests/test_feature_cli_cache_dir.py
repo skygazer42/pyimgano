@@ -1,69 +1,78 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 
 
-def _write_rgb(path: Path, *, color: tuple[int, int, int]) -> None:
+def _write_png(path: Path, *, value: int) -> None:
+    from PIL import Image
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", (16, 16), color=color).save(path)
+    img = np.ones((16, 16, 3), dtype=np.uint8) * int(value)
+    Image.fromarray(img, mode="RGB").save(path)
 
 
-def test_feature_cli_cache_dir_creates_cached_rows(tmp_path: Path) -> None:
-    from pyimgano.feature_cli import main
+def test_feature_cli_cache_dir_reuses_cache(tmp_path: Path, monkeypatch) -> None:
+    from pyimgano.feature_cli import main as feature_main
 
     root = tmp_path / "imgs"
-    _write_rgb(root / "a.png", color=(10, 10, 10))
-    _write_rgb(root / "b.png", color=(20, 20, 20))
+    _write_png(root / "a.png", value=50)
+    _write_png(root / "b.png", value=51)
 
     cache_dir = tmp_path / "cache"
-    out_npy1 = tmp_path / "feats1.npy"
+    out1 = tmp_path / "feats1.npy"
+    out2 = tmp_path / "feats2.npy"
 
-    code1 = main(
+    # First pass: fills the cache.
+    rc1 = feature_main(
         [
             "--root",
             str(root),
             "--pattern",
             "*.png",
-            "--output",
-            str(out_npy1),
             "--extractor",
-            "color_hist",
+            "hog",
             "--extractor-kwargs",
-            json.dumps({"colorspace": "rgb", "bins": [2, 2, 2]}),
+            '{"resize_hw":[16,16]}',
             "--cache-dir",
             str(cache_dir),
+            "--output",
+            str(out1),
         ]
     )
-    assert code1 == 0
-    feats1 = np.load(str(out_npy1), allow_pickle=False)
-    assert feats1.shape == (2, 6)
+    assert rc1 == 0
+    assert out1.exists()
 
-    cached = list(cache_dir.rglob("*.npy"))
-    assert cached, "Expected cached .npy rows under --cache-dir"
+    # Second pass: should be able to complete without calling the underlying extractor.
+    from pyimgano.features.hog import HOGExtractor
 
-    # Second run should still succeed and reuse the cache (best-effort).
-    out_npy2 = tmp_path / "feats2.npy"
-    code2 = main(
+    def _boom(self, inputs):  # noqa: ANN001, ANN201 - signature matches extractor protocol
+        raise RuntimeError("HOGExtractor.extract should not be called when cache is warm")
+
+    monkeypatch.setattr(HOGExtractor, "extract", _boom, raising=True)
+
+    rc2 = feature_main(
         [
             "--root",
             str(root),
             "--pattern",
             "*.png",
-            "--output",
-            str(out_npy2),
             "--extractor",
-            "color_hist",
+            "hog",
             "--extractor-kwargs",
-            json.dumps({"colorspace": "rgb", "bins": [2, 2, 2]}),
+            '{"resize_hw":[16,16]}',
             "--cache-dir",
             str(cache_dir),
+            "--output",
+            str(out2),
         ]
     )
-    assert code2 == 0
-    feats2 = np.load(str(out_npy2), allow_pickle=False)
-    assert np.allclose(feats2, feats1)
+    assert rc2 == 0
+    assert out2.exists()
+
+    f1 = np.load(str(out1), allow_pickle=False)
+    f2 = np.load(str(out2), allow_pickle=False)
+    assert f1.shape == f2.shape
+    assert np.allclose(f1, f2)
 

@@ -32,6 +32,37 @@ def _require_numpy_model_for_preprocessing(model_name: str) -> None:
     )
 
 
+def _enforce_checkpoint_requirement(
+    *,
+    model_name: str,
+    model_kwargs: dict[str, Any],
+    trained_checkpoint_path: str | None,
+) -> None:
+    """Fail fast when a model is marked as checkpoint-required.
+
+    This keeps CLI UX predictable and avoids confusing downstream ImportErrors
+    when optional backends are involved.
+    """
+
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    entry = MODEL_REGISTRY.info(str(model_name))
+    requires = bool(entry.metadata.get("requires_checkpoint", False))
+    if not requires:
+        return
+
+    has_kwarg = model_kwargs.get("checkpoint_path", None) is not None
+    has_trained = trained_checkpoint_path is not None
+    if has_kwarg or has_trained:
+        return
+
+    raise ValueError(
+        f"Model {model_name!r} requires a checkpoint. "
+        "Provide --checkpoint-path (or set checkpoint_path in --model-kwargs), "
+        "or load via --from-run/--infer-config that includes a checkpoint."
+    )
+
+
 def _apply_defects_defaults_from_payload(
     args: argparse.Namespace,
     defects_payload: dict[str, Any],
@@ -246,6 +277,22 @@ def _apply_defects_defaults_from_payload(
             args.defect_fill_holes = True
 
 
+def _apply_defects_preset_if_requested(args: argparse.Namespace) -> None:
+    preset_name = getattr(args, "defects_preset", None)
+    if preset_name is None:
+        return
+
+    from pyimgano.cli_presets import resolve_defects_preset
+
+    preset = resolve_defects_preset(str(preset_name))
+    if preset is None:
+        raise ValueError(f"Unknown defects preset: {preset_name!r}")
+
+    # Presets are intended to be a one-flag industrial on-ramp.
+    args.defects = True
+    _apply_defects_defaults_from_payload(args, dict(preset.payload))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-infer")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -302,6 +349,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--train-dir",
         default=None,
         help="Optional directory of normal images used to `fit()` and calibrate threshold",
+    )
+    parser.add_argument(
+        "--reference-dir",
+        default=None,
+        help=(
+            "Optional directory of golden reference images for reference-based detectors. "
+            "Matched by basename (filename)."
+        ),
     )
     parser.add_argument(
         "--calibration-quantile",
@@ -393,6 +448,17 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable defects export: binary mask + connected-component regions (requires anomaly maps)",
     )
+    from pyimgano.cli_presets import list_defects_presets
+
+    parser.add_argument(
+        "--defects-preset",
+        default=None,
+        choices=list_defects_presets(),
+        help=(
+            "Optional defects postprocess preset (implies --defects). "
+            "Applies default ROI/border/smoothing/hysteresis/shape filters for industrial FP reduction."
+        ),
+    )
     parser.add_argument(
         "--defects-image-space",
         action="store_true",
@@ -404,6 +470,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional directory to save binary defect masks (requires --defects)",
     )
     parser.add_argument(
+        "--defects-regions-jsonl",
+        default=None,
+        help="Optional JSONL path to write per-image defect regions payloads (requires --defects).",
+    )
+    parser.add_argument(
         "--save-overlays",
         default=None,
         help="Optional directory to save FP debugging overlays (original + heatmap + mask outline/fill)",
@@ -413,6 +484,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default="png",
         choices=["png", "npy", "npz"],
         help="Mask artifact format when saving masks (default: png)",
+    )
+    parser.add_argument(
+        "--defects-mask-space",
+        default="roi",
+        choices=["roi", "full"],
+        help=(
+            "Which defect mask to export when ROI is set. "
+            "roi=mask is limited to ROI (default); full=mask includes full-map pixels. "
+            "Regions are always extracted within ROI when ROI is set."
+        ),
     )
     parser.add_argument(
         "--pixel-threshold",
@@ -538,6 +619,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Fill internal holes in defect masks",
     )
     parser.add_argument(
+        "--defects-mask-dilate",
+        type=int,
+        default=0,
+        help="Optional dilation kernel size applied to exported defect masks (default: 0, disabled)",
+    )
+    parser.add_argument(
         "--defect-max-regions",
         type=int,
         default=None,
@@ -583,6 +670,8 @@ def _collect_image_paths(raw: str | Path) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    _apply_defects_preset_if_requested(args)
 
     try:
         # Import implementations for side effects (registry population).
@@ -675,6 +764,11 @@ def main(argv: list[str] | None = None) -> int:
                         else {}
                     ),
                 },
+            )
+            _enforce_checkpoint_requirement(
+                model_name=model_name,
+                model_kwargs=dict(model_kwargs),
+                trained_checkpoint_path=trained_checkpoint_path,
             )
             detector = create_model(model_name, **model_kwargs)
 
@@ -791,6 +885,11 @@ def main(argv: list[str] | None = None) -> int:
                     ),
                 },
             )
+            _enforce_checkpoint_requirement(
+                model_name=model_name,
+                model_kwargs=dict(model_kwargs),
+                trained_checkpoint_path=trained_checkpoint_path,
+            )
             detector = create_model(model_name, **model_kwargs)
 
             if trained_checkpoint_path is not None:
@@ -854,6 +953,11 @@ def main(argv: list[str] | None = None) -> int:
                 },
             )
 
+            _enforce_checkpoint_requirement(
+                model_name=model_name,
+                model_kwargs=dict(model_kwargs),
+                trained_checkpoint_path=trained_checkpoint_path,
+            )
             detector = create_model(model_name, **model_kwargs)
 
         if defects_payload is not None:
@@ -873,6 +977,16 @@ def main(argv: list[str] | None = None) -> int:
             # Ensure a threshold loaded from --from-run/--infer-config remains visible after wrapping.
             if threshold_from_run is not None:
                 setattr(detector, "threshold_", float(threshold_from_run))
+
+        if args.reference_dir is not None:
+            setter = getattr(detector, "set_reference_dir", None)
+            if callable(setter):
+                setter(str(args.reference_dir))
+            else:
+                raise ValueError(
+                    "--reference-dir is only supported for reference-based detectors "
+                    "(detectors implementing set_reference_dir())."
+                )
 
         # Apply preprocessing outside tiling so illumination/contrast normalization happens
         # on the full image before tiling.
@@ -1033,6 +1147,14 @@ def main(argv: list[str] | None = None) -> int:
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_f = out_path.open("w", encoding="utf-8")
 
+        regions_f = None
+        if args.defects_regions_jsonl is not None:
+            if not bool(args.defects):
+                raise ValueError("--defects-regions-jsonl requires --defects")
+            regions_path = Path(args.defects_regions_jsonl)
+            regions_path.parent.mkdir(parents=True, exist_ok=True)
+            regions_f = regions_path.open("w", encoding="utf-8")
+
         try:
             t_loop_start = time.perf_counter()
             count = 0
@@ -1074,6 +1196,7 @@ def main(argv: list[str] | None = None) -> int:
                         np.asarray(result.anomaly_map, dtype=np.float32),
                         pixel_threshold=float(pixel_threshold_value),
                         roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
+                        mask_space=str(args.defects_mask_space),
                         border_ignore_px=int(args.defect_border_ignore_px),
                         map_smoothing_method=str(args.defect_map_smoothing),
                         map_smoothing_ksize=int(args.defect_map_smoothing_ksize),
@@ -1092,6 +1215,7 @@ def main(argv: list[str] | None = None) -> int:
                         open_ksize=int(args.defect_open_ksize),
                         close_ksize=int(args.defect_close_ksize),
                         fill_holes=bool(args.defect_fill_holes),
+                        mask_dilate_ksize=int(args.defects_mask_dilate),
                         min_area=int(args.defect_min_area),
                         min_fill_ratio=(
                             float(args.defect_min_fill_ratio) if args.defect_min_fill_ratio is not None else None
@@ -1150,6 +1274,21 @@ def main(argv: list[str] | None = None) -> int:
                         "map_stats_roi": defects.get("map_stats_roi", None),
                     }
 
+                    if regions_f is not None:
+                        regions_payload = {
+                            "index": int(i),
+                            "input": str(input_path),
+                            "defects": {
+                                "space": defects["space"],
+                                "pixel_threshold": float(pixel_threshold_value),
+                                "pixel_threshold_provenance": dict(pixel_threshold_provenance),
+                                "regions": defects["regions"],
+                                "map_stats_roi": defects.get("map_stats_roi", None),
+                            },
+                        }
+                        regions_f.write(json.dumps(regions_payload, sort_keys=True))
+                        regions_f.write("\n")
+
                     if bool(args.defects_image_space):
                         try:
                             from PIL import Image
@@ -1205,6 +1344,8 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             if out_f is not None:
                 out_f.close()
+            if regions_f is not None:
+                regions_f.close()
 
         if bool(args.profile):
             import sys

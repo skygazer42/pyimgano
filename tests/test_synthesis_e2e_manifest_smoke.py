@@ -33,6 +33,9 @@ def test_synthesis_end_to_end_manifest_pipeline(tmp_path: Path) -> None:
         n_test_anomaly=2,
     )
     assert records
+    assert any(int(r.get("label", 0)) == 1 and "mask_path" in r for r in records), (
+        "expected synthesized anomaly records to include mask_path when include_masks=True"
+    )
 
     split = load_manifest_benchmark_split(
         manifest_path=out_root / "manifest.jsonl",
@@ -44,6 +47,8 @@ def test_synthesis_end_to_end_manifest_pipeline(tmp_path: Path) -> None:
     assert split.train_paths
     assert split.test_paths
     assert split.test_labels.shape[0] == len(split.test_paths)
+    assert split.test_masks is not None
+    assert split.test_masks.shape == (len(split.test_paths), 64, 64)
 
     det = create_model(
         "vision_iforest",

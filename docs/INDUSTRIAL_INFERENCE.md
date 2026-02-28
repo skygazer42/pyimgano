@@ -130,6 +130,38 @@ pyimgano-infer \
   --save-jsonl /tmp/pyimgano_results.jsonl
 ```
 
+Pixel-first template baseline (safe, no implicit downloads):
+
+```bash
+pyimgano-infer \
+  --model ssim_template_map \
+  --train-dir /path/to/train/good \
+  --input /path/to/inputs \
+  --defects \
+  --save-masks /tmp/pyimgano_masks \
+  --save-overlays /tmp/pyimgano_overlays \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Reference-based inspection (golden template directory):
+
+```bash
+pyimgano-infer \
+  --model vision_ref_patch_distance_map \
+  --reference-dir /path/to/reference_dir \
+  --model-kwargs '{"backbone":"resnet18","pretrained":false,"node":"layer4","metric":"l2","image_size":224,"device":"cpu"}' \
+  --input /path/to/query_dir_or_file \
+  --include-maps \
+  --defects --defects-preset industrial-defects-fp40 \
+  --save-masks /tmp/pyimgano_masks \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Notes:
+- `--reference-dir` matches query images to reference images by **basename** (filename).
+- Reference directories must not contain duplicate basenames, or lookup becomes ambiguous.
+- See `docs/RECIPES_REFERENCE_BASED_INSPECTION.md` for more recipes and tiling options.
+
 By default, `pyimgano-infer` auto-calibrates `threshold_` from train scores when `--train-dir`
 is provided and the detector doesn’t already set `threshold_`. The default quantile matches
 `pyimgano-benchmark`: `1 - contamination` when available, else `0.995`.
