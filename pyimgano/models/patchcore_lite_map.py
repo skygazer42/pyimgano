@@ -1,5 +1,23 @@
 from __future__ import annotations
 
+"""PatchCore-lite-map: patch memory bank + kNN distance anomaly map.
+
+This is a pragmatic, industrial-friendly baseline inspired by PatchCore:
+- Extract conv patch embeddings (injectable embedder).
+- Build a memory bank from normal patches (optional coreset subsampling).
+- Score each patch by kNN distance to the bank.
+- Upsample patch scores to an anomaly map and aggregate to an image score.
+
+Unlike the full PatchCore implementation, this version is intentionally small:
+- no multi-layer fusion
+- no projection fitting
+- no fancy reweighting
+
+Default behavior is **offline-safe**:
+- the default embedder uses torchvision backbones with `pretrained=False`
+  unless explicitly enabled by the caller.
+"""
+
 import math
 from dataclasses import dataclass
 from typing import Iterable, Optional, Tuple, Union
@@ -7,7 +25,8 @@ from typing import Iterable, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from .anomalydino import PatchEmbedder, TorchHubDinoV2Embedder
+from pyimgano.features.torchvision_conv_patch_embedder import TorchvisionConvPatchEmbedder
+
 from .knn_index import KNNIndex, build_knn_index
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
@@ -21,66 +40,63 @@ class _EmbeddedImage:
 
 
 @register_model(
-    "vision_softpatch",
-    tags=("vision", "deep", "softpatch", "patchknn", "robust", "numpy", "pixel_map"),
+    "vision_patchcore_lite_map",
+    tags=("vision", "deep", "patchcore", "lite", "patchknn", "numpy", "pixel_map"),
     metadata={
-        "description": "SoftPatch-inspired robust patch-memory detector (few-shot friendly)",
+        "description": "PatchCore-lite anomaly map: conv patch embeddings + memory bank kNN distance",
+        "paper": "PatchCore (Roth et al., CVPR 2022) - lite baseline",
+        "year": 2022,
     },
 )
-class VisionSoftPatch:
-    """SoftPatch-inspired robust patch-memory detector (inference-first).
+class VisionPatchCoreLiteMap:
+    """PatchCore-lite anomaly map (memory-bank kNN on patch embeddings).
 
-    Notes
-    -----
-    This detector is intentionally implemented in a Patch-kNN style:
-
-    - Extract patch embeddings for each image.
-    - Build a patch memory bank from normal/reference images.
-    - Score patches by kNN distance to the memory bank.
-    - Upsample patch scores to an anomaly map and aggregate to an image score.
-
-    The embedder is injectable so unit tests can run without torch and without
-    downloading weights.
+    The embedder is injectable so unit tests (and offline industrial deployments)
+    can run without any implicit weight downloads.
     """
 
     def __init__(
         self,
         *,
-        embedder: Optional[PatchEmbedder] = None,
+        embedder: Optional[TorchvisionConvPatchEmbedder] = None,
         contamination: float = 0.1,
         pretrained: bool = False,
+        # kNN / memory bank
         knn_backend: str = "sklearn",
+        metric: str = "euclidean",
         n_neighbors: int = 1,
         coreset_sampling_ratio: float = 1.0,
         random_seed: int = 0,
-        train_patch_outlier_quantile: float = 0.0,
+        # aggregation
         aggregation_method: AggregationMethod = "topk_mean",
         aggregation_topk: float = 0.01,
+        # default embedder knobs
+        backbone: str = "resnet18",
+        node: str = "layer3",
         device: str = "cpu",
-        image_size: int = 518,
-        dino_model_name: str = "dinov2_vits14",
+        image_size: int = 224,
+        normalize_embeddings: bool = True,
+        eps: float = 1e-12,
     ) -> None:
         if embedder is None:
-            if bool(pretrained):
-                embedder = TorchHubDinoV2Embedder(
-                    model_name=dino_model_name,
-                    device=device,
-                    image_size=image_size,
-                )
-            else:
-                raise ValueError(
-                    "vision_softpatch requires a patch embedder.\n"
-                    "Pass embedder=... (recommended, offline) or set pretrained=True to allow "
-                    "torch.hub to load DINOv2 weights (may download from the internet)."
-                )
+            embedder = TorchvisionConvPatchEmbedder(
+                backbone=str(backbone),
+                node=str(node),
+                pretrained=bool(pretrained),
+                device=str(device),
+                image_size=int(image_size),
+                normalize=bool(normalize_embeddings),
+                eps=float(eps),
+            )
 
         self.embedder = embedder
-
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
             raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
 
+        self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
+        self.metric = str(metric)
         self.n_neighbors = int(n_neighbors)
         if self.n_neighbors < 1:
             raise ValueError(f"n_neighbors must be >= 1. Got {self.n_neighbors}.")
@@ -92,16 +108,8 @@ class VisionSoftPatch:
             )
         self.random_seed = int(random_seed)
 
-        self.train_patch_outlier_quantile = float(train_patch_outlier_quantile)
-        if not (0.0 <= self.train_patch_outlier_quantile < 1.0):
-            raise ValueError(
-                "train_patch_outlier_quantile must be in [0, 1). "
-                f"Got {self.train_patch_outlier_quantile}."
-            )
-
         self.aggregation_method = aggregation_method
         self.aggregation_topk = float(aggregation_topk)
-        self.pretrained = bool(pretrained)
 
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
@@ -109,7 +117,6 @@ class VisionSoftPatch:
         self._memory_bank: Optional[NDArray] = None
         self._knn_index: Optional[KNNIndex] = None
         self._n_neighbors_fit: Optional[int] = None
-        self.filtered_patches_: int = 0
 
     @property
     def memory_bank_size_(self) -> int:
@@ -148,19 +155,6 @@ class VisionSoftPatch:
         embedded_train = [self._embed(item) for item in items]
         memory_bank = np.concatenate([e.patch_embeddings for e in embedded_train], axis=0)
 
-        if self.train_patch_outlier_quantile > 0.0:
-            mean = np.mean(memory_bank, axis=0, keepdims=True)
-            distances = np.linalg.norm(memory_bank - mean, axis=1)
-            keep_q = 1.0 - float(self.train_patch_outlier_quantile)
-            threshold = float(np.quantile(distances, keep_q))
-            keep_mask = distances <= threshold
-            if int(np.sum(keep_mask)) < 1:
-                keep_mask[np.argmin(distances)] = True
-            self.filtered_patches_ = int(memory_bank.shape[0] - int(np.sum(keep_mask)))
-            memory_bank = memory_bank[keep_mask]
-        else:
-            self.filtered_patches_ = 0
-
         if self.coreset_sampling_ratio < 1.0:
             rng = np.random.default_rng(self.random_seed)
             n_total = int(memory_bank.shape[0])
@@ -173,7 +167,11 @@ class VisionSoftPatch:
 
         effective_k = min(max(1, self.n_neighbors), int(memory_bank.shape[0]))
         self._n_neighbors_fit = effective_k
-        self._knn_index = build_knn_index(backend=self.knn_backend, n_neighbors=effective_k)
+        self._knn_index = build_knn_index(
+            backend=self.knn_backend,
+            n_neighbors=effective_k,
+            metric=str(self.metric),
+        )
         self._knn_index.fit(memory_bank)
 
         self.decision_scores_ = self.decision_function(items)
@@ -194,6 +192,7 @@ class VisionSoftPatch:
         if distances_np.ndim != 2:
             raise RuntimeError(f"Expected 2D kNN distances, got shape {distances_np.shape}")
 
+        # PatchCore-style: distance to closest normal patch (or among k neighbors).
         return distances_np.min(axis=1)
 
     def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
@@ -245,3 +244,7 @@ class VisionSoftPatch:
         items = list(X)
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)
+
+
+__all__ = ["VisionPatchCoreLiteMap"]
+

@@ -68,7 +68,7 @@ class DifferenceModule(nn.Module):
 class FeatureExtractor(nn.Module):
     """Multi-scale feature extractor."""
 
-    def __init__(self, backbone: str = "resnet18", pretrained: bool = True):
+    def __init__(self, backbone: str = "resnet18", pretrained: bool = False):
         super().__init__()
 
         # Load pretrained backbone
@@ -148,7 +148,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "wide_resnet50",
-        pretrained: bool = True,
+        pretrained: bool = False,
         k_neighbors: int = 5,
         feature_layer: str = "layer3",
         train_difference: bool = True,

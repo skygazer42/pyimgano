@@ -57,7 +57,7 @@ def _build_resnet_backbone(name: str, *, pretrained: bool) -> nn.Module:
 class DeepPyramidExtractor(nn.Module):
     """Deep pyramid feature extractor for SPADE."""
 
-    def __init__(self, backbone: str = "wide_resnet50", *, pretrained: bool = True) -> None:
+    def __init__(self, backbone: str = "wide_resnet50", *, pretrained: bool = False) -> None:
         super().__init__()
 
         resnet = _build_resnet_backbone(backbone, pretrained=pretrained)
@@ -102,7 +102,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         contamination: float = 0.1,
         *,
         backbone: str = "wide_resnet50",
-        pretrained: bool = True,
+        pretrained: bool = False,
         image_size: int = 256,
         k_neighbors: int = 50,
         feature_levels: Sequence[str] = ("layer1", "layer2", "layer3"),

@@ -82,7 +82,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         knn_backend: str = "sklearn",
         memory_bank_dtype: str = "float32",
         random_seed: int = 0,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: str = "cpu",
         **kwargs,
     ):

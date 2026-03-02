@@ -76,7 +76,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         backbone: str = "resnet18",
         d_reduced: int = 128,
         image_size: int = 224,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: str = "cpu",
         projection_fit_samples: int = 10,
         covariance_eps: float = 0.01,

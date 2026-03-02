@@ -60,7 +60,7 @@ class ReverseDistillation(BaseVisionDeepDetector):
         contamination: float = 0.1,
         *,
         backbone: str = "resnet18",
-        pretrained_backbone: bool = True,
+        pretrained_backbone: bool = False,
         selected_layers: Sequence[str] = ("layer2", "layer3", "layer4"),
         lr: float = 1e-3,
         epoch_num: int = 20,

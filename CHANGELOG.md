@@ -26,11 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AnomalySynthesizer` now supports multiple defects per image (`num_defects`) and a global severity scalar (`severity`).
 - Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly, including severity curriculum controls.
 - Added `TextureSourceBank` to support industrial texture-driven synthesis variants.
+- Added industrial camera artifact synthesis primitives and presets:
+  - Defocus blur (`apply_defocus_blur`) via preset `defocus`
+  - Lens distortion (`apply_lens_distortion`) via preset `lens_distortion`
+- Added defect-bank copy/paste synthesis (`DefectBank`) to paste real defect crops onto normal images.
 - Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
   - Added `--preview` mode (grid output) for fast preset debugging.
   - Added `--from-manifest` mode to sample normals from a JSONL manifest and append synthetic anomalies.
   - Added `--presets` to sample from a preset mixture and attach chosen preset metadata to manifest records (`meta.preset_id`).
   - Added `--roi-mask` to constrain anomalies to an allowed region (useful for fixtures/background exclusion).
+  - Added `--num-defects` and `--severity-range` to control multi-defect generation and severity sampling.
+  - Added `--defect-bank-dir` to blend defects from a real defect library (defect bank).
   - Manifest anomaly records now include `meta.severity` (0..1) for curriculum-style workflows.
 
 ### Robustness
@@ -48,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `docs/SYNTHETIC_ANOMALY_GENERATION.md` and updated the industrial preprocessing cookbook with synthesis usage.
 - Added industrial “MVP loop” documentation: `docs/INDUSTRIAL_MVP_LOOP.md` (synthesize → infer → defects).
 - Added a v4 research-to-implementation mapping doc: `docs/PAPER_TO_MODULE_MAP_V4.md`.
+- Added a v5 research-to-implementation mapping doc: `docs/PAPER_TO_MODULE_MAP_V5.md`.
+- Added a v5 execution plan: `docs/plans/2026-03-02-optimize-pyimgano-next-100-tasks-v5.md`.
 - Updated the reference study index: `docs/INDUSTRIAL_REFERENCE_PROJECTS.md`.
 - Added reference-based inspection recipes: `docs/RECIPES_REFERENCE_BASED_INSPECTION.md`.
 - Added embedding/core selection guidance: `docs/CORE_SELECTION_ON_EMBEDDINGS.md`.
@@ -57,12 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Models
 - Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
+- Deep vision models now default to offline-safe behavior (no implicit pretrained weight downloads); enable pretrained weights explicitly (e.g. `pretrained=True` or providing an explicit embedder).
 - Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.
 - Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
 - Added more native core detectors (feature-matrix first) with optional `vision_*` wrappers:
   - `core_elliptic_envelope`, `core_mst_outlier`, `core_lid`
   - `core_cook_distance`, `core_studentized_residual`
   - `core_extra_trees_density`, `core_random_projection_knn`, `core_kde_ratio`, `core_neighborhood_entropy`
+  - `core_oddoneout`, `core_knn_cosine_calibrated`, `core_cosine_mahalanobis`
 - Added/modernized pipeline models:
   - `vision_embedding_core` (deep embedding extractor + classical core detector)
   - `vision_score_standardizer` and `core_score_standardizer` (score standardization wrappers)
@@ -91,6 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `vision_phase_correlation_map` (translation alignment → abs-diff anomaly map)
 - Added reference-based pixel-map baseline:
   - `vision_ref_patch_distance_map` (torchvision feature-map patch distance vs a golden reference)
+- Added patch-memory pixel-map baseline:
+  - `vision_patchcore_lite_map` (patch embeddings + memory-bank kNN distance → anomaly map)
 - Added torch-based reconstruction baselines:
   - `core_torch_autoencoder` (MLP autoencoder on feature matrices)
   - `vision_torch_autoencoder` (feature extractor + autoencoder core)
@@ -110,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `torchvision_backbone_gem` (GeM pooled conv feature map embeddings; safe `pretrained=False` default)
   - `torchvision_vit_tokens` (ViT token embeddings)
   - `normalize` (embedding normalization / power transform)
+  - `TorchvisionConvPatchEmbedder` (conv feature map patch embeddings; safe `pretrained=False` default)
 - Added feature pipeline spec support (string/dict extractor specs) and feature export helpers (`FeatureExport`).
 - Added optional disk caching for feature vectors when inputs are file paths (useful for large datasets).
 
@@ -133,6 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added score normalization helpers and lightweight parallel utilities.
 - Added typing helpers for stable public annotations.
 - Added best-effort AMP helper (`pyimgano.utils.torch_amp`) and an optional eval-time tensor cache for deep vision models.
+- Added audit helper `tools/audit_pixel_map_models.py` to check pixel-map model registry/tag consistency (warn-only by default).
 
 ### Packaging
 - Removed `pyod` from core dependencies.
@@ -153,6 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 - Added extensive coverage for the native detector contract, calibration utilities, feature extractors, preprocessing ops, and CLI smoke checks.
 - Added guardrail tests for inference flags (`--include-maps` vs `--defects`), OpenCLIP no-download defaults, and torch-tensor inputs for `core_*` models.
+- Added guardrail tests ensuring deep models do not implicitly download pretrained weights by default.
+- Added end-to-end coverage for defect-bank synthesis + `vision_patchcore_lite_map`, and core detector score-direction contract checks.
 
 ## [0.6.23] - 2026-02-25
 

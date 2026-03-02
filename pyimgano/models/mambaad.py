@@ -150,6 +150,7 @@ class VisionMambaAD(BaseVisionDeepDetector):
         self,
         *,
         embedder: Optional[PatchEmbedder] = None,
+        pretrained: bool = False,
         device: str = "cpu",
         image_size: int = 518,
         dino_model_name: str = "dinov2_vits14",
@@ -171,11 +172,18 @@ class VisionMambaAD(BaseVisionDeepDetector):
         super().__init__(contamination=float(contamination), **kwargs)
 
         if embedder is None:
-            embedder = TorchHubDinoV2Embedder(
-                model_name=str(dino_model_name),
-                device=str(device),
-                image_size=int(image_size),
-            )
+            if bool(pretrained):
+                embedder = TorchHubDinoV2Embedder(
+                    model_name=str(dino_model_name),
+                    device=str(device),
+                    image_size=int(image_size),
+                )
+            else:
+                raise ValueError(
+                    "vision_mambaad requires a patch embedder.\n"
+                    "Pass embedder=... (recommended, offline) or set pretrained=True to allow "
+                    "torch.hub to load DINOv2 weights (may download from the internet)."
+                )
 
         if epochs < 1:
             raise ValueError(f"epochs must be >= 1, got {epochs}")
@@ -193,6 +201,7 @@ class VisionMambaAD(BaseVisionDeepDetector):
         self.embedder = embedder
         self.device = str(device)
         self.image_size = int(image_size)
+        self.pretrained = bool(pretrained)
         self.epochs = int(epochs)
         self.batch_size = int(batch_size)
         self.lr = float(lr)
@@ -378,4 +387,3 @@ class VisionMambaAD(BaseVisionDeepDetector):
                     f"Expected {first_shape}, got {m.shape}."
                 )
         return np.stack(maps, axis=0)
-

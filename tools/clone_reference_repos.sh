@@ -71,6 +71,7 @@ declare -a REPOS=(
   "https://github.com/DonaldRR/SimpleNet.git"
   "https://github.com/VitjanZ/DRAEM.git"
   "https://github.com/LilitYolyan/CutPaste.git"
+  "https://github.com/dammsi/AnomalyDINO.git"
   "https://github.com/guojiajeremy/Dinomaly.git"
   "https://github.com/xrli-U/MuSc.git"
   # Additional industrial/method references (study-only)
@@ -78,6 +79,7 @@ declare -a REPOS=(
   "https://github.com/kaichen-z/RAD.git"
   "https://github.com/FangshuoX/ReinAD.git"
   "https://github.com/EPFL-IMOS/AnomalyAny.git"
+  "https://github.com/CASIA-IVA-Lab/AnomalyGPT.git"
   "https://github.com/jam-cc/MMAD.git"
   "https://github.com/tientrandinh/Revisiting-Reverse-Distillation.git"
   "https://github.com/gdwang08/STFPM.git"
@@ -94,6 +96,8 @@ declare -a REPOS=(
 declare -a HEAVY_REPOS=(
   # This repo can be very large due to included assets/weights. Keep it opt-in.
   "https://github.com/amazon-science/patchcore-inspection.git"
+  # Foundation weights source repo (torch.hub entrypoint). Study-only, code only.
+  "https://github.com/facebookresearch/dinov2.git"
 )
 
 clone_one() {

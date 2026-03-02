@@ -82,7 +82,7 @@ class BackgroundModel:
 class FeatureExtractor(nn.Module):
     """Extract features for background-guided detection."""
 
-    def __init__(self, backbone: str = "wide_resnet50", pretrained: bool = True):
+    def __init__(self, backbone: str = "wide_resnet50", pretrained: bool = False):
         super().__init__()
 
         if backbone == "wide_resnet50":
@@ -160,7 +160,7 @@ class BGADDetector(BaseVisionDeepDetector):
         n_background_clusters: int = 5,
         foreground_ratio: float = 0.3,
         gaussian_sigma: float = 4.0,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: Optional[str] = None,
         **kwargs,
     ):

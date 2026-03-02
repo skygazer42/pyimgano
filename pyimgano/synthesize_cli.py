@@ -66,6 +66,29 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Blend mode used to inject anomalies",
     )
     parser.add_argument("--alpha", type=float, default=0.9, help="Alpha for alpha blending (0..1)")
+    parser.add_argument(
+        "--num-defects",
+        type=int,
+        default=1,
+        help="Number of defect injections attempted per anomaly sample (default: 1).",
+    )
+    parser.add_argument(
+        "--severity-range",
+        type=float,
+        nargs=2,
+        default=(1.0, 1.0),
+        metavar=("MIN", "MAX"),
+        help="Severity range in [0,1] sampled per anomaly (default: 1.0 1.0).",
+    )
+    parser.add_argument(
+        "--defect-bank-dir",
+        default=None,
+        help=(
+            "Optional defect bank directory for copy/paste synthesis.\n"
+            "When provided, the bank preset is used instead of built-in --preset/--presets.\n"
+            "Bank format: images + optional *_mask.png or masks/ subdir (or PNG alpha)."
+        ),
+    )
     parser.add_argument("--seed", type=int, default=0, help="RNG seed (deterministic output)")
     parser.add_argument(
         "--roi-mask",
@@ -154,7 +177,18 @@ def _make_synthesizer(
     presets: list[str] | None,
     blend: str,
     alpha: float,
+    defect_bank_dir: str | Path | None = None,
 ) -> AnomalySynthesizer:
+    if defect_bank_dir is not None:
+        from pyimgano.synthesis.defect_bank import DefectBank, make_defect_bank_preset
+
+        bank = DefectBank.from_dir(defect_bank_dir)
+        preset_fn = make_defect_bank_preset(bank)
+        return AnomalySynthesizer(
+            SynthSpec(preset="defect_bank", probability=1.0, blend=str(blend), alpha=float(alpha)),
+            preset_fn=preset_fn,
+        )
+
     if presets:
         preset_names = [str(p).strip().lower() for p in list(presets)]
         preset_fn = make_preset_mixture(preset_names)
@@ -167,6 +201,29 @@ def _make_synthesizer(
     return AnomalySynthesizer(
         SynthSpec(preset=str(preset), probability=1.0, blend=str(blend), alpha=float(alpha))
     )
+
+
+def _normalize_severity_range(severity_range: tuple[float, float] | list[float] | None) -> tuple[float, float]:
+    if severity_range is None:
+        return 1.0, 1.0
+    if len(severity_range) != 2:
+        raise ValueError("--severity-range must provide exactly 2 floats: MIN MAX")
+    lo = float(severity_range[0])
+    hi = float(severity_range[1])
+    if lo > hi:
+        lo, hi = hi, lo
+    lo = float(np.clip(lo, 0.0, 1.0))
+    hi = float(np.clip(hi, 0.0, 1.0))
+    return lo, hi
+
+
+def _sample_severity(*, seed: int, idx: int, severity_range: tuple[float, float]) -> float:
+    lo, hi = float(severity_range[0]), float(severity_range[1])
+    if hi <= lo:
+        return float(lo)
+    # Use a per-index RNG to keep determinism stable even if we change retry loops.
+    rng = np.random.default_rng(int(seed) + 1618033 * int(idx))
+    return float(rng.uniform(lo, hi))
 
 
 def _attach_meta_to_manifest_records(
@@ -255,6 +312,9 @@ def synthesize_preview_grid(
     presets: list[str] | None = None,
     blend: str,
     alpha: float,
+    num_defects: int = 1,
+    severity_range: tuple[float, float] | list[float] | None = None,
+    defect_bank_dir: str | Path | None = None,
     seed: int,
     n: int,
     cols: int,
@@ -273,7 +333,14 @@ def synthesize_preview_grid(
 
     out_path = out_root_path / "preview.png" if preview_out is None else Path(preview_out)
 
-    syn = _make_synthesizer(preset=str(preset), presets=presets, blend=str(blend), alpha=float(alpha))
+    sev_rng = _normalize_severity_range(severity_range)
+    syn = _make_synthesizer(
+        preset=str(preset),
+        presets=presets,
+        blend=str(blend),
+        alpha=float(alpha),
+        defect_bank_dir=defect_bank_dir,
+    )
     roi_raw = None if roi_mask_path is None else _read_roi_mask(roi_mask_path)
 
     rng = np.random.default_rng(int(seed))
@@ -291,7 +358,14 @@ def synthesize_preview_grid(
             raise ValueError(f"Failed to load image: {base_path}")
         base_u8 = np.asarray(base, dtype=np.uint8)
         roi = None if roi_raw is None else _resize_roi_mask(roi_raw, shape_hw=base_u8.shape[:2])
-        res = syn(base_u8, seed=(int(seed) + 1009 * i), roi_mask=roi)
+        sev = _sample_severity(seed=int(seed), idx=int(i), severity_range=sev_rng)
+        res = syn(
+            base_u8,
+            seed=(int(seed) + 1009 * i),
+            roi_mask=roi,
+            num_defects=int(num_defects),
+            severity=float(sev),
+        )
         imgs.append(res.image_u8)
         masks.append(res.mask_u8)
 
@@ -309,6 +383,9 @@ def synthesize_dataset(
     presets: list[str] | None = None,
     blend: str = "alpha",
     alpha: float = 0.9,
+    num_defects: int = 1,
+    severity_range: tuple[float, float] | list[float] | None = None,
+    defect_bank_dir: str | Path | None = None,
     seed: int = 0,
     roi_mask_path: str | Path | None = None,
     n_train: int = 8,
@@ -363,7 +440,14 @@ def synthesize_dataset(
         dst = test_normal_dir / f"good_{i:05d}{p.suffix.lower()}"
         shutil.copyfile(str(p), str(dst))
 
-    syn = _make_synthesizer(preset=str(preset), presets=presets, blend=str(blend), alpha=float(alpha))
+    sev_rng = _normalize_severity_range(severity_range)
+    syn = _make_synthesizer(
+        preset=str(preset),
+        presets=presets,
+        blend=str(blend),
+        alpha=float(alpha),
+        defect_bank_dir=defect_bank_dir,
+    )
     roi_raw = None if roi_mask_path is None else _read_roi_mask(roi_mask_path)
     meta_by_filename: dict[str, dict[str, Any]] = {}
 
@@ -379,9 +463,16 @@ def synthesize_dataset(
         base_u8 = np.asarray(base, dtype=np.uint8)
 
         accepted = False
+        sev = _sample_severity(seed=int(seed), idx=int(i), severity_range=sev_rng)
         for t in range(10):
             roi = None if roi_raw is None else _resize_roi_mask(roi_raw, shape_hw=base_u8.shape[:2])
-            res = syn(base_u8, seed=(int(seed) + 1009 * i + 7919 * t), roi_mask=roi)
+            res = syn(
+                base_u8,
+                seed=(int(seed) + 1009 * i + 7919 * t),
+                roi_mask=roi,
+                num_defects=int(num_defects),
+                severity=float(sev),
+            )
             out_img = res.image_u8
             out_mask = res.mask_u8
 
@@ -428,6 +519,9 @@ def synthesize_dataset_from_manifest(
     presets: list[str] | None = None,
     blend: str = "alpha",
     alpha: float = 0.9,
+    num_defects: int = 1,
+    severity_range: tuple[float, float] | list[float] | None = None,
+    defect_bank_dir: str | Path | None = None,
     seed: int = 0,
     roi_mask_path: str | Path | None = None,
     source_category: str | None = None,
@@ -510,11 +604,14 @@ def synthesize_dataset_from_manifest(
         shutil.copyfile(str(p), str(dst_train))
         shutil.copyfile(str(p), str(dst_test))
 
-    syn = AnomalySynthesizer(
-        SynthSpec(preset=str(preset), probability=1.0, blend=str(blend), alpha=float(alpha))
+    sev_rng = _normalize_severity_range(severity_range)
+    syn = _make_synthesizer(
+        preset=str(preset),
+        presets=presets,
+        blend=str(blend),
+        alpha=float(alpha),
+        defect_bank_dir=defect_bank_dir,
     )
-    if presets:
-        syn = _make_synthesizer(preset=str(preset), presets=presets, blend=str(blend), alpha=float(alpha))
     roi_raw = None if roi_mask_path is None else _read_roi_mask(roi_mask_path)
     meta_by_filename: dict[str, dict[str, Any]] = {}
 
@@ -529,9 +626,16 @@ def synthesize_dataset_from_manifest(
         base_u8 = np.asarray(base, dtype=np.uint8)
 
         accepted = False
+        sev = _sample_severity(seed=int(seed), idx=int(i), severity_range=sev_rng)
         for t in range(10):
             roi = None if roi_raw is None else _resize_roi_mask(roi_raw, shape_hw=base_u8.shape[:2])
-            res = syn(base_u8, seed=(int(seed) + 1009 * i + 7919 * t), roi_mask=roi)
+            res = syn(
+                base_u8,
+                seed=(int(seed) + 1009 * i + 7919 * t),
+                roi_mask=roi,
+                num_defects=int(num_defects),
+                severity=float(sev),
+            )
             out_img = res.image_u8
             out_mask = res.mask_u8
 
@@ -583,6 +687,9 @@ def main(argv: list[str] | None = None) -> int:
                 presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
+                num_defects=int(args.num_defects),
+                severity_range=(list(args.severity_range) if args.severity_range is not None else None),
+                defect_bank_dir=(None if args.defect_bank_dir is None else str(args.defect_bank_dir)),
                 seed=int(args.seed),
                 n=int(args.preview_n),
                 cols=int(args.preview_cols),
@@ -600,6 +707,9 @@ def main(argv: list[str] | None = None) -> int:
                 presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
+                num_defects=int(args.num_defects),
+                severity_range=(list(args.severity_range) if args.severity_range is not None else None),
+                defect_bank_dir=(None if args.defect_bank_dir is None else str(args.defect_bank_dir)),
                 seed=int(args.seed),
                 roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
                 source_category=(
@@ -622,6 +732,9 @@ def main(argv: list[str] | None = None) -> int:
                 presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
+                num_defects=int(args.num_defects),
+                severity_range=(list(args.severity_range) if args.severity_range is not None else None),
+                defect_bank_dir=(None if args.defect_bank_dir is None else str(args.defect_bank_dir)),
                 seed=int(args.seed),
                 roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
                 n_train=int(args.n_train),

@@ -49,7 +49,7 @@ class VisionAnomalyDINO:
         *,
         embedder: Optional[PatchEmbedder] = None,
         contamination: float = 0.1,
-        pretrained: bool = True,
+        pretrained: bool = False,
         knn_backend: str = "sklearn",
         n_neighbors: int = 1,
         coreset_sampling_ratio: float = 1.0,
@@ -61,11 +61,18 @@ class VisionAnomalyDINO:
         dino_model_name: str = "dinov2_vits14",
     ) -> None:
         if embedder is None:
-            embedder = TorchHubDinoV2Embedder(
-                model_name=dino_model_name,
-                device=device,
-                image_size=image_size,
-            )
+            if bool(pretrained):
+                embedder = TorchHubDinoV2Embedder(
+                    model_name=dino_model_name,
+                    device=device,
+                    image_size=image_size,
+                )
+            else:
+                raise ValueError(
+                    "vision_anomalydino requires a patch embedder.\n"
+                    "Pass embedder=... (recommended, offline) or set pretrained=True to allow "
+                    "torch.hub to load DINOv2 weights (may download from the internet)."
+                )
 
         self.embedder = embedder
         self.contamination = float(contamination)

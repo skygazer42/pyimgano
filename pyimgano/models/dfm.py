@@ -46,7 +46,7 @@ class VisionDFM(BaseVisionDeepDetector):
         Feature extraction backbone
     layers : list, default=['layer2', 'layer3']
         Layers to extract features from
-    pretrained : bool, default=True
+    pretrained : bool, default=False
         Whether to load ImageNet-pretrained weights for the backbone.
     device : str, default='cpu'
         Device to run model on
@@ -69,7 +69,7 @@ class VisionDFM(BaseVisionDeepDetector):
         self,
         backbone: str = "resnet18",
         layers: list = None,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: str = "cpu",
         **kwargs,
     ):

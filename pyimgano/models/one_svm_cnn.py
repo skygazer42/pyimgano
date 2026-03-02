@@ -16,13 +16,14 @@ from .registry import register_model
     metadata={"description": "基于多特征的一类 SVM 图像检测器"},
 )
 class ImageAnomalyDetector:
-    def __init__(self, feature_type='combined', nu=0.05):
+    def __init__(self, feature_type='combined', nu=0.05, cnn_pretrained: bool = False):
         """
         初始化异常检测器
         feature_type: 'histogram', 'hog', 'combined', 'cnn'
         nu: 异常比例上界（0.05表示最多5%被认为是异常）
         """
         self.feature_type = feature_type
+        self.cnn_pretrained = bool(cnn_pretrained)
         self.ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=nu)
         self.scaler = StandardScaler()
         self.pca = PCA(n_components=128)  # 降维到128维
@@ -95,7 +96,11 @@ class ImageAnomalyDetector:
         from torchvision import models
 
         # 加载预训练模型
-        model = models.resnet18(pretrained=True)
+        try:
+            weights = models.ResNet18_Weights.DEFAULT if self.cnn_pretrained else None
+            model = models.resnet18(weights=weights)
+        except Exception:  # pragma: no cover - fallback for older torchvision
+            model = models.resnet18(pretrained=bool(self.cnn_pretrained))
         model.eval()
 
         # 移除最后的分类层

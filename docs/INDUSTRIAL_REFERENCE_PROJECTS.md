@@ -54,6 +54,7 @@ Method implementations (conceptual reference only):
 - SimpleNet: `DonaldRR/SimpleNet` (MIT)
 - DRAEM: `VitjanZ/DRAEM` (MIT)
 - CutPaste: `LilitYolyan/CutPaste` (MIT)
+- AnomalyDINO (WACV 2025; DINOv2 patch-kNN few-shot): `dammsi/AnomalyDINO` (Apache-2.0)
 - Dinomaly: `guojiajeremy/Dinomaly` (Apache-2.0)
 - MuSc: `xrli-U/MuSc` (MIT)
 - RealNet: `cnulab/RealNet` (MIT)
@@ -63,6 +64,7 @@ Method implementations (conceptual reference only):
 - RAD (robotic multi-view dataset + baselines): `kaichen-z/RAD` (check upstream license; study-only clone)
 - ReinAD (reinforced inspection): `FangshuoX/ReinAD` (check upstream license; study-only clone)
 - AnomalyAny (CVPR 2025; diffusion-style anomaly generation ideas): `EPFL-IMOS/AnomalyAny` (check upstream license; study-only clone)
+- AnomalyGPT (AAAI 2024; LVLM-based anomaly detection): `CASIA-IVA-Lab/AnomalyGPT` (check upstream license; study-only clone)
 
 Augmentation/synthesis toolkits (conceptual reference):
 - `albumentations-team/albumentations` (MIT)
@@ -75,6 +77,14 @@ Classical outlier detection (API/contract reference only):
 Indexes / survey repositories (good for keeping up-to-date; do not treat as authoritative implementations):
 - Awesome IAD list: `M-3LAB/awesome-industrial-anomaly-detection`
 - IAD-Survey (paper+code index): `IHPCRits/IAD-Survey`
+
+Foundation weights (study-only; do not enable implicit downloads by default):
+- DINOv2: `facebookresearch/dinov2` (torch.hub entrypoint; weights download by default if used)
+
+Papers (study-only, implementation patterns only):
+- Odd-One-Out neighbor comparison (CVPR 2025): https://openaccess.thecvf.com/content/CVPR2025/html/Zhao_Odd-One-Out_Neighbor_Comparison_for_Robust_Visual_Anomaly_Detection_CVPR_2025_paper.html
+- IAD-GPT (ICLR 2025 workshop): https://openreview.net/forum?id=I7LkT8pWJ1
+- VELM (arXiv): https://arxiv.org/abs/2508.00141
 
 ---
 

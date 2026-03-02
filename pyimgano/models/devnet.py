@@ -137,7 +137,7 @@ class DevNetModel(nn.Module):
 class FeatureExtractor(nn.Module):
     """Feature extractor for images."""
 
-    def __init__(self, backbone: str = "resnet18", pretrained: bool = True):
+    def __init__(self, backbone: str = "resnet18", pretrained: bool = False):
         super().__init__()
 
         from torchvision import models
@@ -219,7 +219,7 @@ class DevNetDetector(BaseVisionDeepDetector):
         hidden_dims: list = [128, 64],
         dropout: float = 0.2,
         margin: float = 5.0,
-        pretrained: bool = True,
+        pretrained: bool = False,
         epochs: int = 50,
         batch_size: int = 32,
         learning_rate: float = 0.001,

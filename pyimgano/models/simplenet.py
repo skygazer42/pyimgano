@@ -97,7 +97,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
     ----------
     backbone : str, default='wide_resnet50'
         Feature extraction backbone
-    pretrained : bool, default=True
+    pretrained : bool, default=False
         Whether to load ImageNet-pretrained weights for the backbone.
     feature_dim : int, default=384
         Output dimension of adapter network
@@ -128,7 +128,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "wide_resnet50",
-        pretrained: bool = True,
+        pretrained: bool = False,
         feature_dim: int = 384,
         epochs: int = 10,
         batch_size: int = 8,

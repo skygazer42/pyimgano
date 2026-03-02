@@ -105,7 +105,7 @@ class VisionCFlow(BaseVisionDeepDetector):
     ----------
     backbone : str, default='resnet18'
         Feature extraction backbone
-    pretrained_backbone : bool, default=True
+    pretrained_backbone : bool, default=False
         Whether to load ImageNet-pretrained weights for the backbone.
     n_flows : int, default=8
         Number of flow transformations
@@ -131,7 +131,7 @@ class VisionCFlow(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "resnet18",
-        pretrained_backbone: bool = True,
+        pretrained_backbone: bool = False,
         n_flows: int = 8,
         epochs: int = 50,
         batch_size: int = 16,

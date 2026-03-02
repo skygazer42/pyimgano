@@ -91,7 +91,7 @@ class FeatureExtractorWithMemory(nn.Module):
         self,
         backbone: str = "resnet18",
         memory_size: int = 1000,
-        pretrained: bool = True,
+        pretrained: bool = False,
     ):
         super().__init__()
 
@@ -271,7 +271,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         backbone: str = "resnet18",
         memory_size: int = 1000,
         k_neighbors: int = 3,
-        pretrained: bool = True,
+        pretrained: bool = False,
         use_segmentation_head: bool = True,
         device: Optional[str] = None,
         **kwargs,

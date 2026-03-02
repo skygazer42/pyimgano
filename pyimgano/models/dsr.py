@@ -92,7 +92,7 @@ class SpectralResidual:
 class FeatureExtractor(nn.Module):
     """Extract deep features for spectral analysis."""
 
-    def __init__(self, backbone: str = "resnet18", pretrained: bool = True):
+    def __init__(self, backbone: str = "resnet18", pretrained: bool = False):
         super().__init__()
 
         if backbone == "resnet18":
@@ -165,7 +165,7 @@ class DSRDetector(BaseVisionDeepDetector):
         backbone: str = "resnet18",
         gaussian_sigma: float = 4.0,
         threshold_percentile: float = 95.0,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: Optional[str] = None,
         **kwargs,
     ):

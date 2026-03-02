@@ -30,7 +30,7 @@ from pyimgano.models.base_dl import BaseVisionDeepDetector
 class MultiScaleEncoder(nn.Module):
     """Multi-scale feature encoder (Teacher network)."""
 
-    def __init__(self, backbone: str = "wide_resnet50", pretrained: bool = True):
+    def __init__(self, backbone: str = "wide_resnet50", pretrained: bool = False):
         super().__init__()
 
         if backbone == "wide_resnet50":
@@ -225,7 +225,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         learning_rate: float = 5e-4,
         lambda_feat: float = 1.0,
         lambda_rec: float = 1.0,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: Optional[str] = None,
         **kwargs,
     ):

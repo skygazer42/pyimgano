@@ -17,6 +17,7 @@ from .masks import (
     random_spatter_mask,
 )
 from .perlin import fractal_perlin_noise_2d
+from .camera_artifacts import apply_defocus_blur, apply_lens_distortion
 from .illumination import apply_illumination_shift
 from .warp import apply_slight_warp
 
@@ -616,6 +617,34 @@ def _preset_warp(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult
     )
 
 
+def _preset_defocus(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    """Camera defocus blur (global)."""
+
+    img = _as_u8_image(image_u8)
+    overlay, mask, meta = apply_defocus_blur(img, rng=rng)
+    m = dict(meta)
+    m["preset"] = "defocus"
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta=m,
+    )
+
+
+def _preset_lens_distortion(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+    """Lens distortion (global warp)."""
+
+    img = _as_u8_image(image_u8)
+    overlay, mask, meta = apply_lens_distortion(img, rng=rng)
+    m = dict(meta)
+    m["preset"] = "lens_distortion"
+    return PresetResult(
+        overlay_u8=np.asarray(overlay, dtype=np.uint8),
+        mask_u8=np.asarray(mask, dtype=np.uint8),
+        meta=m,
+    )
+
+
 _PRESETS: dict[str, PresetFn] = {
     "scratch": _preset_scratch,
     "stain": _preset_stain,
@@ -636,6 +665,8 @@ _PRESETS: dict[str, PresetFn] = {
     "edge_wear": _preset_edge_wear,
     "illumination": _preset_illumination,
     "warp": _preset_warp,
+    "defocus": _preset_defocus,
+    "lens_distortion": _preset_lens_distortion,
 }
 
 

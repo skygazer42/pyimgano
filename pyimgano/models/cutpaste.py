@@ -249,7 +249,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
         backbone: str = "resnet18",
         embedding_dim: int = 512,
         augment_type: str = "normal",
-        pretrained: bool = True,
+        pretrained: bool = False,
         freeze_backbone: bool = False,
         epochs: int = 256,
         batch_size: int = 96,

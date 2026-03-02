@@ -146,7 +146,7 @@ class AffineCouplingLayer(nn.Module):
 class MultiScaleFeatureExtractor(nn.Module):
     """Extract features at multiple scales."""
 
-    def __init__(self, backbone: str = "resnet18", pretrained: bool = True):
+    def __init__(self, backbone: str = "resnet18", pretrained: bool = False):
         super().__init__()
 
         if backbone == "resnet18":
@@ -232,7 +232,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
         epochs: int = 50,
         batch_size: int = 8,
         learning_rate: float = 1e-3,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: Optional[str] = None,
         **kwargs,
     ):

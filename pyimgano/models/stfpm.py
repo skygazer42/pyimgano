@@ -89,7 +89,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         Backbone architecture ('resnet18')
     layers : List[str], default=['layer1', 'layer2', 'layer3']
         Layers to extract features from
-    pretrained_teacher : bool, default=True
+    pretrained_teacher : bool, default=False
         Whether to load ImageNet-pretrained weights for the teacher backbone.
     epochs : int, default=100
         Number of training epochs
@@ -114,7 +114,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         self,
         backbone: str = "resnet18",
         layers: List[str] = None,
-        pretrained_teacher: bool = True,
+        pretrained_teacher: bool = False,
         epochs: int = 100,
         batch_size: int = 32,
         lr: float = 0.4,

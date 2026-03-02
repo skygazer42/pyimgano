@@ -64,6 +64,8 @@ _auto_import(
         "Isolationforest",  # Isolation Forest
         "knn",  # K-Nearest Neighbors
         "core_knn_cosine",  # kNN cosine distance baseline (embeddings)
+        "core_knn_cosine_calibrated",  # kNN cosine + unsupervised score standardization
+        "core_oddoneout",  # Odd-One-Out neighbor comparison (core, embeddings/features)
         "knn_degree",  # epsilon-graph degree
         "kpca",  # Kernel Principal Component Analysis
         "k_means",  # K-Means clustering-based detection
@@ -85,6 +87,7 @@ _auto_import(
         "mcd",  # Minimum Covariance Determinant
         "mahalanobis",  # Mahalanobis distance baseline
         "core_mahalanobis_shrinkage",  # Mahalanobis with covariance shrinkage (embeddings)
+        "core_cosine_mahalanobis",  # Mahalanobis on L2-normalized embeddings (cosine-style)
         "mst_outlier",  # MST-based outlier baseline
         "dtc",  # Distance to centroid baseline
         "cook_distance",  # Influence score (PCA residual + leverage)
@@ -136,6 +139,7 @@ _auto_import(
         "panda",  # Prototypical Anomaly Network (ICCV 2023)
         "patchcore",  # PatchCore patch-level detection (CVPR 2022)
         "patchcore_lite",  # PatchCore-like memory bank (image-level)
+        "patchcore_lite_map",  # PatchCore-lite anomaly map (pixel-map memory bank)
         "patchcore_online",  # PatchCore-lite with incremental memory updates (study-only)
         "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
         "promptad",  # Prompt-based Few-Shot Anomaly Detection (CVPR 2024)

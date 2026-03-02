@@ -36,7 +36,7 @@ class PyramidFeatureExtractor(nn.Module):
         self,
         backbone: str = "wide_resnet50",
         feature_levels: List[str] = ["layer1", "layer2", "layer3"],
-        pretrained: bool = True,
+        pretrained: bool = False,
     ):
         super().__init__()
         self.feature_levels = feature_levels
@@ -166,7 +166,7 @@ class PNIDetector(BaseVisionDeepDetector):
         aggregation: str = "mean",
         weights: Optional[List[float]] = None,
         gaussian_sigma: float = 4.0,
-        pretrained: bool = True,
+        pretrained: bool = False,
         device: Optional[str] = None,
         **kwargs,
     ):

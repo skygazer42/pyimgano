@@ -160,7 +160,7 @@ class ResNetFeatureExtractor(nn.Module):
     def __init__(
         self,
         backbone: str = "resnet18",
-        pretrained: bool = True,
+        pretrained: bool = False,
         layers: Sequence[str] = ("layer2", "layer3", "layer4"),
     ) -> None:
         super().__init__()
@@ -214,7 +214,7 @@ class FastFlow(BaseVisionDeepDetector):
         contamination: float = 0.1,
         *,
         backbone: str = "resnet18",
-        pretrained_backbone: bool = True,
+        pretrained_backbone: bool = False,
         selected_layers: Sequence[str] = ("layer2", "layer3", "layer4"),
         embedding_dim: int = 256,
         n_flow_steps: int = 8,
