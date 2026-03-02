@@ -111,10 +111,21 @@ def register_model(
     """
 
     def decorator(constructor: Callable[..., Any]) -> Callable[..., Any]:
+        tag_list = list(tags or ())
+
+        # Best-effort industrial default: if a model exposes pixel-map methods,
+        # tag it as `pixel_map` for discovery (CLI, workbench) even if the author
+        # forgot to add the tag explicitly.
+        has_map_method = bool(
+            hasattr(constructor, "predict_anomaly_map") or hasattr(constructor, "get_anomaly_map")
+        )
+        if has_map_method and "pixel_map" not in tag_list:
+            tag_list.append("pixel_map")
+
         MODEL_REGISTRY.register(
             name,
             constructor,
-            tags=tags,
+            tags=tag_list,
             metadata=metadata,
             overwrite=overwrite,
         )

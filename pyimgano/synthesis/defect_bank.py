@@ -87,19 +87,38 @@ def _as_u8_bgr(image: np.ndarray) -> np.ndarray:
     raise ValueError(f"Expected (H,W) or (H,W,3) uint8 image, got shape={arr.shape}")
 
 
-def _load_defect_item_u8(item: DefectBankItem) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+def _ensure_u8_mask_values(mask: np.ndarray, *, shape_hw: tuple[int, int]) -> np.ndarray:
+    arr = np.asarray(mask)
+    if arr.shape != tuple(shape_hw):
+        raise ValueError(f"mask must have shape {shape_hw}, got {arr.shape}")
+
+    if arr.dtype == np.bool_:
+        return arr.astype(np.uint8) * 255
+
+    if arr.dtype == np.uint8:
+        return np.asarray(arr, dtype=np.uint8)
+
+    arr_f = arr.astype(np.float32)
+    if float(np.max(arr_f)) <= 1.0:
+        arr_f = arr_f * 255.0
+    return np.clip(arr_f, 0.0, 255.0).astype(np.uint8)
+
+
+def _load_defect_item_u8(
+    item: DefectBankItem,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, object]]:
     import cv2  # local import (opencv is a core dependency)
 
     img_raw = cv2.imread(str(item.image_path), cv2.IMREAD_UNCHANGED)
     if img_raw is None:
         raise FileNotFoundError(f"Failed to read defect image: {item.image_path}")
 
-    mask_u8 = None
+    alpha_mask_u8 = None
     if item.mask_path is not None:
         m = cv2.imread(str(item.mask_path), cv2.IMREAD_GRAYSCALE)
         if m is None:
             raise FileNotFoundError(f"Failed to read defect mask: {item.mask_path}")
-        mask_u8 = np.asarray(m, dtype=np.uint8)
+        alpha_mask_u8 = np.asarray(m, dtype=np.uint8)
 
     img_u8: np.ndarray
     if img_raw.ndim == 2:
@@ -108,34 +127,42 @@ def _load_defect_item_u8(item: DefectBankItem) -> tuple[np.ndarray, np.ndarray, 
         bgr = np.asarray(img_raw[:, :, :3], dtype=np.uint8)
         alpha = np.asarray(img_raw[:, :, 3], dtype=np.uint8)
         img_u8 = bgr
-        if mask_u8 is None:
-            mask_u8 = alpha
+        if alpha_mask_u8 is None:
+            alpha_mask_u8 = alpha
     elif img_raw.ndim == 3 and img_raw.shape[2] == 3:
         img_u8 = np.asarray(img_raw, dtype=np.uint8)
     else:
         raise ValueError(f"Unsupported defect image shape: {img_raw.shape}")
 
-    if mask_u8 is None:
+    if alpha_mask_u8 is None:
         # Fallback: if no mask is provided, treat the entire defect crop as active.
-        mask_u8 = np.full(img_u8.shape[:2], 255, dtype=np.uint8)
+        alpha_mask_u8 = np.full(img_u8.shape[:2], 255, dtype=np.uint8)
 
-    if mask_u8.shape != img_u8.shape[:2]:
-        mask_u8 = cv2.resize(mask_u8, (int(img_u8.shape[1]), int(img_u8.shape[0])), interpolation=cv2.INTER_NEAREST)
+    if alpha_mask_u8.shape != img_u8.shape[:2]:
+        alpha_mask_u8 = cv2.resize(
+            alpha_mask_u8,
+            (int(img_u8.shape[1]), int(img_u8.shape[0])),
+            interpolation=cv2.INTER_LINEAR,
+        )
 
-    mask_u8 = ensure_u8_mask(mask_u8, shape_hw=img_u8.shape[:2])
+    alpha_mask_u8 = _ensure_u8_mask_values(alpha_mask_u8, shape_hw=img_u8.shape[:2])
+    mask_u8 = ensure_u8_mask(alpha_mask_u8, shape_hw=img_u8.shape[:2])
 
     meta: dict[str, object] = {
         "item_path": str(item.image_path),
         "mask_path": (None if item.mask_path is None else str(item.mask_path)),
         "has_alpha_mask": bool(item.mask_path is None and img_raw.ndim == 3 and img_raw.shape[2] == 4),
     }
-    return img_u8, mask_u8, meta
+    return img_u8, mask_u8, alpha_mask_u8, meta
 
 
-def _crop_to_mask(img_u8: np.ndarray, mask_u8: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
-    m = np.asarray(mask_u8, dtype=np.uint8) > 0
+def _crop_to_mask(
+    img_u8: np.ndarray,
+    alpha_mask_u8: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+    m = np.asarray(alpha_mask_u8, dtype=np.uint8) > 0
     if not np.any(m):
-        empty = np.zeros_like(mask_u8, dtype=np.uint8)
+        empty = np.zeros_like(alpha_mask_u8, dtype=np.uint8)
         return np.asarray(img_u8, dtype=np.uint8), empty, {"skipped": True, "reason": "empty_mask"}
 
     ys, xs = np.where(m)
@@ -144,8 +171,8 @@ def _crop_to_mask(img_u8: np.ndarray, mask_u8: np.ndarray) -> tuple[np.ndarray, 
     x0 = int(np.min(xs))
     x1 = int(np.max(xs)) + 1
     crop_img = np.asarray(img_u8[y0:y1, x0:x1], dtype=np.uint8)
-    crop_mask = np.asarray(mask_u8[y0:y1, x0:x1], dtype=np.uint8)
-    return crop_img, crop_mask, {"crop_xyxy": (int(x0), int(y0), int(x1 - 1), int(y1 - 1))}
+    crop_alpha = np.asarray(alpha_mask_u8[y0:y1, x0:x1], dtype=np.uint8)
+    return crop_img, crop_alpha, {"crop_xyxy": (int(x0), int(y0), int(x1 - 1), int(y1 - 1))}
 
 
 def make_defect_bank_preset(
@@ -165,23 +192,28 @@ def make_defect_bank_preset(
         h, w = int(base.shape[0]), int(base.shape[1])
 
         item = bank.sample(rng)
-        defect_u8, defect_mask_u8, meta_item = _load_defect_item_u8(item)
-        defect_u8, defect_mask_u8, meta_crop = _crop_to_mask(defect_u8, defect_mask_u8)
+        defect_u8, defect_mask_u8, defect_alpha_u8, meta_item = _load_defect_item_u8(item)
+        defect_u8, defect_alpha_u8, meta_crop = _crop_to_mask(defect_u8, defect_alpha_u8)
         if meta_crop.get("skipped"):
             empty = np.zeros((h, w), dtype=np.uint8)
             meta = {"preset": "defect_bank", **dict(meta_item), **dict(meta_crop)}
             return PresetResult(overlay_u8=np.asarray(base, dtype=np.uint8), mask_u8=empty, meta=meta)
 
+        # Keep a binary mask for label semantics, but preserve alpha for blending when available.
+        defect_mask_u8 = ensure_u8_mask(defect_alpha_u8, shape_hw=defect_u8.shape[:2])
+
         # Random flips.
         if float(rng.uniform(0.0, 1.0)) < float(flip_prob):
             defect_u8 = np.ascontiguousarray(defect_u8[:, ::-1])
             defect_mask_u8 = np.ascontiguousarray(defect_mask_u8[:, ::-1])
+            defect_alpha_u8 = np.ascontiguousarray(defect_alpha_u8[:, ::-1])
             flip_h = True
         else:
             flip_h = False
         if float(rng.uniform(0.0, 1.0)) < float(flip_prob):
             defect_u8 = np.ascontiguousarray(defect_u8[::-1, :])
             defect_mask_u8 = np.ascontiguousarray(defect_mask_u8[::-1, :])
+            defect_alpha_u8 = np.ascontiguousarray(defect_alpha_u8[::-1, :])
             flip_v = True
         else:
             flip_v = False
@@ -199,15 +231,16 @@ def make_defect_bank_preset(
                 flags=cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_REFLECT_101,
             )
-            defect_mask_u8 = cv2.warpAffine(
-                defect_mask_u8,
+            defect_alpha_u8 = cv2.warpAffine(
+                defect_alpha_u8,
                 m,
                 dsize=(dw, dh),
-                flags=cv2.INTER_NEAREST,
+                flags=cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_CONSTANT,
                 borderValue=0,
             )
-            defect_mask_u8 = ensure_u8_mask(defect_mask_u8, shape_hw=defect_u8.shape[:2])
+            defect_alpha_u8 = _ensure_u8_mask_values(defect_alpha_u8, shape_hw=defect_u8.shape[:2])
+            defect_mask_u8 = ensure_u8_mask(defect_alpha_u8, shape_hw=defect_u8.shape[:2])
 
         # Resize defect crop to a fraction of the base image.
         scale = float(rng.uniform(float(min_scale), float(max_scale)))
@@ -224,8 +257,9 @@ def make_defect_bank_preset(
         new_h = int(np.clip(int(round(dh * r)), 1, h))
         new_w = int(np.clip(int(round(dw * r)), 1, w))
         defect_r = cv2.resize(defect_u8, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-        mask_r = cv2.resize(defect_mask_u8, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-        mask_r = ensure_u8_mask(mask_r, shape_hw=(new_h, new_w))
+        alpha_r = cv2.resize(defect_alpha_u8, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+        alpha_r = _ensure_u8_mask_values(alpha_r, shape_hw=(new_h, new_w))
+        mask_r = ensure_u8_mask(alpha_r, shape_hw=(new_h, new_w))
 
         if (new_h >= h) or (new_w >= w):
             y0 = 0
@@ -239,6 +273,9 @@ def make_defect_bank_preset(
 
         full_mask = np.zeros((h, w), dtype=np.uint8)
         full_mask[y0 : y0 + new_h, x0 : x0 + new_w] = np.asarray(mask_r, dtype=np.uint8)
+
+        full_alpha = np.zeros((h, w), dtype=np.uint8)
+        full_alpha[y0 : y0 + new_h, x0 : x0 + new_w] = np.asarray(alpha_r, dtype=np.uint8)
 
         try:
             rel_item = str(Path(item.image_path).resolve().relative_to(bank.root.resolve()))
@@ -257,10 +294,14 @@ def make_defect_bank_preset(
         meta.update(dict(meta_item))
         meta.update(dict(meta_crop))
 
-        return PresetResult(overlay_u8=np.asarray(overlay, dtype=np.uint8), mask_u8=full_mask, meta=meta)
+        return PresetResult(
+            overlay_u8=np.asarray(overlay, dtype=np.uint8),
+            mask_u8=full_mask,
+            meta=meta,
+            alpha_mask_u8=full_alpha,
+        )
 
     return _preset
 
 
 __all__ = ["DefectBank", "DefectBankItem", "make_defect_bank_preset"]
-

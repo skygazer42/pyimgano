@@ -15,7 +15,7 @@ Key Features:
 """
 
 import warnings
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -179,7 +179,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
 
         # Memory bank
         self.memory_bank = None
-        self.kd_tree = None
+        self.kd_tree = None  # backward-compatible alias (selected layer only)
+        self.kd_trees = None  # per-layer kNN indices for pixel-map scoring
+        self.fitted_ = False
 
     def _build_model(self):
         """Build the DifferNet model."""
@@ -225,6 +227,12 @@ class DifferNetDetector(BaseVisionDeepDetector):
         if self.train_difference:
             self._train_difference_module(X)
 
+        self.decision_scores_ = np.asarray(self.predict_proba(X), dtype=np.float64).reshape(-1)
+        self._process_decision_scores()
+        self._set_n_classes(y)
+        self.fitted_ = True
+        return self
+
     def _build_memory_bank(self, X: NDArray):
         """Build memory bank of normal features.
 
@@ -258,15 +266,17 @@ class DifferNetDetector(BaseVisionDeepDetector):
             features = features.reshape(-1, c)  # (B*H*W, C)
             self.memory_bank[layer] = features.numpy()
 
-        # Build k-D tree for efficient k-NN search
-        if self.feature_layer == "all":
-            # Concatenate all layers
-            all_features = np.hstack(
-                [self.memory_bank[l] for l in ["layer1", "layer2", "layer3"]]
-            )
-            self.kd_tree = cKDTree(all_features)
+        # Build k-D trees for efficient k-NN search (per-layer).
+        self.kd_trees = {
+            layer: cKDTree(self.memory_bank[layer]) for layer in ["layer1", "layer2", "layer3"]
+        }
+        if self.feature_layer != "all":
+            if self.feature_layer not in self.kd_trees:
+                raise ValueError(f"Unknown feature_layer: {self.feature_layer!r}")
+            # Backward-compatible alias for code paths that use only one layer.
+            self.kd_tree = self.kd_trees[self.feature_layer]
         else:
-            self.kd_tree = cKDTree(self.memory_bank[self.feature_layer])
+            self.kd_tree = None
 
         print(f"Memory bank built with {len(self.memory_bank['layer3'])} features")
 
@@ -382,25 +392,35 @@ class DifferNetDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly score.
         """
-        # Get features for selected layer
-        if self.feature_layer == "all":
-            feat = torch.cat(
-                [features[l] for l in ["layer1", "layer2", "layer3"]], dim=1
-            )
-        else:
-            feat = features[self.feature_layer]
+        if self.kd_trees is None:
+            raise RuntimeError("Memory bank not built. Call fit() first.")
 
-        # Flatten
-        b, c, h, w = feat.shape
-        feat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W, C)
+        layers = (
+            ["layer1", "layer2", "layer3"]
+            if self.feature_layer == "all"
+            else [str(self.feature_layer)]
+        )
 
-        # Query k-NN
-        distances, _ = self.kd_tree.query(feat, k=self.k_neighbors)
+        scores: list[float] = []
+        for layer in layers:
+            if layer not in features:
+                raise KeyError(f"Missing features for layer {layer!r}")
+            if layer not in self.kd_trees:
+                raise KeyError(f"Missing kNN index for layer {layer!r}")
 
-        # Average distance to k nearest neighbors
-        score = distances.mean()
+            feat = features[layer]
+            _b, c, h, w = feat.shape
+            feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W, C)
 
-        return score
+            distances, _ = self.kd_trees[layer].query(feat_flat, k=int(self.k_neighbors))
+            d = np.asarray(distances, dtype=np.float64)
+            if d.ndim == 1:
+                d = d.reshape(-1, 1)
+            scores.append(float(np.mean(d)))
+
+        if not scores:
+            return 0.0
+        return float(np.mean(scores))
 
     def _score_with_difference(self, features: dict) -> float:
         """Score using learned difference module.
@@ -411,33 +431,140 @@ class DifferNetDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly score.
         """
-        total_diff = 0.0
+        if self.kd_trees is None or self.memory_bank is None:
+            raise RuntimeError("Memory bank not built. Call fit() first.")
 
+        total_diff = 0.0
         for layer_name in ["layer1", "layer2", "layer3"]:
+            if layer_name not in self.kd_trees:
+                raise KeyError(f"Missing kNN index for layer {layer_name!r}")
+            if layer_name not in self.memory_bank:
+                raise KeyError(f"Missing memory bank for layer {layer_name!r}")
+
             feat = features[layer_name]  # (1, C, H, W)
 
-            # Find k-nearest neighbors in memory bank
-            b, c, h, w = feat.shape
+            # Find one nearest neighbor patch (best-effort) from the memory bank.
+            _b, c, h, w = feat.shape
             feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W, C)
+            distances, indices = self.kd_trees[layer_name].query(feat_flat, k=1)
+            d = np.asarray(distances, dtype=np.float64).reshape(-1)
+            idx = np.asarray(indices, dtype=np.int64).reshape(-1)
+            nn_idx = int(idx[int(np.argmin(d))])
 
-            distances, indices = self.kd_tree.query(feat_flat, k=1)
-            nn_idx = indices[distances.argmin()]
+            nn_vec = np.asarray(self.memory_bank[layer_name][nn_idx], dtype=np.float32).reshape(-1)
+            if nn_vec.shape[0] != int(c):
+                raise RuntimeError(
+                    f"Memory bank dim mismatch for layer {layer_name}: expected {c}, got {nn_vec.shape[0]}"
+                )
 
-            # Get nearest neighbor feature from memory bank
             nn_feat = (
-                torch.from_numpy(self.memory_bank[layer_name][nn_idx])
+                torch.from_numpy(nn_vec)
                 .view(1, c, 1, 1)
                 .expand(1, c, h, w)
                 .to(self.device)
             )
 
-            # Compute difference
             diff_map = self.diff_modules[layer_name](feat, nn_feat)
-
-            # Average difference
             total_diff += diff_map.abs().mean().item()
 
-        return total_diff / 3.0  # Average across layers
+        return total_diff / 3.0
+
+    # ------------------------------------------------------------------
+    def decision_function(self, X: NDArray) -> NDArray:
+        """Alias for scoring (BaseDetector semantics: higher => more anomalous)."""
+
+        return np.asarray(self.predict_proba(X), dtype=np.float64).reshape(-1)
+
+    def _infer_image_hw(self, image: np.ndarray) -> tuple[int, int]:
+        arr = np.asarray(image)
+        if arr.ndim != 3:
+            raise ValueError(f"Expected image with 3 dims, got shape {arr.shape}")
+        if arr.shape[-1] in (1, 3):
+            return int(arr.shape[0]), int(arr.shape[1])
+        if arr.shape[0] in (1, 3):
+            return int(arr.shape[1]), int(arr.shape[2])
+        raise ValueError(f"Unsupported image shape: {arr.shape}")
+
+    def get_anomaly_map(self, image: np.ndarray) -> NDArray:
+        """Return a best-effort pixel anomaly map (H,W) for one image."""
+
+        if self.kd_trees is None or self.memory_bank is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        img = np.asarray(image)
+        h_img, w_img = self._infer_image_hw(img)
+
+        x = self._preprocess(img).to(self.device)
+        self.feature_extractor.eval()
+
+        maps: list[np.ndarray] = []
+        with torch.no_grad():
+            f1, f2, f3 = self.feature_extractor(x)
+            feats = {"layer1": f1, "layer2": f2, "layer3": f3}
+
+            if self.train_difference:
+                for layer_name in ["layer1", "layer2", "layer3"]:
+                    feat = feats[layer_name]
+                    _b, c, h, w = feat.shape
+
+                    feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W,C)
+                    distances, indices = self.kd_trees[layer_name].query(feat_flat, k=1)
+                    d = np.asarray(distances, dtype=np.float64).reshape(-1)
+                    idx = np.asarray(indices, dtype=np.int64).reshape(-1)
+                    nn_idx = int(idx[int(np.argmin(d))])
+
+                    nn_vec = np.asarray(self.memory_bank[layer_name][nn_idx], dtype=np.float32).reshape(-1)
+                    nn_feat = (
+                        torch.from_numpy(nn_vec)
+                        .view(1, c, 1, 1)
+                        .expand(1, c, h, w)
+                        .to(self.device)
+                    )
+
+                    diff_map = self.diff_modules[layer_name](feat, nn_feat).abs()  # (1,1,h,w)
+                    up = F.interpolate(diff_map, size=(h_img, w_img), mode="bilinear", align_corners=False)
+                    maps.append(up[0, 0].detach().cpu().numpy())
+            else:
+                layers = (
+                    ["layer1", "layer2", "layer3"]
+                    if self.feature_layer == "all"
+                    else [str(self.feature_layer)]
+                )
+
+                for layer_name in layers:
+                    feat = feats[layer_name]
+                    _b, c, h, w = feat.shape
+                    feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W,C)
+
+                    distances, _ = self.kd_trees[layer_name].query(feat_flat, k=int(self.k_neighbors))
+                    d = np.asarray(distances, dtype=np.float32)
+                    if d.ndim == 1:
+                        patch_scores = d
+                    else:
+                        patch_scores = d.mean(axis=1)
+
+                    patch_map = patch_scores.reshape(int(h), int(w)).astype(np.float32, copy=False)
+                    patch_map_t = torch.from_numpy(patch_map).view(1, 1, int(h), int(w)).to(self.device)
+                    up = F.interpolate(patch_map_t, size=(h_img, w_img), mode="bilinear", align_corners=False)
+                    maps.append(up[0, 0].detach().cpu().numpy())
+
+        if not maps:
+            return np.zeros((h_img, w_img), dtype=np.float32)
+        return np.asarray(np.stack(maps, axis=0).mean(axis=0), dtype=np.float32)
+
+    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+        """Return anomaly maps (N,H,W) for a batch of images."""
+
+        arr = np.asarray(X)
+        if arr.ndim == 3:
+            m = self.get_anomaly_map(arr)
+            return np.asarray(m[None, ...], dtype=np.float32)
+
+        if arr.ndim != 4:
+            raise ValueError(f"Expected X with shape (N,H,W,C) or (N,C,H,W), got {arr.shape}")
+
+        maps = [self.get_anomaly_map(arr[i]) for i in range(int(arr.shape[0]))]
+        return np.asarray(np.stack(maps, axis=0), dtype=np.float32)
 
     def _preprocess(self, images: NDArray) -> torch.Tensor:
         """Preprocess images.
@@ -448,16 +575,27 @@ class DifferNetDetector(BaseVisionDeepDetector):
         Returns:
             Preprocessed tensor (N, C, H, W).
         """
-        # Convert to tensor
-        if images.ndim == 3:
-            images = images[np.newaxis, ...]
+        arr = np.asarray(images)
+        if arr.ndim == 3:
+            arr = arr[np.newaxis, ...]
+        if arr.ndim != 4:
+            raise ValueError(f"Expected images with shape (N,H,W,C) or (N,C,H,W), got {arr.shape}")
 
-        # (N, H, W, C) -> (N, C, H, W)
-        images = torch.from_numpy(images).permute(0, 3, 1, 2).float()
+        arr_f = arr.astype(np.float32, copy=False)
+        if float(np.max(arr_f)) > 1.5:
+            arr_f = arr_f / 255.0
 
-        # Normalize
-        mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
-        std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
-        images = (images - mean) / std
+        # (N, H, W, C) -> (N, C, H, W) OR accept (N, C, H, W)
+        if arr_f.shape[-1] in (1, 3):
+            t = torch.from_numpy(arr_f).permute(0, 3, 1, 2)
+        elif arr_f.shape[1] in (1, 3):
+            t = torch.from_numpy(arr_f)
+        else:
+            raise ValueError(f"Unsupported image shape: {arr.shape}")
 
-        return images
+        if int(t.shape[1]) == 1:
+            t = t.repeat(1, 3, 1, 1)
+
+        mean = torch.tensor([0.485, 0.456, 0.406], dtype=t.dtype, device=t.device).view(1, 3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225], dtype=t.dtype, device=t.device).view(1, 3, 1, 1)
+        return (t - mean) / std

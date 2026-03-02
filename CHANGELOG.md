@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Defocus blur (`apply_defocus_blur`) via preset `defocus`
   - Lens distortion (`apply_lens_distortion`) via preset `lens_distortion`
 - Added defect-bank copy/paste synthesis (`DefectBank`) to paste real defect crops onto normal images.
+- Presets can now optionally return a continuous `alpha_mask_u8` for smoother alpha blending while keeping `mask_u8` binary for label/manifest semantics.
 - Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
   - Added `--preview` mode (grid output) for fast preset debugging.
   - Added `--from-manifest` mode to sample normals from a JSONL manifest and append synthetic anomalies.
@@ -103,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `vision_ref_patch_distance_map` (torchvision feature-map patch distance vs a golden reference)
 - Added patch-memory pixel-map baseline:
   - `vision_patchcore_lite_map` (patch embeddings + memory-bank kNN distance → anomaly map)
+- Added patch-embedding + classical core pixel-map baseline:
+  - `vision_patch_embedding_core_map` (patch embeddings + `core_*` detector → anomaly map)
 - Added torch-based reconstruction baselines:
   - `core_torch_autoencoder` (MLP autoencoder on feature matrices)
   - `vision_torch_autoencoder` (feature extractor + autoencoder core)
@@ -169,6 +172,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added guardrail tests for inference flags (`--include-maps` vs `--defects`), OpenCLIP no-download defaults, and torch-tensor inputs for `core_*` models.
 - Added guardrail tests ensuring deep models do not implicitly download pretrained weights by default.
 - Added end-to-end coverage for defect-bank synthesis + `vision_patchcore_lite_map`, and core detector score-direction contract checks.
+- Added strict pixel-map registry audit coverage (`tools/audit_pixel_map_models.py --strict`) and alpha-mask blending tests for synthesis.
+- Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 
 ## [0.6.23] - 2026-02-25
 

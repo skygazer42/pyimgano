@@ -27,6 +27,7 @@ class PresetResult:
     overlay_u8: np.ndarray
     mask_u8: np.ndarray
     meta: dict[str, object]
+    alpha_mask_u8: Optional[np.ndarray] = None
 
 
 PresetFn = Callable[[np.ndarray, np.random.Generator], PresetResult]

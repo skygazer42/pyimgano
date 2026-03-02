@@ -140,6 +140,7 @@ _auto_import(
         "patchcore",  # PatchCore patch-level detection (CVPR 2022)
         "patchcore_lite",  # PatchCore-like memory bank (image-level)
         "patchcore_lite_map",  # PatchCore-lite anomaly map (pixel-map memory bank)
+        "patch_embedding_core_map",  # Patch embeddings + core detector (pixel-map baseline)
         "patchcore_online",  # PatchCore-lite with incremental memory updates (study-only)
         "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
         "promptad",  # Prompt-based Few-Shot Anomaly Detection (CVPR 2024)

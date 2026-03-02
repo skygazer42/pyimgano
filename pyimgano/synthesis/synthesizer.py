@@ -144,8 +144,29 @@ class AnomalySynthesizer:
                         overlay = np.clip(b + (o - b) * sev, 0.0, 255.0).astype(np.uint8)
                     out_img = poisson_blend(out_img, overlay, mask, mode=poisson_mode)
                 elif blend == "alpha":
+                    alpha_mask = getattr(pr, "alpha_mask_u8", None)
+                    if alpha_mask is not None:
+                        alpha_arr = np.asarray(alpha_mask)
+                        if alpha_arr.shape != out_img.shape[:2]:
+                            raise ValueError(
+                                "alpha_mask_u8 must have shape (H,W) matching the image. "
+                                f"Got {alpha_arr.shape} for image {out_img.shape}."
+                            )
+                        if alpha_arr.dtype != np.uint8:
+                            a = alpha_arr.astype(np.float32)
+                            if float(np.max(a)) <= 1.0:
+                                a = a * 255.0
+                            alpha_arr = np.clip(a, 0.0, 255.0).astype(np.uint8)
+
+                        # Ensure ROI constraint applies to the blend alpha as well.
+                        alpha_arr = np.asarray(alpha_arr, dtype=np.uint8)
+                        alpha_arr = alpha_arr * (mask > 0).astype(np.uint8)
+                        blend_mask = alpha_arr
+                    else:
+                        blend_mask = mask
+
                     eff_alpha = float(np.clip(float(self.spec.alpha) * sev, 0.0, 1.0))
-                    out_img = alpha_blend(out_img, overlay, mask, alpha=eff_alpha)
+                    out_img = alpha_blend(out_img, overlay, blend_mask, alpha=eff_alpha)
                 else:
                     raise ValueError(f"Unknown blend mode: {self.spec.blend!r}")
 
