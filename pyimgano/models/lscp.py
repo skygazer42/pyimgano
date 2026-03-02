@@ -26,6 +26,7 @@ from sklearn.neighbors import KDTree
 from sklearn.utils import check_array, check_random_state
 
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 _MAX_INT = int(np.iinfo(np.int32).max)
@@ -251,6 +252,147 @@ class CoreLSCP:
         if candidates.size == 0:
             candidates = np.asarray([int(np.argmax(scores))], dtype=np.int64)
         return candidates.astype(np.int64, copy=False)
+
+
+def _default_lscp_detectors(
+    *,
+    contamination: float,
+    random_state: Optional[int],
+) -> list[object]:
+    """Reasonable, cheap default base detectors for LSCP.
+
+    Notes
+    -----
+    Imported lazily to avoid circular imports at module import time.
+    """
+
+    from .ecod import CoreECOD
+    from .hbos import CoreHBOS
+    from .iforest import CoreIForest
+    from .knn import CoreKNN
+
+    rs = random_state
+    c = float(contamination)
+    return [
+        CoreKNN(contamination=c, n_neighbors=10, method="largest"),
+        CoreKNN(contamination=c, n_neighbors=20, method="largest"),
+        CoreHBOS(contamination=c, n_bins=10),
+        CoreECOD(contamination=c),
+        CoreIForest(contamination=c, n_estimators=100, random_state=rs),
+    ]
+
+
+@register_model(
+    "core_lscp",
+    tags=("classical", "core", "features", "ensemble", "lscp"),
+    metadata={
+        "description": "Core LSCP ensemble on feature matrices (native wrapper)",
+        "input": "features",
+        "paper": "Zhao et al., LSCP (SDM 2019)",
+        "year": 2019,
+    },
+)
+class CoreLSCPModel(CoreFeatureDetector):
+    """Core (feature-matrix) LSCP ensemble with BaseDetector thresholding."""
+
+    def __init__(
+        self,
+        *,
+        detector_list: Sequence[object] | None = None,
+        contamination: float = 0.1,
+        local_region_size: int = 30,
+        local_max_features: float = 1.0,
+        n_bins: int = 10,
+        random_state: Optional[int] = None,
+        local_region_iterations: int = 20,
+        local_min_features: float = 0.5,
+        **kwargs,
+    ) -> None:
+        if detector_list is None:
+            detector_list = _default_lscp_detectors(
+                contamination=float(contamination), random_state=random_state
+            )
+        if len(detector_list) < 2:
+            raise ValueError("CoreLSCPModel requires at least 2 base detectors.")
+        if kwargs:
+            unknown = ", ".join(sorted(kwargs))
+            raise TypeError(f"Unknown LSCP parameters: {unknown}")
+
+        self._backend_kwargs = dict(
+            detector_list=list(detector_list),
+            contamination=float(contamination),
+            local_region_size=int(local_region_size),
+            local_max_features=float(local_max_features),
+            n_bins=int(n_bins),
+            random_state=random_state,
+            local_region_iterations=int(local_region_iterations),
+            local_min_features=float(local_min_features),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreLSCP(**self._backend_kwargs)
+
+
+@register_model(
+    "core_lscp_spec",
+    tags=("classical", "core", "features", "ensemble", "lscp"),
+    metadata={
+        "description": "Core LSCP ensemble with JSON-friendly base-detector specs",
+        "input": "features",
+        "paper": "Zhao et al., LSCP (SDM 2019)",
+        "year": 2019,
+    },
+)
+class CoreLSCPSpecModel(CoreFeatureDetector):
+    """Core LSCP wrapper that accepts base-detector specs.
+
+    `detector_specs` can be:
+    - model name strings (e.g. "core_ecod")
+    - dict specs {"name": "...", "kwargs": {...}}
+    - already-instantiated detector objects
+    """
+
+    def __init__(
+        self,
+        *,
+        detector_specs: Sequence[object] | None = None,
+        contamination: float = 0.1,
+        local_region_size: int = 30,
+        local_max_features: float = 1.0,
+        n_bins: int = 10,
+        random_state: Optional[int] = None,
+        local_region_iterations: int = 20,
+        local_min_features: float = 0.5,
+        **kwargs,
+    ) -> None:
+        if detector_specs is None:
+            detector_specs = _default_lscp_detectors(
+                contamination=float(contamination), random_state=random_state
+            )
+        if len(detector_specs) < 2:
+            raise ValueError("CoreLSCPSpecModel requires at least 2 base detectors.")
+        if kwargs:
+            unknown = ", ".join(sorted(kwargs))
+            raise TypeError(f"Unknown LSCP parameters: {unknown}")
+
+        self._specs = list(detector_specs)
+        self._core_kwargs = dict(
+            local_region_size=int(local_region_size),
+            local_max_features=float(local_max_features),
+            n_bins=int(n_bins),
+            random_state=random_state,
+            contamination=float(contamination),
+            local_region_iterations=int(local_region_iterations),
+            local_min_features=float(local_min_features),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        from pyimgano.models.ensemble_spec import resolve_model_specs
+
+        dets = resolve_model_specs(self._specs, default_contamination=float(self.contamination))
+        return CoreLSCP(detector_list=dets, **self._core_kwargs)
 
 
 @register_model(

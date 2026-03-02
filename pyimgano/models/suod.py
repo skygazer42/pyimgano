@@ -205,6 +205,52 @@ class CoreSUODModel(CoreFeatureDetector):
 
 
 @register_model(
+    "core_suod_spec",
+    tags=("classical", "core", "features", "ensemble", "suod"),
+    metadata={
+        "description": "Core SUOD-style ensemble with JSON-friendly base-estimator specs",
+        "input": "features",
+        "paper": "Zhao et al., SUOD (2021)",
+        "year": 2021,
+    },
+)
+class CoreSUODSpecModel(CoreFeatureDetector):
+    """Core SUOD wrapper that accepts base-estimator specs."""
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        base_estimator_specs: Optional[Sequence[object]] = None,
+        combination: str = "average",
+        random_state: Optional[int] = None,
+        standardize: str = "zscore",
+        n_jobs=None,
+        **kwargs,
+    ) -> None:
+        self._specs = None if base_estimator_specs is None else list(base_estimator_specs)
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            combination=str(combination),
+            random_state=random_state,
+            standardize=str(standardize),
+            n_jobs=n_jobs,
+            **dict(kwargs),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        from pyimgano.models.ensemble_spec import resolve_model_specs
+
+        specs = self._specs
+        if specs is not None:
+            ests = resolve_model_specs(specs, default_contamination=float(self.contamination))
+        else:
+            ests = None
+        return CoreSUOD(base_estimators=ests, **self._backend_kwargs)
+
+
+@register_model(
     "vision_suod",
     tags=("vision", "classical", "ensemble", "suod"),
     metadata={"description": "SUOD-style score ensemble (native, simplified)"},

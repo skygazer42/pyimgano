@@ -23,6 +23,10 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
         img = Image.open(str(item)).convert("RGB")
         return img
 
+    if isinstance(item, Image.Image):
+        # PIL images are already RGB-ordered conceptually; treat them as RGB inputs.
+        return item.convert("RGB")
+
     if isinstance(item, np.ndarray):
         arr = np.asarray(item)
         if arr.ndim == 2:
@@ -46,7 +50,7 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
         return Image.fromarray(arr, mode="RGB")
 
     raise TypeError(
-        "TorchvisionBackboneExtractor expects inputs of type str|Path|np.ndarray, "
+        "TorchvisionBackboneExtractor expects inputs of type str|Path|np.ndarray|PIL.Image, "
         f"got {type(item)}"
     )
 

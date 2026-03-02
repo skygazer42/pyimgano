@@ -45,7 +45,7 @@ Feature extractors are first-class:
 
 Extractors can be:
 - handcrafted (HOG/LBP/Gabor/FFT statistics)
-- embeddings (torchvision backbones; planned)
+- embeddings (torchvision backbones; offline-safe by default via `pretrained=False`)
 
 They can accept either paths or numpy arrays (extractor-dependent).
 
@@ -74,6 +74,23 @@ pipe = create_model(
 ```
 
 See: `examples/feature_pipeline_core_detectors.py`
+
+---
+
+## Spec-Friendly Ensembles (Industrial Config)
+
+Industrial deployments often need to express “a list of base detectors” in a
+JSON/YAML config, not as Python objects.
+
+For this, PyImgAno provides **spec-friendly** ensemble models which accept
+base-detector specs as strings or dicts:
+- LSCP: `vision_lscp_spec` / `core_lscp_spec`
+- SUOD-style: `vision_suod_spec` / `core_suod_spec`
+- Score-only: `vision_score_ensemble` / `core_score_ensemble`
+
+Notes:
+- Prefer `core_*_spec` when you already have a feature matrix.
+- Prefer `vision_*_spec` when starting from paths/images (feature extraction happens inside the wrapper).
 
 ---
 
