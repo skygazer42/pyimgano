@@ -932,7 +932,9 @@ def main(argv: list[str] | None = None) -> int:
 
             device = str(args.device) if args.device is not None else "cpu"
             contamination = float(args.contamination) if args.contamination is not None else 0.1
-            pretrained = bool(args.pretrained) if args.pretrained is not None else True
+            # Industrial default: keep direct CLI usage offline-safe. Users can opt in
+            # via `--pretrained` (may download weights).
+            pretrained = bool(args.pretrained) if args.pretrained is not None else False
 
             user_kwargs = parse_model_kwargs(args.model_kwargs)
             user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)

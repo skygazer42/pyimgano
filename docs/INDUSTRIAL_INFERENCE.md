@@ -123,6 +123,7 @@ For service integration, `pyimgano-infer` provides a small JSONL-based CLI:
 ```bash
 pyimgano-infer \
   --model vision_patchcore \
+  --pretrained \
   --train-dir /path/to/normal/images \
   --input /path/to/test/images_or_file \
   --include-maps \
@@ -203,6 +204,7 @@ CLI flags (JSONL + tiling):
 ```bash
 pyimgano-infer \
   --model vision_patchcore \
+  --pretrained \
   --train-dir /path/to/normal/images \
   --input /path/to/test/images_or_file \
   --include-maps \
@@ -233,6 +235,7 @@ Industrial deployments often need more than a heatmap:
 ```bash
 pyimgano-infer \
   --model vision_patchcore \
+  --pretrained \
   --train-dir /path/to/train/good \
   --input /path/to/inputs \
   --defects \

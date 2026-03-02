@@ -126,6 +126,7 @@ pyimgano-benchmark \
   --category bottle \
   --model vision_patchcore \
   --preset industrial-balanced \
+  --pretrained \
   --device cuda
 ```
 
@@ -138,6 +139,7 @@ pyimgano-benchmark \
   --category all \
   --model vision_patchcore \
   --preset industrial-balanced \
+  --pretrained \
   --device cuda
 ```
 

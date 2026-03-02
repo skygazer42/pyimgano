@@ -44,6 +44,7 @@ CLI (industrial JSONL)
 
    pyimgano-infer \
      --model vision_patchcore \
+     --pretrained \
      --train-dir /path/to/train/good \
      --input /path/to/images_or_dir \
      --save-jsonl out.jsonl

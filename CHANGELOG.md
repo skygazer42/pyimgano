@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Recipes
 - Added a best-effort builtin recipe `classical-struct-iforest-synth` to run a classical baseline on a generated synthetic manifest dataset.
 
+### CLI
+- CLIs now default to offline-safe behavior (`--no-pretrained`) to avoid implicit weight downloads.
+  - Affected: `pyimgano-benchmark`, `pyimgano-robust-benchmark`, and direct `pyimgano-infer --model ...`.
+  - Opt in explicitly via `--pretrained` when you want upstream weights (may download).
+
 ### Docs
 - Added `docs/SYNTHETIC_ANOMALY_GENERATION.md` and updated the industrial preprocessing cookbook with synthesis usage.
 - Added industrial “MVP loop” documentation: `docs/INDUSTRIAL_MVP_LOOP.md` (synthesize → infer → defects).

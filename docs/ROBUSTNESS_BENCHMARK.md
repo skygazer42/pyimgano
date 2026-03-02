@@ -47,6 +47,7 @@ pyimgano-robust-benchmark \
   --category bottle \
   --model vision_patchcore \
   --preset industrial-balanced \
+  --pretrained \
   --device cuda \
   --pixel-normal-quantile 0.999 \
   --pixel-calibration-fraction 0.2 \

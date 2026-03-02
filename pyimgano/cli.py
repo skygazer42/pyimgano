@@ -206,7 +206,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=0.1)
-    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=True)
+    # Industrial default: keep CLIs offline-safe and avoid implicit weight downloads.
+    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument(
         "--model-kwargs",
         default=None,

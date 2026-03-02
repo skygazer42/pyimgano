@@ -26,8 +26,12 @@ pyimgano-benchmark \
   --category bottle \
   --model vision_patchcore \
   --preset industrial-balanced \
+  --pretrained \
   --device cuda
 ```
+
+Notes:
+- CLIs default to **offline-safe** behavior (`--no-pretrained`). Use `--pretrained` explicitly when you want upstream weights (may download).
 
 ### Discovery
 
@@ -48,6 +52,7 @@ pyimgano-benchmark \
   --manifest-path /path/to/manifest.jsonl \
   --category bottle \
   --model vision_patchcore \
+  --pretrained \
   --device cuda
 ```
 
@@ -194,6 +199,7 @@ Defects export example:
 ```bash
 pyimgano-infer \
   --model vision_patchcore \
+  --pretrained \
   --train-dir /path/to/train/good \
   --input /path/to/inputs \
   --defects \
@@ -323,6 +329,7 @@ pyimgano-robust-benchmark \
   --root /path/to/mvtec_ad \
   --category bottle \
   --model vision_patchcore \
+  --pretrained \
   --device cuda
 ```
 
