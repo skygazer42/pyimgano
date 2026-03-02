@@ -56,6 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Affected: `pyimgano-benchmark`, `pyimgano-robust-benchmark`, and direct `pyimgano-infer --model ...`.
   - Opt in explicitly via `--pretrained` when you want upstream weights (may download).
 
+### Tooling
+- Added `tools/audit_no_tensorrt_imports.py` to forbid TensorRT (`tensorrt` / `trt`) imports under `pyimgano/`.
+
 ### Docs
 - Added `docs/SYNTHETIC_ANOMALY_GENERATION.md` and updated the industrial preprocessing cookbook with synthesis usage.
 - Added industrial “MVP loop” documentation: `docs/INDUSTRIAL_MVP_LOOP.md` (synthesize → infer → defects).
@@ -80,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added spec-friendly Feature Bagging variants:
   - `core_feature_bagging_spec`
   - `vision_feature_bagging_spec`
+- Spec-friendly Feature Bagging now requires `base_estimator_spec` to be JSON-friendly (string/dict); estimator instances are rejected.
 - Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
 - Added more native core detectors (feature-matrix first) with optional `vision_*` wrappers:
   - `core_elliptic_envelope`, `core_mst_outlier`, `core_lid`

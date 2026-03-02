@@ -157,17 +157,12 @@ class CoreFeatureBagging:
 
             spec = self.base_estimator_spec
             if callable(getattr(spec, "decision_function", None)):
-                # Instances must be cloned per estimator; reusing a fitted instance would
-                # couple ensemble members. Best-effort deepcopy for advanced users.
-                import copy
-
-                try:
-                    return copy.deepcopy(spec)
-                except Exception as exc:  # noqa: BLE001 - user-provided object
-                    raise TypeError(
-                        "base_estimator_spec instance could not be cloned. "
-                        "Use a JSON-friendly spec (string model name or {'name':..., 'kwargs':...}) instead."
-                    ) from exc
+                # Industrial configs should be JSON-friendly; passing an instance is
+                # error-prone because each estimator must be independently instantiated.
+                raise TypeError(
+                    "base_estimator_spec must be a model name string or a spec dict "
+                    "({'name': ..., 'kwargs': {...}}). Instances are not supported."
+                )
 
             return resolve_model_spec(
                 spec,
