@@ -81,4 +81,5 @@ Names are registered under `pyimgano.features.list_feature_extractors()`.
 | `torchvision_backbone_gem` | `embeddings` | Torchvision conv feature map + GeM pooling (compact, strong baseline) |
 | `torchvision_multilayer` | `embeddings` | Torchvision multi-layer embeddings (concatenated) |
 | `torchvision_vit_tokens` | `embeddings` | Torchvision ViT token embeddings |
+| `torchscript_embed` | `embeddings` | TorchScript model embeddings (checkpoint path required; offline-safe, no downloads) |
 | `openclip_embed` | `embeddings` | Optional OpenCLIP embeddings (`pyimgano[clip]`) |

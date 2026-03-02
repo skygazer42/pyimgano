@@ -17,6 +17,7 @@ Why this route works well:
 
 - **Feature extractor**: returns `np.ndarray` with shape `(N, D)`
   - examples: `torchvision_backbone`, `torchvision_backbone_gem`, `torchvision_multilayer`, `torchvision_vit_tokens`
+  - industrial deployment: `torchscript_embed` (bring-your-own TorchScript checkpoint)
   - optional: `openclip_embed`
 
 - **Core detector**: consumes a feature matrix `X: np.ndarray (N, D)`
@@ -55,6 +56,18 @@ In particular:
 - `openclip_embed` defaults to `pretrained=None`
 
 If you want pretrained weights, you must opt in explicitly.
+
+## TorchScript Deployment (Bring Your Own Checkpoint)
+
+For production environments where you want a stable, reproducible embedding model
+without relying on upstream model registries or implicit downloads, you can export
+your embedding model to TorchScript and use:
+
+- `embedding_extractor="torchscript_embed"`
+- `embedding_kwargs={"checkpoint": "/path/to/model.pt", ...}`
+
+This keeps the “deep embedding + classical core” route practical in airgapped / CI
+environments: the only required artifact is your checkpoint file.
 
 ## Score Hygiene
 

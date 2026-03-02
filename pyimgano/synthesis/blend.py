@@ -106,11 +106,10 @@ def poisson_blend(
     flag = cv2.NORMAL_CLONE if mode == "normal" else cv2.MIXED_CLONE
     try:
         out = cv2.seamlessClone(ov3, base3, mask, center_xy, flag)
-    except Exception:
+    except cv2.error:
         # seamlessClone can fail on some degenerate masks; fall back to alpha.
         out = alpha_blend(base, ov, mask, alpha=1.0)
 
     if base.ndim == 2:
         out = cv2.cvtColor(np.asarray(out, dtype=np.uint8), cv2.COLOR_BGR2GRAY)
     return np.asarray(out, dtype=np.uint8)
-

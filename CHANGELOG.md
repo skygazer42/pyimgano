@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Affected: `pyimgano-benchmark`, `pyimgano-robust-benchmark`, and direct `pyimgano-infer --model ...`.
   - Opt in explicitly via `--pretrained` when you want upstream weights (may download).
 
+### Feature Extractors
+- Added `torchscript_embed` feature extractor for industrial “bring-your-own checkpoint” deployments (TorchScript `.pt`),
+  keeping the embedding+core route offline-safe (no implicit downloads).
+
 ### Tooling
 - Added `tools/audit_no_tensorrt_imports.py` to forbid TensorRT (`tensorrt` / `trt`) imports under `pyimgano/`.
 

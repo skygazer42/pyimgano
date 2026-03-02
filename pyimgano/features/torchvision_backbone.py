@@ -15,6 +15,15 @@ _InputColor = Literal["rgb", "bgr"]
 _Pool = Literal["avg", "max", "gem", "cls"]
 
 
+def _looks_like_torch_tensor(x: Any) -> bool:
+    """Best-effort torch.Tensor detection without importing torch."""
+
+    mod = getattr(getattr(x, "__class__", None), "__module__", "")
+    if not isinstance(mod, str) or not mod.startswith("torch"):
+        return False
+    return bool(hasattr(x, "detach") and hasattr(x, "cpu") and hasattr(x, "numpy"))
+
+
 def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
     # Import lazily: keep registry discovery light.
     from PIL import Image
@@ -28,12 +37,7 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
         return item.convert("RGB")
 
     # Common industrial pipeline: images already decoded as torch tensors.
-    try:  # pragma: no cover - depends on torch being installed
-        import torch
-    except Exception:
-        torch = None
-
-    if torch is not None and isinstance(item, torch.Tensor):
+    if _looks_like_torch_tensor(item):  # pragma: no cover - depends on torch being installed
         t = item.detach().cpu()
         if t.ndim == 2:
             return _as_pil_rgb(t.numpy(), input_color=input_color)

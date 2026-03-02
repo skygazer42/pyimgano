@@ -45,6 +45,32 @@ Notes:
 - Set `pretrained=True` only if you expect network access or have cached weights.
 - For speed, reduce image sizes upstream (dataset loader resize, or pre-resize on disk).
 
+## Recipe 1b: TorchScript Embeddings + ECOD (Bring Your Own Checkpoint)
+
+If you have a production embedding model exported to TorchScript (e.g. `model.pt`)
+you can plug it into the same `vision_embedding_core` pipeline.
+
+```python
+from pyimgano.models.registry import create_model
+
+det = create_model(
+    "vision_embedding_core",
+    contamination=0.1,
+    embedding_extractor="torchscript_embed",
+    embedding_kwargs={
+        # REQUIRED: a local TorchScript checkpoint path (no downloads).
+        "checkpoint": "/abs/or/rel/path/to/model.pt",
+        "device": "cpu",
+        "batch_size": 16,
+        # Preprocess defaults mirror torchvision ImageNet-style normalization.
+        "image_size": 224,
+        # Optional: disk cache keyed by (path + mtime + extractor config).
+        # "cache_dir": "./.cache/pyimgano_torchscript_embeds",
+    },
+    core_detector="core_ecod",
+)
+```
+
 ### Pooling modes (`torchvision_backbone`)
 
 `torchvision_backbone` supports multiple pooling modes via `embedding_kwargs["pool"]`:

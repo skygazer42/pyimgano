@@ -9,6 +9,19 @@ from sklearn.utils import check_array
 from .base_detector import BaseDetector
 
 
+def _looks_like_torch_tensor(x: Any) -> bool:
+    """Best-effort torch.Tensor detection without importing torch.
+
+    This avoids optional-import `try/except` blocks in core codepaths while still
+    supporting torch tensors when torch is installed.
+    """
+
+    mod = getattr(getattr(x, "__class__", None), "__module__", "")
+    if not isinstance(mod, str) or not mod.startswith("torch"):
+        return False
+    return bool(hasattr(x, "detach") and hasattr(x, "cpu") and hasattr(x, "numpy"))
+
+
 def _to_numpy_2d(X: Any) -> np.ndarray:
     """Convert feature-matrix inputs to a 2D numpy array (best-effort).
 
@@ -21,12 +34,7 @@ def _to_numpy_2d(X: Any) -> np.ndarray:
     if isinstance(X, np.ndarray):
         arr = X
     else:
-        try:  # pragma: no cover - depends on torch being available
-            import torch
-        except Exception:
-            torch = None
-
-        if torch is not None and isinstance(X, torch.Tensor):
+        if _looks_like_torch_tensor(X):  # pragma: no cover - depends on torch being available
             arr = X.detach().cpu().numpy()
         else:
             arr = np.asarray(X)
@@ -82,4 +90,3 @@ class CoreFeatureDetector(BaseDetector):
                 f"Got {scores.shape[0]} for {X_np.shape[0]} samples."
             )
         return scores
-
