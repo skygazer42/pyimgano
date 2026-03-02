@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib import import_module
 from pathlib import Path
 
 
@@ -27,11 +28,28 @@ def audit_pixel_map_models() -> list[str]:
     from pyimgano.models.registry import MODEL_REGISTRY, list_models
 
     issues: list[str] = []
+    imported_modules: set[str] = set()
 
     for name in sorted(list_models()):
         entry = MODEL_REGISTRY.info(name)
         tags = set(str(t) for t in entry.tags)
         ctor = entry.constructor
+
+        # Lazy registry entries are placeholders. For pixel-map contract auditing,
+        # materialize the real constructor by importing the owning module.
+        if "pixel_map" in tags and bool(entry.metadata.get("_lazy_placeholder", False)):
+            module_name = str(entry.metadata.get("_lazy_module", "")).strip()
+            if module_name and module_name not in imported_modules:
+                try:
+                    import_module(f"pyimgano.models.{module_name}")
+                except Exception as exc:  # noqa: BLE001 - tool boundary
+                    issues.append(f"{name}: failed to import module {module_name!r}: {exc}")
+                    continue
+                imported_modules.add(module_name)
+
+            entry = MODEL_REGISTRY.info(name)
+            tags = set(str(t) for t in entry.tags)
+            ctor = entry.constructor
 
         has_map_method = bool(
             hasattr(ctor, "predict_anomaly_map") or hasattr(ctor, "get_anomaly_map")

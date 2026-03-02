@@ -145,6 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added CLI support for lightweight industrial model presets (preset names resolve to model+kwargs).
 
 ### Utilities
+- Made `pyimgano.models` discovery lightweight by scanning model source files and registering lazy constructors, avoiding implicit imports of heavy roots like `torch`/`cv2` during `--list-models` workflows.
+- Made `pyimgano.utils` exports lazy to avoid importing heavy optional dependencies at package import time (e.g. `torchvision` / `cv2`), while preserving the same re-exported API.
 - Added consistent project logging utilities and deterministic `random_state` helpers.
 - Added score normalization helpers and lightweight parallel utilities.
 - Added typing helpers for stable public annotations.

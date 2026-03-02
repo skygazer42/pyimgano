@@ -36,9 +36,13 @@ class ModelRegistry:
         overwrite: bool = False,
     ) -> None:
         if not overwrite and name in self._registry:
-            raise KeyError(
-                f"Model {name!r} already exists. Set overwrite=True to replace it."
-            )
+            existing = self._registry[name]
+            # Allow real constructors to replace lazy placeholders without
+            # requiring every `@register_model(..., overwrite=True)` callsite.
+            if not bool(existing.metadata.get("_lazy_placeholder", False)):
+                raise KeyError(
+                    f"Model {name!r} already exists. Set overwrite=True to replace it."
+                )
         entry = ModelEntry(
             name=name,
             constructor=constructor,

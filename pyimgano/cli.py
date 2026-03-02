@@ -4,6 +4,7 @@ import argparse
 import inspect
 import json
 import sys
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -615,7 +616,16 @@ def _merge_checkpoint_path(
 def _get_model_signature_info(model_name: str) -> tuple[set[str], bool]:
     """Return (accepted_kwarg_names, accepts_var_kwargs) for a registered model."""
 
+    # Ensure the model registry is populated (lazy scan; should stay import-light).
+    import pyimgano.models  # noqa: F401
+
     entry = MODEL_REGISTRY.info(model_name)
+    if bool(entry.metadata.get("_lazy_placeholder", False)):
+        module_name = str(entry.metadata.get("_lazy_module", "")).strip()
+        if module_name:
+            import_module(f"pyimgano.models.{module_name}")
+            entry = MODEL_REGISTRY.info(model_name)
+
     constructor = entry.constructor
     sig = inspect.signature(constructor)
 
