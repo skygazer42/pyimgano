@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
 - Deep vision models now default to offline-safe behavior (no implicit pretrained weight downloads); enable pretrained weights explicitly (e.g. `pretrained=True` or providing an explicit embedder).
 - Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.
+- `vision_lscp` and `vision_lscp_spec` now provide a cheap default base-detector set, so they work out-of-the-box without explicitly passing `detector_list` / `detector_specs`.
 - Added spec-friendly *core* ensemble variants for feature-matrix workflows:
   - `core_lscp` and `core_lscp_spec`
   - `core_suod_spec`
@@ -129,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `torchvision_vit_tokens` (ViT token embeddings)
   - `normalize` (embedding normalization / power transform)
   - `TorchvisionConvPatchEmbedder` (conv feature map patch embeddings; safe `pretrained=False` default)
-- `torchvision_backbone` now accepts in-memory PIL images (`PIL.Image.Image`) in addition to paths and numpy arrays.
+- `torchvision_backbone` now accepts in-memory images as `PIL.Image.Image` and `torch.Tensor` (in addition to paths and numpy arrays).
 - Added feature pipeline spec support (string/dict extractor specs) and feature export helpers (`FeatureExport`).
 - Added optional disk caching for feature vectors when inputs are file paths (useful for large datasets).
 

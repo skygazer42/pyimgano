@@ -411,12 +411,18 @@ class VisionLSCP(BaseVisionDetector):
         detector_list: Sequence[object] | None = None,
         local_region_size: int = 30,
         local_max_features: float = 1.0,
+        local_region_iterations: int = 20,
+        local_min_features: float = 0.5,
         n_bins: int = 10,
         random_state: Optional[int] = None,
         **kwargs,
     ) -> None:
         if detector_list is None:
-            raise ValueError("VisionLSCP requires a non-empty 'detector_list' of base detectors.")
+            detector_list = _default_lscp_detectors(
+                contamination=float(contamination), random_state=random_state
+            )
+        if len(detector_list) < 2:
+            raise ValueError("VisionLSCP requires at least 2 base detectors.")
 
         if kwargs:
             # Keep forward-compat: accept extra kwargs without failing, but
@@ -428,6 +434,8 @@ class VisionLSCP(BaseVisionDetector):
             detector_list=list(detector_list),
             local_region_size=int(local_region_size),
             local_max_features=float(local_max_features),
+            local_region_iterations=int(local_region_iterations),
+            local_min_features=float(local_min_features),
             n_bins=int(n_bins),
             random_state=random_state,
             contamination=float(contamination),
@@ -466,12 +474,18 @@ class VisionLSCPSpec(BaseVisionDetector):
         detector_specs: Sequence[object] | None = None,
         local_region_size: int = 30,
         local_max_features: float = 1.0,
+        local_region_iterations: int = 20,
+        local_min_features: float = 0.5,
         n_bins: int = 10,
         random_state: Optional[int] = None,
         **kwargs,
     ) -> None:
         if detector_specs is None:
-            raise ValueError("VisionLSCPSpec requires 'detector_specs' (non-empty).")
+            detector_specs = _default_lscp_detectors(
+                contamination=float(contamination), random_state=random_state
+            )
+        if len(detector_specs) < 2:
+            raise ValueError("VisionLSCPSpec requires at least 2 base detectors.")
 
         if kwargs:
             unknown = ", ".join(sorted(kwargs))
@@ -484,6 +498,8 @@ class VisionLSCPSpec(BaseVisionDetector):
             n_bins=int(n_bins),
             random_state=random_state,
             contamination=float(contamination),
+            local_region_iterations=int(local_region_iterations),
+            local_min_features=float(local_min_features),
         )
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 

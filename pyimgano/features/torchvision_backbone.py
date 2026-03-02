@@ -27,6 +27,28 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
         # PIL images are already RGB-ordered conceptually; treat them as RGB inputs.
         return item.convert("RGB")
 
+    # Common industrial pipeline: images already decoded as torch tensors.
+    try:  # pragma: no cover - depends on torch being installed
+        import torch
+    except Exception:
+        torch = None
+
+    if torch is not None and isinstance(item, torch.Tensor):
+        t = item.detach().cpu()
+        if t.ndim == 2:
+            return _as_pil_rgb(t.numpy(), input_color=input_color)
+        if t.ndim == 3:
+            # Accept both CHW and HWC (best-effort).
+            if int(t.shape[0]) in (1, 3):  # CHW
+                arr = t.numpy()
+                arr_hwc = np.transpose(arr, (1, 2, 0))
+                return _as_pil_rgb(arr_hwc, input_color=input_color)
+            if int(t.shape[2]) in (1, 3):  # HWC
+                return _as_pil_rgb(t.numpy(), input_color=input_color)
+            raise ValueError(f"Unsupported torch image shape: {tuple(t.shape)} (expected CHW or HWC)")
+
+        raise ValueError(f"Unsupported torch image ndim={int(t.ndim)} (expected 2 or 3)")
+
     if isinstance(item, np.ndarray):
         arr = np.asarray(item)
         if arr.ndim == 2:
@@ -50,7 +72,7 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
         return Image.fromarray(arr, mode="RGB")
 
     raise TypeError(
-        "TorchvisionBackboneExtractor expects inputs of type str|Path|np.ndarray|PIL.Image, "
+        "TorchvisionBackboneExtractor expects inputs of type str|Path|np.ndarray|PIL.Image|torch.Tensor, "
         f"got {type(item)}"
     )
 

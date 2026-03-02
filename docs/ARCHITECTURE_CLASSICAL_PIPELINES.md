@@ -47,7 +47,8 @@ Extractors can be:
 - handcrafted (HOG/LBP/Gabor/FFT statistics)
 - embeddings (torchvision backbones; offline-safe by default via `pretrained=False`)
 
-They can accept either paths or numpy arrays (extractor-dependent).
+They can accept either paths or in-memory images/vectors (extractor-dependent). For example,
+`torchvision_backbone` supports paths, numpy images, PIL images, and torch tensors.
 
 ---
 
@@ -91,6 +92,7 @@ base-detector specs as strings or dicts:
 Notes:
 - Prefer `core_*_spec` when you already have a feature matrix.
 - Prefer `vision_*_spec` when starting from paths/images (feature extraction happens inside the wrapper).
+ - `vision_lscp` / `vision_lscp_spec` provide defaults for base detectors for a quick industrial baseline.
 
 ---
 
