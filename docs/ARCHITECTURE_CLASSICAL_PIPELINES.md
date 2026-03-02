@@ -88,11 +88,12 @@ base-detector specs as strings or dicts:
 - LSCP: `vision_lscp_spec` / `core_lscp_spec`
 - SUOD-style: `vision_suod_spec` / `core_suod_spec`
 - Score-only: `vision_score_ensemble` / `core_score_ensemble`
+- Feature Bagging: `vision_feature_bagging_spec` / `core_feature_bagging_spec`
 
 Notes:
 - Prefer `core_*_spec` when you already have a feature matrix.
 - Prefer `vision_*_spec` when starting from paths/images (feature extraction happens inside the wrapper).
- - `vision_lscp` / `vision_lscp_spec` provide defaults for base detectors for a quick industrial baseline.
+- `vision_lscp` / `vision_lscp_spec` provide defaults for base detectors for a quick industrial baseline.
 
 ---
 

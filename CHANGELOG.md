@@ -77,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added spec-friendly *core* ensemble variants for feature-matrix workflows:
   - `core_lscp` and `core_lscp_spec`
   - `core_suod_spec`
+- Added spec-friendly Feature Bagging variants:
+  - `core_feature_bagging_spec`
+  - `vision_feature_bagging_spec`
 - Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
 - Added more native core detectors (feature-matrix first) with optional `vision_*` wrappers:
   - `core_elliptic_envelope`, `core_mst_outlier`, `core_lid`

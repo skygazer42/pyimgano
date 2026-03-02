@@ -21,7 +21,7 @@ outlier-detection contracts, implemented around the `pyimgano` detector API:
 from __future__ import annotations
 
 import numbers
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import Any, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -128,6 +128,7 @@ class CoreFeatureBagging:
         random_state: Optional[int] = None,
         combination: str = "average",
         base_estimator: str = "lof",
+        base_estimator_spec: Any = None,
         n_jobs: int = 1,
         n_neighbors: int = 20,
     ) -> None:
@@ -138,6 +139,7 @@ class CoreFeatureBagging:
         self.random_state = random_state
         self.combination = str(combination)
         self.base_estimator = str(base_estimator)
+        self.base_estimator_spec = base_estimator_spec
         self.n_jobs = int(n_jobs)
         self.n_neighbors = int(n_neighbors)
 
@@ -147,6 +149,31 @@ class CoreFeatureBagging:
         self.decision_scores_: NDArray[np.float64] | None = None
 
     def _make_base_estimator(self):
+        if self.base_estimator_spec is not None:
+            # Spec-friendly: allow JSON configs to define the base estimator without
+            # hard-coding it into this class. In industrial workflows this makes
+            # bagging a reusable building block.
+            from pyimgano.models.ensemble_spec import resolve_model_spec
+
+            spec = self.base_estimator_spec
+            if callable(getattr(spec, "decision_function", None)):
+                # Instances must be cloned per estimator; reusing a fitted instance would
+                # couple ensemble members. Best-effort deepcopy for advanced users.
+                import copy
+
+                try:
+                    return copy.deepcopy(spec)
+                except Exception as exc:  # noqa: BLE001 - user-provided object
+                    raise TypeError(
+                        "base_estimator_spec instance could not be cloned. "
+                        "Use a JSON-friendly spec (string model name or {'name':..., 'kwargs':...}) instead."
+                    ) from exc
+
+            return resolve_model_spec(
+                spec,
+                default_contamination=float(self.contamination),
+            )
+
         if self.base_estimator == "lof":
             return _CoreLOF(n_neighbors=self.n_neighbors, n_jobs=self.n_jobs)
         raise ValueError(f"Unknown base_estimator: {self.base_estimator!r}. Supported: 'lof'")
@@ -203,16 +230,18 @@ class CoreFeatureBagging:
             self.estimators_.append(estimator)
             self.estimators_features_.append(features)
 
-        score_mat = self._get_train_score_matrix(n_samples=n_samples)
+        score_mat = self._get_train_score_matrix(X, n_samples=n_samples)
         self.decision_scores_ = self._combine_scores(score_mat).astype(np.float64, copy=False)
         return self
 
-    def _get_train_score_matrix(self, *, n_samples: int) -> NDArray[np.float64]:
+    def _get_train_score_matrix(self, X: NDArray[np.float64], *, n_samples: int) -> NDArray[np.float64]:
         mat = np.zeros((n_samples, len(self.estimators_)), dtype=np.float64)
-        for i, est in enumerate(self.estimators_):
+        for i, (est, feats) in enumerate(zip(self.estimators_, self.estimators_features_)):
             scores = getattr(est, "decision_scores_", None)
             if scores is None:
-                raise RuntimeError("Base estimator did not set decision_scores_ during fit")
+                # Not all estimators expose `decision_scores_`. Fall back to scoring the
+                # training set (sklearn-style).
+                scores = est.decision_function(X[:, feats])  # type: ignore[attr-defined]
             scores_np = np.asarray(scores, dtype=np.float64).reshape(-1)
             if scores_np.shape[0] != n_samples:
                 raise ValueError("Base estimator returned unexpected decision_scores_ length")
@@ -327,6 +356,107 @@ class VisionFeatureBagging(BaseVisionDetector):
             random_state=random_state,
             combination=str(combination),
             base_estimator=str(base_estimator),
+            n_neighbors=int(n_neighbors),
+        )
+        super().__init__(contamination=contamination, feature_extractor=feature_extractor)
+
+    def _build_detector(self):
+        return CoreFeatureBagging(**self._detector_kwargs)
+
+    def fit(self, X: Iterable[str], y=None):
+        return super().fit(X, y=y)
+
+    def decision_function(self, X):
+        return super().decision_function(X)
+
+
+@register_model(
+    "core_feature_bagging_spec",
+    tags=("classical", "core", "features", "ensemble", "feature_bagging", "spec"),
+    metadata={
+        "description": "Core Feature Bagging ensemble with JSON-friendly base-estimator spec",
+        "input": "features",
+        "paper": "Lazarevic & Kumar, KDD 2005",
+        "year": 2005,
+    },
+)
+class CoreFeatureBaggingSpecModel(CoreFeatureDetector):
+    """Spec-friendly core Feature Bagging detector.
+
+    This variant accepts `base_estimator_spec` in the standard model-spec format:
+    - `"core_lof"`
+    - `{"name": "core_lof", "kwargs": {"n_neighbors": 7}}`
+    """
+
+    def __init__(
+        self,
+        *,
+        contamination: float = 0.1,
+        n_estimators: int = 10,
+        max_features: Union[int, float] = 1.0,
+        bootstrap_features: bool = False,
+        random_state: Optional[int] = None,
+        combination: str = "average",
+        base_estimator_spec: Any = "core_lof",
+        n_jobs: int = 1,
+        n_neighbors: int = 20,
+    ) -> None:
+        self._backend_kwargs = dict(
+            contamination=float(contamination),
+            n_estimators=int(n_estimators),
+            max_features=max_features,
+            bootstrap_features=bool(bootstrap_features),
+            random_state=random_state,
+            combination=str(combination),
+            base_estimator="spec",
+            base_estimator_spec=base_estimator_spec,
+            n_jobs=int(n_jobs),
+            n_neighbors=int(n_neighbors),
+        )
+        super().__init__(contamination=float(contamination))
+
+    def _build_detector(self):
+        return CoreFeatureBagging(**self._backend_kwargs)
+
+
+@register_model(
+    "vision_feature_bagging_spec",
+    tags=("vision", "ensemble", "feature_bagging", "spec"),
+    metadata={
+        "description": "Feature Bagging ensemble with JSON-friendly base-estimator spec",
+        "paper": "Lazarevic & Kumar, KDD 2005",
+        "year": 2005,
+        "ensemble": True,
+        "robust": True,
+    },
+)
+class VisionFeatureBaggingSpec(BaseVisionDetector):
+    """Vision-compatible spec-friendly Feature Bagging detector."""
+
+    def __init__(
+        self,
+        *,
+        feature_extractor=None,
+        contamination: float = 0.1,
+        n_estimators: int = 10,
+        max_features: Union[int, float] = 1.0,
+        bootstrap_features: bool = False,
+        n_jobs: int = 1,
+        random_state: Optional[int] = None,
+        combination: str = "average",
+        base_estimator_spec: Any = "core_lof",
+        n_neighbors: int = 20,
+    ) -> None:
+        self._detector_kwargs = dict(
+            contamination=float(contamination),
+            n_estimators=int(n_estimators),
+            max_features=max_features,
+            bootstrap_features=bool(bootstrap_features),
+            n_jobs=int(n_jobs),
+            random_state=random_state,
+            combination=str(combination),
+            base_estimator="spec",
+            base_estimator_spec=base_estimator_spec,
             n_neighbors=int(n_neighbors),
         )
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
