@@ -143,6 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `pyimgano-features` CLI to list feature extractors and precompute feature vectors.
 - Added `pyimgano.pipelines.feature_pipeline` helpers and benchmark support for a `cache_dir` to persist feature vectors.
 - Added CLI support for lightweight industrial model presets (preset names resolve to model+kwargs).
+- `pyimgano --model-info <name>` now materializes lazy registry entries so signatures/accepted kwargs are accurate and actionable.
 
 ### Utilities
 - Made `pyimgano.models` discovery lightweight by scanning model source files and registering lazy constructors, avoiding implicit imports of heavy roots like `torch`/`cv2` during `--list-models` workflows.
@@ -176,6 +177,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added end-to-end coverage for defect-bank synthesis + `vision_patchcore_lite_map`, and core detector score-direction contract checks.
 - Added strict pixel-map registry audit coverage (`tools/audit_pixel_map_models.py --strict`) and alpha-mask blending tests for synthesis.
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
+- Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
 ## [0.6.23] - 2026-02-25
 

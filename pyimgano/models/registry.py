@@ -8,6 +8,7 @@ enabling dynamic model creation and discovery.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 
@@ -79,6 +80,26 @@ class ModelRegistry:
 
 
 MODEL_REGISTRY = ModelRegistry()
+
+
+def materialize_model_constructor(name: str) -> Callable[..., Any]:
+    """Return the real model constructor, importing its module if needed.
+
+    Notes
+    -----
+    Under the v7 lazy registry, `pyimgano.models` registers lightweight
+    placeholder constructors and records the owning module name in
+    `metadata._lazy_module`. This helper imports that module to replace the
+    placeholder with the real constructor, without instantiating the detector.
+    """
+
+    entry = MODEL_REGISTRY.info(str(name))
+    if bool(entry.metadata.get("_lazy_placeholder", False)):
+        module_name = str(entry.metadata.get("_lazy_module", "")).strip()
+        if module_name:
+            import_module(f"pyimgano.models.{module_name}")
+            entry = MODEL_REGISTRY.info(str(name))
+    return entry.constructor
 
 
 def register_model(

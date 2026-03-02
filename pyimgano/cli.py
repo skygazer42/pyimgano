@@ -8,7 +8,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from pyimgano.models.registry import MODEL_REGISTRY, create_model
+from pyimgano.models.registry import MODEL_REGISTRY, create_model, materialize_model_constructor
 from pyimgano.utils.jsonable import to_jsonable
 from pyimgano.utils.optional_deps import optional_import
 
@@ -619,14 +619,7 @@ def _get_model_signature_info(model_name: str) -> tuple[set[str], bool]:
     # Ensure the model registry is populated (lazy scan; should stay import-light).
     import pyimgano.models  # noqa: F401
 
-    entry = MODEL_REGISTRY.info(model_name)
-    if bool(entry.metadata.get("_lazy_placeholder", False)):
-        module_name = str(entry.metadata.get("_lazy_module", "")).strip()
-        if module_name:
-            import_module(f"pyimgano.models.{module_name}")
-            entry = MODEL_REGISTRY.info(model_name)
-
-    constructor = entry.constructor
+    constructor = materialize_model_constructor(model_name)
     sig = inspect.signature(constructor)
 
     accepts_var_kwargs = any(
@@ -794,6 +787,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.model_info is not None:
             model_name = str(args.model_info)
             try:
+                materialize_model_constructor(model_name)
                 entry = MODEL_REGISTRY.info(model_name)
             except KeyError as exc:
                 raise ValueError(f"Unknown model: {model_name!r}") from exc
