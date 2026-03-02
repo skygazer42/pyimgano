@@ -130,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `torchvision_vit_tokens` (ViT token embeddings)
   - `normalize` (embedding normalization / power transform)
   - `TorchvisionConvPatchEmbedder` (conv feature map patch embeddings; safe `pretrained=False` default)
-- `torchvision_backbone` now accepts in-memory images as `PIL.Image.Image` and `torch.Tensor` (in addition to paths and numpy arrays).
+ - `torchvision_backbone` now accepts in-memory images as `PIL.Image.Image` and `torch.Tensor`, and supports CHW numpy arrays (`(C,H,W)`) in addition to HWC (`(H,W,C)`).
 - Added feature pipeline spec support (string/dict extractor specs) and feature export helpers (`FeatureExport`).
 - Added optional disk caching for feature vectors when inputs are file paths (useful for large datasets).
 

@@ -48,7 +48,7 @@ Extractors can be:
 - embeddings (torchvision backbones; offline-safe by default via `pretrained=False`)
 
 They can accept either paths or in-memory images/vectors (extractor-dependent). For example,
-`torchvision_backbone` supports paths, numpy images, PIL images, and torch tensors.
+`torchvision_backbone` supports paths, numpy images (HWC or CHW), PIL images, and torch tensors.
 
 ---
 

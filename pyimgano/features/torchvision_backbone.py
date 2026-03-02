@@ -53,6 +53,9 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
         arr = np.asarray(item)
         if arr.ndim == 2:
             arr = np.stack([arr, arr, arr], axis=-1)
+        if arr.ndim == 3 and arr.shape[2] not in (1, 3) and arr.shape[0] in (1, 3):
+            # Accept channels-first CHW numpy images (common in torch pipelines).
+            arr = np.transpose(arr, (1, 2, 0))
         if arr.ndim != 3 or arr.shape[2] not in (1, 3):
             raise ValueError(f"Unsupported numpy image shape: {arr.shape}")
 
