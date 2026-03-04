@@ -58,8 +58,10 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
         if self._model is not None:
             return
 
-        import torch
-        import torchvision.transforms as T
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="TorchvisionViTTokensExtractor")
+        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionViTTokensExtractor")
 
         model, weight_transform = _load_torchvision_vit(str(self.backbone), pretrained=bool(self.pretrained))
 
@@ -67,7 +69,7 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
         # on it, but stripping avoids accidentally returning logits if someone
         # calls `model(x)` directly in the future.
         try:  # pragma: no cover - depends on torchvision internals
-            import torch.nn as nn
+            nn = require("torch.nn", extra="torch", purpose="TorchvisionViTTokensExtractor")
 
             if hasattr(model, "heads"):
                 model.heads = nn.Identity()  # type: ignore[attr-defined]

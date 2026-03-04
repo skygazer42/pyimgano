@@ -11,7 +11,9 @@ def resolve_torch_device(device: str | None) -> "object":
     hard mypy dependency on torch types.
     """
 
-    import torch
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="resolve_torch_device")
 
     if device is None:
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -31,14 +33,9 @@ def torch_inference(model=None) -> Iterator[None]:  # noqa: ANN001 - torch is op
     - Restores training mode afterwards.
     """
 
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "torch is required for torch_inference().\n"
-            "Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="torch_inference")
 
     was_training = None
     if model is not None:
@@ -56,4 +53,3 @@ def torch_inference(model=None) -> Iterator[None]:  # noqa: ANN001 - torch is op
             model.train()
         except Exception:
             pass
-

@@ -15,7 +15,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.utils.validation import check_array
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 # 只从本地基类导入
 from .base_detector import BaseDetector
@@ -494,6 +493,10 @@ class VisionCBLOF(BaseVisionDetector):
 
     def visualize_clusters(self):
         """可视化聚类结果"""
+        from pyimgano.utils.optional_deps import require
+
+        plt = require("matplotlib.pyplot", extra="viz", purpose="VisionCBLOF visualization")
+
         if not hasattr(self.detector, 'cluster_labels_'):
             logger.warning("CBLOF: visualize_clusters called before fit()")
             return

@@ -23,7 +23,9 @@ def to_torch_chw_float(
     if image_rgb_u8_hwc.ndim != 3 or image_rgb_u8_hwc.shape[2] != 3:
         raise ValueError(f"Expected shape (H,W,3), got {image_rgb_u8_hwc.shape}")
 
-    import torch
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="to_torch_chw_float")
 
     t = torch.from_numpy(np.ascontiguousarray(image_rgb_u8_hwc)).permute(2, 0, 1).float()
     t = t / 255.0

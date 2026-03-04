@@ -244,14 +244,9 @@ class TorchHubDinoV2Embedder:
         if self._model is not None:
             return
 
-        try:
-            import torch  # type: ignore
-        except Exception as exc:  # pragma: no cover
-            raise ImportError(
-                "torch is required for the default DINOv2 embedder.\n"
-                "Install it via:\n  pip install 'torch'\n"
-                f"Original error: {exc}"
-            ) from exc
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="DINOv2 embedder")
 
         try:
             from PIL import Image  # type: ignore
@@ -262,14 +257,7 @@ class TorchHubDinoV2Embedder:
                 f"Original error: {exc}"
             ) from exc
 
-        try:
-            from torchvision import transforms  # type: ignore
-        except Exception as exc:  # pragma: no cover
-            raise ImportError(
-                "torchvision is required for the default DINOv2 embedder.\n"
-                "Install it via:\n  pip install 'torchvision'\n"
-                f"Original error: {exc}"
-            ) from exc
+        transforms = require("torchvision.transforms", extra="torch", purpose="DINOv2 embedder")
 
         self._Image = Image  # type: ignore[attr-defined]
         self._torch = torch  # type: ignore[attr-defined]

@@ -40,6 +40,16 @@ pip install pyimgano
 
 ## 快速上手（CLI）
 
+### 最快离线自检（推荐）
+
+跑一个最小端到端 demo（自动生成 tiny `custom` 数据集 + 跑 suite + 导出表格）：
+
+```bash
+pyimgano-demo
+```
+
+提示：用 `pyimgano-demo --help` 查看可选参数（suite/sweep/output 等）。
+
 ### 训练（workbench）→ 导出 `infer_config.json`
 
 从模板配置开始（需要把数据路径改成你自己的）：
@@ -98,6 +108,54 @@ pyimgano-infer \
 - `--defects` 依赖 anomaly map。如果不传固定 `--pixel-threshold`，建议提供 `--train-dir`，这样默认的 `normal_pixel_quantile` 策略可以从 normal pixels 校准一个阈值。
 - 高分辨率 tiling 更建议用带 `numpy,pixel_map` tag 的模型（见 `docs/INDUSTRIAL_INFERENCE.md`）。
 
+### 算法选型：基线套件（suite）+ 小网格扫参（sweep）
+
+工业算法选型常见需求是：在一个数据类目上快速对比一组 **baseline**，并得到可审计的汇总报告与排行榜表格。
+`pyimgano-benchmark` 支持运行内置的 **suite**（基线套件），并可选启用小范围 `sweep`（每个 baseline 的小网格搜索）。
+
+发现 suite / sweep：
+
+```bash
+pyimgano-benchmark --list-suites
+pyimgano-benchmark --suite-info industrial-v3 --json
+
+pyimgano-benchmark --list-sweeps
+pyimgano-benchmark --sweep-info industrial-template-small --json
+```
+
+运行 suite（并导出排行榜表格 `leaderboard.*` / `skipped.*`）：
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-v3 \
+  --device cpu \
+  --no-pretrained \
+  --suite-export both \
+  --output-dir /tmp/pyimgano_suite_run
+```
+
+可选：启用 sweep（对每个 baseline 扫少量变体，并限制每个 baseline 的变体数）：
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-v3 \
+  --suite-sweep industrial-template-small \
+  --suite-sweep-max-variants 1 \
+  --suite-export csv \
+  --output-dir /tmp/pyimgano_suite_sweep_run
+```
+
+说明：
+- 部分 suite 条目是 **optional**：如果没有安装对应 extras，会自动跳过，并给出可执行提示，例如
+  `pip install 'pyimgano[skimage]'`、`pip install 'pyimgano[torch]'`。
+- 详细参数、输出目录结构见 `docs/CLI_REFERENCE.md`。
+
 ## 快速上手（Python）
 
 ```python
@@ -141,13 +199,21 @@ pyimgano-benchmark --model-info vision_patchcore --json
 部分模型/后端需要额外安装：
 
 ```bash
+pip install "pyimgano[torch]"       # torch + torchvision（深度模型、TorchScript export 等）
+pip install "pyimgano[onnx]"        # onnx + onnxruntime（ONNX 推理/导出）
+pip install "pyimgano[openvino]"    # OpenVINO runtime（部署推理）
+pip install "pyimgano[skimage]"     # scikit-image（SSIM/phase-corr 等基线）
+pip install "pyimgano[numba]"       # numba 加速基线
+pip install "pyimgano[viz]"         # matplotlib/seaborn 可视化
 pip install "pyimgano[diffusion]"   # diffusion 系列方法
 pip install "pyimgano[clip]"        # OpenCLIP 后端
 pip install "pyimgano[faiss]"       # kNN 加速（memory bank 类方法）
 pip install "pyimgano[anomalib]"    # anomalib checkpoint 包装（偏推理）
 pip install "pyimgano[backends]"    # clip + faiss + anomalib
-pip install "pyimgano[all]"         # 全量（dev/docs/backends/diffusion/viz）
+pip install "pyimgano[all]"         # 全量（dev/docs/viz + torch/onnx/openvino + backends/diffusion 等）
 ```
+
+也可以参考：`docs/OPTIONAL_DEPENDENCIES.md`（extras 对照表 + 推荐安装组合）。
 
 ## 文档入口
 

@@ -90,7 +90,7 @@ def test_e2e_synthesize_then_ssim_template_map_then_infer_defects(tmp_path: Path
     rc = infer_main(
         [
             "--model",
-            "ssim_template_map",
+            "vision_pixel_mean_absdiff_map",
             "--train-dir",
             str(train_dir),
             "--input",

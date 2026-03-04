@@ -47,10 +47,17 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
         if self._model is not None:
             return
 
-        import torch
-        import torch.nn.functional as F
-        import torchvision.transforms as T
-        from torchvision.models.feature_extraction import create_feature_extractor
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="TorchvisionMultilayerExtractor")
+        F = require("torch.nn.functional", extra="torch", purpose="TorchvisionMultilayerExtractor")
+        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionMultilayerExtractor")
+        fe = require(
+            "torchvision.models.feature_extraction",
+            extra="torch",
+            purpose="TorchvisionMultilayerExtractor",
+        )
+        create_feature_extractor = fe.create_feature_extractor
 
         model, weight_transform = _load_torchvision_backbone(
             str(self.backbone), pretrained=bool(self.pretrained)

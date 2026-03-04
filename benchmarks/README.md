@@ -36,6 +36,12 @@ python benchmark_deeplearning.py
 
 # Preprocessing operations only
 python benchmark_preprocessing.py
+
+# Industrial CI microbenchmark (synthetic images + Markdown table)
+python benchmark_industrial_ci_micro.py
+
+# Template-style synthetic dataset (stable pattern + patch inversion; includes NCC baseline)
+python benchmark_industrial_ci_micro.py --dataset-kind template_patch
 ```
 
 ## Requirements

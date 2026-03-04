@@ -47,7 +47,7 @@ def test_infer_cli_can_write_defects_regions_jsonl(tmp_path: Path) -> None:
     rc = infer_main(
         [
             "--model",
-            "ssim_template_map",
+            "vision_pixel_mean_absdiff_map",
             "--train-dir",
             str(train_dir),
             "--input",
@@ -75,4 +75,3 @@ def test_infer_cli_can_write_defects_regions_jsonl(tmp_path: Path) -> None:
     defects = payload.get("defects")
     assert isinstance(defects, dict)
     assert "regions" in defects
-

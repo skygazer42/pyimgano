@@ -8,7 +8,7 @@ import numpy as np
 
 from pyimgano.calibration.score_threshold import resolve_calibration_quantile
 from pyimgano.evaluation import evaluate_detector
-from pyimgano.models.registry import MODEL_REGISTRY, create_model
+from pyimgano.models.registry import MODEL_REGISTRY, create_model, materialize_model_constructor
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
 
@@ -133,13 +133,15 @@ def _merge_and_filter_model_kwargs(
     """
 
     try:
+        # Ensure we inspect the real constructor signature, not a lazy placeholder.
+        constructor = materialize_model_constructor(model_name)
         entry = MODEL_REGISTRY.info(model_name)
     except Exception as exc:
         raise ValueError(f"Unknown model: {model_name!r}") from exc
 
     import inspect
 
-    sig = inspect.signature(entry.constructor)
+    sig = inspect.signature(constructor)
     accepts_var_kwargs = any(
         p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
     )
@@ -150,14 +152,13 @@ def _merge_and_filter_model_kwargs(
     }
 
     merged = dict(model_kwargs)
-    auto_passthrough = {"contamination", "random_state", "random_seed"}
     for key, value in auto_defaults.items():
         if key in merged:
             continue
-        # Auto defaults are CLI/workbench-driven defaults (device/seed/etc).
-        # Do not pass unknown auto keys into constructors that accept **kwargs:
+        # Auto defaults are CLI/workbench-driven defaults (device/seed/etc). Even if
+        # a constructor accepts **kwargs, passing unknown auto keys is unsafe:
         # many wrappers forward **kwargs into sklearn backends which will error.
-        if key in accepted or (accepts_var_kwargs and key in auto_passthrough):
+        if key in accepted:
             merged[key] = value
 
     if accepts_var_kwargs:

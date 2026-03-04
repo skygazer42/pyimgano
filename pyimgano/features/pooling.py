@@ -24,13 +24,9 @@ def gem_pool2d(x, *, p: float = 3.0, eps: float = 1e-6):  # noqa: ANN001, ANN201
         Clamp epsilon to keep gradients and numeric stability.
     """
 
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "gem_pool2d requires torch. Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="gem_pool2d")
 
     p_f = float(p)
     if not (p_f > 0.0):
@@ -50,4 +46,3 @@ def gem_pool2d(x, *, p: float = 3.0, eps: float = 1e-6):  # noqa: ANN001, ANN201
 
 
 __all__ = ["gem_pool2d"]
-

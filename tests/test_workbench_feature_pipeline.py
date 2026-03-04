@@ -13,7 +13,7 @@ def test_vision_feature_pipeline_model_smoke() -> None:
         contamination=0.1,
         core_detector="core_loop",
         core_kwargs={"n_neighbors": 1},
-        feature_extractor={"name": "hog", "kwargs": {"resize_hw": [32, 32]}},
+        feature_extractor={"name": "edge_stats", "kwargs": {}},
     )
 
     imgs = [
@@ -46,7 +46,7 @@ def test_export_infer_config_payload_keeps_feature_pipeline_kwargs() -> None:
                 "model_kwargs": {
                     "core_detector": "core_loop",
                     "core_kwargs": {"n_neighbors": 1},
-                    "feature_extractor": {"name": "hog", "kwargs": {"resize_hw": [32, 32]}},
+                    "feature_extractor": {"name": "edge_stats", "kwargs": {}},
                 },
             },
             "output": {"save_run": False, "per_image_jsonl": False},
@@ -57,4 +57,4 @@ def test_export_infer_config_payload_keeps_feature_pipeline_kwargs() -> None:
     mk = payload["model"]["model_kwargs"]
     assert mk["core_detector"] == "core_loop"
     assert mk["core_kwargs"]["n_neighbors"] == 1
-    assert mk["feature_extractor"]["name"] == "hog"
+    assert mk["feature_extractor"]["name"] == "edge_stats"

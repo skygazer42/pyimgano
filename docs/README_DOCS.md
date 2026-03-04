@@ -63,6 +63,8 @@ docs/
 ├── Makefile                 # Build script (Unix/Mac)
 ├── make.bat                 # Build script (Windows)
 ├── QUICKSTART.md            # Quick start guide
+├── OPTIONAL_DEPENDENCIES.md # Extras map (optional dependencies)
+├── PLUGINS.md               # Third-party extension mechanism (entry points)
 ├── COMPARISON.md            # PyImgAno vs PyOD comparison
 └── CAPABILITY_ASSESSMENT.md # Capability assessment
 ```
@@ -73,6 +75,8 @@ If you’re updating docs, these pages form the "happy path" for most industrial
 
 - `docs/QUICKSTART.md` (install + basic usage)
 - `docs/WORKBENCH.md` (train/eval/export loop; artifacts)
+- `docs/OPTIONAL_DEPENDENCIES.md` (extras map + recommended install combos)
+- `docs/PLUGINS.md` (third-party extension mechanism; enterprise/internal models)
 - `docs/MANIFEST_DATASET.md` (recommended custom dataset format: JSONL manifest, paths-first)
 - `docs/INDUSTRIAL_INFERENCE.md` (numpy-first + tiling + defects output)
 - `docs/FALSE_POSITIVE_DEBUGGING.md` (practical FP tuning with overlays/ROI/filters)

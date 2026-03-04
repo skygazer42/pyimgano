@@ -208,6 +208,70 @@ If you need fully deterministic paths (e.g. CI jobs), always pass an explicit
   - run artifacts include `threshold_provenance` (quantile + source)
 - `--limit-train N`, `--limit-test N`: quick smoke runs
 
+---
+
+## ✅ CI Microbenchmark (Synthetic Industrial Baselines)
+
+To keep this repo closer to a “top-tier” industrial package, we include a tiny
+**synthetic microbenchmark** that:
+
+- runs fully offline (no dataset downloads)
+- produces a compact **baseline results table**
+- enables **CI regression thresholds** (AUROC/AP) so baselines don’t silently degrade
+
+### Run (from repo root)
+
+```bash
+# Default: `noise_patch` (gray+noise normals; anomalies add a bright square)
+python benchmarks/benchmark_industrial_ci_micro.py
+
+# Template-style: stable pattern + patch inversion (for SSIM/NCC/template methods)
+python benchmarks/benchmark_industrial_ci_micro.py --dataset-kind template_patch
+```
+
+### Example output (CPU; timings vary by machine)
+
+#### `noise_patch` (default)
+
+| Model | AUROC | AP | fit_s | score_test_s | total_s |
+|---|---:|---:|---:|---:|---:|
+| vision_ecod | 1.0000 | 1.0000 | 2.877 | 2.751 | 8.375 |
+| vision_copod | 1.0000 | 1.0000 | 2.974 | 2.915 | 8.803 |
+| vision_structural_ecod | 1.0000 | 1.0000 | 0.020 | 0.018 | 0.063 |
+| vision_structural_knn | 1.0000 | 1.0000 | 0.019 | 0.018 | 0.067 |
+| vision_structural_pca_md | 1.0000 | 1.0000 | 0.019 | 0.017 | 0.060 |
+| vision_pixel_mean_absdiff_map | 1.0000 | 1.0000 | 0.005 | 0.003 | 0.018 |
+| vision_pixel_gaussian_map | 1.0000 | 1.0000 | 0.005 | 0.003 | 0.017 |
+| vision_pixel_mad_map | 1.0000 | 1.0000 | 0.007 | 0.003 | 0.019 |
+| ssim_template_map | 1.0000 | 1.0000 | 0.020 | 0.008 | 0.056 |
+| vision_phase_correlation_map | 1.0000 | 1.0000 | 0.011 | 0.008 | 0.034 |
+
+#### `template_patch` (stable pattern + patch inversion; includes NCC)
+
+| Model | AUROC | AP | fit_s | score_test_s | total_s |
+|---|---:|---:|---:|---:|---:|
+| vision_ecod | 1.0000 | 1.0000 | 2.785 | 2.677 | 8.157 |
+| vision_copod | 1.0000 | 1.0000 | 2.951 | 2.885 | 8.728 |
+| vision_structural_ecod | 1.0000 | 1.0000 | 0.024 | 0.019 | 0.072 |
+| vision_structural_knn | 1.0000 | 1.0000 | 0.021 | 0.026 | 0.087 |
+| vision_structural_pca_md | 1.0000 | 1.0000 | 0.021 | 0.033 | 0.091 |
+| vision_pixel_mean_absdiff_map | 1.0000 | 1.0000 | 0.006 | 0.004 | 0.021 |
+| vision_pixel_gaussian_map | 1.0000 | 1.0000 | 0.007 | 0.004 | 0.020 |
+| vision_pixel_mad_map | 1.0000 | 1.0000 | 0.009 | 0.004 | 0.023 |
+| ssim_template_map | 1.0000 | 1.0000 | 0.021 | 0.008 | 0.057 |
+| vision_template_ncc_map | 1.0000 | 1.0000 | 0.007 | 0.005 | 0.025 |
+| vision_phase_correlation_map | 1.0000 | 1.0000 | 0.011 | 0.008 | 0.035 |
+
+### CI regression thresholds
+
+CI enforces **AUROC/AP >= 0.99** for a few “first-line” industrial baselines on
+these synthetic datasets (see:
+`tests/test_ci_microbenchmark_industrial_structural_baselines_v16.py`,
+`tests/test_ci_microbenchmark_industrial_pixel_stats_baselines_v16.py`,
+`tests/test_ci_microbenchmark_industrial_template_baselines_v16.py`).
+
+---
+
 ### Basic Benchmark
 
 ```python

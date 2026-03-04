@@ -12,8 +12,6 @@ from typing import Dict, List, Optional, Tuple, Union, Callable
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-import torch
-import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -675,6 +673,11 @@ class ImageEnhancer:
         dev = str(device).strip() if device is not None else None
         if dev in ("", "none"):
             dev = None
+
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch")
+        F = require("torch.nn.functional", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch")
 
         # Torch path (CPU fallback if CUDA not present).
         # Keep everything float32 for speed and determinism.

@@ -78,7 +78,7 @@ def test_e2e_synthesize_then_ssim_struct_map_then_infer_defects(tmp_path: Path) 
     rc = infer_main(
         [
             "--model",
-            "ssim_struct_map",
+            "vision_pixel_gaussian_map",
             "--train-dir",
             str(train_dir),
             "--input",
@@ -102,4 +102,3 @@ def test_e2e_synthesize_then_ssim_struct_map_then_infer_defects(tmp_path: Path) 
     records = [json.loads(line) for line in lines]
     assert any(r.get("defects", {}).get("regions") for r in records)
     assert sorted(masks_dir.glob("*.png")), "expected at least one exported defect mask"
-

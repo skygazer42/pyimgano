@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("skimage")
 
 
 def test_gabor_bank_extractor_shapes_and_finite() -> None:
@@ -12,4 +15,3 @@ def test_gabor_bank_extractor_shapes_and_finite() -> None:
 
     assert out.shape == (2, 4)  # 1 freq * 2 thetas * (mean,std)
     assert np.all(np.isfinite(out))
-

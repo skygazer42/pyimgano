@@ -200,6 +200,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.24] - 2026-03-04
+
+### Packaging
+- Moved heavy runtimes behind extras (`pyimgano[torch]`, `pyimgano[onnx]`, `pyimgano[openvino]`, `pyimgano[skimage]`, `pyimgano[numba]`, `pyimgano[viz]`) while keeping the core install lightweight.
+- Hardened optional dependency boundaries so missing extras do not break base imports and errors include actionable install hints.
+
+### Baselines / Suites
+- Added curated industrial baseline suites and suite sweeps for small grid searches:
+  - `industrial-v3` (adds optional deep pixel-map baselines)
+  - `industrial-deep-map-small` sweep profile (bounded variants for PatchCore-lite-map / patch-embedding-core-map)
+
+### Extensibility
+- Added opt-in plugin loading via Python entry points (`pyimgano.plugins`) for third-party models/features.
+
+### Docs
+- Added `docs/OPTIONAL_DEPENDENCIES.md` (extras map) and `docs/PLUGINS.md` (plugin authoring guide).
+- Updated README/CLI examples to reflect suites, sweeps, and extras.
+
+### Tests
+- Added coverage for extras metadata, suite/sweep discovery and execution, plugin entry points, and lightweight import guardrails.
+
 ## [0.6.23] - 2026-02-25
 
 ### Preprocessing

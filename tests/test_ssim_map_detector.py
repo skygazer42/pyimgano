@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("skimage")
 
 
 def _make_gradient_image(size: int = 64) -> np.ndarray:
@@ -75,4 +78,3 @@ def test_ssim_struct_map_detector_smoke() -> None:
     maps = det.predict_anomaly_map([base, anomaly])
     assert maps.shape == (2, 64, 64)
     assert maps.dtype == np.float32
-

@@ -24,15 +24,9 @@ from .base_detector import BaseDetector
 
 
 def _require_torch():
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "PyTorch is required for deep-learning detectors. Install it via:\n"
-            "  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
-    return torch
+    from pyimgano.utils.optional_deps import require
+
+    return require("torch", extra="torch", purpose="deep-learning detectors")
 
 
 @dataclass(frozen=True)

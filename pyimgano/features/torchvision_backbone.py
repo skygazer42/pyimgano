@@ -85,7 +85,9 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
 
 
 def _make_device(device: str):  # noqa: ANN001, ANN201
-    import torch
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="torchvision_backbone extractor")
 
     dev = str(device).strip().lower()
     if dev == "cuda" and not torch.cuda.is_available():
@@ -198,9 +200,11 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         if self._model is not None:
             return
 
-        import torch
-        import torch.nn.functional as F
-        import torchvision.transforms as T
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="TorchvisionBackboneExtractor")
+        F = require("torch.nn.functional", extra="torch", purpose="TorchvisionBackboneExtractor")
+        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionBackboneExtractor")
 
         pool = str(self.pool).strip().lower()
         model, weight_transform = _load_torchvision_backbone(
@@ -209,7 +213,12 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         dev = _make_device(str(self.device))
 
         if pool == "gem":
-            from torchvision.models.feature_extraction import create_feature_extractor
+            fe = require(
+                "torchvision.models.feature_extraction",
+                extra="torch",
+                purpose="TorchvisionBackboneExtractor",
+            )
+            create_feature_extractor = fe.create_feature_extractor
 
             node = str(self.pool_node)
             model = create_feature_extractor(model, return_nodes={node: "feat"})

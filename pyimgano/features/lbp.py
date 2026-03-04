@@ -64,7 +64,10 @@ class LBPExtractor(BaseFeatureExtractor):
         return 16
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
-        from skimage.feature import local_binary_pattern
+        from pyimgano.utils.optional_deps import require
+
+        skfeature = require("skimage.feature", extra="skimage", purpose="lbp feature extractor")
+        local_binary_pattern = skfeature.local_binary_pattern
 
         items = list(inputs)
         if not items:
@@ -86,4 +89,3 @@ class LBPExtractor(BaseFeatureExtractor):
             feats.append(hist.reshape(-1))
 
         return np.stack(feats, axis=0)
-

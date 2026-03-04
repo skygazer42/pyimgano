@@ -31,6 +31,18 @@ start with these “pixel-first” detectors (designed for MVTec AD / VisA-style
 | `vision_openclip_patchknn` | Semantics-driven patch kNN | Requires `pyimgano[clip]` (OpenCLIP) or an injected embedder |
 | `vision_dinomaly_anomalib`, `vision_cfa_anomalib` | You already use anomalib | Inference wrappers; require `pyimgano[anomalib]` + a trained checkpoint |
 
+### Aligned template-style inspection (CPU-friendly)
+
+If your station is stable (pose/background mostly fixed) and you want a fast pixel-map baseline:
+
+| Detector | Start when | Notes |
+|----------|------------|-------|
+| `vision_pixel_gaussian_map` | You have stable alignment | Per-pixel mean+std z-score map; very fast CPU baseline |
+| `vision_pixel_mad_map` | “Noisy normal” training set | Robust per-pixel median+MAD z-score map |
+| `vision_pixel_mean_absdiff_map` | You want the simplest baseline | Per-pixel mean template abs-diff map in `[0,1]` |
+| `ssim_template_map` | Structure stable, illumination varies | SSIM template similarity map turned into anomaly map |
+| `vision_phase_correlation_map` | Small XY misalignment | Phase-corr alignment before abs-diff map |
+
 ## Industrial Integration (numpy-first)
 
 If your upstream system already gives you decoded numpy frames (video pipelines, cameras, backend services),

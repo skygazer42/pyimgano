@@ -70,7 +70,7 @@ def test_cli_pixel_threshold_strategy_supervised_segf1(tmp_path: Path, capsys) -
             "--category",
             "demo",
             "--model",
-            "ssim_template_map",
+            "vision_pixel_mean_absdiff_map",
             "--model-kwargs",
             json.dumps({"resize_hw": [h, w], "reduction": "mean"}, ensure_ascii=False),
             "--pixel",
@@ -91,4 +91,3 @@ def test_cli_pixel_threshold_strategy_supervised_segf1(tmp_path: Path, capsys) -
     assert isinstance(pixel_metrics, dict)
     assert "pixel_threshold" in pixel_metrics
     assert "pixel_segf1" in pixel_metrics
-

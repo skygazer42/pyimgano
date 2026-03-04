@@ -57,7 +57,7 @@ def test_include_maps_does_not_enable_defects(tmp_path: Path) -> None:
     rc = infer_main(
         [
             "--model",
-            "ssim_template_map",
+            "vision_pixel_mean_absdiff_map",
             "--train-dir",
             str(train_dir),
             "--input",
@@ -90,7 +90,7 @@ def test_defects_enables_maps_implicitly(tmp_path: Path) -> None:
     rc = infer_main(
         [
             "--model",
-            "ssim_template_map",
+            "vision_pixel_mean_absdiff_map",
             "--train-dir",
             str(train_dir),
             "--input",
@@ -117,4 +117,3 @@ def test_defects_enables_maps_implicitly(tmp_path: Path) -> None:
     assert sorted(masks_dir.glob("*.png")) or sorted(masks_dir.glob("*.npy")) or sorted(
         masks_dir.glob("*.npz")
     ), "expected at least one saved defect mask artifact"
-

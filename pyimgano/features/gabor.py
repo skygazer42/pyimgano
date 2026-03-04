@@ -53,8 +53,11 @@ class GaborBankExtractor(BaseFeatureExtractor):
         self.eps = float(eps)
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
-        from skimage.filters import gabor
+        from pyimgano.utils.optional_deps import require
         import cv2
+
+        skfilters = require("skimage.filters", extra="skimage", purpose="gabor_bank feature extractor")
+        gabor = skfilters.gabor
 
         items = list(inputs)
         if not items:
@@ -79,4 +82,3 @@ class GaborBankExtractor(BaseFeatureExtractor):
             feats.append(np.asarray(fvec, dtype=np.float32))
 
         return np.stack(feats, axis=0)
-

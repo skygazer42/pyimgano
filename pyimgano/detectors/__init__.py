@@ -191,7 +191,7 @@ class FeatureBaggingDetector(_VisionFeatureBagging):
 # ---------------------------------------------------------------------------
 
 
-from pyimgano.models.deep_svdd import VisionDeepSVDD as _VisionDeepSVDD
+import importlib.util
 
 
 def _normalize_legacy_autoencoder_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -224,13 +224,57 @@ def _normalize_legacy_autoencoder_kwargs(kwargs: dict[str, Any]) -> dict[str, An
     return normalized
 
 
-class AutoencoderDetector(_VisionDeepSVDD):
-    def __init__(self, *, feature_extractor=None, contamination: float = 0.1, **kwargs) -> None:
-        super().__init__(
-            feature_extractor=_ensure_extractor(feature_extractor),
-            contamination=contamination,
-            **_normalize_legacy_autoencoder_kwargs(kwargs),
-        )
+def _torch_available() -> bool:
+    return importlib.util.find_spec("torch") is not None
+
+
+def _make_missing_torch_autoencoder_detector():
+    class AutoencoderDetector:  # noqa: D401 - legacy compatibility shim
+        """Legacy AutoencoderDetector (requires torch).
+
+        Install it via:
+          pip install 'pyimgano[torch]'
+        """
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401 - legacy shim
+            from pyimgano.utils.optional_deps import require
+
+            require("torch", extra="torch", purpose="pyimgano.detectors.AutoencoderDetector")
+            raise RuntimeError("Unreachable: torch was required but AutoencoderDetector was not materialized.")
+
+    return AutoencoderDetector
+
+
+def _make_autoencoder_detector_class():
+    from pyimgano.models.deep_svdd import VisionDeepSVDD as _VisionDeepSVDD
+
+    class AutoencoderDetector(_VisionDeepSVDD):
+        def __init__(self, *, feature_extractor=None, contamination: float = 0.1, **kwargs) -> None:
+            super().__init__(
+                feature_extractor=_ensure_extractor(feature_extractor),
+                contamination=contamination,
+                **_normalize_legacy_autoencoder_kwargs(kwargs),
+            )
+
+    return AutoencoderDetector
+
+
+def __getattr__(name: str):  # pragma: no cover - exercised via import patterns
+    if name != "AutoencoderDetector":
+        raise AttributeError(name)
+
+    if not _torch_available():
+        value = _make_missing_torch_autoencoder_detector()
+        globals()[name] = value
+        return value
+
+    value = _make_autoencoder_detector_class()
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:  # pragma: no cover - tooling convenience
+    return sorted(set(globals()) | {"AutoencoderDetector"})
 
 
 __all__ = [

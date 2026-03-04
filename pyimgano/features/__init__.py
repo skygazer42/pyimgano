@@ -57,6 +57,7 @@ _auto_import(
         "torchvision_patch_tokens",
         "patch_grid",
         "torchscript_embed",
+        "onnx_embed",
         "openclip_embed",
         "multi",
         "pca_projector",

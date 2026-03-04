@@ -32,9 +32,9 @@ def test_feature_cli_cache_dir_reuses_cache(tmp_path: Path, monkeypatch) -> None
             "--pattern",
             "*.png",
             "--extractor",
-            "hog",
+            "edge_stats",
             "--extractor-kwargs",
-            '{"resize_hw":[16,16]}',
+            "{}",
             "--cache-dir",
             str(cache_dir),
             "--output",
@@ -45,12 +45,12 @@ def test_feature_cli_cache_dir_reuses_cache(tmp_path: Path, monkeypatch) -> None
     assert out1.exists()
 
     # Second pass: should be able to complete without calling the underlying extractor.
-    from pyimgano.features.hog import HOGExtractor
+    from pyimgano.features.edge_stats import EdgeStatsExtractor
 
     def _boom(self, inputs):  # noqa: ANN001, ANN201 - signature matches extractor protocol
-        raise RuntimeError("HOGExtractor.extract should not be called when cache is warm")
+        raise RuntimeError("EdgeStatsExtractor.extract should not be called when cache is warm")
 
-    monkeypatch.setattr(HOGExtractor, "extract", _boom, raising=True)
+    monkeypatch.setattr(EdgeStatsExtractor, "extract", _boom, raising=True)
 
     rc2 = feature_main(
         [
@@ -59,9 +59,9 @@ def test_feature_cli_cache_dir_reuses_cache(tmp_path: Path, monkeypatch) -> None
             "--pattern",
             "*.png",
             "--extractor",
-            "hog",
+            "edge_stats",
             "--extractor-kwargs",
-            '{"resize_hw":[16,16]}',
+            "{}",
             "--cache-dir",
             str(cache_dir),
             "--output",
@@ -75,4 +75,3 @@ def test_feature_cli_cache_dir_reuses_cache(tmp_path: Path, monkeypatch) -> None
     f2 = np.load(str(out2), allow_pickle=False)
     assert f1.shape == f2.shape
     assert np.allclose(f1, f2)
-

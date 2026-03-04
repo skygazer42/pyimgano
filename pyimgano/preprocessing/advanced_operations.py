@@ -18,15 +18,8 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage
-from skimage import feature, filters, morphology
-try:
-    from skimage.feature import graycomatrix as greycomatrix  # type: ignore
-    from skimage.feature import graycoprops as greycoprops  # type: ignore
-except ImportError:  # pragma: no cover
-    from skimage.feature import greycomatrix, greycoprops  # type: ignore
 
-from skimage.feature import hog, local_binary_pattern
-from skimage.filters import gabor
+from pyimgano.utils.optional_deps import require
 
 
 # Enums for type-safe operation selection
@@ -208,8 +201,14 @@ def apply_gabor_filter(
     image = image.astype(np.float32) / 255.0
 
     # Apply Gabor filter
-    real, imag = gabor(image, frequency=frequency, theta=theta,
-                       sigma_x=sigma_x, sigma_y=sigma_y)
+    skfilters = require("skimage.filters", extra="skimage", purpose="Gabor filter")
+    real, imag = skfilters.gabor(
+        image,
+        frequency=frequency,
+        theta=theta,
+        sigma_x=sigma_x,
+        sigma_y=sigma_y,
+    )
 
     # Normalize and convert to uint8
     real = np.abs(real)
@@ -240,7 +239,8 @@ def compute_lbp(
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Compute LBP
-    lbp = local_binary_pattern(image, n_points, radius, method=method)
+    skfeature = require("skimage.feature", extra="skimage", purpose="LBP texture features")
+    lbp = skfeature.local_binary_pattern(image, n_points, radius, method=method)
 
     # Normalize to 0-255
     lbp = ((lbp - lbp.min()) / (lbp.max() - lbp.min()) * 255).astype(np.uint8)
@@ -266,6 +266,15 @@ def compute_glcm_features(
     """
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    skfeature = require("skimage.feature", extra="skimage", purpose="GLCM texture features")
+    greycomatrix = getattr(skfeature, "graycomatrix", None) or getattr(skfeature, "greycomatrix", None)
+    greycoprops = getattr(skfeature, "graycoprops", None) or getattr(skfeature, "greycoprops", None)
+    if greycomatrix is None or greycoprops is None:  # pragma: no cover - version mismatch
+        raise RuntimeError(
+            "Installed scikit-image does not provide graycomatrix/greycoprops. "
+            "Please upgrade scikit-image (pyimgano[skimage])."
+        )
 
     # Compute GLCM
     glcm = greycomatrix(image, distances=distances, angles=angles,
@@ -570,6 +579,9 @@ def extract_hog_features(
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+    skfeature = require("skimage.feature", extra="skimage", purpose="HOG feature extraction")
+    hog = skfeature.hog
+
     if visualize:
         features, hog_image = hog(
             image,
@@ -671,15 +683,18 @@ def apply_advanced_morphology(
     binary_bool = binary.astype(bool)
 
     if operation == MorphologicalAdvanced.SKELETON:
-        skeleton = morphology.skeletonize(binary_bool)
+        skmorph = require("skimage.morphology", extra="skimage", purpose="skeletonization")
+        skeleton = skmorph.skeletonize(binary_bool)
         return (skeleton * 255).astype(np.uint8)
 
     elif operation == MorphologicalAdvanced.THIN:
-        thinned = morphology.thin(binary_bool)
+        skmorph = require("skimage.morphology", extra="skimage", purpose="thinning")
+        thinned = skmorph.thin(binary_bool)
         return (thinned * 255).astype(np.uint8)
 
     elif operation == MorphologicalAdvanced.CONVEX_HULL:
-        hull = morphology.convex_hull_image(binary_bool)
+        skmorph = require("skimage.morphology", extra="skimage", purpose="convex hull morphology")
+        hull = skmorph.convex_hull_image(binary_bool)
         return (hull * 255).astype(np.uint8)
 
     elif operation == MorphologicalAdvanced.DISTANCE_TRANSFORM:
@@ -741,12 +756,14 @@ def apply_threshold(
         return binary
 
     elif method == ThresholdMethod.YEN:
-        threshold_value = filters.threshold_yen(gray)
+        skfilters = require("skimage.filters", extra="skimage", purpose="Yen threshold")
+        threshold_value = skfilters.threshold_yen(gray)
         binary = (gray > threshold_value).astype(np.uint8) * 255
         return binary
 
     elif method == ThresholdMethod.ISODATA:
-        threshold_value = filters.threshold_isodata(gray)
+        skfilters = require("skimage.filters", extra="skimage", purpose="Isodata threshold")
+        threshold_value = skfilters.threshold_isodata(gray)
         binary = (gray > threshold_value).astype(np.uint8) * 255
         return binary
 

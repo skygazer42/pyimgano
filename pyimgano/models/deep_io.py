@@ -12,15 +12,9 @@ from typing import Any
 
 
 def _require_torch():
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "PyTorch is required for deep model IO.\n"
-            "Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
-    return torch
+    from pyimgano.utils.optional_deps import require
+
+    return require("torch", extra="torch", purpose="deep model IO")
 
 
 def save_deep_detector(detector: Any, path: str | Path, *, meta: dict[str, Any] | None = None) -> Path:
@@ -86,4 +80,3 @@ def load_deep_detector(detector: Any, path: str | Path, *, map_location: str | N
 
 
 __all__ = ["save_deep_detector", "load_deep_detector"]
-

@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from pyimgano.inference.config import (
     load_infer_config,
     resolve_infer_checkpoint_path,
+    resolve_infer_model_checkpoint_path,
     select_infer_category,
 )
 
@@ -23,6 +24,7 @@ _ALLOWED_WHITE_BALANCE = {"none", "gray_world", "max_rgb"}
 class InferConfigValidation:
     payload: dict[str, Any]
     resolved_checkpoint_path: Path | None
+    resolved_model_checkpoint_path: Path | None
     warnings: list[str]
 
 
@@ -100,7 +102,8 @@ def validate_infer_config_payload(
 
     Returns:
         InferConfigValidation containing the normalized payload, resolved checkpoint
-        path (if present), and a list of warnings.
+        path (if present), resolved model checkpoint_path (if present), and a list
+        of warnings.
     """
 
     if not isinstance(payload, Mapping):
@@ -417,13 +420,22 @@ def validate_infer_config_payload(
         normalized["from_run"] = str(normalized["from_run"])
 
     resolved_ckpt: Path | None = None
+    resolved_model_ckpt: Path | None = None
     if bool(check_files):
         if config_path is None:
-            warnings.append("check_files=True but config_path is missing; checkpoint existence was not checked.")
+            warnings.append(
+                "check_files=True but config_path is missing; checkpoint_path existence was not checked."
+            )
         else:
             resolved_ckpt = resolve_infer_checkpoint_path(normalized, config_path=config_path)
+            resolved_model_ckpt = resolve_infer_model_checkpoint_path(normalized, config_path=config_path)
 
-    return InferConfigValidation(payload=normalized, resolved_checkpoint_path=resolved_ckpt, warnings=warnings)
+    return InferConfigValidation(
+        payload=normalized,
+        resolved_checkpoint_path=resolved_ckpt,
+        resolved_model_checkpoint_path=resolved_model_ckpt,
+        warnings=warnings,
+    )
 
 
 def validate_infer_config_file(

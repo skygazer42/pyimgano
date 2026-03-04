@@ -185,6 +185,7 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
     """
 
     checkpoint: str | None = None
+    checkpoint_path: str | None = None
     device: str = "cpu"
     batch_size: int = 16
     input_color: _InputColor = "rgb"
@@ -206,8 +207,22 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
         self._cache = None
         self.last_cache_stats_ = {"hits": 0, "misses": 0, "enabled": False}
 
-        if self.checkpoint is None or not str(self.checkpoint).strip():
-            raise ValueError("checkpoint is required for torchscript_embed (provide a .pt path)")
+        cp = None
+        if self.checkpoint is not None and str(self.checkpoint).strip():
+            cp = str(self.checkpoint)
+        if self.checkpoint_path is not None and str(self.checkpoint_path).strip():
+            if cp is None:
+                cp = str(self.checkpoint_path)
+            elif str(self.checkpoint_path) != cp:
+                raise ValueError("checkpoint and checkpoint_path must match when both are provided")
+        if cp is None:
+            raise ValueError(
+                "checkpoint is required for torchscript_embed (provide checkpoint or checkpoint_path)"
+            )
+
+        # Canonicalize to keep serialization/caching stable.
+        self.checkpoint = str(cp)
+        self.checkpoint_path = str(cp)
 
         if int(self.image_size) <= 0:
             raise ValueError(f"image_size must be > 0, got {self.image_size}")
@@ -224,7 +239,7 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
 
             payload = {
                 "type": "torchscript_embed",
-                "checkpoint": str(self.checkpoint),
+                "checkpoint_path": str(self.checkpoint_path),
                 "image_size": int(self.image_size),
                 "mean": tuple(float(x) for x in self.mean),
                 "std": tuple(float(x) for x in self.std),
@@ -239,7 +254,9 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
         if self._model is not None:
             return
 
-        import torch
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="TorchscriptEmbedExtractor")
 
         ckpt = Path(str(self.checkpoint)).expanduser()
         if not ckpt.exists():

@@ -29,14 +29,9 @@ from .registry import register_model
 
 
 def _require_torch():  # noqa: ANN001, ANN201 - optional-dep boundary
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "core_torch_autoencoder requires torch. Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
-    return torch
+    from pyimgano.utils.optional_deps import require
+
+    return require("torch", extra="torch", purpose="core_torch_autoencoder")
 
 
 @dataclass

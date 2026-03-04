@@ -70,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     model_name = model.get("name", None)
     category = validation.payload.get("category", None)
     ckpt = validation.resolved_checkpoint_path
+    model_ckpt = validation.resolved_model_checkpoint_path
     msg = "ok"
     if model_name is not None:
         msg += f": model={model_name}"
@@ -77,5 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         msg += f" category={category}"
     if ckpt is not None:
         msg += f" checkpoint={ckpt}"
+    if model_ckpt is not None:
+        msg += f" model_checkpoint={model_ckpt}"
     print(msg)
     return 0

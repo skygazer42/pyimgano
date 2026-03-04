@@ -46,7 +46,7 @@ def test_torchscript_embed_extractor_smoke_and_cache(tmp_path: Path) -> None:
     cache_dir = tmp_path / "cache"
     ext = create_feature_extractor(
         "torchscript_embed",
-        checkpoint=str(ckpt),
+        checkpoint_path=str(ckpt),
         device="cpu",
         image_size=32,
         batch_size=2,
@@ -67,4 +67,3 @@ def test_torchscript_embed_extractor_smoke_and_cache(tmp_path: Path) -> None:
     assert ext.last_cache_stats_["enabled"] is True
     assert int(ext.last_cache_stats_["hits"]) == 2
     assert int(ext.last_cache_stats_["misses"]) == 0
-

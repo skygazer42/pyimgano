@@ -1115,3 +1115,77 @@ def test_infer_cli_infer_config_requires_category_when_ambiguous(tmp_path: Path,
     assert rc == 2
     err = capsys.readouterr().err.lower()
     assert "infer-category" in err
+
+
+def test_infer_cli_infer_config_resolves_model_checkpoint_path_relative_to_config(
+    tmp_path: Path, monkeypatch
+) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+
+    # Model artifact sits next to infer_config.json (common for export-then-deploy flows).
+    model_artifact = artifacts / "backbone.onnx"
+    model_artifact.write_text("onnx", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_onnx_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": "backbone.onnx",
+                },
+                "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
+                "threshold": 0.7,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    seen: dict[str, object] = {}
+
+    class _DummyDetector:
+        def __init__(self):
+            self.threshold_ = None
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+    def _create_model(name, **kwargs):  # noqa: ANN001 - test stub
+        seen["name"] = str(name)
+        seen["kwargs"] = dict(kwargs)
+        return _DummyDetector()
+
+    monkeypatch.setattr(infer_cli, "create_model", _create_model)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    assert seen["name"] == "vision_onnx_ecod"
+    kwargs = seen["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs.get("checkpoint_path") == str(model_artifact.resolve())

@@ -171,6 +171,154 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     assert copied_ckpt.read_text(encoding="utf-8") == "ckpt"
 
 
+def test_train_cli_export_deploy_bundle_copies_model_checkpoint_path_artifact(tmp_path):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        ckpt = run_dir / "checkpoints" / "custom" / "model.pt"
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_text("ckpt", encoding="utf-8")
+
+        # Model-level artifact expected by deployment wrappers (e.g. TorchScript/ONNX backbones).
+        artifacts = run_dir / "artifacts"
+        artifacts.mkdir(parents=True, exist_ok=True)
+        (artifacts / "backbone.onnx").write_text("onnx", encoding="utf-8")
+
+        return {
+            "run_dir": str(run_dir),
+            "dataset": str(cfg.dataset.name),
+            "category": str(cfg.dataset.category),
+            "model": str(cfg.model.name),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed", "source": "test"},
+            "checkpoint": {"path": "checkpoints/custom/model.pt"},
+        }
+
+    RECIPE_REGISTRY.register(
+        "test_export_deploy_bundle_copies_model_checkpoint_artifact_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_export_deploy_bundle_copies_model_checkpoint_artifact_recipe",
+        "seed": 123,
+        "dataset": {
+            "name": "custom",
+            "root": str(root),
+            "category": "custom",
+            "resize": [16, 16],
+            "input_mode": "paths",
+            "limit_train": 1,
+            "limit_test": 1,
+        },
+        "model": {
+            "name": "vision_onnx_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+            # Relative to artifacts/: this used to break deploy_bundle copy logic.
+            "checkpoint_path": "backbone.onnx",
+        },
+        "output": {
+            "output_dir": str(out_dir),
+            "save_run": True,
+            "per_image_jsonl": False,
+        },
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+
+    bundle_dir = out_dir / "deploy_bundle"
+    assert bundle_dir.exists()
+    assert (bundle_dir / "infer_config.json").exists()
+
+    copied_artifact = bundle_dir / "backbone.onnx"
+    assert copied_artifact.exists()
+    assert copied_artifact.read_text(encoding="utf-8") == "onnx"
+
+
+def test_train_cli_export_deploy_bundle_rewrites_absolute_model_checkpoint_path(tmp_path):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    abs_artifact = tmp_path / "abs_backbone.onnx"
+    abs_artifact.write_text("onnx_abs", encoding="utf-8")
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {
+            "run_dir": str(run_dir),
+            "dataset": str(cfg.dataset.name),
+            "category": str(cfg.dataset.category),
+            "model": str(cfg.model.name),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed", "source": "test"},
+        }
+
+    RECIPE_REGISTRY.register(
+        "test_export_deploy_bundle_rewrites_abs_model_ckpt_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_export_deploy_bundle_rewrites_abs_model_ckpt_recipe",
+        "seed": 123,
+        "dataset": {
+            "name": "custom",
+            "root": str(root),
+            "category": "custom",
+            "resize": [16, 16],
+            "input_mode": "paths",
+            "limit_train": 1,
+            "limit_test": 1,
+        },
+        "model": {
+            "name": "vision_onnx_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+            "checkpoint_path": str(abs_artifact),
+        },
+        "output": {
+            "output_dir": str(out_dir),
+            "save_run": True,
+            "per_image_jsonl": False,
+        },
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+
+    bundle_dir = out_dir / "deploy_bundle"
+    infer_cfg_path = bundle_dir / "infer_config.json"
+    assert infer_cfg_path.exists()
+    payload = json.loads(infer_cfg_path.read_text(encoding="utf-8"))
+    assert payload["model"]["checkpoint_path"] == "artifacts_abs/abs_backbone.onnx"
+
+    copied = bundle_dir / "artifacts_abs" / "abs_backbone.onnx"
+    assert copied.exists()
+    assert copied.read_text(encoding="utf-8") == "onnx_abs"
+
+
 def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_enabled(tmp_path, capsys):
     from pyimgano.recipes.registry import RECIPE_REGISTRY
     from pyimgano.train_cli import main

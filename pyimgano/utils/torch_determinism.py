@@ -32,14 +32,9 @@ def set_torch_determinism(
 
     import numpy as np
 
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "torch is required for set_torch_determinism().\n"
-            "Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="set_torch_determinism")
 
     s = int(seed)
     random.seed(s)
@@ -62,4 +57,3 @@ def set_torch_determinism(
             torch.use_deterministic_algorithms(True)
         except Exception:
             pass
-

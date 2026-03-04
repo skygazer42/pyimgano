@@ -12,6 +12,7 @@ def test_pixel_map_models_are_tagged_for_discovery() -> None:
         "vision_winclip",
         "vision_template_ncc_map",
         "vision_phase_correlation_map",
+        "vision_pixel_gaussian_map",
     ]
 
     for name in candidates:
@@ -28,7 +29,9 @@ def test_template_models_are_tagged_as_template() -> None:
         "ssim_template_map",
         "vision_template_ncc_map",
         "vision_phase_correlation_map",
+        "vision_pixel_mean_absdiff_map",
+        "vision_pixel_gaussian_map",
+        "vision_pixel_mad_map",
     ]:
         entry = MODEL_REGISTRY.info(name)
         assert "template" in entry.tags
-

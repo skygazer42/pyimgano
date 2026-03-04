@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyimgano"
-version = "0.6.23"
+version = "0.6.24"
 description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 120+ registry models and 80+ operations"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -43,27 +43,44 @@ dependencies = [
     "numpy>=1.19",
     "scipy>=1.5.1",
     "scikit-learn>=0.22.0",
-    "scikit-image>=0.18.0",
-    "torch>=1.9.0",
-    "torchvision>=0.10.0",
     "Pillow>=8.0.0",
     "opencv-python>=4.5.0",
     "joblib>=1.0.0",
-    "matplotlib>=3.3.0",
-    "numba>=0.51",
     "tqdm>=4.0.0",
 ]
 
 [project.optional-dependencies]
+torch = [
+    "torch>=1.9.0",
+    "torchvision>=0.10.0",
+]
+onnx = [
+    "onnx>=1.12.0",
+    "onnxruntime>=1.14.0",
+    # Required by torch.onnx.export on newer torch versions.
+    "onnxscript>=0.1.0",
+]
+openvino = [
+    "openvino>=2023.0.0",
+]
+skimage = [
+    "scikit-image>=0.18.0",
+]
+numba = [
+    "numba>=0.51",
+]
 diffusion = [
+    "pyimgano[torch]",
     "diffusers>=0.21.0",
     "transformers>=4.30.0",
     "accelerate>=0.20.0",
 ]
 viz = [
+    "matplotlib>=3.3.0",
     "seaborn>=0.11.0",
 ]
 anomalib = [
+    "pyimgano[torch]",
     "anomalib>=0.10.0",
 ]
 patchcore_inspection = [
@@ -75,9 +92,11 @@ faiss = [
     "faiss-cpu>=1.7.4",
 ]
 clip = [
+    "pyimgano[torch]",
     "open_clip_torch>=2.0.0",
 ]
 mamba = [
+    "pyimgano[torch]",
     "mamba-ssm>=2.0.0",
 ]
 dev = [
@@ -98,7 +117,7 @@ docs = [
     "sphinxcontrib-napoleon>=0.7",
 ]
 all = [
-    "pyimgano[backends,diffusion,dev,docs,viz]",
+    "pyimgano[backends,diffusion,dev,docs,viz,torch,onnx,openvino,skimage,numba]",
 ]
 backends = [
     "pyimgano[anomalib,faiss,clip]",
@@ -113,11 +132,14 @@ Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pyimgano-benchmark = "pyimgano.cli:main"
+pyimgano-demo = "pyimgano.demo_cli:main"
 pyimgano-infer = "pyimgano.infer_cli:main"
 pyimgano-defects = "pyimgano.defects_cli:main"
 pyimgano-robust-benchmark = "pyimgano.robust_cli:main"
 pyimgano-train = "pyimgano.train_cli:main"
 pyimgano-manifest = "pyimgano.manifest_cli:main"
+pyimgano-export-torchscript = "pyimgano.torchscript_export_cli:main"
+pyimgano-export-onnx = "pyimgano.onnx_export_cli:main"
 pyimgano-synthesize = "pyimgano.synthesize_cli:main"
 pyimgano-validate-infer-config = "pyimgano.validate_infer_config_cli:main"
 pyimgano-features = "pyimgano.feature_cli:main"

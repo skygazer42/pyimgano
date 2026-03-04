@@ -23,6 +23,21 @@ pip install pyimgano
 ### With Optional Dependencies
 
 ```bash
+# For deep models / torchvision backbones
+pip install "pyimgano[torch]"
+
+# For ONNX Runtime inference / ONNX export
+pip install "pyimgano[onnx]"
+
+# For OpenVINO inference
+pip install "pyimgano[openvino]"
+
+# For SSIM / phase-correlation / scikit-image baselines
+pip install "pyimgano[skimage]"
+
+# For Numba-accelerated baselines
+pip install "pyimgano[numba]"
+
 # For diffusion models
 pip install "pyimgano[diffusion]"
 
@@ -45,6 +60,7 @@ Notes:
 - Some optional backends are **not on PyPI** (for example `patchcore-inspection`). Because PyPI package metadata
   does not allow direct VCS URL dependencies, `pyimgano` does not try to vendor these dependencies inside extras.
   Install them separately when needed.
+- See `docs/OPTIONAL_DEPENDENCIES.md` for a concise extras map + recommended install combos.
 
 ### Verify Installation
 
@@ -54,6 +70,93 @@ print(f"PyImgAno version: {pyimgano.__version__}")
 ```
 
 ---
+
+## Industrial Quickstart (Suite + Small Sweep, Fully Offline)
+
+If you just want to sanity-check the installation and see the “industrial
+selection workflow” end-to-end, you can:
+
+1) generate a tiny **custom** dataset on disk (4 images)
+2) run a curated **baseline suite**
+3) optionally enable a small **sweep** (bounded grid search per baseline)
+
+### Option A (recommended): one command
+
+```bash
+pyimgano-demo
+```
+
+This creates:
+
+- `./_demo_custom_dataset/` (tiny `custom` dataset)
+- `./_demo_suite_run*/` (suite run dir with `report.json` + `leaderboard.*`)
+
+Use `pyimgano-demo --help` to customize suite/sweep/output.
+
+### Option B: do it manually
+
+### 1) Create a tiny custom dataset
+
+```bash
+python - <<'PY'
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+root = Path("./_demo_custom_dataset")
+
+for rel, value in [
+    ("train/normal/train_0.png", 120),
+    ("train/normal/train_1.png", 120),
+    ("test/normal/good_0.png", 120),
+    ("test/anomaly/bad_0.png", 240),
+]:
+    p = root / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    img = np.ones((64, 64, 3), dtype=np.uint8) * int(value)
+    cv2.imwrite(str(p), img)
+
+print(f"Wrote demo dataset to: {root.resolve()}")
+PY
+```
+
+Expected structure:
+
+```
+_demo_custom_dataset/
+  train/normal/*.png
+  test/normal/*.png
+  test/anomaly/*.png
+```
+
+### 2) Run a suite (+ optional sweep)
+
+```bash
+pyimgano-benchmark \
+  --dataset custom \
+  --root ./_demo_custom_dataset \
+  --suite industrial-ci \
+  --suite-sweep industrial-small \
+  --suite-sweep-max-variants 1 \
+  --resize 64 64 \
+  --limit-train 2 \
+  --limit-test 2 \
+  --no-pretrained \
+  --no-save-run
+```
+
+Notes:
+
+- The output is JSON printed to stdout.
+- Some baselines in larger suites may be **optional** (require extras) and will be skipped with install hints like
+  `pip install 'pyimgano[skimage]'` or `pip install 'pyimgano[torch]'`.
+
+References:
+
+- `docs/CLI_REFERENCE.md` (suite flags, sweep flags, artifacts)
+- `docs/EVALUATION_AND_BENCHMARK.md` (custom dataset details)
+- `docs/OPTIONAL_DEPENDENCIES.md` (extras map)
 
 ## Recommended dataset inputs (paths-first)
 

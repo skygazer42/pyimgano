@@ -59,7 +59,10 @@ class ImageAnomalyDetector:
 
         if self.feature_type in ['hog', 'combined']:
             # 2. HOG特征（边缘和形状）
-            from skimage.feature import hog
+            from pyimgano.utils.optional_deps import require
+
+            skfeature = require("skimage.feature", extra="skimage", purpose="HOG features (one_class_cnn)")
+            hog = skfeature.hog
             resized = cv2.resize(gray, (128, 128))
             hog_features = hog(resized,
                                orientations=9,
@@ -70,7 +73,10 @@ class ImageAnomalyDetector:
 
         if self.feature_type == 'combined':
             # 3. 纹理特征（LBP）
-            from skimage.feature import local_binary_pattern
+            from pyimgano.utils.optional_deps import require
+
+            skfeature = require("skimage.feature", extra="skimage", purpose="LBP features (one_class_cnn)")
+            local_binary_pattern = skfeature.local_binary_pattern
             resized = cv2.resize(gray, (128, 128))
             lbp = local_binary_pattern(resized, P=8, R=1, method='uniform')
             lbp_hist, _ = np.histogram(lbp.ravel(), bins=59, range=(0, 59))
@@ -91,9 +97,11 @@ class ImageAnomalyDetector:
 
     def extract_cnn_features(self, image_path):
         """使用预训练CNN提取特征（需要深度学习框架）"""
-        import torch
-        import torchvision.transforms as transforms
-        from torchvision import models
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="one_class_cnn CNN feature extraction")
+        transforms = require("torchvision.transforms", extra="torch", purpose="one_class_cnn CNN feature extraction")
+        models = require("torchvision.models", extra="torch", purpose="one_class_cnn CNN feature extraction")
 
         # 加载预训练模型
         try:

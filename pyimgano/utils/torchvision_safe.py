@@ -29,7 +29,9 @@ def load_torchvision_model(name: str, *, pretrained: bool):
       `torch.hub` when weights are not already cached.
     """
 
-    import torchvision.models as models
+    from pyimgano.utils.optional_deps import require
+
+    models = require("torchvision.models", extra="torch", purpose="torchvision model loading")
 
     model_name = str(name).strip()
 
@@ -52,7 +54,9 @@ def load_torchvision_model(name: str, *, pretrained: bool):
 def strip_classification_head(model: Any):
     """Replace common classification heads with identity to expose embeddings."""
 
-    import torch.nn as nn
+    from pyimgano.utils.optional_deps import require
+
+    nn = require("torch.nn", extra="torch", purpose="torchvision backbone head stripping")
 
     if hasattr(model, "fc"):
         model.fc = nn.Identity()  # type: ignore[attr-defined]

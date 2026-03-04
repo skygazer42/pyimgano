@@ -17,6 +17,8 @@ class CLIPreset:
     kwargs: Mapping[str, Any]
     description: str
     optional: bool = False
+    # Optional extras required to run this preset (used for suite skip hints).
+    requires_extras: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,7 @@ def _load_presets() -> dict[str, CLIPreset]:
             kwargs=dict(preset.kwargs),
             description=str(preset.description),
             optional=bool(preset.optional),
+            requires_extras=tuple(getattr(preset, "requires_extras", ())),
         )
 
     # CLI-only aliases / opinionated presets (kept here so `industrial_classical`
@@ -72,7 +75,8 @@ def _load_presets() -> dict[str, CLIPreset]:
             },
         },
         description="Balanced default: torchvision embeddings -> Mahalanobis shrinkage -> rank standardization.",
-        optional=False,
+        optional=True,  # requires torch/torchvision (pyimgano[torch])
+        requires_extras=("torch",),
     )
     return out
 

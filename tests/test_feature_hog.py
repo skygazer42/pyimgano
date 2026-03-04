@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("skimage")
 
 
 def test_hog_extractor_shapes_and_finite() -> None:
@@ -13,4 +16,3 @@ def test_hog_extractor_shapes_and_finite() -> None:
     assert out.shape[0] == 2
     assert out.shape[1] > 0
     assert np.all(np.isfinite(out))
-

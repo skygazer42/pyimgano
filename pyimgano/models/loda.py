@@ -14,7 +14,6 @@ from sklearn.utils import check_array
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 # 只从本地基类导入
 from .base_detector import BaseDetector
@@ -441,6 +440,10 @@ class VisionLODA(BaseVisionDetector):
         n_projections : int
             要可视化的投影数量
         """
+        from pyimgano.utils.optional_deps import require
+
+        plt = require("matplotlib.pyplot", extra="viz", purpose="VisionLODA visualization")
+
         if not hasattr(self.detector, 'projections_'):
             logger.warning("LODA: visualize_projections called before fit()")
             return
@@ -472,6 +475,10 @@ class VisionLODA(BaseVisionDetector):
         n_histograms : int
             要可视化的直方图数量
         """
+        from pyimgano.utils.optional_deps import require
+
+        plt = require("matplotlib.pyplot", extra="viz", purpose="VisionLODA visualization")
+
         if not hasattr(self.detector, 'histograms_'):
             logger.warning("LODA: visualize_histograms called before fit()")
             return
@@ -502,6 +509,10 @@ class VisionLODA(BaseVisionDetector):
 
     def visualize_scores(self):
         """可视化异常分数分布"""
+        from pyimgano.utils.optional_deps import require
+
+        plt = require("matplotlib.pyplot", extra="viz", purpose="VisionLODA visualization")
+
         if not hasattr(self.detector, 'decision_scores_'):
             logger.warning("LODA: visualize_scores called before fit()")
             return

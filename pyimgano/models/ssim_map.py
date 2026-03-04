@@ -193,7 +193,10 @@ class _BaseSSIMMapDetector(BaseDetector):
         if self.templates_ is None:
             raise RuntimeError("Detector must be fitted before calling get_anomaly_map")
 
-        from skimage.metrics import structural_similarity as ssim
+        from pyimgano.utils.optional_deps import require
+
+        skmetrics = require("skimage.metrics", extra="skimage", purpose="SSIM anomaly map")
+        ssim = skmetrics.structural_similarity
 
         prepared = self._prepare(item)
         rep = prepared.rep_u8
@@ -321,4 +324,3 @@ class SSIMStructMapDetector(_BaseSSIMMapDetector):
 
 
 __all__ = ["SSIMTemplateMapDetector", "SSIMStructMapDetector"]
-

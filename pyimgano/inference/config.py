@@ -146,3 +146,67 @@ def resolve_infer_checkpoint_path(
         "Tried:\n"
         f"{tried}"
     )
+
+
+def resolve_infer_model_checkpoint_path(
+    payload: Mapping[str, Any],
+    *,
+    config_path: str | Path,
+) -> Path | None:
+    """Resolve a model-level checkpoint_path referenced by an infer-config.
+
+    This is intended for "deployment wrappers" that require a local artifact
+    like a TorchScript `.pt` or an ONNX `.onnx` backbone, passed via
+    `model.checkpoint_path` (which ends up as the model kwarg `checkpoint_path`).
+
+    Resolution rules (first match wins):
+
+    1) Absolute paths are used as-is.
+    2) Relative to the infer-config file directory.
+    3) Relative to the infer-config parent directory (common when the file lives in
+       `<run_dir>/artifacts/` while artifacts live in `<run_dir>/...`).
+    4) Relative to `payload["from_run"]` when present.
+    """
+
+    model = payload.get("model", None)
+    if not isinstance(model, Mapping):
+        return None
+
+    raw = model.get("checkpoint_path", None)
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+
+    p = Path(text)
+    if p.is_absolute():
+        if not p.exists():
+            raise FileNotFoundError(f"Model checkpoint_path not found: {p}")
+        return p
+
+    cfg_path = Path(config_path)
+    base = cfg_path.parent
+    candidates: list[Path] = [
+        (base / p).resolve(),
+        (base.parent / p).resolve(),
+    ]
+
+    from_run = payload.get("from_run", None)
+    if from_run is not None:
+        try:
+            candidates.append((Path(str(from_run)) / p).resolve())
+        except Exception:
+            pass
+
+    for cand in candidates:
+        if cand.exists():
+            return cand
+
+    tried = "\n".join(f"- {c}" for c in candidates)
+    raise FileNotFoundError(
+        "Model checkpoint_path not found for infer-config.\n"
+        f"model.checkpoint_path={text!r}\n"
+        "Tried:\n"
+        f"{tried}"
+    )

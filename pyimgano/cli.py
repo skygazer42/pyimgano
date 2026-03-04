@@ -162,6 +162,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help="List available feature extractor names and exit (default output: text, one per line)",
     )
     parser.add_argument(
+        "--list-suites",
+        action="store_true",
+        help="List curated industrial baseline suites and exit",
+    )
+    parser.add_argument(
+        "--suite-info",
+        default=None,
+        help="Show suite contents for a suite name and exit",
+    )
+    parser.add_argument(
+        "--list-sweeps",
+        action="store_true",
+        help="List curated suite sweep profiles (small grid searches) and exit",
+    )
+    parser.add_argument(
+        "--sweep-info",
+        default=None,
+        help="Show sweep profile contents for a sweep name and exit",
+    )
+    parser.add_argument(
         "--model-info",
         default=None,
         help="Show tags/metadata/signature/accepted kwargs for a model name and exit",
@@ -175,8 +195,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help=(
-            "When used with discovery flags (--list-models/--model-info/"
-            "--list-feature-extractors/--feature-info), output JSON instead of text"
+            "When used with discovery flags (--list-models/--model-info/--list-suites/--suite-info/"
+            "--list-sweeps/--sweep-info/--list-feature-extractors/--feature-info/--list-categories), "
+            "output JSON instead of text"
+        ),
+    )
+    parser.add_argument(
+        "--plugins",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Load third-party pyimgano plugins via Python entry points (group 'pyimgano.plugins'). "
+            "This is opt-in because plugins may import optional heavy dependencies. Default: false"
         ),
     )
     parser.add_argument(
@@ -198,6 +228,88 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--model", default="vision_patchcore", help="Registered model name")
+    parser.add_argument(
+        "--suite",
+        default=None,
+        help=(
+            "Run a curated baseline suite (multiple presets) instead of a single model. "
+            "Example: --suite industrial-v1"
+        ),
+    )
+    parser.add_argument(
+        "--suite-max-models",
+        type=int,
+        default=None,
+        help="Optional limit for number of suite baselines (debug/smoke). Default: none",
+    )
+    parser.add_argument(
+        "--suite-include",
+        action="append",
+        default=None,
+        help=(
+            "Optional allowlist of suite baseline names to run (comma-separated or repeatable). "
+            "Example: --suite-include industrial-template-ncc-map,industrial-pixel-mad-map"
+        ),
+    )
+    parser.add_argument(
+        "--suite-exclude",
+        action="append",
+        default=None,
+        help=(
+            "Optional blocklist of suite baseline names to skip (comma-separated or repeatable). "
+            "Example: --suite-exclude industrial-embed-knn-cosine"
+        ),
+    )
+    parser.add_argument(
+        "--suite-continue-on-error",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Continue the suite when a baseline fails or is missing optional deps. Default: true",
+    )
+    parser.add_argument(
+        "--suite-export",
+        default=None,
+        choices=["csv", "md", "both"],
+        help=(
+            "When running --suite, export leaderboard/skipped/best_by_baseline tables to files in the suite output dir "
+            "(requires --save-run). Choices: csv, md, both."
+        ),
+    )
+    parser.add_argument(
+        "--suite-export-best-metric",
+        default="auroc",
+        choices=[
+            "auroc",
+            "average_precision",
+            "pixel_auroc",
+            "pixel_average_precision",
+            "aupro",
+            "pixel_segf1",
+        ],
+        help=(
+            "Metric used to select best variant per baseline when exporting best_by_baseline.* tables. "
+            "Default: auroc."
+        ),
+    )
+
+    parser.add_argument(
+        "--suite-sweep",
+        default=None,
+        help=(
+            "Optional sweep spec to run per-suite baseline (grid search). "
+            "Use --list-sweeps for built-in profiles. "
+            "Also accepts a JSON file path (or '@path.json') or inline JSON starting with '{'."
+        ),
+    )
+    parser.add_argument(
+        "--suite-sweep-max-variants",
+        type=int,
+        default=None,
+        help=(
+            "Optional cap for number of sweep variants per baseline (excluding base). "
+            "Example: --suite-sweep-max-variants 1"
+        ),
+    )
     parser.add_argument(
         "--preset",
         default=None,
@@ -703,6 +815,12 @@ def main(argv: list[str] | None = None) -> int:
         import pyimgano.models  # noqa: F401
         import pyimgano.features  # noqa: F401
 
+        if bool(getattr(args, "plugins", False)):
+            from pyimgano.plugins import load_plugins
+
+            # Best-effort: keep going even if a plugin fails to load.
+            load_plugins(groups=("pyimgano.plugins",), on_error="warn")
+
         tags_raw = getattr(args, "tags", None)
         feature_tags_raw = getattr(args, "feature_tags", None)
 
@@ -710,12 +828,17 @@ def main(argv: list[str] | None = None) -> int:
             bool(args.list_models),
             args.model_info is not None,
             bool(args.list_categories),
+            bool(args.list_suites),
+            args.suite_info is not None,
+            bool(args.list_sweeps),
+            args.sweep_info is not None,
             bool(args.list_feature_extractors),
             args.feature_info is not None,
         ]
         if sum(1 for f in discovery_flags if f) > 1:
             raise ValueError(
                 "--list-models, --model-info, --list-categories, "
+                "--list-suites, --suite-info, --list-sweeps, --sweep-info, "
                 "--list-feature-extractors, and --feature-info are mutually exclusive."
             )
 
@@ -783,6 +906,107 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 for cat in categories:
                     print(cat)
+            return 0
+
+        if bool(args.list_suites):
+            from pyimgano.baselines import list_baseline_suites
+
+            suites = list_baseline_suites()
+            if bool(args.json):
+                print(json.dumps(suites, indent=2))
+            else:
+                for name in suites:
+                    print(name)
+            return 0
+
+        if bool(args.list_sweeps):
+            from pyimgano.baselines.sweeps import list_sweeps
+
+            sweeps = list_sweeps()
+            if bool(args.json):
+                print(json.dumps(sweeps, indent=2))
+            else:
+                for name in sweeps:
+                    print(name)
+            return 0
+
+        if args.suite_info is not None:
+            from pyimgano.baselines import get_baseline_suite, resolve_suite_baselines
+
+            suite = get_baseline_suite(str(args.suite_info))
+            baselines = resolve_suite_baselines(str(args.suite_info))
+
+            payload: dict[str, Any] = {
+                "name": str(suite.name),
+                "description": str(suite.description),
+                "entries": list(suite.entries),
+                "baselines": [
+                    {
+                        "name": str(b.name),
+                        "model": str(b.model),
+                        "optional": bool(b.optional),
+                        "requires_extras": list(getattr(b, "requires_extras", ())),
+                        "description": str(b.description),
+                        "kwargs": dict(b.kwargs),
+                    }
+                    for b in baselines
+                ],
+            }
+
+            if bool(args.json):
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
+            else:
+                print(f"Name: {payload['name']}")
+                print(f"Description: {payload['description']}")
+                print("Entries:")
+                for ref in payload["entries"]:
+                    print(f"  - {ref}")
+                print("Baselines:")
+                for b in payload["baselines"]:
+                    opt = "yes" if b.get("optional") else "no"
+                    print(f"  - {b['name']} -> {b['model']} (optional={opt})")
+            return 0
+
+        if args.sweep_info is not None:
+            from pyimgano.baselines.sweeps import resolve_sweep
+
+            plan = resolve_sweep(str(args.sweep_info))
+            variants_by_entry: dict[str, list[dict[str, Any]]] = {}
+            for entry_name in sorted(plan.variants_by_entry.keys()):
+                variants_by_entry[str(entry_name)] = [
+                    {
+                        "name": str(v.name),
+                        "description": str(v.description),
+                        "override": dict(v.override),
+                    }
+                    for v in plan.variants_by_entry[entry_name]
+                ]
+
+            payload: dict[str, Any] = {
+                "name": str(plan.name),
+                "description": str(plan.description),
+                "entries": sorted(variants_by_entry.keys()),
+                "variants_by_entry": variants_by_entry,
+            }
+
+            if bool(args.json):
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
+            else:
+                print(f"Name: {payload['name']}")
+                print(f"Description: {payload['description']}")
+                print("Entries:")
+                for name in payload["entries"]:
+                    variants = payload["variants_by_entry"].get(str(name), [])
+                    print(f"  - {name} (variants={len(variants)})")
+                print("Variants:")
+                for name in payload["entries"]:
+                    print(f"Entry: {name}")
+                    variants = payload["variants_by_entry"].get(str(name), [])
+                    for v in variants:
+                        desc = str(v.get("description") or "").strip()
+                        suffix = f" — {desc}" if desc else ""
+                        print(f"  - {v.get('name')}{suffix}")
+                        print(f"    override: {json.dumps(v.get('override', {}), sort_keys=True)}")
             return 0
 
         if args.model_info is not None:
@@ -883,6 +1107,143 @@ def main(argv: list[str] | None = None) -> int:
                 load_masks=bool(args.pixel),
             ).validate_structure()
 
+        postprocess = None
+        if args.pixel and args.pixel_postprocess:
+            from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
+
+            postprocess = AnomalyMapPostprocess(
+                normalize=True,
+                normalize_method=str(args.pixel_post_norm),
+                percentile_range=(
+                    float(args.pixel_post_percentiles[0]),
+                    float(args.pixel_post_percentiles[1]),
+                ),
+                gaussian_sigma=float(args.pixel_post_gaussian_sigma),
+                morph_open_ksize=int(args.pixel_post_open_ksize),
+                morph_close_ksize=int(args.pixel_post_close_ksize),
+                component_threshold=args.pixel_post_component_threshold,
+                min_component_area=int(args.pixel_post_min_component_area),
+            )
+
+        if bool(args.pixel_segf1) and not bool(args.pixel):
+            raise ValueError("--pixel-segf1 requires --pixel.")
+
+        if args.suite is not None:
+            if args.suite_export is not None and not bool(args.save_run):
+                raise ValueError("--suite-export requires --save-run.")
+            if args.model_kwargs is not None:
+                raise ValueError("--model-kwargs is not supported with --suite.")
+            if args.checkpoint_path is not None:
+                raise ValueError("--checkpoint-path is not supported with --suite.")
+            if args.preset is not None:
+                raise ValueError("--preset is not supported with --suite.")
+            if args.save_detector is not None:
+                raise ValueError("--save-detector is not supported with --suite.")
+            if args.load_detector is not None:
+                raise ValueError("--load-detector is not supported with --suite.")
+
+            best_metric = str(args.suite_export_best_metric)
+            if best_metric in {"pixel_auroc", "pixel_average_precision", "aupro", "pixel_segf1"} and not bool(
+                args.pixel
+            ):
+                raise ValueError("--suite-export-best-metric pixel_* requires --pixel.")
+
+            from pyimgano.pipelines.run_suite import run_baseline_suite
+
+            suite_include: list[str] | None = None
+            if args.suite_include:
+                suite_include = []
+                for item in args.suite_include:
+                    for name in str(item).split(","):
+                        name = name.strip()
+                        if name:
+                            suite_include.append(name)
+
+            suite_exclude: list[str] | None = None
+            if args.suite_exclude:
+                suite_exclude = []
+                for item in args.suite_exclude:
+                    for name in str(item).split(","):
+                        name = name.strip()
+                        if name:
+                            suite_exclude.append(name)
+
+            payload = run_baseline_suite(
+                suite=str(args.suite),
+                dataset=str(dataset),
+                root=str(args.root),
+                manifest_path=(
+                    str(args.manifest_path) if args.manifest_path is not None else None
+                ),
+                category=str(category),
+                input_mode=str(args.input_mode),
+                seed=(int(args.seed) if args.seed is not None else None),
+                device=str(args.device),
+                pretrained=bool(args.pretrained),
+                contamination=float(args.contamination),
+                resize=resize,
+                calibration_quantile=(
+                    float(args.calibration_quantile)
+                    if args.calibration_quantile is not None
+                    else None
+                ),
+                limit_train=(int(args.limit_train) if args.limit_train is not None else None),
+                limit_test=(int(args.limit_test) if args.limit_test is not None else None),
+                manifest_split_seed=(
+                    int(args.manifest_split_seed) if args.manifest_split_seed is not None else None
+                ),
+                manifest_test_normal_fraction=float(args.manifest_test_normal_fraction),
+                pixel=bool(args.pixel),
+                pixel_segf1=bool(args.pixel_segf1),
+                pixel_threshold_strategy=(
+                    str(args.pixel_threshold_strategy)
+                    if args.pixel_threshold_strategy is not None
+                    else None
+                ),
+                pixel_normal_quantile=float(args.pixel_normal_quantile),
+                pixel_calibration_fraction=float(args.pixel_calibration_fraction),
+                pixel_calibration_seed=int(args.pixel_calibration_seed),
+                pixel_postprocess=postprocess,
+                pixel_aupro_limit=float(args.pixel_aupro_limit),
+                pixel_aupro_thresholds=int(args.pixel_aupro_thresholds),
+                save_run=bool(args.save_run),
+                per_image_jsonl=bool(args.per_image_jsonl),
+                cache_dir=(str(args.cache_dir) if args.cache_dir is not None else None),
+                output_dir=(str(args.output_dir) if args.output_dir is not None else None),
+                max_models=(
+                    int(args.suite_max_models) if args.suite_max_models is not None else None
+                ),
+                include_baselines=suite_include,
+                exclude_baselines=suite_exclude,
+                continue_on_error=bool(args.suite_continue_on_error),
+                sweep=(str(args.suite_sweep) if args.suite_sweep is not None else None),
+                sweep_max_variants=(
+                    int(args.suite_sweep_max_variants)
+                    if args.suite_sweep_max_variants is not None
+                    else None
+                ),
+            )
+
+            if args.suite_export is not None:
+                run_dir = payload.get("run_dir")
+                if not isinstance(run_dir, str) or not run_dir:
+                    raise RuntimeError("internal error: expected suite run_dir for --suite-export.")
+
+                from pyimgano.reporting.suite_export import export_suite_tables
+
+                fmt = str(args.suite_export)
+                formats = ["csv", "md"] if fmt == "both" else [fmt]
+                export_suite_tables(payload, Path(run_dir), formats=formats, best_metric=best_metric)
+
+            if args.output:
+                from pyimgano.reporting.report import save_run_report
+
+                save_run_report(Path(args.output), payload)
+            else:
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
+
+            return 0
+
         requested_model = str(args.model)
         model_name = requested_model
         preset_model_auto_kwargs: dict[str, Any] = {}
@@ -932,27 +1293,6 @@ def main(argv: list[str] | None = None) -> int:
             preset_kwargs=preset_kwargs,
             auto_kwargs=auto_kwargs,
         )
-
-        postprocess = None
-        if args.pixel and args.pixel_postprocess:
-            from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
-
-            postprocess = AnomalyMapPostprocess(
-                normalize=True,
-                normalize_method=str(args.pixel_post_norm),
-                percentile_range=(
-                    float(args.pixel_post_percentiles[0]),
-                    float(args.pixel_post_percentiles[1]),
-                ),
-                gaussian_sigma=float(args.pixel_post_gaussian_sigma),
-                morph_open_ksize=int(args.pixel_post_open_ksize),
-                morph_close_ksize=int(args.pixel_post_close_ksize),
-                component_threshold=args.pixel_post_component_threshold,
-                min_component_area=int(args.pixel_post_min_component_area),
-            )
-
-        if bool(args.pixel_segf1) and not bool(args.pixel):
-            raise ValueError("--pixel-segf1 requires --pixel.")
 
         if args.save_detector is not None and bool(args.pixel):
             raise ValueError("--save-detector is only supported without --pixel.")

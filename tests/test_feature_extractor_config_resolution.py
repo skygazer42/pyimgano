@@ -9,8 +9,8 @@ def test_model_kwargs_can_resolve_feature_extractor_from_json_spec() -> None:
 
     user_kwargs = {
         "feature_extractor": {
-            "name": "hog",
-            "kwargs": {"resize_hw": [32, 32]},
+            "name": "edge_stats",
+            "kwargs": {},
         }
     }
     kwargs = build_model_kwargs(
@@ -30,4 +30,3 @@ def test_model_kwargs_can_resolve_feature_extractor_from_json_spec() -> None:
     scores = det.decision_function(imgs)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
-

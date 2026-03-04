@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+
+def _make_gradient_image(size: int = 64) -> np.ndarray:
+    x = np.linspace(0.0, 255.0, num=size, dtype=np.float32)
+    g = np.tile(x.reshape(1, -1), (size, 1))
+    img = np.stack([g, g, g], axis=-1)
+    return np.clip(img, 0.0, 255.0).astype(np.uint8)
+
+
+def _make_anomaly(img_u8: np.ndarray) -> np.ndarray:
+    out = np.array(img_u8, copy=True)
+    h, w = out.shape[:2]
+    y0, y1 = h // 3, 2 * h // 3
+    x0, x1 = w // 3, 2 * w // 3
+    out[y0:y1, x0:x1] = 255 - out[y0:y1, x0:x1]
+    return out
+
+
+def _write_png(path: Path, img_u8: np.ndarray) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(np.asarray(img_u8, dtype=np.uint8), mode="RGB").save(path)
+
+
+def test_pixel_mean_absdiff_map_detector_smoke_and_map_range() -> None:
+    from pyimgano.models.registry import create_model
+
+    base = _make_gradient_image(64)
+    anomaly = _make_anomaly(base)
+
+    det = create_model(
+        "vision_pixel_mean_absdiff_map",
+        contamination=0.5,
+        resize_hw=(64, 64),
+        color="gray",
+        reduction="max",
+        topk=0.01,
+    )
+    det.fit([base])
+
+    scores = np.asarray(det.decision_function([base, anomaly]), dtype=np.float64).reshape(-1)
+    assert scores.shape == (2,)
+    assert np.all(np.isfinite(scores))
+    assert float(scores[1]) >= float(scores[0])
+
+    maps = det.predict_anomaly_map([base, anomaly])
+    assert maps.shape == (2, 64, 64)
+    assert maps.dtype == np.float32
+    assert float(np.min(maps)) >= 0.0
+    assert float(np.max(maps)) <= 1.0 + 1e-6
+
+
+def test_pixel_gaussian_map_detector_smoke_and_map_shape() -> None:
+    from pyimgano.models.registry import create_model
+
+    base = _make_gradient_image(64)
+    anomaly = _make_anomaly(base)
+
+    det = create_model(
+        "vision_pixel_gaussian_map",
+        contamination=0.5,
+        resize_hw=(64, 64),
+        color="gray",
+        reduction="max",
+        topk=0.01,
+        std_floor=1.0,
+    )
+    det.fit([base])
+
+    scores = np.asarray(det.decision_function([base, anomaly]), dtype=np.float64).reshape(-1)
+    assert scores.shape == (2,)
+    assert np.all(np.isfinite(scores))
+    assert float(scores[1]) >= float(scores[0])
+
+    maps = det.predict_anomaly_map([base, anomaly])
+    assert maps.shape == (2, 64, 64)
+    assert maps.dtype == np.float32
+    assert np.all(np.isfinite(maps))
+    assert float(np.min(maps)) >= 0.0
+
+
+def test_pixel_mad_map_detector_smoke_and_map_shape() -> None:
+    from pyimgano.models.registry import create_model
+
+    base = _make_gradient_image(64)
+    anomaly = _make_anomaly(base)
+
+    det = create_model(
+        "vision_pixel_mad_map",
+        contamination=0.5,
+        resize_hw=(64, 64),
+        color="gray",
+        reduction="topk_mean",
+        topk=0.02,
+        mad_floor=1.0,
+        max_train_images=8,
+        random_state=0,
+    )
+    det.fit([base])
+
+    scores = np.asarray(det.decision_function([base, anomaly]), dtype=np.float64).reshape(-1)
+    assert scores.shape == (2,)
+    assert np.all(np.isfinite(scores))
+    assert float(scores[1]) >= float(scores[0])
+
+    maps = det.predict_anomaly_map([base, anomaly])
+    assert maps.shape == (2, 64, 64)
+    assert maps.dtype == np.float32
+    assert np.all(np.isfinite(maps))
+    assert float(np.min(maps)) >= 0.0
+
+
+def test_pixel_gaussian_map_detector_accepts_paths(tmp_path: Path) -> None:
+    from pyimgano.models.registry import create_model
+
+    base = _make_gradient_image(64)
+    anomaly = _make_anomaly(base)
+
+    base_path = tmp_path / "base.png"
+    anomaly_path = tmp_path / "anomaly.png"
+    _write_png(base_path, base)
+    _write_png(anomaly_path, anomaly)
+
+    det = create_model(
+        "vision_pixel_gaussian_map",
+        contamination=0.5,
+        resize_hw=(64, 64),
+        color="gray",
+        reduction="max",
+        topk=0.01,
+        std_floor=1.0,
+    )
+    det.fit([str(base_path)])
+
+    amap = det.get_anomaly_map(str(anomaly_path))
+    assert isinstance(amap, np.ndarray)
+    assert amap.shape == (64, 64)
+    assert amap.dtype == np.float32
+    assert np.all(np.isfinite(amap))
+

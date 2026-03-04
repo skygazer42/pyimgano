@@ -50,6 +50,33 @@ for grayscale template inspection when SSIM is too sensitive.
 Template-style baseline that is more tolerant to small **global misalignment** than plain
 SSIM/NCC.
 
+### 5) Pixel mean abs-diff map (`vision_pixel_mean_absdiff_map`)
+
+Per-pixel statistics baseline for **aligned** inspection:
+
+- `fit()` builds a per-pixel mean template from normal images
+- anomaly map is the per-pixel absolute difference to the mean (scaled to `[0,1]`)
+
+Good when your camera/pose is stable and you want a very fast CPU baseline.
+
+### 6) Pixel Gaussian z-score map (`vision_pixel_gaussian_map`)
+
+Like the mean abs-diff baseline, but normalizes per pixel by the learned standard deviation:
+
+- `fit()` learns per-pixel mean + std on normals
+- anomaly map is per-pixel z-score `|x - mean| / std`
+
+This is often more robust when illumination/noise differs between runs.
+
+### 7) Pixel robust MAD z-score map (`vision_pixel_mad_map`)
+
+Robust per-pixel baseline for “noisy normal” training data:
+
+- `fit()` learns per-pixel median + MAD (median absolute deviation)
+- anomaly map is robust z-score `0.6745 * |x - median| / MAD`
+
+Use this when your normal set may contain a few bad frames/outliers.
+
 ---
 
 ## Recipe A: Infer maps only (debug/QA)
@@ -64,9 +91,20 @@ pyimgano-infer \
   --save-jsonl /tmp/out.jsonl
 ```
 
+### Preset shortcuts (CLI)
+
+If you prefer JSON-friendly presets over long `--model-kwargs`, these are good starting points:
+
+- `industrial-pixel-gaussian-map` / `industrial-pixel-mad-map` / `industrial-pixel-mean-absdiff-map`
+- `industrial-ssim-template-map` / `industrial-phase-correlation-map` / `industrial-template-ncc-map`
+
 Notes:
 - `--include-maps` requests maps; some detectors are score-only.
 - Use `--postprocess` if you want standard map normalization before exporting.
+- All models on this page share the same “map → defects” pipeline. You can swap
+  `--model` to any of:
+  `vision_pixel_mean_absdiff_map`, `vision_pixel_gaussian_map`, `vision_pixel_mad_map`,
+  `vision_template_ncc_map`, `vision_phase_correlation_map`, `ssim_template_map`, etc.
 
 ---
 
@@ -131,4 +169,3 @@ pyimgano-defects --help
 
 This CLI converts anomaly maps into binary masks + connected-component regions with the same
 industrial defaults as `pyimgano-infer`.
-

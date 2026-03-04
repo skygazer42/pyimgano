@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("skimage")
 
 
 def test_lbp_extractor_shapes_and_normalized_hist() -> None:
@@ -14,4 +17,3 @@ def test_lbp_extractor_shapes_and_normalized_hist() -> None:
     assert out.shape[1] == 10  # n_points + 2 for uniform
     assert np.all(np.isfinite(out))
     assert np.allclose(out.sum(axis=1), 1.0, atol=1e-5)
-

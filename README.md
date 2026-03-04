@@ -53,6 +53,16 @@ pip install pyimgano
 
 ## Quickstart (CLI)
 
+### Fastest offline sanity check
+
+Run a tiny end-to-end demo (creates a minimal `custom` dataset + runs a suite + exports tables):
+
+```bash
+pyimgano-demo
+```
+
+Tip: use `pyimgano-demo --help` to customize suite/sweep/output.
+
 ### Train (workbench) → export `infer_config.json`
 
 Start from the provided template and edit dataset paths:
@@ -111,6 +121,54 @@ Notes:
 - `--defects` requires anomaly maps. If you don’t pass a fixed `--pixel-threshold`, provide `--train-dir` so the default `normal_pixel_quantile` strategy can calibrate one from normal pixels.
 - High-resolution tiling works best with detectors tagged `numpy,pixel_map`:
   - add `--tile-size 512 --tile-stride 384` (see `docs/INDUSTRIAL_INFERENCE.md`).
+
+### Algorithm selection: baseline suites (+ optional small sweeps)
+
+For industrial algorithm selection, `pyimgano-benchmark` can run curated **baseline suites**
+and write a single aggregated report + leaderboard tables.
+
+Discover suites / sweep profiles:
+
+```bash
+pyimgano-benchmark --list-suites
+pyimgano-benchmark --suite-info industrial-v3 --json
+
+pyimgano-benchmark --list-sweeps
+pyimgano-benchmark --sweep-info industrial-template-small --json
+```
+
+Run a suite (and export `leaderboard.*` / `skipped.*` tables):
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-v3 \
+  --device cpu \
+  --no-pretrained \
+  --suite-export both \
+  --output-dir /tmp/pyimgano_suite_run
+```
+
+Optional: run a **small grid search** (bounded variants per baseline):
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-v3 \
+  --suite-sweep industrial-template-small \
+  --suite-sweep-max-variants 1 \
+  --suite-export csv \
+  --output-dir /tmp/pyimgano_suite_sweep_run
+```
+
+Notes:
+- Some suite entries are **optional** and are skipped if extras are missing (with actionable hints like
+  `pip install 'pyimgano[skimage]'` or `pip install 'pyimgano[torch]'`).
+- See `docs/CLI_REFERENCE.md` for suite output layout and all flags.
 
 ## Quickstart (Python)
 
@@ -260,13 +318,21 @@ Docs:
 `pyimgano` is usable with the default dependencies, but some models/backends require extras:
 
 ```bash
+pip install "pyimgano[torch]"       # torch + torchvision (deep backends, TorchScript export)
+pip install "pyimgano[onnx]"        # onnx + onnxruntime (+ onnxscript for torch.onnx.export)
+pip install "pyimgano[openvino]"    # OpenVINO runtime (deployment)
+pip install "pyimgano[skimage]"     # scikit-image baselines (SSIM/phase-corr/HOG/LBP/Gabor, etc.)
+pip install "pyimgano[numba]"       # numba-accelerated baselines
+pip install "pyimgano[viz]"         # matplotlib/seaborn plots
 pip install "pyimgano[diffusion]"   # diffusion-based methods
 pip install "pyimgano[clip]"        # OpenCLIP backends
 pip install "pyimgano[faiss]"       # faster kNN for memory-bank methods
 pip install "pyimgano[anomalib]"    # anomalib checkpoint wrappers (inference-first)
 pip install "pyimgano[backends]"    # clip + faiss + anomalib
-pip install "pyimgano[all]"         # everything (dev/docs/backends/diffusion/viz)
+pip install "pyimgano[all]"         # everything (dev/docs/viz + torch/onnx/openvino + backends/diffusion)
 ```
+
+See also: `docs/OPTIONAL_DEPENDENCIES.md` (extras map + recommended combos).
 
 ## Weights & cache policy
 

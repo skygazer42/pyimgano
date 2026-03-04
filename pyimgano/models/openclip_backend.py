@@ -105,14 +105,9 @@ def _load_openclip_model_and_preprocess(
 
     open_clip = _require_open_clip(open_clip_module)
 
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "PyTorch is required to use OpenCLIP detectors.\n"
-            "Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
 
     device_t = torch.device(str(device))
     kwargs: dict[str, Any] = {}
@@ -224,14 +219,9 @@ class OpenCLIPViTPatchEmbedder:
         return self._model, self._preprocess, self._device_t
 
     def _extract_vit_patch_tokens(self, image_tensor):
-        try:
-            import torch
-        except Exception as exc:  # pragma: no cover
-            raise ImportError(
-                "PyTorch is required to use OpenCLIP detectors.\n"
-                "Install it via:\n  pip install 'torch'\n"
-                f"Original error: {exc}"
-            ) from exc
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
 
         if self._model is None:  # pragma: no cover - guarded by _ensure_loaded
             raise RuntimeError("OpenCLIP model not loaded")
@@ -321,14 +311,9 @@ class OpenCLIPViTPatchEmbedder:
                 f"Original error: {exc}"
             ) from exc
 
-        try:
-            import torch
-        except Exception as exc:  # pragma: no cover
-            raise ImportError(
-                "PyTorch is required to use OpenCLIP detectors.\n"
-                "Install it via:\n  pip install 'torch'\n"
-                f"Original error: {exc}"
-            ) from exc
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
 
         if self._preprocess is None or self._device_t is None:  # pragma: no cover
             raise RuntimeError("OpenCLIP preprocess not loaded")
@@ -366,14 +351,9 @@ def _encode_openclip_text_features(
     if not prompts:
         raise ValueError("prompts must be non-empty")
 
-    try:
-        import torch
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "PyTorch is required to use OpenCLIP detectors.\n"
-            "Install it via:\n  pip install 'torch'\n"
-            f"Original error: {exc}"
-        ) from exc
+    from pyimgano.utils.optional_deps import require
+
+    torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
 
     tokens = open_clip.tokenize(prompts).to(device_t)
     with torch.no_grad():

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -105,11 +106,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         raise FileExistsError(f"deploy bundle already exists: {bundle_dir}")
     bundle_dir.mkdir(parents=True, exist_ok=False)
 
-    # Copy the infer-config to a stable location.
+    # Use the on-disk infer-config as the anchor for path resolution.
     infer_src = run_dir / "artifacts" / "infer_config.json"
     if not infer_src.exists():
         raise FileNotFoundError(f"infer_config.json not found: {infer_src}")
-    shutil.copy2(infer_src, bundle_dir / "infer_config.json")
 
     # Best-effort: include run-level metadata when present.
     for name in ("report.json", "config.json", "environment.json"):
@@ -117,25 +117,109 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         if src.exists():
             shutil.copy2(src, bundle_dir / name)
 
-    # Copy referenced checkpoints, preserving relative paths so `resolve_infer_checkpoint_path`
-    # works when the bundle is moved to a new machine.
-    for raw in _gather_checkpoint_paths_from_infer_config(infer_config_payload):
+    def _resolve_path(raw: str) -> Path:
         p = Path(raw)
         if p.is_absolute():
-            # If an absolute checkpoint is referenced, copy it into the bundle and
-            # rely on users to rewrite infer-config if needed.
-            dst = bundle_dir / "checkpoints_abs" / p.name
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(p, dst)
+            if not p.exists():
+                raise FileNotFoundError(f"Checkpoint not found: {p}")
+            return p
+
+        base = infer_src.parent
+        candidates: list[Path] = [
+            (base / p).resolve(),
+            (base.parent / p).resolve(),
+        ]
+
+        from_run = infer_config_payload.get("from_run", None)
+        if from_run is not None:
+            try:
+                candidates.append((Path(str(from_run)) / p).resolve())
+            except Exception:
+                pass
+
+        for cand in candidates:
+            if cand.exists():
+                return cand
+
+        tried = "\n".join(f"- {c}" for c in candidates)
+        raise FileNotFoundError(
+            "Artifact referenced by infer-config not found.\n"
+            f"path={raw!r}\n"
+            "Tried:\n"
+            f"{tried}"
+        )
+
+    def _iter_path_slots(payload: dict[str, Any]) -> list[tuple[str, dict[str, Any], str]]:
+        out: list[tuple[str, dict[str, Any], str]] = []
+
+        def _add_checkpoint(obj: Any) -> None:
+            if not isinstance(obj, dict):
+                return
+            ckpt = obj.get("checkpoint", None)
+            if isinstance(ckpt, dict):
+                out.append(("trained_checkpoint", ckpt, "path"))
+
+        def _add_model_checkpoint(obj: Any) -> None:
+            if not isinstance(obj, dict):
+                return
+            model = obj.get("model", None)
+            if isinstance(model, dict):
+                out.append(("model_checkpoint", model, "checkpoint_path"))
+
+        _add_checkpoint(payload)
+        _add_model_checkpoint(payload)
+
+        per_category = payload.get("per_category", None)
+        if isinstance(per_category, dict):
+            for _cat, cat_payload in per_category.items():
+                _add_checkpoint(cat_payload)
+                _add_model_checkpoint(cat_payload)
+        return out
+
+    # Copy referenced artifacts and rewrite absolute paths into bundle-relative ones.
+    # This keeps deploy bundles self-contained and portable.
+    bundle_payload = deepcopy(infer_config_payload)
+    used_dst: set[Path] = set()
+    bundle_root = bundle_dir.resolve()
+
+    for kind, container, key in _iter_path_slots(bundle_payload):
+        raw_any = container.get(key, None)
+        if raw_any is None:
+            continue
+        raw = str(raw_any).strip()
+        if not raw:
             continue
 
-        src = (run_dir / p).resolve()
-        if not src.exists():
-            raise FileNotFoundError(f"Checkpoint referenced by infer-config not found: {src}")
+        p = Path(raw)
+        src = _resolve_path(raw)
 
-        dst = (bundle_dir / p).resolve()
+        if p.is_absolute():
+            prefix = "checkpoints_abs" if kind == "trained_checkpoint" else "artifacts_abs"
+            base = Path(prefix)
+            dst_rel = base / p.name
+            if dst_rel in used_dst:
+                stem = p.stem
+                suffix = p.suffix
+                i = 2
+                while True:
+                    cand = base / f"{stem}_{i}{suffix}"
+                    if cand not in used_dst:
+                        dst_rel = cand
+                        break
+                    i += 1
+            container[key] = str(dst_rel)
+        else:
+            dst_rel = Path(raw)
+
+        used_dst.add(dst_rel)
+        dst = (bundle_dir / dst_rel).resolve()
+        if bundle_root not in dst.parents and dst != bundle_root:
+            raise ValueError(f"infer-config path escapes deploy bundle: {raw!r} -> {dst_rel}")
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
+
+    # Write the (potentially rewritten) infer-config into the bundle.
+    save_run_report(bundle_dir / "infer_config.json", bundle_payload)
 
     return bundle_dir
 

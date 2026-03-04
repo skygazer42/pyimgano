@@ -56,8 +56,11 @@ class HOGExtractor(BaseFeatureExtractor):
         self.transform_sqrt = bool(transform_sqrt)
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
-        from skimage.feature import hog
+        from pyimgano.utils.optional_deps import require
         import cv2
+
+        skfeature = require("skimage.feature", extra="skimage", purpose="hog feature extractor")
+        hog = skfeature.hog
 
         items = list(inputs)
         if not items:
@@ -83,4 +86,3 @@ class HOGExtractor(BaseFeatureExtractor):
             feats.append(np.asarray(f, dtype=np.float32).reshape(-1))
 
         return np.stack(feats, axis=0)
-

@@ -51,7 +51,7 @@ class OpenCLIPExtractor(BaseFeatureExtractor):
             return
 
         open_clip = require("open_clip", extra="clip", purpose="OpenCLIPExtractor")
-        import torch
+        torch = require("torch", extra="torch", purpose="OpenCLIPExtractor")
 
         dev = _make_device(str(self.device))
 

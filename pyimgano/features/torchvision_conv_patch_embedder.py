@@ -64,9 +64,16 @@ class TorchvisionConvPatchEmbedder:
         if self._model is not None:
             return
 
-        import torch
-        import torchvision.transforms as T
-        from torchvision.models.feature_extraction import create_feature_extractor
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="TorchvisionConvPatchEmbedder")
+        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionConvPatchEmbedder")
+        fe = require(
+            "torchvision.models.feature_extraction",
+            extra="torch",
+            purpose="TorchvisionConvPatchEmbedder",
+        )
+        create_feature_extractor = fe.create_feature_extractor
 
         model, weight_transform = _load_torchvision_backbone(
             str(self.backbone), pretrained=bool(self.pretrained)
@@ -149,4 +156,3 @@ class TorchvisionConvPatchEmbedder:
 
 
 __all__ = ["TorchvisionConvPatchEmbedder"]
-

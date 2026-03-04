@@ -147,6 +147,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "ssim_struct",  # SSIM with structural features
     "template_ncc_map",  # NCC pixel-map template baseline
     "phase_corr_map",  # Phase correlation pixel-map template baseline
+    "pixel_stats_map",  # Per-pixel statistics pixel-map baselines (mean/std/MAD)
     "ref_patch_distance",  # Reference-based patch distance pixel-map baseline
     "stfpm",  # Student-Teacher Feature Pyramid Matching (BMVC 2021)
     "student_teacher_lite",  # Lite student-teacher via embedding regression
@@ -297,7 +298,41 @@ def _scan_module_for_models(module_name: str) -> list[tuple[str, tuple[str, ...]
 
 def _make_lazy_constructor(*, model_name: str, module_name: str):
     def _ctor(*args: Any, **kwargs: Any):  # noqa: ANN401 - generic factory signature
-        import_module(f"{__name__}.{module_name}")
+        try:
+            import_module(f"{__name__}.{module_name}")
+        except ModuleNotFoundError as exc:
+            missing = getattr(exc, "name", None)
+            root = (str(missing).split(".", 1)[0] if missing else "").strip()
+            dep_to_extra = {
+                # Deep backends
+                "torch": "torch",
+                "torchvision": "torch",
+                # Deployment backends
+                "onnx": "onnx",
+                "onnxruntime": "onnx",
+                "openvino": "openvino",
+                # Image / speed
+                "skimage": "skimage",
+                "numba": "numba",
+                # Visualization
+                "matplotlib": "viz",
+                # Existing optional backends
+                "open_clip": "clip",
+                "faiss": "faiss",
+                "anomalib": "anomalib",
+                "diffusers": "diffusion",
+                "mamba_ssm": "mamba",
+            }
+            extra = dep_to_extra.get(root)
+            if extra is not None:
+                raise ImportError(
+                    f"Optional dependency {root!r} is required to construct model {model_name!r} "
+                    f"(implementation module {module_name!r}).\n"
+                    "Install it via:\n"
+                    f"  pip install 'pyimgano[{extra}]'\n"
+                    f"Original error: {exc}"
+                ) from exc
+            raise
         real = MODEL_REGISTRY.get(model_name)
         if real is _ctor:
             raise RuntimeError(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -298,6 +299,14 @@ def _build_parser() -> argparse.ArgumentParser:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--model", default=None, help="Registered model name")
     source.add_argument(
+        "--model-preset",
+        default=None,
+        help=(
+            "Model preset name (shortcut to a registered model + kwargs). "
+            "Use --list-model-presets to see options."
+        ),
+    )
+    source.add_argument(
         "--from-run",
         default=None,
         help="Load model + threshold + (optional) checkpoint from a workbench run directory",
@@ -306,6 +315,26 @@ def _build_parser() -> argparse.ArgumentParser:
         "--infer-config",
         default=None,
         help="Load model + threshold + (optional) checkpoint from an exported infer_config.json file",
+    )
+    source.add_argument(
+        "--list-models",
+        action="store_true",
+        help="List available model names and exit (default output: text, one per line)",
+    )
+    source.add_argument(
+        "--model-info",
+        default=None,
+        help="Show tags/metadata/signature/accepted kwargs for a model name and exit",
+    )
+    source.add_argument(
+        "--list-model-presets",
+        action="store_true",
+        help="List available model preset names and exit (default output: text, one per line)",
+    )
+    source.add_argument(
+        "--model-preset-info",
+        default=None,
+        help="Show model preset details (model/kwargs/description) and exit",
     )
     parser.add_argument(
         "--from-run-category",
@@ -322,6 +351,23 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         choices=["industrial-fast", "industrial-balanced", "industrial-accurate"],
         help="Optional model preset (applied before --model-kwargs). Default: none",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "When used with discovery flags (--list-models/--model-info/"
+            "--list-model-presets/--model-preset-info), output JSON instead of text"
+        ),
+    )
+    parser.add_argument(
+        "--tags",
+        action="append",
+        default=None,
+        help=(
+            "Filter --list-models by required tags (comma-separated or repeatable). "
+            "Example: --tags vision,classical"
+        ),
     )
     parser.add_argument("--device", default=None, help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=None)
@@ -371,7 +417,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input",
         action="append",
-        required=True,
+        required=False,
         help="Input image path or directory (repeatable). Directories are scanned recursively.",
     )
     parser.add_argument(
@@ -680,12 +726,146 @@ def main(argv: list[str] | None = None) -> int:
         import pyimgano.models  # noqa: F401
         from pyimgano.cli import _resolve_preset_kwargs
         from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
+        from pyimgano.models.registry import MODEL_REGISTRY, materialize_model_constructor
+
+        discovery_flags = [
+            bool(getattr(args, "list_models", False)),
+            getattr(args, "model_info", None) is not None,
+            bool(getattr(args, "list_model_presets", False)),
+            getattr(args, "model_preset_info", None) is not None,
+        ]
+        if sum(1 for f in discovery_flags if f) > 1:
+            raise ValueError(
+                "--list-models, --model-info, --list-model-presets, and --model-preset-info are mutually exclusive."
+            )
+
+        if bool(getattr(args, "list_models", False)):
+            tags: list[str] = []
+            tags_raw = getattr(args, "tags", None)
+            if tags_raw:
+                for item in tags_raw:
+                    for tag in str(item).split(","):
+                        tag = tag.strip()
+                        if tag:
+                            tags.append(tag)
+
+            names = MODEL_REGISTRY.available(tags=tags or None)
+            if bool(getattr(args, "json", False)):
+                print(json.dumps(names, indent=2))
+            else:
+                for name in names:
+                    print(name)
+            return 0
+
+        if getattr(args, "model_info", None) is not None:
+            from pyimgano.utils.jsonable import to_jsonable
+
+            model_name = str(getattr(args, "model_info"))
+            try:
+                materialize_model_constructor(model_name)
+                entry = MODEL_REGISTRY.info(model_name)
+            except KeyError as exc:
+                raise ValueError(f"Unknown model: {model_name!r}") from exc
+
+            signature = inspect.signature(entry.constructor)
+            accepts_var_kwargs = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in signature.parameters.values()
+            )
+            accepted = {
+                name
+                for name, p in signature.parameters.items()
+                if p.kind
+                in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+            }
+
+            payload = {
+                "name": entry.name,
+                "tags": list(entry.tags),
+                "metadata": dict(entry.metadata),
+                "signature": str(signature),
+                "accepted_kwargs": sorted(accepted),
+                "accepts_var_kwargs": bool(accepts_var_kwargs),
+                "constructor": {
+                    "module": getattr(entry.constructor, "__module__", "<unknown>"),
+                    "qualname": getattr(entry.constructor, "__qualname__", "<unknown>"),
+                },
+            }
+
+            if bool(getattr(args, "json", False)):
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
+            else:
+                print(f"Name: {payload['name']}")
+                tags_out = payload["tags"]
+                print(f"Tags: {', '.join(tags_out) if tags_out else '<none>'}")
+                print("Metadata:")
+                metadata = payload["metadata"]
+                if metadata:
+                    for key in sorted(metadata):
+                        print(f"  {key}: {metadata[key]}")
+                else:
+                    print("  <none>")
+                print("Signature:")
+                print(f"  {payload['signature']}")
+                print(f"Accepts **kwargs: {'yes' if payload['accepts_var_kwargs'] else 'no'}")
+                print("Accepted kwargs:")
+                for key in payload["accepted_kwargs"]:
+                    print(f"  - {key}")
+            return 0
+
+        if bool(getattr(args, "list_model_presets", False)):
+            from pyimgano.cli_presets import list_model_presets
+
+            names = list_model_presets()
+            if bool(getattr(args, "json", False)):
+                print(json.dumps(names, indent=2))
+            else:
+                for name in names:
+                    print(name)
+            return 0
+
+        if getattr(args, "model_preset_info", None) is not None:
+            from pyimgano.cli_presets import resolve_model_preset
+            from pyimgano.utils.jsonable import to_jsonable
+
+            preset_name = str(getattr(args, "model_preset_info"))
+            preset = resolve_model_preset(preset_name)
+            if preset is None:
+                raise ValueError(f"Unknown model preset: {preset_name!r}")
+
+            payload = {
+                "name": preset.name,
+                "model": preset.model,
+                "kwargs": dict(preset.kwargs),
+                "description": preset.description,
+                "optional": bool(preset.optional),
+            }
+            if bool(getattr(args, "json", False)):
+                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
+            else:
+                print(f"Name: {payload['name']}")
+                print(f"Model: {payload['model']}")
+                print("Kwargs:")
+                kwargs = payload["kwargs"]
+                if kwargs:
+                    for key in sorted(kwargs):
+                        print(f"  {key}: {kwargs[key]}")
+                else:
+                    print("  <none>")
+                print(f"Optional: {'yes' if payload['optional'] else 'no'}")
+                print(f"Description: {payload['description']}")
+            return 0
 
         t_total_start = time.perf_counter()
         t_load_model = 0.0
         t_fit_calibrate = 0.0
         t_infer = 0.0
         t_artifacts = 0.0
+
+        if not getattr(args, "input", None):
+            raise ValueError(
+                "--input is required for inference modes. "
+                "Use --list-models/--model-info/--list-model-presets for discovery."
+            )
 
         seed = (int(args.seed) if args.seed is not None else None)
         if seed is not None:
@@ -742,11 +922,54 @@ def main(argv: list[str] | None = None) -> int:
             if args.model_kwargs is not None:
                 base_user_kwargs.update(parse_model_kwargs(args.model_kwargs))
 
-            checkpoint_path = (
-                str(args.checkpoint_path)
-                if args.checkpoint_path is not None
-                else (str(cfg.model.checkpoint_path) if cfg.model.checkpoint_path is not None else None)
-            )
+            checkpoint_path: str | None = None
+            if args.checkpoint_path is not None:
+                checkpoint_path = str(args.checkpoint_path)
+            elif cfg.model.checkpoint_path is not None:
+                raw = str(cfg.model.checkpoint_path).strip()
+                if raw:
+                    p = Path(raw)
+                    if p.is_absolute():
+                        if not p.exists():
+                            raise FileNotFoundError(f"Model checkpoint_path not found: {p}")
+                        checkpoint_path = str(p)
+                    else:
+                        # Best-effort: interpret relative paths as relative to the run directory.
+                        run_dir = Path(str(args.from_run))
+                        candidates = [
+                            (run_dir / p).resolve(),
+                            (run_dir / "artifacts" / p).resolve(),
+                            (run_dir / "checkpoints" / p).resolve(),
+                        ]
+                        resolved: Path | None = None
+                        for cand in candidates:
+                            if cand.exists():
+                                resolved = cand
+                                break
+
+                        if resolved is None:
+                            # Backwards-compat fallback: allow relative to the current working dir.
+                            cwd_cand = p.resolve()
+                            if cwd_cand.exists():
+                                import sys
+
+                                print(
+                                    "warning: model.checkpoint_path resolved relative to CWD; "
+                                    "consider making it relative to --from-run for portability.",
+                                    file=sys.stderr,
+                                )
+                                resolved = cwd_cand
+                            else:
+                                tried = "\n".join(f"- {c}" for c in (candidates + [cwd_cand]))
+                                raise FileNotFoundError(
+                                    "Model checkpoint_path not found for --from-run.\n"
+                                    f"model.checkpoint_path={raw!r}\n"
+                                    f"from_run={run_dir}\n"
+                                    "Tried:\n"
+                                    f"{tried}"
+                                )
+
+                        checkpoint_path = str(resolved)
             user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
 
             preset_kwargs = _resolve_preset_kwargs(preset, model_name)
@@ -792,6 +1015,7 @@ def main(argv: list[str] | None = None) -> int:
             from pyimgano.inference.config import (
                 load_infer_config,
                 resolve_infer_checkpoint_path,
+                resolve_infer_model_checkpoint_path,
                 select_infer_category,
             )
             from pyimgano.workbench.load_run import extract_threshold, load_checkpoint_into_detector
@@ -858,15 +1082,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.model_kwargs is not None:
                 base_user_kwargs.update(parse_model_kwargs(args.model_kwargs))
 
-            checkpoint_path = (
-                str(args.checkpoint_path)
-                if args.checkpoint_path is not None
-                else (
-                    str(model_payload.get("checkpoint_path"))
-                    if model_payload.get("checkpoint_path", None) is not None
-                    else None
-                )
-            )
+            checkpoint_path: str | None = None
+            if args.checkpoint_path is not None:
+                checkpoint_path = str(args.checkpoint_path)
+            elif model_payload.get("checkpoint_path", None) is not None:
+                resolved_model_ckpt = resolve_infer_model_checkpoint_path(payload, config_path=cfg_path)
+                checkpoint_path = (str(resolved_model_ckpt) if resolved_model_ckpt is not None else None)
             user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
 
             preset_kwargs = _resolve_preset_kwargs(preset, model_name)
@@ -924,10 +1145,52 @@ def main(argv: list[str] | None = None) -> int:
                 if bool(adaptation_payload.get("save_maps", False)) or infer_config_postprocess is not None:
                     args.include_maps = True
         else:
-            if args.model is None:
-                raise ValueError("--model is required when --from-run is not provided")
+            from pyimgano.cli_presets import resolve_model_preset
 
-            model_name = str(args.model)
+            requested_model: str | None = None
+            preset_model_auto_kwargs: dict[str, Any] = {}
+
+            if getattr(args, "model_preset", None) is not None:
+                requested_model = str(args.model_preset)
+                preset = resolve_model_preset(requested_model)
+                if preset is None:
+                    raise ValueError(f"Unknown model preset: {requested_model!r}")
+                model_name = str(preset.model)
+                preset_model_auto_kwargs = dict(preset.kwargs)
+                try:
+                    MODEL_REGISTRY.info(model_name)
+                except KeyError as exc:
+                    raise ValueError(
+                        f"Model preset {requested_model!r} refers to unknown model: {model_name!r}"
+                    ) from exc
+            else:
+                if args.model is None:
+                    raise ValueError(
+                        "--model or --model-preset is required when --from-run/--infer-config are not provided"
+                    )
+
+                requested_model = str(args.model)
+                model_name = requested_model
+                try:
+                    MODEL_REGISTRY.info(model_name)
+                except KeyError as exc:
+                    # Allow preset names (JSON-ready configs) for industrial workflows.
+                    preset = resolve_model_preset(model_name)
+                    if preset is None:
+                        raise ValueError(
+                            f"Unknown model or model preset: {requested_model!r}. "
+                            "Use --list-models/--list-model-presets for discovery."
+                        ) from exc
+
+                    model_name = str(preset.model)
+                    preset_model_auto_kwargs = dict(preset.kwargs)
+                    try:
+                        MODEL_REGISTRY.info(model_name)
+                    except KeyError as exc2:
+                        raise ValueError(
+                            f"Model preset {requested_model!r} refers to unknown model: {model_name!r}"
+                        ) from exc2
+
             preset_kwargs = _resolve_preset_kwargs(args.preset, model_name)
 
             device = str(args.device) if args.device is not None else "cpu"
@@ -939,11 +1202,9 @@ def main(argv: list[str] | None = None) -> int:
             user_kwargs = parse_model_kwargs(args.model_kwargs)
             user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
-            model_kwargs = build_model_kwargs(
-                model_name,
-                user_kwargs=user_kwargs,
-                preset_kwargs=preset_kwargs,
-                auto_kwargs={
+            auto_kwargs: dict[str, Any] = dict(preset_model_auto_kwargs)
+            auto_kwargs.update(
+                {
                     "device": device,
                     "contamination": contamination,
                     "pretrained": pretrained,
@@ -952,7 +1213,13 @@ def main(argv: list[str] | None = None) -> int:
                         if seed is not None
                         else {}
                     ),
-                },
+                }
+            )
+            model_kwargs = build_model_kwargs(
+                model_name,
+                user_kwargs=user_kwargs,
+                preset_kwargs=preset_kwargs,
+                auto_kwargs=auto_kwargs,
             )
 
             _enforce_checkpoint_requirement(
@@ -1382,6 +1649,9 @@ def main(argv: list[str] | None = None) -> int:
             model_name = getattr(args, "model", None)
             if model_name:
                 print(f"context: model={model_name!r}", file=sys.stderr)
+            model_preset = getattr(args, "model_preset", None)
+            if model_preset:
+                print(f"context: model_preset={model_preset!r}", file=sys.stderr)
         return 2
 def _build_postprocess_from_payload(payload: dict[str, Any]) -> AnomalyMapPostprocess:
     pr_raw = payload.get("percentile_range", (1.0, 99.0))

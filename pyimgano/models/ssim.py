@@ -170,7 +170,10 @@ class SSIMTemplateDetector(BaseDetector):
         if self.templates_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        from skimage.metrics import structural_similarity as ssim
+        from pyimgano.utils.optional_deps import require
+
+        skmetrics = require("skimage.metrics", extra="skimage", purpose="SSIM similarity metric")
+        ssim = skmetrics.structural_similarity
 
         items = list(X)
         scores = np.zeros((len(items),), dtype=np.float64)

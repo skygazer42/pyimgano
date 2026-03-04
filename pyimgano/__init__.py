@@ -10,7 +10,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__version__ = "0.6.23"
+__version__ = "0.6.24"
 
 __all__ = [
     # Modules
@@ -20,6 +20,7 @@ __all__ = [
     "inputs",
     "inference",
     "models",
+    "plugins",
     "pipelines",
     "preprocessing",
     "synthesis",
@@ -49,6 +50,7 @@ _LAZY_SUBMODULES = {
     "inputs",
     "inference",
     "models",
+    "plugins",
     "pipelines",
     "preprocessing",
     "synthesis",

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("skimage")
 
 
 def _make_pattern_image(size: int = 64) -> np.ndarray:
@@ -72,4 +75,3 @@ def test_phase_correlation_map_detector_is_misalignment_tolerant() -> None:
     margin = 8
     center_mean = float(np.mean(maps[1, margin:-margin, margin:-margin]))
     assert center_mean < 0.25
-

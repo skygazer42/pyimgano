@@ -9,7 +9,7 @@ def test_cli_preset_industrial_embedding_core_balanced_resolves() -> None:
     preset = resolve_model_preset("industrial-embedding-core-balanced")
     assert preset is not None
     assert preset.model == "vision_embedding_core"
-    assert preset.optional is False
+    assert preset.optional is True
 
     kwargs = dict(preset.kwargs)
     assert kwargs["embedding_extractor"] == "torchvision_backbone"
@@ -21,4 +21,3 @@ def test_cli_preset_industrial_embedding_core_balanced_resolves() -> None:
     core_kwargs = dict(kwargs["core_kwargs"])
     assert core_kwargs["base_detector"] == "core_mahalanobis_shrinkage"
     assert core_kwargs["method"] == "rank"
-

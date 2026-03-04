@@ -25,14 +25,13 @@ def save_checkpoint(detector: Any, path: str | Path) -> Path:
 
     model = getattr(detector, "model", None)
     if model is not None and callable(getattr(model, "state_dict", None)):
-        try:
-            import torch
-        except Exception as exc:  # pragma: no cover - dependency boundary
-            raise ImportError(
-                "torch is required to save checkpoints via `detector.model.state_dict()`.\n"
-                "Install it via:\n"
-                "  pip install torch"
-            ) from exc
+        from pyimgano.utils.optional_deps import require
+
+        torch = require(
+            "torch",
+            extra="torch",
+            purpose="save checkpoints via detector.model.state_dict",
+        )
 
         state = model.state_dict()
         torch.save(state, out_path)
@@ -43,4 +42,3 @@ def save_checkpoint(detector: Any, path: str | Path) -> Path:
         "- `detector.save_checkpoint(path)`\n"
         "- `detector.model` with a torch-style `state_dict()`\n"
     )
-

@@ -34,3 +34,7 @@ def test_cli_list_models_includes_native_models_added_in_pyod_removal(capsys):
     assert "core_torch_autoencoder" in names
     assert "vision_torch_autoencoder" in names
     assert "vision_resnet18_ecod" in names
+    assert "vision_onnx_ecod" in names
+    assert "vision_pixel_mean_absdiff_map" in names
+    assert "vision_pixel_gaussian_map" in names
+    assert "vision_pixel_mad_map" in names

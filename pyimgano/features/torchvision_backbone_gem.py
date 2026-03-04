@@ -54,9 +54,16 @@ class TorchvisionBackboneGeMExtractor(BaseFeatureExtractor):
         if self._model is not None:
             return
 
-        import torch
-        import torchvision.transforms as T
-        from torchvision.models.feature_extraction import create_feature_extractor
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="TorchvisionBackboneGeMExtractor")
+        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionBackboneGeMExtractor")
+        fe = require(
+            "torchvision.models.feature_extraction",
+            extra="torch",
+            purpose="TorchvisionBackboneGeMExtractor",
+        )
+        create_feature_extractor = fe.create_feature_extractor
 
         model, weight_transform = _load_torchvision_backbone(
             str(self.backbone), pretrained=bool(self.pretrained)
@@ -126,4 +133,3 @@ class TorchvisionBackboneGeMExtractor(BaseFeatureExtractor):
 
 
 __all__ = ["TorchvisionBackboneGeMExtractor"]
-

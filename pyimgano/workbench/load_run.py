@@ -146,14 +146,13 @@ def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) ->
 
     model = getattr(detector, "model", None)
     if model is not None and callable(getattr(model, "load_state_dict", None)):
-        try:
-            import torch
-        except Exception as exc:  # pragma: no cover - dependency boundary
-            raise ImportError(
-                "torch is required to load checkpoints via `detector.model.load_state_dict()`.\n"
-                "Install it via:\n"
-                "  pip install torch"
-            ) from exc
+        from pyimgano.utils.optional_deps import require
+
+        torch = require(
+            "torch",
+            extra="torch",
+            purpose="load checkpoints via detector.model.load_state_dict",
+        )
 
         state = torch.load(path, map_location="cpu")
         if isinstance(state, Mapping):
@@ -175,4 +174,3 @@ def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) ->
         "- `detector.load(path)`\n"
         "- `detector.model.load_state_dict(...)` (torch)\n"
     )
-

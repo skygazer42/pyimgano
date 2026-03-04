@@ -3,6 +3,7 @@
 PyImgAno provides the following CLIs:
 
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
+- `pyimgano-demo` — minimal offline demo (creates a tiny custom dataset + runs a suite/sweep)
 - `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
 - `pyimgano-defects` — standalone anomaly-map → mask → regions defects export
@@ -12,6 +13,8 @@ PyImgAno provides the following CLIs:
 - `pyimgano-synthesize` — anomaly synthesis + manifest generation
 - `pyimgano-validate-infer-config` — validate an exported `infer_config.json` before deployment
 - `pyimgano-features` — feature/embedding extractor discovery + extraction utilities
+- `pyimgano-export-torchscript` — export a torchvision backbone to TorchScript (offline-safe by default)
+- `pyimgano-export-onnx` — export a torchvision backbone to ONNX (offline-safe by default)
 
 ---
 
@@ -32,14 +35,97 @@ pyimgano-benchmark \
 
 Notes:
 - CLIs default to **offline-safe** behavior (`--no-pretrained`). Use `--pretrained` explicitly when you want upstream weights (may download).
+- `--model` can be either a registered model name (e.g. `vision_patchcore`) or a **model preset name**
+  (e.g. `industrial-pixel-mad-map`). To discover presets, use `pyimgano-infer --list-model-presets`.
 
 ### Discovery
 
 - List models: `pyimgano-benchmark --list-models`
+- Load third-party plugins (entry points) before discovery: `pyimgano-benchmark --plugins --list-models`
 - Filter models by tags: `pyimgano-benchmark --list-models --tags vision,deep`
 - Model info (constructor signature + accepted kwargs): `pyimgano-benchmark --model-info vision_patchcore`
 - List dataset categories: `pyimgano-benchmark --list-categories --dataset mvtec --root /path/to/mvtec_ad`
 - List manifest categories: `pyimgano-benchmark --list-categories --dataset manifest --manifest-path /path/to/manifest.jsonl`
+- List curated industrial baseline suites: `pyimgano-benchmark --list-suites`
+- Suite contents (resolved baselines): `pyimgano-benchmark --suite-info industrial-v1`
+- List curated suite sweep profiles (small grid searches): `pyimgano-benchmark --list-sweeps`
+- Sweep contents (variants + overrides): `pyimgano-benchmark --sweep-info industrial-small`
+
+### Baseline Suites (Industrial)
+
+Suites are curated packs of **multiple model presets** intended for industrial algorithm selection.
+
+Built-in suites: `industrial-ci`, `industrial-v1`, `industrial-v2`, `industrial-v3` (use `--list-suites` for the full list).
+
+Example:
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-v1 \
+  --device cpu \
+  --no-pretrained
+```
+
+Flags:
+
+- `--suite NAME` — run a curated suite (instead of a single `--model`)
+- `--suite-max-models N` — limit number of baselines (smoke/debug)
+- `--suite-include NAME[,NAME]` — run only selected suite baselines (comma-separated or repeatable)
+- `--suite-exclude NAME[,NAME]` — skip selected suite baselines (comma-separated or repeatable)
+- `--suite-continue-on-error/--no-suite-continue-on-error` — keep running when a baseline errors or has missing optional deps
+- `--suite-export csv|md|both` — write `leaderboard.*`, `best_by_baseline.*`, and `skipped.*` tables into the suite output directory (requires `--save-run`)
+- `--suite-export-best-metric NAME` — metric used for `best_by_baseline.*` tables (default: `auroc`). Pixel metrics require `--pixel`.
+- `--suite-sweep SPEC` — run a small parameter sweep (grid search) per baseline and rank variants.
+  `SPEC` can be a built-in sweep name (discover with `--list-sweeps`), a JSON file path, or inline JSON.
+- `--suite-sweep-max-variants N` — cap the number of sweep variants per baseline (excluding base). Example: `--suite-sweep-max-variants 1`
+
+Suite artifacts (when `--save-run` is enabled):
+
+- `<suite_dir>/report.json` — aggregated suite report (ranking + skipped baselines)
+- `<suite_dir>/config.json`, `<suite_dir>/environment.json`
+- `<suite_dir>/leaderboard.csv`, `<suite_dir>/skipped.csv` (when `--suite-export csv|both`)
+- `<suite_dir>/best_by_baseline.csv` (when `--suite-export csv|both`, best variant per baseline by AUROC; most useful with `--suite-sweep`)
+- `<suite_dir>/leaderboard.md`, `<suite_dir>/skipped.md` (when `--suite-export md|both`)
+- `<suite_dir>/best_by_baseline.md` (when `--suite-export md|both`, best variant per baseline by AUROC; most useful with `--suite-sweep`)
+- `<suite_dir>/models/<baseline_name>/...` — per-baseline run artifacts
+- `<suite_dir>/models/<baseline_name>/variants/<variant>/...` (when `--suite-sweep` is enabled)
+
+Optional extras:
+
+- Some suite entries are marked optional and are **skipped** when extras are not installed.
+  Skip reasons include actionable install hints like `pip install 'pyimgano[skimage]'` or `pip install 'pyimgano[torch]'`.
+
+#### Custom sweep JSON
+
+You can pass a JSON sweep plan file to `--suite-sweep` (or prefix the path with `@`):
+
+```json
+{
+  "name": "my-sweep",
+  "description": "Tiny sweep for NCC window sizes",
+  "variants_by_entry": {
+    "industrial-template-ncc-map": [
+      {"name": "win_7", "override": {"window_hw": [7, 7]}},
+      {"name": "win_21", "override": {"window_hw": [21, 21]}}
+    ]
+  }
+}
+```
+
+Run it:
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-ci \
+  --suite-sweep ./my_sweep.json \
+  --no-pretrained
+```
 
 ### Manifest dataset
 
@@ -128,6 +214,44 @@ Notes:
   `pyimgano-infer` auto-calibrates `threshold_` from train scores (same default quantile as
   `pyimgano-benchmark`: `1 - contamination` when available, else `0.995`).
 - Pass `--calibration-quantile Q` to override the quantile explicitly.
+
+### Model Presets (Shortcuts)
+
+Presets are just **named (model + kwargs)** pairs that keep industrial command lines short while staying reproducible.
+
+- List presets: `pyimgano-infer --list-model-presets`
+- Show preset details (model/kwargs/description): `pyimgano-infer --model-preset-info industrial-pixel-mad-map`
+
+Example:
+
+```bash
+pyimgano-infer \
+  --model-preset industrial-pixel-mad-map \
+  --train-dir /path/to/train/normal \
+  --input /path/to/inputs \
+  --include-maps \
+  --save-maps /tmp/pyimgano_maps \
+  --save-jsonl out.jsonl
+```
+
+### Deployment-Friendly Embeddings
+
+If you want the “embedding + core” industrial route without relying on upstream model registries at inference time,
+use one of the deployment wrapper models and pass `--checkpoint-path`:
+
+- TorchScript: `vision_torchscript_ecod`, `vision_torchscript_knn_cosine_calibrated`, ...
+- ONNX Runtime: `vision_onnx_ecod`, `vision_onnx_knn_cosine_calibrated`, ...
+
+Example (ONNX embeddings + ECOD):
+
+```bash
+pyimgano-infer \
+  --model vision_onnx_ecod \
+  --checkpoint-path /path/to/resnet18_embed.onnx \
+  --train-dir /path/to/train/normal \
+  --input /path/to/inputs \
+  --save-jsonl out.jsonl
+```
 
 Optional:
 
@@ -353,6 +477,54 @@ Notes:
 - Output is stable and sorted (useful for reproducible diffs).
 - By default, paths are written relative to the output manifest directory.
 - Use `--absolute-paths` to emit absolute paths when you need portability across working directories.
+
+---
+
+## `pyimgano-export-torchscript`
+
+Export a torchvision backbone (classification head stripped) as a TorchScript `.pt` file.
+
+Requires:
+
+- `pip install "pyimgano[torch]"`
+
+Example (offline-safe):
+
+```bash
+pyimgano-export-torchscript \
+  --backbone resnet18 \
+  --out /tmp/resnet18_backbone.pt
+```
+
+Notes:
+
+- `--pretrained` is **off by default** to avoid implicit weight downloads.
+- Use `--method trace|script` depending on your deployment constraints (default: `trace`).
+
+---
+
+## `pyimgano-export-onnx`
+
+Export a torchvision backbone (classification head stripped) as an ONNX `.onnx` file.
+
+Requires:
+
+- `pip install "pyimgano[torch]"` (export)
+- `pip install "pyimgano[onnx]"` (recommended; needed for `--verify`, and required by newer `torch.onnx.export` flows via `onnxscript`)
+
+Example (offline-safe):
+
+```bash
+pyimgano-export-onnx \
+  --backbone resnet18 \
+  --out /tmp/resnet18_backbone.onnx
+```
+
+Notes:
+
+- `--pretrained` is **off by default** to avoid implicit weight downloads.
+- By default, export uses `--dynamic-batch` (deploy-friendly).
+- `--verify` (default: true) checks that the exported file loads in `onnx` and `onnxruntime`.
 
 ## Notes
 
