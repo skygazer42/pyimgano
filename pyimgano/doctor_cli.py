@@ -6,9 +6,9 @@ import platform
 import sys
 from datetime import datetime, timezone
 from importlib import metadata
-from importlib.util import find_spec
 from typing import Any
 
+from pyimgano.utils.extras import extra_importable, extra_installed, extras_install_hint
 from pyimgano.utils.optional_deps import optional_import
 
 
@@ -29,43 +29,6 @@ def _split_csv_args(values: list[str] | None) -> list[str]:
             if p:
                 out.append(p)
     return out
-
-
-def _can_find_root(module_root: str) -> bool:
-    """Best-effort root-module existence check (no import side effects)."""
-
-    return find_spec(str(module_root)) is not None
-
-
-_EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
-    "torch": ("torch", "torchvision"),
-    "onnx": ("onnxruntime", "onnx", "onnxscript"),
-    "openvino": ("openvino",),
-    "skimage": ("skimage",),
-    "numba": ("numba",),
-    "faiss": ("faiss",),
-    # Extras that imply torch.
-    "clip": ("open_clip", "torch"),
-    "anomalib": ("anomalib", "torch"),
-    "mamba": ("mamba_ssm", "torch"),
-}
-
-
-def _extra_installed(extra: str) -> bool:
-    roots = _EXTRA_ROOT_MODULES.get(str(extra), (str(extra),))
-    return all(_can_find_root(root) for root in roots)
-
-
-def _can_import_root(module_root: str) -> bool:
-    """Best-effort import check (catches broken wheels / missing shared libs)."""
-
-    mod, _err = optional_import(str(module_root))
-    return bool(mod is not None)
-
-
-def _extra_importable(extra: str) -> bool:
-    roots = _EXTRA_ROOT_MODULES.get(str(extra), (str(extra),))
-    return all(_can_import_root(root) for root in roots)
 
 
 def _check_module(
@@ -111,7 +74,7 @@ def _build_suite_checks(suite_names: list[str]) -> dict[str, Any]:
 
         for b in baselines:
             requires = [str(x) for x in tuple(getattr(b, "requires_extras", ()))]
-            missing = [e for e in requires if not _extra_installed(e)]
+            missing = [e for e in requires if not extra_installed(e)]
             runnable = len(missing) == 0
             if runnable:
                 runnable_count += 1
@@ -185,13 +148,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _build_require_extras_check(required_extras: list[str]) -> dict[str, Any]:
     required = _split_csv_args(required_extras)
-    missing = [e for e in required if not _extra_importable(e)]
+    missing = [e for e in required if not extra_importable(e)]
     ok = len(missing) == 0
 
     install_hint = None
     if missing:
-        extra_spec = ",".join(sorted({str(e) for e in missing}))
-        install_hint = f"pip install 'pyimgano[{extra_spec}]'"
+        install_hint = extras_install_hint(missing)
 
     return {
         "required": required,

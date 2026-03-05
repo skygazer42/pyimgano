@@ -127,7 +127,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "After the suite run, run a one-command inference + defects loop and write artifacts under "
-            "<suite-run-dir>/infer/ (results.jsonl + masks/)."
+            "<suite-run-dir>/infer/ (results.jsonl + masks/ + overlays/ + regions.jsonl)."
         ),
     )
     return parser
@@ -186,6 +186,8 @@ def main(argv: list[str] | None = None) -> int:
 
         infer_dir = Path(run_dir) / "infer"
         masks_dir = infer_dir / "masks"
+        overlays_dir = infer_dir / "overlays"
+        regions_jsonl = infer_dir / "regions.jsonl"
         infer_dir.mkdir(parents=True, exist_ok=True)
         masks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -209,6 +211,10 @@ def main(argv: list[str] | None = None) -> int:
             str(infer_dir / "results.jsonl"),
             "--save-masks",
             str(masks_dir),
+            "--defects-regions-jsonl",
+            str(regions_jsonl),
+            "--save-overlays",
+            str(overlays_dir),
         ]
         infer_argv.append("--pretrained" if bool(args.pretrained) else "--no-pretrained")
 
@@ -218,7 +224,9 @@ def main(argv: list[str] | None = None) -> int:
             "rc": int(infer_rc),
             "infer_dir": str(infer_dir),
             "results_jsonl": str(infer_dir / "results.jsonl"),
+            "regions_jsonl": str(regions_jsonl),
             "masks_dir": str(masks_dir),
+            "overlays_dir": str(overlays_dir),
             "model_preset": "industrial-template-ncc-map",
             "defects_preset": "industrial-defects-fp40",
         }

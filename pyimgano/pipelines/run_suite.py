@@ -19,6 +19,7 @@ from pyimgano.baselines.suites import Baseline, get_baseline_suite, resolve_suit
 from pyimgano.models.registry import create_model
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, ensure_run_dir
+from pyimgano.utils.extras import extra_roots, extras_install_hint
 
 from .run_benchmark import (
     ScoreThresholdStrategy,
@@ -168,26 +169,8 @@ def _can_import_root(module_root: str) -> bool:
     return importlib.util.find_spec(str(module_root)) is not None
 
 
-_EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
-    # Mirror `pyproject.toml` extras:
-    # - pyimgano[torch] installs torch + torchvision
-    # - pyimgano[onnx] installs onnxruntime + onnx (+ onnxscript for torch.onnx.export)
-    "torch": ("torch", "torchvision"),
-    "onnx": ("onnxruntime", "onnx", "onnxscript"),
-    "openvino": ("openvino",),
-    "skimage": ("skimage",),
-    "numba": ("numba",),
-    "faiss": ("faiss",),
-    # Extras that imply torch.
-    "clip": ("open_clip", "torch"),
-    "anomalib": ("anomalib", "torch"),
-    "mamba": ("mamba_ssm", "torch"),
-}
-
-
 def _extra_available(extra: str) -> bool:
-    roots = _EXTRA_ROOT_MODULES.get(str(extra), (str(extra),))
-    return all(_can_import_root(root) for root in roots)
+    return all(_can_import_root(root) for root in extra_roots(str(extra)))
 
 
 def _missing_extras_hint_for_baseline(baseline: Baseline) -> str | None:
@@ -197,8 +180,7 @@ def _missing_extras_hint_for_baseline(baseline: Baseline) -> str | None:
     if requires_extras:
         missing = [e for e in requires_extras if not _extra_available(e)]
         if missing:
-            extra_spec = ",".join(sorted({str(e) for e in missing}))
-            return f"pip install 'pyimgano[{extra_spec}]'"
+            return extras_install_hint(missing)
         return None
 
     if not bool(baseline.optional):

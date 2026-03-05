@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -79,3 +80,14 @@ def test_demo_cli_can_run_infer_defects_loop(tmp_path: Path) -> None:
     infer_dir = out_dir / "infer"
     assert (infer_dir / "results.jsonl").exists()
     assert (infer_dir / "masks").exists()
+    assert (infer_dir / "overlays").exists()
+    assert (infer_dir / "regions.jsonl").exists()
+
+    overlays = sorted((infer_dir / "overlays").glob("*.png"))
+    assert overlays, "expected at least one overlay artifact"
+
+    regions_lines = (infer_dir / "regions.jsonl").read_text(encoding="utf-8").splitlines()
+    assert regions_lines, "expected at least one regions JSONL record"
+    r0 = json.loads(regions_lines[0])
+    assert isinstance(r0, dict)
+    assert "defects" in r0

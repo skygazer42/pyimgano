@@ -200,17 +200,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
-## [0.6.29] - 2026-03-05
+## [0.6.31] - 2026-03-05
 
 ### CLI
-- Hardened `pyimgano-doctor --require-extras ...` to check **importability**, not just module presence, so CI/deploy gates catch broken wheels / missing shared libraries.
-- Expanded the `torch` and `onnx` extras root-module checks to reflect the actual extras groups (`torch` + `torchvision`, and `onnxruntime` + `onnx` + `onnxscript`).
+- `pyimgano-demo --infer-defects` now also writes:
+  - `<suite_dir>/infer/overlays/` (FP debugging overlays)
+  - `<suite_dir>/infer/regions.jsonl` (defect regions export)
 
 ### Tooling
-- Updated Ruff config keys to the modern `tool.ruff.lint` schema (removes deprecation warnings).
+- Centralized extras root-module mapping in `pyimgano.utils.extras` and reused it in suite skip hints + `pyimgano-doctor`, keeping extras checks consistent with packaging.
 
 ### Tests
-- Added coverage for `--require-extras` when a module exists but fails to import.
+- Extended demo smoke coverage to assert overlays/regions artifacts are produced.
 
 ## [0.6.30] - 2026-03-05
 
@@ -222,6 +223,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 - Added coverage for suite skip hints when a dependency in an extra group is missing (e.g. `torchvision` missing under `pyimgano[torch]`).
+
+## [0.6.29] - 2026-03-05
+
+### CLI
+- Hardened `pyimgano-doctor --require-extras ...` to check **importability**, not just module presence, so CI/deploy gates catch broken wheels / missing shared libraries.
+- Expanded the `torch` and `onnx` extras root-module checks to reflect the actual extras groups (`torch` + `torchvision`, and `onnxruntime` + `onnx` + `onnxscript`).
+
+### Tooling
+- Updated Ruff config keys to the modern `tool.ruff.lint` schema (removes deprecation warnings).
+
+### Tests
+- Added coverage for `--require-extras` when a module exists but fails to import.
 
 ## [0.6.28] - 2026-03-05
 

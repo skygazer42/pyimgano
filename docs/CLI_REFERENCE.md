@@ -50,7 +50,7 @@ Common usage:
 ```bash
 pyimgano-demo
 pyimgano-demo --export none --no-sweep
-pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/infer/results.jsonl + masks/
+pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/infer/results.jsonl + masks/ + overlays/ + regions.jsonl
 ```
 
 ## `pyimgano-benchmark`
