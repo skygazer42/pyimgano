@@ -44,3 +44,30 @@ def test_doctor_cli_outputs_text(capsys) -> None:
     out = capsys.readouterr().out
     assert "pyimgano-doctor" in out.lower()
     assert "pyimgano" in out.lower()
+
+
+def test_doctor_cli_suite_check_outputs_json(capsys) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    rc = doctor_main(["--json", "--suite", "industrial-v4"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    suite_checks = payload.get("suite_checks")
+    assert isinstance(suite_checks, dict)
+
+    v4 = suite_checks.get("industrial-v4")
+    assert isinstance(v4, dict)
+    assert v4.get("suite") == "industrial-v4"
+
+    baselines = v4.get("baselines")
+    assert isinstance(baselines, list)
+    assert baselines, "expected at least one baseline entry"
+
+    b0 = baselines[0]
+    assert isinstance(b0, dict)
+    assert isinstance(b0.get("name"), str)
+    assert isinstance(b0.get("optional"), bool)
+    assert isinstance(b0.get("requires_extras"), list)
+    assert isinstance(b0.get("missing_extras"), list)
+    assert isinstance(b0.get("runnable"), bool)

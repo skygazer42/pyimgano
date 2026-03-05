@@ -6,6 +6,7 @@ import platform
 import sys
 from datetime import datetime, timezone
 from importlib import metadata
+from importlib.util import find_spec
 from typing import Any
 
 from pyimgano.utils.optional_deps import optional_import
@@ -16,6 +17,43 @@ def _dist_version(name: str) -> str | None:
         return metadata.version(name)
     except metadata.PackageNotFoundError:
         return None
+
+
+def _split_csv_args(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    out: list[str] = []
+    for raw in values:
+        for part in str(raw).split(","):
+            p = str(part).strip()
+            if p:
+                out.append(p)
+    return out
+
+
+def _can_import_root(module_root: str) -> bool:
+    """Best-effort root-module existence check (no import side effects)."""
+
+    return find_spec(str(module_root)) is not None
+
+
+_EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
+    "torch": ("torch",),
+    "onnx": ("onnxruntime",),
+    "openvino": ("openvino",),
+    "skimage": ("skimage",),
+    "numba": ("numba",),
+    "faiss": ("faiss",),
+    # Extras that imply torch.
+    "clip": ("open_clip", "torch"),
+    "anomalib": ("anomalib", "torch"),
+    "mamba": ("mamba_ssm", "torch"),
+}
+
+
+def _extra_available(extra: str) -> bool:
+    roots = _EXTRA_ROOT_MODULES.get(str(extra), (str(extra),))
+    return all(_can_import_root(root) for root in roots)
 
 
 def _check_module(
@@ -47,6 +85,60 @@ def _check_module(
     }
 
 
+def _build_suite_checks(suite_names: list[str]) -> dict[str, Any]:
+    from pyimgano.baselines.suites import get_baseline_suite, resolve_suite_baselines
+
+    out: dict[str, Any] = {}
+    for suite_name in suite_names:
+        suite = get_baseline_suite(str(suite_name))
+        baselines = resolve_suite_baselines(str(suite_name))
+
+        baseline_payloads: list[dict[str, Any]] = []
+        missing_extras_union: set[str] = set()
+        runnable_count = 0
+
+        for b in baselines:
+            requires = [str(x) for x in tuple(getattr(b, "requires_extras", ()))]
+            missing = [e for e in requires if not _extra_available(e)]
+            runnable = len(missing) == 0
+            if runnable:
+                runnable_count += 1
+            else:
+                missing_extras_union.update(str(e) for e in missing)
+
+            hint = None
+            if missing:
+                extra_spec = ",".join(sorted(set(missing)))
+                hint = f"pip install 'pyimgano[{extra_spec}]'"
+
+            baseline_payloads.append(
+                {
+                    "name": str(b.name),
+                    "model": str(b.model),
+                    "optional": bool(b.optional),
+                    "requires_extras": requires,
+                    "missing_extras": missing,
+                    "runnable": bool(runnable),
+                    "install_hint": hint,
+                    "description": str(b.description),
+                }
+            )
+
+        out[str(suite.name)] = {
+            "suite": str(suite.name),
+            "description": str(suite.description),
+            "summary": {
+                "total": int(len(baselines)),
+                "runnable": int(runnable_count),
+                "skipped": int(len(baselines) - runnable_count),
+                "missing_extras": sorted(missing_extras_union),
+            },
+            "baselines": baseline_payloads,
+        }
+
+    return out
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyimgano-doctor",
@@ -57,10 +149,19 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit a JSON payload to stdout (stable, machine-friendly).",
     )
+    parser.add_argument(
+        "--suite",
+        action="append",
+        default=None,
+        help=(
+            "Optional suite name(s) to check for missing extras. Repeatable and comma-separated. "
+            "Example: --suite industrial-v4"
+        ),
+    )
     return parser
 
 
-def _collect_payload() -> dict[str, Any]:
+def _collect_payload(*, suites_to_check: list[str] | None = None) -> dict[str, Any]:
     import pyimgano
 
     # Baseline discovery is intentionally import-light.
@@ -109,7 +210,7 @@ def _collect_payload() -> dict[str, Any]:
         ),
     ]
 
-    return {
+    payload: dict[str, Any] = {
         "tool": "pyimgano-doctor",
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "pyimgano_version": str(getattr(pyimgano, "__version__", "")),
@@ -130,12 +231,18 @@ def _collect_payload() -> dict[str, Any]:
         "optional_modules": optional_modules,
     }
 
+    suites = _split_csv_args(suites_to_check)
+    if suites:
+        payload["suite_checks"] = _build_suite_checks(suites)
+
+    return payload
+
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     try:
-        payload = _collect_payload()
+        payload = _collect_payload(suites_to_check=args.suite)
     except Exception as exc:  # noqa: BLE001 - CLI boundary
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -157,6 +264,20 @@ def main(argv: list[str] | None = None) -> int:
     sweeps = baselines.get("sweeps", []) or []
     print(f"suites: {', '.join(suites)}")
     print(f"sweeps: {', '.join(sweeps)}")
+
+    suite_checks = payload.get("suite_checks", None)
+    if isinstance(suite_checks, dict) and suite_checks:
+        print("suite_checks:")
+        for suite_name in sorted(suite_checks):
+            info = suite_checks.get(suite_name) or {}
+            summary = info.get("summary", {}) or {}
+            total = summary.get("total", None)
+            runnable = summary.get("runnable", None)
+            missing = summary.get("missing_extras", []) or []
+            suffix = ""
+            if missing:
+                suffix = f" (missing extras: {', '.join(missing)})"
+            print(f"- {suite_name}: runnable {runnable}/{total}{suffix}")
 
     print("optional_modules:")
     for m in payload.get("optional_modules", []) or []:

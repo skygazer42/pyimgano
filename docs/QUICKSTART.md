@@ -74,6 +74,7 @@ Optional: print a quick environment report (including optional extras availabili
 ```bash
 pyimgano-doctor
 pyimgano-doctor --json
+pyimgano-doctor --suite industrial-v4 --json
 ```
 
 ---

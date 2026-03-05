@@ -19,6 +19,19 @@ PyImgAno provides the following CLIs:
 
 ---
 
+## `pyimgano-doctor`
+
+`pyimgano-doctor` prints a lightweight environment report and checks which
+optional extras are available.
+
+Common usage:
+
+```bash
+pyimgano-doctor
+pyimgano-doctor --json
+pyimgano-doctor --suite industrial-v4 --json   # show which suite baselines will be skipped
+```
+
 ## `pyimgano-benchmark`
 
 ### Common Usage
