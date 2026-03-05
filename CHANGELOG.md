@@ -200,6 +200,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.29] - 2026-03-05
+
+### CLI
+- Hardened `pyimgano-doctor --require-extras ...` to check **importability**, not just module presence, so CI/deploy gates catch broken wheels / missing shared libraries.
+- Expanded the `torch` and `onnx` extras root-module checks to reflect the actual extras groups (`torch` + `torchvision`, and `onnxruntime` + `onnx` + `onnxscript`).
+
+### Tooling
+- Updated Ruff config keys to the modern `tool.ruff.lint` schema (removes deprecation warnings).
+
+### Tests
+- Added coverage for `--require-extras` when a module exists but fails to import.
+
 ## [0.6.28] - 2026-03-05
 
 ### CLI

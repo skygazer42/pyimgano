@@ -31,15 +31,15 @@ def _split_csv_args(values: list[str] | None) -> list[str]:
     return out
 
 
-def _can_import_root(module_root: str) -> bool:
+def _can_find_root(module_root: str) -> bool:
     """Best-effort root-module existence check (no import side effects)."""
 
     return find_spec(str(module_root)) is not None
 
 
 _EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
-    "torch": ("torch",),
-    "onnx": ("onnxruntime",),
+    "torch": ("torch", "torchvision"),
+    "onnx": ("onnxruntime", "onnx", "onnxscript"),
     "openvino": ("openvino",),
     "skimage": ("skimage",),
     "numba": ("numba",),
@@ -51,7 +51,19 @@ _EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
 }
 
 
-def _extra_available(extra: str) -> bool:
+def _extra_installed(extra: str) -> bool:
+    roots = _EXTRA_ROOT_MODULES.get(str(extra), (str(extra),))
+    return all(_can_find_root(root) for root in roots)
+
+
+def _can_import_root(module_root: str) -> bool:
+    """Best-effort import check (catches broken wheels / missing shared libs)."""
+
+    mod, _err = optional_import(str(module_root))
+    return bool(mod is not None)
+
+
+def _extra_importable(extra: str) -> bool:
     roots = _EXTRA_ROOT_MODULES.get(str(extra), (str(extra),))
     return all(_can_import_root(root) for root in roots)
 
@@ -99,7 +111,7 @@ def _build_suite_checks(suite_names: list[str]) -> dict[str, Any]:
 
         for b in baselines:
             requires = [str(x) for x in tuple(getattr(b, "requires_extras", ()))]
-            missing = [e for e in requires if not _extra_available(e)]
+            missing = [e for e in requires if not _extra_installed(e)]
             runnable = len(missing) == 0
             if runnable:
                 runnable_count += 1
@@ -173,7 +185,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _build_require_extras_check(required_extras: list[str]) -> dict[str, Any]:
     required = _split_csv_args(required_extras)
-    missing = [e for e in required if not _extra_available(e)]
+    missing = [e for e in required if not _extra_importable(e)]
     ok = len(missing) == 0
 
     install_hint = None
@@ -218,6 +230,12 @@ def _collect_payload(
             module="onnxruntime", dist="onnxruntime", extra="onnx", purpose="ONNX inference"
         ),
         _check_module(module="onnx", dist="onnx", extra="onnx", purpose="ONNX export"),
+        _check_module(
+            module="onnxscript",
+            dist="onnxscript",
+            extra="onnx",
+            purpose="torch.onnx.export helper (required by newer torch versions)",
+        ),
         _check_module(
             module="openvino", dist="openvino", extra="openvino", purpose="OpenVINO inference"
         ),

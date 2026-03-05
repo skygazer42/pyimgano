@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyimgano"
-version = "0.6.28"
+version = "0.6.29"
 description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 120+ registry models and 80+ operations"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -257,6 +257,8 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -273,9 +275,9 @@ ignore = [
     "W191",  # indentation contains tabs
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # unused imports
 "tests/*" = ["F401", "F811"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["pyimgano"]

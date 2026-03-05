@@ -84,3 +84,36 @@ def test_doctor_cli_require_extras_missing_exits_nonzero(capsys) -> None:
     assert isinstance(req, dict)
     assert req.get("ok") is False
     assert "definitely_missing_extra" in set(req.get("missing", []))
+
+
+def test_doctor_cli_require_extras_import_error_exits_nonzero(tmp_path, capsys) -> None:
+    """If a module exists but fails to import, --require-extras should fail.
+
+    This is important for CI/deploy gates: `find_spec()` is not enough when native
+    wheels are present but broken (missing shared libs, ABI mismatch, etc.).
+    """
+
+    from pathlib import Path
+
+    from pyimgano.doctor_cli import main as doctor_main
+
+    broken_root = tmp_path / "pyimgano_broken_extra_root"
+    pkg_dir = broken_root / "pyimgano__broken_extra__"
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+    (pkg_dir / "__init__.py").write_text("raise RuntimeError('broken import')\n", encoding="utf-8")
+
+    import sys
+
+    sys.path.insert(0, str(broken_root))
+    try:
+        rc = doctor_main(["--json", "--require-extras", "pyimgano__broken_extra__"])
+        assert rc == 1
+
+        payload = json.loads(capsys.readouterr().out)
+        req = payload.get("require_extras")
+        assert isinstance(req, dict)
+        assert req.get("ok") is False
+        assert "pyimgano__broken_extra__" in set(req.get("missing", []))
+    finally:
+        # Avoid polluting other tests (order-independent).
+        sys.path = [p for p in sys.path if str(p) != str(broken_root)]
