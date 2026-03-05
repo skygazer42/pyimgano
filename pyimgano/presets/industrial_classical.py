@@ -35,6 +35,109 @@ def _structural_feature_extractor(*, max_size: int = 512) -> dict[str, Any]:
     return {"name": "structural", "kwargs": {"max_size": int(max_size)}}
 
 
+def _edge_stats_feature_extractor(
+    *,
+    canny_threshold1: int = 50,
+    canny_threshold2: int = 150,
+    sobel_ksize: int = 3,
+) -> dict[str, Any]:
+    return {
+        "name": "edge_stats",
+        "kwargs": {
+            "canny_threshold1": int(canny_threshold1),
+            "canny_threshold2": int(canny_threshold2),
+            "sobel_ksize": int(sobel_ksize),
+        },
+    }
+
+
+def _patch_stats_feature_extractor(
+    *,
+    grid_rc: tuple[int, int] = (4, 4),
+    stats: tuple[str, ...] = ("mean", "std", "skew", "kurt"),
+    resize_hw: tuple[int, int] = (128, 128),
+) -> dict[str, Any]:
+    return {
+        "name": "patch_stats",
+        "kwargs": {
+            "grid": [int(grid_rc[0]), int(grid_rc[1])],
+            "stats": [str(s) for s in stats],
+            "resize_hw": [int(resize_hw[0]), int(resize_hw[1])],
+        },
+    }
+
+
+def _color_hist_feature_extractor(
+    *,
+    colorspace: str = "hsv",
+    bins: tuple[int, int, int] = (16, 16, 16),
+) -> dict[str, Any]:
+    return {
+        "name": "color_hist",
+        "kwargs": {
+            "colorspace": str(colorspace),
+            "bins": [int(bins[0]), int(bins[1]), int(bins[2])],
+        },
+    }
+
+
+def _fft_lowfreq_feature_extractor(
+    *,
+    size_hw: tuple[int, int] = (64, 64),
+    radii: tuple[int, ...] = (4, 8, 16),
+) -> dict[str, Any]:
+    return {
+        "name": "fft_lowfreq",
+        "kwargs": {
+            "size_hw": [int(size_hw[0]), int(size_hw[1])],
+            "radii": [int(r) for r in radii],
+        },
+    }
+
+
+def _lbp_feature_extractor(
+    *,
+    n_points: int = 8,
+    radius: float = 1.0,
+    method: str = "uniform",
+) -> dict[str, Any]:
+    return {
+        "name": "lbp",
+        "kwargs": {"n_points": int(n_points), "radius": float(radius), "method": str(method)},
+    }
+
+
+def _hog_feature_extractor(
+    *,
+    resize_hw: tuple[int, int] = (128, 128),
+    orientations: int = 9,
+) -> dict[str, Any]:
+    return {
+        "name": "hog",
+        "kwargs": {
+            "resize_hw": [int(resize_hw[0]), int(resize_hw[1])],
+            "orientations": int(orientations),
+        },
+    }
+
+
+def _gabor_bank_feature_extractor(
+    *,
+    resize_hw: tuple[int, int] = (128, 128),
+    frequencies: tuple[float, ...] = (0.1, 0.2, 0.3),
+    thetas: tuple[float, ...] = (0.0, 0.7853981633974483, 1.5707963267948966, 2.356194490192345),
+) -> dict[str, Any]:
+    # Use explicit theta floats (pi/4 multiples) to keep this JSON-friendly.
+    return {
+        "name": "gabor_bank",
+        "kwargs": {
+            "resize_hw": [int(resize_hw[0]), int(resize_hw[1])],
+            "frequencies": [float(f) for f in frequencies],
+            "thetas": [float(t) for t in thetas],
+        },
+    }
+
+
 def _torchvision_embedding_extractor(
     *,
     backbone: str = "resnet18",
@@ -96,6 +199,81 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_kwargs": {"metric": "euclidean", "score_mode": "max"},
         },
         description="Graph baseline: structural features -> MST outlier score.",
+    ),
+    # ------------------------------------------------------------------
+    # Additional CPU-friendly feature pipeline baselines (core-only).
+    "industrial-edge-ecod": ModelPreset(
+        name="industrial-edge-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _edge_stats_feature_extractor(),
+            "core_detector": "core_ecod",
+        },
+        description="Fast baseline: edge statistics features (Canny/Sobel) -> ECOD.",
+    ),
+    "industrial-patch-stats-ecod": ModelPreset(
+        name="industrial-patch-stats-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _patch_stats_feature_extractor(
+                grid_rc=(4, 4), resize_hw=(128, 128)
+            ),
+            "core_detector": "core_ecod",
+        },
+        description="Fast baseline: patch-grid statistics features -> ECOD (good for texture/spot defects).",
+    ),
+    "industrial-color-hist-ecod": ModelPreset(
+        name="industrial-color-hist-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _color_hist_feature_extractor(colorspace="hsv", bins=(16, 16, 16)),
+            "core_detector": "core_ecod",
+        },
+        description="Fast baseline: HSV color histogram features -> ECOD (good for color/contamination anomalies).",
+    ),
+    "industrial-fft-lowfreq-ecod": ModelPreset(
+        name="industrial-fft-lowfreq-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _fft_lowfreq_feature_extractor(size_hw=(64, 64), radii=(4, 8, 16)),
+            "core_detector": "core_ecod",
+        },
+        description="Fast baseline: FFT low-frequency energy ratios -> ECOD (good for blur/texture shift).",
+    ),
+    # ------------------------------------------------------------------
+    # Optional (skimage) classical texture baselines (still CPU-friendly).
+    "industrial-lbp-ecod": ModelPreset(
+        name="industrial-lbp-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _lbp_feature_extractor(n_points=8, radius=1.0, method="uniform"),
+            "core_detector": "core_ecod",
+        },
+        description="Texture baseline: LBP histogram features -> ECOD.",
+        optional=True,
+        requires_extras=("skimage",),
+    ),
+    "industrial-hog-ecod": ModelPreset(
+        name="industrial-hog-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _hog_feature_extractor(resize_hw=(128, 128), orientations=9),
+            "core_detector": "core_ecod",
+        },
+        description="Texture baseline: HOG features -> ECOD.",
+        optional=True,
+        requires_extras=("skimage",),
+    ),
+    "industrial-gabor-ecod": ModelPreset(
+        name="industrial-gabor-ecod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _gabor_bank_feature_extractor(),
+            "core_detector": "core_ecod",
+        },
+        description="Texture baseline: Gabor filter bank statistics -> ECOD.",
+        optional=True,
+        requires_extras=("skimage",),
     ),
     "industrial-pixel-mean-absdiff-map": ModelPreset(
         name="industrial-pixel-mean-absdiff-map",

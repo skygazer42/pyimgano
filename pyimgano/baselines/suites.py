@@ -123,6 +123,42 @@ def _default_suites() -> dict[str, BaselineSuite]:
                 "industrial-openclip-knn",
             ),
         ),
+        "industrial-v4": BaselineSuite(
+            name="industrial-v4",
+            description=(
+                "Recommended expanded industrial suite (v3 + more CPU-friendly feature pipelines). "
+                "Adds edge/patch-stat/color-hist/FFT baselines (core-only) and optional texture baselines "
+                "(LBP/HOG/Gabor) when skimage extras are installed."
+            ),
+            entries=(
+                # Core (lightweight)
+                "industrial-structural-ecod",
+                "industrial-structural-iforest",
+                "industrial-structural-mst",
+                "industrial-edge-ecod",
+                "industrial-patch-stats-ecod",
+                "industrial-color-hist-ecod",
+                "industrial-fft-lowfreq-ecod",
+                "industrial-pixel-mean-absdiff-map",
+                "industrial-pixel-gaussian-map",
+                "industrial-pixel-mad-map",
+                "industrial-template-ncc-map",
+                # Optional (skimage)
+                "industrial-lbp-ecod",
+                "industrial-hog-ecod",
+                "industrial-gabor-ecod",
+                "industrial-ssim-template-map",
+                "industrial-ssim-struct-map",
+                "industrial-phase-correlation-map",
+                # Optional (torch)
+                "industrial-embed-mahalanobis-shrinkage-rank",
+                "industrial-embed-knn-cosine",
+                "industrial-patchcore-lite-map",
+                "industrial-patch-embedding-core-map",
+                # Optional (clip + torch)
+                "industrial-openclip-knn",
+            ),
+        ),
     }
 
 

@@ -31,6 +31,7 @@ def test_benchmark_cli_can_list_suites_text(capsys) -> None:
     assert "industrial-v1" in out
     assert "industrial-v2" in out
     assert "industrial-v3" in out
+    assert "industrial-v4" in out
 
 
 def test_benchmark_cli_can_list_suites_json(capsys) -> None:
@@ -44,6 +45,7 @@ def test_benchmark_cli_can_list_suites_json(capsys) -> None:
     assert "industrial-ci" in payload
     assert "industrial-v2" in payload
     assert "industrial-v3" in payload
+    assert "industrial-v4" in payload
 
 
 def test_benchmark_cli_can_list_sweeps_text(capsys) -> None:
@@ -55,6 +57,7 @@ def test_benchmark_cli_can_list_sweeps_text(capsys) -> None:
     out = capsys.readouterr().out.strip().splitlines()
     assert "industrial-small" in out
     assert "industrial-template-small" in out
+    assert "industrial-feature-small" in out
 
 
 def test_benchmark_cli_can_list_sweeps_json(capsys) -> None:
@@ -66,6 +69,7 @@ def test_benchmark_cli_can_list_sweeps_json(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert isinstance(payload, list)
     assert "industrial-small" in payload
+    assert "industrial-feature-small" in payload
 
 
 def test_benchmark_cli_sweep_info_outputs_json(capsys) -> None:
@@ -133,6 +137,26 @@ def test_suite_info_marks_patchknn_baselines_as_optional_with_torch_extra(capsys
     req = b.get("requires_extras")
     assert isinstance(req, list)
     assert "torch" in req
+
+
+def test_suite_info_marks_texture_baselines_as_optional_with_skimage_extra(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--suite-info", "industrial-v4", "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    baselines = payload.get("baselines", [])
+    assert isinstance(baselines, list)
+
+    by_name = {str(b.get("name")): b for b in baselines}
+    hog = by_name.get("industrial-hog-ecod")
+    assert hog is not None
+    assert hog.get("optional") is True
+
+    req = hog.get("requires_extras")
+    assert isinstance(req, list)
+    assert "skimage" in req
 
 
 def test_benchmark_cli_suite_discovery_flags_are_mutually_exclusive(capsys) -> None:

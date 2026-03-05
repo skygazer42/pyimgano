@@ -359,12 +359,118 @@ def _industrial_deep_map_small() -> SweepPlan:
     )
 
 
+def _industrial_feature_small() -> SweepPlan:
+    # CPU-friendly feature pipelines: focus on stable extractor knobs.
+    return SweepPlan(
+        name="industrial-feature-small",
+        description=(
+            "Small sweep for CPU-friendly feature pipelines (edge/patch-stats/color-hist/FFT). "
+            "Optional texture entries are included when skimage extras are installed."
+        ),
+        variants_by_entry={
+            "industrial-edge-ecod": (
+                SweepVariant(
+                    name="canny_soft",
+                    override={
+                        "feature_extractor": {
+                            "kwargs": {"canny_threshold1": 30, "canny_threshold2": 100}
+                        }
+                    },
+                    description="More sensitive Canny thresholds (can catch faint scratches; may increase noise).",
+                ),
+                SweepVariant(
+                    name="canny_hard",
+                    override={
+                        "feature_extractor": {
+                            "kwargs": {"canny_threshold1": 80, "canny_threshold2": 200}
+                        }
+                    },
+                    description="Stricter Canny thresholds (more robust to texture noise).",
+                ),
+            ),
+            "industrial-patch-stats-ecod": (
+                SweepVariant(
+                    name="grid_3x3",
+                    override={"feature_extractor": {"kwargs": {"grid": [3, 3]}}},
+                    description="Lower-dim patch grid (faster, coarser).",
+                ),
+                SweepVariant(
+                    name="grid_6x6",
+                    override={"feature_extractor": {"kwargs": {"grid": [6, 6]}}},
+                    description="Higher-dim patch grid (slower, more local detail).",
+                ),
+                SweepVariant(
+                    name="resize_192",
+                    override={"feature_extractor": {"kwargs": {"resize_hw": [192, 192]}}},
+                    description="Larger resize for finer patch statistics (slower).",
+                ),
+            ),
+            "industrial-color-hist-ecod": (
+                SweepVariant(
+                    name="colorspace_lab",
+                    override={"feature_extractor": {"kwargs": {"colorspace": "lab"}}},
+                    description="LAB can be more stable under illumination changes than HSV in some factories.",
+                ),
+                SweepVariant(
+                    name="bins_8",
+                    override={"feature_extractor": {"kwargs": {"bins": [8, 8, 8]}}},
+                    description="Coarser color histogram bins (faster, less sensitive).",
+                ),
+                SweepVariant(
+                    name="bins_32",
+                    override={"feature_extractor": {"kwargs": {"bins": [32, 32, 32]}}},
+                    description="Finer histogram bins (more sensitive, higher variance).",
+                ),
+            ),
+            "industrial-fft-lowfreq-ecod": (
+                SweepVariant(
+                    name="size_48",
+                    override={"feature_extractor": {"kwargs": {"size_hw": [48, 48]}}},
+                    description="Smaller FFT grid (faster).",
+                ),
+                SweepVariant(
+                    name="size_96",
+                    override={"feature_extractor": {"kwargs": {"size_hw": [96, 96]}}},
+                    description="Larger FFT grid (slower, more frequency detail).",
+                ),
+                SweepVariant(
+                    name="radii_alt",
+                    override={"feature_extractor": {"kwargs": {"radii": [3, 6, 12]}}},
+                    description="Alternative low-frequency radii; sometimes better for periodic textures.",
+                ),
+            ),
+            # Optional skimage texture baselines (when installed).
+            "industrial-lbp-ecod": (
+                SweepVariant(
+                    name="p16_r2",
+                    override={"feature_extractor": {"kwargs": {"n_points": 16, "radius": 2.0}}},
+                ),
+            ),
+            "industrial-hog-ecod": (
+                SweepVariant(
+                    name="ori_6", override={"feature_extractor": {"kwargs": {"orientations": 6}}}
+                ),
+                SweepVariant(
+                    name="ori_12", override={"feature_extractor": {"kwargs": {"orientations": 12}}}
+                ),
+            ),
+            "industrial-gabor-ecod": (
+                SweepVariant(
+                    name="freq_alt",
+                    override={"feature_extractor": {"kwargs": {"frequencies": [0.15, 0.25, 0.35]}}},
+                ),
+            ),
+        },
+    )
+
+
 _SWEEPS: dict[str, SweepPlan] = {
     "industrial-small": _industrial_small(),
     "industrial-template-small": _industrial_template_small(),
     "industrial-pixel-small": _industrial_pixel_small(),
     "industrial-embedding-small": _industrial_embedding_small(),
     "industrial-deep-map-small": _industrial_deep_map_small(),
+    "industrial-feature-small": _industrial_feature_small(),
 }
 
 

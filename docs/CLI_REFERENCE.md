@@ -55,7 +55,7 @@ Notes:
 
 Suites are curated packs of **multiple model presets** intended for industrial algorithm selection.
 
-Built-in suites: `industrial-ci`, `industrial-v1`, `industrial-v2`, `industrial-v3` (use `--list-suites` for the full list).
+Built-in suites: `industrial-ci`, `industrial-v1`, `industrial-v2`, `industrial-v3`, `industrial-v4` (use `--list-suites` for the full list).
 
 Example:
 

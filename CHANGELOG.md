@@ -200,6 +200,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.25] - 2026-03-05
+
+### Baselines / Suites
+- Added `industrial-v4` suite (v3 + more CPU-friendly feature pipelines: edge/patch-stats/color-hist/FFT; optional texture baselines LBP/HOG/Gabor via `pyimgano[skimage]`).
+- Added `industrial-feature-small` sweep profile for bounded parameter scans over the new feature baselines.
+
+### Docs
+- Updated README and CLI docs to reference `industrial-v4` and the new sweep profile.
+
+### Tests
+- Extended suite/sweep discovery tests to cover `industrial-v4` and `industrial-feature-small`.
+
 ## [0.6.24] - 2026-03-04
 
 ### Packaging

@@ -41,7 +41,7 @@ Notes:
 Suite discovery outputs explicit extras requirements per baseline:
 
 ```bash
-pyimgano-benchmark --suite-info industrial-v3 --json
+pyimgano-benchmark --suite-info industrial-v4 --json
 ```
 
 Sweep discovery shows which baselines have variants:

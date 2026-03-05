@@ -131,7 +131,7 @@ Discover suites / sweep profiles:
 
 ```bash
 pyimgano-benchmark --list-suites
-pyimgano-benchmark --suite-info industrial-v3 --json
+pyimgano-benchmark --suite-info industrial-v4 --json
 
 pyimgano-benchmark --list-sweeps
 pyimgano-benchmark --sweep-info industrial-template-small --json
@@ -144,7 +144,7 @@ pyimgano-benchmark \
   --dataset mvtec \
   --root /path/to/mvtec_ad \
   --category bottle \
-  --suite industrial-v3 \
+  --suite industrial-v4 \
   --device cpu \
   --no-pretrained \
   --suite-export both \
@@ -158,7 +158,7 @@ pyimgano-benchmark \
   --dataset mvtec \
   --root /path/to/mvtec_ad \
   --category bottle \
-  --suite industrial-v3 \
+  --suite industrial-v4 \
   --suite-sweep industrial-template-small \
   --suite-sweep-max-variants 1 \
   --suite-export csv \
