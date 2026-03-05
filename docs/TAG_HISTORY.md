@@ -11,6 +11,18 @@ Regenerate:
 python tools/generate_tag_history.py
 ```
 
+## v0.6.34 - 2026-03-05
+
+### CLI
+- `pyimgano-doctor` now supports `--accelerators` to report best-effort accelerator/runtime diagnostics (torch CUDA/MPS, onnxruntime providers, openvino devices), with actionable extras install hints.
+
+### Docs
+- Documented `pyimgano-doctor --accelerators` usage in quickstart and the CLI reference.
+
+### Tests
+- Added coverage for the `--accelerators` JSON payload and missing-deps install hints.
+
+
 ## v0.6.33 - 2026-03-05
 
 ### Models
