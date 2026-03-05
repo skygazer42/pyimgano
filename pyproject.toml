@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyimgano"
-version = "0.6.25"
+version = "0.6.26"
 description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 120+ registry models and 80+ operations"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -144,6 +144,7 @@ pyimgano-synthesize = "pyimgano.synthesize_cli:main"
 pyimgano-validate-infer-config = "pyimgano.validate_infer_config_cli:main"
 pyimgano-features = "pyimgano.feature_cli:main"
 pyimgano-datasets = "pyimgano.datasets_cli:main"
+pyimgano-doctor = "pyimgano.doctor_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["pyimgano*"]

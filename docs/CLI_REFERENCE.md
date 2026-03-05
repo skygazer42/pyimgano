@@ -8,6 +8,7 @@ PyImgAno provides the following CLIs:
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
 - `pyimgano-defects` — standalone anomaly-map → mask → regions defects export
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
+- `pyimgano-doctor` — environment + optional dependency (extras) sanity check
 - `pyimgano-manifest` — generate a JSONL manifest from a `custom`-layout dataset tree
 - `pyimgano-datasets` — dataset converter discovery + metadata
 - `pyimgano-synthesize` — anomaly synthesis + manifest generation

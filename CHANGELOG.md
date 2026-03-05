@@ -200,6 +200,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.26] - 2026-03-05
+
+### CLI
+- Added `pyimgano-doctor` to print a lightweight environment report and optional dependency (extras) availability.
+
+### Docs
+- Updated quickstart + CLI reference to include `pyimgano-doctor` usage.
+
+### Tests
+- Added smoke coverage for `pyimgano-doctor` JSON/text output.
+
 ## [0.6.25] - 2026-03-05
 
 ### Baselines / Suites

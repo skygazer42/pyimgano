@@ -69,6 +69,13 @@ import pyimgano
 print(f"PyImgAno version: {pyimgano.__version__}")
 ```
 
+Optional: print a quick environment report (including optional extras availability):
+
+```bash
+pyimgano-doctor
+pyimgano-doctor --json
+```
+
 ---
 
 ## Industrial Quickstart (Suite + Small Sweep, Fully Offline)
