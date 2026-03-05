@@ -200,6 +200,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.34] - 2026-03-05
+
+### CLI
+- `pyimgano-doctor` now supports `--accelerators` to report best-effort accelerator/runtime diagnostics (torch CUDA/MPS, onnxruntime providers, openvino devices), with actionable extras install hints.
+
+### Docs
+- Documented `pyimgano-doctor --accelerators` usage in quickstart and the CLI reference.
+
+### Tests
+- Added coverage for the `--accelerators` JSON payload and missing-deps install hints.
+
 ## [0.6.33] - 2026-03-05
 
 ### Models
