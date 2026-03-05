@@ -200,6 +200,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.33] - 2026-03-05
+
+### Models
+- Numba-backed classical models now fail with actionable extras hints when `numba` is missing:
+  - `pyimgano.models.imdd` (IMDD/LMDD)
+  - `pyimgano.models.qmcd` (QMCD)
+
+### Tests
+- Added subprocess-based coverage ensuring missing `pyimgano[numba]` produces an `ImportError` with install hint for numba-backed model modules.
+
 ## [0.6.32] - 2026-03-05
 
 ### Datasets

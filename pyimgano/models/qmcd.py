@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 QMCD (Wrap-around Quasi-Monte Carlo Discrepancy) detector.
 
@@ -13,17 +12,22 @@ Reference:
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import numpy as np
 import scipy.stats as stats
-from numba import njit, prange
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import check_array
+
+from pyimgano.utils.optional_deps import require
 
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
+
+numba = require("numba", extra="numba", purpose="QMCD discrepancy acceleration")
+njit = numba.njit
+prange = numba.prange
 
 
 @njit(fastmath=True, parallel=True)

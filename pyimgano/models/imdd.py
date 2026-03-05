@@ -1,19 +1,22 @@
-# -*- coding: utf-8 -*-
 """IMDD (Linear Model Deviation-based Detector) vision integration."""
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import numpy as np
-from numba import njit
 from scipy import stats
 from sklearn.utils import check_array, check_random_state
+
+from pyimgano.utils.optional_deps import require
 
 from ..utils.param_check import check_parameter
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
+
+numba = require("numba", extra="numba", purpose="IMDD/LMDD detector acceleration")
+njit = numba.njit
 
 
 @njit
