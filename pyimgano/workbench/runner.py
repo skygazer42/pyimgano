@@ -298,9 +298,9 @@ def _run_category(
             saved = save_checkpoint(detector, ckpt_path)
             try:
                 rel = saved.relative_to(run_dir)
-                checkpoint_meta = {"path": str(rel)}
+                checkpoint_meta = {"path": rel.as_posix()}
             except Exception:
-                checkpoint_meta = {"path": str(saved)}
+                checkpoint_meta = {"path": saved.as_posix()}
     else:
         detector.fit(train_inputs)
     threshold = calibrate_detector_threshold(

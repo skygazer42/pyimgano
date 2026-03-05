@@ -149,9 +149,9 @@ def micro_finetune_autoencoder(config: WorkbenchConfig) -> dict[str, Any]:
     saved = save_checkpoint(detector, checkpoint_path)
     try:
         rel = saved.relative_to(paths.run_dir)
-        checkpoint_rel = str(rel)
+        checkpoint_rel = rel.as_posix()
     except Exception:
-        checkpoint_rel = str(saved)
+        checkpoint_rel = saved.as_posix()
 
     payload: dict[str, Any] = {
         "dataset": str(config.dataset.name),

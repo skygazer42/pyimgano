@@ -23,7 +23,7 @@ def to_jsonable(value: Any) -> Any:
     """
 
     if isinstance(value, Path):
-        return str(value)
+        return value.as_posix()
 
     if _NUMPY is not None:
         if isinstance(value, _NUMPY.generic):  # type: ignore[attr-defined]
