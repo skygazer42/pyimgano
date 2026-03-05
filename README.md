@@ -63,6 +63,24 @@ pyimgano-demo
 
 Tip: use `pyimgano-demo --help` to customize suite/sweep/output.
 
+Optional: sanity-check your environment and which baselines would be skipped due to missing extras:
+
+```bash
+pyimgano-doctor --suite industrial-v4
+```
+
+Optional: run inference + defects export on the demo dataset produced by `pyimgano-demo`:
+
+```bash
+pyimgano-infer \
+  --model-preset industrial-template-ncc-map \
+  --train-dir ./_demo_custom_dataset/train/normal \
+  --input ./_demo_custom_dataset/test \
+  --defects-preset industrial-defects-fp40 \
+  --save-jsonl ./_demo_results.jsonl \
+  --save-masks ./_demo_masks
+```
+
 ### Train (workbench) → export `infer_config.json`
 
 Start from the provided template and edit dataset paths:

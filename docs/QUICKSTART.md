@@ -101,6 +101,30 @@ This creates:
 
 Use `pyimgano-demo --help` to customize suite/sweep/output.
 
+### Option A2 (recommended): run inference + defects on the demo dataset
+
+After `pyimgano-demo`, you can run a fully offline inference loop and export:
+
+- `results.jsonl` (per-image scores + predictions)
+- binary defect masks
+- FP debugging overlays (original + heatmap + mask outline)
+
+```bash
+pyimgano-infer \
+  --model-preset industrial-template-ncc-map \
+  --train-dir ./_demo_custom_dataset/train/normal \
+  --input ./_demo_custom_dataset/test \
+  --defects-preset industrial-defects-fp40 \
+  --save-jsonl ./_demo_results.jsonl \
+  --save-masks ./_demo_masks \
+  --save-overlays ./_demo_overlays
+```
+
+Notes:
+
+- `--defects-preset industrial-defects-fp40` implies `--defects` and applies industrial FP-reduction defaults.
+- `--train-dir` is used both to fit the detector and to calibrate a pixel threshold from normal pixels.
+
 ### Option B: do it manually
 
 ### 1) Create a tiny custom dataset
