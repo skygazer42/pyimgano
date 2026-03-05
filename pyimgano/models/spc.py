@@ -15,9 +15,10 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+from typing import Literal, Optional, Tuple
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import Optional, Tuple, Literal
 from sklearn.decomposition import PCA
 
 from ..base import BaseVisionClassicalDetector
@@ -85,15 +86,15 @@ class SPC(BaseVisionClassicalDetector):
 
     def __init__(
         self,
-        chart_type: Literal['shewhart', 'cusum', 'ewma'] = 'shewhart',
+        chart_type: Literal["shewhart", "cusum", "ewma"] = "shewhart",
         n_sigma: float = 3.0,
         h: float = 5.0,
         k: float = 0.5,
         lambda_ewma: float = 0.2,
         L: float = 3.0,
-        feature_extraction: Literal['pca', 'mean', 'std', 'mean_std'] = 'pca',
+        feature_extraction: Literal["pca", "mean", "std", "mean_std"] = "pca",
         n_components: int = 10,
-        resize_shape: Optional[Tuple[int, int]] = (64, 64)
+        resize_shape: Optional[Tuple[int, int]] = (64, 64),
     ):
         super().__init__()
         self.chart_type = chart_type
@@ -119,6 +120,7 @@ class SPC(BaseVisionClassicalDetector):
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
+
             X_resized = []
             for i in range(len(X)):
                 img = resize(X[i], self.resize_shape, anti_aliasing=True)
@@ -129,20 +131,20 @@ class SPC(BaseVisionClassicalDetector):
         n_samples = len(X)
         X_flat = X.reshape(n_samples, -1)
 
-        if self.feature_extraction == 'pca':
+        if self.feature_extraction == "pca":
             return X_flat
-        elif self.feature_extraction == 'mean':
+        elif self.feature_extraction == "mean":
             return np.mean(X_flat, axis=1, keepdims=True)
-        elif self.feature_extraction == 'std':
+        elif self.feature_extraction == "std":
             return np.std(X_flat, axis=1, keepdims=True)
-        elif self.feature_extraction == 'mean_std':
+        elif self.feature_extraction == "mean_std":
             means = np.mean(X_flat, axis=1, keepdims=True)
             stds = np.std(X_flat, axis=1, keepdims=True)
             return np.hstack([means, stds])
 
         return X_flat
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'SPC':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "SPC":
         """
         Fit SPC model to establish control limits.
 
@@ -163,7 +165,7 @@ class SPC(BaseVisionClassicalDetector):
         features = self._extract_features(X)
 
         # Apply PCA if specified
-        if self.feature_extraction == 'pca':
+        if self.feature_extraction == "pca":
             self.pca_ = PCA(n_components=min(self.n_components, features.shape[1]))
             features = self.pca_.fit_transform(features)
 
@@ -172,22 +174,20 @@ class SPC(BaseVisionClassicalDetector):
         self.sigma_ = np.std(features, axis=0)
 
         # Compute control limits based on chart type
-        if self.chart_type == 'shewhart':
+        if self.chart_type == "shewhart":
             # Shewhart chart: μ ± n*σ
             self.ucl_ = self.mu_ + self.n_sigma * self.sigma_
             self.lcl_ = self.mu_ - self.n_sigma * self.sigma_
 
-        elif self.chart_type == 'cusum':
+        elif self.chart_type == "cusum":
             # CUSUM: initialize cumulative sums
             self.cusum_pos_ = np.zeros_like(self.mu_)
             self.cusum_neg_ = np.zeros_like(self.mu_)
 
-        elif self.chart_type == 'ewma':
+        elif self.chart_type == "ewma":
             # EWMA: compute control limits
             # UCL/LCL = μ ± L * σ * sqrt(λ / (2 - λ))
-            factor = self.L * self.sigma_ * np.sqrt(
-                self.lambda_ewma / (2 - self.lambda_ewma)
-            )
+            factor = self.L * self.sigma_ * np.sqrt(self.lambda_ewma / (2 - self.lambda_ewma))
             self.ucl_ = self.mu_ + factor
             self.lcl_ = self.mu_ - factor
 
@@ -219,7 +219,7 @@ class SPC(BaseVisionClassicalDetector):
 
         scores = []
 
-        if self.chart_type == 'shewhart':
+        if self.chart_type == "shewhart":
             # Shewhart: distance from control limits
             for i in range(len(features)):
                 # Check how many features are out of control
@@ -236,7 +236,7 @@ class SPC(BaseVisionClassicalDetector):
                 score = total_violations + total_dist
                 scores.append(score)
 
-        elif self.chart_type == 'cusum':
+        elif self.chart_type == "cusum":
             # CUSUM: cumulative sum of deviations
             # Reset CUSUM for new predictions
             cusum_pos = self.cusum_pos_.copy()
@@ -245,21 +245,19 @@ class SPC(BaseVisionClassicalDetector):
             for i in range(len(features)):
                 # Update positive CUSUM
                 cusum_pos = np.maximum(
-                    0,
-                    features[i] - (self.mu_ + self.k * self.sigma_) + cusum_pos
+                    0, features[i] - (self.mu_ + self.k * self.sigma_) + cusum_pos
                 )
 
                 # Update negative CUSUM
                 cusum_neg = np.maximum(
-                    0,
-                    (self.mu_ - self.k * self.sigma_) - features[i] + cusum_neg
+                    0, (self.mu_ - self.k * self.sigma_) - features[i] + cusum_neg
                 )
 
                 # Score is max CUSUM magnitude
                 score = np.max(cusum_pos) + np.max(cusum_neg)
                 scores.append(score)
 
-        elif self.chart_type == 'ewma':
+        elif self.chart_type == "ewma":
             # EWMA: exponentially weighted moving average
             ewma = self.mu_.copy()
 
@@ -297,7 +295,7 @@ class SPC(BaseVisionClassicalDetector):
         scores = self.predict(X)
 
         # Threshold: any non-zero score indicates out-of-control
-        if self.chart_type == 'cusum':
+        if self.chart_type == "cusum":
             # CUSUM: threshold at h
             labels = (scores > self.h).astype(int)
         else:
@@ -318,22 +316,22 @@ class SPC(BaseVisionClassicalDetector):
         self._check_is_fitted()
 
         return {
-            'center_line': self.mu_,
-            'ucl': self.ucl_ if self.ucl_ is not None else None,
-            'lcl': self.lcl_ if self.lcl_ is not None else None,
-            'sigma': self.sigma_,
+            "center_line": self.mu_,
+            "ucl": self.ucl_ if self.ucl_ is not None else None,
+            "lcl": self.lcl_ if self.lcl_ is not None else None,
+            "sigma": self.sigma_,
         }
 
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'chart_type': self.chart_type,
-            'n_sigma': self.n_sigma,
-            'h': self.h,
-            'k': self.k,
-            'lambda_ewma': self.lambda_ewma,
-            'L': self.L,
-            'feature_extraction': self.feature_extraction,
-            'n_components': self.n_components,
-            'resize_shape': self.resize_shape,
+            "chart_type": self.chart_type,
+            "n_sigma": self.n_sigma,
+            "h": self.h,
+            "k": self.k,
+            "lambda_ewma": self.lambda_ewma,
+            "L": self.L,
+            "feature_extraction": self.feature_extraction,
+            "n_components": self.n_components,
+            "resize_shape": self.resize_shape,
         }

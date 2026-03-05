@@ -263,7 +263,7 @@ class VisionMambaAD(BaseVisionDeepDetector):
         torch = _require_torch()
 
         # Reproducibility for training noise, shuffle, init.
-        rng = np.random.default_rng(self.random_seed)
+        np.random.seed(int(self.random_seed))
         torch.manual_seed(int(self.random_seed))
 
         embedded_train = [self._embed(item) for item in items]

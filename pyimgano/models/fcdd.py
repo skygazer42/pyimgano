@@ -15,13 +15,14 @@ Usage:
     >>> scores, maps = model.predict_with_map(X_test)
 """
 
+from typing import Literal, Optional, Tuple
+
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
-from typing import Optional, Literal, Tuple
 
 from ..base import BaseVisionDeepDetector
 
@@ -37,22 +38,18 @@ class FCDDNetwork(nn.Module):
             nn.Conv2d(in_channels, 64, 5, stride=2, padding=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-
             # Block 2
             nn.Conv2d(64, 128, 5, stride=2, padding=2),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-
             # Block 3
             nn.Conv2d(128, 256, 5, stride=2, padding=2),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-
             # Block 4
             nn.Conv2d(256, 512, 5, stride=2, padding=2),
             nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
-
             # Block 5
             nn.Conv2d(512, 512, 5, stride=2, padding=2),
             nn.BatchNorm2d(512),
@@ -116,12 +113,12 @@ class FCDD(BaseVisionDeepDetector):
 
     def __init__(
         self,
-        objective: Literal['hsc', 'occ'] = 'hsc',
+        objective: Literal["hsc", "occ"] = "hsc",
         nu: float = 0.1,
         learning_rate: float = 1e-4,
         batch_size: int = 32,
         epochs: int = 100,
-        device: str = 'cuda'
+        device: str = "cuda",
     ):
         super().__init__()
         self.objective = objective
@@ -129,7 +126,7 @@ class FCDD(BaseVisionDeepDetector):
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.epochs = epochs
-        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
 
         self.network_ = None
         self.center_ = None
@@ -141,7 +138,7 @@ class FCDD(BaseVisionDeepDetector):
         centers = []
 
         with torch.no_grad():
-            for batch, in dataloader:
+            for (batch,) in dataloader:
                 batch = batch.to(self.device)
                 features, _ = self.network_(batch)
                 # Average pooling to get feature vector
@@ -156,7 +153,7 @@ class FCDD(BaseVisionDeepDetector):
 
         return center
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'FCDD':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "FCDD":
         """
         Fit FCDD model.
 
@@ -184,21 +181,15 @@ class FCDD(BaseVisionDeepDetector):
 
         # Setup data loader
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         # Initialize center (for HSC objective)
-        if self.objective == 'hsc':
+        if self.objective == "hsc":
             self.center_ = self._initialize_center(dataloader)
 
         # Setup optimizer
         optimizer = torch.optim.Adam(
-            self.network_.parameters(),
-            lr=self.learning_rate,
-            weight_decay=1e-6
+            self.network_.parameters(), lr=self.learning_rate, weight_decay=1e-6
         )
 
         # Training loop
@@ -212,14 +203,14 @@ class FCDD(BaseVisionDeepDetector):
                 # Forward pass
                 features, score_map = self.network_(batch)
 
-                if self.objective == 'hsc':
+                if self.objective == "hsc":
                     # Hypersphere compactness loss
                     # Compute distance of each pixel feature to center
                     features_flat = features.permute(0, 2, 3, 1).reshape(-1, features.size(1))
                     dist = torch.sum((features_flat - self.center_) ** 2, dim=1)
                     loss = torch.mean(dist)
 
-                elif self.objective == 'occ':
+                elif self.objective == "occ":
                     # One-class loss (minimize score map)
                     loss = torch.mean(score_map)
 
@@ -266,7 +257,7 @@ class FCDD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
                 _, score_map = self.network_(batch)
 
                 # Average score map to get image-level score
@@ -275,10 +266,7 @@ class FCDD(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def predict_with_map(
-        self,
-        X: NDArray
-    ) -> Tuple[NDArray, NDArray]:
+    def predict_with_map(self, X: NDArray) -> Tuple[NDArray, NDArray]:
         """
         Compute anomaly scores and pixel-level maps.
 
@@ -311,15 +299,12 @@ class FCDD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
                 _, score_map = self.network_(batch)
 
                 # Upsample score map to original size
                 score_map_up = F.interpolate(
-                    score_map,
-                    size=(original_h, original_w),
-                    mode='bilinear',
-                    align_corners=False
+                    score_map, size=(original_h, original_w), mode="bilinear", align_corners=False
                 )
 
                 # Image-level score
@@ -334,10 +319,10 @@ class FCDD(BaseVisionDeepDetector):
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'objective': self.objective,
-            'nu': self.nu,
-            'learning_rate': self.learning_rate,
-            'batch_size': self.batch_size,
-            'epochs': self.epochs,
-            'device': str(self.device),
+            "objective": self.objective,
+            "nu": self.nu,
+            "learning_rate": self.learning_rate,
+            "batch_size": self.batch_size,
+            "epochs": self.epochs,
+            "device": str(self.device),
         }

@@ -11,26 +11,30 @@ Features:
 - Web-based visualization
 """
 
-from typing import List, Tuple, Optional, Union
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from numpy.typing import NDArray
 
 try:
     import cv2
+
     HAS_OPENCV = True
 except ImportError:
     HAS_OPENCV = False
 
 try:
     from PIL import Image, ImageDraw, ImageFont
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
 
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as patches
+    import matplotlib.pyplot as plt
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -46,7 +50,7 @@ class BBoxVisualizer:
         label: Optional[str] = None,
         color: Tuple[int, int, int] = (0, 255, 0),
         thickness: int = 2,
-        font_scale: float = 0.5
+        font_scale: float = 0.5,
     ) -> NDArray:
         """
         Draw bounding box on image.
@@ -86,13 +90,7 @@ class BBoxVisualizer:
                 )
 
                 # Draw background rectangle
-                cv2.rectangle(
-                    image,
-                    (x, y - text_h - baseline - 5),
-                    (x + text_w, y),
-                    color,
-                    -1
-                )
+                cv2.rectangle(image, (x, y - text_h - baseline - 5), (x + text_w, y), color, -1)
 
                 # Draw text
                 cv2.putText(
@@ -102,7 +100,7 @@ class BBoxVisualizer:
                     cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale,
                     (255, 255, 255),
-                    thickness
+                    thickness,
                 )
         elif HAS_PIL:
             img = Image.fromarray(image)
@@ -115,7 +113,7 @@ class BBoxVisualizer:
             if label:
                 try:
                     font = ImageFont.truetype("arial.ttf", int(font_scale * 20))
-                except:
+                except Exception:
                     font = ImageFont.load_default()
 
                 bbox_text = draw.textbbox((x, y), label, font=font)
@@ -134,7 +132,7 @@ class BBoxVisualizer:
         bboxes: List[Tuple[float, float, float, float]],
         labels: Optional[List[str]] = None,
         colors: Optional[List[Tuple[int, int, int]]] = None,
-        thickness: int = 2
+        thickness: int = 2,
     ) -> NDArray:
         """
         Draw multiple bounding boxes.
@@ -163,9 +161,7 @@ class BBoxVisualizer:
             label = labels[i] if labels and i < len(labels) else None
             color = colors[i] if colors and i < len(colors) else (0, 255, 0)
 
-            result = BBoxVisualizer.draw_bbox(
-                result, bbox, label, color, thickness
-            )
+            result = BBoxVisualizer.draw_bbox(result, bbox, label, color, thickness)
 
         return result
 
@@ -175,10 +171,7 @@ class MaskVisualizer:
 
     @staticmethod
     def draw_mask(
-        image: NDArray,
-        mask: NDArray,
-        color: Tuple[int, int, int] = (0, 255, 0),
-        alpha: float = 0.5
+        image: NDArray, mask: NDArray, color: Tuple[int, int, int] = (0, 255, 0), alpha: float = 0.5
     ) -> NDArray:
         """
         Draw segmentation mask overlay.
@@ -206,8 +199,11 @@ class MaskVisualizer:
         colored_mask[mask > 0] = color
 
         # Blend
-        result = cv2.addWeighted(overlay, 1 - alpha, colored_mask, alpha, 0) if HAS_OPENCV else \
-                 (overlay * (1 - alpha) + colored_mask * alpha).astype(np.uint8)
+        result = (
+            cv2.addWeighted(overlay, 1 - alpha, colored_mask, alpha, 0)
+            if HAS_OPENCV
+            else (overlay * (1 - alpha) + colored_mask * alpha).astype(np.uint8)
+        )
 
         return result
 
@@ -218,7 +214,7 @@ class MaskVisualizer:
         color: Tuple[int, int, int] = (0, 255, 0),
         thickness: int = 2,
         fill: bool = False,
-        alpha: float = 0.3
+        alpha: float = 0.3,
     ) -> NDArray:
         """
         Draw polygon.
@@ -276,7 +272,7 @@ class KeypointVisualizer:
         keypoints: List[Tuple[int, int]],
         radius: int = 5,
         color: Tuple[int, int, int] = (0, 255, 0),
-        thickness: int = -1
+        thickness: int = -1,
     ) -> NDArray:
         """
         Draw keypoints.
@@ -311,7 +307,7 @@ class KeypointVisualizer:
                     [x - radius, y - radius, x + radius, y + radius],
                     fill=tuple(color) if thickness == -1 else None,
                     outline=tuple(color),
-                    width=max(1, thickness)
+                    width=max(1, thickness),
                 )
                 result = np.array(img)
 
@@ -325,7 +321,7 @@ class KeypointVisualizer:
         keypoint_radius: int = 5,
         line_thickness: int = 2,
         keypoint_color: Tuple[int, int, int] = (0, 255, 0),
-        line_color: Tuple[int, int, int] = (255, 0, 0)
+        line_color: Tuple[int, int, int] = (255, 0, 0),
     ) -> NDArray:
         """
         Draw skeleton with connections.
@@ -380,11 +376,7 @@ class HeatmapVisualizer:
     """Heatmap and attention visualization."""
 
     @staticmethod
-    def draw_heatmap(
-        heatmap: NDArray,
-        colormap: str = 'jet',
-        normalize: bool = True
-    ) -> NDArray:
+    def draw_heatmap(heatmap: NDArray, colormap: str = "jet", normalize: bool = True) -> NDArray:
         """
         Convert heatmap to colored image.
 
@@ -411,17 +403,18 @@ class HeatmapVisualizer:
         if HAS_OPENCV:
             # OpenCV colormaps
             colormap_map = {
-                'jet': cv2.COLORMAP_JET,
-                'hot': cv2.COLORMAP_HOT,
-                'cool': cv2.COLORMAP_COOL,
-                'viridis': cv2.COLORMAP_VIRIDIS,
-                'plasma': cv2.COLORMAP_PLASMA,
+                "jet": cv2.COLORMAP_JET,
+                "hot": cv2.COLORMAP_HOT,
+                "cool": cv2.COLORMAP_COOL,
+                "viridis": cv2.COLORMAP_VIRIDIS,
+                "plasma": cv2.COLORMAP_PLASMA,
             }
             cmap = colormap_map.get(colormap, cv2.COLORMAP_JET)
             colored = cv2.applyColorMap(heatmap_uint8, cmap)
             colored = cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
         elif HAS_MATPLOTLIB:
             import matplotlib.cm as cm
+
             cmap_fn = plt.get_cmap(colormap)
             colored = (cmap_fn(heatmap)[:, :, :3] * 255).astype(np.uint8)
         else:
@@ -432,10 +425,7 @@ class HeatmapVisualizer:
 
     @staticmethod
     def overlay_heatmap(
-        image: NDArray,
-        heatmap: NDArray,
-        alpha: float = 0.5,
-        colormap: str = 'jet'
+        image: NDArray, heatmap: NDArray, alpha: float = 0.5, colormap: str = "jet"
     ) -> NDArray:
         """
         Overlay heatmap on image.
@@ -462,8 +452,11 @@ class HeatmapVisualizer:
                 heatmap = cv2.resize(heatmap, (image.shape[1], image.shape[0]))
             else:
                 from scipy.ndimage import zoom
-                zoom_factors = (image.shape[0] / heatmap.shape[0],
-                               image.shape[1] / heatmap.shape[1])
+
+                zoom_factors = (
+                    image.shape[0] / heatmap.shape[0],
+                    image.shape[1] / heatmap.shape[1],
+                )
                 heatmap = zoom(heatmap, zoom_factors, order=1)
 
         # Convert heatmap to colored
@@ -489,7 +482,7 @@ class TextRenderer:
         font_path: Optional[str] = None,
         font_size: int = 20,
         color: Tuple[int, int, int] = (255, 255, 255),
-        background_color: Optional[Tuple[int, int, int]] = None
+        background_color: Optional[Tuple[int, int, int]] = None,
     ) -> NDArray:
         """
         Draw text with custom font.
@@ -528,7 +521,7 @@ class TextRenderer:
         else:
             try:
                 font = ImageFont.truetype("arial.ttf", font_size)
-            except:
+            except Exception:
                 font = ImageFont.load_default()
 
         # Draw background
@@ -543,11 +536,7 @@ class TextRenderer:
 
 
 # Convenience functions
-def show_image(
-    image: NDArray,
-    title: str = "Image",
-    figsize: Tuple[int, int] = (10, 10)
-):
+def show_image(image: NDArray, title: str = "Image", figsize: Tuple[int, int] = (10, 10)):
     """
     Display image using matplotlib.
 
@@ -566,7 +555,7 @@ def show_image(
     plt.figure(figsize=figsize)
     plt.imshow(image)
     plt.title(title)
-    plt.axis('off')
+    plt.axis("off")
     plt.show()
 
 
@@ -575,7 +564,7 @@ def visualize_detections(
     boxes: List[Tuple[float, float, float, float]],
     labels: Optional[List[str]] = None,
     scores: Optional[List[float]] = None,
-    class_colors: Optional[Dict[str, Tuple[int, int, int]]] = None
+    class_colors: Optional[Dict[str, Tuple[int, int, int]]] = None,
 ) -> NDArray:
     """
     Visualize object detections.

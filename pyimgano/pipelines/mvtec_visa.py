@@ -35,7 +35,13 @@ def load_benchmark_split(
 ) -> BenchmarkSplit:
     """Load a (train_paths, test_paths, labels, masks) split for MVTec/VisA-like datasets."""
 
-    ds = load_dataset(dataset, root, category=category, resize=resize, load_masks=load_masks)
+    ds = load_dataset(  # nosec B615 - pyimgano.datasets.load_dataset, not Hugging Face Hub
+        dataset,
+        root,
+        category=category,
+        resize=resize,
+        load_masks=load_masks,
+    )
     train_paths = ds.get_train_paths()
     test_paths, labels, masks = ds.get_test_paths()
     return BenchmarkSplit(

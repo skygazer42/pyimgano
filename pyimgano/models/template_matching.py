@@ -15,12 +15,13 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+from typing import Literal, Optional, Tuple
+
+import cv2
 import numpy as np
 from numpy.typing import NDArray
-from typing import Optional, Tuple, Literal
-from skimage import color
 from scipy.signal import correlate2d
-import cv2
+from skimage import color
 
 from ..base import BaseVisionClassicalDetector
 
@@ -81,13 +82,13 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
     def __init__(
         self,
-        method: Literal['ncc', 'ssd', 'sad', 'zncc'] = 'ncc',
+        method: Literal["ncc", "ssd", "sad", "zncc"] = "ncc",
         threshold: float = 0.9,
         use_multiple_templates: bool = True,
         max_templates: int = 10,
-        color_space: Literal['GRAY', 'RGB', 'HSV'] = 'GRAY',
+        color_space: Literal["GRAY", "RGB", "HSV"] = "GRAY",
         align_images: bool = False,
-        resize_shape: Optional[Tuple[int, int]] = (128, 128)
+        resize_shape: Optional[Tuple[int, int]] = (128, 128),
     ):
         super().__init__()
         self.method = method
@@ -106,13 +107,14 @@ class TemplateMatching(BaseVisionClassicalDetector):
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
+
             image = resize(image, self.resize_shape, anti_aliasing=True)
 
         # Convert color space
-        if self.color_space == 'GRAY':
+        if self.color_space == "GRAY":
             if len(image.shape) == 3:
                 image = color.rgb2gray(image)
-        elif self.color_space == 'HSV':
+        elif self.color_space == "HSV":
             if len(image.shape) == 3:
                 image = color.rgb2hsv(image)
         # RGB: keep as is
@@ -159,7 +161,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
             return aligned
 
-        except:
+        except Exception:
             return image
 
     def _compute_similarity(self, image: NDArray, template: NDArray) -> float:
@@ -167,7 +169,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
         if self.align_images:
             image = self._align_image(image, template)
 
-        if self.method == 'ncc':
+        if self.method == "ncc":
             # Normalized Cross-Correlation
             image_flat = image.ravel()
             template_flat = template.ravel()
@@ -186,13 +188,13 @@ class TemplateMatching(BaseVisionClassicalDetector):
             similarity = numerator / denominator
             return similarity
 
-        elif self.method == 'zncc':
+        elif self.method == "zncc":
             # Zero-mean Normalized Cross-Correlation
             image_zm = image - np.mean(image)
             template_zm = template - np.mean(template)
 
             numerator = np.sum(image_zm * template_zm)
-            denominator = np.sqrt(np.sum(image_zm ** 2) * np.sum(template_zm ** 2))
+            denominator = np.sqrt(np.sum(image_zm**2) * np.sum(template_zm**2))
 
             if denominator == 0:
                 return 0.0
@@ -200,7 +202,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
             similarity = numerator / denominator
             return similarity
 
-        elif self.method == 'ssd':
+        elif self.method == "ssd":
             # Sum of Squared Differences (convert to similarity)
             ssd = np.sum((image - template) ** 2)
             # Normalize and convert to similarity (lower SSD = higher similarity)
@@ -208,7 +210,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
             similarity = 1.0 - (ssd / max_ssd)
             return similarity
 
-        elif self.method == 'sad':
+        elif self.method == "sad":
             # Sum of Absolute Differences
             sad = np.sum(np.abs(image - template))
             # Normalize and convert to similarity
@@ -218,7 +220,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
         return 0.0
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'TemplateMatching':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "TemplateMatching":
         """
         Fit template matching model.
 
@@ -249,11 +251,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
                 self.templates_ = preprocessed
             else:
                 # Random sampling
-                indices = np.random.choice(
-                    len(preprocessed),
-                    self.max_templates,
-                    replace=False
-                )
+                indices = np.random.choice(len(preprocessed), self.max_templates, replace=False)
                 self.templates_ = preprocessed[indices]
         else:
             # Use average template
@@ -286,7 +284,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
             test_img = self._preprocess_image(X[i])
 
             # Compute maximum similarity with any template
-            max_similarity = -float('inf')
+            max_similarity = -float("inf")
             for template in self.templates_:
                 sim = self._compute_similarity(test_img, template)
                 max_similarity = max(max_similarity, sim)
@@ -350,11 +348,11 @@ class TemplateMatching(BaseVisionClassicalDetector):
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'method': self.method,
-            'threshold': self.threshold,
-            'use_multiple_templates': self.use_multiple_templates,
-            'max_templates': self.max_templates,
-            'color_space': self.color_space,
-            'align_images': self.align_images,
-            'resize_shape': self.resize_shape,
+            "method": self.method,
+            "threshold": self.threshold,
+            "use_multiple_templates": self.use_multiple_templates,
+            "max_templates": self.max_templates,
+            "color_space": self.color_space,
+            "align_images": self.align_images,
+            "resize_shape": self.resize_shape,
         }

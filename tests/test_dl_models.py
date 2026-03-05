@@ -482,6 +482,9 @@ class TestDLModelsIntegration:
         anomaly_region = anomaly_map[int(h * 0.2) : int(h * 0.7), int(w * 0.2) : int(w * 0.7)]
         normal_region = anomaly_map[0 : int(h * 0.2), 0 : int(w * 0.2)]
 
+        assert np.all(np.isfinite(anomaly_region))
+        assert np.all(np.isfinite(normal_region))
+
         # Note: This assertion may not always hold for all algorithms
         # as it depends on the specific implementation
         # assert np.mean(anomaly_region) >= np.mean(normal_region)

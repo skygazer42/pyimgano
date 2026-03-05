@@ -47,7 +47,7 @@ def _load_train_numpy(
 ) -> list[np.ndarray]:
     from pyimgano.datasets import load_dataset
 
-    ds = load_dataset(
+    ds = load_dataset(  # nosec B615 - pyimgano.datasets.load_dataset, not Hugging Face Hub
         dataset,
         root,
         category=category,

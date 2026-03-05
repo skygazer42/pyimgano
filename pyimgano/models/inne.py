@@ -22,6 +22,7 @@ without requiring external outlier-toolkits.
 from __future__ import annotations
 
 import numbers
+from typing import Iterable
 from warnings import warn
 
 import numpy as np

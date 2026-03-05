@@ -10,18 +10,20 @@ Features:
 - Visualization of annotations
 """
 
-from typing import List, Dict, Any, Tuple, Optional, Union
-from pathlib import Path
 import json
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
+from defusedxml import ElementTree as ET
 from numpy.typing import NDArray
 
 
 @dataclass
 class BoundingBox:
     """Bounding box representation."""
+
     x: float
     y: float
     width: float
@@ -63,7 +65,7 @@ class COCOFormat:
         annotations : dict
             COCO annotations
         """
-        with open(annotation_file, 'r') as f:
+        with open(annotation_file, "r") as f:
             return json.load(f)
 
     @staticmethod
@@ -78,14 +80,11 @@ class COCOFormat:
         output_file : str or Path
             Output JSON file path
         """
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(annotations, f, indent=2)
 
     @staticmethod
-    def get_image_annotations(
-        coco_data: Dict[str, Any],
-        image_id: int
-    ) -> List[Dict[str, Any]]:
+    def get_image_annotations(coco_data: Dict[str, Any], image_id: int) -> List[Dict[str, Any]]:
         """
         Get annotations for specific image.
 
@@ -101,7 +100,7 @@ class COCOFormat:
         annotations : list
             List of annotations for the image
         """
-        return [ann for ann in coco_data['annotations'] if ann['image_id'] == image_id]
+        return [ann for ann in coco_data["annotations"] if ann["image_id"] == image_id]
 
     @staticmethod
     def create_annotation(
@@ -110,7 +109,7 @@ class COCOFormat:
         bbox: Tuple[float, float, float, float],
         segmentation: Optional[List] = None,
         area: Optional[float] = None,
-        iscrowd: int = 0
+        iscrowd: int = 0,
     ) -> Dict[str, Any]:
         """
         Create COCO annotation.
@@ -141,15 +140,15 @@ class COCOFormat:
             area = w * h
 
         ann = {
-            'image_id': image_id,
-            'category_id': category_id,
-            'bbox': [x, y, w, h],
-            'area': area,
-            'iscrowd': iscrowd
+            "image_id": image_id,
+            "category_id": category_id,
+            "bbox": [x, y, w, h],
+            "area": area,
+            "iscrowd": iscrowd,
         }
 
         if segmentation:
-            ann['segmentation'] = segmentation
+            ann["segmentation"] = segmentation
 
         return ann
 
@@ -159,8 +158,7 @@ class YOLOFormat:
 
     @staticmethod
     def load(
-        label_file: Union[str, Path],
-        class_names: Optional[List[str]] = None
+        label_file: Union[str, Path], class_names: Optional[List[str]] = None
     ) -> List[BoundingBox]:
         """
         Load YOLO format labels.
@@ -179,7 +177,7 @@ class YOLOFormat:
         """
         boxes = []
 
-        with open(label_file, 'r') as f:
+        with open(label_file, "r") as f:
             for line in f:
                 parts = line.strip().split()
                 if len(parts) >= 5:
@@ -189,7 +187,9 @@ class YOLOFormat:
 
                     # Convert from normalized center format to absolute corner format
                     # Note: This assumes image size is known elsewhere
-                    class_name = class_names[class_id] if class_names and class_id < len(class_names) else ""
+                    class_name = (
+                        class_names[class_id] if class_names and class_id < len(class_names) else ""
+                    )
 
                     box = BoundingBox(
                         x=cx,  # Will need image size to convert properly
@@ -198,18 +198,14 @@ class YOLOFormat:
                         height=h,
                         class_id=class_id,
                         class_name=class_name,
-                        confidence=confidence
+                        confidence=confidence,
                     )
                     boxes.append(box)
 
         return boxes
 
     @staticmethod
-    def save(
-        boxes: List[BoundingBox],
-        output_file: Union[str, Path],
-        image_size: Tuple[int, int]
-    ):
+    def save(boxes: List[BoundingBox], output_file: Union[str, Path], image_size: Tuple[int, int]):
         """
         Save YOLO format labels.
 
@@ -224,7 +220,7 @@ class YOLOFormat:
         """
         img_w, img_h = image_size
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             for box in boxes:
                 # Convert to normalized center format
                 cx = (box.x + box.width / 2) / img_w
@@ -241,8 +237,7 @@ class YOLOFormat:
 
     @staticmethod
     def denormalize_bbox(
-        normalized_box: Tuple[float, float, float, float],
-        image_size: Tuple[int, int]
+        normalized_box: Tuple[float, float, float, float], image_size: Tuple[int, int]
     ) -> Tuple[float, float, float, float]:
         """
         Denormalize YOLO bounding box.
@@ -294,24 +289,26 @@ class VOCFormat:
         root = tree.getroot()
 
         # Extract metadata
-        size = root.find('size')
+        size = root.find("size")
         metadata = {
-            'filename': root.find('filename').text if root.find('filename') is not None else '',
-            'width': int(size.find('width').text) if size is not None else 0,
-            'height': int(size.find('height').text) if size is not None else 0,
-            'depth': int(size.find('depth').text) if size is not None and size.find('depth') is not None else 3,
+            "filename": root.find("filename").text if root.find("filename") is not None else "",
+            "width": int(size.find("width").text) if size is not None else 0,
+            "height": int(size.find("height").text) if size is not None else 0,
+            "depth": int(size.find("depth").text)
+            if size is not None and size.find("depth") is not None
+            else 3,
         }
 
         # Extract boxes
         boxes = []
-        for obj in root.findall('object'):
-            name = obj.find('name').text
-            bndbox = obj.find('bndbox')
+        for obj in root.findall("object"):
+            name = obj.find("name").text
+            bndbox = obj.find("bndbox")
 
-            xmin = float(bndbox.find('xmin').text)
-            ymin = float(bndbox.find('ymin').text)
-            xmax = float(bndbox.find('xmax').text)
-            ymax = float(bndbox.find('ymax').text)
+            xmin = float(bndbox.find("xmin").text)
+            ymin = float(bndbox.find("ymin").text)
+            xmax = float(bndbox.find("xmax").text)
+            ymax = float(bndbox.find("ymax").text)
 
             box = BoundingBox(
                 x=xmin,
@@ -319,18 +316,14 @@ class VOCFormat:
                 width=xmax - xmin,
                 height=ymax - ymin,
                 class_id=-1,  # VOC doesn't have numeric class IDs
-                class_name=name
+                class_name=name,
             )
             boxes.append(box)
 
         return metadata, boxes
 
     @staticmethod
-    def save(
-        boxes: List[BoundingBox],
-        image_info: Dict[str, Any],
-        output_file: Union[str, Path]
-    ):
+    def save(boxes: List[BoundingBox], image_info: Dict[str, Any], output_file: Union[str, Path]):
         """
         Save Pascal VOC XML annotation.
 
@@ -343,33 +336,33 @@ class VOCFormat:
         output_file : str or Path
             Output XML file path
         """
-        root = ET.Element('annotation')
+        root = ET.Element("annotation")
 
         # Filename
-        ET.SubElement(root, 'filename').text = image_info.get('filename', '')
+        ET.SubElement(root, "filename").text = image_info.get("filename", "")
 
         # Size
-        size = ET.SubElement(root, 'size')
-        ET.SubElement(size, 'width').text = str(image_info.get('width', 0))
-        ET.SubElement(size, 'height').text = str(image_info.get('height', 0))
-        ET.SubElement(size, 'depth').text = str(image_info.get('depth', 3))
+        size = ET.SubElement(root, "size")
+        ET.SubElement(size, "width").text = str(image_info.get("width", 0))
+        ET.SubElement(size, "height").text = str(image_info.get("height", 0))
+        ET.SubElement(size, "depth").text = str(image_info.get("depth", 3))
 
         # Objects
         for box in boxes:
-            obj = ET.SubElement(root, 'object')
-            ET.SubElement(obj, 'name').text = box.class_name
+            obj = ET.SubElement(root, "object")
+            ET.SubElement(obj, "name").text = box.class_name
 
-            bndbox = ET.SubElement(obj, 'bndbox')
+            bndbox = ET.SubElement(obj, "bndbox")
             x1, y1, x2, y2 = box.to_xyxy()
-            ET.SubElement(bndbox, 'xmin').text = str(int(x1))
-            ET.SubElement(bndbox, 'ymin').text = str(int(y1))
-            ET.SubElement(bndbox, 'xmax').text = str(int(x2))
-            ET.SubElement(bndbox, 'ymax').text = str(int(y2))
+            ET.SubElement(bndbox, "xmin").text = str(int(x1))
+            ET.SubElement(bndbox, "ymin").text = str(int(y1))
+            ET.SubElement(bndbox, "xmax").text = str(int(x2))
+            ET.SubElement(bndbox, "ymax").text = str(int(y2))
 
         # Write to file
         tree = ET.ElementTree(root)
         ET.indent(tree, space="  ")
-        tree.write(output_file, encoding='utf-8', xml_declaration=True)
+        tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
 
 class FormatConverter:
@@ -379,7 +372,7 @@ class FormatConverter:
     def coco_to_yolo(
         coco_file: Union[str, Path],
         output_dir: Union[str, Path],
-        class_mapping: Optional[Dict[int, int]] = None
+        class_mapping: Optional[Dict[int, int]] = None,
     ):
         """
         Convert COCO to YOLO format.
@@ -399,7 +392,7 @@ class FormatConverter:
         coco_data = COCOFormat.load(coco_file)
 
         # Create image ID to filename mapping
-        image_dict = {img['id']: img for img in coco_data['images']}
+        image_dict = {img["id"]: img for img in coco_data["images"]}
 
         # Group annotations by image
         for image_id, image_info in image_dict.items():
@@ -410,30 +403,26 @@ class FormatConverter:
 
             boxes = []
             for ann in annotations:
-                class_id = ann['category_id']
+                class_id = ann["category_id"]
                 if class_mapping:
                     class_id = class_mapping.get(class_id, class_id)
 
-                x, y, w, h = ann['bbox']
+                x, y, w, h = ann["bbox"]
                 box = BoundingBox(x=x, y=y, width=w, height=h, class_id=class_id)
                 boxes.append(box)
 
             # Save YOLO format
-            image_filename = Path(image_info['file_name']).stem
+            image_filename = Path(image_info["file_name"]).stem
             output_file = output_dir / f"{image_filename}.txt"
 
-            YOLOFormat.save(
-                boxes,
-                output_file,
-                (image_info['width'], image_info['height'])
-            )
+            YOLOFormat.save(boxes, output_file, (image_info["width"], image_info["height"]))
 
     @staticmethod
     def yolo_to_coco(
         yolo_dir: Union[str, Path],
         image_dir: Union[str, Path],
         output_file: Union[str, Path],
-        class_names: List[str]
+        class_names: List[str],
     ):
         """
         Convert YOLO to COCO format.
@@ -452,27 +441,19 @@ class FormatConverter:
         yolo_dir = Path(yolo_dir)
         image_dir = Path(image_dir)
 
-        coco_data = {
-            'images': [],
-            'annotations': [],
-            'categories': []
-        }
+        coco_data = {"images": [], "annotations": [], "categories": []}
 
         # Create categories
         for i, name in enumerate(class_names):
-            coco_data['categories'].append({
-                'id': i,
-                'name': name,
-                'supercategory': 'object'
-            })
+            coco_data["categories"].append({"id": i, "name": name, "supercategory": "object"})
 
         # Process each label file
         ann_id = 0
-        for img_id, label_file in enumerate(sorted(yolo_dir.glob('*.txt'))):
+        for img_id, label_file in enumerate(sorted(yolo_dir.glob("*.txt"))):
             # Find corresponding image
             image_stem = label_file.stem
             image_file = None
-            for ext in ['.jpg', '.jpeg', '.png']:
+            for ext in [".jpg", ".jpeg", ".png"]:
                 candidate = image_dir / f"{image_stem}{ext}"
                 if candidate.exists():
                     image_file = candidate
@@ -484,38 +465,32 @@ class FormatConverter:
             # Get image size
             try:
                 from PIL import Image
+
                 with Image.open(image_file) as img:
                     width, height = img.size
-            except:
+            except Exception:
                 import cv2
+
                 img = cv2.imread(str(image_file))
                 height, width = img.shape[:2]
 
             # Add image info
-            coco_data['images'].append({
-                'id': img_id,
-                'file_name': image_file.name,
-                'width': width,
-                'height': height
-            })
+            coco_data["images"].append(
+                {"id": img_id, "file_name": image_file.name, "width": width, "height": height}
+            )
 
             # Load and convert boxes
             boxes = YOLOFormat.load(label_file, class_names)
 
             for box in boxes:
                 # Denormalize
-                abs_box = YOLOFormat.denormalize_bbox(
-                    box.to_cxcywh(),
-                    (width, height)
-                )
+                abs_box = YOLOFormat.denormalize_bbox(box.to_cxcywh(), (width, height))
 
                 ann = COCOFormat.create_annotation(
-                    image_id=img_id,
-                    category_id=box.class_id,
-                    bbox=abs_box
+                    image_id=img_id, category_id=box.class_id, bbox=abs_box
                 )
-                ann['id'] = ann_id
-                coco_data['annotations'].append(ann)
+                ann["id"] = ann_id
+                coco_data["annotations"].append(ann)
                 ann_id += 1
 
         # Save
@@ -523,9 +498,7 @@ class FormatConverter:
 
     @staticmethod
     def voc_to_yolo(
-        voc_dir: Union[str, Path],
-        output_dir: Union[str, Path],
-        class_names: List[str]
+        voc_dir: Union[str, Path], output_dir: Union[str, Path], class_names: List[str]
     ):
         """
         Convert Pascal VOC to YOLO format.
@@ -546,7 +519,7 @@ class FormatConverter:
         # Create class name to ID mapping
         class_to_id = {name: i for i, name in enumerate(class_names)}
 
-        for xml_file in voc_dir.glob('*.xml'):
+        for xml_file in voc_dir.glob("*.xml"):
             metadata, boxes = VOCFormat.load(xml_file)
 
             # Convert class names to IDs
@@ -558,18 +531,11 @@ class FormatConverter:
 
             # Save YOLO format
             output_file = output_dir / f"{xml_file.stem}.txt"
-            YOLOFormat.save(
-                yolo_boxes,
-                output_file,
-                (metadata['width'], metadata['height'])
-            )
+            YOLOFormat.save(yolo_boxes, output_file, (metadata["width"], metadata["height"]))
 
 
 # Convenience functions
-def validate_annotations(
-    boxes: List[BoundingBox],
-    image_size: Tuple[int, int]
-) -> List[str]:
+def validate_annotations(boxes: List[BoundingBox], image_size: Tuple[int, int]) -> List[str]:
     """
     Validate bounding box annotations.
 

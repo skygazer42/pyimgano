@@ -11,12 +11,14 @@ Features:
 """
 
 from typing import Optional, Tuple
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 
 try:
     import cv2
+
     HAS_OPENCV = True
 except ImportError:
     HAS_OPENCV = False
@@ -42,11 +44,7 @@ class ColorSpace:
         """
         image = image.astype(np.float32)
         mask = image <= 0.04045
-        linear = np.where(
-            mask,
-            image / 12.92,
-            np.power((image + 0.055) / 1.055, 2.4)
-        )
+        linear = np.where(mask, image / 12.92, np.power((image + 0.055) / 1.055, 2.4))
         return linear
 
     @staticmethod
@@ -66,11 +64,7 @@ class ColorSpace:
         """
         image = image.astype(np.float32)
         mask = image <= 0.0031308
-        srgb = np.where(
-            mask,
-            image * 12.92,
-            1.055 * np.power(image, 1.0 / 2.4) - 0.055
-        )
+        srgb = np.where(mask, image * 12.92, 1.055 * np.power(image, 1.0 / 2.4) - 0.055)
         return srgb
 
     @staticmethod
@@ -121,9 +115,7 @@ class ToneMapping:
 
     @staticmethod
     def reinhard(
-        hdr_image: NDArray,
-        key_value: float = 0.18,
-        white_point: Optional[float] = None
+        hdr_image: NDArray, key_value: float = 0.18, white_point: Optional[float] = None
     ) -> NDArray:
         """
         Reinhard tone mapping operator.
@@ -143,9 +135,9 @@ class ToneMapping:
             Tone-mapped LDR image
         """
         # Convert to luminance
-        luminance = 0.2126 * hdr_image[..., 0] + \
-                    0.7152 * hdr_image[..., 1] + \
-                    0.0722 * hdr_image[..., 2]
+        luminance = (
+            0.2126 * hdr_image[..., 0] + 0.7152 * hdr_image[..., 1] + 0.0722 * hdr_image[..., 2]
+        )
 
         # Log average luminance
         log_avg = np.exp(np.mean(np.log(luminance + 1e-8)))
@@ -155,7 +147,7 @@ class ToneMapping:
 
         if white_point is not None:
             # Extended Reinhard with white point
-            scaled = scaled * (1 + scaled / (white_point ** 2))
+            scaled = scaled * (1 + scaled / (white_point**2))
 
         # Compress
         compressed = scaled / (1 + scaled)
@@ -187,8 +179,7 @@ class ToneMapping:
         d = 0.59
         e = 0.14
 
-        ldr = (hdr_image * (a * hdr_image + b)) / \
-              (hdr_image * (c * hdr_image + d) + e)
+        ldr = (hdr_image * (a * hdr_image + b)) / (hdr_image * (c * hdr_image + d) + e)
 
         return np.clip(ldr, 0, 1)
 
@@ -231,10 +222,7 @@ class WhiteBalance:
         return np.clip(balanced, 0, 1)
 
     @staticmethod
-    def auto_white_balance(
-        image: NDArray,
-        method: str = 'gray_world'
-    ) -> NDArray:
+    def auto_white_balance(image: NDArray, method: str = "gray_world") -> NDArray:
         """
         Automatic white balance correction.
 
@@ -250,7 +238,7 @@ class WhiteBalance:
         balanced : ndarray
             White-balanced image
         """
-        if method == 'gray_world':
+        if method == "gray_world":
             return WhiteBalance.gray_world(image)
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -278,7 +266,7 @@ class QualityMetrics:
         """
         mse = np.mean((image1.astype(float) - image2.astype(float)) ** 2)
         if mse == 0:
-            return float('inf')
+            return float("inf")
         return 20 * np.log10(max_value / np.sqrt(mse))
 
     @staticmethod
@@ -288,7 +276,7 @@ class QualityMetrics:
         max_value: float = 255.0,
         k1: float = 0.01,
         k2: float = 0.03,
-        window_size: int = 11
+        window_size: int = 11,
     ) -> float:
         """
         Calculate Structural Similarity Index.
@@ -321,37 +309,38 @@ class QualityMetrics:
 
         # Gaussian window
         sigma = 1.5
-        gaussian = lambda x: np.exp(-(x ** 2) / (2 * sigma ** 2))
+
+        def gaussian(x):  # noqa: ANN001, ANN202 - local numeric helper
+            return np.exp(-(x**2) / (2 * sigma**2))
+
         window = np.outer(
             gaussian(np.arange(window_size) - window_size // 2),
-            gaussian(np.arange(window_size) - window_size // 2)
+            gaussian(np.arange(window_size) - window_size // 2),
         )
         window = window / window.sum()
 
         # Calculate local statistics
-        mu1 = gaussian_filter(image1, sigma=sigma, mode='reflect')
-        mu2 = gaussian_filter(image2, sigma=sigma, mode='reflect')
+        mu1 = gaussian_filter(image1, sigma=sigma, mode="reflect")
+        mu2 = gaussian_filter(image2, sigma=sigma, mode="reflect")
 
-        mu1_sq = mu1 ** 2
-        mu2_sq = mu2 ** 2
+        mu1_sq = mu1**2
+        mu2_sq = mu2**2
         mu1_mu2 = mu1 * mu2
 
-        sigma1_sq = gaussian_filter(image1 ** 2, sigma=sigma, mode='reflect') - mu1_sq
-        sigma2_sq = gaussian_filter(image2 ** 2, sigma=sigma, mode='reflect') - mu2_sq
-        sigma12 = gaussian_filter(image1 * image2, sigma=sigma, mode='reflect') - mu1_mu2
+        sigma1_sq = gaussian_filter(image1**2, sigma=sigma, mode="reflect") - mu1_sq
+        sigma2_sq = gaussian_filter(image2**2, sigma=sigma, mode="reflect") - mu2_sq
+        sigma12 = gaussian_filter(image1 * image2, sigma=sigma, mode="reflect") - mu1_mu2
 
         # SSIM formula
-        ssim_map = ((2 * mu1_mu2 + c1) * (2 * sigma12 + c2)) / \
-                   ((mu1_sq + mu2_sq + c1) * (sigma1_sq + sigma2_sq + c2))
+        ssim_map = ((2 * mu1_mu2 + c1) * (2 * sigma12 + c2)) / (
+            (mu1_sq + mu2_sq + c1) * (sigma1_sq + sigma2_sq + c2)
+        )
 
         return float(np.mean(ssim_map))
 
     @staticmethod
     def ms_ssim(
-        image1: NDArray,
-        image2: NDArray,
-        max_value: float = 255.0,
-        weights: Optional[list] = None
+        image1: NDArray, image2: NDArray, max_value: float = 255.0, weights: Optional[list] = None
     ) -> float:
         """
         Calculate Multi-Scale Structural Similarity Index.
@@ -375,7 +364,6 @@ class QualityMetrics:
 
         levels = len(weights)
         mssim = []
-        mcs = []
 
         for i in range(levels):
             ssim_val = QualityMetrics.ssim(image1, image2, max_value=max_value)
@@ -387,7 +375,7 @@ class QualityMetrics:
                 image2 = image2[::2, ::2]
 
         # Weighted combination
-        ms_ssim_val = np.prod([m ** w for m, w in zip(mssim, weights)])
+        ms_ssim_val = np.prod([m**w for m, w in zip(mssim, weights)])
         return float(ms_ssim_val)
 
 
@@ -419,19 +407,16 @@ class ExposureNormalization:
                 return cv2.equalizeHist(image)
         else:
             # Manual histogram equalization
-            hist, bins = np.histogram(image.flatten(), 256, [0, 256])
+            hist, _ = np.histogram(image.flatten(), 256, [0, 256])
             cdf = hist.cumsum()
-            cdf_normalized = cdf * hist.max() / cdf.max()
             cdf_m = np.ma.masked_equal(cdf, 0)
             cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
-            cdf = np.ma.filled(cdf_m, 0).astype('uint8')
+            cdf = np.ma.filled(cdf_m, 0).astype("uint8")
             return cdf[image]
 
     @staticmethod
     def clahe(
-        image: NDArray,
-        clip_limit: float = 2.0,
-        tile_size: Tuple[int, int] = (8, 8)
+        image: NDArray, clip_limit: float = 2.0, tile_size: Tuple[int, int] = (8, 8)
     ) -> NDArray:
         """
         Contrast Limited Adaptive Histogram Equalization.
@@ -465,7 +450,7 @@ class ExposureNormalization:
 
 
 # Convenience functions
-def normalize_exposure(image: NDArray, method: str = 'clahe') -> NDArray:
+def normalize_exposure(image: NDArray, method: str = "clahe") -> NDArray:
     """
     Normalize image exposure.
 
@@ -481,9 +466,9 @@ def normalize_exposure(image: NDArray, method: str = 'clahe') -> NDArray:
     normalized : ndarray
         Exposure-normalized image
     """
-    if method == 'hist_eq':
+    if method == "hist_eq":
         return ExposureNormalization.histogram_equalization(image)
-    elif method == 'clahe':
+    elif method == "clahe":
         return ExposureNormalization.clahe(image)
     else:
         raise ValueError(f"Unknown method: {method}")

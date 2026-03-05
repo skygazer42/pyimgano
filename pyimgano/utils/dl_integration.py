@@ -10,19 +10,22 @@ Features:
 - Batch inference utilities
 """
 
-from typing import Optional, Tuple, List, Union, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from numpy.typing import NDArray
 
 try:
     import torch
     import torch.nn as nn
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
     import onnxruntime as ort
+
     HAS_ONNX = True
 except ImportError:
     HAS_ONNX = False
@@ -53,9 +56,7 @@ class PreProcessing:
 
     @staticmethod
     def resize_with_aspect_ratio(
-        image: NDArray,
-        target_size: int,
-        max_size: Optional[int] = None
+        image: NDArray, target_size: int, max_size: Optional[int] = None
     ) -> Tuple[NDArray, float]:
         """
         Resize maintaining aspect ratio.
@@ -90,9 +91,11 @@ class PreProcessing:
 
         try:
             import cv2
+
             resized = cv2.resize(image, (new_w, new_h))
         except ImportError:
             from PIL import Image
+
             img = Image.fromarray(image)
             resized = np.array(img.resize((new_w, new_h)))
 
@@ -100,9 +103,7 @@ class PreProcessing:
 
     @staticmethod
     def pad_to_size(
-        image: NDArray,
-        target_size: Tuple[int, int],
-        pad_value: Union[int, float] = 0
+        image: NDArray, target_size: Tuple[int, int], pad_value: Union[int, float] = 0
     ) -> Tuple[NDArray, Tuple[int, int]]:
         """
         Pad image to target size.
@@ -140,7 +141,7 @@ class PreProcessing:
         else:
             pad_width = ((top, bottom), (left, right))
 
-        padded = np.pad(image, pad_width, mode='constant', constant_values=pad_value)
+        padded = np.pad(image, pad_width, mode="constant", constant_values=pad_value)
 
         return padded, (top, left)
 
@@ -157,10 +158,7 @@ class PostProcessing:
 
     @staticmethod
     def non_max_suppression(
-        boxes: NDArray,
-        scores: NDArray,
-        iou_threshold: float = 0.5,
-        score_threshold: float = 0.0
+        boxes: NDArray, scores: NDArray, iou_threshold: float = 0.5, score_threshold: float = 0.0
     ) -> NDArray:
         """
         Non-Maximum Suppression.
@@ -222,10 +220,7 @@ class PostProcessing:
 
     @staticmethod
     def confidence_filtering(
-        boxes: NDArray,
-        scores: NDArray,
-        classes: Optional[NDArray] = None,
-        threshold: float = 0.5
+        boxes: NDArray, scores: NDArray, classes: Optional[NDArray] = None, threshold: float = 0.5
     ) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
         """
         Filter detections by confidence.
@@ -259,10 +254,7 @@ class PostProcessing:
 
     @staticmethod
     def soft_nms(
-        boxes: NDArray,
-        scores: NDArray,
-        sigma: float = 0.5,
-        score_threshold: float = 0.001
+        boxes: NDArray, scores: NDArray, sigma: float = 0.5, score_threshold: float = 0.001
     ) -> Tuple[NDArray, NDArray]:
         """
         Soft Non-Maximum Suppression.
@@ -314,7 +306,7 @@ class PostProcessing:
             iou = inter / (areas[i] + areas - inter)
 
             # Gaussian decay
-            weight = np.exp(-(iou ** 2) / sigma)
+            weight = np.exp(-(iou**2) / sigma)
             scores = scores * weight
             scores[i] = 0  # Remove current box
 
@@ -324,11 +316,7 @@ class PostProcessing:
 class ONNXWrapper:
     """ONNX Runtime wrapper for inference."""
 
-    def __init__(
-        self,
-        model_path: str,
-        providers: Optional[List[str]] = None
-    ):
+    def __init__(self, model_path: str, providers: Optional[List[str]] = None):
         """
         Initialize ONNX model.
 
@@ -343,7 +331,7 @@ class ONNXWrapper:
             raise ImportError("onnxruntime is required")
 
         if providers is None:
-            providers = ['CPUExecutionProvider']
+            providers = ["CPUExecutionProvider"]
 
         self.session = ort.InferenceSession(model_path, providers=providers)
         self.input_names = [inp.name for inp in self.session.get_inputs()]
@@ -385,11 +373,7 @@ class ONNXWrapper:
 class TorchWrapper:
     """PyTorch model wrapper for inference."""
 
-    def __init__(
-        self,
-        model: nn.Module,
-        device: str = 'cuda'
-    ):
+    def __init__(self, model: nn.Module, device: str = "cuda"):
         """
         Initialize PyTorch model wrapper.
 
@@ -403,7 +387,7 @@ class TorchWrapper:
         if not HAS_TORCH:
             raise ImportError("PyTorch is required")
 
-        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.model.eval()
 
@@ -433,10 +417,7 @@ class TorchWrapper:
         return outputs
 
     def export_to_onnx(
-        self,
-        output_path: str,
-        input_shape: Tuple[int, ...],
-        opset_version: int = 11
+        self, output_path: str, input_shape: Tuple[int, ...], opset_version: int = 11
     ):
         """
         Export model to ONNX format.
@@ -457,12 +438,9 @@ class TorchWrapper:
             dummy_input,
             output_path,
             opset_version=opset_version,
-            input_names=['input'],
-            output_names=['output'],
-            dynamic_axes={
-                'input': {0: 'batch_size'},
-                'output': {0: 'batch_size'}
-            }
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
         )
 
 
@@ -475,7 +453,7 @@ class BatchInference:
         model_fn: callable,
         batch_size: int = 32,
         preprocess_fn: Optional[callable] = None,
-        postprocess_fn: Optional[callable] = None
+        postprocess_fn: Optional[callable] = None,
     ) -> List[Any]:
         """
         Process images in batches.
@@ -501,7 +479,7 @@ class BatchInference:
         results = []
 
         for i in range(0, len(images), batch_size):
-            batch = images[i:i + batch_size]
+            batch = images[i : i + batch_size]
 
             # Pre-process
             if preprocess_fn:
@@ -530,11 +508,7 @@ class BatchInference:
 
 
 # Convenience functions
-def nms(
-    boxes: NDArray,
-    scores: NDArray,
-    iou_threshold: float = 0.5
-) -> NDArray:
+def nms(boxes: NDArray, scores: NDArray, iou_threshold: float = 0.5) -> NDArray:
     """
     Non-Maximum Suppression.
 
@@ -555,10 +529,7 @@ def nms(
     return PostProcessing.non_max_suppression(boxes, scores, iou_threshold)
 
 
-def load_onnx_model(
-    model_path: str,
-    use_gpu: bool = True
-) -> ONNXWrapper:
+def load_onnx_model(model_path: str, use_gpu: bool = True) -> ONNXWrapper:
     """
     Load ONNX model.
 
@@ -575,17 +546,15 @@ def load_onnx_model(
         Loaded model wrapper
     """
     if use_gpu:
-        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
     else:
-        providers = ['CPUExecutionProvider']
+        providers = ["CPUExecutionProvider"]
 
     return ONNXWrapper(model_path, providers=providers)
 
 
 def batch_inference(
-    images: List[NDArray],
-    model: Union[ONNXWrapper, TorchWrapper],
-    batch_size: int = 32
+    images: List[NDArray], model: Union[ONNXWrapper, TorchWrapper], batch_size: int = 32
 ) -> List[NDArray]:
     """
     Run batch inference.
@@ -604,8 +573,4 @@ def batch_inference(
     results : list
         Inference results
     """
-    return BatchInference.process_batches(
-        images,
-        model.infer,
-        batch_size=batch_size
-    )
+    return BatchInference.process_batches(images, model.infer, batch_size=batch_size)

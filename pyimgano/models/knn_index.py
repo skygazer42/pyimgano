@@ -10,11 +10,11 @@ from pyimgano.utils.optional_deps import optional_import, require
 
 
 class KNNIndex(Protocol):
-    def fit(self, X: NDArray) -> None: ...
+    def fit(self, X: NDArray) -> None:
+        ...
 
-    def kneighbors(
-        self, X: NDArray, n_neighbors: Optional[int] = None
-    ) -> Tuple[NDArray, NDArray]: ...
+    def kneighbors(self, X: NDArray, n_neighbors: Optional[int] = None) -> Tuple[NDArray, NDArray]:
+        ...
 
 
 @dataclass

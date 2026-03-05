@@ -11,19 +11,20 @@ Features:
 - Progress tracking
 """
 
-from typing import Callable, List, Any, Optional, Iterator
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+import asyncio
+import multiprocessing
 import queue
 import threading
-import multiprocessing
 import time
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-import asyncio
+from typing import Any, Callable, Iterator, List, Optional
 
 
 @dataclass
 class TaskResult:
     """Result from async task."""
+
     index: int
     result: Any
     error: Optional[Exception] = None
@@ -45,12 +46,7 @@ class ThreadPool:
         self.max_workers = max_workers or multiprocessing.cpu_count()
         self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
-    def map(
-        self,
-        func: Callable,
-        items: List[Any],
-        show_progress: bool = False
-    ) -> List[Any]:
+    def map(self, func: Callable, items: List[Any], show_progress: bool = False) -> List[Any]:
         """
         Map function over items in parallel.
 
@@ -82,7 +78,7 @@ class ThreadPool:
             completed += 1
             if show_progress:
                 progress = completed / len(items) * 100
-                print(f"\rProgress: {progress:.1f}%", end='', flush=True)
+                print(f"\rProgress: {progress:.1f}%", end="", flush=True)
 
         if show_progress:
             print()  # New line
@@ -138,7 +134,7 @@ class ProcessPool:
         func: Callable,
         items: List[Any],
         chunksize: Optional[int] = None,
-        show_progress: bool = False
+        show_progress: bool = False,
     ) -> List[Any]:
         """
         Map function over items using processes.
@@ -176,7 +172,7 @@ class ProcessPool:
             completed += 1
             if show_progress:
                 progress = completed / len(items) * 100
-                print(f"\rProgress: {progress:.1f}%", end='', flush=True)
+                print(f"\rProgress: {progress:.1f}%", end="", flush=True)
 
         if show_progress:
             print()
@@ -197,12 +193,7 @@ class ProcessPool:
 class Pipeline:
     """Queue-based processing pipeline."""
 
-    def __init__(
-        self,
-        stages: List[Callable],
-        queue_size: int = 100,
-        num_workers: int = 1
-    ):
+    def __init__(self, stages: List[Callable], queue_size: int = 100, num_workers: int = 1):
         """
         Initialize pipeline.
 
@@ -248,7 +239,7 @@ class Pipeline:
                 worker = threading.Thread(
                     target=self._worker,
                     args=(stage_fn, self.queues[i], self.queues[i + 1]),
-                    daemon=True
+                    daemon=True,
                 )
                 worker.start()
                 self.workers.append(worker)
@@ -344,9 +335,11 @@ class RateLimiter:
 
     def __call__(self, func: Callable) -> Callable:
         """Decorator for rate-limited function."""
+
         def wrapper(*args, **kwargs):
             self.acquire()
             return func(*args, **kwargs)
+
         return wrapper
 
 
@@ -418,11 +411,7 @@ class AsyncTaskManager:
         """Initialize async task manager."""
         self.tasks = []
 
-    async def run_task(
-        self,
-        coro: Any,
-        index: int
-    ) -> TaskResult:
+    async def run_task(self, coro: Any, index: int) -> TaskResult:
         """
         Run single async task.
 
@@ -448,9 +437,7 @@ class AsyncTaskManager:
             return TaskResult(index=index, result=None, error=e, duration=duration)
 
     async def run_all(
-        self,
-        coros: List[Any],
-        max_concurrent: Optional[int] = None
+        self, coros: List[Any], max_concurrent: Optional[int] = None
     ) -> List[TaskResult]:
         """
         Run multiple coroutines concurrently.
@@ -518,7 +505,7 @@ class ProgressTracker:
         progress = self.completed / self.total
         bar_length = 40
         filled = int(bar_length * progress)
-        bar = '=' * filled + '-' * (bar_length - filled)
+        bar = "=" * filled + "-" * (bar_length - filled)
 
         # Estimate remaining time
         if self.completed > 0:
@@ -527,8 +514,11 @@ class ProgressTracker:
         else:
             eta_str = "?"
 
-        print(f"\r[{bar}] {self.completed}/{self.total} ({progress*100:.1f}%) ETA: {eta_str}",
-              end='', flush=True)
+        print(
+            f"\r[{bar}] {self.completed}/{self.total} ({progress*100:.1f}%) ETA: {eta_str}",
+            end="",
+            flush=True,
+        )
 
         if self.completed >= self.total:
             print()  # New line
@@ -540,7 +530,7 @@ def parallel_map(
     items: List[Any],
     use_processes: bool = False,
     max_workers: Optional[int] = None,
-    show_progress: bool = False
+    show_progress: bool = False,
 ) -> List[Any]:
     """
     Parallel map function.

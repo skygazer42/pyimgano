@@ -74,4 +74,3 @@ def test_extra_for_root_module_covers_common_roots() -> None:
     assert extra_for_root_module("anomalib") == "anomalib"
     assert extra_for_root_module("mamba_ssm") == "mamba"
     assert extra_for_root_module("patchcore") == "patchcore_inspection"
-

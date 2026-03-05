@@ -10,22 +10,25 @@ Features:
 - Memory-efficient iterators
 """
 
-from typing import Optional, Callable, List, Iterator, Any, Tuple, Union
-from pathlib import Path
-import numpy as np
-from numpy.typing import NDArray
-from concurrent.futures import ThreadPoolExecutor
 import queue
 import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
+
+import numpy as np
+from numpy.typing import NDArray
 
 try:
     from PIL import Image
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
 
 try:
     import cv2
+
     HAS_OPENCV = True
 except ImportError:
     HAS_OPENCV = False
@@ -53,7 +56,7 @@ class ImageDataset(Dataset):
         self,
         image_paths: Union[List[Union[str, Path]], str, Path],
         transform: Optional[Callable] = None,
-        load_to_memory: bool = False
+        load_to_memory: bool = False,
     ):
         """
         Initialize image dataset.
@@ -74,7 +77,7 @@ class ImageDataset(Dataset):
             path = Path(image_paths)
             if path.is_dir():
                 # Load all images from directory
-                self.image_paths = sorted(path.glob('*.[jp][pn][g]'))
+                self.image_paths = sorted(path.glob("*.[jp][pn][g]"))
             else:
                 # Glob pattern
                 parent = path.parent
@@ -134,7 +137,7 @@ class DataLoader:
         num_workers: int = 0,
         prefetch_factor: int = 2,
         collate_fn: Optional[Callable] = None,
-        drop_last: bool = False
+        drop_last: bool = False,
     ):
         """
         Initialize data loader.
@@ -180,8 +183,9 @@ class DataLoader:
         elif isinstance(batch[0], (int, float)):
             return np.array(batch)
         elif isinstance(batch[0], (list, tuple)):
-            return [self._default_collate([item[i] for item in batch])
-                    for i in range(len(batch[0]))]
+            return [
+                self._default_collate([item[i] for item in batch]) for i in range(len(batch[0]))
+            ]
         else:
             return batch
 
@@ -304,11 +308,7 @@ class DataCache:
 class CachedDataset(Dataset):
     """Dataset with LRU caching."""
 
-    def __init__(
-        self,
-        base_dataset: Dataset,
-        cache_size: int = 100
-    ):
+    def __init__(self, base_dataset: Dataset, cache_size: int = 100):
         """
         Initialize cached dataset.
 
@@ -366,7 +366,7 @@ class Normalize(Transform):
     def __init__(
         self,
         mean: Union[float, Tuple[float, ...]] = (0.485, 0.456, 0.406),
-        std: Union[float, Tuple[float, ...]] = (0.229, 0.224, 0.225)
+        std: Union[float, Tuple[float, ...]] = (0.229, 0.224, 0.225),
     ):
         self.mean = np.array(mean).reshape(1, 1, -1)
         self.std = np.array(std).reshape(1, 1, -1)
@@ -419,12 +419,7 @@ class ToTensor(Transform):
 class BatchProcessor:
     """Process data in batches with parallel workers."""
 
-    def __init__(
-        self,
-        process_fn: Callable,
-        batch_size: int = 32,
-        num_workers: int = 4
-    ):
+    def __init__(self, process_fn: Callable, batch_size: int = 32, num_workers: int = 4):
         """
         Initialize batch processor.
 
@@ -456,8 +451,7 @@ class BatchProcessor:
             Processed results
         """
         # Create batches
-        batches = [data[i:i + self.batch_size]
-                   for i in range(0, len(data), self.batch_size)]
+        batches = [data[i : i + self.batch_size] for i in range(0, len(data), self.batch_size)]
 
         # Process in parallel
         if self.num_workers == 1:
@@ -483,7 +477,7 @@ def create_image_dataloader(
     batch_size: int = 32,
     shuffle: bool = True,
     num_workers: int = 4,
-    transform: Optional[Transform] = None
+    transform: Optional[Transform] = None,
 ) -> DataLoader:
     """
     Create image data loader.
@@ -507,17 +501,11 @@ def create_image_dataloader(
         Configured data loader
     """
     dataset = ImageDataset(image_dir, transform=transform)
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers
-    )
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
 
 def load_images_parallel(
-    image_paths: List[Union[str, Path]],
-    num_workers: int = 4
+    image_paths: List[Union[str, Path]], num_workers: int = 4
 ) -> List[NDArray]:
     """
     Load images in parallel.
@@ -534,6 +522,7 @@ def load_images_parallel(
     images : list
         Loaded images
     """
+
     def load_image(path):
         if HAS_OPENCV:
             img = cv2.imread(str(path))

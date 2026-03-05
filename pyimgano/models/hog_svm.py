@@ -16,13 +16,14 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+from typing import Literal, Optional, Tuple
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import Optional, Tuple, Literal
-from sklearn.svm import OneClassSVM
-from sklearn.preprocessing import StandardScaler
-from skimage.feature import hog
 from skimage import color
+from skimage.feature import hog
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import OneClassSVM
 
 from ..base import BaseVisionClassicalDetector
 
@@ -74,11 +75,11 @@ class HOG_SVM(BaseVisionClassicalDetector):
         orientations: int = 9,
         pixels_per_cell: Tuple[int, int] = (8, 8),
         cells_per_block: Tuple[int, int] = (2, 2),
-        block_norm: Literal['L1', 'L1-sqrt', 'L2', 'L2-Hys'] = 'L2-Hys',
+        block_norm: Literal["L1", "L1-sqrt", "L2", "L2-Hys"] = "L2-Hys",
         nu: float = 0.1,
-        kernel: Literal['rbf', 'linear', 'poly', 'sigmoid'] = 'rbf',
-        gamma: str = 'scale',
-        resize_shape: Optional[Tuple[int, int]] = (128, 128)
+        kernel: Literal["rbf", "linear", "poly", "sigmoid"] = "rbf",
+        gamma: str = "scale",
+        resize_shape: Optional[Tuple[int, int]] = (128, 128),
     ):
         super().__init__()
         self.orientations = orientations
@@ -102,6 +103,7 @@ class HOG_SVM(BaseVisionClassicalDetector):
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
+
             image = resize(image, self.resize_shape, anti_aliasing=True)
 
         # Extract HOG features
@@ -111,12 +113,12 @@ class HOG_SVM(BaseVisionClassicalDetector):
             pixels_per_cell=self.pixels_per_cell,
             cells_per_block=self.cells_per_block,
             block_norm=self.block_norm,
-            feature_vector=True
+            feature_vector=True,
         )
 
         return features
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'HOG_SVM':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "HOG_SVM":
         """
         Fit HOG + SVM model.
 
@@ -147,11 +149,7 @@ class HOG_SVM(BaseVisionClassicalDetector):
 
         # Fit One-Class SVM
         print("Training One-Class SVM...")
-        self.svm_ = OneClassSVM(
-            nu=self.nu,
-            kernel=self.kernel,
-            gamma=self.gamma
-        )
+        self.svm_ = OneClassSVM(nu=self.nu, kernel=self.kernel, gamma=self.gamma)
         self.svm_.fit(hog_features_scaled)
 
         self.is_fitted_ = True
@@ -228,12 +226,12 @@ class HOG_SVM(BaseVisionClassicalDetector):
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'orientations': self.orientations,
-            'pixels_per_cell': self.pixels_per_cell,
-            'cells_per_block': self.cells_per_block,
-            'block_norm': self.block_norm,
-            'nu': self.nu,
-            'kernel': self.kernel,
-            'gamma': self.gamma,
-            'resize_shape': self.resize_shape,
+            "orientations": self.orientations,
+            "pixels_per_cell": self.pixels_per_cell,
+            "cells_per_block": self.cells_per_block,
+            "block_norm": self.block_norm,
+            "nu": self.nu,
+            "kernel": self.kernel,
+            "gamma": self.gamma,
+            "resize_shape": self.resize_shape,
         }

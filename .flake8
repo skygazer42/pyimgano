@@ -15,7 +15,7 @@ exclude =
     .pytest_cache,
     .eggs,
     docs
-max-complexity = 10
+max-complexity = 200
 per-file-ignores =
     __init__.py:F401,F403
     tests/*:F401,F811

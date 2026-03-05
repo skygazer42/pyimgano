@@ -518,8 +518,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help=(
-            "Stop early after N errors when --continue-on-error is set. "
-            "Default: 0 (no limit)."
+            "Stop early after N errors when --continue-on-error is set. " "Default: 0 (no limit)."
         ),
     )
     parser.add_argument(
@@ -1786,7 +1785,9 @@ def main(argv: list[str] | None = None) -> int:
                                     )
                                 )
                                 if len(one) != 1:
-                                    raise RuntimeError("Internal error: expected 1 result for 1 input")
+                                    raise RuntimeError(
+                                        "Internal error: expected 1 result for 1 input"
+                                    )
                                 _process_ok_result(
                                     index=idx,
                                     input_path=str(p),

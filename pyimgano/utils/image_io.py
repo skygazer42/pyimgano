@@ -10,18 +10,21 @@ Features:
 """
 
 from pathlib import Path
-from typing import Dict, Optional, Union, BinaryIO, Tuple
+from typing import BinaryIO, Dict, Optional, Tuple, Union
+
 import numpy as np
 from numpy.typing import NDArray
 
 try:
     import cv2
+
     HAS_OPENCV = True
 except ImportError:
     HAS_OPENCV = False
 
 try:
-    from PIL import Image, ExifTags
+    from PIL import ExifTags, Image
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -29,6 +32,7 @@ except ImportError:
 
 class ImageIOError(Exception):
     """Base exception for image I/O operations."""
+
     pass
 
 
@@ -53,12 +57,12 @@ class ImageReader:
     """
 
     MAGIC_NUMBERS = {
-        b'\xFF\xD8\xFF': 'jpeg',
-        b'\x89PNG\r\n\x1a\n': 'png',
-        b'RIFF': 'webp',  # Needs additional check
-        b'\x00\x00\x00': 'heif',  # Simplified
-        b'II*\x00': 'tiff',  # Little-endian
-        b'MM\x00*': 'tiff',  # Big-endian
+        b"\xFF\xD8\xFF": "jpeg",
+        b"\x89PNG\r\n\x1a\n": "png",
+        b"RIFF": "webp",  # Needs additional check
+        b"\x00\x00\x00": "heif",  # Simplified
+        b"II*\x00": "tiff",  # Little-endian
+        b"MM\x00*": "tiff",  # Big-endian
     }
 
     # Security limits
@@ -69,7 +73,7 @@ class ImageReader:
         self,
         max_pixels: Optional[int] = None,
         max_file_size: Optional[int] = None,
-        preserve_metadata: bool = True
+        preserve_metadata: bool = True,
     ):
         """
         Initialize image reader.
@@ -102,7 +106,7 @@ class ImageReader:
             Detected format ('jpeg', 'png', 'webp', etc.)
         """
         if isinstance(path_or_buffer, (str, Path)):
-            with open(path_or_buffer, 'rb') as f:
+            with open(path_or_buffer, "rb") as f:
                 header = f.read(16)
         else:
             pos = path_or_buffer.tell()
@@ -112,20 +116,17 @@ class ImageReader:
         # Check magic numbers
         for magic, fmt in self.MAGIC_NUMBERS.items():
             if header.startswith(magic):
-                if fmt == 'webp':
+                if fmt == "webp":
                     # Additional check for WebP
-                    if b'WEBP' in header[8:16]:
-                        return 'webp'
+                    if b"WEBP" in header[8:16]:
+                        return "webp"
                 else:
                     return fmt
 
         raise ImageIOError(f"Unknown image format. Header: {header[:8].hex()}")
 
     def read(
-        self,
-        path: Union[str, Path],
-        flags: Optional[int] = None,
-        dtype: Optional[np.dtype] = None
+        self, path: Union[str, Path], flags: Optional[int] = None, dtype: Optional[np.dtype] = None
     ) -> Tuple[NDArray, Dict]:
         """
         Read image from file.
@@ -151,9 +152,7 @@ class ImageReader:
         # Security checks
         file_size = path.stat().st_size
         if file_size > self.max_file_size:
-            raise ImageIOError(
-                f"File size {file_size} exceeds maximum {self.max_file_size}"
-            )
+            raise ImageIOError(f"File size {file_size} exceeds maximum {self.max_file_size}")
 
         # Detect format
         fmt = self.detect_format(path)
@@ -175,13 +174,10 @@ class ImageReader:
             pil_image = Image.open(path)
 
             # Extract metadata
-            if self.preserve_metadata and hasattr(pil_image, '_getexif'):
+            if self.preserve_metadata and hasattr(pil_image, "_getexif"):
                 exif = pil_image._getexif()
                 if exif:
-                    metadata['exif'] = {
-                        ExifTags.TAGS.get(k, k): v
-                        for k, v in exif.items()
-                    }
+                    metadata["exif"] = {ExifTags.TAGS.get(k, k): v for k, v in exif.items()}
 
             image = np.array(pil_image)
 
@@ -191,29 +187,25 @@ class ImageReader:
         # Security: Check pixel count
         total_pixels = image.shape[0] * image.shape[1]
         if total_pixels > self.max_pixels:
-            raise ImageIOError(
-                f"Image pixels {total_pixels} exceeds maximum {self.max_pixels}"
-            )
+            raise ImageIOError(f"Image pixels {total_pixels} exceeds maximum {self.max_pixels}")
 
         # Convert dtype if requested
         if dtype is not None:
             image = image.astype(dtype)
 
         # Add basic metadata
-        metadata.update({
-            'shape': image.shape,
-            'dtype': str(image.dtype),
-            'format': fmt,
-            'file_size': file_size,
-        })
+        metadata.update(
+            {
+                "shape": image.shape,
+                "dtype": str(image.dtype),
+                "format": fmt,
+                "file_size": file_size,
+            }
+        )
 
         return image, metadata
 
-    def read_streaming(
-        self,
-        path: Union[str, Path],
-        chunk_size: Tuple[int, int] = (512, 512)
-    ):
+    def read_streaming(self, path: Union[str, Path], chunk_size: Tuple[int, int] = (512, 512)):
         """
         Read large image in chunks (generator).
 
@@ -256,16 +248,12 @@ class ImageWriter:
     """
 
     QUALITY_PRESETS = {
-        'web': {'jpeg': 85, 'webp': 80, 'png': 6},
-        'print': {'jpeg': 95, 'webp': 90, 'png': 9},
-        'archive': {'jpeg': 100, 'webp': 100, 'png': 9},
+        "web": {"jpeg": 85, "webp": 80, "png": 6},
+        "print": {"jpeg": 95, "webp": 90, "png": 9},
+        "archive": {"jpeg": 100, "webp": 100, "png": 9},
     }
 
-    def __init__(
-        self,
-        quality_preset: str = 'web',
-        preserve_metadata: bool = True
-    ):
+    def __init__(self, quality_preset: str = "web", preserve_metadata: bool = True):
         """
         Initialize image writer.
 
@@ -285,7 +273,7 @@ class ImageWriter:
         path: Union[str, Path],
         format: Optional[str] = None,
         quality: Optional[int] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> None:
         """
         Write image to file.
@@ -307,7 +295,7 @@ class ImageWriter:
 
         # Auto-detect format from extension
         if format is None:
-            format = path.suffix.lower().lstrip('.')
+            format = path.suffix.lower().lstrip(".")
 
         # Get quality setting
         if quality is None:
@@ -321,11 +309,11 @@ class ImageWriter:
 
         # Write with appropriate backend
         if HAS_OPENCV:
-            if format == 'jpeg' or format == 'jpg':
+            if format == "jpeg" or format == "jpg":
                 params = [cv2.IMWRITE_JPEG_QUALITY, quality]
-            elif format == 'png':
+            elif format == "png":
                 params = [cv2.IMWRITE_PNG_COMPRESSION, quality]
-            elif format == 'webp':
+            elif format == "webp":
                 params = [cv2.IMWRITE_WEBP_QUALITY, quality]
             else:
                 params = []
@@ -338,17 +326,17 @@ class ImageWriter:
             pil_image = Image.fromarray(image)
 
             save_kwargs = {}
-            if format in ('jpeg', 'jpg'):
-                save_kwargs['quality'] = quality
-                save_kwargs['optimize'] = True
-            elif format == 'png':
-                save_kwargs['compress_level'] = quality
-            elif format == 'webp':
-                save_kwargs['quality'] = quality
+            if format in ("jpeg", "jpg"):
+                save_kwargs["quality"] = quality
+                save_kwargs["optimize"] = True
+            elif format == "png":
+                save_kwargs["compress_level"] = quality
+            elif format == "webp":
+                save_kwargs["quality"] = quality
 
             # Add metadata
             if self.preserve_metadata and metadata:
-                if 'exif' in metadata:
+                if "exif" in metadata:
                     # Convert EXIF dict back to bytes
                     pass  # Full implementation needed
 
@@ -359,11 +347,7 @@ class ImageWriter:
 
 
 # Convenience functions
-def imread(
-    path: Union[str, Path],
-    flags: Optional[int] = None,
-    **kwargs
-) -> NDArray:
+def imread(path: Union[str, Path], flags: Optional[int] = None, **kwargs) -> NDArray:
     """
     Read image from file.
 
@@ -386,11 +370,7 @@ def imread(
     return image
 
 
-def imwrite(
-    path: Union[str, Path],
-    image: NDArray,
-    **kwargs
-) -> None:
+def imwrite(path: Union[str, Path], image: NDArray, **kwargs) -> None:
     """
     Write image to file.
 

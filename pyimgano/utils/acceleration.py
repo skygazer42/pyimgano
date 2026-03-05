@@ -9,20 +9,23 @@ Features:
 - Batch processing optimizations
 """
 
-from typing import Optional, Dict, Any, Callable
-import numpy as np
-from numpy.typing import NDArray
 import platform
 import warnings
+from typing import Any, Callable, Dict, Optional
+
+import numpy as np
+from numpy.typing import NDArray
 
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
     import cupy as cp
+
     HAS_CUPY = True
 except ImportError:
     HAS_CUPY = False
@@ -42,56 +45,52 @@ class SIMDAccelerator:
             Dictionary indicating support for different SIMD extensions
         """
         support = {
-            'sse': False,
-            'sse2': False,
-            'sse3': False,
-            'ssse3': False,
-            'sse4_1': False,
-            'sse4_2': False,
-            'avx': False,
-            'avx2': False,
-            'avx512f': False,
-            'neon': False,
+            "sse": False,
+            "sse2": False,
+            "sse3": False,
+            "ssse3": False,
+            "sse4_1": False,
+            "sse4_2": False,
+            "avx": False,
+            "avx2": False,
+            "avx512f": False,
+            "neon": False,
         }
 
         system = platform.system()
         machine = platform.machine().lower()
 
         # ARM NEON
-        if 'arm' in machine or 'aarch64' in machine:
-            support['neon'] = True
+        if "arm" in machine or "aarch64" in machine:
+            support["neon"] = True
 
         # x86/x64 - check via cpuinfo on Linux
-        if system == 'Linux':
+        if system == "Linux":
             try:
-                with open('/proc/cpuinfo', 'r') as f:
+                with open("/proc/cpuinfo", "r") as f:
                     cpuinfo = f.read()
-                    flags = ''
-                    for line in cpuinfo.split('\n'):
-                        if 'flags' in line:
+                    flags = ""
+                    for line in cpuinfo.split("\n"):
+                        if "flags" in line:
                             flags = line
                             break
 
-                    support['sse'] = 'sse' in flags
-                    support['sse2'] = 'sse2' in flags
-                    support['sse3'] = 'sse3' in flags or 'pni' in flags
-                    support['ssse3'] = 'ssse3' in flags
-                    support['sse4_1'] = 'sse4_1' in flags
-                    support['sse4_2'] = 'sse4_2' in flags
-                    support['avx'] = 'avx' in flags
-                    support['avx2'] = 'avx2' in flags
-                    support['avx512f'] = 'avx512f' in flags
-            except:
+                    support["sse"] = "sse" in flags
+                    support["sse2"] = "sse2" in flags
+                    support["sse3"] = "sse3" in flags or "pni" in flags
+                    support["ssse3"] = "ssse3" in flags
+                    support["sse4_1"] = "sse4_1" in flags
+                    support["sse4_2"] = "sse4_2" in flags
+                    support["avx"] = "avx" in flags
+                    support["avx2"] = "avx2" in flags
+                    support["avx512f"] = "avx512f" in flags
+            except Exception:
                 pass
 
         return support
 
     @staticmethod
-    def vectorized_add(
-        a: NDArray,
-        b: NDArray,
-        use_simd: bool = True
-    ) -> NDArray:
+    def vectorized_add(a: NDArray, b: NDArray, use_simd: bool = True) -> NDArray:
         """
         Vectorized array addition.
 
@@ -110,17 +109,13 @@ class SIMDAccelerator:
         # NumPy automatically uses SIMD when available
         if use_simd:
             # Ensure arrays are aligned for SIMD
-            if a.flags['C_CONTIGUOUS'] and b.flags['C_CONTIGUOUS']:
+            if a.flags["C_CONTIGUOUS"] and b.flags["C_CONTIGUOUS"]:
                 return np.add(a, b)
 
         return a + b
 
     @staticmethod
-    def vectorized_dot(
-        a: NDArray,
-        b: NDArray,
-        use_simd: bool = True
-    ) -> float:
+    def vectorized_dot(a: NDArray, b: NDArray, use_simd: bool = True) -> float:
         """
         Vectorized dot product.
 
@@ -143,10 +138,7 @@ class SIMDAccelerator:
         return (a * b).sum()
 
     @staticmethod
-    def ensure_alignment(
-        array: NDArray,
-        alignment: int = 32
-    ) -> NDArray:
+    def ensure_alignment(array: NDArray, alignment: int = 32) -> NDArray:
         """
         Ensure array is aligned for SIMD operations.
 
@@ -166,7 +158,7 @@ class SIMDAccelerator:
             return array
 
         # Create aligned copy
-        aligned = np.empty_like(array, order='C')
+        aligned = np.empty_like(array, order="C")
         aligned[:] = array
         return aligned
 
@@ -178,33 +170,32 @@ class GPUBackend:
         self.backend = self._detect_backend()
         self.device = None
 
-        if self.backend == 'cuda' and HAS_TORCH:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        elif self.backend == 'cupy' and HAS_CUPY:
+        if self.backend == "cuda" and HAS_TORCH:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        elif self.backend == "cupy" and HAS_CUPY:
             self.device = cp.cuda.Device(0)
 
     def _detect_backend(self) -> str:
         """Detect available GPU backend."""
         if HAS_TORCH and torch.cuda.is_available():
-            return 'cuda'
+            return "cuda"
         elif HAS_CUPY:
             try:
                 cp.cuda.Device(0).compute_capability
-                return 'cupy'
-            except:
+                return "cupy"
+            except Exception:
                 pass
 
         # Check for other backends
         system = platform.system()
-        if system == 'Darwin':  # macOS
+        if system == "Darwin":  # macOS
             try:
-                import torch
-                if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                    return 'mps'  # Metal Performance Shaders
-            except:
+                if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    return "mps"  # Metal Performance Shaders
+            except Exception:
                 pass
 
-        return 'cpu'
+        return "cpu"
 
     def get_device_info(self) -> Dict[str, Any]:
         """
@@ -215,22 +206,22 @@ class GPUBackend:
         info : dict
             Device information
         """
-        info = {'backend': self.backend}
+        info = {"backend": self.backend}
 
-        if self.backend == 'cuda' and HAS_TORCH:
+        if self.backend == "cuda" and HAS_TORCH:
             if torch.cuda.is_available():
-                info['name'] = torch.cuda.get_device_name(0)
-                info['compute_capability'] = torch.cuda.get_device_capability(0)
-                info['total_memory'] = torch.cuda.get_device_properties(0).total_memory
-                info['available_memory'] = torch.cuda.memory_allocated(0)
-        elif self.backend == 'cupy' and HAS_CUPY:
+                info["name"] = torch.cuda.get_device_name(0)
+                info["compute_capability"] = torch.cuda.get_device_capability(0)
+                info["total_memory"] = torch.cuda.get_device_properties(0).total_memory
+                info["available_memory"] = torch.cuda.memory_allocated(0)
+        elif self.backend == "cupy" and HAS_CUPY:
             device = cp.cuda.Device(0)
-            info['name'] = device.attributes['Name']
-            info['compute_capability'] = device.compute_capability
-            info['total_memory'] = device.mem_info[1]
-            info['available_memory'] = device.mem_info[0]
-        elif self.backend == 'mps':
-            info['name'] = 'Apple Metal'
+            info["name"] = device.attributes["Name"]
+            info["compute_capability"] = device.compute_capability
+            info["total_memory"] = device.mem_info[1]
+            info["available_memory"] = device.mem_info[0]
+        elif self.backend == "mps":
+            info["name"] = "Apple Metal"
 
         return info
 
@@ -248,12 +239,12 @@ class GPUBackend:
         gpu_array : tensor or cupy array
             Array on GPU
         """
-        if self.backend == 'cuda' and HAS_TORCH:
+        if self.backend == "cuda" and HAS_TORCH:
             return torch.from_numpy(array).to(self.device)
-        elif self.backend == 'cupy' and HAS_CUPY:
+        elif self.backend == "cupy" and HAS_CUPY:
             return cp.asarray(array)
-        elif self.backend == 'mps' and HAS_TORCH:
-            return torch.from_numpy(array).to('mps')
+        elif self.backend == "mps" and HAS_TORCH:
+            return torch.from_numpy(array).to("mps")
         else:
             warnings.warn("No GPU backend available, returning CPU array")
             return array
@@ -272,20 +263,20 @@ class GPUBackend:
         array : ndarray
             CPU array
         """
-        if self.backend == 'cuda' and HAS_TORCH:
+        if self.backend == "cuda" and HAS_TORCH:
             return gpu_array.cpu().numpy()
-        elif self.backend == 'cupy' and HAS_CUPY:
+        elif self.backend == "cupy" and HAS_CUPY:
             return cp.asnumpy(gpu_array)
-        elif self.backend == 'mps' and HAS_TORCH:
+        elif self.backend == "mps" and HAS_TORCH:
             return gpu_array.cpu().numpy()
         else:
             return np.asarray(gpu_array)
 
     def sync(self):
         """Synchronize GPU operations."""
-        if self.backend == 'cuda' and HAS_TORCH:
+        if self.backend == "cuda" and HAS_TORCH:
             torch.cuda.synchronize()
-        elif self.backend == 'cupy' and HAS_CUPY:
+        elif self.backend == "cupy" and HAS_CUPY:
             cp.cuda.Stream.null.synchronize()
 
 
@@ -318,7 +309,7 @@ class DLPackInterface:
         if isinstance(array, np.ndarray):
             array = torch.from_numpy(array)
 
-        if hasattr(torch.utils, 'dlpack'):
+        if hasattr(torch.utils, "dlpack"):
             return torch.utils.dlpack.to_dlpack(array)
         else:
             raise NotImplementedError("PyTorch version does not support DLPack")
@@ -341,13 +332,13 @@ class DLPackInterface:
         if not HAS_TORCH:
             raise NotImplementedError("DLPack requires PyTorch")
 
-        if hasattr(torch.utils, 'dlpack'):
+        if hasattr(torch.utils, "dlpack"):
             return torch.utils.dlpack.from_dlpack(dlpack)
         else:
             raise NotImplementedError("PyTorch version does not support DLPack")
 
     @staticmethod
-    def zero_copy_transfer(array: NDArray, target_framework: str = 'torch') -> Any:
+    def zero_copy_transfer(array: NDArray, target_framework: str = "torch") -> Any:
         """
         Zero-copy transfer to target framework.
 
@@ -363,10 +354,10 @@ class DLPackInterface:
         target_array : tensor or array
             Array in target framework
         """
-        if target_framework == 'torch' and HAS_TORCH:
+        if target_framework == "torch" and HAS_TORCH:
             # NumPy to PyTorch shares memory if possible
             return torch.from_numpy(array)
-        elif target_framework == 'cupy' and HAS_CUPY:
+        elif target_framework == "cupy" and HAS_CUPY:
             # CuPy zero-copy from NumPy
             return cp.asarray(array)
         else:
@@ -378,10 +369,7 @@ class MemoryMappedOps:
 
     @staticmethod
     def create_memmap(
-        filename: str,
-        dtype: np.dtype,
-        mode: str = 'w+',
-        shape: Optional[tuple] = None
+        filename: str, dtype: np.dtype, mode: str = "w+", shape: Optional[tuple] = None
     ) -> np.memmap:
         """
         Create memory-mapped array.
@@ -406,10 +394,7 @@ class MemoryMappedOps:
 
     @staticmethod
     def load_memmap(
-        filename: str,
-        dtype: np.dtype,
-        mode: str = 'r',
-        shape: Optional[tuple] = None
+        filename: str, dtype: np.dtype, mode: str = "r", shape: Optional[tuple] = None
     ) -> np.memmap:
         """
         Load existing memory-mapped array.
@@ -437,12 +422,7 @@ class BatchProcessor:
     """Batch processing optimizations."""
 
     @staticmethod
-    def process_batches(
-        data: NDArray,
-        batch_size: int,
-        process_fn: Callable,
-        **kwargs
-    ) -> list:
+    def process_batches(data: NDArray, batch_size: int, process_fn: Callable, **kwargs) -> list:
         """
         Process data in batches.
 
@@ -466,7 +446,7 @@ class BatchProcessor:
         results = []
 
         for i in range(0, n_samples, batch_size):
-            batch = data[i:i + batch_size]
+            batch = data[i : i + batch_size]
             result = process_fn(batch, **kwargs)
             results.append(result)
 
@@ -474,11 +454,7 @@ class BatchProcessor:
 
     @staticmethod
     def parallel_batches(
-        data: NDArray,
-        batch_size: int,
-        process_fn: Callable,
-        n_workers: int = 4,
-        **kwargs
+        data: NDArray, batch_size: int, process_fn: Callable, n_workers: int = 4, **kwargs
     ) -> list:
         """
         Process batches in parallel.
@@ -504,7 +480,7 @@ class BatchProcessor:
         from concurrent.futures import ThreadPoolExecutor
 
         n_samples = len(data)
-        batches = [data[i:i + batch_size] for i in range(0, n_samples, batch_size)]
+        batches = [data[i : i + batch_size] for i in range(0, n_samples, batch_size)]
 
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
             futures = [executor.submit(process_fn, batch, **kwargs) for batch in batches]
@@ -527,11 +503,7 @@ def get_optimal_backend() -> GPUBackend:
 
 
 def accelerate_array_op(
-    array: NDArray,
-    operation: str,
-    *args,
-    use_gpu: bool = True,
-    **kwargs
+    array: NDArray, operation: str, *args, use_gpu: bool = True, **kwargs
 ) -> NDArray:
     """
     Accelerate array operation using available hardware.
@@ -556,27 +528,27 @@ def accelerate_array_op(
     """
     backend = get_optimal_backend()
 
-    if use_gpu and backend.backend != 'cpu':
+    if use_gpu and backend.backend != "cpu":
         # Transfer to GPU
         gpu_array = backend.to_gpu(array)
 
         # Perform operation
-        if operation == 'sum':
+        if operation == "sum":
             if HAS_TORCH and isinstance(gpu_array, torch.Tensor):
                 result = torch.sum(gpu_array, *args, **kwargs)
             elif HAS_CUPY:
                 result = cp.sum(gpu_array, *args, **kwargs)
-        elif operation == 'mean':
+        elif operation == "mean":
             if HAS_TORCH and isinstance(gpu_array, torch.Tensor):
                 result = torch.mean(gpu_array.float(), *args, **kwargs)
             elif HAS_CUPY:
                 result = cp.mean(gpu_array, *args, **kwargs)
-        elif operation == 'std':
+        elif operation == "std":
             if HAS_TORCH and isinstance(gpu_array, torch.Tensor):
                 result = torch.std(gpu_array.float(), *args, **kwargs)
             elif HAS_CUPY:
                 result = cp.std(gpu_array, *args, **kwargs)
-        elif operation == 'matmul':
+        elif operation == "matmul":
             other = backend.to_gpu(args[0])
             if HAS_TORCH and isinstance(gpu_array, torch.Tensor):
                 result = torch.matmul(gpu_array, other)
@@ -590,10 +562,10 @@ def accelerate_array_op(
     else:
         # CPU fallback
         op_map = {
-            'sum': np.sum,
-            'mean': np.mean,
-            'std': np.std,
-            'matmul': np.matmul,
+            "sum": np.sum,
+            "mean": np.mean,
+            "std": np.std,
+            "matmul": np.matmul,
         }
 
         if operation in op_map:
@@ -612,12 +584,12 @@ def check_hardware_capabilities() -> Dict[str, Any]:
         Dictionary of available capabilities
     """
     capabilities = {
-        'simd': SIMDAccelerator.detect_simd_support(),
-        'gpu': {},
-        'dlpack': DLPackInterface.is_available(),
+        "simd": SIMDAccelerator.detect_simd_support(),
+        "gpu": {},
+        "dlpack": DLPackInterface.is_available(),
     }
 
     backend = get_optimal_backend()
-    capabilities['gpu'] = backend.get_device_info()
+    capabilities["gpu"] = backend.get_device_info()
 
     return capabilities

@@ -392,7 +392,7 @@ class ExperimentTracker:
 
         # Artifacts
         if summary["num_artifacts"] > 0:
-            report += f"## Artifacts\n\n"
+            report += "## Artifacts\n\n"
             report += f"Number of artifacts: {summary['num_artifacts']}\n\n"
 
         if output_path:

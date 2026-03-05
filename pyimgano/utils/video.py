@@ -10,16 +10,18 @@ Features:
 - Real-time video processing
 """
 
-from typing import Optional, Generator, Tuple, Union, Callable
-import subprocess
 import json
+import subprocess
 import tempfile
 from pathlib import Path
+from typing import Callable, Generator, Optional, Tuple, Union
+
 import numpy as np
 from numpy.typing import NDArray
 
 try:
     import cv2
+
     HAS_OPENCV = True
 except ImportError:
     HAS_OPENCV = False
@@ -29,10 +31,7 @@ class VideoReader:
     """Read video files and streams."""
 
     def __init__(
-        self,
-        source: Union[str, Path, int],
-        backend: str = 'opencv',
-        hwaccel: Optional[str] = None
+        self, source: Union[str, Path, int], backend: str = "opencv", hwaccel: Optional[str] = None
     ):
         """
         Initialize video reader.
@@ -52,9 +51,9 @@ class VideoReader:
         self.cap = None
         self.process = None
 
-        if backend == 'opencv':
+        if backend == "opencv":
             self._init_opencv()
-        elif backend == 'ffmpeg':
+        elif backend == "ffmpeg":
             self._init_ffmpeg()
         else:
             raise ValueError(f"Unknown backend: {backend}")
@@ -76,22 +75,15 @@ class VideoReader:
 
     def _init_ffmpeg(self):
         """Initialize FFmpeg video reader."""
-        cmd = ['ffmpeg', '-i', str(self.source)]
+        cmd = ["ffmpeg", "-i", str(self.source)]
 
         if self.hwaccel:
-            cmd.extend(['-hwaccel', self.hwaccel])
+            cmd.extend(["-hwaccel", self.hwaccel])
 
-        cmd.extend([
-            '-f', 'rawvideo',
-            '-pix_fmt', 'rgb24',
-            '-'
-        ])
+        cmd.extend(["-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
 
         self.process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=10**8
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10**8
         )
 
     def get_properties(self) -> dict:
@@ -103,15 +95,15 @@ class VideoReader:
         props : dict
             Video properties (width, height, fps, frame_count, codec)
         """
-        if self.backend == 'opencv' and self.cap:
+        if self.backend == "opencv" and self.cap:
             return {
-                'width': int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                'height': int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                'fps': self.cap.get(cv2.CAP_PROP_FPS),
-                'frame_count': int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)),
-                'codec': int(self.cap.get(cv2.CAP_PROP_FOURCC)),
+                "width": int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                "height": int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                "fps": self.cap.get(cv2.CAP_PROP_FPS),
+                "frame_count": int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+                "codec": int(self.cap.get(cv2.CAP_PROP_FOURCC)),
             }
-        elif self.backend == 'ffmpeg':
+        elif self.backend == "ffmpeg":
             # Use ffprobe to get properties
             return self._ffprobe_properties()
         else:
@@ -120,12 +112,14 @@ class VideoReader:
     def _ffprobe_properties(self) -> dict:
         """Get video properties using ffprobe."""
         cmd = [
-            'ffprobe',
-            '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_format',
-            '-show_streams',
-            str(self.source)
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            str(self.source),
         ]
 
         try:
@@ -134,24 +128,24 @@ class VideoReader:
 
             # Find video stream
             video_stream = None
-            for stream in data.get('streams', []):
-                if stream.get('codec_type') == 'video':
+            for stream in data.get("streams", []):
+                if stream.get("codec_type") == "video":
                     video_stream = stream
                     break
 
             if video_stream:
-                fps_parts = video_stream.get('r_frame_rate', '0/1').split('/')
+                fps_parts = video_stream.get("r_frame_rate", "0/1").split("/")
                 fps = float(fps_parts[0]) / float(fps_parts[1]) if len(fps_parts) == 2 else 0
 
                 return {
-                    'width': video_stream.get('width', 0),
-                    'height': video_stream.get('height', 0),
-                    'fps': fps,
-                    'frame_count': int(video_stream.get('nb_frames', 0)),
-                    'codec': video_stream.get('codec_name', ''),
-                    'duration': float(data.get('format', {}).get('duration', 0)),
+                    "width": video_stream.get("width", 0),
+                    "height": video_stream.get("height", 0),
+                    "fps": fps,
+                    "frame_count": int(video_stream.get("nb_frames", 0)),
+                    "codec": video_stream.get("codec_name", ""),
+                    "duration": float(data.get("format", {}).get("duration", 0)),
                 }
-        except:
+        except Exception:
             pass
 
         return {}
@@ -167,15 +161,15 @@ class VideoReader:
         frame : ndarray or None
             Frame data (H, W, 3) in RGB format
         """
-        if self.backend == 'opencv' and self.cap:
+        if self.backend == "opencv" and self.cap:
             ret, frame = self.cap.read()
             if ret:
                 # Convert BGR to RGB
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             return ret, frame if ret else None
-        elif self.backend == 'ffmpeg' and self.process:
+        elif self.backend == "ffmpeg" and self.process:
             props = self.get_properties()
-            w, h = props['width'], props['height']
+            w, h = props["width"], props["height"]
             frame_size = w * h * 3
 
             raw_frame = self.process.stdout.read(frame_size)
@@ -211,7 +205,7 @@ class VideoReader:
         frame_number : int
             Target frame number
         """
-        if self.backend == 'opencv' and self.cap:
+        if self.backend == "opencv" and self.cap:
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
         else:
             raise NotImplementedError("Seek not supported for this backend")
@@ -239,10 +233,10 @@ class VideoWriter:
         output_path: Union[str, Path],
         fps: float,
         frame_size: Tuple[int, int],
-        codec: str = 'mp4v',
-        backend: str = 'opencv',
+        codec: str = "mp4v",
+        backend: str = "opencv",
         hwaccel: Optional[str] = None,
-        bitrate: Optional[str] = None
+        bitrate: Optional[str] = None,
     ):
         """
         Initialize video writer.
@@ -274,9 +268,9 @@ class VideoWriter:
         self.writer = None
         self.process = None
 
-        if backend == 'opencv':
+        if backend == "opencv":
             self._init_opencv()
-        elif backend == 'ffmpeg':
+        elif backend == "ffmpeg":
             self._init_ffmpeg()
         else:
             raise ValueError(f"Unknown backend: {backend}")
@@ -288,21 +282,16 @@ class VideoWriter:
 
         # Map codec names to FourCC
         codec_map = {
-            'mp4v': 'mp4v',
-            'h264': 'avc1',
-            'h265': 'hev1',
-            'xvid': 'XVID',
+            "mp4v": "mp4v",
+            "h264": "avc1",
+            "h265": "hev1",
+            "xvid": "XVID",
         }
 
         fourcc_str = codec_map.get(self.codec, self.codec)
         fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
 
-        self.writer = cv2.VideoWriter(
-            str(self.output_path),
-            fourcc,
-            self.fps,
-            self.frame_size
-        )
+        self.writer = cv2.VideoWriter(str(self.output_path), fourcc, self.fps, self.frame_size)
 
         if not self.writer.isOpened():
             raise RuntimeError(f"Failed to open video writer: {self.output_path}")
@@ -312,50 +301,52 @@ class VideoWriter:
         w, h = self.frame_size
 
         cmd = [
-            'ffmpeg',
-            '-y',  # Overwrite output
-            '-f', 'rawvideo',
-            '-vcodec', 'rawvideo',
-            '-pix_fmt', 'rgb24',
-            '-s', f'{w}x{h}',
-            '-r', str(self.fps),
-            '-i', '-',  # Input from pipe
+            "ffmpeg",
+            "-y",  # Overwrite output
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-s",
+            f"{w}x{h}",
+            "-r",
+            str(self.fps),
+            "-i",
+            "-",  # Input from pipe
         ]
 
         # Hardware encoder
         if self.hwaccel:
-            if self.hwaccel == 'nvenc':
-                if self.codec == 'h264':
-                    cmd.extend(['-c:v', 'h264_nvenc'])
-                elif self.codec == 'h265':
-                    cmd.extend(['-c:v', 'hevc_nvenc'])
-            elif self.hwaccel == 'vaapi':
-                cmd.extend(['-vaapi_device', '/dev/dri/renderD128'])
-                cmd.extend(['-c:v', f'{self.codec}_vaapi'])
-            elif self.hwaccel == 'videotoolbox':
-                cmd.extend(['-c:v', f'{self.codec}_videotoolbox'])
+            if self.hwaccel == "nvenc":
+                if self.codec == "h264":
+                    cmd.extend(["-c:v", "h264_nvenc"])
+                elif self.codec == "h265":
+                    cmd.extend(["-c:v", "hevc_nvenc"])
+            elif self.hwaccel == "vaapi":
+                cmd.extend(["-vaapi_device", "/dev/dri/renderD128"])
+                cmd.extend(["-c:v", f"{self.codec}_vaapi"])
+            elif self.hwaccel == "videotoolbox":
+                cmd.extend(["-c:v", f"{self.codec}_videotoolbox"])
         else:
             # Software encoder
             codec_map = {
-                'h264': 'libx264',
-                'h265': 'libx265',
-                'vp9': 'libvpx-vp9',
-                'av1': 'libaom-av1',
+                "h264": "libx264",
+                "h265": "libx265",
+                "vp9": "libvpx-vp9",
+                "av1": "libaom-av1",
             }
-            cmd.extend(['-c:v', codec_map.get(self.codec, 'libx264')])
+            cmd.extend(["-c:v", codec_map.get(self.codec, "libx264")])
 
         # Bitrate
         if self.bitrate:
-            cmd.extend(['-b:v', self.bitrate])
+            cmd.extend(["-b:v", self.bitrate])
 
         # Output
         cmd.append(str(self.output_path))
 
-        self.process = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def write(self, frame: NDArray):
         """
@@ -366,11 +357,11 @@ class VideoWriter:
         frame : ndarray
             Frame to write (H, W, 3) in RGB format
         """
-        if self.backend == 'opencv' and self.writer:
+        if self.backend == "opencv" and self.writer:
             # Convert RGB to BGR
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             self.writer.write(frame_bgr)
-        elif self.backend == 'ffmpeg' and self.process:
+        elif self.backend == "ffmpeg" and self.process:
             self.process.stdin.write(frame.tobytes())
         else:
             raise RuntimeError("Video writer not initialized")
@@ -398,7 +389,7 @@ class VideoProcessor:
         input_path: Union[str, Path],
         output_path: Union[str, Path],
         process_fn: Callable[[NDArray], NDArray],
-        show_progress: bool = True
+        show_progress: bool = True,
     ):
         """
         Process video frame-by-frame.
@@ -418,11 +409,9 @@ class VideoProcessor:
             props = reader.get_properties()
 
             with VideoWriter(
-                output_path,
-                fps=props['fps'],
-                frame_size=(props['width'], props['height'])
+                output_path, fps=props["fps"], frame_size=(props["width"], props["height"])
             ) as writer:
-                total_frames = props.get('frame_count', 0)
+                total_frames = props.get("frame_count", 0)
 
                 for i, frame in enumerate(reader.iter_frames()):
                     # Process frame
@@ -433,7 +422,7 @@ class VideoProcessor:
 
                     if show_progress and total_frames > 0:
                         progress = (i + 1) / total_frames * 100
-                        print(f"\rProcessing: {progress:.1f}%", end='', flush=True)
+                        print(f"\rProcessing: {progress:.1f}%", end="", flush=True)
 
                 if show_progress:
                     print()  # New line
@@ -443,7 +432,7 @@ class VideoProcessor:
         video_path: Union[str, Path],
         output_dir: Union[str, Path],
         frame_interval: int = 1,
-        max_frames: Optional[int] = None
+        max_frames: Optional[int] = None,
     ) -> int:
         """
         Extract frames from video.
@@ -479,6 +468,7 @@ class VideoProcessor:
                         cv2.imwrite(str(output_path), frame_bgr)
                     else:
                         from PIL import Image
+
                         Image.fromarray(frame).save(output_path)
 
                     count += 1
@@ -490,9 +480,7 @@ class VideoProcessor:
 
     @staticmethod
     def create_video_from_frames(
-        frame_paths: list,
-        output_path: Union[str, Path],
-        fps: float = 30.0
+        frame_paths: list, output_path: Union[str, Path], fps: float = 30.0
     ):
         """
         Create video from image frames.
@@ -516,6 +504,7 @@ class VideoProcessor:
             first_frame = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
         else:
             from PIL import Image
+
             first_img = Image.open(frame_paths[0])
             w, h = first_img.size
             first_frame = np.array(first_img)
@@ -529,6 +518,7 @@ class VideoProcessor:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 else:
                     from PIL import Image
+
                     frame = np.array(Image.open(frame_path))
 
                 writer.write(frame)
@@ -561,11 +551,7 @@ def read_video(video_path: Union[str, Path], max_frames: Optional[int] = None) -
     return np.stack(frames) if frames else np.array([])
 
 
-def write_video(
-    frames: NDArray,
-    output_path: Union[str, Path],
-    fps: float = 30.0
-):
+def write_video(frames: NDArray, output_path: Union[str, Path], fps: float = 30.0):
     """
     Write frames to video file.
 
@@ -591,8 +577,8 @@ def write_video(
 def convert_video(
     input_path: Union[str, Path],
     output_path: Union[str, Path],
-    codec: str = 'h264',
-    bitrate: Optional[str] = None
+    codec: str = "h264",
+    bitrate: Optional[str] = None,
 ):
     """
     Convert video format/codec.
@@ -613,10 +599,10 @@ def convert_video(
 
         with VideoWriter(
             output_path,
-            fps=props['fps'],
-            frame_size=(props['width'], props['height']),
+            fps=props["fps"],
+            frame_size=(props["width"], props["height"]),
             codec=codec,
-            bitrate=bitrate
+            bitrate=bitrate,
         ) as writer:
             for frame in reader.iter_frames():
                 writer.write(frame)

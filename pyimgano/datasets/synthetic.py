@@ -6,9 +6,8 @@ from typing import Callable, Optional, Sequence
 
 import numpy as np
 
-from pyimgano.utils.optional_deps import require
-
 from pyimgano.synthesis.synthesizer import AnomalySynthesizer
+from pyimgano.utils.optional_deps import require
 
 Dataset = require("torch.utils.data", extra="torch", purpose="torch-backed datasets").Dataset
 

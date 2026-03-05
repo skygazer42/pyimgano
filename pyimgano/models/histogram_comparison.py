@@ -15,11 +15,12 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+from typing import Literal, Optional, Tuple
+
+import cv2
 import numpy as np
 from numpy.typing import NDArray
-from typing import Optional, Tuple, Literal
 from skimage import color
-import cv2
 
 from ..base import BaseVisionClassicalDetector
 
@@ -76,13 +77,19 @@ class HistogramComparison(BaseVisionClassicalDetector):
     def __init__(
         self,
         n_bins: int = 64,
-        method: Literal['chi_square', 'correlation', 'intersection',
-                       'bhattacharyya', 'hellinger', 'kl_divergence'] = 'chi_square',
-        color_space: Literal['RGB', 'HSV', 'LAB', 'GRAY'] = 'RGB',
+        method: Literal[
+            "chi_square",
+            "correlation",
+            "intersection",
+            "bhattacharyya",
+            "hellinger",
+            "kl_divergence",
+        ] = "chi_square",
+        color_space: Literal["RGB", "HSV", "LAB", "GRAY"] = "RGB",
         spatial: bool = False,
         grid_size: Tuple[int, int] = (4, 4),
         percentile_thresh: float = 95,
-        resize_shape: Optional[Tuple[int, int]] = None
+        resize_shape: Optional[Tuple[int, int]] = None,
     ):
         super().__init__()
         self.n_bins = n_bins
@@ -98,17 +105,17 @@ class HistogramComparison(BaseVisionClassicalDetector):
 
     def _convert_color_space(self, image: NDArray) -> NDArray:
         """Convert image to specified color space."""
-        if self.color_space == 'GRAY':
+        if self.color_space == "GRAY":
             if len(image.shape) == 3:
                 return color.rgb2gray(image)
             return image
 
         # Assume input is RGB
-        if self.color_space == 'RGB':
+        if self.color_space == "RGB":
             return image
-        elif self.color_space == 'HSV':
+        elif self.color_space == "HSV":
             return color.rgb2hsv(image)
-        elif self.color_space == 'LAB':
+        elif self.color_space == "LAB":
             return color.rgb2lab(image)
 
         return image
@@ -118,6 +125,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
+
             image = resize(image, self.resize_shape, anti_aliasing=True)
 
         # Convert color space
@@ -139,10 +147,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
             histograms = []
             for c in range(image.shape[2]):
                 hist, _ = np.histogram(
-                    image[:, :, c].ravel(),
-                    bins=self.n_bins,
-                    range=(0, 1),
-                    density=True
+                    image[:, :, c].ravel(), bins=self.n_bins, range=(0, 1), density=True
                 )
                 histograms.append(hist)
             return np.concatenate(histograms)
@@ -160,17 +165,16 @@ class HistogramComparison(BaseVisionClassicalDetector):
             for j in range(grid_w):
                 # Extract cell
                 if len(image.shape) == 2:
-                    cell = image[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
-                    hist, _ = np.histogram(cell.ravel(), bins=self.n_bins, range=(0, 1), density=True)
+                    cell = image[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
+                    hist, _ = np.histogram(
+                        cell.ravel(), bins=self.n_bins, range=(0, 1), density=True
+                    )
                     features.extend(hist)
                 else:
-                    cell = image[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w, :]
+                    cell = image[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w, :]
                     for c in range(cell.shape[2]):
                         hist, _ = np.histogram(
-                            cell[:, :, c].ravel(),
-                            bins=self.n_bins,
-                            range=(0, 1),
-                            density=True
+                            cell[:, :, c].ravel(), bins=self.n_bins, range=(0, 1), density=True
                         )
                         features.extend(hist)
 
@@ -182,11 +186,11 @@ class HistogramComparison(BaseVisionClassicalDetector):
         hist1 = hist1 / (np.sum(hist1) + 1e-10)
         hist2 = hist2 / (np.sum(hist2) + 1e-10)
 
-        if self.method == 'chi_square':
+        if self.method == "chi_square":
             # Chi-square distance
             return np.sum((hist1 - hist2) ** 2 / (hist1 + hist2 + 1e-10))
 
-        elif self.method == 'correlation':
+        elif self.method == "correlation":
             # Correlation (return 1 - correlation for dissimilarity)
             mean1 = np.mean(hist1)
             mean2 = np.mean(hist2)
@@ -195,25 +199,25 @@ class HistogramComparison(BaseVisionClassicalDetector):
             corr = num / (den + 1e-10)
             return 1 - corr
 
-        elif self.method == 'intersection':
+        elif self.method == "intersection":
             # Histogram intersection (return 1 - intersection for dissimilarity)
             return 1 - np.sum(np.minimum(hist1, hist2))
 
-        elif self.method == 'bhattacharyya':
+        elif self.method == "bhattacharyya":
             # Bhattacharyya distance
             return -np.log(np.sum(np.sqrt(hist1 * hist2)) + 1e-10)
 
-        elif self.method == 'hellinger':
+        elif self.method == "hellinger":
             # Hellinger distance
             return np.sqrt(1 - np.sum(np.sqrt(hist1 * hist2)))
 
-        elif self.method == 'kl_divergence':
+        elif self.method == "kl_divergence":
             # Kullback-Leibler divergence
             return np.sum(hist1 * np.log((hist1 + 1e-10) / (hist2 + 1e-10)))
 
         return 0.0
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'HistogramComparison':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "HistogramComparison":
         """
         Fit histogram comparison model.
 
@@ -242,8 +246,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
         for i in range(len(self.reference_histograms_)):
             for j in range(i + 1, len(self.reference_histograms_)):
                 dist = self._compare_histograms(
-                    self.reference_histograms_[i],
-                    self.reference_histograms_[j]
+                    self.reference_histograms_[i], self.reference_histograms_[j]
                 )
                 distances.append(dist)
 
@@ -277,7 +280,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
             test_hist = self._compute_histogram(X[i])
 
             # Compare with all reference histograms and take minimum distance
-            min_dist = float('inf')
+            min_dist = float("inf")
             for ref_hist in self.reference_histograms_:
                 dist = self._compare_histograms(test_hist, ref_hist)
                 min_dist = min(min_dist, dist)
@@ -306,11 +309,11 @@ class HistogramComparison(BaseVisionClassicalDetector):
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'n_bins': self.n_bins,
-            'method': self.method,
-            'color_space': self.color_space,
-            'spatial': self.spatial,
-            'grid_size': self.grid_size,
-            'percentile_thresh': self.percentile_thresh,
-            'resize_shape': self.resize_shape,
+            "n_bins": self.n_bins,
+            "method": self.method,
+            "color_space": self.color_space,
+            "spatial": self.spatial,
+            "grid_size": self.grid_size,
+            "percentile_thresh": self.percentile_thresh,
+            "resize_shape": self.resize_shape,
         }

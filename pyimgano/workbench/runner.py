@@ -111,7 +111,7 @@ def _load_split_numpy(
 ) -> tuple[list[np.ndarray], list[np.ndarray], np.ndarray, np.ndarray | None]:
     from pyimgano.datasets import load_dataset
 
-    ds = load_dataset(
+    ds = load_dataset(  # nosec B615 - pyimgano.datasets.load_dataset, not Hugging Face Hub
         dataset,
         root,
         category=category,

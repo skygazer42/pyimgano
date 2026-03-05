@@ -10,12 +10,14 @@ Features:
 - Coordinate transformations
 """
 
-from typing import Optional, Tuple, List, Union
+from typing import List, Optional, Tuple, Union
+
 import numpy as np
 from numpy.typing import NDArray
 
 try:
     import cv2
+
     HAS_OPENCV = True
 except ImportError:
     HAS_OPENCV = False
@@ -29,7 +31,7 @@ class CameraCalibration:
         object_points: List[NDArray],
         image_points: List[NDArray],
         image_size: Tuple[int, int],
-        flags: int = 0
+        flags: int = 0,
     ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
         """
         Calibrate camera from checkerboard patterns.
@@ -60,20 +62,14 @@ class CameraCalibration:
             raise NotImplementedError("Camera calibration requires OpenCV")
 
         ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
-            object_points,
-            image_points,
-            image_size,
-            None,
-            None,
-            flags=flags
+            object_points, image_points, image_size, None, None, flags=flags
         )
 
         return camera_matrix, dist_coeffs, rvecs, tvecs
 
     @staticmethod
     def generate_checkerboard_points(
-        board_size: Tuple[int, int],
-        square_size: float = 1.0
+        board_size: Tuple[int, int], square_size: float = 1.0
     ) -> NDArray:
         """
         Generate 3D points for checkerboard pattern.
@@ -91,7 +87,7 @@ class CameraCalibration:
             3D object points (N, 3)
         """
         points = np.zeros((board_size[0] * board_size[1], 3), np.float32)
-        points[:, :2] = np.mgrid[0:board_size[0], 0:board_size[1]].T.reshape(-1, 2)
+        points[:, :2] = np.mgrid[0 : board_size[0], 0 : board_size[1]].T.reshape(-1, 2)
         points *= square_size
         return points
 
@@ -104,7 +100,7 @@ class DistortionCorrection:
         image: NDArray,
         camera_matrix: NDArray,
         dist_coeffs: NDArray,
-        new_camera_matrix: Optional[NDArray] = None
+        new_camera_matrix: Optional[NDArray] = None,
     ) -> NDArray:
         """
         Correct lens distortion.
@@ -134,13 +130,7 @@ class DistortionCorrection:
                 camera_matrix, dist_coeffs, (w, h), 1, (w, h)
             )
 
-        undistorted = cv2.undistort(
-            image,
-            camera_matrix,
-            dist_coeffs,
-            None,
-            new_camera_matrix
-        )
+        undistorted = cv2.undistort(image, camera_matrix, dist_coeffs, None, new_camera_matrix)
 
         return undistorted
 
@@ -149,7 +139,7 @@ class DistortionCorrection:
         image_size: Tuple[int, int],
         camera_matrix: NDArray,
         dist_coeffs: NDArray,
-        new_camera_matrix: Optional[NDArray] = None
+        new_camera_matrix: Optional[NDArray] = None,
     ) -> Tuple[NDArray, NDArray]:
         """
         Compute undistortion maps for faster processing.
@@ -179,12 +169,7 @@ class DistortionCorrection:
             )
 
         map1, map2 = cv2.initUndistortRectifyMap(
-            camera_matrix,
-            dist_coeffs,
-            None,
-            new_camera_matrix,
-            image_size,
-            cv2.CV_32FC1
+            camera_matrix, dist_coeffs, None, new_camera_matrix, image_size, cv2.CV_32FC1
         )
 
         return map1, map2
@@ -197,8 +182,8 @@ class HomographyTransform:
     def find_homography(
         src_points: NDArray,
         dst_points: NDArray,
-        method: str = 'ransac',
-        ransac_threshold: float = 3.0
+        method: str = "ransac",
+        ransac_threshold: float = 3.0,
     ) -> Tuple[NDArray, NDArray]:
         """
         Find homography matrix from point correspondences.
@@ -230,26 +215,16 @@ class HomographyTransform:
             mask = np.ones(len(src_points), dtype=np.uint8)
             return H, mask
 
-        method_map = {
-            'ransac': cv2.RANSAC,
-            'lmeds': cv2.LMEDS,
-            'rho': cv2.RHO
-        }
+        method_map = {"ransac": cv2.RANSAC, "lmeds": cv2.LMEDS, "rho": cv2.RHO}
 
         H, mask = cv2.findHomography(
-            src_points,
-            dst_points,
-            method_map.get(method, cv2.RANSAC),
-            ransac_threshold
+            src_points, dst_points, method_map.get(method, cv2.RANSAC), ransac_threshold
         )
 
         return H, mask
 
     @staticmethod
-    def _compute_homography_dlt(
-        src_points: NDArray,
-        dst_points: NDArray
-    ) -> NDArray:
+    def _compute_homography_dlt(src_points: NDArray, dst_points: NDArray) -> NDArray:
         """Compute homography using Direct Linear Transform."""
         n = len(src_points)
         A = np.zeros((2 * n, 9))
@@ -258,8 +233,8 @@ class HomographyTransform:
             x, y = src_points[i]
             u, v = dst_points[i]
 
-            A[2*i] = [-x, -y, -1, 0, 0, 0, u*x, u*y, u]
-            A[2*i+1] = [0, 0, 0, -x, -y, -1, v*x, v*y, v]
+            A[2 * i] = [-x, -y, -1, 0, 0, 0, u * x, u * y, u]
+            A[2 * i + 1] = [0, 0, 0, -x, -y, -1, v * x, v * y, v]
 
         # Solve Ah = 0 using SVD
         _, _, Vt = np.linalg.svd(A)
@@ -270,10 +245,7 @@ class HomographyTransform:
 
     @staticmethod
     def warp_perspective(
-        image: NDArray,
-        H: NDArray,
-        output_size: Tuple[int, int],
-        interpolation: str = 'linear'
+        image: NDArray, H: NDArray, output_size: Tuple[int, int], interpolation: str = "linear"
     ) -> NDArray:
         """
         Apply perspective transformation.
@@ -298,25 +270,19 @@ class HomographyTransform:
             raise NotImplementedError("Perspective warp requires OpenCV")
 
         interp_map = {
-            'nearest': cv2.INTER_NEAREST,
-            'linear': cv2.INTER_LINEAR,
-            'cubic': cv2.INTER_CUBIC
+            "nearest": cv2.INTER_NEAREST,
+            "linear": cv2.INTER_LINEAR,
+            "cubic": cv2.INTER_CUBIC,
         }
 
         warped = cv2.warpPerspective(
-            image,
-            H,
-            output_size,
-            flags=interp_map.get(interpolation, cv2.INTER_LINEAR)
+            image, H, output_size, flags=interp_map.get(interpolation, cv2.INTER_LINEAR)
         )
 
         return warped
 
     @staticmethod
-    def four_point_transform(
-        image: NDArray,
-        pts: NDArray
-    ) -> NDArray:
+    def four_point_transform(image: NDArray, pts: NDArray) -> NDArray:
         """
         Perform bird's-eye view transform from four corner points.
 
@@ -345,20 +311,16 @@ class HomographyTransform:
         maxHeight = max(int(heightA), int(heightB))
 
         # Destination points
-        dst = np.array([
-            [0, 0],
-            [maxWidth - 1, 0],
-            [maxWidth - 1, maxHeight - 1],
-            [0, maxHeight - 1]
-        ], dtype=np.float32)
+        dst = np.array(
+            [[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]],
+            dtype=np.float32,
+        )
 
         # Compute homography
         H, _ = HomographyTransform.find_homography(pts, dst)
 
         # Warp
-        warped = HomographyTransform.warp_perspective(
-            image, H, (maxWidth, maxHeight)
-        )
+        warped = HomographyTransform.warp_perspective(image, H, (maxWidth, maxHeight))
 
         return warped
 
@@ -367,13 +329,7 @@ class ROIOperations:
     """Region of Interest operations."""
 
     @staticmethod
-    def crop(
-        image: NDArray,
-        x: int,
-        y: int,
-        width: int,
-        height: int
-    ) -> NDArray:
+    def crop(image: NDArray, x: int, y: int, width: int, height: int) -> NDArray:
         """
         Crop region of interest.
 
@@ -402,10 +358,7 @@ class ROIOperations:
         return image[y1:y2, x1:x2].copy()
 
     @staticmethod
-    def crop_center(
-        image: NDArray,
-        crop_size: Tuple[int, int]
-    ) -> NDArray:
+    def crop_center(image: NDArray, crop_size: Tuple[int, int]) -> NDArray:
         """
         Crop center region.
 
@@ -433,8 +386,8 @@ class ROIOperations:
     def pad(
         image: NDArray,
         padding: Union[int, Tuple[int, int, int, int]],
-        mode: str = 'constant',
-        value: Union[int, float, Tuple] = 0
+        mode: str = "constant",
+        value: Union[int, float, Tuple] = 0,
     ) -> NDArray:
         """
         Pad image.
@@ -461,7 +414,7 @@ class ROIOperations:
 
         top, bottom, left, right = padding
 
-        if mode == 'constant':
+        if mode == "constant":
             if len(image.shape) == 3:
                 pad_width = ((top, bottom), (left, right), (0, 0))
             else:
@@ -469,7 +422,7 @@ class ROIOperations:
 
             if isinstance(value, tuple):
                 # Multi-channel constant value
-                padded = np.pad(image, pad_width, mode='constant')
+                padded = np.pad(image, pad_width, mode="constant")
                 for c, v in enumerate(value):
                     # Fill border with channel-specific value
                     padded[:top, :, c] = v
@@ -477,7 +430,7 @@ class ROIOperations:
                     padded[:, :left, c] = v
                     padded[:, -right:, c] = v
             else:
-                padded = np.pad(image, pad_width, mode='constant', constant_values=value)
+                padded = np.pad(image, pad_width, mode="constant", constant_values=value)
         else:
             if len(image.shape) == 3:
                 pad_width = ((top, bottom), (left, right), (0, 0))
@@ -492,8 +445,8 @@ class ROIOperations:
     def resize(
         image: NDArray,
         size: Tuple[int, int],
-        interpolation: str = 'linear',
-        keep_aspect_ratio: bool = False
+        interpolation: str = "linear",
+        keep_aspect_ratio: bool = False,
     ) -> NDArray:
         """
         Resize image.
@@ -528,17 +481,15 @@ class ROIOperations:
 
             # Resize
             interp_map = {
-                'nearest': cv2.INTER_NEAREST,
-                'linear': cv2.INTER_LINEAR,
-                'cubic': cv2.INTER_CUBIC,
-                'area': cv2.INTER_AREA,
-                'lanczos': cv2.INTER_LANCZOS4
+                "nearest": cv2.INTER_NEAREST,
+                "linear": cv2.INTER_LINEAR,
+                "cubic": cv2.INTER_CUBIC,
+                "area": cv2.INTER_AREA,
+                "lanczos": cv2.INTER_LANCZOS4,
             }
 
             resized = cv2.resize(
-                image,
-                (new_w, new_h),
-                interpolation=interp_map.get(interpolation, cv2.INTER_LINEAR)
+                image, (new_w, new_h), interpolation=interp_map.get(interpolation, cv2.INTER_LINEAR)
             )
 
             # Pad to target size
@@ -552,17 +503,15 @@ class ROIOperations:
             resized = ROIOperations.pad(resized, (top, bottom, left, right))
         else:
             interp_map = {
-                'nearest': cv2.INTER_NEAREST,
-                'linear': cv2.INTER_LINEAR,
-                'cubic': cv2.INTER_CUBIC,
-                'area': cv2.INTER_AREA,
-                'lanczos': cv2.INTER_LANCZOS4
+                "nearest": cv2.INTER_NEAREST,
+                "linear": cv2.INTER_LINEAR,
+                "cubic": cv2.INTER_CUBIC,
+                "area": cv2.INTER_AREA,
+                "lanczos": cv2.INTER_LANCZOS4,
             }
 
             resized = cv2.resize(
-                image,
-                size,
-                interpolation=interp_map.get(interpolation, cv2.INTER_LINEAR)
+                image, size, interpolation=interp_map.get(interpolation, cv2.INTER_LINEAR)
             )
 
         return resized
@@ -572,10 +521,7 @@ class CoordinateTransform:
     """Coordinate system transformations."""
 
     @staticmethod
-    def pixel_to_normalized(
-        points: NDArray,
-        image_size: Tuple[int, int]
-    ) -> NDArray:
+    def pixel_to_normalized(points: NDArray, image_size: Tuple[int, int]) -> NDArray:
         """
         Convert pixel coordinates to normalized coordinates [-1, 1].
 
@@ -598,10 +544,7 @@ class CoordinateTransform:
         return normalized
 
     @staticmethod
-    def normalized_to_pixel(
-        points: NDArray,
-        image_size: Tuple[int, int]
-    ) -> NDArray:
+    def normalized_to_pixel(points: NDArray, image_size: Tuple[int, int]) -> NDArray:
         """
         Convert normalized coordinates to pixel coordinates.
 
@@ -624,10 +567,7 @@ class CoordinateTransform:
         return pixels.astype(np.int32)
 
     @staticmethod
-    def apply_affine(
-        points: NDArray,
-        matrix: NDArray
-    ) -> NDArray:
+    def apply_affine(points: NDArray, matrix: NDArray) -> NDArray:
         """
         Apply affine transformation to points.
 
@@ -654,11 +594,7 @@ class CoordinateTransform:
 
 
 # Convenience functions
-def undistort_image(
-    image: NDArray,
-    camera_matrix: NDArray,
-    dist_coeffs: NDArray
-) -> NDArray:
+def undistort_image(image: NDArray, camera_matrix: NDArray, dist_coeffs: NDArray) -> NDArray:
     """
     Convenience function to undistort image.
 
@@ -679,10 +615,7 @@ def undistort_image(
     return DistortionCorrection.undistort(image, camera_matrix, dist_coeffs)
 
 
-def crop_roi(
-    image: NDArray,
-    bbox: Tuple[int, int, int, int]
-) -> NDArray:
+def crop_roi(image: NDArray, bbox: Tuple[int, int, int, int]) -> NDArray:
     """
     Crop region of interest from bounding box.
 
@@ -702,11 +635,7 @@ def crop_roi(
     return ROIOperations.crop(image, x, y, w, h)
 
 
-def resize_image(
-    image: NDArray,
-    size: Tuple[int, int],
-    keep_aspect_ratio: bool = False
-) -> NDArray:
+def resize_image(image: NDArray, size: Tuple[int, int], keep_aspect_ratio: bool = False) -> NDArray:
     """
     Resize image to target size.
 

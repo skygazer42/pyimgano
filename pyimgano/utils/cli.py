@@ -10,14 +10,15 @@ Features:
 - Plugin system
 """
 
-from typing import Optional, Dict, Any, List
-from pathlib import Path
-import json
-import yaml
 import argparse
+import json
 import logging
-from datetime import datetime
 import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
 
 
 class ArgumentParser:
@@ -42,7 +43,7 @@ class ArgumentParser:
         default: Any = None,
         help: str = "",
         required: bool = False,
-        choices: Optional[List] = None
+        choices: Optional[List] = None,
     ):
         """
         Add argument.
@@ -63,18 +64,18 @@ class ArgumentParser:
             Valid choices
         """
         kwargs = {
-            'type': type,
-            'help': help,
+            "type": type,
+            "help": help,
         }
 
         if default is not None:
-            kwargs['default'] = default
+            kwargs["default"] = default
 
         if required:
-            kwargs['required'] = required
+            kwargs["required"] = required
 
         if choices:
-            kwargs['choices'] = choices
+            kwargs["choices"] = choices
 
         self.parser.add_argument(name, **kwargs)
 
@@ -95,7 +96,7 @@ class ArgumentParser:
             Subcommand parser
         """
         if self.subparsers is None:
-            self.subparsers = self.parser.add_subparsers(dest='command')
+            self.subparsers = self.parser.add_subparsers(dest="command")
 
         return self.subparsers.add_parser(name, help=help)
 
@@ -145,11 +146,11 @@ class ConfigManager:
         """
         path = Path(config_file)
 
-        if path.suffix in ['.yaml', '.yml']:
-            with open(path, 'r') as f:
+        if path.suffix in [".yaml", ".yml"]:
+            with open(path, "r") as f:
                 self.config = yaml.safe_load(f) or {}
-        elif path.suffix == '.json':
-            with open(path, 'r') as f:
+        elif path.suffix == ".json":
+            with open(path, "r") as f:
                 self.config = json.load(f)
         else:
             raise ValueError(f"Unsupported config format: {path.suffix}")
@@ -173,11 +174,11 @@ class ConfigManager:
 
         path = Path(config_file)
 
-        if path.suffix in ['.yaml', '.yml']:
-            with open(path, 'w') as f:
+        if path.suffix in [".yaml", ".yml"]:
+            with open(path, "w") as f:
                 yaml.dump(self.config, f, default_flow_style=False)
-        elif path.suffix == '.json':
-            with open(path, 'w') as f:
+        elif path.suffix == ".json":
+            with open(path, "w") as f:
                 json.dump(self.config, f, indent=2)
         else:
             raise ValueError(f"Unsupported config format: {path.suffix}")
@@ -198,7 +199,7 @@ class ConfigManager:
         value : Any
             Configuration value
         """
-        keys = key.split('.')
+        keys = key.split(".")
         value = self.config
 
         for k in keys:
@@ -220,7 +221,7 @@ class ConfigManager:
         value : Any
             Value to set
         """
-        keys = key.split('.')
+        keys = key.split(".")
         config = self.config
 
         for k in keys[:-1]:
@@ -249,8 +250,8 @@ class Logger:
         self,
         name: str,
         log_file: Optional[str] = None,
-        level: str = 'INFO',
-        format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level: str = "INFO",
+        format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     ):
         """
         Initialize logger.
@@ -368,7 +369,7 @@ class ProgressBar:
 
         progress = self.current / self.total
         filled = int(self.bar_length * progress)
-        bar = '=' * filled + '-' * (self.bar_length - filled)
+        bar = "=" * filled + "-" * (self.bar_length - filled)
 
         # Calculate ETA
         if self.start_time and self.current > 0:
@@ -379,8 +380,11 @@ class ProgressBar:
             eta_str = "?"
 
         desc_str = f"{self.desc}: " if self.desc else ""
-        print(f"\r{desc_str}[{bar}] {self.current}/{self.total} ({progress*100:.1f}%) ETA: {eta_str}",
-              end='', flush=True)
+        print(
+            f"\r{desc_str}[{bar}] {self.current}/{self.total} ({progress*100:.1f}%) ETA: {eta_str}",
+            end="",
+            flush=True,
+        )
 
 
 class ExperimentTracker:
@@ -421,16 +425,16 @@ class ExperimentTracker:
 
         # Save config
         if config:
-            with open(self.run_dir / 'config.json', 'w') as f:
+            with open(self.run_dir / "config.json", "w") as f:
                 json.dump(config, f, indent=2)
 
         # Create metadata
         metadata = {
-            'run_name': run_name,
-            'start_time': datetime.now().isoformat(),
+            "run_name": run_name,
+            "start_time": datetime.now().isoformat(),
         }
 
-        with open(self.run_dir / 'metadata.json', 'w') as f:
+        with open(self.run_dir / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
@@ -447,18 +451,15 @@ class ExperimentTracker:
         if self.run_dir is None:
             raise RuntimeError("No active run. Call start_run() first.")
 
-        metrics_file = self.run_dir / 'metrics.jsonl'
+        metrics_file = self.run_dir / "metrics.jsonl"
 
-        entry = {
-            'timestamp': datetime.now().isoformat(),
-            'metrics': metrics
-        }
+        entry = {"timestamp": datetime.now().isoformat(), "metrics": metrics}
 
         if step is not None:
-            entry['step'] = step
+            entry["step"] = step
 
-        with open(metrics_file, 'a') as f:
-            f.write(json.dumps(entry) + '\n')
+        with open(metrics_file, "a") as f:
+            f.write(json.dumps(entry) + "\n")
 
     def save_artifact(self, artifact_path: str, artifact_name: Optional[str] = None):
         """
@@ -486,14 +487,14 @@ class ExperimentTracker:
         """End current run."""
         if self.run_dir:
             # Update metadata
-            metadata_file = self.run_dir / 'metadata.json'
+            metadata_file = self.run_dir / "metadata.json"
             if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
+                with open(metadata_file, "r") as f:
                     metadata = json.load(f)
 
-                metadata['end_time'] = datetime.now().isoformat()
+                metadata["end_time"] = datetime.now().isoformat()
 
-                with open(metadata_file, 'w') as f:
+                with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=2)
 
         self.current_run = None
@@ -562,9 +563,7 @@ class PluginManager:
 
 # Convenience functions
 def setup_logger(
-    name: str = 'pyimgano',
-    log_file: Optional[str] = None,
-    level: str = 'INFO'
+    name: str = "pyimgano", log_file: Optional[str] = None, level: str = "INFO"
 ) -> Logger:
     """
     Set up logger.
@@ -603,7 +602,7 @@ def load_config(config_file: str) -> ConfigManager:
     return ConfigManager(config_file)
 
 
-def create_experiment_tracker(experiment_dir: str = './experiments') -> ExperimentTracker:
+def create_experiment_tracker(experiment_dir: str = "./experiments") -> ExperimentTracker:
     """
     Create experiment tracker.
 

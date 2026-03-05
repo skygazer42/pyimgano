@@ -16,11 +16,12 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+from typing import Literal, Optional, Tuple
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import Optional, Tuple, Literal
-from skimage.feature import local_binary_pattern
 from skimage import color
+from skimage.feature import local_binary_pattern
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
@@ -78,12 +79,12 @@ class LBP(BaseVisionClassicalDetector):
         self,
         n_points: int = 24,
         radius: int = 3,
-        method: Literal['default', 'ror', 'uniform', 'var'] = 'uniform',
-        detector: Literal['isolation_forest', 'one_class_svm'] = 'isolation_forest',
+        method: Literal["default", "ror", "uniform", "var"] = "uniform",
+        detector: Literal["isolation_forest", "one_class_svm"] = "isolation_forest",
         contamination: float = 0.1,
         n_bins: int = 256,
         grid_size: Tuple[int, int] = (4, 4),
-        resize_shape: Optional[Tuple[int, int]] = None
+        resize_shape: Optional[Tuple[int, int]] = None,
     ):
         super().__init__()
         self.n_points = n_points
@@ -107,15 +108,11 @@ class LBP(BaseVisionClassicalDetector):
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
+
             image = resize(image, self.resize_shape, anti_aliasing=True)
 
         # Compute LBP
-        lbp = local_binary_pattern(
-            image,
-            P=self.n_points,
-            R=self.radius,
-            method=self.method
-        )
+        lbp = local_binary_pattern(image, P=self.n_points, R=self.radius, method=self.method)
 
         # Extract spatial histograms
         h, w = lbp.shape
@@ -127,20 +124,17 @@ class LBP(BaseVisionClassicalDetector):
         for i in range(grid_h):
             for j in range(grid_w):
                 # Extract cell
-                cell = lbp[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
+                cell = lbp[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
                 # Compute histogram
                 hist, _ = np.histogram(
-                    cell.ravel(),
-                    bins=self.n_bins,
-                    range=(0, self.n_bins),
-                    density=True
+                    cell.ravel(), bins=self.n_bins, range=(0, self.n_bins), density=True
                 )
                 features.extend(hist)
 
         return np.array(features)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'LBP':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "LBP":
         """
         Fit LBP model.
 
@@ -171,19 +165,12 @@ class LBP(BaseVisionClassicalDetector):
 
         # Fit detector
         print(f"Training {self.detector_type}...")
-        if self.detector_type == 'isolation_forest':
-            from sklearn.ensemble import IsolationForest
-            self.detector_ = IsolationForest(
-                contamination=self.contamination,
-                random_state=42
-            )
-        elif self.detector_type == 'one_class_svm':
+        if self.detector_type == "isolation_forest":
+            self.detector_ = IsolationForest(contamination=self.contamination, random_state=42)
+        elif self.detector_type == "one_class_svm":
             from sklearn.svm import OneClassSVM
-            self.detector_ = OneClassSVM(
-                nu=self.contamination,
-                kernel='rbf',
-                gamma='scale'
-            )
+
+            self.detector_ = OneClassSVM(nu=self.contamination, kernel="rbf", gamma="scale")
 
         self.detector_.fit(lbp_features_scaled)
 
@@ -218,7 +205,7 @@ class LBP(BaseVisionClassicalDetector):
         lbp_features_scaled = self.scaler_.transform(lbp_features)
 
         # Compute scores
-        if self.detector_type == 'isolation_forest':
+        if self.detector_type == "isolation_forest":
             # Isolation Forest: negative scores for anomalies
             scores = -self.detector_.score_samples(lbp_features_scaled)
         else:  # one_class_svm
@@ -258,7 +245,7 @@ class LBP(BaseVisionClassicalDetector):
         predictions = self.detector_.predict(lbp_features_scaled)
 
         # Convert to binary labels
-        if self.detector_type == 'isolation_forest':
+        if self.detector_type == "isolation_forest":
             # Isolation Forest: -1 = anomaly, 1 = normal
             labels = (predictions == -1).astype(int)
         else:
@@ -290,15 +277,11 @@ class LBP(BaseVisionClassicalDetector):
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
+
             image = resize(image, self.resize_shape, anti_aliasing=True)
 
         # Compute LBP
-        lbp = local_binary_pattern(
-            image,
-            P=self.n_points,
-            R=self.radius,
-            method=self.method
-        )
+        lbp = local_binary_pattern(image, P=self.n_points, R=self.radius, method=self.method)
 
         # Extract spatial scores
         h, w = lbp.shape
@@ -311,20 +294,17 @@ class LBP(BaseVisionClassicalDetector):
         for i in range(grid_h):
             for j in range(grid_w):
                 # Extract cell
-                cell = lbp[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
+                cell = lbp[i * cell_h : (i + 1) * cell_h, j * cell_w : (j + 1) * cell_w]
 
                 # Compute histogram
                 hist, _ = np.histogram(
-                    cell.ravel(),
-                    bins=self.n_bins,
-                    range=(0, self.n_bins),
-                    density=True
+                    cell.ravel(), bins=self.n_bins, range=(0, self.n_bins), density=True
                 )
 
                 # Scale and predict
                 hist_scaled = self.scaler_.transform(hist.reshape(1, -1))
 
-                if self.detector_type == 'isolation_forest':
+                if self.detector_type == "isolation_forest":
                     score = -self.detector_.score_samples(hist_scaled)[0]
                 else:
                     score = -self.detector_.decision_function(hist_scaled)[0]
@@ -336,12 +316,12 @@ class LBP(BaseVisionClassicalDetector):
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'n_points': self.n_points,
-            'radius': self.radius,
-            'method': self.method,
-            'detector': self.detector_type,
-            'contamination': self.contamination,
-            'n_bins': self.n_bins,
-            'grid_size': self.grid_size,
-            'resize_shape': self.resize_shape,
+            "n_points": self.n_points,
+            "radius": self.radius,
+            "method": self.method,
+            "detector": self.detector_type,
+            "contamination": self.contamination,
+            "n_bins": self.n_bins,
+            "grid_size": self.grid_size,
+            "resize_shape": self.resize_shape,
         }

@@ -236,7 +236,7 @@ class AlgorithmBenchmark:
         }
 
         if verbose:
-            print(f"\nResults:")
+            print("\nResults:")
             print(f"  AUROC: {result['auroc']:.4f}")
             print(f"  AP: {result['average_precision']:.4f}")
             print(f"  F1: {result['metrics']['f1']:.4f}")

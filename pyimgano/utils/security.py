@@ -11,17 +11,18 @@ Features:
 - Hash verification
 """
 
-from typing import Optional, Tuple, List, Any, Dict
-from pathlib import Path
 import hashlib
-import tempfile
-import shutil
 import os
+import shutil
+import tempfile
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class ErrorCode(Enum):
     """Error codes for common issues."""
+
     SUCCESS = 0
     INVALID_INPUT = 1
     FILE_NOT_FOUND = 2
@@ -41,12 +42,8 @@ class SecurityValidator:
     MAX_PIXELS = 178 * 1024 * 1024  # 178 megapixels (prevent decompression bombs)
 
     # Allowed file extensions
-    ALLOWED_IMAGE_EXTENSIONS = {
-        '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif', '.webp'
-    }
-    ALLOWED_VIDEO_EXTENSIONS = {
-        '.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm'
-    }
+    ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".tif", ".webp"}
+    ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"}
 
     @staticmethod
     def validate_path(path: str, base_dir: Optional[str] = None) -> Tuple[bool, str]:
@@ -77,7 +74,7 @@ class SecurityValidator:
                     return False, "Path traversal attempt detected"
 
             # Check for suspicious patterns
-            suspicious = ['..', '~', '$']
+            suspicious = ["..", "~", "$"]
             path_str = str(path)
             for pattern in suspicious:
                 if pattern in path_str:
@@ -90,9 +87,7 @@ class SecurityValidator:
 
     @staticmethod
     def validate_file_size(
-        file_path: str,
-        max_size: Optional[int] = None,
-        file_type: str = 'image'
+        file_path: str, max_size: Optional[int] = None, file_type: str = "image"
     ) -> Tuple[bool, str]:
         """
         Validate file size.
@@ -114,9 +109,9 @@ class SecurityValidator:
             Error message if invalid
         """
         if max_size is None:
-            if file_type == 'image':
+            if file_type == "image":
                 max_size = SecurityValidator.MAX_IMAGE_SIZE
-            elif file_type == 'video':
+            elif file_type == "video":
                 max_size = SecurityValidator.MAX_VIDEO_SIZE
             else:
                 max_size = SecurityValidator.MAX_IMAGE_SIZE
@@ -131,9 +126,7 @@ class SecurityValidator:
 
     @staticmethod
     def validate_image_dimensions(
-        width: int,
-        height: int,
-        max_pixels: Optional[int] = None
+        width: int, height: int, max_pixels: Optional[int] = None
     ) -> Tuple[bool, str]:
         """
         Validate image dimensions to prevent decompression bombs.
@@ -165,9 +158,7 @@ class SecurityValidator:
 
     @staticmethod
     def validate_file_extension(
-        file_path: str,
-        allowed_extensions: Optional[List[str]] = None,
-        file_type: str = 'image'
+        file_path: str, allowed_extensions: Optional[List[str]] = None, file_type: str = "image"
     ) -> Tuple[bool, str]:
         """
         Validate file extension.
@@ -189,9 +180,9 @@ class SecurityValidator:
             Error message if invalid
         """
         if allowed_extensions is None:
-            if file_type == 'image':
+            if file_type == "image":
                 allowed_extensions = SecurityValidator.ALLOWED_IMAGE_EXTENSIONS
-            elif file_type == 'video':
+            elif file_type == "video":
                 allowed_extensions = SecurityValidator.ALLOWED_VIDEO_EXTENSIONS
             else:
                 allowed_extensions = SecurityValidator.ALLOWED_IMAGE_EXTENSIONS
@@ -208,8 +199,7 @@ class InputValidator:
 
     @staticmethod
     def validate_bbox(
-        bbox: Tuple[float, float, float, float],
-        image_size: Tuple[int, int]
+        bbox: Tuple[float, float, float, float], image_size: Tuple[int, int]
     ) -> Tuple[bool, str]:
         """
         Validate bounding box.
@@ -244,10 +234,7 @@ class InputValidator:
 
     @staticmethod
     def validate_range(
-        value: float,
-        min_val: float,
-        max_val: float,
-        name: str = "value"
+        value: float, min_val: float, max_val: float, name: str = "value"
     ) -> Tuple[bool, str]:
         """
         Validate value is in range.
@@ -322,6 +309,7 @@ class ResourceLimiter:
         """
         try:
             import psutil
+
             process = psutil.Process()
             usage_mb = process.memory_info().rss / 1024 / 1024
             return usage_mb < max_memory_mb, usage_mb
@@ -330,7 +318,7 @@ class ResourceLimiter:
             return True, 0.0
 
     @staticmethod
-    def estimate_array_memory(shape: Tuple, dtype: str = 'float32') -> float:
+    def estimate_array_memory(shape: Tuple, dtype: str = "float32") -> float:
         """
         Estimate memory required for array.
 
@@ -349,15 +337,15 @@ class ResourceLimiter:
         import numpy as np
 
         dtype_sizes = {
-            'uint8': 1,
-            'int8': 1,
-            'uint16': 2,
-            'int16': 2,
-            'float16': 2,
-            'uint32': 4,
-            'int32': 4,
-            'float32': 4,
-            'float64': 8,
+            "uint8": 1,
+            "int8": 1,
+            "uint16": 2,
+            "int16": 2,
+            "float16": 2,
+            "uint32": 4,
+            "int32": 4,
+            "float32": 4,
+            "float64": 8,
         }
 
         size_bytes = np.prod(shape) * dtype_sizes.get(dtype, 4)
@@ -367,12 +355,7 @@ class ResourceLimiter:
 class SecureTempFile:
     """Secure temporary file handling."""
 
-    def __init__(
-        self,
-        prefix: str = 'pyimgano_',
-        suffix: str = '',
-        dir: Optional[str] = None
-    ):
+    def __init__(self, prefix: str = "pyimgano_", suffix: str = "", dir: Optional[str] = None):
         """
         Initialize secure temporary file.
 
@@ -393,11 +376,7 @@ class SecureTempFile:
 
     def __enter__(self):
         """Create temporary file."""
-        self.fd, self.path = tempfile.mkstemp(
-            prefix=self.prefix,
-            suffix=self.suffix,
-            dir=self.dir
-        )
+        self.fd, self.path = tempfile.mkstemp(prefix=self.prefix, suffix=self.suffix, dir=self.dir)
         return self.path
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -411,11 +390,7 @@ class SecureTempFile:
 class SecureTempDir:
     """Secure temporary directory handling."""
 
-    def __init__(
-        self,
-        prefix: str = 'pyimgano_',
-        dir: Optional[str] = None
-    ):
+    def __init__(self, prefix: str = "pyimgano_", dir: Optional[str] = None):
         """
         Initialize secure temporary directory.
 
@@ -445,11 +420,7 @@ class FileHasher:
     """File integrity verification."""
 
     @staticmethod
-    def compute_hash(
-        file_path: str,
-        algorithm: str = 'sha256',
-        chunk_size: int = 8192
-    ) -> str:
+    def compute_hash(file_path: str, algorithm: str = "sha256", chunk_size: int = 8192) -> str:
         """
         Compute file hash.
 
@@ -469,7 +440,7 @@ class FileHasher:
         """
         hasher = hashlib.new(algorithm)
 
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             while True:
                 chunk = f.read(chunk_size)
                 if not chunk:
@@ -479,11 +450,7 @@ class FileHasher:
         return hasher.hexdigest()
 
     @staticmethod
-    def verify_hash(
-        file_path: str,
-        expected_hash: str,
-        algorithm: str = 'sha256'
-    ) -> bool:
+    def verify_hash(file_path: str, expected_hash: str, algorithm: str = "sha256") -> bool:
         """
         Verify file hash.
 
@@ -510,11 +477,7 @@ class ErrorHandler:
 
     @staticmethod
     def safe_execute(
-        func: callable,
-        *args,
-        default: Any = None,
-        log_errors: bool = True,
-        **kwargs
+        func: callable, *args, default: Any = None, log_errors: bool = True, **kwargs
     ) -> Tuple[Any, Optional[Exception]]:
         """
         Safely execute function with error handling.
@@ -552,7 +515,7 @@ class ErrorHandler:
         delay: float = 1.0,
         backoff: float = 2.0,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         Retry function on failure.
@@ -599,9 +562,7 @@ class ErrorHandler:
 
 # Convenience functions
 def validate_image_file(
-    file_path: str,
-    base_dir: Optional[str] = None,
-    max_size: Optional[int] = None
+    file_path: str, base_dir: Optional[str] = None, max_size: Optional[int] = None
 ) -> Tuple[ErrorCode, str]:
     """
     Validate image file for security issues.
@@ -632,12 +593,12 @@ def validate_image_file(
         return ErrorCode.FILE_NOT_FOUND, "File not found"
 
     # Validate extension
-    valid, msg = SecurityValidator.validate_file_extension(file_path, file_type='image')
+    valid, msg = SecurityValidator.validate_file_extension(file_path, file_type="image")
     if not valid:
         return ErrorCode.FORMAT_ERROR, msg
 
     # Validate size
-    valid, msg = SecurityValidator.validate_file_size(file_path, max_size, 'image')
+    valid, msg = SecurityValidator.validate_file_size(file_path, max_size, "image")
     if not valid:
         return ErrorCode.RESOURCE_LIMIT_EXCEEDED, msg
 
@@ -671,6 +632,7 @@ def secure_load_image(file_path: str, **kwargs) -> Tuple[Optional[Any], ErrorCod
     # Load image
     try:
         import cv2
+
         image = cv2.imread(file_path)
         if image is None:
             return None, ErrorCode.FORMAT_ERROR

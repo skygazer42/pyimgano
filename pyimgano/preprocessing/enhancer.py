@@ -918,7 +918,7 @@ class PreprocessingPipeline:
 
 
 # Import advanced operations
-from .advanced_operations import (  # Frequency domain; Texture analysis; Color space; Enhancement; Denoising; Feature extraction; Advanced morphology; Segmentation; Pyramids
+from .advanced_operations import (  # noqa: E402 # Frequency domain; Texture analysis; Color space; Enhancement; Denoising; Feature extraction; Advanced morphology; Segmentation; Pyramids
     anisotropic_diffusion,
     apply_advanced_morphology,
     apply_fft,

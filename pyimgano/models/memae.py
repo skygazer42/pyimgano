@@ -2,7 +2,7 @@
 MemAE: Memory-Augmented Autoencoder
 
 Uses a memory module to store prototypical patterns of normal data.
-During reconstruction, features are retrieved from memory, making it 
+During reconstruction, features are retrieved from memory, making it
 harder to reconstruct anomalies.
 
 Reference:
@@ -17,13 +17,14 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+from typing import Optional
+
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
-from typing import Optional
 
 from ..base import BaseVisionDeepDetector
 
@@ -38,12 +39,12 @@ class MemoryModule(nn.Module):
         self.shrink_thres = shrink_thres
 
         # Initialize memory
-        self.register_buffer('memory', torch.randn(mem_dim, fea_dim))
+        self.register_buffer("memory", torch.randn(mem_dim, fea_dim))
         self.reset_parameters()
 
     def reset_parameters(self):
         """Initialize memory with normal distribution."""
-        stdv = 1. / np.sqrt(self.memory.size(1))
+        stdv = 1.0 / np.sqrt(self.memory.size(1))
         self.memory.data.uniform_(-stdv, stdv)
 
     def forward(self, x: torch.Tensor):
@@ -63,7 +64,7 @@ class MemoryModule(nn.Module):
             Attention weights
         """
         batch_size = x.size(0)
-        
+
         # Reshape: (B, C, H, W) -> (B, HW, C)
         x_flat = x.permute(0, 2, 3, 1).reshape(batch_size, -1, self.fea_dim)
 
@@ -96,12 +97,7 @@ def hard_shrink_relu(x: torch.Tensor, threshold: float = 0.5):
 class MemAENetwork(nn.Module):
     """Memory-Augmented Autoencoder network."""
 
-    def __init__(
-        self,
-        in_channels: int = 3,
-        mem_dim: int = 2000,
-        shrink_thres: float = 0.0025
-    ):
+    def __init__(self, in_channels: int = 3, mem_dim: int = 2000, shrink_thres: float = 0.0025):
         super().__init__()
 
         # Encoder
@@ -134,7 +130,7 @@ class MemAENetwork(nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(True),
             nn.ConvTranspose2d(32, in_channels, 4, stride=2, padding=1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, x: torch.Tensor):
@@ -196,7 +192,7 @@ class MemAE(BaseVisionDeepDetector):
         learning_rate: float = 2e-4,
         batch_size: int = 32,
         epochs: int = 100,
-        device: str = 'cuda'
+        device: str = "cuda",
     ):
         super().__init__()
         self.mem_dim = mem_dim
@@ -205,11 +201,11 @@ class MemAE(BaseVisionDeepDetector):
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.epochs = epochs
-        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
 
         self.network_ = None
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> 'MemAE':
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "MemAE":
         """
         Fit MemAE model.
 
@@ -234,24 +230,15 @@ class MemAE(BaseVisionDeepDetector):
 
         # Initialize network
         self.network_ = MemAENetwork(
-            in_channels=X.shape[1],
-            mem_dim=self.mem_dim,
-            shrink_thres=self.shrink_thres
+            in_channels=X.shape[1], mem_dim=self.mem_dim, shrink_thres=self.shrink_thres
         ).to(self.device)
 
         # Setup optimizer
-        optimizer = torch.optim.Adam(
-            self.network_.parameters(),
-            lr=self.learning_rate
-        )
+        optimizer = torch.optim.Adam(self.network_.parameters(), lr=self.learning_rate)
 
         # Training loop
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         self.network_.train()
         for epoch in range(self.epochs):
@@ -317,7 +304,7 @@ class MemAE(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
                 recon, _, _, _ = self.network_(batch)
 
                 # MSE reconstruction error
@@ -329,11 +316,11 @@ class MemAE(BaseVisionDeepDetector):
     def get_params(self) -> dict:
         """Get model parameters."""
         return {
-            'mem_dim': self.mem_dim,
-            'shrink_thres': self.shrink_thres,
-            'entropy_weight': self.entropy_weight,
-            'learning_rate': self.learning_rate,
-            'batch_size': self.batch_size,
-            'epochs': self.epochs,
-            'device': str(self.device),
+            "mem_dim": self.mem_dim,
+            "shrink_thres": self.shrink_thres,
+            "entropy_weight": self.entropy_weight,
+            "learning_rate": self.learning_rate,
+            "batch_size": self.batch_size,
+            "epochs": self.epochs,
+            "device": str(self.device),
         }
