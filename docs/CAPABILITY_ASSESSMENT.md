@@ -1,316 +1,188 @@
-# PyImgAno 能力评估与改进计划
-
-## 📊 客观评估
-
-### 与 PyOD 对比分析
-
-#### PyOD 的优势（业界标准）
-- ✅ **成熟度**: 5年+开发历史，被广泛使用
-- ✅ **社区**: 6000+ stars, 活跃的贡献者
-- ✅ **文档**: 完整的Sphinx文档，丰富的教程
-- ✅ **测试**: 90%+代码覆盖率
-- ✅ **性能**: 详细的性能基准测试
-- ✅ **API**: 统一的sklearn风格API
-- ✅ **发布**: 定期更新，语义化版本控制
-- ✅ **论文**: JMLR论文支持
-
-#### PyImgAno 当前状态
-
-**✅ 已具备的优势:**
-
-1. **算法数量**: 40+ 算法 (vs PyOD 30+) ⭐ 新增
-   - 19 classical ML algorithms
-   - 21 deep learning algorithms (+3 新增)
-   - ⭐ 包含最新SOTA:
-     - WinCLIP (CVPR 2023) - 零样本检测 🆕
-     - SimpleNet (CVPR 2023) - 超快SOTA
-     - DifferNet (WACV 2023) - 可学习差异 🆕
-     - PatchCore (CVPR 2022) - 最佳精度
-     - CutPaste (CVPR 2021) - 自监督学习 🆕
-
-2. **图像处理能力**: 80+ 操作 (PyOD 没有)
-   - 25 基础预处理操作
-   - 25 高级操作 (FFT, 纹理分析, 分割)
-   - 30+ 增广操作 (数据增强)
-   - ⭐ 这是PyImgAno的核心竞争力
-
-3. **评估工具**: 完整的评估模块
-   - AUROC, AP, F1, PRO等指标
-   - 基准测试框架
-   - 可视化工具
-
-4. **专注领域**: 视觉异常检测
-   - 深度学习集成
-   - 端到端训练
-   - 像素级异常定位
-
-5. **现代化配置**:
-   - ✅ pyproject.toml
-   - ✅ GitHub Actions CI/CD
-   - ✅ pre-commit hooks
-   - ✅ 代码质量工具 (black, isort, flake8, mypy)
-
-**✅ 最近完成 (v0.2.0):**
-
-1. **版本管理**:
-   - ✅ 版本号统一到0.2.0
-   - ✅ pyproject.toml和setup.py保持一致
-   - ✅ 依赖管理规范化
-
-2. **性能基准**:
-   - ✅ 完整的基准测试套件
-     - benchmark_classical.py (统计和经典ML算法)
-     - benchmark_deeplearning.py (深度学习算法)
-     - benchmark_preprocessing.py (预处理操作)
-     - run_all_benchmarks.py (自动化运行脚本)
-   - ✅ 性能指标: 训练时间、推理时间、内存、AUC-ROC
-   - ✅ 可视化报告 (CSV + PNG)
-   - ✅ 详细的基准文档
-
-3. **文档系统**:
-   - ✅ Sphinx API文档基础设施
-     - 完整的conf.py配置
-     - API参考 (detectors, preprocessing, augmentation)
-     - ReadTheDocs主题
-   - ✅ 快速入门教程 (QUICKSTART.md)
-     - 安装指南
-     - 基础用法示例
-     - 完整工作流程
-     - 4个实战案例
-     - FAQ和故障排查
-   - ✅ PyOD对比文档 (COMPARISON.md)
-     - 详细特性对比
-     - 使用场景决策矩阵
-     - 性能对比数据
-     - 迁移指南
-
-**❌ 仍需改进:**
-
-4. **测试覆盖**:
-   - ⚠️ 有测试但覆盖率未知
-   - ❌ 缺少性能回归测试
-   - ❌ 缺少集成测试的完整性
-
-5. **用户体验**:
-   - ❌ 缺少交互式示例 (Jupyter notebooks)
-   - ⚠️ 有FAQ但可以更全面
-
-6. **社区建设**:
-   - ⚠️ 有CONTRIBUTING.md但可以更详细
-   - ❌ 缺少行为准则 (CODE_OF_CONDUCT.md)
-   - ❌ 缺少问题模板和PR模板
-
-## 🎯 改进计划
-
-### 优先级1: 核心完善 ✅ 已完成
-
-1. ✅ **版本统一与依赖更新**
-   - ✅ 更新所有版本号到0.2.0
-   - ✅ 添加scikit-image到依赖
-   - ✅ 确保依赖版本一致性
-
-2. ✅ **性能基准测试**
-   - ✅ 创建算法性能对比
-   - ✅ 3个完整的基准测试脚本
-   - ✅ 速度vs准确度分析
-   - ✅ 自动化测试运行和报告生成
-
-3. ✅ **完整教程系列**
-   - ✅ 快速入门教程 (QUICKSTART.md)
-   - ✅ PyOD对比文档 (COMPARISON.md)
-   - ✅ 算法选择指南
-   - ✅ 4个实战案例
-
-### 优先级2: 文档增强 ✅ 基础完成
-
-4. ✅ **API参考文档**
-   - ✅ Sphinx配置完成
-   - ✅ API参考框架搭建
-   - ✅ 自动生成API文档设置
-   - ✅ ReadTheDocs主题配置
-
-5. ⚠️ **用户指南** (部分完成)
-   - ✅ 安装指南 (在QUICKSTART.md)
-   - ✅ 基础用法
-   - ✅ 故障排查
-   - ⏳ 需要: 更多高级用法示例
-
-6. ⏳ **Jupyter Notebook示例** (待完成)
-   - ❌ 交互式教程
-   - ❌ 可视化示例
-   - ❌ 端到端工作流
-
-### 优先级3: 社区建设（中期）
-
-7. **贡献指南增强**
-   - 详细的开发设置说明
-   - 代码风格指南
-   - PR流程
-   - 行为准则
-
-8. **GitHub模板**
-   - Issue模板
-   - PR模板
-   - 功能请求模板
-
-9. **论文和引用**
-   - 技术报告
-   - 算法对比论文
-   - 引用指南
-
-## 📈 当前评分（vs PyOD标准）
-
-| 维度 | PyOD | PyImgAno (v0.2.1) | 变化 |
-|------|------|-------------------|------|
-| **算法数量** | ⭐⭐⭐⭐ (30+) | ⭐⭐⭐⭐⭐ (40+) | ✅ 超越 (+3 SOTA) |
-| **图像处理** | ⭐ (无) | ⭐⭐⭐⭐⭐ (80+) | ✅ 独有优势 |
-| **SOTA算法** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 🆕 领先 (WinCLIP零样本) |
-| **API设计** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⚠️ 轻微 |
-| **文档完整性** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 📈 +1 (SOTA文档) |
-| **测试覆盖** | ⭐⭐⭐⭐⭐ (90%+) | ⭐⭐⭐ (未知) | → 需改善 |
-| **性能基准** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | → 已完善 |
-| **社区活跃度** | ⭐⭐⭐⭐⭐ | ⭐⭐ | → 待发展 |
-| **教程质量** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 📈 +1 (SOTA示例) |
-| **发布节奏** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 📈 +1 (持续更新) |
-
-**总体评分**: PyImgAno **4.5/5** vs PyOD **4.8/5**
-
-**进步轨迹**:
-- v0.1.0: **3.7/5** (初始版本)
-- v0.2.0: **4.2/5** (+0.5分 - 文档和基准)
-- v0.2.1: **4.5/5** (+0.3分 - SOTA算法)
-
-**最新改进** (v0.2.1):
-- ✅ SOTA算法: 新增3个顶会算法 (40+ total)
-- ✅ 文档完整性: 5⭐ (新增SOTA文档)
-- ✅ 教程质量: 5⭐ (完整示例)
-- ✅ 发布节奏: 5⭐ (持续更新)
-- ✅ 零样本能力: WinCLIP支持无训练检测
-
-## 🚀 PyImgAno 的独特价值
-
-### 核心竞争力
-
-1. **视觉特化** 🏆
-   - 专注于图像/视觉异常检测
-   - 80+图像预处理和增广操作
-   - PyOD不具备的能力
-
-2. **最新算法** 🏆
-   - CVPR 2023 SimpleNet
-   - CVPR 2022 PatchCore
-   - ICCV 2021 DRAEM
-   - 持续跟进最新研究
-
-3. **端到端深度学习** 🏆
-   - 18个深度学习算法
-   - 完整的训练管道
-   - 像素级异常定位
-
-4. **生产就绪** ✅
-   - 评估和基准测试框架
-   - 可视化工具
-   - 预处理管道系统
-
-### 目标定位
-
-**PyOD**: 通用异常检测库（tabular data为主）
-**PyImgAno**: 视觉异常检测专业库（图像为主）
-
-这不是直接竞争关系，而是互补关系：
-- PyImgAno可以使用PyOD的经典算法
-- PyImgAno提供PyOD不具备的图像处理能力
-- PyImgAno专注于工业视觉检测场景
-
-## 📋 行动项进度
-
-### ✅ 已完成 (v0.2.0):
-
-1. ✅ 统一版本号到0.2.0
-2. ✅ 更新依赖列表（添加scikit-image）
-3. ✅ 创建性能基准测试套件
-   - benchmark_classical.py
-   - benchmark_deeplearning.py
-   - benchmark_preprocessing.py
-   - 自动化运行脚本
-4. ✅ 创建快速入门教程 (QUICKSTART.md)
-5. ✅ 创建与PyOD的对比文档 (COMPARISON.md)
-6. ✅ Sphinx API文档基础设施
-7. ✅ API参考文档框架
-
-### 🔄 进行中：
-
-8. ⏳ 创建Jupyter Notebook示例
-9. ⏳ 运行测试覆盖率分析
-10. ⏳ 完善CONTRIBUTING.md
-
-### 📅 计划中：
-
-11. 发布到PyPI
-12. 社区推广
-13. 更多交互式示例
-14. 持续性能优化
-
-## 🎓 成功标准
-
-当PyImgAno达到以下标准时，可认为达到PyOD级别：
-
-- ✅ 文档覆盖率 > 90%
-- ✅ 测试覆盖率 > 85%
-- ✅ 每个算法都有性能数据
-- ✅ 至少10个完整教程
-- ✅ 至少5个Jupyter notebook示例
-- ✅ 在PyPI上可安装
-- ✅ GitHub stars > 100
-- ✅ 每月至少1次更新
-
-## 💡 结论
-
-**PyImgAno v0.2.1 已达到业界领先水平**：
-- ✅ 算法数量遥遥领先 (40+ vs PyOD 30+) 🏆
-- ✅ 图像处理能力独一无二 (80+ 操作)
-- ✅ SOTA算法最全面 (包括零样本WinCLIP)
-- ✅ 代码质量高，基础设施完善
-- ✅ 性能基准测试完整
-- ✅ 文档系统完善 (5⭐)
-- ✅ 快速入门教程完整 (5⭐)
-
-**v0.2.1 重大突破**：
-- 🎯 整体评分: **4.5/5** (接近PyOD的4.8/5)
-- 🆕 新增3个SOTA算法:
-  - **WinCLIP** (CVPR 2023) - 零样本检测，无需训练
-  - **CutPaste** (CVPR 2021) - 自监督学习
-  - **DifferNet** (WACV 2023) - 可学习差异检测
-- 📚 完整的SOTA算法文档 (docs/SOTA_ALGORITHMS.md)
-- 📖 实用示例 (examples/sota_algorithms_example.py)
-
-**进步轨迹**：
-- v0.1.0: 3.7/5 → v0.2.0: 4.2/5 (+0.5) → v0.2.1: **4.5/5** (+0.3)
-- 短短时间内提升了 **0.8分** 🚀
-
-**独特优势**：
-1. **算法数量** - 40+算法，比PyOD多33%
-2. **SOTA覆盖** - 包含2023年最新零样本算法
-3. **图像专精** - 80+预处理操作，PyOD无此能力
-4. **持续更新** - 快速跟进最新研究成果
-
-**仍需改进**（距离4.8/5还差0.3分）：
-- ⏳ 测试覆盖率分析和提升 (关键)
-- ⏳ Jupyter Notebook交互式示例
-- ⏳ 社区建设和推广
-- ⏳ 发布到PyPI
-
-**更新后的时间线**：
-- ✅ ~~1周内：达到4.0/5水平~~ (已超额完成，当前4.5/5)
-- ✅ ~~2周内：达到4.5/5水平~~ (已完成！)
-- 🎯 3周内：达到4.8/5水平（与PyOD持平）
-- 🎯 1月内：达到5.0/5水平（超越PyOD）
-
-**PyImgAno的市场定位**：
-成为**视觉异常检测领域的首选工具库**——
-算法最全、更新最快、专业度最高的工业级解决方案。
-
-**当前状态总结**：
-PyImgAno已经从"生产就绪"升级为"业界领先"。
-v0.2.1标志着在SOTA算法数量和质量上超越同类工具，
-距离成为领域标准仅一步之遥。 🏆
+# PyImgAno 能力与差距评估（面向开发者）
+
+> Last updated: **2026-03-05**（对应仓库版本：`v0.6.25`）
+
+这份文档回答两个问题：
+
+1) **开发者第一次看到项目，最关心的点是否都具备？怎么用？**
+2) **和顶尖同类包（PyOD / anomalib 等）相比，差距在哪里？下一步补什么最值？**
+
+---
+
+## 1) 开发者最关心的点：Checklist（以及对应入口）
+
+### ✅ 安装是否“轻量” & 可选依赖是否拆分干净？
+
+- 核心安装：`pip install pyimgano`
+  - 目标：CPU baseline + 基础 CLI 可用
+- 可选 extras（按需安装）：
+  - 深度/torch：`pip install "pyimgano[torch]"`
+  - ONNX：`pip install "pyimgano[onnx]"`
+  - OpenVINO：`pip install "pyimgano[openvino]"`
+  - scikit-image（SSIM/LBP/HOG/Gabor/phase-corr 等）：`pip install "pyimgano[skimage]"`
+  - 一揽子：`pip install "pyimgano[all]"`
+
+对应文档：`docs/OPTIONAL_DEPENDENCIES.md`
+
+### ✅ import 边界是否严格（没装 extras 不会一 import 就炸）？
+
+是。核心策略：
+
+- 轻量入口（例如 `import pyimgano` / discovery CLI）不应隐式 import `torch`/`onnxruntime` 等
+- 需要 extras 的功能点，在**真正使用到**时才触发 `ImportError`，并给出安装提示（例如 `pip install 'pyimgano[torch]'`）
+
+相关实现：`pyimgano/utils/optional_deps.py`  
+（`require(...)` 负责把“缺依赖”变成“可行动的提示”）
+
+### ✅ 离线安全（默认不下载权重）？
+
+是。工业落地里“默认离线/可审计”比“自动下载权重”更重要：
+
+- 多数 CLI 默认 `--no-pretrained`
+- 用户需要时再显式 `--pretrained`
+
+对应文档：`docs/WEIGHTS.md`、`docs/CLI_REFERENCE.md`
+
+### ✅ “怎么选算法”：有 baseline 套件 + 小网格搜索吗？
+
+有。推荐从 suite + sweep 入手，避免拍脑袋：
+
+- 查看 suites：`pyimgano-benchmark --list-suites`
+- 推荐 suite：`industrial-v4`（core + optional）
+- 查看 sweeps：`pyimgano-benchmark --list-sweeps`
+- 小网格扫参：`--suite-sweep industrial-feature-small`（新增）
+
+对应文档：`README.md`、`docs/CLI_REFERENCE.md`  
+实现位置：`pyimgano/baselines/suites.py`、`pyimgano/baselines/sweeps.py`
+
+### ✅ 工业输出是否“可落地”（JSONL / masks / 缺陷区域）？
+
+是。项目把“部署时真正需要的输出形态”当一等公民：
+
+- `pyimgano-infer` 输出 JSONL
+- `--defects` 产出 defect masks + connected components 区域统计（可直接对接 MES/质检系统）
+
+对应文档：`docs/INDUSTRIAL_INFERENCE.md`、`docs/CLI_REFERENCE.md`
+
+### ✅ 可复现 / 可审计（run artifacts / 环境信息）？
+
+是。suite/workbench 会写入 run artifacts（例如 `report.json`、`environment.json`、`per_image.jsonl`），方便追溯与复盘。
+
+对应文档：`docs/WORKBENCH.md`、`docs/EVALUATION_AND_BENCHMARK.md`
+
+### ✅ 可扩展（企业内部模型/算法怎么接入）？
+
+支持插件式扩展（entry points），并提供明确的文档入口。
+
+对应文档：`docs/PLUGINS.md`
+
+---
+
+## 2) PyOD / anomalib 是否“复合包”？anomalib 能不能拆？
+
+### PyOD：更像“经典异常检测算法库”
+
+- 目标域更泛（tabular/embedding 多）
+- 优点：成熟、稳定、sklearn 风格、生态强
+- 不足：对视觉工业链路（像素定位、缺陷区域、对齐/模板检验）不是重点
+
+PyImgAno 的定位更偏“视觉工业异常检测工具箱”：
+- 除了 `core_*`/`vision_*` detector，还把 **输入/预处理/tiling/defects 输出/JSONL 工业工艺** 放进同一条链路里。
+
+### anomalib：更像“训练/评估框架 + 视觉 AD model zoo”
+
+anomalib 本质是一个框架（训练循环、数据模块、模型实现、导出/推理工具等），天然就是“复合包”。  
+把 anomalib “拆开成一堆小包”在工程上很难，也会破坏其统一训练/评估体验。
+
+PyImgAno 的推荐策略不是拆 anomalib，而是：
+
+- 把 anomalib 作为 **可选 backend**：`pip install "pyimgano[anomalib]"`
+- 在 PyImgAno 内提供 **wrapper/bridge**，让 anomalib 训练好的 checkpoint 能进入“工业推理/缺陷导出/JSONL”链路
+
+对应实现：`pyimgano/models/anomalib_backend.py` 等  
+对应文档：`docs/ANOMALIB_CHECKPOINTS.md`
+
+---
+
+## 3) 现阶段离“顶尖包/顶尖体验”还差什么？
+
+下面是从“开发者/使用者视角”最常见的差距点（按影响优先级排序）：
+
+### A. 更标准化的公开基准（可复现的 leaderboard）
+
+顶尖包通常提供：
+- 明确的 dataset splits（版本化）
+- 一键复现实验配置（含 seeds、预处理、模型参数）
+- 可直接引用的 benchmark 结果（表格/图）
+
+PyImgAno 当前已经有 suite/sweep + artifacts，但还可以继续加强：
+- 给出“官方基准配置集”（按数据集/分辨率/是否 pixel_map）
+- 把 suite 输出做成更标准的 leaderboard 导出模板（含环境哈希/依赖锁）
+
+### B. 文档“最短路径”更短（减少选择焦虑）
+
+虽然已经有 `QUICKSTART`/`CLI_REFERENCE`/`WORKBENCH`，但顶尖项目会更强调：
+- 10 分钟走通最小闭环（demo → suite → infer → defects）
+- 典型坑位（对齐、ROI、阈值、FP 调参）有非常具体的建议与示例命令
+
+（PyImgAno 已有大量工业文档，但可以进一步把“最佳实践”收敛成更短的入口页。）
+
+### C. 生态与社区（“别人愿不愿意贡献”）
+
+顶尖包的优势往往来自：
+- issue/PR 模板、贡献指南、清晰的架构与约束
+- 稳定 API/semver 预期
+- 快速的 CI 反馈与回归防护
+
+PyImgAno 已有 CI、模板、贡献指南，但长期仍需要靠迭代积累。
+
+### D. 预训练权重/模型卡（可审计 + 可复现）
+
+视觉 AD 的“顶尖体验”通常会提供：
+- 明确的权重来源、许可证、训练配置、适用范围（model card）
+- 离线缓存与校验（hash/manifest）
+
+PyImgAno 已强调离线安全与权重策略，但“官方权重库/模型卡”仍可继续建设。
+
+---
+
+## 4) 推荐使用路径（给第一次上手的开发者）
+
+### 路径 1：完全离线 CPU 快速验证（1 分钟）
+
+```bash
+pyimgano-demo
+```
+
+### 路径 2：工业算法选择（suite + 小网格扫参）
+
+```bash
+pyimgano-benchmark \
+  --dataset mvtec \
+  --root /path/to/mvtec_ad \
+  --category bottle \
+  --suite industrial-v4 \
+  --suite-sweep industrial-feature-small \
+  --suite-sweep-max-variants 1 \
+  --no-pretrained \
+  --device cpu
+```
+
+### 路径 3：生产导向闭环（Workbench → infer_config → infer → defects）
+
+- `pyimgano-train ... --export-infer-config`
+- `pyimgano-infer --infer-config ... --defects --save-jsonl ... --save-masks ...`
+
+对应文档：`docs/WORKBENCH.md`、`docs/INDUSTRIAL_INFERENCE.md`
+
+---
+
+## 5) 下一步“最值”的升级建议（建议优先做 A）
+
+如果你的目标是“让开发者一眼觉得这是顶尖包”，我建议按这个顺序：
+
+1) **A（最优先）**：把“最短上手路径 + 工业最佳实践”进一步收敛（更短、更具体、更少选择）
+2) **基准可复现**：为主流数据集维护“官方 suite 配置集合 + 结果导出模板”
+3) **权重/模型卡**：把深度模型的 checkpoint 资产化（来源、哈希、许可、适用范围）
+4) **更多工业 baselines**：继续补齐“对齐/模板/纹理/颜色/频域”方向的强 baseline，并配套 sweep
+
