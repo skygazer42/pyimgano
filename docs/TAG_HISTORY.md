@@ -11,6 +11,25 @@ Regenerate:
 python tools/generate_tag_history.py
 ```
 
+## v0.6.35 - 2026-03-05
+
+### CLI
+- `pyimgano-infer` now supports production guardrails:
+  - `--continue-on-error` (record per-input errors and keep going; exit code 1 if any errors)
+  - `--max-errors` (stop early after N errors)
+  - `--flush-every` (periodically flush JSONL outputs)
+  - `--profile-json` (write a machine-friendly timing payload)
+
+### Inference
+- Torch AMP context now prefers `torch.amp.autocast` when available (avoids deprecation warnings) and uses best-effort `torch.inference_mode`.
+
+### Docs
+- Documented `pyimgano-infer` production guardrails in the CLI reference and the industrial inference guide.
+
+### Tests
+- Added coverage for `pyimgano-infer --continue-on-error` and `--profile-json`.
+
+
 ## v0.6.34 - 2026-03-05
 
 ### CLI
