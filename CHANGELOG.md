@@ -200,6 +200,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.32] - 2026-03-05
+
+### Datasets
+- Torch-backed dataset helpers now fail with actionable extras hints when torch/torchvision are missing:
+  - `pyimgano.datasets.image`
+  - `pyimgano.datasets.array`
+  - `pyimgano.datasets.transforms`
+  - `pyimgano.datasets.datamodule`
+  - `pyimgano.datasets.corruptions`
+
+### Tests
+- Added subprocess-based coverage ensuring missing `pyimgano[torch]` produces an `ImportError` with install hint for the torch-backed dataset modules.
+
 ## [0.6.31] - 2026-03-05
 
 ### CLI

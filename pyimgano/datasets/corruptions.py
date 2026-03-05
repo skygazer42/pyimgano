@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Robustness corruptions dataset wrapper.
 
 This dataset is useful when you want to evaluate a detector under deterministic
@@ -8,12 +6,18 @@ image corruptions (lighting/jpeg/blur/etc.) in a torch-style pipeline.
 It is deliberately simple and builds on `pyimgano.robustness.corruptions`.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence
+from typing import Any
 
 import numpy as np
-from torch.utils.data import Dataset
+
+from pyimgano.utils.optional_deps import require
+
+Dataset = require("torch.utils.data", extra="torch", purpose="torch-backed datasets").Dataset
 
 
 def _read_u8_bgr(path: str | Path) -> np.ndarray:
@@ -37,7 +41,7 @@ def _read_mask_u8(path: str | Path) -> np.ndarray:
 @dataclass(frozen=True)
 class CorruptionItem:
     image_u8: np.ndarray
-    mask_u8: Optional[np.ndarray]
+    mask_u8: np.ndarray | None
     path: str
     corruption: str
     severity: int
@@ -47,13 +51,13 @@ class CorruptionItem:
 def _apply_corruption(
     image_u8: np.ndarray,
     *,
-    mask_u8: Optional[np.ndarray],
+    mask_u8: np.ndarray | None,
     corruption: str,
     severity: int,
     rng: np.random.Generator,
     synthesis_preset: str = "scratch",
     synthesis_blend: str = "alpha",
-) -> tuple[np.ndarray, Optional[np.ndarray], dict[str, object]]:
+) -> tuple[np.ndarray, np.ndarray | None, dict[str, object]]:
     from pyimgano.robustness import corruptions as corr
 
     name = str(corruption).strip().lower()
@@ -101,8 +105,8 @@ class CorruptionsDataset(Dataset):
         corruption: str,
         severity: int = 1,
         seed: int = 0,
-        mask_paths: Optional[Sequence[str | Path]] = None,
-        transform: Optional[Callable[[np.ndarray], Any]] = None,
+        mask_paths: Sequence[str | Path] | None = None,
+        transform: Callable[[np.ndarray], Any] | None = None,
         synthesis_preset: str = "scratch",
         synthesis_blend: str = "alpha",
     ) -> None:

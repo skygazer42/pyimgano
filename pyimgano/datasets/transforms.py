@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Tuple
+from collections.abc import Iterable
 
-from torchvision import transforms
+from pyimgano.utils.optional_deps import require
+
+transforms = require("torchvision.transforms", extra="torch", purpose="torchvision transforms")
 
 __all__ = [
     "default_train_transforms",
@@ -28,7 +30,7 @@ def to_tensor_normalized(
 
 
 def default_train_transforms(
-    resize: Tuple[int, int] = (256, 256),
+    resize: tuple[int, int] = (256, 256),
     crop_size: int = 224,
     horizontal_flip: bool = True,
 ) -> transforms.Compose:
@@ -45,7 +47,7 @@ def default_train_transforms(
 
 
 def default_eval_transforms(
-    resize: Tuple[int, int] = (256, 256),
+    resize: tuple[int, int] = (256, 256),
     crop_size: int = 224,
 ) -> transforms.Compose:
     """默认验证/测试阶段的预处理流程。"""

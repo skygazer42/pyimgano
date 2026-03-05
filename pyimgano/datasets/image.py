@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
-from typing import Callable, Iterable, Optional, Sequence, Tuple
+from collections.abc import Callable, Iterable, Sequence
 
 import cv2
-import torch
 from PIL import Image
-from torch.utils.data import Dataset
+
+from pyimgano.utils.optional_deps import require
+
+torch = require("torch", extra="torch", purpose="torch-backed datasets")
+Dataset = require("torch.utils.data", extra="torch", purpose="torch-backed datasets").Dataset
 
 
 class VisionImageDataset(Dataset):
@@ -20,9 +23,9 @@ class VisionImageDataset(Dataset):
     def __init__(
         self,
         image_paths: Sequence[str],
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        fallback_shape: Tuple[int, int, int] = (3, 224, 224),
+        transform: Callable | None = None,
+        target_transform: Callable | None = None,
+        fallback_shape: tuple[int, int, int] = (3, 224, 224),
     ) -> None:
         self.image_paths = list(image_paths)
         self.transform = transform
@@ -55,7 +58,7 @@ class ImagePathDataset(Dataset):
     def __init__(
         self,
         image_paths: Iterable[str],
-        transform: Optional[Callable] = None,
+        transform: Callable | None = None,
         return_full_path: bool = False,
     ) -> None:
         self.image_paths = list(image_paths)

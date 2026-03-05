@@ -6,12 +6,15 @@ where images are already decoded in memory.
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, Tuple
+from collections.abc import Callable, Sequence
 
 import numpy as np
-import torch
 from PIL import Image
-from torch.utils.data import Dataset
+
+from pyimgano.utils.optional_deps import require
+
+torch = require("torch", extra="torch", purpose="torch-backed datasets")
+Dataset = require("torch.utils.data", extra="torch", purpose="torch-backed datasets").Dataset
 
 
 class VisionArrayDataset(Dataset):
@@ -26,9 +29,9 @@ class VisionArrayDataset(Dataset):
     def __init__(
         self,
         images: Sequence[np.ndarray],
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        fallback_shape: Tuple[int, int, int] = (3, 224, 224),
+        transform: Callable | None = None,
+        target_transform: Callable | None = None,
+        fallback_shape: tuple[int, int, int] = (3, 224, 224),
     ) -> None:
         self.images = list(images)
         self.transform = transform

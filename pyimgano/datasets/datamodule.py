@@ -8,15 +8,19 @@ with automatic batching, preprocessing, and multi-worker support.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
 
-import torch
-from torch.utils.data import DataLoader
+from pyimgano.utils.optional_deps import require
 
 from .image import ImagePathDataset, VisionImageDataset
 from .transforms import default_eval_transforms, default_train_transforms
+
+torch = require("torch", extra="torch", purpose="torch-backed dataloaders")
+DataLoader = require(
+    "torch.utils.data", extra="torch", purpose="torch-backed dataloaders"
+).DataLoader
 
 __all__ = [
     "VisionDataModule",
@@ -48,11 +52,11 @@ class DataLoaderConfig:
 
     batch_size: int = 32
     num_workers: int = 0
-    pin_memory: Optional[bool] = None
+    pin_memory: bool | None = None
     drop_last: bool = False
     shuffle: bool = True
 
-    def resolve(self, device: Optional[torch.device] = None) -> dict:
+    def resolve(self, device: torch.device | None = None) -> dict:
         pin_memory = self.pin_memory
         if pin_memory is None and device is not None:
             pin_memory = device.type == "cuda"
@@ -96,15 +100,15 @@ class VisionDataModule:
 
     def __init__(
         self,
-        train: Optional[Iterable[str]] = None,
-        val: Optional[Iterable[str]] = None,
-        test: Optional[Iterable[str]] = None,
+        train: Iterable[str] | None = None,
+        val: Iterable[str] | None = None,
+        test: Iterable[str] | None = None,
         *,
         reconstruction: bool = True,
         train_transform=None,
         eval_transform=None,
-        device: Optional[torch.device] = None,
-        loader_config: Optional[DataLoaderConfig] = None,
+        device: torch.device | None = None,
+        loader_config: DataLoaderConfig | None = None,
     ) -> None:
         self._device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.reconstruction = reconstruction
@@ -123,7 +127,7 @@ class VisionDataModule:
     # ------------------------------------------------------------------
     # public API
     # ------------------------------------------------------------------
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         """
         Initialize datasets based on stage.
 
@@ -166,7 +170,7 @@ class VisionDataModule:
         transform = self.train_transform if train else self.eval_transform
         return dataset_cls(paths, transform=transform)
 
-    def _normalize_source(self, source: Optional[Iterable[str]]) -> Optional[Sequence[str]]:
+    def _normalize_source(self, source: Iterable[str] | None) -> Sequence[str] | None:
         if source is None:
             return None
         if isinstance(source, (str, os.PathLike)):
@@ -215,9 +219,9 @@ class VisionDataModule:
         return self.train_paths
 
     @property
-    def val_items(self) -> Optional[Sequence[str]]:
+    def val_items(self) -> Sequence[str] | None:
         return self.val_paths
 
     @property
-    def test_items(self) -> Optional[Sequence[str]]:
+    def test_items(self) -> Sequence[str] | None:
         return self.test_paths
