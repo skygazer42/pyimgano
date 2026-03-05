@@ -174,6 +174,16 @@ Each JSONL line includes:
 - `input` (path)
 - `anomaly_map.path` + `shape` + `dtype` (if map exported)
 
+### Production guardrails (recommended)
+
+For long-running production batch runs (shift-long folders, nightly jobs, etc.), prefer:
+
+- `--continue-on-error` — best-effort mode: keep going and write an `{"status":"error", ...}` JSONL line when an input fails
+  (exit code `1` if any errors occurred).
+- `--max-errors N` — stop early after N errors (only with `--continue-on-error`).
+- `--flush-every N` — flush JSONL outputs every N records (stability vs performance).
+- `--profile-json PATH` — write a machine-friendly timing payload (useful for monitoring/alerting).
+
 ## 5) High-resolution tiling (2K/4K inspection images)
 
 Many industrial inspection images are too large to score reliably after a single
