@@ -30,6 +30,27 @@ Common usage:
 pyimgano-doctor
 pyimgano-doctor --json
 pyimgano-doctor --suite industrial-v4 --json   # show which suite baselines will be skipped
+pyimgano-doctor --require-extras torch,skimage --json   # CI/deploy gate: exit 1 if missing
+```
+
+Notes:
+- `--require-extras` accepts comma-separated values and is repeatable.
+- When `--json` is set, the tool still prints JSON on missing extras, but exits with code `1`.
+
+## `pyimgano-demo`
+
+`pyimgano-demo` is a minimal **offline-safe** end-to-end smoke demo:
+
+- writes a tiny `custom`-layout dataset under `--dataset-root`
+- runs a baseline suite (and optional sweep) over it
+- optionally runs a one-command **infer + defects** loop (no need to manually run `pyimgano-infer`)
+
+Common usage:
+
+```bash
+pyimgano-demo
+pyimgano-demo --export none --no-sweep
+pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/infer/results.jsonl + masks/
 ```
 
 ## `pyimgano-benchmark`

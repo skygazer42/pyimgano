@@ -122,6 +122,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print full suite JSON payload to stdout (default: false).",
     )
+    parser.add_argument(
+        "--infer-defects",
+        action="store_true",
+        help=(
+            "After the suite run, run a one-command inference + defects loop and write artifacts under "
+            "<suite-run-dir>/infer/ (results.jsonl + masks/)."
+        ),
+    )
     return parser
 
 
@@ -167,6 +175,57 @@ def main(argv: list[str] | None = None) -> int:
         sweep_max_variants=int(args.sweep_max_variants),
     )
 
+    infer_defects_payload: dict[str, Any] | None = None
+    if bool(getattr(args, "infer_defects", False)):
+        if not bool(args.save_run):
+            raise ValueError("--infer-defects requires --save-run.")
+
+        run_dir = payload.get("run_dir")
+        if not isinstance(run_dir, str) or not run_dir:
+            raise RuntimeError("internal error: expected suite run_dir for --infer-defects.")
+
+        infer_dir = Path(run_dir) / "infer"
+        masks_dir = infer_dir / "masks"
+        infer_dir.mkdir(parents=True, exist_ok=True)
+        masks_dir.mkdir(parents=True, exist_ok=True)
+
+        from pyimgano.infer_cli import main as infer_main
+
+        infer_model_kwargs = {"resize_hw": [int(resize[0]), int(resize[1])]}
+        infer_argv = [
+            "--model-preset",
+            "industrial-template-ncc-map",
+            "--model-kwargs",
+            json.dumps(infer_model_kwargs, sort_keys=True),
+            "--device",
+            str(args.device),
+            "--train-dir",
+            str(dataset_root / "train" / "normal"),
+            "--input",
+            str(dataset_root / "test"),
+            "--defects-preset",
+            "industrial-defects-fp40",
+            "--save-jsonl",
+            str(infer_dir / "results.jsonl"),
+            "--save-masks",
+            str(masks_dir),
+        ]
+        infer_argv.append("--pretrained" if bool(args.pretrained) else "--no-pretrained")
+
+        infer_rc = int(infer_main(infer_argv))
+        infer_defects_payload = {
+            "ok": bool(infer_rc == 0),
+            "rc": int(infer_rc),
+            "infer_dir": str(infer_dir),
+            "results_jsonl": str(infer_dir / "results.jsonl"),
+            "masks_dir": str(masks_dir),
+            "model_preset": "industrial-template-ncc-map",
+            "defects_preset": "industrial-defects-fp40",
+        }
+        payload["infer_defects"] = infer_defects_payload
+        if infer_rc != 0:
+            return int(infer_rc)
+
     exported: dict[str, str] | None = None
     if bool(args.save_run) and str(args.export).lower().strip() != "none":
         from pyimgano.reporting.suite_export import export_suite_tables
@@ -191,6 +250,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{k}: {exported[k]}")
     else:
         print("Export: <disabled>")
+
+    if infer_defects_payload is not None:
+        print(f"Infer+defects artifacts: {Path(str(infer_defects_payload['infer_dir'])).resolve()}")
 
     summary = payload.get("summary", {})
     if isinstance(summary, dict):

@@ -158,10 +158,40 @@ def _build_parser() -> argparse.ArgumentParser:
             "Example: --suite industrial-v4"
         ),
     )
+    parser.add_argument(
+        "--require-extras",
+        action="append",
+        default=None,
+        help=(
+            "Require one or more extras to be available (for CI/deploy sanity checks). "
+            "Comma-separated or repeatable. Exits with code 1 if any are missing. "
+            "Example: --require-extras torch,skimage"
+        ),
+    )
     return parser
 
 
-def _collect_payload(*, suites_to_check: list[str] | None = None) -> dict[str, Any]:
+def _build_require_extras_check(required_extras: list[str]) -> dict[str, Any]:
+    required = _split_csv_args(required_extras)
+    missing = [e for e in required if not _extra_available(e)]
+    ok = len(missing) == 0
+
+    install_hint = None
+    if missing:
+        extra_spec = ",".join(sorted({str(e) for e in missing}))
+        install_hint = f"pip install 'pyimgano[{extra_spec}]'"
+
+    return {
+        "required": required,
+        "missing": missing,
+        "ok": bool(ok),
+        "install_hint": install_hint,
+    }
+
+
+def _collect_payload(
+    *, suites_to_check: list[str] | None = None, require_extras: list[str] | None = None
+) -> dict[str, Any]:
     import pyimgano
 
     # Baseline discovery is intentionally import-light.
@@ -235,6 +265,9 @@ def _collect_payload(*, suites_to_check: list[str] | None = None) -> dict[str, A
     if suites:
         payload["suite_checks"] = _build_suite_checks(suites)
 
+    if require_extras:
+        payload["require_extras"] = _build_require_extras_check(require_extras)
+
     return payload
 
 
@@ -242,13 +275,16 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     try:
-        payload = _collect_payload(suites_to_check=args.suite)
+        payload = _collect_payload(suites_to_check=args.suite, require_extras=args.require_extras)
     except Exception as exc:  # noqa: BLE001 - CLI boundary
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
     if bool(args.json):
         print(json.dumps(payload, indent=2, sort_keys=True))
+        req = payload.get("require_extras")
+        if isinstance(req, dict) and req.get("ok") is False:
+            return 1
         return 0
 
     # Text output (human-friendly).
@@ -279,6 +315,18 @@ def main(argv: list[str] | None = None) -> int:
                 suffix = f" (missing extras: {', '.join(missing)})"
             print(f"- {suite_name}: runnable {runnable}/{total}{suffix}")
 
+    req = payload.get("require_extras")
+    if isinstance(req, dict) and req.get("required"):
+        missing = req.get("missing", []) or []
+        if missing:
+            hint = req.get("install_hint")
+            msg = f"require_extras: MISSING ({', '.join(str(x) for x in missing)})"
+            if hint:
+                msg += f" → {hint}"
+            print(msg)
+        else:
+            print("require_extras: OK")
+
     print("optional_modules:")
     for m in payload.get("optional_modules", []) or []:
         name = str(m.get("module"))
@@ -294,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
                 msg += f" → {hint}"
             print(msg)
 
+    if isinstance(req, dict) and req.get("ok") is False:
+        return 1
     return 0
 
 

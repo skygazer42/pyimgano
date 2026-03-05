@@ -200,6 +200,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.28] - 2026-03-05
+
+### CLI
+- Added `pyimgano-doctor --require-extras ...` for CI/deploy environment gating (non-zero exit when required extras are missing).
+- Added `pyimgano-demo --infer-defects` to run an end-to-end demo loop that writes inference + defects artifacts without manually invoking `pyimgano-infer`.
+
+### Docs
+- Updated CLI reference with `pyimgano-doctor --require-extras ...` and `pyimgano-demo --infer-defects` examples.
+
+### Tests
+- Added coverage for `pyimgano-doctor --require-extras ...` and the `pyimgano-demo --infer-defects` smoke loop.
+
 ## [0.6.27] - 2026-03-05
 
 ### CLI

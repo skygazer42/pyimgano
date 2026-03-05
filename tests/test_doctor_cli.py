@@ -71,3 +71,16 @@ def test_doctor_cli_suite_check_outputs_json(capsys) -> None:
     assert isinstance(b0.get("requires_extras"), list)
     assert isinstance(b0.get("missing_extras"), list)
     assert isinstance(b0.get("runnable"), bool)
+
+
+def test_doctor_cli_require_extras_missing_exits_nonzero(capsys) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    rc = doctor_main(["--json", "--require-extras", "definitely_missing_extra"])
+    assert rc == 1
+
+    payload = json.loads(capsys.readouterr().out)
+    req = payload.get("require_extras")
+    assert isinstance(req, dict)
+    assert req.get("ok") is False
+    assert "definitely_missing_extra" in set(req.get("missing", []))
