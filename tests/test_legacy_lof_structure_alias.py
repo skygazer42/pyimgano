@@ -3,7 +3,6 @@ import numpy as np
 
 def test_legacy_lof_structure_is_still_registered_and_fittable() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
@@ -20,4 +19,3 @@ def test_legacy_lof_structure_is_still_registered_and_fittable() -> None:
     scores = det.decision_function(X[:9])
     assert scores.shape == (9,)
     assert np.all(np.isfinite(scores))
-

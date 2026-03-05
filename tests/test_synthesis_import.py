@@ -7,4 +7,3 @@ def test_synthesis_import_smoke() -> None:
     assert hasattr(syn, "AnomalySynthesizer")
     assert hasattr(syn, "perlin_noise_2d")
     assert hasattr(syn, "make_preset")
-

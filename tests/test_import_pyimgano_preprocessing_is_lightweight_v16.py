@@ -53,4 +53,3 @@ print(json.dumps({"present": present, "n_exports": len(getattr(preprocessing, "_
 
     assert int(payload["n_exports"]) > 0
     assert payload["present"] == [], f"Unexpected heavy imports: {payload['present']}"
-

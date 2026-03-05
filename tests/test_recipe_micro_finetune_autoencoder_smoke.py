@@ -82,4 +82,3 @@ def test_recipe_micro_finetune_autoencoder_writes_checkpoint(tmp_path):
 
     report_json = json.loads((out_dir / "report.json").read_text(encoding="utf-8"))
     assert report_json["checkpoint"]["path"].endswith("checkpoints/model.pt")
-

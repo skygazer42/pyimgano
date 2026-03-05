@@ -11,10 +11,10 @@ Design goals:
 
 from __future__ import annotations
 
-from .perlin import perlin_noise_2d, fractal_perlin_noise_2d
-from .synthesizer import AnomalySynthesizer, SynthResult, SynthSpec
+from .perlin import fractal_perlin_noise_2d, perlin_noise_2d
 from .presets import get_preset_names, make_preset, make_preset_mixture
 from .sources import TextureSourceBank
+from .synthesizer import AnomalySynthesizer, SynthResult, SynthSpec
 
 __all__ = [
     "AnomalySynthesizer",

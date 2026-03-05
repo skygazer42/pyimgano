@@ -10,7 +10,6 @@ import numpy as np
 from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 
-
 _InputColor = Literal["rgb", "bgr"]
 
 
@@ -72,7 +71,9 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
                 return _as_pil_rgb(arr_hwc, input_color=input_color)
             if int(t.shape[2]) in (1, 3):  # HWC
                 return _as_pil_rgb(t.numpy(), input_color=input_color)
-            raise ValueError(f"Unsupported torch image shape: {tuple(t.shape)} (expected CHW or HWC)")
+            raise ValueError(
+                f"Unsupported torch image shape: {tuple(t.shape)} (expected CHW or HWC)"
+            )
 
         raise ValueError(f"Unsupported torch image ndim={int(t.ndim)} (expected 2 or 3)")
 
@@ -131,7 +132,9 @@ def _select_output_tensor(
                 )
             return next(iter(output.values()))
         if output_key not in output:
-            raise KeyError(f"output_key {output_key!r} not found in model output keys {sorted(output)}")
+            raise KeyError(
+                f"output_key {output_key!r} not found in model output keys {sorted(output)}"
+            )
         return output[output_key]
 
     raise TypeError(
@@ -248,7 +251,9 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
                 "output_index": int(self.output_index),
             }
             fp = fingerprint_payload(payload)
-            self._cache = EmbeddingCache(cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp)
+            self._cache = EmbeddingCache(
+                cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp
+            )
 
     def _ensure_ready(self) -> None:
         if self._model is not None:
@@ -296,13 +301,17 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
         rows: list[np.ndarray] = []
         for i in range(0, len(items), bs):
             batch_items = items[i : i + bs]
-            batch_np = np.stack([self._preprocess_one(it) for it in batch_items], axis=0)  # (B,3,H,W)
+            batch_np = np.stack(
+                [self._preprocess_one(it) for it in batch_items], axis=0
+            )  # (B,3,H,W)
             batch = torch.from_numpy(batch_np).to(dev)
 
             with torch.no_grad():
                 out = model(batch)
 
-            t = _select_output_tensor(out, output_key=self.output_key, output_index=int(self.output_index))
+            t = _select_output_tensor(
+                out, output_key=self.output_key, output_index=int(self.output_index)
+            )
             t2 = _as_2d_embedding(torch, t)
             emb = t2.detach().to("cpu").numpy()
             rows.append(np.asarray(emb, dtype=np.float64))
@@ -335,7 +344,9 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
             }
 
             if not missing:
-                return np.stack([np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths])
+                return np.stack(
+                    [np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths]
+                )
 
             computed = self._extract_no_cache(list(missing))
             if computed.shape[0] != len(missing):
@@ -344,7 +355,9 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
                 self._cache.save(p, np.asarray(row, dtype=np.float64).reshape(-1))
                 cached_rows[p] = np.asarray(row, dtype=np.float64).reshape(-1)
 
-            return np.stack([np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths])
+            return np.stack(
+                [np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths]
+            )
 
         self.last_cache_stats_ = {"hits": 0, "misses": 0, "enabled": False}
         return self._extract_no_cache(items)

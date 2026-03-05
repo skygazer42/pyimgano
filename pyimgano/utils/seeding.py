@@ -28,4 +28,3 @@ def seed_everything(seed: int) -> None:
             torch.cuda.manual_seed_all(s)
     except Exception:
         return
-

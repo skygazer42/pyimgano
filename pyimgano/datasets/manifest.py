@@ -233,8 +233,7 @@ def load_manifest_benchmark_split(
     missing_mask_policy_norm = str(missing_mask_policy).strip().lower()
     if missing_mask_policy_norm not in ("skip", "error"):
         raise ValueError(
-            "missing_mask_policy must be one of: skip, error. "
-            f"Got: {missing_mask_policy!r}"
+            "missing_mask_policy must be one of: skip, error. " f"Got: {missing_mask_policy!r}"
         )
 
     load_masks_mode = load_masks
@@ -483,7 +482,9 @@ def load_manifest_benchmark_split(
             masks_arr = None
         elif not has_any_masks:
             if any_mask_field_present:
-                pixel_skip_reason = "mask_path entries present but no mask files were found on disk."
+                pixel_skip_reason = (
+                    "mask_path entries present but no mask files were found on disk."
+                )
             else:
                 pixel_skip_reason = "No mask_path entries found in manifest test records."
             masks_arr = None

@@ -15,10 +15,10 @@ from typing import Iterable, List, Optional
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
@@ -37,7 +37,7 @@ class SimpleAdapter(nn.Module):
         self.adapter = nn.Sequential(
             nn.Linear(in_channels, out_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(out_channels, out_channels)
+            nn.Linear(out_channels, out_channels),
         )
 
     def forward(self, x):
@@ -157,20 +157,24 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         self._build_model()
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            ),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
 
         logger.info(
             "Initialized SimpleNet with backbone=%s, feature_dim=%d, "
             "epochs=%d, batch_size=%d, lr=%.4f, device=%s",
-            backbone, feature_dim, epochs, batch_size, lr, device
+            backbone,
+            feature_dim,
+            epochs,
+            batch_size,
+            lr,
+            device,
         )
 
     def _build_model(self) -> None:
@@ -180,9 +184,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
             # TorchVision changed API from `pretrained=True` to `weights=...`.
             # Keep backward compatibility with older torchvision versions.
             try:
-                weights = (
-                    models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
-                )
+                weights = models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
                 backbone = models.wide_resnet50_2(weights=weights)
             except Exception:  # pragma: no cover - fallback for older torchvision
                 backbone = models.wide_resnet50_2(pretrained=self.pretrained)
@@ -218,16 +220,16 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         self.feature_extractor.to(self.device)
 
         # Trainable adapter network (only ~1M parameters)
-        self.adapter = SimpleAdapter(
-            in_channels=self.feature_dim_in,
-            out_channels=self.feature_dim
-        )
+        self.adapter = SimpleAdapter(in_channels=self.feature_dim_in, out_channels=self.feature_dim)
         self.adapter.to(self.device)
 
-        logger.debug("Feature extractor (frozen): %d parameters",
-                    sum(p.numel() for p in self.feature_extractor.parameters()))
-        logger.debug("Adapter (trainable): %d parameters",
-                    sum(p.numel() for p in self.adapter.parameters()))
+        logger.debug(
+            "Feature extractor (frozen): %d parameters",
+            sum(p.numel() for p in self.feature_extractor.parameters()),
+        )
+        logger.debug(
+            "Adapter (trainable): %d parameters", sum(p.numel() for p in self.adapter.parameters())
+        )
 
     def _extract_features(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -247,18 +249,15 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         features = []
 
         x = self.feature_extractor[:5](x)  # Up to layer1
-        x = self.feature_extractor[5](x)   # layer2
+        x = self.feature_extractor[5](x)  # layer2
         layer2_feat = x
 
-        x = self.feature_extractor[6](x)   # layer3
+        x = self.feature_extractor[6](x)  # layer3
         layer3_feat = x
 
         # Resize layer2 to match layer3 spatial size
         layer2_feat = F.interpolate(
-            layer2_feat,
-            size=layer3_feat.shape[-2:],
-            mode='bilinear',
-            align_corners=False
+            layer2_feat, size=layer3_feat.shape[-2:], mode="bilinear", align_corners=False
         )
 
         # Concatenate multi-scale features
@@ -267,9 +266,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         return features
 
     def _local_discriminator_loss(
-        self,
-        features: torch.Tensor,
-        targets: torch.Tensor
+        self, features: torch.Tensor, targets: torch.Tensor
     ) -> torch.Tensor:
         """
         Compute local neighborhood discriminator loss.
@@ -366,7 +363,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=2,
-            pin_memory=True if self.device == 'cuda' else False
+            pin_memory=True if self.device == "cuda" else False,
         )
 
         # Setup optimizer (only for adapter!)
@@ -390,10 +387,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
                 adapted_features = self.adapter(frozen_features.detach())
 
                 # Local discriminator loss
-                loss = self._local_discriminator_loss(
-                    adapted_features,
-                    frozen_features.detach()
-                )
+                loss = self._local_discriminator_loss(adapted_features, frozen_features.detach())
 
                 # Backward pass
                 optimizer.zero_grad()
@@ -528,7 +522,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         labels : ndarray of shape (n_samples,)
             Binary labels (0 = normal, 1 = anomaly)
         """
-        if not hasattr(self, 'reference_features') or not hasattr(self, "threshold_"):
+        if not hasattr(self, "reference_features") or not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         scores = self.decision_function(X)
@@ -548,7 +542,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         scores : ndarray of shape (n_samples,)
             Anomaly scores (higher = more anomalous)
         """
-        if not hasattr(self, 'reference_features'):
+        if not hasattr(self, "reference_features"):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         self.adapter.eval()

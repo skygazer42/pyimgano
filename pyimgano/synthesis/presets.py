@@ -5,20 +5,20 @@ from typing import Callable, Optional
 
 import numpy as np
 
+from .camera_artifacts import apply_defocus_blur, apply_lens_distortion
+from .illumination import apply_illumination_shift
 from .masks import (
     ScratchSpec,
     random_blob_mask,
     random_brush_stroke_mask,
-    random_edge_band_mask,
-    random_ellipse_mask,
     random_crack_mask,
     random_curve_scratch_mask,
+    random_edge_band_mask,
+    random_ellipse_mask,
     random_scratch_mask,
     random_spatter_mask,
 )
 from .perlin import fractal_perlin_noise_2d
-from .camera_artifacts import apply_defocus_blur, apply_lens_distortion
-from .illumination import apply_illumination_shift
 from .warp import apply_slight_warp
 
 
@@ -53,7 +53,7 @@ def _apply_tint(
     mode: str,
 ) -> np.ndarray:
     img = np.asarray(base, dtype=np.uint8)
-    m = (np.asarray(mask_u8) > 0)
+    m = np.asarray(mask_u8) > 0
     if not np.any(m):
         return img
 
@@ -71,9 +71,7 @@ def _apply_tint(
 
     # Color tint (BGR-ish, but visually fine either way for synthesis).
     tint = rng.uniform(0.0, 255.0, size=(3,)).astype(np.float32)
-    tint = (tint * 0.15 + np.array([30.0, 60.0, 90.0], dtype=np.float32) * 0.85).astype(
-        np.float32
-    )
+    tint = (tint * 0.15 + np.array([30.0, 60.0, 90.0], dtype=np.float32) * 0.85).astype(np.float32)
 
     if mode == "stain":
         out[m] = out[m] * (1.0 - 0.35 * s) + tint * (0.35 * s)
@@ -103,7 +101,9 @@ def _preset_scratch(image_u8: np.ndarray, rng: np.random.Generator) -> PresetRes
         )
         variant = "curve"
     else:
-        mask = random_scratch_mask((h, w), rng=rng, num_scratches=int(rng.integers(1, 4)), spec=spec)
+        mask = random_scratch_mask(
+            (h, w), rng=rng, num_scratches=int(rng.integers(1, 4)), spec=spec
+        )
         variant = "line"
     strength = float(rng.uniform(0.4, 1.0))
     overlay = _apply_tint(img, mask, rng=rng, strength=strength, mode="darken")
@@ -204,7 +204,7 @@ def _preset_rust(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult
         mask = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=2.0)
         mask = ((mask >= 0.35).astype(np.uint8) * 255).astype(np.uint8)
 
-    m = (mask > 0)
+    m = mask > 0
     if not np.any(m):
         return PresetResult(
             overlay_u8=np.asarray(img, dtype=np.uint8),
@@ -247,7 +247,7 @@ def _preset_oil(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
         mask = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=2.5)
         mask = ((mask >= 0.45).astype(np.uint8) * 255).astype(np.uint8)
 
-    m = (mask > 0)
+    m = mask > 0
     if not np.any(m):
         return PresetResult(
             overlay_u8=np.asarray(img, dtype=np.uint8),
@@ -512,7 +512,9 @@ def _preset_wrinkle(image_u8: np.ndarray, rng: np.random.Generator) -> PresetRes
         pts[:, 1] = np.clip(pts[:, 1], 0.0, float(h - 1))
         pts_i = pts.astype(np.int32).reshape(-1, 1, 2)
         thick = int(rng.integers(2, max(3, min(h, w) // 20)))
-        cv2.polylines(mask, [pts_i], isClosed=False, color=255, thickness=thick, lineType=cv2.LINE_AA)
+        cv2.polylines(
+            mask, [pts_i], isClosed=False, color=255, thickness=thick, lineType=cv2.LINE_AA
+        )
 
     sigma = float(rng.uniform(0.6, 2.0))
     blur = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=sigma)

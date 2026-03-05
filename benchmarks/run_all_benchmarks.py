@@ -5,20 +5,20 @@ This script runs all benchmark suites and generates a comprehensive report.
 """
 
 import os
-import sys
 import subprocess
+import sys
 import time
 from datetime import datetime
 
 # Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def run_benchmark(script_name: str, description: str) -> tuple:
     """Run a single benchmark script."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print(f"Running: {description}")
-    print("="*80)
+    print("=" * 80)
 
     start_time = time.time()
 
@@ -28,7 +28,7 @@ def run_benchmark(script_name: str, description: str) -> tuple:
             cwd=os.path.dirname(__file__),
             capture_output=True,
             text=True,
-            timeout=600  # 10 minute timeout
+            timeout=600,  # 10 minute timeout
         )
 
         elapsed = time.time() - start_time
@@ -58,7 +58,7 @@ def run_benchmark(script_name: str, description: str) -> tuple:
 def generate_report(results: dict, output_path: str = "benchmark_report.md"):
     """Generate a markdown report of all benchmark results."""
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("# PyImgAno Benchmark Report\n\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
@@ -105,11 +105,15 @@ def generate_report(results: dict, output_path: str = "benchmark_report.md"):
         f.write("- **Fast Training**: Statistical methods (IQR, MAD) train instantly\n")
         f.write("- **Fast Inference**: KNN and LOF provide quick predictions\n")
         f.write("- **Low Memory**: Most classical methods have minimal overhead\n")
-        f.write("- **Good Accuracy**: Ensemble methods (IForest) and density methods (ECOD, COPOD) "
-                "typically achieve best AUC-ROC\n\n")
+        f.write(
+            "- **Good Accuracy**: Ensemble methods (IForest) and density methods (ECOD, COPOD) "
+            "typically achieve best AUC-ROC\n\n"
+        )
 
         f.write("### Deep Learning Algorithms\n")
-        f.write("- **Training Time**: Neural networks require more time but learn complex patterns\n")
+        f.write(
+            "- **Training Time**: Neural networks require more time but learn complex patterns\n"
+        )
         f.write("- **Inference Speed**: Once trained, inference is relatively fast\n")
         f.write("- **Model Size**: Modern architectures are optimized for efficiency\n")
         f.write("- **Accuracy**: Deep methods excel on complex visual anomalies\n\n")
@@ -117,7 +121,9 @@ def generate_report(results: dict, output_path: str = "benchmark_report.md"):
         f.write("### Preprocessing Operations\n")
         f.write("- **Basic Ops**: Edge detection, filtering are very fast (<10ms)\n")
         f.write("- **Advanced Ops**: FFT, Retinex, HOG take longer but provide richer features\n")
-        f.write("- **Augmentation**: Pipeline speed depends on complexity and number of operations\n")
+        f.write(
+            "- **Augmentation**: Pipeline speed depends on complexity and number of operations\n"
+        )
         f.write("- **Scalability**: Processing time scales with image size\n\n")
 
         f.write("## Recommendations\n\n")
@@ -141,9 +147,9 @@ def generate_report(results: dict, output_path: str = "benchmark_report.md"):
 
 def main():
     """Run all benchmarks and generate report."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("PyImgAno Comprehensive Benchmark Suite")
-    print("="*80)
+    print("=" * 80)
     print(f"\nStarted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Change to benchmarks directory
@@ -153,35 +159,32 @@ def main():
 
     # Run preprocessing benchmark
     success, elapsed, error = run_benchmark(
-        "benchmark_preprocessing.py",
-        "Preprocessing & Augmentation Benchmark"
+        "benchmark_preprocessing.py", "Preprocessing & Augmentation Benchmark"
     )
     results["Preprocessing & Augmentation"] = (success, elapsed, error)
 
     # Run classical algorithms benchmark
     success, elapsed, error = run_benchmark(
-        "benchmark_classical.py",
-        "Classical Algorithms Benchmark"
+        "benchmark_classical.py", "Classical Algorithms Benchmark"
     )
     results["Classical Algorithms"] = (success, elapsed, error)
 
     # Run deep learning benchmark (may take longer)
     success, elapsed, error = run_benchmark(
-        "benchmark_deeplearning.py",
-        "Deep Learning Algorithms Benchmark"
+        "benchmark_deeplearning.py", "Deep Learning Algorithms Benchmark"
     )
     results["Deep Learning Algorithms"] = (success, elapsed, error)
 
     # Generate comprehensive report
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Generating Benchmark Report")
-    print("="*80)
+    print("=" * 80)
     generate_report(results)
 
     # Final summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("All Benchmarks Complete!")
-    print("="*80)
+    print("=" * 80)
 
     successful = sum(1 for success, _, _ in results.values() if success)
     total = len(results)

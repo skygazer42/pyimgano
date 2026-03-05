@@ -7,18 +7,18 @@ import os
 import sys
 
 # Add the parent directory to the path so we can import pyimgano
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'PyImgAno'
-copyright = '2026, PyImgAno Contributors'
-author = 'PyImgAno Contributors'
+project = "PyImgAno"
+copyright = "2026, PyImgAno Contributors"
+author = "PyImgAno Contributors"
 try:
     import pyimgano as _pyimgano
 except Exception:
-    release = '0.0.0'
+    release = "0.0.0"
     version = release
 else:
     release = _pyimgano.__version__
@@ -28,14 +28,14 @@ else:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',  # Auto-generate documentation from docstrings
-    'sphinx.ext.napoleon',  # Support for NumPy and Google style docstrings
-    'sphinx.ext.viewcode',  # Add links to highlighted source code
-    'sphinx.ext.intersphinx',  # Link to other project documentation
-    'sphinx.ext.autosummary',  # Generate summary tables
-    'sphinx.ext.coverage',  # Check documentation coverage
-    'sphinx.ext.mathjax',  # Render math equations
-    'sphinx.ext.githubpages',  # Create .nojekyll file for GitHub Pages
+    "sphinx.ext.autodoc",  # Auto-generate documentation from docstrings
+    "sphinx.ext.napoleon",  # Support for NumPy and Google style docstrings
+    "sphinx.ext.viewcode",  # Add links to highlighted source code
+    "sphinx.ext.intersphinx",  # Link to other project documentation
+    "sphinx.ext.autosummary",  # Generate summary tables
+    "sphinx.ext.coverage",  # Check documentation coverage
+    "sphinx.ext.mathjax",  # Render math equations
+    "sphinx.ext.githubpages",  # Create .nojekyll file for GitHub Pages
 ]
 
 # Allow docs to build in minimal environments by mocking heavy optional deps.
@@ -77,52 +77,52 @@ napoleon_type_aliases = None
 
 # Autodoc settings
 autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
-    'undoc-members': True,
-    'exclude-members': '__weakref__'
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+    "undoc-members": True,
+    "exclude-members": "__weakref__",
 }
-autodoc_typehints = 'description'
-autodoc_typehints_description_target = 'documented'
+autodoc_typehints = "description"
+autodoc_typehints_description_target = "documented"
 
 # Autosummary settings
 autosummary_generate = True
 
 # Templates path
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The suffix(es) of source filenames
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".md": "markdown",
 }
 
 # The master toctree document
-master_doc = 'index'
+master_doc = "index"
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'  # ReadTheDocs theme
-html_static_path = ['_static']
+html_theme = "sphinx_rtd_theme"  # ReadTheDocs theme
+html_static_path = ["_static"]
 
 # Theme options
 html_theme_options = {
-    'logo_only': False,
-    'prev_next_buttons_location': 'bottom',
-    'style_external_links': True,
-    'style_nav_header_background': '#2980B9',
+    "logo_only": False,
+    "prev_next_buttons_location": "bottom",
+    "style_external_links": True,
+    "style_nav_header_background": "#2980B9",
     # Toc options
-    'collapse_navigation': False,
-    'sticky_navigation': True,
-    'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "navigation_depth": 4,
+    "includehidden": True,
+    "titles_only": False,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -132,9 +132,9 @@ html_theme_options = {
 
 # Custom sidebar templates
 html_sidebars = {
-    '**': [
-        'relations.html',  # needs 'show_related': True theme option to display
-        'searchbox.html',
+    "**": [
+        "relations.html",  # needs 'show_related': True theme option to display
+        "searchbox.html",
     ]
 }
 
@@ -148,32 +148,28 @@ html_show_sphinx = True
 html_show_copyright = True
 
 # Output file base name for HTML help builder
-htmlhelp_basename = 'PyImgAnodoc'
+htmlhelp_basename = "PyImgAnodoc"
 
 # -- Options for LaTeX output ------------------------------------------------
 
 latex_elements = {
-    'papersize': 'letterpaper',
-    'pointsize': '10pt',
-    'preamble': '',
-    'figure_align': 'htbp',
+    "papersize": "letterpaper",
+    "pointsize": "10pt",
+    "preamble": "",
+    "figure_align": "htbp",
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'PyImgAno.tex', 'PyImgAno Documentation',
-     'PyImgAno Contributors', 'manual'),
+    (master_doc, "PyImgAno.tex", "PyImgAno Documentation", "PyImgAno Contributors", "manual"),
 ]
 
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'pyimgano', 'PyImgAno Documentation',
-     [author], 1)
-]
+man_pages = [(master_doc, "pyimgano", "PyImgAno Documentation", [author], 1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -181,20 +177,26 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'PyImgAno', 'PyImgAno Documentation',
-     author, 'PyImgAno', 'Enterprise-Grade Visual Anomaly Detection Toolkit',
-     'Miscellaneous'),
+    (
+        master_doc,
+        "PyImgAno",
+        "PyImgAno Documentation",
+        author,
+        "PyImgAno",
+        "Enterprise-Grade Visual Anomaly Detection Toolkit",
+        "Miscellaneous",
+    ),
 ]
 
 # -- Extension configuration -------------------------------------------------
 
 # Intersphinx configuration
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-    'numpy': ('https://numpy.org/doc/stable/', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy/', None),
-    'sklearn': ('https://scikit-learn.org/stable/', None),
-    'torch': ('https://docs.pytorch.org/docs/stable/', None),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "torch": ("https://docs.pytorch.org/docs/stable/", None),
 }
 
 # -- Options for todo extension ----------------------------------------------

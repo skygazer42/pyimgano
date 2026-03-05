@@ -7,8 +7,9 @@ This script demonstrates the latest SOTA algorithms added to PyImgAno:
 - DifferNet (WACV 2023): Learnable difference detection
 """
 
-import numpy as np
 import cv2
+import numpy as np
+
 from pyimgano.models import create_model
 
 
@@ -60,9 +61,9 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
 
 def demo_cutpaste():
     """Demonstrate CutPaste algorithm."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("CutPaste: Self-Supervised Learning (CVPR 2021)")
-    print("="*70)
+    print("=" * 70)
 
     # Generate data
     X_train, X_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
@@ -88,7 +89,7 @@ def demo_cutpaste():
     predictions = detector.predict(X_test)
 
     # Evaluate
-    from sklearn.metrics import roc_auc_score, accuracy_score
+    from sklearn.metrics import accuracy_score, roc_auc_score
 
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
@@ -104,9 +105,9 @@ def demo_cutpaste():
 
 def demo_winclip():
     """Demonstrate WinCLIP algorithm."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("WinCLIP: Zero-Shot CLIP-based Detection (CVPR 2023)")
-    print("="*70)
+    print("=" * 70)
 
     try:
         import clip
@@ -141,7 +142,7 @@ def demo_winclip():
     predictions = detector.predict(X_test)
 
     # Evaluate
-    from sklearn.metrics import roc_auc_score, accuracy_score
+    from sklearn.metrics import accuracy_score, roc_auc_score
 
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
@@ -154,17 +155,19 @@ def demo_winclip():
     print("\nGenerating anomaly maps for first 3 test images...")
     anomaly_maps = detector.predict_anomaly_map(X_test[:3])
     for i, map in enumerate(anomaly_maps):
-        print(f"  Image {i}: Anomaly map shape {map.shape}, "
-              f"max={map.max():.3f}, mean={map.mean():.3f}")
+        print(
+            f"  Image {i}: Anomaly map shape {map.shape}, "
+            f"max={map.max():.3f}, mean={map.mean():.3f}"
+        )
 
     return detector, scores, y_test
 
 
 def demo_differnet():
     """Demonstrate DifferNet algorithm."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DifferNet: Learnable Difference Detection (WACV 2023)")
-    print("="*70)
+    print("=" * 70)
 
     # Generate data
     X_train, X_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
@@ -191,7 +194,7 @@ def demo_differnet():
     predictions = detector.predict(X_test)
 
     # Evaluate
-    from sklearn.metrics import roc_auc_score, accuracy_score
+    from sklearn.metrics import accuracy_score, roc_auc_score
 
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
@@ -206,9 +209,9 @@ def demo_differnet():
 
 def compare_algorithms():
     """Compare all SOTA algorithms."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Comparing SOTA Algorithms")
-    print("="*70)
+    print("=" * 70)
 
     # Generate shared test data
     X_train, X_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
@@ -227,6 +230,7 @@ def compare_algorithms():
             _, scores, _ = demo_func()
             if scores is not None:
                 from sklearn.metrics import roc_auc_score
+
                 auc = roc_auc_score(y_test, scores)
                 results[name] = auc
         except Exception as e:
@@ -234,9 +238,9 @@ def compare_algorithms():
             results[name] = None
 
     # Print comparison
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Algorithm Comparison (AUC-ROC)")
-    print("="*70)
+    print("=" * 70)
     for name, auc in results.items():
         if auc is not None:
             print(f"  {name:15s}: {auc:.4f}")
@@ -246,9 +250,9 @@ def compare_algorithms():
 
 def main():
     """Run all demonstrations."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PyImgAno SOTA Algorithms Demo")
-    print("="*70)
+    print("=" * 70)
     print("\nThis script demonstrates the latest state-of-the-art algorithms:")
     print("  1. CutPaste (CVPR 2021) - Self-supervised learning")
     print("  2. WinCLIP (CVPR 2023) - Zero-shot CLIP-based detection")
@@ -263,9 +267,9 @@ def main():
     print("\n\nRunning full comparison...")
     compare_algorithms()
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("Demo Complete!")
-    print("="*70)
+    print("=" * 70)
 
 
 if __name__ == "__main__":

@@ -30,4 +30,3 @@ def test_benchmark_industrial_ci_micro_cli_accepts_dataset_kind_and_models() -> 
         ],
         check=True,
     )
-

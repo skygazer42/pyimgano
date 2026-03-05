@@ -142,4 +142,3 @@ def test_pixel_gaussian_map_detector_accepts_paths(tmp_path: Path) -> None:
     assert amap.shape == (64, 64)
     assert amap.dtype == np.float32
     assert np.all(np.isfinite(amap))
-

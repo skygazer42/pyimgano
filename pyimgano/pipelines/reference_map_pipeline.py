@@ -22,7 +22,6 @@ import numpy as np
 
 from pyimgano.models.base_detector import BaseDetector
 
-
 _Reduce = Literal["max", "mean", "topk_mean"]
 _MatchMode = Literal["basename"]
 
@@ -36,7 +35,9 @@ def _iter_image_paths(root: Path) -> list[Path]:
     return out
 
 
-def build_reference_index(reference_dir: str | Path, *, match_mode: _MatchMode = "basename") -> dict[str, str]:
+def build_reference_index(
+    reference_dir: str | Path, *, match_mode: _MatchMode = "basename"
+) -> dict[str, str]:
     """Build a mapping key -> absolute reference path.
 
     match_mode="basename" maps by filename (e.g. "IMG_001.png").
@@ -127,7 +128,9 @@ class ReferenceMapPipeline(BaseDetector):
 
     def _resolve_reference_path(self, query_path: str | Path) -> str:
         if self._reference_index is None:
-            raise ValueError("reference_dir is not set. Provide --reference-dir or call set_reference_dir().")
+            raise ValueError(
+                "reference_dir is not set. Provide --reference-dir or call set_reference_dir()."
+            )
         key = Path(str(query_path)).name
         ref = self._reference_index.get(key, None)
         if ref is None:
@@ -173,7 +176,9 @@ class ReferenceMapPipeline(BaseDetector):
             raise ValueError("Training set cannot be empty")
 
         self._set_n_classes(y)
-        self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64).reshape(-1)
+        self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64).reshape(
+            -1
+        )
         self._process_decision_scores()
         return self
 
@@ -187,4 +192,3 @@ class ReferenceMapPipeline(BaseDetector):
 
 
 __all__ = ["ReferenceMapPipeline", "build_reference_index"]
-

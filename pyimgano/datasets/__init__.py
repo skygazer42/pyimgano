@@ -11,8 +11,8 @@ from importlib import import_module
 from typing import Any
 
 from .benchmarks import (
-    BTADDataset,
     BaseDataset,
+    BTADDataset,
     CustomDataset,
     DatasetInfo,
     ManifestDataset,

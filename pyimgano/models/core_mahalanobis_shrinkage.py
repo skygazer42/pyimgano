@@ -32,7 +32,9 @@ class _MahalanobisShrinkageBackend:
         lw = LedoitWolf(assume_centered=bool(self.assume_centered))
         lw.fit(X_arr)
         self._lw = lw
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64).reshape(-1)
+        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64).reshape(
+            -1
+        )
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
@@ -67,4 +69,3 @@ class CoreMahalanobisShrinkage(CoreFeatureDetector):
 
 
 __all__ = ["CoreMahalanobisShrinkage"]
-

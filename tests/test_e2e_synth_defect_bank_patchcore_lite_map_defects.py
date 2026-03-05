@@ -149,4 +149,3 @@ def test_e2e_defect_bank_synth_then_patchcore_lite_map_defects_export(tmp_path: 
         assert inter > 0
 
     assert found_anomaly, "expected at least one anomaly sample in the synthesized test split"
-

@@ -9,7 +9,4 @@ def test_train_cli_recipe_info_json_includes_callable_path(capsys):
     out = capsys.readouterr().out
     parsed = json.loads(out)
     assert parsed["name"] == "industrial-adapt"
-    assert parsed["callable"].endswith(
-        "pyimgano.recipes.builtin.industrial_adapt.industrial_adapt"
-    )
-
+    assert parsed["callable"].endswith("pyimgano.recipes.builtin.industrial_adapt.industrial_adapt")

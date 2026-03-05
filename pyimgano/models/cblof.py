@@ -5,24 +5,25 @@ Vision CBLOF - 基于聚类的视觉异常检测器
 """
 
 import logging
-import warnings
-import numpy as np
-import cv2
 import os
+import warnings
+
+import cv2
+import numpy as np
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from sklearn.utils.validation import check_array
 from tqdm import tqdm
+
+from ..utils.fitted import require_fitted
+from ..utils.param_check import check_parameter
 
 # 只从本地基类导入
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-from ..utils.param_check import check_parameter
-from ..utils.fitted import require_fitted
-
 
 # ===================================================================
 #                     日志
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 # ===================================================================
 #                     特征提取器类
 # ===================================================================
+
 
 class ImageFeatureExtractor:
     """
@@ -50,7 +52,7 @@ class ImageFeatureExtractor:
         PCA降维后的维度
     """
 
-    def __init__(self, method='combined', reduce_dim=True, n_components=50):
+    def __init__(self, method="combined", reduce_dim=True, n_components=50):
         self.method = method
         self.reduce_dim = reduce_dim
         self.n_components = n_components
@@ -125,13 +127,13 @@ class ImageFeatureExtractor:
 
         features = []
 
-        if self.method in ['color', 'combined']:
+        if self.method in ["color", "combined"]:
             features.extend(self._extract_color_features(img))
 
-        if self.method in ['texture', 'combined']:
+        if self.method in ["texture", "combined"]:
             features.extend(self._extract_texture_features(img))
 
-        if self.method == 'deep':
+        if self.method == "deep":
             features.extend(self._extract_deep_features(img))
 
         return np.array(features)
@@ -149,20 +151,19 @@ class ImageFeatureExtractor:
         # 颜色统计
         for i in range(3):
             channel = img[:, :, i]
-            features.extend([
-                channel.mean() / 255.0,
-                channel.std() / 255.0,
-                np.percentile(channel, 25) / 255.0,
-                np.percentile(channel, 75) / 255.0
-            ])
+            features.extend(
+                [
+                    channel.mean() / 255.0,
+                    channel.std() / 255.0,
+                    np.percentile(channel, 25) / 255.0,
+                    np.percentile(channel, 75) / 255.0,
+                ]
+            )
 
         # HSV特征
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         for i in range(3):
-            features.extend([
-                hsv[:, :, i].mean() / 255.0,
-                hsv[:, :, i].std() / 255.0
-            ])
+            features.extend([hsv[:, :, i].mean() / 255.0, hsv[:, :, i].std() / 255.0])
 
         return features
 
@@ -174,19 +175,14 @@ class ImageFeatureExtractor:
         # 梯度特征
         grad_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
         grad_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-        grad_mag = np.sqrt(grad_x ** 2 + grad_y ** 2)
+        grad_mag = np.sqrt(grad_x**2 + grad_y**2)
 
-        features.extend([
-            grad_mag.mean() / 255.0,
-            grad_mag.std() / 255.0,
-            (grad_mag > 50).sum() / grad_mag.size
-        ])
+        features.extend(
+            [grad_mag.mean() / 255.0, grad_mag.std() / 255.0, (grad_mag > 50).sum() / grad_mag.size]
+        )
 
         # 简单纹理统计
-        features.extend([
-            gray.mean() / 255.0,
-            gray.std() / 255.0
-        ])
+        features.extend([gray.mean() / 255.0, gray.std() / 255.0])
 
         # 频域特征
         fft = np.fft.fft2(cv2.resize(gray, (64, 64)))
@@ -194,7 +190,7 @@ class ImageFeatureExtractor:
         magnitude = np.abs(fft_shift)
 
         center = 32
-        low_freq = magnitude[center - 8:center + 8, center - 8:center + 8].sum()
+        low_freq = magnitude[center - 8 : center + 8, center - 8 : center + 8].sum()
         total_freq = magnitude.sum()
         features.append(low_freq / (total_freq + 1e-6))
 
@@ -210,6 +206,7 @@ class ImageFeatureExtractor:
 # ===================================================================
 #                     核心CBLOF算法（独立实现）
 # ===================================================================
+
 
 @register_model(
     "core_cblof",
@@ -239,13 +236,15 @@ class CoreCBLOF(BaseDetector):
         随机种子
     """
 
-    def __init__(self,
-                 n_clusters=8,
-                 contamination=0.1,
-                 alpha=0.9,
-                 beta=5,
-                 use_weights=False,
-                 random_state=None):
+    def __init__(
+        self,
+        n_clusters=8,
+        contamination=0.1,
+        alpha=0.9,
+        beta=5,
+        use_weights=False,
+        random_state=None,
+    ):
         super().__init__(contamination=contamination)
         self.n_clusters = n_clusters
         self.alpha = alpha
@@ -272,15 +271,14 @@ class CoreCBLOF(BaseDetector):
         n_samples, n_features = X.shape
 
         # 参数验证
-        check_parameter(self.alpha, low=0, high=1, param_name='alpha',
-                        include_left=False, include_right=False)
-        check_parameter(self.beta, low=1, param_name='beta',
-                        include_left=False)
+        check_parameter(
+            self.alpha, low=0, high=1, param_name="alpha", include_left=False, include_right=False
+        )
+        check_parameter(self.beta, low=1, param_name="beta", include_left=False)
 
         # 执行聚类
         self.clustering_estimator_ = KMeans(
-            n_clusters=self.n_clusters,
-            random_state=self.random_state
+            n_clusters=self.n_clusters, random_state=self.random_state
         )
         self.clustering_estimator_.fit(X)
 
@@ -328,7 +326,9 @@ class CoreCBLOF(BaseDetector):
                 alpha_list.append(i)
 
             # β条件：相邻簇大小比例
-            ratio = self.cluster_sizes_[sorted_indices[i - 1]] / (self.cluster_sizes_[sorted_indices[i]] + 1e-10)
+            ratio = self.cluster_sizes_[sorted_indices[i - 1]] / (
+                self.cluster_sizes_[sorted_indices[i]] + 1e-10
+            )
             if ratio >= self.beta:
                 beta_list.append(i)
 
@@ -370,7 +370,7 @@ class CoreCBLOF(BaseDetector):
         large_mask = np.isin(labels, self.large_cluster_labels_)
         if large_mask.any():
             for label in self.large_cluster_labels_:
-                label_mask = (labels == label)
+                label_mask = labels == label
                 if label_mask.any():
                     center = self.cluster_centers_[label]
                     scores[label_mask] = np.linalg.norm(X[label_mask] - center, axis=1)
@@ -385,6 +385,7 @@ class CoreCBLOF(BaseDetector):
 # ===================================================================
 #                     VisionCBLOF（主类）
 # ===================================================================
+
 
 @register_model(
     "vision_cblof",
@@ -439,17 +440,19 @@ class VisionCBLOF(BaseVisionDetector):
     >>> labels = detector.predict(test_image_paths)
     """
 
-    def __init__(self,
-                 contamination=0.1,
-                 feature_extractor=None,
-                 n_clusters=8,
-                 alpha=0.9,
-                 beta=5,
-                 use_weights=False,
-                 feature_method='combined',
-                 reduce_dim=True,
-                 n_components=50,
-                 random_state=None):
+    def __init__(
+        self,
+        contamination=0.1,
+        feature_extractor=None,
+        n_clusters=8,
+        alpha=0.9,
+        beta=5,
+        use_weights=False,
+        feature_method="combined",
+        reduce_dim=True,
+        n_components=50,
+        random_state=None,
+    ):
 
         # 保存CBLOF特定参数
         self.n_clusters = n_clusters
@@ -461,9 +464,7 @@ class VisionCBLOF(BaseVisionDetector):
         # 如果未提供特征提取器，创建默认的
         if feature_extractor is None:
             feature_extractor = ImageFeatureExtractor(
-                method=feature_method,
-                reduce_dim=reduce_dim,
-                n_components=n_components
+                method=feature_method, reduce_dim=reduce_dim, n_components=n_components
             )
             logger.info(
                 "CBLOF: using default feature extractor (method=%s, pca=%s)",
@@ -473,8 +474,7 @@ class VisionCBLOF(BaseVisionDetector):
 
         # 调用父类构造函数
         super(VisionCBLOF, self).__init__(
-            contamination=contamination,
-            feature_extractor=feature_extractor
+            contamination=contamination, feature_extractor=feature_extractor
         )
 
     def _build_detector(self):
@@ -488,7 +488,7 @@ class VisionCBLOF(BaseVisionDetector):
             alpha=self.alpha,
             beta=self.beta,
             use_weights=self.use_weights,
-            random_state=self.random_state
+            random_state=self.random_state,
         )
 
     def visualize_clusters(self):
@@ -497,7 +497,7 @@ class VisionCBLOF(BaseVisionDetector):
 
         plt = require("matplotlib.pyplot", extra="viz", purpose="VisionCBLOF visualization")
 
-        if not hasattr(self.detector, 'cluster_labels_'):
+        if not hasattr(self.detector, "cluster_labels_"):
             logger.warning("CBLOF: visualize_clusters called before fit()")
             return
 
@@ -511,23 +511,26 @@ class VisionCBLOF(BaseVisionDetector):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         # 簇大小分布
-        colors = ['green' if i in large_clusters else 'orange'
-                  for i in range(n_clusters)]
+        colors = ["green" if i in large_clusters else "orange" for i in range(n_clusters)]
 
         ax1.bar(range(n_clusters), cluster_sizes, color=colors)
-        ax1.set_xlabel('簇索引')
-        ax1.set_ylabel('簇大小')
-        ax1.set_title('簇大小分布')
-        ax1.legend(['大簇', '小簇'])
+        ax1.set_xlabel("簇索引")
+        ax1.set_ylabel("簇大小")
+        ax1.set_title("簇大小分布")
+        ax1.legend(["大簇", "小簇"])
 
         # 异常分数分布
-        if hasattr(self, 'decision_scores_'):
-            ax2.hist(self.decision_scores_, bins=30, edgecolor='black')
-            ax2.axvline(self.detector.threshold_, color='r',
-                        linestyle='--', label=f'阈值={self.detector.threshold_:.3f}')
-            ax2.set_xlabel('异常分数')
-            ax2.set_ylabel('频数')
-            ax2.set_title('异常分数分布')
+        if hasattr(self, "decision_scores_"):
+            ax2.hist(self.decision_scores_, bins=30, edgecolor="black")
+            ax2.axvline(
+                self.detector.threshold_,
+                color="r",
+                linestyle="--",
+                label=f"阈值={self.detector.threshold_:.3f}",
+            )
+            ax2.set_xlabel("异常分数")
+            ax2.set_ylabel("频数")
+            ax2.set_title("异常分数分布")
             ax2.legend()
 
         plt.tight_layout()
@@ -535,7 +538,7 @@ class VisionCBLOF(BaseVisionDetector):
 
     def get_cluster_info(self):
         """获取聚类详细信息"""
-        if not hasattr(self.detector, 'cluster_labels_'):
+        if not hasattr(self.detector, "cluster_labels_"):
             return {"status": "模型未训练"}
 
         info = {
@@ -543,17 +546,18 @@ class VisionCBLOF(BaseVisionDetector):
             "聚类数": self.detector.n_clusters_,
             "大簇": list(self.detector.large_cluster_labels_),
             "小簇": list(self.detector.small_cluster_labels_),
-            "簇大小": {i: int(self.detector.cluster_sizes_[i])
-                       for i in range(self.detector.n_clusters_)},
+            "簇大小": {
+                i: int(self.detector.cluster_sizes_[i]) for i in range(self.detector.n_clusters_)
+            },
             "α参数": self.alpha,
             "β参数": self.beta,
             "使用权重": self.use_weights,
             "污染率": self.contamination,
-            "阈值": float(self.detector.threshold_)
+            "阈值": float(self.detector.threshold_),
         }
 
         # 添加异常检测结果统计
-        if hasattr(self.detector, 'labels_'):
+        if hasattr(self.detector, "labels_"):
             n_anomalies = self.detector.labels_.sum()
             n_total = len(self.detector.labels_)
             info["训练集异常数"] = f"{n_anomalies}/{n_total} ({n_anomalies / n_total * 100:.1f}%)"
@@ -571,32 +575,19 @@ if __name__ == "__main__":
 
     # 示例1: 使用默认配置
     print("\n示例1: 默认配置")
-    detector = VisionCBLOF(
-        n_clusters=8,
-        contamination=0.1,
-        feature_method='combined'
-    )
+    detector = VisionCBLOF(n_clusters=8, contamination=0.1, feature_method="combined")
     print("创建成功，特征方法: combined")
 
     # 示例2: 自定义特征提取器
     print("\n示例2: 自定义特征提取器")
-    custom_extractor = ImageFeatureExtractor(
-        method='texture',
-        reduce_dim=False
-    )
+    custom_extractor = ImageFeatureExtractor(method="texture", reduce_dim=False)
 
-    detector2 = VisionCBLOF(
-        feature_extractor=custom_extractor,
-        n_clusters=5,
-        alpha=0.8,
-        beta=3
-    )
+    detector2 = VisionCBLOF(feature_extractor=custom_extractor, n_clusters=5, alpha=0.8, beta=3)
     print("创建成功，特征方法: texture, 不使用PCA")
 
     # 示例3: 使用模拟数据演示完整流程
     print("\n示例3: 模拟数据演示")
     print("-" * 40)
-
 
     # 创建模拟特征提取器
     class MockExtractor:
@@ -617,13 +608,8 @@ if __name__ == "__main__":
             data = np.vstack([normal_data, anomaly_data])
             return data
 
-
     # 创建检测器
-    mock_detector = VisionCBLOF(
-        feature_extractor=MockExtractor(),
-        n_clusters=3,
-        contamination=0.1
-    )
+    mock_detector = VisionCBLOF(feature_extractor=MockExtractor(), n_clusters=3, contamination=0.1)
 
     # 训练
     train_paths = [f"img_{i}.jpg" for i in range(100)]

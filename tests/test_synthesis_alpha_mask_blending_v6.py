@@ -39,4 +39,3 @@ def test_synthesizer_uses_alpha_mask_for_alpha_blend() -> None:
     # If the synthesizer ignores `alpha_mask_u8`, binary mask would force the pixel to 200.
     px = int(out_img[0, 0, 0])
     assert 80 < px < 200
-

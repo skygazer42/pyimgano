@@ -13,7 +13,9 @@ def _write_png(path: Path, *, value: int) -> None:
     Image.fromarray(img, mode="RGB").save(path)
 
 
-def test_infer_cli_fails_fast_when_checkpoint_required(tmp_path: Path, capsys) -> None:  # noqa: ANN001
+def test_infer_cli_fails_fast_when_checkpoint_required(
+    tmp_path: Path, capsys
+) -> None:  # noqa: ANN001
     from pyimgano.infer_cli import main as infer_main
 
     img = tmp_path / "x.png"
@@ -35,4 +37,3 @@ def test_infer_cli_fails_fast_when_checkpoint_required(tmp_path: Path, capsys) -
     assert rc == 2
     err = capsys.readouterr().err.lower()
     assert "requires a checkpoint" in err
-

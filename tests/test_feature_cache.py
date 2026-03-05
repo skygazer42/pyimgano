@@ -68,7 +68,6 @@ def test_feature_cache_reuses_disk_features(tmp_path) -> None:
 
 def test_run_benchmark_cache_dir_writes_feature_files(tmp_path) -> None:
     import pyimgano.models  # noqa: F401 - registry population
-
     from pyimgano.pipelines.run_benchmark import run_benchmark
 
     root = tmp_path / "custom_ds"

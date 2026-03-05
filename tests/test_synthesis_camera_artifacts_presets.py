@@ -48,4 +48,3 @@ def test_camera_artifacts_presets_registered() -> None:
     assert pr_lens.overlay_u8.shape == img.shape
     assert pr_lens.mask_u8.shape == img.shape[:2]
     assert pr_lens.meta.get("preset") == "lens_distortion"
-

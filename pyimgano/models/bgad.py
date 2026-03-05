@@ -17,11 +17,12 @@ Implementation includes:
 - Improved anomaly scoring
 """
 
+from typing import Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import Optional, Tuple
 from numpy.typing import NDArray
 from sklearn.cluster import KMeans
 
@@ -49,10 +50,9 @@ class BackgroundModel:
 
         # Compute statistics for each cluster
         self.cluster_centers = self.kmeans.cluster_centers_
-        self.cluster_stds = np.array([
-            features[labels == i].std(axis=0) + 1e-8
-            for i in range(self.n_clusters)
-        ])
+        self.cluster_stds = np.array(
+            [features[labels == i].std(axis=0) + 1e-8 for i in range(self.n_clusters)]
+        )
 
     def normalize(self, features: NDArray) -> NDArray:
         """Normalize features using background statistics.
@@ -86,12 +86,15 @@ class FeatureExtractor(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
             model = wide_resnet50_2(weights=weights)
 
             self.features = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
+                model.conv1,
+                model.bn1,
+                model.relu,
                 model.maxpool,
                 model.layer1,
                 model.layer2,
@@ -99,12 +102,15 @@ class FeatureExtractor(nn.Module):
             self.output_dim = 512
 
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
 
             self.features = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
+                model.conv1,
+                model.bn1,
+                model.relu,
                 model.maxpool,
                 model.layer1,
                 model.layer2,
@@ -172,10 +178,9 @@ class BGADDetector(BaseVisionDeepDetector):
         self.gaussian_sigma = gaussian_sigma
 
         # Feature extractor
-        self.feature_extractor = FeatureExtractor(
-            backbone=backbone,
-            pretrained=pretrained
-        ).to(self.device)
+        self.feature_extractor = FeatureExtractor(backbone=backbone, pretrained=pretrained).to(
+            self.device
+        )
 
         # Background model
         self.background_model = BackgroundModel(n_clusters=n_background_clusters)
@@ -218,10 +223,7 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return features
 
-    def _separate_foreground_background(
-        self,
-        features: NDArray
-    ) -> Tuple[NDArray, NDArray]:
+    def _separate_foreground_background(self, features: NDArray) -> Tuple[NDArray, NDArray]:
         """Separate foreground and background features.
 
         Args:

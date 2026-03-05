@@ -61,4 +61,3 @@ def test_load_dataset_manifest_factory_paths_and_arrays(tmp_path: Path) -> None:
     assert train_arr.ndim == 4
     assert test_arr.ndim == 4
     assert test_labels.shape[0] == test_arr.shape[0]
-

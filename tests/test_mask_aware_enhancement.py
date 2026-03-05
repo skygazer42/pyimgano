@@ -26,4 +26,3 @@ def test_mask_aware_enhancement_only_modifies_roi() -> None:
     assert np.array_equal(out[mask == 0], img[mask == 0])
     # Inside ROI: should differ for noisy image after blur
     assert not np.array_equal(out[mask == 1], img[mask == 1])
-

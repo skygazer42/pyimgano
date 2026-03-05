@@ -112,4 +112,3 @@ class CachedArrayFeatureExtractor:
             arrays=[np.asarray(x) for x in items],
             cache=self.cache,
         )
-

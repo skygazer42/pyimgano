@@ -29,4 +29,3 @@ def test_normalize_path_collapses_repeated_separators() -> None:
 
 def test_normalize_path_preserves_unc_prefix() -> None:
     assert normalize_path(r"\\server\share\dir\0.png") == "//server/share/dir/0.png"
-

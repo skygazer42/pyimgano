@@ -18,11 +18,11 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from ..utils.fitted import require_fitted
+from ..utils.random_state import check_random_state
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-from ..utils.fitted import require_fitted
-from ..utils.random_state import check_random_state
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,9 @@ class CoreRRCF(BaseDetector):
                 idxs = rng.choice(n, size=sample_size, replace=False)
             else:
                 idxs = np.arange(n, dtype=np.int64)
-            root = _build_random_cut_tree(X_arr, np.asarray(idxs, dtype=np.int64), max_depth=max_depth, rng=rng)
+            root = _build_random_cut_tree(
+                X_arr, np.asarray(idxs, dtype=np.int64), max_depth=max_depth, rng=rng
+            )
             forest.append(root)
 
         self._forest = forest
@@ -154,7 +156,9 @@ class CoreRRCF(BaseDetector):
 
         scores = np.zeros((X_arr.shape[0],), dtype=np.float64)
         for t in forest:
-            depths = np.asarray([_path_length(t, X_arr[i]) for i in range(X_arr.shape[0])], dtype=np.float64)
+            depths = np.asarray(
+                [_path_length(t, X_arr[i]) for i in range(X_arr.shape[0])], dtype=np.float64
+            )
             scores += 1.0 / (depths + 1.0)
         scores /= float(len(forest))
         return scores

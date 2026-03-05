@@ -5,7 +5,6 @@ import numpy as np
 
 def test_vision_feature_pipeline_model_smoke() -> None:
     import pyimgano.models  # noqa: F401 - registry population
-
     from pyimgano.models import create_model
 
     det = create_model(

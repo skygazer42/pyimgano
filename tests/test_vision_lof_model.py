@@ -3,7 +3,6 @@ import numpy as np
 
 def test_vision_lof_with_identity_extractor() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
@@ -24,4 +23,3 @@ def test_vision_lof_with_identity_extractor() -> None:
     assert preds.shape == (7,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

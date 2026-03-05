@@ -41,4 +41,3 @@ def test_torchvision_backbone_gem_extractor_smoke() -> None:
     # ResNet18 layer4 has 512 channels => (N,512) embedding.
     assert feats.shape[1] == 512
     assert np.all(np.isfinite(feats))
-

@@ -69,14 +69,14 @@ def compute_auroc(
 
     if len(np.unique(y_true)) < 2:
         logger.warning("Only one class present in y_true. AUROC is not defined.")
-        return float('nan')
+        return float("nan")
 
     try:
         auroc = roc_auc_score(y_true, y_scores)
         return float(auroc)
     except Exception as e:
         logger.error("Failed to compute AUROC: %s", e)
-        return float('nan')
+        return float("nan")
 
 
 def compute_average_precision(
@@ -121,14 +121,14 @@ def compute_average_precision(
 
     if len(np.unique(y_true)) < 2:
         logger.warning("Only one class present in y_true. AP is not defined.")
-        return float('nan')
+        return float("nan")
 
     try:
         ap = average_precision_score(y_true, y_scores)
         return float(ap)
     except Exception as e:
         logger.error("Failed to compute AP: %s", e)
-        return float('nan')
+        return float("nan")
 
 
 def find_optimal_threshold(
@@ -169,8 +169,8 @@ def find_optimal_threshold(
         # Compute F1 scores (avoid division by zero)
         f1_scores = np.zeros_like(precisions)
         mask = (precisions + recalls) > 0
-        f1_scores[mask] = 2 * (precisions[mask] * recalls[mask]) / (
-            precisions[mask] + recalls[mask]
+        f1_scores[mask] = (
+            2 * (precisions[mask] * recalls[mask]) / (precisions[mask] + recalls[mask])
         )
 
         # Find optimal threshold
@@ -204,8 +204,7 @@ def find_optimal_threshold(
 
     else:
         raise ValueError(
-            f"Unsupported metric: {metric}. "
-            "Choose from 'f1', 'precision', 'recall', 'youden'"
+            f"Unsupported metric: {metric}. " "Choose from 'f1', 'precision', 'recall', 'youden'"
         )
 
 
@@ -253,15 +252,15 @@ def compute_classification_metrics(
     accuracy = (tp + tn) / (tp + tn + fp + fn)
 
     return {
-        'precision': float(precision),
-        'recall': float(recall),
-        'f1': float(f1),
-        'specificity': float(specificity),
-        'accuracy': float(accuracy),
-        'tp': int(tp),
-        'tn': int(tn),
-        'fp': int(fp),
-        'fn': int(fn),
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+        "specificity": float(specificity),
+        "accuracy": float(accuracy),
+        "tp": int(tp),
+        "tn": int(tn),
+        "fp": int(fp),
+        "fn": int(fn),
     }
 
 
@@ -319,13 +318,8 @@ def evaluate_detector(
 
     # Determine threshold
     if threshold is None and find_best_threshold:
-        threshold, f1_at_threshold = find_optimal_threshold(
-            y_true, y_scores, metric='f1'
-        )
-        logger.info(
-            "Optimal threshold: %.4f (F1=%.4f)",
-            threshold, f1_at_threshold
-        )
+        threshold, f1_at_threshold = find_optimal_threshold(y_true, y_scores, metric="f1")
+        logger.info("Optimal threshold: %.4f (F1=%.4f)", threshold, f1_at_threshold)
     elif threshold is None:
         # Use median as default threshold
         threshold = float(np.median(y_scores))
@@ -339,23 +333,23 @@ def evaluate_detector(
 
     logger.info(
         "Classification metrics - Precision: %.4f, Recall: %.4f, F1: %.4f",
-        classification_metrics['precision'],
-        classification_metrics['recall'],
-        classification_metrics['f1']
+        classification_metrics["precision"],
+        classification_metrics["recall"],
+        classification_metrics["f1"],
     )
 
     results: Dict[str, Union[float, Dict]] = {
-        'auroc': auroc,
-        'average_precision': ap,
-        'threshold': float(threshold),
-        'metrics': classification_metrics,
+        "auroc": auroc,
+        "average_precision": ap,
+        "threshold": float(threshold),
+        "metrics": classification_metrics,
     }
 
     if pixel_labels is not None and pixel_scores is not None:
         pixel_metrics: Dict[str, float] = {
-            'pixel_auroc': compute_pixel_auroc(pixel_labels, pixel_scores),
-            'pixel_average_precision': compute_pixel_average_precision(pixel_labels, pixel_scores),
-            'aupro': compute_aupro(
+            "pixel_auroc": compute_pixel_auroc(pixel_labels, pixel_scores),
+            "pixel_average_precision": compute_pixel_average_precision(pixel_labels, pixel_scores),
+            "aupro": compute_aupro(
                 pixel_labels,
                 pixel_scores,
                 integration_limit=pro_integration_limit,
@@ -364,15 +358,15 @@ def evaluate_detector(
         }
 
         if pixel_threshold is not None:
-            pixel_metrics['pixel_threshold'] = float(pixel_threshold)
-            pixel_metrics['pixel_segf1'] = compute_pixel_segf1(
+            pixel_metrics["pixel_threshold"] = float(pixel_threshold)
+            pixel_metrics["pixel_segf1"] = compute_pixel_segf1(
                 pixel_labels, pixel_scores, threshold=float(pixel_threshold)
             )
-            pixel_metrics['bg_fpr'] = compute_bg_fpr(
+            pixel_metrics["bg_fpr"] = compute_bg_fpr(
                 pixel_labels, pixel_scores, threshold=float(pixel_threshold)
             )
 
-        results['pixel_metrics'] = pixel_metrics
+        results["pixel_metrics"] = pixel_metrics
 
     return results
 
@@ -444,9 +438,7 @@ def compute_pro_score(
         scores = np.nan_to_num(scores, nan=-np.inf, posinf=np.inf, neginf=-np.inf)
 
     if len(np.unique(labels_bin.ravel())) < 2:
-        logger.warning(
-            "Only one class present in pixel_labels. PRO score is not defined."
-        )
+        logger.warning("Only one class present in pixel_labels. PRO score is not defined.")
         return float("nan")
 
     background_scores = scores[labels_bin == 0].ravel()
@@ -466,7 +458,9 @@ def compute_pro_score(
             region_scores_sorted.append(np.sort(region_scores.astype(np.float64, copy=False)))
 
     if not region_scores_sorted:
-        logger.warning("No connected-components regions found in pixel_labels. PRO score is not defined.")
+        logger.warning(
+            "No connected-components regions found in pixel_labels. PRO score is not defined."
+        )
         return float("nan")
 
     bg_sorted = np.sort(background_scores.astype(np.float64, copy=False))
@@ -701,7 +695,7 @@ def print_evaluation_summary(results: Dict) -> None:
 
     print(f"\nClassification Metrics (threshold={results['threshold']:.3f}):")
     print("-" * 42)
-    metrics = results['metrics']
+    metrics = results["metrics"]
     print(f"Precision:           {metrics['precision']:.4f}")
     print(f"Recall (TPR):        {metrics['recall']:.4f}")
     print(f"F1-Score:            {metrics['f1']:.4f}")

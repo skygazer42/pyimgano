@@ -47,4 +47,3 @@ def test_synthesize_dataset_is_deterministic_with_preset_mix(tmp_path: Path) -> 
     m1 = (out1 / "manifest.jsonl").read_text(encoding="utf-8")
     m2 = (out2 / "manifest.jsonl").read_text(encoding="utf-8")
     assert m1 == m2
-

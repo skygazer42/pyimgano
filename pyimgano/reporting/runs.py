@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 _SAFE_CHARS_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 
 

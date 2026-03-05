@@ -109,7 +109,9 @@ def test_models_lazy_ctor_maps_missing_openvino_to_pyimgano_openvino_extra(monke
 
     monkeypatch.setattr(models, "import_module", fake_import_module)
 
-    ctor = models._make_lazy_constructor(model_name="vision_fake_openvino", module_name="fake_module")
+    ctor = models._make_lazy_constructor(
+        model_name="vision_fake_openvino", module_name="fake_module"
+    )
 
     with pytest.raises(ImportError) as excinfo:
         ctor()
@@ -117,4 +119,3 @@ def test_models_lazy_ctor_maps_missing_openvino_to_pyimgano_openvino_extra(monke
     message = str(excinfo.value)
     assert "vision_fake_openvino" in message
     assert "pip install 'pyimgano[openvino]'" in message
-

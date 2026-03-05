@@ -41,4 +41,3 @@ def test_cli_list_categories_outputs_json(capsys, tmp_path) -> None:
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed == ["bottle"]
-

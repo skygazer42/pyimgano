@@ -14,10 +14,10 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.utils.validation import check_array
 
+from ..utils.fitted import require_fitted
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-from ..utils.fitted import require_fitted
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,9 @@ class CorePCAMahalanobis(BaseDetector):
         if X_arr.shape[0] == 0:
             raise ValueError("X must be non-empty")
 
-        pca = PCA(n_components=self.n_components, whiten=self.whiten, random_state=self.random_state)
+        pca = PCA(
+            n_components=self.n_components, whiten=self.whiten, random_state=self.random_state
+        )
         Z = pca.fit_transform(X_arr)
 
         mu = np.mean(Z, axis=0)

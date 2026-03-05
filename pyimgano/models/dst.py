@@ -28,11 +28,13 @@ class TeacherNetwork(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -70,12 +72,7 @@ class TeacherNetwork(nn.Module):
 class StudentNetwork(nn.Module):
     """Student network for knowledge distillation."""
 
-    def __init__(
-        self,
-        in_channels: List[int],
-        out_channels: List[int],
-        use_attention: bool = True
-    ):
+    def __init__(self, in_channels: List[int], out_channels: List[int], use_attention: bool = True):
         super().__init__()
 
         self.decoders = nn.ModuleList()
@@ -99,7 +96,7 @@ class StudentNetwork(nn.Module):
                     nn.Conv2d(out_ch, out_ch // 4, kernel_size=1),
                     nn.ReLU(inplace=True),
                     nn.Conv2d(out_ch // 4, out_ch, kernel_size=1),
-                    nn.Sigmoid()
+                    nn.Sigmoid(),
                 )
                 self.attention.append(attention)
 
@@ -184,7 +181,7 @@ class VisionDST(BaseVisionDeepDetector):
         epochs: int = 60,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -217,9 +214,7 @@ class VisionDST(BaseVisionDeepDetector):
         return torch.from_numpy(X).float()
 
     def _distillation_loss(
-        self,
-        student_features: List[torch.Tensor],
-        teacher_features: List[torch.Tensor]
+        self, student_features: List[torch.Tensor], teacher_features: List[torch.Tensor]
     ) -> torch.Tensor:
         """
         Compute knowledge distillation loss.
@@ -242,10 +237,7 @@ class VisionDST(BaseVisionDeepDetector):
             # Resize student to match teacher if needed
             if s_feat.shape != t_feat.shape:
                 s_feat = F.interpolate(
-                    s_feat,
-                    size=t_feat.shape[2:],
-                    mode='bilinear',
-                    align_corners=False
+                    s_feat, size=t_feat.shape[2:], mode="bilinear", align_corners=False
                 )
 
             # MSE loss
@@ -263,11 +255,7 @@ class VisionDST(BaseVisionDeepDetector):
 
         return total_loss / len(student_features)
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionDST":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionDST":
         """
         Fit the DST detector.
 
@@ -299,32 +287,23 @@ class VisionDST(BaseVisionDeepDetector):
         if self.student1_ is None:
             # Student 1: with attention mechanism
             self.student1_ = StudentNetwork(
-                in_channels=in_channels,
-                out_channels=in_channels,
-                use_attention=True
+                in_channels=in_channels, out_channels=in_channels, use_attention=True
             ).to(self.device)
 
         if self.student2_ is None:
             # Student 2: without attention mechanism
             self.student2_ = StudentNetwork(
-                in_channels=in_channels,
-                out_channels=in_channels,
-                use_attention=False
+                in_channels=in_channels, out_channels=in_channels, use_attention=False
             ).to(self.device)
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimize both students
         optimizer = torch.optim.Adam(
             list(self.student1_.parameters()) + list(self.student2_.parameters()),
-            lr=self.learning_rate
+            lr=self.learning_rate,
         )
 
         self.student1_.train()
@@ -366,17 +345,16 @@ class VisionDST(BaseVisionDeepDetector):
                 avg_loss = total_loss / len(dataloader)
                 avg_loss1 = total_loss1 / len(dataloader)
                 avg_loss2 = total_loss2 / len(dataloader)
-                print(f"Epoch {epoch + 1}/{self.epochs}, "
-                      f"Loss: {avg_loss:.4f}, "
-                      f"S1: {avg_loss1:.4f}, "
-                      f"S2: {avg_loss2:.4f}")
+                print(
+                    f"Epoch {epoch + 1}/{self.epochs}, "
+                    f"Loss: {avg_loss:.4f}, "
+                    f"S1: {avg_loss1:.4f}, "
+                    f"S2: {avg_loss2:.4f}"
+                )
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -398,7 +376,7 @@ class VisionDST(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract teacher features
                 teacher_features = self.teacher_(batch)
@@ -414,9 +392,13 @@ class VisionDST(BaseVisionDeepDetector):
                 for s1, s2, t in zip(student1_features, student2_features, teacher_features):
                     # Resize if needed
                     if s1.shape != t.shape:
-                        s1 = F.interpolate(s1, size=t.shape[2:], mode='bilinear', align_corners=False)
+                        s1 = F.interpolate(
+                            s1, size=t.shape[2:], mode="bilinear", align_corners=False
+                        )
                     if s2.shape != t.shape:
-                        s2 = F.interpolate(s2, size=t.shape[2:], mode='bilinear', align_corners=False)
+                        s2 = F.interpolate(
+                            s2, size=t.shape[2:], mode="bilinear", align_corners=False
+                        )
 
                     error1 += ((s1 - t) ** 2).mean(dim=[1, 2, 3])
                     error2 += ((s2 - t) ** 2).mean(dim=[1, 2, 3])

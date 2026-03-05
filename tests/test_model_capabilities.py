@@ -62,4 +62,3 @@ def test_capabilities_mark_classical_models_as_save_load_capable() -> None:
 
     caps = compute_model_capabilities(registry.info("classical"))
     assert caps.supports_save_load is True
-

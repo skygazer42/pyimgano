@@ -12,4 +12,3 @@ def test_edge_stats_extractor_shapes_and_finite() -> None:
 
     assert out.shape == (2, 6)
     assert np.all(np.isfinite(out))
-

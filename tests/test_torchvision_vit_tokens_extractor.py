@@ -52,4 +52,3 @@ def test_torchvision_vit_tokens_extractor_mean_pool_shape() -> None:
     assert feats.shape[0] == 2
     assert feats.shape[1] == 768
     assert np.all(np.isfinite(feats))
-

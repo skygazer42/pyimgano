@@ -10,11 +10,9 @@ import numpy as np
 
 from pyimgano.datasets.manifest import iter_manifest_records
 from pyimgano.manifest_cli import generate_manifest_from_custom_layout
-from pyimgano.synthesis.presets import get_preset_names
-from pyimgano.synthesis.presets import make_preset_mixture
 from pyimgano.synthesis.masks import ensure_u8_mask
+from pyimgano.synthesis.presets import get_preset_names, make_preset_mixture
 from pyimgano.synthesis.synthesizer import AnomalySynthesizer, SynthSpec
-
 
 SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp")
 
@@ -105,7 +103,9 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional output path for preview PNG (default: <out-root>/preview.png)",
     )
-    parser.add_argument("--preview-n", type=int, default=16, help="Number of samples in preview grid")
+    parser.add_argument(
+        "--preview-n", type=int, default=16, help="Number of samples in preview grid"
+    )
     parser.add_argument("--preview-cols", type=int, default=4, help="Preview grid columns")
     parser.add_argument("--n-train", type=int, default=8)
     parser.add_argument("--n-test-normal", type=int, default=4)
@@ -194,7 +194,9 @@ def _make_synthesizer(
         preset_fn = make_preset_mixture(preset_names)
         spec_preset = preset_names[0]
         return AnomalySynthesizer(
-            SynthSpec(preset=str(spec_preset), probability=1.0, blend=str(blend), alpha=float(alpha)),
+            SynthSpec(
+                preset=str(spec_preset), probability=1.0, blend=str(blend), alpha=float(alpha)
+            ),
             preset_fn=preset_fn,
         )
 
@@ -203,7 +205,9 @@ def _make_synthesizer(
     )
 
 
-def _normalize_severity_range(severity_range: tuple[float, float] | list[float] | None) -> tuple[float, float]:
+def _normalize_severity_range(
+    severity_range: tuple[float, float] | list[float] | None
+) -> tuple[float, float]:
     if severity_range is None:
         return 1.0, 1.0
     if len(severity_range) != 2:
@@ -250,7 +254,9 @@ def _attach_meta_to_manifest_records(
     return out
 
 
-def _ensure_synthesis_meta_fields(meta: dict[str, Any], *, fallback_preset_id: str) -> dict[str, Any]:
+def _ensure_synthesis_meta_fields(
+    meta: dict[str, Any], *, fallback_preset_id: str
+) -> dict[str, Any]:
     """Normalize synthesis meta for stable downstream consumption.
 
     Requirements (v4):
@@ -688,8 +694,12 @@ def main(argv: list[str] | None = None) -> int:
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 num_defects=int(args.num_defects),
-                severity_range=(list(args.severity_range) if args.severity_range is not None else None),
-                defect_bank_dir=(None if args.defect_bank_dir is None else str(args.defect_bank_dir)),
+                severity_range=(
+                    list(args.severity_range) if args.severity_range is not None else None
+                ),
+                defect_bank_dir=(
+                    None if args.defect_bank_dir is None else str(args.defect_bank_dir)
+                ),
                 seed=int(args.seed),
                 n=int(args.preview_n),
                 cols=int(args.preview_cols),
@@ -708,18 +718,30 @@ def main(argv: list[str] | None = None) -> int:
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 num_defects=int(args.num_defects),
-                severity_range=(list(args.severity_range) if args.severity_range is not None else None),
-                defect_bank_dir=(None if args.defect_bank_dir is None else str(args.defect_bank_dir)),
+                severity_range=(
+                    list(args.severity_range) if args.severity_range is not None else None
+                ),
+                defect_bank_dir=(
+                    None if args.defect_bank_dir is None else str(args.defect_bank_dir)
+                ),
                 seed=int(args.seed),
                 roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
                 source_category=(
-                    None if args.from_manifest_category is None else str(args.from_manifest_category)
+                    None
+                    if args.from_manifest_category is None
+                    else str(args.from_manifest_category)
                 ),
-                source_split=(None if args.from_manifest_split is None else str(args.from_manifest_split)),
-                source_label=(None if args.from_manifest_label is None else int(args.from_manifest_label)),
+                source_split=(
+                    None if args.from_manifest_split is None else str(args.from_manifest_split)
+                ),
+                source_label=(
+                    None if args.from_manifest_label is None else int(args.from_manifest_label)
+                ),
                 source_n=int(args.from_manifest_n),
                 source_root_fallback=(
-                    None if args.from_manifest_root_fallback is None else str(args.from_manifest_root_fallback)
+                    None
+                    if args.from_manifest_root_fallback is None
+                    else str(args.from_manifest_root_fallback)
                 ),
                 out_manifest_path=(None if args.manifest is None else str(args.manifest)),
             )
@@ -733,8 +755,12 @@ def main(argv: list[str] | None = None) -> int:
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 num_defects=int(args.num_defects),
-                severity_range=(list(args.severity_range) if args.severity_range is not None else None),
-                defect_bank_dir=(None if args.defect_bank_dir is None else str(args.defect_bank_dir)),
+                severity_range=(
+                    list(args.severity_range) if args.severity_range is not None else None
+                ),
+                defect_bank_dir=(
+                    None if args.defect_bank_dir is None else str(args.defect_bank_dir)
+                ),
                 seed=int(args.seed),
                 roi_mask_path=(None if args.roi_mask is None else str(args.roi_mask)),
                 n_train=int(args.n_train),

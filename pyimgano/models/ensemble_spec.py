@@ -89,4 +89,3 @@ def resolve_model_specs(
     for s in list(specs):
         out.append(resolve_model_spec(s, default_contamination=default_contamination))
     return out
-

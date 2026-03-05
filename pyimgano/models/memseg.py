@@ -35,9 +35,7 @@ class MemoryBank(nn.Module):
         self.feature_dim = feature_dim
 
         # Initialize memory bank
-        self.register_buffer(
-            "memory", torch.randn(memory_size, feature_dim)
-        )
+        self.register_buffer("memory", torch.randn(memory_size, feature_dim))
         self.memory_filled = 0
 
     def update(self, features: torch.Tensor):
@@ -51,7 +49,7 @@ class MemoryBank(nn.Module):
         if self.memory_filled < self.memory_size:
             # Fill memory bank
             end_idx = min(self.memory_filled + batch_size, self.memory_size)
-            self.memory[self.memory_filled:end_idx] = features[:end_idx - self.memory_filled]
+            self.memory[self.memory_filled : end_idx] = features[: end_idx - self.memory_filled]
             self.memory_filled = end_idx
         else:
             # Random replacement
@@ -115,11 +113,13 @@ class FeatureExtractorWithMemory(nn.Module):
         self.layer4 = nn.Sequential(*list(resnet.children())[7:8])
 
         # Memory banks for different scales
-        self.memory_banks = nn.ModuleDict({
-            'layer2': MemoryBank(memory_size, 128 if backbone.startswith('resnet1') else 512),
-            'layer3': MemoryBank(memory_size, 256 if backbone.startswith('resnet1') else 1024),
-            'layer4': MemoryBank(memory_size, self.feature_dim),
-        })
+        self.memory_banks = nn.ModuleDict(
+            {
+                "layer2": MemoryBank(memory_size, 128 if backbone.startswith("resnet1") else 512),
+                "layer3": MemoryBank(memory_size, 256 if backbone.startswith("resnet1") else 1024),
+                "layer4": MemoryBank(memory_size, self.feature_dim),
+            }
+        )
 
     def forward(self, x: torch.Tensor, update_memory: bool = False):
         """Forward pass with memory attention.
@@ -137,7 +137,7 @@ class FeatureExtractorWithMemory(nn.Module):
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
 
-        features = {'layer2': x2, 'layer3': x3, 'layer4': x4}
+        features = {"layer2": x2, "layer3": x3, "layer4": x4}
 
         if update_memory:
             # Update memory banks during training
@@ -190,9 +190,9 @@ class SegmentationHead(nn.Module):
         super().__init__()
 
         # Projection layers for each scale
-        self.proj_layers = nn.ModuleList([
-            nn.Conv2d(dim, 64, kernel_size=1) for dim in feature_dims
-        ])
+        self.proj_layers = nn.ModuleList(
+            [nn.Conv2d(dim, 64, kernel_size=1) for dim in feature_dims]
+        )
 
         # Fusion layer
         self.fusion = nn.Sequential(
@@ -218,10 +218,7 @@ class SegmentationHead(nn.Module):
         for feat, proj in zip(features, self.proj_layers):
             proj_feat = proj(feat)
             upsampled = F.interpolate(
-                proj_feat,
-                size=target_size,
-                mode='bilinear',
-                align_corners=False
+                proj_feat, size=target_size, mode="bilinear", align_corners=False
             )
             projected.append(upsampled)
 
@@ -303,7 +300,7 @@ class MemSegDetector(BaseVisionDeepDetector):
 
         # Segmentation head
         if self.use_segmentation_head:
-            if self.backbone_name.startswith('resnet1'):
+            if self.backbone_name.startswith("resnet1"):
                 feature_dims = [128, 256, 512]
             else:
                 feature_dims = [512, 1024, 2048]
@@ -337,7 +334,9 @@ class MemSegDetector(BaseVisionDeepDetector):
                 _ = self.feature_extractor(img_tensor, update_memory=True)
 
         print("Memory banks built successfully!")
-        print(f"  Memory filled: {self.feature_extractor.memory_banks['layer4'].memory_filled}/{self.memory_size}")
+        print(
+            f"  Memory filled: {self.feature_extractor.memory_banks['layer4'].memory_filled}/{self.memory_size}"
+        )
 
     def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
@@ -399,7 +398,7 @@ class MemSegDetector(BaseVisionDeepDetector):
 
                 if self.use_segmentation_head and self.seg_head is not None:
                     # Use segmentation head
-                    feat_list = [features['layer2'], features['layer3'], features['layer4']]
+                    feat_list = [features["layer2"], features["layer3"], features["layer4"]]
                     seg_map = self.seg_head(feat_list, img.shape[:2])
                     anomaly_map = seg_map.squeeze().cpu().numpy()
                 else:
@@ -413,10 +412,7 @@ class MemSegDetector(BaseVisionDeepDetector):
                     for layer_name, score_map in anomaly_scores.items():
                         score_map = score_map.unsqueeze(0).unsqueeze(0)
                         upsampled = F.interpolate(
-                            score_map,
-                            size=img.shape[:2],
-                            mode='bilinear',
-                            align_corners=False
+                            score_map, size=img.shape[:2], mode="bilinear", align_corners=False
                         )
                         maps.append(upsampled.squeeze().cpu().numpy())
 

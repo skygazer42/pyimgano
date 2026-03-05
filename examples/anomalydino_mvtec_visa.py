@@ -13,7 +13,11 @@ from __future__ import annotations
 import argparse
 import json
 
-from pyimgano.pipelines.mvtec_visa import build_default_detector, evaluate_split, load_benchmark_split
+from pyimgano.pipelines.mvtec_visa import (
+    build_default_detector,
+    evaluate_split,
+    load_benchmark_split,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -23,7 +27,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--category", required=True, help="Dataset category name")
     parser.add_argument("--device", default="cpu", help="cpu|cuda")
     parser.add_argument("--contamination", type=float, default=0.1)
-    parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
+    parser.add_argument(
+        "--pixel", action="store_true", help="Compute pixel-level metrics if possible"
+    )
 
     parser.add_argument("--image-size", type=int, default=518, help="DINOv2 square resize size")
     parser.add_argument("--knn-backend", default="sklearn", choices=["sklearn", "faiss"])
@@ -63,4 +69,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

@@ -5,12 +5,12 @@ from typing import Sequence
 import numpy as np
 
 from pyimgano.defects.binary_postprocess import postprocess_binary_mask
+from pyimgano.defects.hysteresis import hysteresis_anomaly_map_to_binary_mask
 from pyimgano.defects.map_ops import apply_border_ignore_to_map, compute_roi_stats
 from pyimgano.defects.mask import anomaly_map_to_binary_mask
 from pyimgano.defects.regions import extract_regions_from_mask
 from pyimgano.defects.roi import roi_mask_from_xyxy_norm
 from pyimgano.defects.smoothing import smooth_anomaly_map
-from pyimgano.defects.hysteresis import hysteresis_anomaly_map_to_binary_mask
 
 
 def extract_defects_from_anomaly_map(
@@ -69,7 +69,9 @@ def extract_defects_from_anomaly_map(
     if bool(hysteresis_enabled):
         high = float(hysteresis_high) if hysteresis_high is not None else float(pixel_threshold)
         low = float(hysteresis_low) if hysteresis_low is not None else float(high) * 0.5
-        mask_full = hysteresis_anomaly_map_to_binary_mask(amap_proc, low=float(low), high=float(high))
+        mask_full = hysteresis_anomaly_map_to_binary_mask(
+            amap_proc, low=float(low), high=float(high)
+        )
     else:
         mask_full = anomaly_map_to_binary_mask(amap_proc, pixel_threshold=float(pixel_threshold))
     mask_full = postprocess_binary_mask(
@@ -118,7 +120,9 @@ def extract_defects_from_anomaly_map(
 
     sort_by = str(max_regions_sort_by or "score_max").lower().strip()
     if sort_by not in ("score_max", "score_mean", "area"):
-        raise ValueError(f"max_regions_sort_by must be one of: score_max|score_mean|area, got {sort_by!r}")
+        raise ValueError(
+            f"max_regions_sort_by must be one of: score_max|score_mean|area, got {sort_by!r}"
+        )
 
     def _primary(r: dict) -> float:
         if sort_by == "score_mean":

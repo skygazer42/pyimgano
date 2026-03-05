@@ -32,4 +32,3 @@ def get_activation_by_name(name: str) -> nn.Module:
         raise ValueError(f"Unknown activation: {name!r}. Supported: {supported}")
 
     return act
-

@@ -7,7 +7,6 @@ from typing import Iterable, Literal, Optional, Sequence, Union
 import numpy as np
 from numpy.typing import NDArray
 
-
 ImageInput = Union[str, Path, np.ndarray]
 MapReduce = Literal["max", "mean", "hann", "gaussian"]
 ScoreReduce = Literal["max", "mean", "topk_mean"]
@@ -153,9 +152,7 @@ def stitch_maps(
 
     reduce_mode = str(reduce).lower()
     if reduce_mode not in ("max", "mean", "hann", "gaussian"):
-        raise ValueError(
-            f"Unknown reduce mode: {reduce}. Choose from: max, mean, hann, gaussian"
-        )
+        raise ValueError(f"Unknown reduce mode: {reduce}. Choose from: max, mean, hann, gaussian")
 
     if reduce_mode == "max":
         out = np.full((out_h, out_w), -np.inf, dtype=np.float32)
@@ -317,9 +314,7 @@ class TiledDetector:
 
         # Cache tile coordinate grids per (H,W,tile_size,stride) to avoid recomputing
         # them for repeated inputs of the same size.
-        self._tile_coords_cache: dict[
-            tuple[int, int, int, int], tuple[tuple[int, int], ...]
-        ] = {}
+        self._tile_coords_cache: dict[tuple[int, int, int, int], tuple[tuple[int, int], ...]] = {}
 
     def fit(self, X, y=None, **kwargs):
         try:

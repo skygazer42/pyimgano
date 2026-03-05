@@ -15,7 +15,6 @@ import pytest
 )
 def test_legacy_models_follow_base_detector_contract(model_name: str) -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models import create_model
 
     if model_name in {"ssim_template", "ssim_struct"}:
@@ -55,4 +54,3 @@ def test_legacy_models_follow_base_detector_contract(model_name: str) -> None:
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
     assert hasattr(det, "threshold_")
-

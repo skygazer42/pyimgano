@@ -86,4 +86,3 @@ def test_load_masks_auto_loads_when_masks_present(tmp_path: Path) -> None:
 
     assert split.test_masks is not None
     assert split.test_masks.shape == (len(split.test_paths), 8, 8)
-

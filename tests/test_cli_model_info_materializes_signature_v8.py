@@ -15,4 +15,3 @@ def test_cli_model_info_json_includes_real_constructor_kwargs(capsys):
     # see an actionable signature.
     assert "device" in payload["accepted_kwargs"]
     assert "device" in payload["signature"]
-

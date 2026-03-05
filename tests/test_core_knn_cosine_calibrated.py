@@ -36,9 +36,10 @@ def test_core_knn_cosine_calibrated_rank_smoke_and_direction() -> None:
     )
     det.fit(X_train)
 
-    scores = np.asarray(det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64)
+    scores = np.asarray(
+        det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64
+    )
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
     assert float(scores[1]) > float(scores[0])
     assert np.all((scores >= 0.0) & (scores <= 1.0))
-

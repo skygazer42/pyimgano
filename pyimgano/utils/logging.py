@@ -40,4 +40,3 @@ def get_logger(name: str, *, verbose: int | bool | None = None) -> logging.Logge
     logger = logging.getLogger(name)
     logger.setLevel(verbosity_to_level(verbose))
     return logger
-

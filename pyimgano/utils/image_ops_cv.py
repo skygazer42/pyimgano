@@ -9,7 +9,6 @@ from typing import Callable, Iterable, Tuple
 import cv2
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # Basic conversions & filters
 # ---------------------------------------------------------------------------
@@ -25,7 +24,9 @@ def to_gray(image: np.ndarray) -> np.ndarray:
     raise ValueError("Unsupported channel format for grayscale conversion")
 
 
-def gaussian_blur(image: np.ndarray, kernel_size: Tuple[int, int] = (5, 5), sigma: float = 0) -> np.ndarray:
+def gaussian_blur(
+    image: np.ndarray, kernel_size: Tuple[int, int] = (5, 5), sigma: float = 0
+) -> np.ndarray:
     """Apply Gaussian blur smoothing."""
 
     return cv2.GaussianBlur(image, kernel_size, sigma)
@@ -45,7 +46,9 @@ def to_gray_equalized(image: np.ndarray) -> np.ndarray:
     return cv2.equalizeHist(gray)
 
 
-def clahe_equalization(image: np.ndarray, clip_limit: float = 2.0, tile_grid_size: Tuple[int, int] = (8, 8)) -> np.ndarray:
+def clahe_equalization(
+    image: np.ndarray, clip_limit: float = 2.0, tile_grid_size: Tuple[int, int] = (8, 8)
+) -> np.ndarray:
     """Apply CLAHE to grayscale or color images."""
 
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
@@ -64,7 +67,9 @@ def add_gaussian_noise(image: np.ndarray, mean: float = 0.0, sigma: float = 10.0
     return np.clip(noised, 0, 255).astype(image.dtype)
 
 
-def adjust_brightness_contrast(image: np.ndarray, alpha: float = 1.0, beta: float = 0.0) -> np.ndarray:
+def adjust_brightness_contrast(
+    image: np.ndarray, alpha: float = 1.0, beta: float = 0.0
+) -> np.ndarray:
     """Adjust brightness and contrast (alpha: contrast, beta: brightness)."""
 
     return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
@@ -86,8 +91,9 @@ def motion_blur(image: np.ndarray, kernel_size: int = 9, angle: float = 0.0) -> 
 # ---------------------------------------------------------------------------
 
 
-def canny_edges(image: np.ndarray, threshold1: float = 100, threshold2: float = 200,
-                aperture_size: int = 3) -> np.ndarray:
+def canny_edges(
+    image: np.ndarray, threshold1: float = 100, threshold2: float = 200, aperture_size: int = 3
+) -> np.ndarray:
     """Apply Canny edge detector."""
 
     gray = to_gray(image)
@@ -125,12 +131,16 @@ def find_contours(image: np.ndarray, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_AP
 # ---------------------------------------------------------------------------
 
 
-def erode(image: np.ndarray, kernel_size: Tuple[int, int] = (3, 3), iterations: int = 1) -> np.ndarray:
+def erode(
+    image: np.ndarray, kernel_size: Tuple[int, int] = (3, 3), iterations: int = 1
+) -> np.ndarray:
     kernel = np.ones(kernel_size, np.uint8)
     return cv2.erode(image, kernel, iterations=iterations)
 
 
-def dilate(image: np.ndarray, kernel_size: Tuple[int, int] = (3, 3), iterations: int = 1) -> np.ndarray:
+def dilate(
+    image: np.ndarray, kernel_size: Tuple[int, int] = (3, 3), iterations: int = 1
+) -> np.ndarray:
     kernel = np.ones(kernel_size, np.uint8)
     return cv2.dilate(image, kernel, iterations=iterations)
 
@@ -150,42 +160,53 @@ def morphological_close(image: np.ndarray, kernel_size: Tuple[int, int] = (3, 3)
 # ---------------------------------------------------------------------------
 
 
-def random_rotation(image: np.ndarray, angle_range: Tuple[float, float] = (-10, 10),
-                    scale: float = 1.0) -> np.ndarray:
+def random_rotation(
+    image: np.ndarray, angle_range: Tuple[float, float] = (-10, 10), scale: float = 1.0
+) -> np.ndarray:
     angle = random.uniform(*angle_range)
     h, w = image.shape[:2]
     matrix = cv2.getRotationMatrix2D((w / 2, h / 2), angle, scale)
     return cv2.warpAffine(image, matrix, (w, h), borderMode=cv2.BORDER_REFLECT_101)
 
 
-def random_crop_and_resize(image: np.ndarray, scale_range: Tuple[float, float] = (0.8, 1.0),
-                           output_size: Tuple[int, int] | None = None) -> np.ndarray:
+def random_crop_and_resize(
+    image: np.ndarray,
+    scale_range: Tuple[float, float] = (0.8, 1.0),
+    output_size: Tuple[int, int] | None = None,
+) -> np.ndarray:
     h, w = image.shape[:2]
     scale = random.uniform(*scale_range)
     crop_h, crop_w = int(h * scale), int(w * scale)
     top = random.randint(0, h - crop_h)
     left = random.randint(0, w - crop_w)
-    crop = image[top:top + crop_h, left:left + crop_w]
+    crop = image[top : top + crop_h, left : left + crop_w]
     if output_size is not None:
         return cv2.resize(crop, output_size, interpolation=cv2.INTER_LINEAR)
     return crop
 
 
-def random_brightness_contrast(image: np.ndarray, alpha_range: Tuple[float, float] = (0.8, 1.2),
-                               beta_range: Tuple[float, float] = (-20, 20)) -> np.ndarray:
+def random_brightness_contrast(
+    image: np.ndarray,
+    alpha_range: Tuple[float, float] = (0.8, 1.2),
+    beta_range: Tuple[float, float] = (-20, 20),
+) -> np.ndarray:
     alpha = random.uniform(*alpha_range)
     beta = random.uniform(*beta_range)
     return adjust_brightness_contrast(image, alpha, beta)
 
 
-def random_gaussian_noise(image: np.ndarray, sigma_range: Tuple[float, float] = (0, 15)) -> np.ndarray:
+def random_gaussian_noise(
+    image: np.ndarray, sigma_range: Tuple[float, float] = (0, 15)
+) -> np.ndarray:
     sigma = random.uniform(*sigma_range)
     if sigma <= 0:
         return image
     return add_gaussian_noise(image, sigma=sigma)
 
 
-def apply_augmentations(image: np.ndarray, augmentations: Iterable[Callable[[np.ndarray], np.ndarray]]) -> np.ndarray:
+def apply_augmentations(
+    image: np.ndarray, augmentations: Iterable[Callable[[np.ndarray], np.ndarray]]
+) -> np.ndarray:
     result = image
     for aug in augmentations:
         result = aug(result)

@@ -13,4 +13,3 @@ def test_pca_projector_fit_transform_shapes() -> None:
 
     assert Z.shape == (7, 5)
     assert np.all(np.isfinite(Z))
-

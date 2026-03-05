@@ -71,7 +71,9 @@ def test_include_maps_does_not_enable_defects(tmp_path: Path) -> None:
 
     records = _read_jsonl(out_jsonl)
     assert records, "expected JSONL records"
-    assert all("anomaly_map" in r for r in records), "expected anomaly_map metadata when --include-maps"
+    assert all(
+        "anomaly_map" in r for r in records
+    ), "expected anomaly_map metadata when --include-maps"
     assert all("defects" not in r for r in records), "--include-maps must not imply defects export"
 
 
@@ -113,7 +115,11 @@ def test_defects_enables_maps_implicitly(tmp_path: Path) -> None:
     records = _read_jsonl(out_jsonl)
     assert records, "expected JSONL records"
     assert all("anomaly_map" in r for r in records), "--defects must imply --include-maps"
-    assert all("defects" in r for r in records), "expected defects payload when --defects is enabled"
-    assert sorted(masks_dir.glob("*.png")) or sorted(masks_dir.glob("*.npy")) or sorted(
-        masks_dir.glob("*.npz")
+    assert all(
+        "defects" in r for r in records
+    ), "expected defects payload when --defects is enabled"
+    assert (
+        sorted(masks_dir.glob("*.png"))
+        or sorted(masks_dir.glob("*.npy"))
+        or sorted(masks_dir.glob("*.npz"))
     ), "expected at least one saved defect mask artifact"

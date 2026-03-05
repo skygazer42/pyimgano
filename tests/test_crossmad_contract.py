@@ -41,4 +41,3 @@ def test_vision_crossmad_can_run_on_vectors_with_identity_extractor() -> None:
     assert preds.shape == (5,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

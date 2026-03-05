@@ -63,4 +63,3 @@ def test_cli_preset_is_json_friendly() -> None:
     payload = {"name": preset.name, "model": preset.model, "kwargs": dict(preset.kwargs)}
     text = json.dumps(payload, sort_keys=True)
     assert "industrial-structural-ecod" in text
-

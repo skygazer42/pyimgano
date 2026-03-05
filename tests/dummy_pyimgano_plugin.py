@@ -29,4 +29,3 @@ def register() -> None:
         def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like shim for tests
             items = list(X)
             return np.zeros((len(items),), dtype=np.float64)
-

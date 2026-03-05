@@ -7,10 +7,10 @@ import numpy as np
 from sklearn.decomposition import KernelPCA
 from sklearn.utils import check_array, check_random_state
 
-from .baseml import BaseVisionDetector
-from .base_detector import BaseDetector
-from .registry import register_model
 from ..utils.param_check import check_parameter
+from .base_detector import BaseDetector
+from .baseml import BaseVisionDetector
+from .registry import register_model
 
 
 class _PyODKernelPCA(KernelPCA):
@@ -120,9 +120,7 @@ class CoreKPCA(BaseDetector):
         if isinstance(self.subset_size, int):
             if 0 < self.subset_size <= n_samples:
                 return self.subset_size
-            raise ValueError(
-                f"subset_size={self.subset_size} 必须位于 (0, {n_samples}] 内"
-            )
+            raise ValueError(f"subset_size={self.subset_size} 必须位于 (0, {n_samples}] 内")
 
         if isinstance(self.subset_size, float):
             if 0.0 < self.subset_size <= 1.0:

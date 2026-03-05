@@ -50,4 +50,3 @@ def test_vqvae_conv_tiny_smoke(tmp_path: Path) -> None:
     amap = np.asarray(det.get_anomaly_map(str(test_paths[0])), dtype=np.float32)
     assert amap.shape == (32, 32)
     assert np.isfinite(amap).all()
-

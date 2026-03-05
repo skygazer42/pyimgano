@@ -199,8 +199,6 @@ class VisionOpenCLIPPatchMap:
         for m in maps[1:]:
             if m.shape != first_shape:
                 raise ValueError(
-                    "Inconsistent anomaly map shapes. "
-                    f"Expected {first_shape}, got {m.shape}."
+                    "Inconsistent anomaly map shapes. " f"Expected {first_shape}, got {m.shape}."
                 )
         return np.stack(maps)
-

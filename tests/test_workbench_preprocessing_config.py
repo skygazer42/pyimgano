@@ -16,7 +16,12 @@ def test_workbench_config_parses_preprocessing_illumination_contrast() -> None:
             "resize": [16, 16],
             "input_mode": "paths",
         },
-        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "model": {
+            "name": "vision_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
         "preprocessing": {
             "illumination_contrast": {
                 "white_balance": "gray_world",
@@ -50,7 +55,12 @@ def test_build_infer_config_payload_includes_preprocessing() -> None:
             "resize": [16, 16],
             "input_mode": "paths",
         },
-        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "model": {
+            "name": "vision_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
         "preprocessing": {
             "illumination_contrast": {
                 "white_balance": "gray_world",

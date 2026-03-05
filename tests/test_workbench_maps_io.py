@@ -32,4 +32,3 @@ def test_save_anomaly_map_npy_sanitizes_stem(tmp_path):
         anomaly_map=anomaly_map,
     )
     assert out_path.name == "000001_a_b.npy"
-

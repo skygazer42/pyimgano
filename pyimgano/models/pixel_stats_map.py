@@ -35,7 +35,6 @@ from pyimgano.io.image import read_image
 from .base_detector import BaseDetector
 from .registry import register_model
 
-
 _Color = Literal["gray", "rgb"]
 _Reduction = Literal["max", "mean", "topk_mean"]
 _ChannelReduce = Literal["max", "mean", "l2"]
@@ -500,4 +499,3 @@ __all__ = [
     "VisionPixelGaussianMapDetector",
     "VisionPixelMADMapDetector",
 ]
-

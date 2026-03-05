@@ -17,4 +17,3 @@ def test_texture_source_bank_samples_overlay_with_target_shape() -> None:
 
     assert overlay.shape == (32, 48, 3)
     assert overlay.dtype == np.uint8
-

@@ -22,4 +22,3 @@ def test_filter_small_components_removes_specks() -> None:
     assert len(comps) == 1
     assert comps[0].area == 4
     assert comps[0].score is not None
-

@@ -33,4 +33,3 @@ def test_torchvision_backbone_channels_last_best_effort(tmp_path: Path) -> None:
     assert feats.shape[0] == 2
     assert feats.shape[1] > 1
     assert np.isfinite(feats).all()
-

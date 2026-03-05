@@ -196,12 +196,15 @@ class OptimizedAEDetector(BaseVisionDeepDetector):
     def _to_single_path(x):  # noqa: ANN001, ANN201 - utility
         return x[0] if isinstance(x, (list, tuple)) and x else x
 
-    def get_anomaly_map(self, x, *, image_size: tuple[int, int] | None = None):  # noqa: ANN001, ANN201
+    def get_anomaly_map(
+        self, x, *, image_size: tuple[int, int] | None = None
+    ):  # noqa: ANN001, ANN201
         """Best-effort pixel-level reconstruction error map (H,W)."""
 
         import torch
-        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
         from torch.utils.data import DataLoader
+
+        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
         if image_size is None:
             image_size = self.cfg.image_size

@@ -21,11 +21,12 @@ from scipy import ndimage
 
 from pyimgano.utils.optional_deps import require
 
-
 # Enums for type-safe operation selection
+
 
 class ColorSpace(Enum):
     """Color space options."""
+
     RGB = "rgb"
     BGR = "bgr"
     HSV = "hsv"
@@ -38,6 +39,7 @@ class ColorSpace(Enum):
 
 class ThresholdMethod(Enum):
     """Thresholding methods."""
+
     OTSU = "otsu"
     ADAPTIVE_MEAN = "adaptive_mean"
     ADAPTIVE_GAUSSIAN = "adaptive_gaussian"
@@ -48,6 +50,7 @@ class ThresholdMethod(Enum):
 
 class CornerDetector(Enum):
     """Corner detection methods."""
+
     HARRIS = "harris"
     SHI_TOMASI = "shi_tomasi"
     FAST = "fast"
@@ -56,6 +59,7 @@ class CornerDetector(Enum):
 
 class MorphologicalAdvanced(Enum):
     """Advanced morphological operations."""
+
     SKELETON = "skeleton"
     THIN = "thin"
     CONVEX_HULL = "convex_hull"
@@ -63,6 +67,7 @@ class MorphologicalAdvanced(Enum):
 
 
 # Frequency Domain Operations
+
 
 def apply_fft(image: NDArray) -> Tuple[NDArray, NDArray]:
     """
@@ -111,9 +116,7 @@ def apply_ifft(magnitude: NDArray, phase: NDArray) -> NDArray:
 
 
 def frequency_filter(
-    image: NDArray,
-    filter_type: str = "lowpass",
-    cutoff_frequency: float = 30.0
+    image: NDArray, filter_type: str = "lowpass", cutoff_frequency: float = 30.0
 ) -> NDArray:
     """
     Apply frequency domain filter.
@@ -174,12 +177,13 @@ def frequency_filter(
 
 # Texture Analysis
 
+
 def apply_gabor_filter(
     image: NDArray,
     frequency: float = 0.1,
     theta: float = 0,
     sigma_x: float = 3.0,
-    sigma_y: float = 3.0
+    sigma_y: float = 3.0,
 ) -> NDArray:
     """
     Apply Gabor filter for texture analysis.
@@ -218,10 +222,7 @@ def apply_gabor_filter(
 
 
 def compute_lbp(
-    image: NDArray,
-    n_points: int = 8,
-    radius: float = 1.0,
-    method: str = "uniform"
+    image: NDArray, n_points: int = 8, radius: float = 1.0, method: str = "uniform"
 ) -> NDArray:
     """
     Compute Local Binary Pattern features.
@@ -249,9 +250,7 @@ def compute_lbp(
 
 
 def compute_glcm_features(
-    image: NDArray,
-    distances: list = [1],
-    angles: list = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    image: NDArray, distances: list = [1], angles: list = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
 ) -> dict:
     """
     Compute Gray-Level Co-occurrence Matrix features.
@@ -268,7 +267,9 @@ def compute_glcm_features(
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     skfeature = require("skimage.feature", extra="skimage", purpose="GLCM texture features")
-    greycomatrix = getattr(skfeature, "graycomatrix", None) or getattr(skfeature, "greycomatrix", None)
+    greycomatrix = getattr(skfeature, "graycomatrix", None) or getattr(
+        skfeature, "greycomatrix", None
+    )
     greycoprops = getattr(skfeature, "graycoprops", None) or getattr(skfeature, "greycoprops", None)
     if greycomatrix is None or greycoprops is None:  # pragma: no cover - version mismatch
         raise RuntimeError(
@@ -277,16 +278,17 @@ def compute_glcm_features(
         )
 
     # Compute GLCM
-    glcm = greycomatrix(image, distances=distances, angles=angles,
-                        levels=256, symmetric=True, normed=True)
+    glcm = greycomatrix(
+        image, distances=distances, angles=angles, levels=256, symmetric=True, normed=True
+    )
 
     # Compute properties
     features = {
-        'contrast': greycoprops(glcm, 'contrast').mean(),
-        'dissimilarity': greycoprops(glcm, 'dissimilarity').mean(),
-        'homogeneity': greycoprops(glcm, 'homogeneity').mean(),
-        'energy': greycoprops(glcm, 'energy').mean(),
-        'correlation': greycoprops(glcm, 'correlation').mean(),
+        "contrast": greycoprops(glcm, "contrast").mean(),
+        "dissimilarity": greycoprops(glcm, "dissimilarity").mean(),
+        "homogeneity": greycoprops(glcm, "homogeneity").mean(),
+        "energy": greycoprops(glcm, "energy").mean(),
+        "correlation": greycoprops(glcm, "correlation").mean(),
     }
 
     return features
@@ -294,10 +296,9 @@ def compute_glcm_features(
 
 # Color Space Operations
 
+
 def convert_color_space(
-    image: NDArray,
-    from_space: Union[str, ColorSpace],
-    to_space: Union[str, ColorSpace]
+    image: NDArray, from_space: Union[str, ColorSpace], to_space: Union[str, ColorSpace]
 ) -> NDArray:
     """
     Convert image between color spaces.
@@ -375,6 +376,7 @@ def equalize_color_histogram(image: NDArray, method: str = "hsv") -> NDArray:
 
 # Advanced Enhancement
 
+
 def gamma_correction(image: NDArray, gamma: float = 1.0) -> NDArray:
     """
     Apply gamma correction.
@@ -388,17 +390,14 @@ def gamma_correction(image: NDArray, gamma: float = 1.0) -> NDArray:
     """
     # Build lookup table
     inv_gamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** inv_gamma) * 255
-                     for i in np.arange(0, 256)]).astype("uint8")
+    table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
 
     # Apply gamma correction
     return cv2.LUT(image, table)
 
 
 def contrast_stretching(
-    image: NDArray,
-    lower_percentile: float = 2,
-    upper_percentile: float = 98
+    image: NDArray, lower_percentile: float = 2, upper_percentile: float = 98
 ) -> NDArray:
     """
     Apply contrast stretching.
@@ -457,10 +456,7 @@ def retinex_ssr(image: NDArray, sigma: float = 15.0) -> NDArray:
         return retinex.astype(np.uint8)
 
 
-def retinex_msr(
-    image: NDArray,
-    sigmas: list = [15, 80, 250]
-) -> NDArray:
+def retinex_msr(image: NDArray, sigmas: list = [15, 80, 250]) -> NDArray:
     """
     Multi-Scale Retinex for illumination invariant processing.
 
@@ -485,11 +481,9 @@ def retinex_msr(
 
 # Denoising
 
+
 def non_local_means_denoising(
-    image: NDArray,
-    h: float = 10,
-    template_window_size: int = 7,
-    search_window_size: int = 21
+    image: NDArray, h: float = 10, template_window_size: int = 7, search_window_size: int = 21
 ) -> NDArray:
     """
     Apply non-local means denoising.
@@ -505,29 +499,14 @@ def non_local_means_denoising(
     """
     if len(image.shape) == 3:
         return cv2.fastNlMeansDenoisingColored(
-            image,
-            None,
-            h,
-            h,
-            template_window_size,
-            search_window_size
+            image, None, h, h, template_window_size, search_window_size
         )
     else:
-        return cv2.fastNlMeansDenoising(
-            image,
-            None,
-            h,
-            template_window_size,
-            search_window_size
-        )
+        return cv2.fastNlMeansDenoising(image, None, h, template_window_size, search_window_size)
 
 
 def anisotropic_diffusion(
-    image: NDArray,
-    niter: int = 10,
-    kappa: float = 50,
-    gamma: float = 0.1,
-    option: int = 1
+    image: NDArray, niter: int = 10, kappa: float = 50, gamma: float = 0.1, option: int = 1
 ) -> NDArray:
     """
     Apply anisotropic diffusion for edge-preserving smoothing.
@@ -556,12 +535,13 @@ def anisotropic_diffusion(
 
 # Feature Extraction
 
+
 def extract_hog_features(
     image: NDArray,
     orientations: int = 9,
     pixels_per_cell: Tuple[int, int] = (8, 8),
     cells_per_block: Tuple[int, int] = (2, 2),
-    visualize: bool = False
+    visualize: bool = False,
 ) -> Union[NDArray, Tuple[NDArray, NDArray]]:
     """
     Extract Histogram of Oriented Gradients features.
@@ -588,7 +568,7 @@ def extract_hog_features(
             orientations=orientations,
             pixels_per_cell=pixels_per_cell,
             cells_per_block=cells_per_block,
-            visualize=True
+            visualize=True,
         )
         # Normalize visualization
         hog_image = (hog_image * 255).astype(np.uint8)
@@ -599,15 +579,13 @@ def extract_hog_features(
             orientations=orientations,
             pixels_per_cell=pixels_per_cell,
             cells_per_block=cells_per_block,
-            visualize=False
+            visualize=False,
         )
         return features
 
 
 def detect_corners(
-    image: NDArray,
-    method: Union[str, CornerDetector] = "harris",
-    **kwargs
+    image: NDArray, method: Union[str, CornerDetector] = "harris", **kwargs
 ) -> NDArray:
     """
     Detect corners in image.
@@ -629,24 +607,25 @@ def detect_corners(
         gray = image
 
     if method == CornerDetector.HARRIS:
-        block_size = kwargs.get('block_size', 2)
-        ksize = kwargs.get('ksize', 3)
-        k = kwargs.get('k', 0.04)
+        block_size = kwargs.get("block_size", 2)
+        ksize = kwargs.get("ksize", 3)
+        k = kwargs.get("k", 0.04)
         dst = cv2.cornerHarris(gray, block_size, ksize, k)
         return dst
 
     elif method == CornerDetector.SHI_TOMASI:
-        max_corners = kwargs.get('max_corners', 100)
-        quality_level = kwargs.get('quality_level', 0.01)
-        min_distance = kwargs.get('min_distance', 10)
+        max_corners = kwargs.get("max_corners", 100)
+        quality_level = kwargs.get("quality_level", 0.01)
+        min_distance = kwargs.get("min_distance", 10)
         corners = cv2.goodFeaturesToTrack(gray, max_corners, quality_level, min_distance)
         return corners
 
     elif method == CornerDetector.FAST:
-        threshold = kwargs.get('threshold', 10)
-        non_max_suppression = kwargs.get('non_max_suppression', True)
-        fast = cv2.FastFeatureDetector_create(threshold=threshold,
-                                               nonmaxSuppression=non_max_suppression)
+        threshold = kwargs.get("threshold", 10)
+        non_max_suppression = kwargs.get("non_max_suppression", True)
+        fast = cv2.FastFeatureDetector_create(
+            threshold=threshold, nonmaxSuppression=non_max_suppression
+        )
         keypoints = fast.detect(gray, None)
         # Convert to coordinates
         corners = np.array([kp.pt for kp in keypoints], dtype=np.float32)
@@ -658,9 +637,9 @@ def detect_corners(
 
 # Advanced Morphological Operations
 
+
 def apply_advanced_morphology(
-    image: NDArray,
-    operation: Union[str, MorphologicalAdvanced]
+    image: NDArray, operation: Union[str, MorphologicalAdvanced]
 ) -> NDArray:
     """
     Apply advanced morphological operations.
@@ -709,10 +688,9 @@ def apply_advanced_morphology(
 
 # Segmentation
 
+
 def apply_threshold(
-    image: NDArray,
-    method: Union[str, ThresholdMethod] = "otsu",
-    **kwargs
+    image: NDArray, method: Union[str, ThresholdMethod] = "otsu", **kwargs
 ) -> NDArray:
     """
     Apply thresholding for segmentation.
@@ -738,17 +716,19 @@ def apply_threshold(
         return binary
 
     elif method == ThresholdMethod.ADAPTIVE_MEAN:
-        block_size = kwargs.get('block_size', 11)
-        c = kwargs.get('c', 2)
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-                                       cv2.THRESH_BINARY, block_size, c)
+        block_size = kwargs.get("block_size", 11)
+        c = kwargs.get("c", 2)
+        binary = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, block_size, c
+        )
         return binary
 
     elif method == ThresholdMethod.ADAPTIVE_GAUSSIAN:
-        block_size = kwargs.get('block_size', 11)
-        c = kwargs.get('c', 2)
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY, block_size, c)
+        block_size = kwargs.get("block_size", 11)
+        c = kwargs.get("c", 2)
+        binary = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, c
+        )
         return binary
 
     elif method == ThresholdMethod.TRIANGLE:
@@ -771,10 +751,7 @@ def apply_threshold(
         raise ValueError(f"Unknown thresholding method: {method}")
 
 
-def watershed_segmentation(
-    image: NDArray,
-    markers: Optional[NDArray] = None
-) -> NDArray:
+def watershed_segmentation(image: NDArray, markers: Optional[NDArray] = None) -> NDArray:
     """
     Apply watershed segmentation.
 
@@ -825,6 +802,7 @@ def watershed_segmentation(
 
 
 # Image Pyramids
+
 
 def gaussian_pyramid(image: NDArray, levels: int = 3) -> list:
     """

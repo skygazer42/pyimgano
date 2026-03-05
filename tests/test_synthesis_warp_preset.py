@@ -14,9 +14,7 @@ def test_synthesis_warp_preset_registry_and_smoke() -> None:
         np.linspace(0.0, 1.0, num=w, dtype=np.float32),
         indexing="ij",
     )
-    base = (0.4 + 0.25 * np.sin(2.0 * np.pi * (3.0 * xx + 2.0 * yy)) + 0.25 * xx).astype(
-        np.float32
-    )
+    base = (0.4 + 0.25 * np.sin(2.0 * np.pi * (3.0 * xx + 2.0 * yy)) + 0.25 * xx).astype(np.float32)
     rgb = np.stack([base, np.clip(base * 0.95 + 0.02, 0.0, 1.0), np.roll(base, 1, axis=1)], axis=-1)
     img = (np.clip(rgb, 0.0, 1.0) * 255.0).round().astype(np.uint8)
 

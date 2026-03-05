@@ -81,4 +81,3 @@ def test_workbench_preflight_custom_dataset_structure_validation(tmp_path: Path)
     report = run_preflight(config=cfg)
     codes = {i.code for i in report.issues}
     assert "CUSTOM_DATASET_INVALID_STRUCTURE" in codes
-

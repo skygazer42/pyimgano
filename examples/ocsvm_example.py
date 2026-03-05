@@ -1,23 +1,26 @@
 import os
-import cv2
-import numpy as np
-from sklearn.svm import OneClassSVM
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-import joblib
-from tqdm import tqdm
 import random
+
+import cv2
+import joblib
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import OneClassSVM
+from tqdm import tqdm
+
 
 class StructureAnomalyDetector:
     """
     结构异常检测器 - 专注于弹窗、白屏、黑屏、遮挡等
     忽略颜色变化，只关注结构性异常
     """
-    def __init__(self, nu=0.01, kernel='rbf', max_samples=2000):
+
+    def __init__(self, nu=0.01, kernel="rbf", max_samples=2000):
         self.nu = nu
         self.kernel = kernel
         self.max_samples = max_samples
-        self.ocsvm = OneClassSVM(nu=nu, kernel=kernel, gamma='auto')
+        self.ocsvm = OneClassSVM(nu=nu, kernel=kernel, gamma="auto")
         self.scaler = StandardScaler()
         self.pca = None
         self.is_trained = False
@@ -33,11 +36,11 @@ class StructureAnomalyDetector:
         mask = np.ones((h, w), dtype=np.uint8) * 255
 
         for region in self.ignore_regions:
-            x = int(region['x'] * scale)
-            y = int(region['y'] * scale)
-            w = int(region['w'] * scale)
-            h = int(region['h'] * scale)
-            mask[y:y + h, x:x + w] = 0
+            x = int(region["x"] * scale)
+            y = int(region["y"] * scale)
+            w = int(region["w"] * scale)
+            h = int(region["h"] * scale)
+            mask[y : y + h, x : x + w] = 0
 
         return mask
 
@@ -61,8 +64,9 @@ class StructureAnomalyDetector:
         edges = cv2.Canny(gray_img, 100, 200)
 
         # 检测直线（弹窗通常有明显的直线边框）
-        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100,
-                                minLineLength=100, maxLineGap=10)
+        lines = cv2.HoughLinesP(
+            edges, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10
+        )
 
         if lines is None:
             return 0, 0, 0
@@ -119,12 +123,14 @@ class StructureAnomalyDetector:
 
         # 2. 弹窗检测特征
         h_lines, v_lines, rectangles = self.detect_popup_features(gray)
-        features.extend([
-            h_lines / 100.0,  # 归一化
-            v_lines / 100.0,
-            rectangles / 10.0,
-            (h_lines + v_lines) / 200.0  # 总直线数
-        ])
+        features.extend(
+            [
+                h_lines / 100.0,  # 归一化
+                v_lines / 100.0,
+                rectangles / 10.0,
+                (h_lines + v_lines) / 200.0,  # 总直线数
+            ]
+        )
 
         # 3. 边缘分布特征（结构性）
         edges = cv2.Canny(gray, 50, 150)
@@ -136,8 +142,8 @@ class StructureAnomalyDetector:
         edge_distribution = []
         for i in range(3):
             for j in range(3):
-                region = edges[i * grid_h:(i + 1) * grid_h, j * grid_w:(j + 1) * grid_w]
-                region_mask = mask[i * grid_h:(i + 1) * grid_h, j * grid_w:(j + 1) * grid_w]
+                region = edges[i * grid_h : (i + 1) * grid_h, j * grid_w : (j + 1) * grid_w]
+                region_mask = mask[i * grid_h : (i + 1) * grid_h, j * grid_w : (j + 1) * grid_w]
 
                 if np.sum(region_mask > 0) > 0:
                     edge_density = np.sum(region[region_mask > 0] > 0) / np.sum(region_mask > 0)
@@ -153,7 +159,7 @@ class StructureAnomalyDetector:
         gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
 
         # 计算梯度幅值和方向
-        magnitude = np.sqrt(gx ** 2 + gy ** 2)
+        magnitude = np.sqrt(gx**2 + gy**2)
         angle = np.arctan2(gy, gx)
 
         # 8个方向的直方图
@@ -167,7 +173,7 @@ class StructureAnomalyDetector:
         texture_features = []
         for i in range(2):
             for j in range(2):
-                region = gray[i * 240:(i + 1) * 240, j * 320:(j + 1) * 320]
+                region = gray[i * 240 : (i + 1) * 240, j * 320 : (j + 1) * 320]
                 # 计算局部方差
                 local_var = np.var(region)
                 texture_features.append(local_var / 10000.0)  # 归一化
@@ -202,7 +208,7 @@ class StructureAnomalyDetector:
         valid_files = []
 
         # 获取所有jpg文件
-        jpg_files = [f for f in os.listdir(data_folder) if f.endswith('.jpg')]
+        jpg_files = [f for f in os.listdir(data_folder) if f.endswith(".jpg")]
 
         # 如果文件太多，随机采样
         if len(jpg_files) > self.max_samples:
@@ -247,8 +253,10 @@ class StructureAnomalyDetector:
         # 输出训练统计
         predictions = self.ocsvm.predict(X_reduced)
         n_outliers = np.sum(predictions == -1)
-        print(f"训练集中检测到的结构异常样本: {n_outliers}/{len(predictions)} "
-              f"({n_outliers / len(predictions) * 100:.1f}%)")
+        print(
+            f"训练集中检测到的结构异常样本: {n_outliers}/{len(predictions)} "
+            f"({n_outliers / len(predictions) * 100:.1f}%)"
+        )
 
         return self
 
@@ -286,41 +294,45 @@ class StructureAnomalyDetector:
 
         # 计算置信度
         if prediction == 1:
-            confidence = min((decision_score - self.threshold_anomaly) /
-                             (self.threshold_normal - self.threshold_anomaly), 1.0)
+            confidence = min(
+                (decision_score - self.threshold_anomaly)
+                / (self.threshold_normal - self.threshold_anomaly),
+                1.0,
+            )
         else:
-            confidence = min((self.threshold_anomaly - decision_score) /
-                             abs(self.threshold_anomaly), 1.0)
+            confidence = min(
+                (self.threshold_anomaly - decision_score) / abs(self.threshold_anomaly), 1.0
+            )
 
         confidence = np.clip(confidence, 0, 1)
 
         return {
-            'image': os.path.basename(image_path),
-            'is_normal': prediction == 1,
-            'prediction': '正常' if prediction == 1 else '异常',
-            'decision_score': float(decision_score),
-            'confidence': float(confidence),
-            'anomaly_type': anomaly_type if prediction == -1 else None,
-            'structure_features': {
-                'white_screen_ratio': float(feat[0]),
-                'black_screen_ratio': float(feat[1]),
-                'horizontal_lines': int(feat[2] * 100),
-                'vertical_lines': int(feat[3] * 100),
-                'rectangles_detected': int(feat[4] * 10)
-            }
+            "image": os.path.basename(image_path),
+            "is_normal": prediction == 1,
+            "prediction": "正常" if prediction == 1 else "异常",
+            "decision_score": float(decision_score),
+            "confidence": float(confidence),
+            "anomaly_type": anomaly_type if prediction == -1 else None,
+            "structure_features": {
+                "white_screen_ratio": float(feat[0]),
+                "black_screen_ratio": float(feat[1]),
+                "horizontal_lines": int(feat[2] * 100),
+                "vertical_lines": int(feat[3] * 100),
+                "rectangles_detected": int(feat[4] * 10),
+            },
         }
 
     def save(self, filepath):
         """保存模型"""
         model_data = {
-            'ocsvm': self.ocsvm,
-            'scaler': self.scaler,
-            'pca': self.pca,
-            'threshold_normal': self.threshold_normal,
-            'threshold_anomaly': self.threshold_anomaly,
-            'is_trained': self.is_trained,
-            'nu': self.nu,
-            'kernel': self.kernel
+            "ocsvm": self.ocsvm,
+            "scaler": self.scaler,
+            "pca": self.pca,
+            "threshold_normal": self.threshold_normal,
+            "threshold_anomaly": self.threshold_anomaly,
+            "is_trained": self.is_trained,
+            "nu": self.nu,
+            "kernel": self.kernel,
         }
         joblib.dump(model_data, filepath)
         print(f"结构异常检测模型已保存到: {filepath}")
@@ -329,11 +341,7 @@ class StructureAnomalyDetector:
 # 使用示例
 if __name__ == "__main__":
     # 结构异常的检测器
-    detector = StructureAnomalyDetector(
-        nu=0.001,
-        kernel='rbf',
-        max_samples=50000
-    )
+    detector = StructureAnomalyDetector(nu=0.001, kernel="rbf", max_samples=50000)
 
     # 训练
     detector.train("/data/temp7/程序正常")

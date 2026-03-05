@@ -66,6 +66,9 @@ def test_openclip_patch_map_defects_export_optional(tmp_path: Path) -> None:
     assert out_regions.exists()
     assert out_masks.exists()
 
-    rows = [json.loads(line) for line in out_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line)
+        for line in out_jsonl.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert rows
-

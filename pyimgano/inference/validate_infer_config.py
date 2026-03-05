@@ -11,7 +11,6 @@ from pyimgano.inference.config import (
     select_infer_category,
 )
 
-
 _ALLOWED_PIXEL_THRESHOLD_STRATEGIES = {"normal_pixel_quantile", "fixed", "infer_config"}
 _ALLOWED_MASK_FORMATS = {"png", "npy", "npz"}
 _ALLOWED_MAP_SMOOTHING_METHODS = {"none", "median", "gaussian", "box"}
@@ -30,7 +29,9 @@ class InferConfigValidation:
 
 def _require_mapping(value: Any, *, name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
-        raise ValueError(f"infer-config key {name!r} must be a JSON object/dict, got {type(value).__name__}")
+        raise ValueError(
+            f"infer-config key {name!r} must be a JSON object/dict, got {type(value).__name__}"
+        )
     return value
 
 
@@ -38,7 +39,9 @@ def _optional_mapping(value: Any, *, name: str) -> Mapping[str, Any] | None:
     if value is None:
         return None
     if not isinstance(value, Mapping):
-        raise ValueError(f"infer-config key {name!r} must be a JSON object/dict, got {type(value).__name__}")
+        raise ValueError(
+            f"infer-config key {name!r} must be a JSON object/dict, got {type(value).__name__}"
+        )
     return value
 
 
@@ -190,7 +193,9 @@ def validate_infer_config_payload(
                 "contrast_stretch",
             ):
                 if key in ic and ic[key] is not None:
-                    ic[key] = _coerce_bool(ic[key], name=f"preprocessing.illumination_contrast.{key}")
+                    ic[key] = _coerce_bool(
+                        ic[key], name=f"preprocessing.illumination_contrast.{key}"
+                    )
 
             if "homomorphic_cutoff" in ic and ic["homomorphic_cutoff"] is not None:
                 cutoff = _coerce_float(
@@ -212,7 +217,9 @@ def validate_infer_config_payload(
                 "contrast_upper_percentile",
             ):
                 if key in ic and ic[key] is not None:
-                    ic[key] = _coerce_float(ic[key], name=f"preprocessing.illumination_contrast.{key}")
+                    ic[key] = _coerce_float(
+                        ic[key], name=f"preprocessing.illumination_contrast.{key}"
+                    )
 
             if "gamma" in ic and ic["gamma"] is not None:
                 gamma = _coerce_float(ic["gamma"], name="preprocessing.illumination_contrast.gamma")
@@ -314,7 +321,9 @@ def validate_infer_config_payload(
             adaptation["tiling"] = tiling
 
         if "save_maps" in adaptation and adaptation["save_maps"] is not None:
-            adaptation["save_maps"] = _coerce_bool(adaptation["save_maps"], name="adaptation.save_maps")
+            adaptation["save_maps"] = _coerce_bool(
+                adaptation["save_maps"], name="adaptation.save_maps"
+            )
 
         post_cfg = adaptation.get("postprocess", None)
         if post_cfg is not None and not isinstance(post_cfg, Mapping):
@@ -337,7 +346,10 @@ def validate_infer_config_payload(
                 defects["pixel_threshold"], name="defects.pixel_threshold"
             )
 
-        if "pixel_threshold_strategy" in defects and defects["pixel_threshold_strategy"] is not None:
+        if (
+            "pixel_threshold_strategy" in defects
+            and defects["pixel_threshold_strategy"] is not None
+        ):
             strategy = str(defects["pixel_threshold_strategy"]).lower().strip()
             if strategy not in _ALLOWED_PIXEL_THRESHOLD_STRATEGIES:
                 raise ValueError(
@@ -347,7 +359,9 @@ def validate_infer_config_payload(
             defects["pixel_threshold_strategy"] = strategy
 
         if "pixel_normal_quantile" in defects and defects["pixel_normal_quantile"] is not None:
-            q = _coerce_float(defects["pixel_normal_quantile"], name="defects.pixel_normal_quantile")
+            q = _coerce_float(
+                defects["pixel_normal_quantile"], name="defects.pixel_normal_quantile"
+            )
             if not 0.0 < q < 1.0:
                 raise ValueError("infer-config defects.pixel_normal_quantile must be in (0,1).")
             defects["pixel_normal_quantile"] = float(q)
@@ -363,7 +377,9 @@ def validate_infer_config_payload(
         if "roi_xyxy_norm" in defects and defects["roi_xyxy_norm"] is not None:
             roi = defects["roi_xyxy_norm"]
             if not isinstance(roi, (list, tuple)) or len(roi) != 4:
-                raise ValueError("infer-config defects.roi_xyxy_norm must be a list of length 4 or null")
+                raise ValueError(
+                    "infer-config defects.roi_xyxy_norm must be a list of length 4 or null"
+                )
             defects["roi_xyxy_norm"] = [float(v) for v in roi]
 
         if "border_ignore_px" in defects and defects["border_ignore_px"] is not None:
@@ -428,7 +444,9 @@ def validate_infer_config_payload(
             )
         else:
             resolved_ckpt = resolve_infer_checkpoint_path(normalized, config_path=config_path)
-            resolved_model_ckpt = resolve_infer_model_checkpoint_path(normalized, config_path=config_path)
+            resolved_model_ckpt = resolve_infer_model_checkpoint_path(
+                normalized, config_path=config_path
+            )
 
     return InferConfigValidation(
         payload=normalized,
@@ -448,4 +466,6 @@ def validate_infer_config_file(
 
     p = Path(path)
     payload = load_infer_config(p)
-    return validate_infer_config_payload(payload, config_path=p, category=category, check_files=check_files)
+    return validate_infer_config_payload(
+        payload, config_path=p, category=category, check_files=check_files
+    )

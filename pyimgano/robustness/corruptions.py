@@ -84,6 +84,7 @@ def apply_jpeg(
 
     try:
         from io import BytesIO
+
         from PIL import Image
     except Exception as exc:  # pragma: no cover
         raise ImportError(

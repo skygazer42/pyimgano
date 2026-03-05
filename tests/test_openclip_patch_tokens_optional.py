@@ -29,4 +29,3 @@ def test_openclip_vit_patch_embedder_shapes(tmp_path):
     assert patch_embeddings.shape[0] == int(grid_h) * int(grid_w)
     assert original_size == (32, 32)
     assert np.isfinite(patch_embeddings).all()
-

@@ -41,10 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         "--optimize",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help=(
-            "Apply TorchScript inference optimizations (freeze; best-effort). "
-            "Default: true"
-        ),
+        help=("Apply TorchScript inference optimizations (freeze; best-effort). " "Default: true"),
     )
     parser.add_argument(
         "--out",
@@ -71,7 +68,9 @@ def main(argv: list[str] | None = None) -> int:
 
     from pyimgano.utils.torchvision_safe import load_torchvision_backbone
 
-    model, _transform = load_torchvision_backbone(str(args.backbone), pretrained=bool(args.pretrained))
+    model, _transform = load_torchvision_backbone(
+        str(args.backbone), pretrained=bool(args.pretrained)
+    )
     model.eval()
     model.to(device)
 

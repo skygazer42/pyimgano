@@ -80,7 +80,7 @@ def test_vision_anomalydino_coreset_sampling_reduces_memory_bank():
             grid_h, grid_w = 2, 2
             original_h, original_w = 8, 8
             offset = float(sum(ord(c) for c in image_path) % 10)
-            patch_embeddings = (np.arange(grid_h * grid_w, dtype=np.float32).reshape(-1, 1) + offset)
+            patch_embeddings = np.arange(grid_h * grid_w, dtype=np.float32).reshape(-1, 1) + offset
             return patch_embeddings, (grid_h, grid_w), (original_h, original_w)
 
     embedder = _CountingEmbedder()

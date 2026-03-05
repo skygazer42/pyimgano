@@ -67,9 +67,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out-root", default="./out_pixel_first_ssim_defects", help="Output root dir")
     p.add_argument("--category", default="demo", help="Manifest category name")
     p.add_argument("--seed", type=int, default=0, help="RNG seed for synthesis")
-    p.add_argument("--n-train", type=int, default=20, help="Number of training normals to synthesize")
-    p.add_argument("--n-test-normal", type=int, default=10, help="Number of normal test images to synthesize")
-    p.add_argument("--n-test-anomaly", type=int, default=10, help="Number of anomalous test images to synthesize")
+    p.add_argument(
+        "--n-train", type=int, default=20, help="Number of training normals to synthesize"
+    )
+    p.add_argument(
+        "--n-test-normal", type=int, default=10, help="Number of normal test images to synthesize"
+    )
+    p.add_argument(
+        "--n-test-anomaly",
+        type=int,
+        default=10,
+        help="Number of anomalous test images to synthesize",
+    )
     p.add_argument(
         "--pixel-normal-quantile",
         type=float,
@@ -169,4 +178,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

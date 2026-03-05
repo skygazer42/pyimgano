@@ -18,7 +18,9 @@ def _write_mask(path: Path, *, value: int = 255) -> None:
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def test_rad_converter_smoke_emits_meta(tmp_path: Path) -> None:
@@ -46,4 +48,3 @@ def test_rad_converter_smoke_emits_meta(tmp_path: Path) -> None:
     metas = [r.get("meta") for r in parsed if isinstance(r.get("meta"), dict)]
     assert metas, "expected at least one meta object for a multi-view layout"
     assert any("view_id" in m for m in metas)
-

@@ -52,4 +52,3 @@ def test_vision_superad_fit_scores_and_anomaly_map() -> None:
     assert np.isfinite(normal_map).all()
     assert np.isfinite(anomaly_map).all()
     assert float(anomaly_map.mean()) > float(normal_map.mean())
-

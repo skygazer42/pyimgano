@@ -16,11 +16,11 @@ import os
 import sys
 
 import cv2
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pyimgano.preprocessing import AdvancedImageEnhancer
 
@@ -42,9 +42,9 @@ def create_test_image():
 
 def example_frequency_domain():
     """Example 1: Frequency domain operations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 1: Frequency Domain Operations")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
@@ -60,35 +60,35 @@ def example_frequency_domain():
 
     print("\n3. Frequency Filters:")
     print("   a) Lowpass filter (remove high frequencies):")
-    lowpass = enhancer.frequency_filter(img, filter_type='lowpass', cutoff_frequency=30)
+    lowpass = enhancer.frequency_filter(img, filter_type="lowpass", cutoff_frequency=30)
     print(f"      Result shape: {lowpass.shape}")
 
     print("   b) Highpass filter (remove low frequencies):")
-    highpass = enhancer.frequency_filter(img, filter_type='highpass', cutoff_frequency=30)
+    highpass = enhancer.frequency_filter(img, filter_type="highpass", cutoff_frequency=30)
     print(f"      Result shape: {highpass.shape}")
 
     print("   c) Bandpass filter:")
-    bandpass = enhancer.frequency_filter(img, filter_type='bandpass', cutoff_frequency=20)
+    bandpass = enhancer.frequency_filter(img, filter_type="bandpass", cutoff_frequency=20)
     print(f"      Result shape: {bandpass.shape}")
 
 
 def example_texture_analysis():
     """Example 2: Texture analysis."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 2: Texture Analysis")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
 
     print("\n1. Gabor Filters (oriented texture detection):")
     print("   Testing different orientations:")
-    for i, theta in enumerate([0, np.pi/4, np.pi/2, 3*np.pi/4]):
+    for i, theta in enumerate([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]):
         gabor = enhancer.gabor_filter(img, frequency=0.1, theta=theta)
         print(f"   Orientation {i+1} (theta={theta:.2f}): shape={gabor.shape}")
 
     print("\n2. Local Binary Pattern (LBP):")
-    lbp = enhancer.compute_lbp(img, n_points=8, radius=1.0, method='uniform')
+    lbp = enhancer.compute_lbp(img, n_points=8, radius=1.0, method="uniform")
     print(f"   LBP shape: {lbp.shape}")
     print(f"   LBP range: [{lbp.min()}, {lbp.max()}]")
 
@@ -101,39 +101,39 @@ def example_texture_analysis():
 
 def example_color_space():
     """Example 3: Color space transformations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 3: Color Space Transformations")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
 
     print("\n1. Color Space Conversions:")
-    color_spaces = ['hsv', 'lab', 'ycrcb', 'hls']
+    color_spaces = ["hsv", "lab", "ycrcb", "hls"]
 
     for space in color_spaces:
-        converted = enhancer.convert_color(img, from_space='bgr', to_space=space)
+        converted = enhancer.convert_color(img, from_space="bgr", to_space=space)
         print(f"   BGR to {space.upper()}: shape={converted.shape}")
 
     print("\n2. Color Histogram Equalization:")
     print("   a) HSV-based (equalize V channel):")
-    eq_hsv = enhancer.equalize_color_hist(img, method='hsv')
+    eq_hsv = enhancer.equalize_color_hist(img, method="hsv")
     print(f"      Result shape: {eq_hsv.shape}")
 
     print("   b) LAB-based (equalize L channel):")
-    eq_lab = enhancer.equalize_color_hist(img, method='lab')
+    eq_lab = enhancer.equalize_color_hist(img, method="lab")
     print(f"      Result shape: {eq_lab.shape}")
 
     print("   c) YCrCb-based (equalize Y channel):")
-    eq_ycrcb = enhancer.equalize_color_hist(img, method='ycrcb')
+    eq_ycrcb = enhancer.equalize_color_hist(img, method="ycrcb")
     print(f"      Result shape: {eq_ycrcb.shape}")
 
 
 def example_advanced_enhancement():
     """Example 4: Advanced enhancement techniques."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 4: Advanced Enhancement Techniques")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
@@ -162,9 +162,9 @@ def example_advanced_enhancement():
 
 def example_denoising():
     """Example 5: Advanced denoising techniques."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 5: Advanced Denoising")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
@@ -188,20 +188,16 @@ def example_denoising():
 
 def example_feature_extraction():
     """Example 6: Feature extraction."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 6: Feature Extraction")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
 
     print("\n1. Histogram of Oriented Gradients (HOG):")
     hog_features, hog_image = enhancer.extract_hog(
-        img,
-        orientations=9,
-        pixels_per_cell=(8, 8),
-        cells_per_block=(2, 2),
-        visualize=True
+        img, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(2, 2), visualize=True
     )
     print(f"   HOG features shape: {hog_features.shape}")
     print(f"   HOG visualization shape: {hog_image.shape}")
@@ -209,25 +205,25 @@ def example_feature_extraction():
 
     print("\n2. Corner Detection:")
     print("   a) Harris corner detector:")
-    harris = enhancer.detect_corners(img, method='harris', block_size=2, ksize=3, k=0.04)
+    harris = enhancer.detect_corners(img, method="harris", block_size=2, ksize=3, k=0.04)
     print(f"      Harris response shape: {harris.shape}")
 
     print("   b) Shi-Tomasi corner detector:")
-    corners = enhancer.detect_corners(img, method='shi_tomasi', max_corners=100, quality_level=0.01)
+    corners = enhancer.detect_corners(img, method="shi_tomasi", max_corners=100, quality_level=0.01)
     if corners is not None:
         print(f"      Found {len(corners)} corners")
 
     print("   c) FAST feature detector:")
-    fast_corners = enhancer.detect_corners(img, method='fast', threshold=10)
+    fast_corners = enhancer.detect_corners(img, method="fast", threshold=10)
     if fast_corners is not None:
         print(f"      Found {len(fast_corners)} FAST corners")
 
 
 def example_advanced_morphology():
     """Example 7: Advanced morphological operations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 7: Advanced Morphological Operations")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
 
@@ -261,15 +257,15 @@ def example_advanced_morphology():
 
 def example_segmentation():
     """Example 8: Image segmentation."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 8: Image Segmentation")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
 
     print("\n1. Thresholding Methods:")
-    methods = ['otsu', 'adaptive_mean', 'adaptive_gaussian', 'triangle', 'yen', 'isodata']
+    methods = ["otsu", "adaptive_mean", "adaptive_gaussian", "triangle", "yen", "isodata"]
 
     for method in methods:
         try:
@@ -288,9 +284,9 @@ def example_segmentation():
 
 def example_pyramids():
     """Example 9: Image pyramids."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 9: Image Pyramids")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
@@ -310,9 +306,9 @@ def example_pyramids():
 
 def example_complete_workflow():
     """Example 10: Complete preprocessing workflow."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 10: Complete Preprocessing Workflow")
-    print("="*60)
+    print("=" * 60)
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
@@ -320,7 +316,7 @@ def example_complete_workflow():
     print("\nComplete workflow for anomaly detection preprocessing:")
 
     print("\n1. Color space conversion (BGR to LAB):")
-    lab = enhancer.convert_color(img, from_space='bgr', to_space='lab')
+    lab = enhancer.convert_color(img, from_space="bgr", to_space="lab")
     print(f"   LAB shape: {lab.shape}")
 
     print("\n2. Contrast enhancement (Retinex):")
@@ -332,7 +328,7 @@ def example_complete_workflow():
     print(f"   Denoised shape: {denoised.shape}")
 
     print("\n4. Edge detection (Canny):")
-    edges = enhancer.detect_edges(denoised, method='canny')
+    edges = enhancer.detect_edges(denoised, method="canny")
     print(f"   Edges shape: {edges.shape}")
 
     print("\n5. Texture analysis (LBP):")
@@ -340,7 +336,7 @@ def example_complete_workflow():
     print(f"   LBP shape: {lbp.shape}")
 
     print("\n6. Normalization:")
-    normalized = enhancer.normalize(lbp, method='minmax')
+    normalized = enhancer.normalize(lbp, method="minmax")
     print(f"   Normalized shape: {normalized.shape}")
     print(f"   Normalized range: [{normalized.min():.3f}, {normalized.max():.3f}]")
 
@@ -353,9 +349,9 @@ def example_complete_workflow():
 
 def main():
     """Run all examples."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PyImgAno Advanced Preprocessing Examples")
-    print("="*60)
+    print("=" * 60)
 
     try:
         example_frequency_domain()
@@ -407,9 +403,9 @@ def main():
     except Exception as e:
         print(f"\nError in complete workflow example: {e}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("All examples completed!")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":

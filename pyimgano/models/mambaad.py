@@ -29,7 +29,6 @@ from .baseCv import BaseVisionDeepDetector
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
 
-
 ImageInput = Union[str, np.ndarray]
 
 

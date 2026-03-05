@@ -18,7 +18,9 @@ def test_onnx_embed_extractor_raises_importerror_when_onnxruntime_missing(monkey
 
     monkeypatch.setattr(optional_deps, "optional_import", fake_optional_import)
 
-    extractor = ONNXEmbedExtractor(checkpoint="missing.onnx", device="cpu", batch_size=1, image_size=224)
+    extractor = ONNXEmbedExtractor(
+        checkpoint="missing.onnx", device="cpu", batch_size=1, image_size=224
+    )
 
     with pytest.raises(ImportError) as excinfo:
         extractor.extract([np.zeros((8, 8, 3), dtype=np.uint8)])
@@ -26,4 +28,3 @@ def test_onnx_embed_extractor_raises_importerror_when_onnxruntime_missing(monkey
     message = str(excinfo.value)
     assert "Optional dependency 'onnxruntime'" in message
     assert "pip install 'pyimgano[onnx]'" in message
-

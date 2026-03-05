@@ -6,7 +6,6 @@ from typing import Literal
 import numpy as np
 from numpy.typing import NDArray
 
-
 AggregationMethod = Literal["topk_mean", "max", "mean"]
 
 
@@ -58,4 +57,3 @@ def reshape_patch_scores(
         )
 
     return scores.reshape(grid_h_int, grid_w_int)
-

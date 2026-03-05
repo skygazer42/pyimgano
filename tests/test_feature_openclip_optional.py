@@ -6,7 +6,6 @@ import pytest
 
 def test_openclip_extractor_is_discoverable() -> None:
     import pyimgano.features  # noqa: F401 - registry population side effects
-
     from pyimgano.features.registry import list_feature_extractors
 
     assert "openclip_embed" in list_feature_extractors()
@@ -26,4 +25,3 @@ def test_openclip_extractor_raises_clean_error_when_missing() -> None:
     with pytest.raises(ImportError) as excinfo:
         ext.extract([img])
     assert "open_clip" in str(excinfo.value) or "open_clip_torch" in str(excinfo.value)
-

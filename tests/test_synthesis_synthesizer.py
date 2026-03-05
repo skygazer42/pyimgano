@@ -44,4 +44,3 @@ def test_anomaly_synthesizer_can_skip_by_probability(tmp_path: Path) -> None:
     res = syn(img, seed=0)
     assert res.label == 0
     assert int(np.sum(res.mask_u8 > 0)) == 0
-

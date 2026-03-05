@@ -5,10 +5,10 @@ import numpy as np
 
 def test_preprocessing_ops_preserve_shapes_dtypes_and_finiteness() -> None:
     from pyimgano.preprocessing.anisotropic_diffusion import anisotropic_diffusion
+    from pyimgano.preprocessing.enhancer import ImageEnhancer
     from pyimgano.preprocessing.guided_filter import guided_filter
     from pyimgano.preprocessing.industrial_presets import defect_amplification, shading_correction
     from pyimgano.preprocessing.tiling import tile_apply
-    from pyimgano.preprocessing.enhancer import ImageEnhancer
 
     rng = np.random.default_rng(0)
     gray = rng.integers(0, 256, size=(64, 80), dtype=np.uint8)
@@ -58,4 +58,3 @@ def test_preprocessing_ops_preserve_shapes_dtypes_and_finiteness() -> None:
 
     for arr in [gf, ad, sc_g, sc_c, da, out, lcn, jr, tg]:
         assert np.isfinite(np.asarray(arr, dtype=np.float32)).all()
-

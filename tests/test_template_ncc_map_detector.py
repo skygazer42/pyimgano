@@ -48,4 +48,3 @@ def test_template_ncc_map_detector_smoke_and_map_shape() -> None:
     assert maps.dtype == np.float32
     assert float(np.min(maps)) >= 0.0
     assert float(np.max(maps)) <= 1.0 + 1e-6
-

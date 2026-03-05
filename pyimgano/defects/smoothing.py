@@ -61,4 +61,3 @@ def smooth_anomaly_map(
         return np.asarray(cv2.blur(m, ksize=(k, k)), dtype=np.float32)
 
     raise ValueError(f"Unknown smoothing method: {method!r}. Expected none|median|gaussian|box.")
-

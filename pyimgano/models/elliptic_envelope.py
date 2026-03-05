@@ -153,4 +153,3 @@ class VisionEllipticEnvelope(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreEllipticEnvelope(**self._detector_kwargs)
-

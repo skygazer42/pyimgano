@@ -20,4 +20,3 @@ def test_pairwise_distances_no_broadcast_requires_matching_shapes() -> None:
     Y = np.zeros((2, 4), dtype=float)
     with pytest.raises(ValueError, match="same shape"):
         pairwise_distances_no_broadcast(X, Y)
-

@@ -39,7 +39,9 @@ def audit_registry(*, limit: int | None = None) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="audit_registry")
-    parser.add_argument("--limit", type=int, default=None, help="Optional limit for models to check")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Optional limit for models to check"
+    )
     parser.add_argument("--json", action="store_true", help="Output JSON")
     args = parser.parse_args(argv)
 

@@ -99,7 +99,9 @@ class CoreINNE:
         n_samples, n_features = map(int, X.shape)
         assert self.max_samples_ is not None
 
-        self._centroids = np.empty((self.n_estimators, self.max_samples_, n_features), dtype=np.float64)
+        self._centroids = np.empty(
+            (self.n_estimators, self.max_samples_, n_features), dtype=np.float64
+        )
         self._ratio = np.empty((self.n_estimators, self.max_samples_), dtype=np.float64)
         self._centroids_radius = np.empty((self.n_estimators, self.max_samples_), dtype=np.float64)
 

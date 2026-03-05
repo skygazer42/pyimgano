@@ -94,7 +94,9 @@ def _write_csv(path: Path, *, rows: Sequence[Mapping[str, Any]], columns: Sequen
             writer.writerow({k: _format_cell(row.get(k)) for k in columns})
 
 
-def _write_markdown_table(path: Path, *, rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> None:
+def _write_markdown_table(
+    path: Path, *, rows: Sequence[Mapping[str, Any]], columns: Sequence[str]
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     cols = list(columns)
     header = "| " + " | ".join(cols) + " |"

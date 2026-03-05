@@ -56,4 +56,3 @@ print(json.dumps({"present": present, "n_extractors": len(features.list_feature_
 
     assert int(payload["n_extractors"]) > 0
     assert payload["present"] == [], f"Unexpected heavy imports: {payload['present']}"
-

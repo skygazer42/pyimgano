@@ -21,4 +21,3 @@ def test_resolve_torch_device_accepts_cpu() -> None:
 
     dev = resolve_torch_device("cpu")
     assert str(dev) == "cpu"
-

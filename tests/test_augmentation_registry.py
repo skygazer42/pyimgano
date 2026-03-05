@@ -4,11 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pyimgano.utils import (
-    AUGMENTATION_REGISTRY,
-    build_augmentation_pipeline,
-    list_augmentations,
-)
+from pyimgano.utils import AUGMENTATION_REGISTRY, build_augmentation_pipeline, list_augmentations
 
 
 def test_trivial_augment_registered():
@@ -32,7 +28,7 @@ def test_color_jitter_pipeline_numpy_output():
 
 
 def test_mixup_cutmix_helpers():
-    from pyimgano.utils.augmentation import mixup_batch, cutmix_batch
+    from pyimgano.utils.augmentation import cutmix_batch, mixup_batch
 
     images = np.random.rand(4, 3, 16, 16).astype(np.float32)
     labels = np.eye(4).astype(np.float32)
@@ -68,7 +64,7 @@ def test_rand_augment_pipeline():
 
 
 def test_diffusion_augmentor_optional():
-    from pyimgano.utils.augmentation import DiffusionAugmentor, _DIFFUSERS_AVAILABLE
+    from pyimgano.utils.augmentation import _DIFFUSERS_AVAILABLE, DiffusionAugmentor
 
     if _DIFFUSERS_AVAILABLE:
         pytest.skip("diffusers available; skipping heavy pipeline test")

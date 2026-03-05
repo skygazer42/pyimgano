@@ -22,11 +22,12 @@ from numpy.typing import NDArray
 from scipy import ndimage
 from scipy.ndimage import map_coordinates
 
-
 # Enums for type-safe augmentation selection
+
 
 class GeometricTransform(Enum):
     """Geometric transformation types."""
+
     ROTATE = "rotate"
     FLIP_HORIZONTAL = "flip_horizontal"
     FLIP_VERTICAL = "flip_vertical"
@@ -40,6 +41,7 @@ class GeometricTransform(Enum):
 
 class NoiseType(Enum):
     """Noise types."""
+
     GAUSSIAN = "gaussian"
     SALT_PEPPER = "salt_pepper"
     POISSON = "poisson"
@@ -49,6 +51,7 @@ class NoiseType(Enum):
 
 class BlurType(Enum):
     """Blur types for augmentation."""
+
     MOTION = "motion"
     DEFOCUS = "defocus"
     GLASS = "glass"
@@ -57,6 +60,7 @@ class BlurType(Enum):
 
 class WeatherEffect(Enum):
     """Weather effects."""
+
     RAIN = "rain"
     FOG = "fog"
     SNOW = "snow"
@@ -66,13 +70,14 @@ class WeatherEffect(Enum):
 
 # Geometric Transformations
 
+
 def rotate_image(
     image: NDArray,
     angle: float,
     center: Optional[Tuple[int, int]] = None,
     scale: float = 1.0,
     border_mode: int = cv2.BORDER_CONSTANT,
-    border_value: int = 0
+    border_value: int = 0,
 ) -> NDArray:
     """
     Rotate image by specified angle.
@@ -124,10 +129,7 @@ def flip_image(image: NDArray, mode: Union[str, GeometricTransform] = "horizonta
 
 
 def scale_image(
-    image: NDArray,
-    scale_x: float = 1.0,
-    scale_y: float = 1.0,
-    keep_size: bool = True
+    image: NDArray, scale_x: float = 1.0, scale_y: float = 1.0, keep_size: bool = True
 ) -> NDArray:
     """
     Scale image by specified factors.
@@ -152,24 +154,20 @@ def scale_image(
             # Crop to original size
             start_y = (new_h - h) // 2
             start_x = (new_w - w) // 2
-            scaled = scaled[start_y:start_y + h, start_x:start_x + w]
+            scaled = scaled[start_y : start_y + h, start_x : start_x + w]
         else:
             # Pad to original size
             pad_y = (h - new_h) // 2
             pad_x = (w - new_w) // 2
             result = np.zeros_like(image)
-            result[pad_y:pad_y + new_h, pad_x:pad_x + new_w] = scaled
+            result[pad_y : pad_y + new_h, pad_x : pad_x + new_w] = scaled
             scaled = result
 
     return scaled
 
 
 def translate_image(
-    image: NDArray,
-    tx: int,
-    ty: int,
-    border_mode: int = cv2.BORDER_CONSTANT,
-    border_value: int = 0
+    image: NDArray, tx: int, ty: int, border_mode: int = cv2.BORDER_CONSTANT, border_value: int = 0
 ) -> NDArray:
     """
     Translate image by specified offsets.
@@ -196,7 +194,7 @@ def shear_image(
     shear_x: float = 0.0,
     shear_y: float = 0.0,
     border_mode: int = cv2.BORDER_CONSTANT,
-    border_value: int = 0
+    border_value: int = 0,
 ) -> NDArray:
     """
     Apply shear transformation to image.
@@ -222,9 +220,7 @@ def shear_image(
 
 
 def perspective_transform(
-    image: NDArray,
-    strength: float = 0.2,
-    random_seed: Optional[int] = None
+    image: NDArray, strength: float = 0.2, random_seed: Optional[int] = None
 ) -> NDArray:
     """
     Apply random perspective transformation.
@@ -247,7 +243,9 @@ def perspective_transform(
 
     # Destination points with random perturbation
     max_offset = int(min(w, h) * strength)
-    dst_points = src_points + np.random.randint(-max_offset, max_offset, src_points.shape).astype(np.float32)
+    dst_points = src_points + np.random.randint(-max_offset, max_offset, src_points.shape).astype(
+        np.float32
+    )
 
     # Get perspective transform matrix
     M = cv2.getPerspectiveTransform(src_points, dst_points)
@@ -259,6 +257,7 @@ def perspective_transform(
 
 
 # Color Augmentations
+
 
 def adjust_brightness(image: NDArray, factor: float) -> NDArray:
     """
@@ -350,7 +349,7 @@ def color_jitter(
     brightness: Tuple[float, float] = (0.8, 1.2),
     contrast: Tuple[float, float] = (0.8, 1.2),
     saturation: Tuple[float, float] = (0.8, 1.2),
-    hue: Tuple[float, float] = (-10, 10)
+    hue: Tuple[float, float] = (-10, 10),
 ) -> NDArray:
     """
     Apply random color jittering.
@@ -387,11 +386,8 @@ def color_jitter(
 
 # Noise Addition
 
-def add_gaussian_noise(
-    image: NDArray,
-    mean: float = 0,
-    std: float = 25
-) -> NDArray:
+
+def add_gaussian_noise(image: NDArray, mean: float = 0, std: float = 25) -> NDArray:
     """
     Add Gaussian noise to image.
 
@@ -411,9 +407,7 @@ def add_gaussian_noise(
 
 
 def add_salt_pepper_noise(
-    image: NDArray,
-    salt_prob: float = 0.01,
-    pepper_prob: float = 0.01
+    image: NDArray, salt_prob: float = 0.01, pepper_prob: float = 0.01
 ) -> NDArray:
     """
     Add salt-and-pepper noise to image.
@@ -481,11 +475,8 @@ def add_speckle_noise(image: NDArray, std: float = 0.1) -> NDArray:
 
 # Blur Operations
 
-def motion_blur(
-    image: NDArray,
-    kernel_size: int = 15,
-    angle: float = 0
-) -> NDArray:
+
+def motion_blur(image: NDArray, kernel_size: int = 15, angle: float = 0) -> NDArray:
     """
     Apply motion blur to image.
 
@@ -529,7 +520,7 @@ def defocus_blur(image: NDArray, radius: int = 5) -> NDArray:
     kernel = np.zeros((kernel_size, kernel_size), dtype=np.float32)
 
     # Create circular kernel
-    y, x = np.ogrid[-radius:radius+1, -radius:radius+1]
+    y, x = np.ogrid[-radius : radius + 1, -radius : radius + 1]
     mask = x**2 + y**2 <= radius**2
     kernel[mask] = 1
     kernel = kernel / kernel.sum()
@@ -581,12 +572,13 @@ def glass_blur(image: NDArray, iterations: int = 2, kernel_size: int = 5) -> NDA
 
 # Weather Effects
 
+
 def add_rain(
     image: NDArray,
     intensity: float = 0.5,
     length: int = 20,
     angle: float = -30,
-    num_drops: Optional[int] = None
+    num_drops: Optional[int] = None,
 ) -> NDArray:
     """
     Add rain effect to image.
@@ -649,11 +641,7 @@ def add_fog(image: NDArray, intensity: float = 0.5) -> NDArray:
     return result
 
 
-def add_snow(
-    image: NDArray,
-    intensity: float = 0.5,
-    num_flakes: Optional[int] = None
-) -> NDArray:
+def add_snow(image: NDArray, intensity: float = 0.5, num_flakes: Optional[int] = None) -> NDArray:
     """
     Add snow effect to image.
 
@@ -683,11 +671,7 @@ def add_snow(
     return result
 
 
-def add_shadow(
-    image: NDArray,
-    num_shadows: int = 1,
-    intensity: float = 0.5
-) -> NDArray:
+def add_shadow(image: NDArray, num_shadows: int = 1, intensity: float = 0.5) -> NDArray:
     """
     Add random shadow effects to image.
 
@@ -715,7 +699,9 @@ def add_shadow(
         shadow_factor = 1 - intensity
         if len(image.shape) == 3:
             for c in range(3):
-                result[:, :, c] = np.where(mask == 255, result[:, :, c] * shadow_factor, result[:, :, c])
+                result[:, :, c] = np.where(
+                    mask == 255, result[:, :, c] * shadow_factor, result[:, :, c]
+                )
         else:
             result = np.where(mask == 255, result * shadow_factor, result)
 
@@ -725,11 +711,12 @@ def add_shadow(
 
 # Cutout and Occlusion
 
+
 def random_cutout(
     image: NDArray,
     num_holes: int = 1,
     hole_size: Union[int, Tuple[int, int]] = 32,
-    fill_value: int = 0
+    fill_value: int = 0,
 ) -> NDArray:
     """
     Apply random cutout (random erasing) to image.
@@ -755,16 +742,13 @@ def random_cutout(
         y = np.random.randint(0, h - hole_h + 1)
         x = np.random.randint(0, w - hole_w + 1)
 
-        result[y:y + hole_h, x:x + hole_w] = fill_value
+        result[y : y + hole_h, x : x + hole_w] = fill_value
 
     return result
 
 
 def grid_mask(
-    image: NDArray,
-    grid_size: int = 32,
-    ratio: float = 0.5,
-    fill_value: int = 0
+    image: NDArray, grid_size: int = 32, ratio: float = 0.5, fill_value: int = 0
 ) -> NDArray:
     """
     Apply grid mask augmentation.
@@ -795,11 +779,9 @@ def grid_mask(
 
 # Elastic and Grid Distortions
 
+
 def elastic_transform(
-    image: NDArray,
-    alpha: float = 100,
-    sigma: float = 10,
-    random_seed: Optional[int] = None
+    image: NDArray, alpha: float = 100, sigma: float = 10, random_seed: Optional[int] = None
 ) -> NDArray:
     """
     Apply elastic deformation to image.
@@ -834,18 +816,14 @@ def elastic_transform(
     if len(image.shape) == 3:
         result = np.zeros_like(image)
         for c in range(image.shape[2]):
-            result[:, :, c] = map_coordinates(image[:, :, c], indices, order=1, mode='reflect')
+            result[:, :, c] = map_coordinates(image[:, :, c], indices, order=1, mode="reflect")
     else:
-        result = map_coordinates(image, indices, order=1, mode='reflect')
+        result = map_coordinates(image, indices, order=1, mode="reflect")
 
     return result.astype(np.uint8)
 
 
-def grid_distortion(
-    image: NDArray,
-    num_steps: int = 5,
-    distort_limit: float = 0.3
-) -> NDArray:
+def grid_distortion(image: NDArray, num_steps: int = 5, distort_limit: float = 0.3) -> NDArray:
     """
     Apply grid distortion to image.
 
@@ -892,11 +870,8 @@ def grid_distortion(
 
 # Advanced Augmentations
 
-def mixup(
-    image1: NDArray,
-    image2: NDArray,
-    alpha: float = 0.5
-) -> NDArray:
+
+def mixup(image1: NDArray, image2: NDArray, alpha: float = 0.5) -> NDArray:
     """
     Apply Mixup augmentation (blend two images).
 
@@ -918,11 +893,7 @@ def mixup(
     return mixed
 
 
-def cutmix(
-    image1: NDArray,
-    image2: NDArray,
-    alpha: float = 0.5
-) -> NDArray:
+def cutmix(image1: NDArray, image2: NDArray, alpha: float = 0.5) -> NDArray:
     """
     Apply CutMix augmentation (cut and paste patches).
 
@@ -984,6 +955,7 @@ def jpeg_compress(image: NDArray, quality: int = 80) -> NDArray:
 
     try:
         from io import BytesIO
+
         from PIL import Image
     except Exception as exc:  # pragma: no cover
         raise ImportError(

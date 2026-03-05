@@ -42,4 +42,3 @@ def test_apply_tiling_wraps_with_tiled_detector_and_aggregates_scores():
     )
     scores = wrapped.decision_function([img])
     assert np.allclose(scores, np.asarray([3.0], dtype=np.float32))
-

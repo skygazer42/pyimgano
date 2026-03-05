@@ -17,14 +17,15 @@ Implementation follows the paper's architecture with:
 - Optional feature alignment for better matching
 """
 
+from typing import List, Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import List, Optional, Tuple
 from numpy.typing import NDArray
-from sklearn.neighbors import KDTree
 from scipy.ndimage import gaussian_filter
+from sklearn.neighbors import KDTree
 
 from pyimgano.models.base_dl import BaseVisionDeepDetector
 
@@ -43,11 +44,13 @@ class PyramidFeatureExtractor(nn.Module):
 
         # Load pre-trained backbone
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
             model = wide_resnet50_2(weights=weights)
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
         else:
@@ -58,18 +61,21 @@ class PyramidFeatureExtractor(nn.Module):
         for level in feature_levels:
             if level == "layer1":
                 self.feature_extractors[level] = nn.Sequential(
-                    model.conv1, model.bn1, model.relu,
-                    model.maxpool, model.layer1
+                    model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
                 )
             elif level == "layer2":
                 self.feature_extractors[level] = nn.Sequential(
-                    model.conv1, model.bn1, model.relu,
-                    model.maxpool, model.layer1, model.layer2
+                    model.conv1, model.bn1, model.relu, model.maxpool, model.layer1, model.layer2
                 )
             elif level == "layer3":
                 self.feature_extractors[level] = nn.Sequential(
-                    model.conv1, model.bn1, model.relu,
-                    model.maxpool, model.layer1, model.layer2, model.layer3
+                    model.conv1,
+                    model.bn1,
+                    model.relu,
+                    model.maxpool,
+                    model.layer1,
+                    model.layer2,
+                    model.layer3,
                 )
 
         # Freeze parameters
@@ -187,15 +193,12 @@ class PNIDetector(BaseVisionDeepDetector):
 
         # Initialize feature extractor
         self.feature_extractor = PyramidFeatureExtractor(
-            backbone=backbone,
-            feature_levels=feature_levels,
-            pretrained=pretrained
+            backbone=backbone, feature_levels=feature_levels, pretrained=pretrained
         ).to(self.device)
 
         # Initialize normality indices for each level
         self.normality_indices = {
-            level: NormalityIndex(k_neighbors=k_neighbors)
-            for level in feature_levels
+            level: NormalityIndex(k_neighbors=k_neighbors) for level in feature_levels
         }
 
         self.fitted_ = False
@@ -340,10 +343,7 @@ class PNIDetector(BaseVisionDeepDetector):
             # Upsample to image size
             scores_tensor = torch.from_numpy(scores).unsqueeze(1).float()  # [N, 1, H, W]
             upsampled = F.interpolate(
-                scores_tensor,
-                size=(H_img, W_img),
-                mode='bilinear',
-                align_corners=False
+                scores_tensor, size=(H_img, W_img), mode="bilinear", align_corners=False
             )
             upsampled = upsampled.squeeze(1).numpy()  # [N, H, W]
 

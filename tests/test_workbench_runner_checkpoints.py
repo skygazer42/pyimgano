@@ -96,4 +96,3 @@ def test_workbench_runner_writes_checkpoint_when_training_enabled(tmp_path):
     report_json = json.loads((out_dir / "report.json").read_text(encoding="utf-8"))
     assert report_json["checkpoint"]["path"].endswith("checkpoints/custom/model.pt")
     assert report_json["training"]["fit_kwargs_used"] == {"epochs": 2, "lr": 0.001}
-

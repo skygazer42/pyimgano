@@ -54,4 +54,3 @@ def test_synthesize_cli_smoke(tmp_path: Path) -> None:
     anomalies = [r for r in rows if r.get("split") == "test" and r.get("label") == 1]
     assert len(anomalies) >= 1
     assert all("mask_path" in r for r in anomalies)
-

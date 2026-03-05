@@ -14,4 +14,3 @@ def test_datasets_cli_list_json_smoke(capsys) -> None:
     assert isinstance(payload, list)
     names = {str(item.get("name")) for item in payload if isinstance(item, dict)}
     assert "custom" in names
-

@@ -17,13 +17,14 @@ Implementation includes:
 - Reconstruction-based anomaly scoring
 """
 
+import math
+from typing import Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import Optional, Tuple
 from numpy.typing import NDArray
-import math
 
 from pyimgano.models.base_dl import BaseVisionDeepDetector
 
@@ -32,11 +33,7 @@ class PatchEmbedding(nn.Module):
     """Convert image to patch embeddings."""
 
     def __init__(
-        self,
-        img_size: int = 224,
-        patch_size: int = 16,
-        in_channels: int = 3,
-        embed_dim: int = 768
+        self, img_size: int = 224, patch_size: int = 16, in_channels: int = 3, embed_dim: int = 768
     ):
         super().__init__()
         self.img_size = img_size
@@ -45,10 +42,7 @@ class PatchEmbedding(nn.Module):
 
         # Patch embedding via convolution
         self.projection = nn.Conv2d(
-            in_channels,
-            embed_dim,
-            kernel_size=patch_size,
-            stride=patch_size
+            in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -119,7 +113,7 @@ class TransformerBlock(nn.Module):
         embed_dim: int = 768,
         num_heads: int = 12,
         mlp_ratio: float = 4.0,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ):
         super().__init__()
 
@@ -132,7 +126,7 @@ class TransformerBlock(nn.Module):
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(int(embed_dim * mlp_ratio), embed_dim),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -167,7 +161,7 @@ class InTraEncoder(nn.Module):
         depth: int = 12,
         num_heads: int = 12,
         mlp_ratio: float = 4.0,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ):
         super().__init__()
 
@@ -180,10 +174,9 @@ class InTraEncoder(nn.Module):
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
 
         # Transformer blocks
-        self.blocks = nn.ModuleList([
-            TransformerBlock(embed_dim, num_heads, mlp_ratio, dropout)
-            for _ in range(depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(embed_dim, num_heads, mlp_ratio, dropout) for _ in range(depth)]
+        )
 
         self.norm = nn.LayerNorm(embed_dim)
 
@@ -273,14 +266,14 @@ class InTraDetector(BaseVisionDeepDetector):
             in_channels=3,
             embed_dim=embed_dim,
             depth=depth,
-            num_heads=num_heads
+            num_heads=num_heads,
         ).to(self.device)
 
         # Decoder (simple MLP for reconstruction)
         self.decoder = nn.Sequential(
             nn.Linear(embed_dim, embed_dim * 2),
             nn.GELU(),
-            nn.Linear(embed_dim * 2, patch_size * patch_size * 3)
+            nn.Linear(embed_dim * 2, patch_size * patch_size * 3),
         ).to(self.device)
 
         # Normal feature statistics
@@ -312,7 +305,9 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Resize
         if images.shape[2:] != (self.img_size, self.img_size):
-            images = F.interpolate(images, size=(self.img_size, self.img_size), mode='bilinear', align_corners=False)
+            images = F.interpolate(
+                images, size=(self.img_size, self.img_size), mode="bilinear", align_corners=False
+            )
 
         # Normalize
         mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(self.device)
@@ -334,8 +329,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Optimizer
         optimizer = torch.optim.Adam(
-            list(self.encoder.parameters()) + list(self.decoder.parameters()),
-            lr=self.learning_rate
+            list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=self.learning_rate
         )
 
         # Convert to tensor
@@ -350,7 +344,7 @@ class InTraDetector(BaseVisionDeepDetector):
             num_batches = 0
 
             for i in range(0, N, self.batch_size):
-                batch = X[i:i + self.batch_size]
+                batch = X[i : i + self.batch_size]
 
                 # Preprocess
                 images = self._preprocess(batch)
@@ -389,7 +383,7 @@ class InTraDetector(BaseVisionDeepDetector):
         all_features = []
         with torch.no_grad():
             for i in range(0, N, self.batch_size):
-                batch = X[i:i + self.batch_size]
+                batch = X[i : i + self.batch_size]
                 images = self._preprocess(batch)
                 features, _ = self.encoder(images)
                 all_features.append(features.cpu().numpy())
@@ -471,6 +465,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Upsample to original size
         from scipy.ndimage import zoom
+
         upsampled_maps = np.zeros((B, H_img, W_img))
 
         for i in range(B):

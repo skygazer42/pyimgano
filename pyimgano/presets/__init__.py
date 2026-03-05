@@ -9,4 +9,3 @@ from __future__ import annotations
 from .industrial_classical import INDUSTRIAL_CLASSICAL_PRESETS
 
 __all__ = ["INDUSTRIAL_CLASSICAL_PRESETS"]
-

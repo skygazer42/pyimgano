@@ -31,9 +31,8 @@ from .baseCv import BaseVisionDeepDetector
 from .baseml import BaseVisionDetector
 from .registry import MODEL_REGISTRY, create_model, list_models, register_model
 
-
 _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
-        # Classical ML algorithms
+    # Classical ML algorithms
     "abod",  # Angle-Based Outlier Detection
     "cblof",  # Cluster-Based Local Outlier Factor
     "cof",  # Connectivity-based Outlier Factor
@@ -211,7 +210,11 @@ def _extract_model_name(call: ast.Call) -> Optional[str]:
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
             return str(first.value)
     for kw in call.keywords:
-        if kw.arg == "name" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        if (
+            kw.arg == "name"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             return str(kw.value.value)
     return None
 
@@ -251,7 +254,9 @@ def _class_defines_pixel_map_method(node: ast.ClassDef) -> bool:
 def _scan_module_for_models(module_name: str) -> list[tuple[str, tuple[str, ...], dict[str, Any]]]:
     path = _module_source_path(module_name)
     if path is None:
-        warnings.warn(f"Model module {module_name!r} not found on disk; skipping scan.", RuntimeWarning)
+        warnings.warn(
+            f"Model module {module_name!r} not found on disk; skipping scan.", RuntimeWarning
+        )
         return []
 
     try:

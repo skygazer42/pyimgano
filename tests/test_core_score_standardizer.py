@@ -27,4 +27,3 @@ def test_core_score_standardizer_rank_smoke() -> None:
     assert np.all(scores >= 0.0)
     assert np.all(scores <= 1.0)
     assert set(np.unique(preds)).issubset({0, 1})
-

@@ -34,4 +34,3 @@ def test_extract_defects_can_dilate_mask() -> None:
 
     assert int(np.sum(out_no["mask"] > 0)) == 1
     assert int(np.sum(out_yes["mask"] > 0)) > 1
-

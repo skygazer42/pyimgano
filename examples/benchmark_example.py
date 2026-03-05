@@ -40,32 +40,29 @@ def main():
 
     # Define algorithms to benchmark
     algorithms = {
-        'ECOD': {
-            'model_name': 'vision_ecod',
-            'contamination': 0.1,
+        "ECOD": {
+            "model_name": "vision_ecod",
+            "contamination": 0.1,
         },
-        'COPOD': {
-            'model_name': 'vision_copod',
-            'contamination': 0.1,
+        "COPOD": {
+            "model_name": "vision_copod",
+            "contamination": 0.1,
         },
-        'KNN': {
-            'model_name': 'vision_knn',
-            'n_neighbors': 5,
-            'contamination': 0.1,
+        "KNN": {
+            "model_name": "vision_knn",
+            "n_neighbors": 5,
+            "contamination": 0.1,
         },
-        'PCA': {
-            'model_name': 'vision_pca',
-            'contamination': 0.1,
+        "PCA": {
+            "model_name": "vision_pca",
+            "contamination": 0.1,
         },
     }
 
     # Create and run benchmark
     benchmark = AlgorithmBenchmark(algorithms)
     results = benchmark.run(
-        train_images=train_images,
-        test_images=test_images,
-        test_labels=test_labels,
-        verbose=True
+        train_images=train_images, test_images=test_images, test_labels=test_labels, verbose=True
     )
 
     # Print summary
@@ -73,15 +70,15 @@ def main():
 
     # Get rankings
     print("\nRankings by AUROC:")
-    for rank, (algo, auroc) in enumerate(benchmark.get_rankings('auroc'), 1):
+    for rank, (algo, auroc) in enumerate(benchmark.get_rankings("auroc"), 1):
         print(f"  {rank}. {algo}: {auroc:.4f}")
 
     print("\nRankings by Speed (inference per image):")
-    for rank, (algo, time_ms) in enumerate(benchmark.get_rankings('inference_per_image'), 1):
+    for rank, (algo, time_ms) in enumerate(benchmark.get_rankings("inference_per_image"), 1):
         print(f"  {rank}. {algo}: {time_ms * 1000:.1f}ms")
 
     # Save results
-    benchmark.save_results('benchmark_results.json')
+    benchmark.save_results("benchmark_results.json")
     print("\n✓ Results saved to benchmark_results.json")
 
 

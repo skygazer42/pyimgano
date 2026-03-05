@@ -35,4 +35,3 @@ def test_torchvision_backbone_amp_best_effort_on_cpu(tmp_path: Path) -> None:
     assert feats.shape[0] == 2
     assert feats.shape[1] > 1
     assert np.isfinite(feats).all()
-

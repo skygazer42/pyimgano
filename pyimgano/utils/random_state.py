@@ -27,4 +27,3 @@ def check_random_state(seed: int | np.random.RandomState | None) -> np.random.Ra
     if isinstance(seed, (int, np.integer)):
         return np.random.RandomState(int(seed))
     raise TypeError(f"Invalid random_state type: {type(seed).__name__}")
-

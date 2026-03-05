@@ -66,7 +66,11 @@ def audit_score_direction(*, seed: int = 0) -> list[AuditResult]:
             results.append(AuditResult(model=name, ok=ok, mean_normal=mn, mean_outlier=mo))
         except Exception:
             # Not all models are robust on synthetic data; treat as warning.
-            results.append(AuditResult(model=name, ok=False, mean_normal=float("nan"), mean_outlier=float("nan")))
+            results.append(
+                AuditResult(
+                    model=name, ok=False, mean_normal=float("nan"), mean_outlier=float("nan")
+                )
+            )
     return results
 
 
@@ -85,12 +89,20 @@ def main(argv: list[str] | None = None) -> int:
 
     for r in res:
         status = "OK" if r.ok else "WARN"
-        print(f"{status:4s} {r.model:28s} mean_normal={r.mean_normal:10.4f} mean_outlier={r.mean_outlier:10.4f}")
+        print(
+            f"{status:4s} {r.model:28s} mean_normal={r.mean_normal:10.4f} mean_outlier={r.mean_outlier:10.4f}"
+        )
 
     if bad:
         print("")
-        print(f"WARN: {len(bad)} model(s) did not score synthetic outliers higher on average.", file=sys.stderr)
-        print("This is a heuristic; review manually before making any breaking changes.", file=sys.stderr)
+        print(
+            f"WARN: {len(bad)} model(s) did not score synthetic outliers higher on average.",
+            file=sys.stderr,
+        )
+        print(
+            "This is a heuristic; review manually before making any breaking changes.",
+            file=sys.stderr,
+        )
         return 1 if bool(args.strict) else 0
 
     print("")

@@ -26,4 +26,3 @@ def test_core_models_accept_torch_tensor_inputs() -> None:
         scores_arr = np.asarray(scores, dtype=np.float64).reshape(-1)
         assert scores_arr.shape == (X.shape[0],)
         assert np.all(np.isfinite(scores_arr))
-

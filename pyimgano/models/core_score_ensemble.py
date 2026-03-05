@@ -13,4 +13,3 @@ from __future__ import annotations
 from .score_ensemble import CoreScoreEnsemble
 
 __all__ = ["CoreScoreEnsemble"]
-

@@ -44,4 +44,3 @@ def test_openclip_extractor_passes_pretrained_none(monkeypatch) -> None:
     ex = OpenCLIPExtractor()
     ex._ensure_ready()
     assert calls == [None]
-

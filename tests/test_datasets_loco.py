@@ -42,9 +42,7 @@ def test_mvtec_loco_path_accessors(tmp_path: Path) -> None:
         root / cat / "test" / "structural_anomalies" / "crack" / "bad_1.png",
         value=220,
     )
-    _write_mask(
-        root / cat / "ground_truth" / "structural_anomalies" / "crack" / "bad_1_mask.png"
-    )
+    _write_mask(root / cat / "ground_truth" / "structural_anomalies" / "crack" / "bad_1_mask.png")
 
     ds = MVTecLOCODataset(root=str(root), category=cat, resize=(32, 32), load_masks=True)
     train_paths = ds.get_train_paths()
@@ -58,4 +56,3 @@ def test_mvtec_loco_path_accessors(tmp_path: Path) -> None:
     assert masks[0].sum() == 0
     assert masks[1].sum() > 0
     assert masks[2].sum() > 0
-

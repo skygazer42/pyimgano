@@ -80,10 +80,13 @@ def test_cli_manifest_benchmark_supports_meta_in_per_image_jsonl(tmp_path: Path)
 
     per_image = out_dir / "categories" / "bottle" / "per_image.jsonl"
     assert per_image.exists()
-    rows = [json.loads(line) for line in per_image.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line)
+        for line in per_image.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert any(r.get("meta", None) == {"camera": "c1"} for r in rows)
 
     report_path = out_dir / "categories" / "bottle" / "report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert "dataset_summary" in report
-

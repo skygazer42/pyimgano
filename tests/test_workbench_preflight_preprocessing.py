@@ -46,4 +46,3 @@ def test_preflight_errors_when_preprocessing_enabled_on_non_numpy_model(tmp_path
     codes = {issue.code for issue in report.issues}
 
     assert "PREPROCESSING_REQUIRES_NUMPY_MODEL" in codes
-

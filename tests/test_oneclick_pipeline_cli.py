@@ -128,16 +128,19 @@ def test_cli_oneclick_custom_dataset_writes_run_artifacts(tmp_path, capsys):
     assert "timestamp_utc" in payload
     assert "pyimgano_version" in payload
 
-    lines = (out_dir / "categories" / "custom" / "per_image.jsonl").read_text(
-        encoding="utf-8"
-    ).strip().splitlines()
+    lines = (
+        (out_dir / "categories" / "custom" / "per_image.jsonl")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()
+    )
     assert len(lines) == 2
     rec0 = json.loads(lines[0])
     assert {"score", "threshold", "pred", "y_true"}.issubset(rec0.keys())
 
     stdout = capsys.readouterr().out
     # CLI prints JSON summary (stdout) when --output is not used.
-    assert "\"dataset\"" in stdout
+    assert '"dataset"' in stdout
 
 
 def test_cli_oneclick_custom_dataset_validates_structure(tmp_path, capsys):

@@ -33,4 +33,3 @@ def test_to_jsonable_leaves_builtin_types_unchanged() -> None:
     assert to_jsonable("x") == "x"
     assert to_jsonable(None) is None
     assert to_jsonable(Path("a/b")) == "a/b"
-

@@ -15,8 +15,8 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from pyimgano.models.registry import register_model
-from pyimgano.pipelines.feature_pipeline import VisionFeaturePipeline
 from pyimgano.models.vision_embedding_core import VisionEmbeddingCoreDetector
+from pyimgano.pipelines.feature_pipeline import VisionFeaturePipeline
 
 
 def _default_structural_extractor(*, max_size: int = 512) -> dict[str, Any]:
@@ -221,7 +221,9 @@ class VisionStructuralExtraTreesDensity(VisionFeaturePipeline):
 @register_model(
     "vision_structural_mcd",
     tags=("vision", "classical", "pipeline", "industrial", "gaussian", "robust"),
-    metadata={"description": "Industrial baseline: structural features + core_mcd (robust covariance)"},
+    metadata={
+        "description": "Industrial baseline: structural features + core_mcd (robust covariance)"
+    },
 )
 class VisionStructuralMCD(VisionFeaturePipeline):
     def __init__(
@@ -248,7 +250,9 @@ class VisionStructuralMCD(VisionFeaturePipeline):
 @register_model(
     "vision_structural_pca_md",
     tags=("vision", "classical", "pipeline", "industrial", "pca", "distance"),
-    metadata={"description": "Industrial baseline: structural features + core_pca_md (subspace MD)"},
+    metadata={
+        "description": "Industrial baseline: structural features + core_pca_md (subspace MD)"
+    },
 )
 class VisionStructuralPCAMD(VisionFeaturePipeline):
     def __init__(
@@ -545,7 +549,16 @@ class VisionTorchscriptECOD(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_copod",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "fast", "parameter-free"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "fast",
+        "parameter-free",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_copod",
         "requires_checkpoint": True,
@@ -634,7 +647,15 @@ class VisionTorchscriptIForest(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_knn_cosine",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "neighbors"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "neighbors",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_knn_cosine",
         "requires_checkpoint": True,
@@ -678,7 +699,16 @@ class VisionTorchscriptKNNCosine(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_knn_cosine_calibrated",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "neighbors", "calibration"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "neighbors",
+        "calibration",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_knn_cosine_calibrated",
         "requires_checkpoint": True,
@@ -722,7 +752,17 @@ class VisionTorchscriptKNNCosineCalibrated(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_cosine_mahalanobis",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "distance", "gaussian", "cosine"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "distance",
+        "gaussian",
+        "cosine",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_cosine_mahalanobis",
         "requires_checkpoint": True,
@@ -744,7 +784,9 @@ class VisionTorchscriptCosineMahalanobis(VisionEmbeddingCoreDetector):
     ) -> None:
         if embedding_kwargs is None and str(embedding_extractor) == "torchscript_embed":
             if checkpoint_path is None:
-                raise ValueError("checkpoint_path is required for vision_torchscript_cosine_mahalanobis")
+                raise ValueError(
+                    "checkpoint_path is required for vision_torchscript_cosine_mahalanobis"
+                )
             embedding_kwargs = _default_torchscript_embedding_extractor(
                 checkpoint_path=str(checkpoint_path),
                 device=str(device),
@@ -764,7 +806,16 @@ class VisionTorchscriptCosineMahalanobis(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_lid",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "neighbors", "lid"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "neighbors",
+        "lid",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_lid",
         "requires_checkpoint": True,
@@ -806,7 +857,17 @@ class VisionTorchscriptLID(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_lof",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "neighbors", "density", "lof"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "neighbors",
+        "density",
+        "lof",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_lof",
         "requires_checkpoint": True,
@@ -848,7 +909,17 @@ class VisionTorchscriptLOF(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_mcd",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "gaussian", "robust", "mcd"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "gaussian",
+        "robust",
+        "mcd",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_mcd (robust covariance)",
         "requires_checkpoint": True,
@@ -890,7 +961,16 @@ class VisionTorchscriptMCD(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_mst_outlier",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "graph", "mst"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "graph",
+        "mst",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_mst_outlier",
         "requires_checkpoint": True,
@@ -932,7 +1012,16 @@ class VisionTorchscriptMSTOutlier(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_pca_md",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "pca", "distance"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "pca",
+        "distance",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_pca_md",
         "requires_checkpoint": True,
@@ -974,7 +1063,16 @@ class VisionTorchscriptPCAMD(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_extra_trees_density",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "trees", "density"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "trees",
+        "density",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_extra_trees_density",
         "requires_checkpoint": True,
@@ -1018,7 +1116,16 @@ class VisionTorchscriptExtraTreesDensity(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_torchscript_oddoneout",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "torchscript", "neighbors", "oddoneout"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "torchscript",
+        "neighbors",
+        "oddoneout",
+    ),
     metadata={
         "description": "Industrial baseline: TorchScript embeddings + core_oddoneout",
         "requires_checkpoint": True,
@@ -1107,7 +1214,16 @@ class VisionONNXECOD(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_copod",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "fast", "parameter-free"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "fast",
+        "parameter-free",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_copod",
         "requires_checkpoint": True,
@@ -1245,7 +1361,16 @@ class VisionONNXKNNCosine(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_knn_cosine_calibrated",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "neighbors", "calibration"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "neighbors",
+        "calibration",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_knn_cosine_calibrated",
         "requires_checkpoint": True,
@@ -1291,7 +1416,17 @@ class VisionONNXKNNCosineCalibrated(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_cosine_mahalanobis",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "distance", "gaussian", "cosine"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "distance",
+        "gaussian",
+        "cosine",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_cosine_mahalanobis",
         "requires_checkpoint": True,
@@ -1335,7 +1470,16 @@ class VisionONNXCosineMahalanobis(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_lid",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "neighbors", "lid"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "neighbors",
+        "lid",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_lid",
         "requires_checkpoint": True,
@@ -1379,7 +1523,17 @@ class VisionONNXLID(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_lof",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "neighbors", "density", "lof"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "neighbors",
+        "density",
+        "lof",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_lof",
         "requires_checkpoint": True,
@@ -1423,7 +1577,17 @@ class VisionONNXLOF(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_mcd",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "gaussian", "robust", "mcd"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "gaussian",
+        "robust",
+        "mcd",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_mcd",
         "requires_checkpoint": True,
@@ -1555,7 +1719,16 @@ class VisionONNXPcaMD(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_extra_trees_density",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "trees", "density"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "trees",
+        "density",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_extra_trees_density",
         "requires_checkpoint": True,
@@ -1578,9 +1751,7 @@ class VisionONNXExtraTreesDensity(VisionEmbeddingCoreDetector):
     ) -> None:
         if embedding_kwargs is None and str(embedding_extractor) == "onnx_embed":
             if checkpoint_path is None:
-                raise ValueError(
-                    "checkpoint_path is required for vision_onnx_extra_trees_density"
-                )
+                raise ValueError("checkpoint_path is required for vision_onnx_extra_trees_density")
             embedding_kwargs = _default_onnx_embedding_extractor(
                 checkpoint_path=str(checkpoint_path),
                 device=str(device),
@@ -1601,7 +1772,16 @@ class VisionONNXExtraTreesDensity(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_onnx_oddoneout",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "neighbors", "oddoneout"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "onnx",
+        "neighbors",
+        "oddoneout",
+    ),
     metadata={
         "description": "Industrial baseline: ONNX Runtime embeddings + core_oddoneout",
         "requires_checkpoint": True,
@@ -1683,7 +1863,16 @@ class VisionResNet18KNNCosine(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_resnet18_knn_cosine_calibrated",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "neighbors", "cosine", "calibration"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "neighbors",
+        "cosine",
+        "calibration",
+    ),
     metadata={
         "description": "Industrial baseline: resnet18 embeddings (safe) + core_knn_cosine_calibrated",
     },
@@ -1721,7 +1910,16 @@ class VisionResNet18KNNCosineCalibrated(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_resnet18_cosine_mahalanobis",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "distance", "gaussian", "cosine"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "distance",
+        "gaussian",
+        "cosine",
+    ),
     metadata={
         "description": "Industrial baseline: resnet18 embeddings (safe) + core_cosine_mahalanobis",
     },
@@ -1797,7 +1995,16 @@ class VisionResNet18LID(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_resnet18_lof",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "neighbors", "density", "lof"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "neighbors",
+        "density",
+        "lof",
+    ),
     metadata={
         "description": "Industrial baseline: resnet18 embeddings (safe) + core_lof",
     },
@@ -1835,7 +2042,16 @@ class VisionResNet18LOF(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_resnet18_mcd",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "gaussian", "robust", "mcd"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "gaussian",
+        "robust",
+        "mcd",
+    ),
     metadata={
         "description": "Industrial baseline: resnet18 embeddings (safe) + core_mcd (robust covariance)",
     },
@@ -2025,7 +2241,16 @@ class VisionResNet18OddOneOut(VisionEmbeddingCoreDetector):
 
 @register_model(
     "vision_resnet18_mahalanobis_shrinkage",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "distance", "gaussian", "shrinkage"),
+    tags=(
+        "vision",
+        "classical",
+        "pipeline",
+        "industrial",
+        "embeddings",
+        "distance",
+        "gaussian",
+        "shrinkage",
+    ),
     metadata={
         "description": "Industrial baseline: resnet18 embeddings (safe) + core_mahalanobis_shrinkage",
     },

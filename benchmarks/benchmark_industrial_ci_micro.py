@@ -115,7 +115,9 @@ def _make_custom_dataset(
             img = _make_normal()
             x0 = int(xs[int(i) % int(xs.size)])
             y0 = int(ys[(int(i) // int(xs.size)) % int(ys.size)])
-            img[y0 : y0 + patch, x0 : x0 + patch, :] = 255.0 - img[y0 : y0 + patch, x0 : x0 + patch, :]
+            img[y0 : y0 + patch, x0 : x0 + patch, :] = (
+                255.0 - img[y0 : y0 + patch, x0 : x0 + patch, :]
+            )
             img = np.clip(img, 0.0, 255.0)
             _write_png(root / "test" / "anomaly" / f"anomaly_{i}.png", img)
         return
@@ -185,7 +187,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--w", type=int, default=64)
     parser.add_argument("--train", type=int, default=16, help="Number of training normals.")
     parser.add_argument("--test-normal", type=int, default=8, help="Number of normal test images.")
-    parser.add_argument("--test-anomaly", type=int, default=8, help="Number of anomaly test images.")
+    parser.add_argument(
+        "--test-anomaly", type=int, default=8, help="Number of anomaly test images."
+    )
     parser.add_argument("--noise-sigma", type=float, default=3.0)
     parser.add_argument("--seed", type=int, default=0, help="Dataset generation seed.")
     args = parser.parse_args(argv)

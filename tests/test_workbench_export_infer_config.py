@@ -319,14 +319,20 @@ def test_train_cli_export_deploy_bundle_rewrites_absolute_model_checkpoint_path(
     assert copied.read_text(encoding="utf-8") == "onnx_abs"
 
 
-def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_enabled(tmp_path, capsys):
+def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_enabled(
+    tmp_path, capsys
+):
     from pyimgano.recipes.registry import RECIPE_REGISTRY
     from pyimgano.train_cli import main
 
     def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
         run_dir = Path(str(cfg.output.output_dir))
         run_dir.mkdir(parents=True, exist_ok=True)
-        return {"run_dir": str(run_dir), "threshold": 0.5, "threshold_provenance": {"method": "fixed"}}
+        return {
+            "run_dir": str(run_dir),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed"},
+        }
 
     RECIPE_REGISTRY.register(
         "test_export_deploy_bundle_requires_pixel_threshold_recipe",
@@ -341,8 +347,17 @@ def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_en
     cfg = {
         "recipe": "test_export_deploy_bundle_requires_pixel_threshold_recipe",
         "dataset": {"name": "custom", "root": str(root), "category": "custom", "resize": [16, 16]},
-        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
-        "defects": {"enabled": True, "pixel_threshold": None, "pixel_threshold_strategy": "normal_pixel_quantile"},
+        "model": {
+            "name": "vision_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
+        "defects": {
+            "enabled": True,
+            "pixel_threshold": None,
+            "pixel_threshold_strategy": "normal_pixel_quantile",
+        },
         "output": {"output_dir": str(out_dir), "save_run": True, "per_image_jsonl": False},
     }
     config_path = tmp_path / "cfg.json"

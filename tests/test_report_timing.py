@@ -11,7 +11,6 @@ def _write_png(path, *, value: int = 128) -> None:
 
 def test_run_benchmark_includes_timing_breakdown(tmp_path) -> None:
     import pyimgano.models  # noqa: F401 - registry population
-
     from pyimgano.pipelines.run_benchmark import run_benchmark
 
     root = tmp_path / "custom_ds"

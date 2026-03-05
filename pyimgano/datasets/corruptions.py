@@ -70,7 +70,9 @@ def _apply_corruption(
         out_img, out_mask = corr.apply_glare(image_u8, mask=mask_u8, severity=severity, rng=rng)
         return out_img, out_mask, {"name": "glare"}
     if name in {"geo_jitter", "affine"}:
-        out_img, out_mask = corr.apply_geo_jitter(image_u8, mask=mask_u8, severity=severity, rng=rng)
+        out_img, out_mask = corr.apply_geo_jitter(
+            image_u8, mask=mask_u8, severity=severity, rng=rng
+        )
         return out_img, out_mask, {"name": "geo_jitter"}
     if name in {"synthesis", "synthesis_preset", "synthetic"}:
         out_img, out_mask = corr.apply_synthesis_preset(
@@ -157,4 +159,3 @@ class CorruptionsDataset(Dataset):
 
 
 __all__ = ["CorruptionItem", "CorruptionsDataset"]
-

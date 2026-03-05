@@ -47,4 +47,3 @@ def test_cli_seed_persisted_in_config(tmp_path, capsys):
     assert config_path.exists()
     cfg = json.loads(config_path.read_text(encoding="utf-8"))
     assert cfg["config"]["seed"] == 123
-

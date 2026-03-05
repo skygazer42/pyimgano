@@ -22,7 +22,6 @@ from numpy.typing import NDArray
 
 from .torchvision_backbone import _as_pil_rgb, _load_torchvision_backbone, _make_device
 
-
 _InputColor = Literal["rgb", "bgr"]
 
 

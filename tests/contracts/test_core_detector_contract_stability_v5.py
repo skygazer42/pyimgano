@@ -43,4 +43,3 @@ def test_core_detector_contract_torch_inputs_and_nan_handling(model_name: str) -
     out_arr = np.asarray(out, dtype=np.float64).reshape(-1)
     assert out_arr.shape == (7,)
     assert np.all(np.isfinite(out_arr))
-

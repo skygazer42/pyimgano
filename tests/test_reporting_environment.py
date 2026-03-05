@@ -38,4 +38,3 @@ def test_run_writes_environment_json(tmp_path):
     assert env_path.exists()
     env = json.loads(env_path.read_text(encoding="utf-8"))
     assert {"timestamp_utc", "python", "platform", "packages"}.issubset(env.keys())
-

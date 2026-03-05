@@ -3,7 +3,6 @@ import numpy as np
 
 def test_vision_feature_pipeline_glues_core_detector_and_extractor() -> None:
     import pyimgano.models  # noqa: F401 - ensure core detectors are registered
-
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.pipelines.feature_pipeline import VisionFeaturePipeline
 
@@ -23,4 +22,3 @@ def test_vision_feature_pipeline_glues_core_detector_and_extractor() -> None:
     assert scores.shape == (10,)
     assert preds.shape == (10,)
     assert np.all(np.isfinite(scores))
-

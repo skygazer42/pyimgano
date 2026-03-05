@@ -13,21 +13,19 @@ Example:
     >>> detector = load_model('my_model.pkl')
 """
 
-import pickle
 import json
 import os
+import pickle
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
-import time
+
 import numpy as np
 from numpy.typing import NDArray
 
 
 def save_model(
-    model: Any,
-    path: str,
-    metadata: Optional[Dict] = None,
-    compression: bool = True
+    model: Any, path: str, metadata: Optional[Dict] = None, compression: bool = True
 ) -> None:
     """Save model to disk.
 
@@ -45,15 +43,15 @@ def save_model(
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     save_dict = {
-        'model': model,
-        'metadata': metadata or {},
-        'timestamp': time.time(),
-        'pyimgano_version': '0.2.4'
+        "model": model,
+        "metadata": metadata or {},
+        "timestamp": time.time(),
+        "pyimgano_version": "0.2.4",
     }
 
     protocol = pickle.HIGHEST_PROTOCOL if compression else pickle.DEFAULT_PROTOCOL
 
-    with open(save_path, 'wb') as f:
+    with open(save_path, "wb") as f:
         pickle.dump(save_dict, f, protocol=protocol)
 
     print(f"Model saved to: {save_path}")
@@ -71,11 +69,11 @@ def load_model(path: str) -> Any:
     Example:
         >>> detector = load_model('patchcore_bottle.pkl')
     """
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         save_dict = pickle.load(f)
 
-    model = save_dict['model']
-    metadata = save_dict.get('metadata', {})
+    model = save_dict["model"]
+    metadata = save_dict.get("metadata", {})
 
     print(f"Model loaded from: {path}")
     if metadata:
@@ -89,7 +87,7 @@ def save_checkpoint(
     save_dir: str,
     epoch: int,
     metrics: Optional[Dict[str, float]] = None,
-    keep_last_n: int = 5
+    keep_last_n: int = 5,
 ) -> None:
     """Save model checkpoint.
 
@@ -109,14 +107,9 @@ def save_checkpoint(
 
     checkpoint_path = save_dir / f"checkpoint_epoch_{epoch:04d}.pkl"
 
-    save_dict = {
-        'model': model,
-        'epoch': epoch,
-        'metrics': metrics or {},
-        'timestamp': time.time()
-    }
+    save_dict = {"model": model, "epoch": epoch, "metrics": metrics or {}, "timestamp": time.time()}
 
-    with open(checkpoint_path, 'wb') as f:
+    with open(checkpoint_path, "wb") as f:
         pickle.dump(save_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     # Clean up old checkpoints
@@ -142,7 +135,7 @@ def load_checkpoint(path: str) -> Dict[str, Any]:
         >>> model = checkpoint['model']
         >>> epoch = checkpoint['epoch']
     """
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         checkpoint = pickle.load(f)
 
     print(f"Checkpoint loaded from: {path}")
@@ -166,19 +159,20 @@ def get_model_info(model: Any) -> Dict[str, Any]:
         >>> print(f"Model type: {info['type']}")
     """
     info = {
-        'type': type(model).__name__,
-        'module': type(model).__module__,
-        'has_fit': hasattr(model, 'fit'),
-        'has_predict': hasattr(model, 'predict'),
-        'has_predict_proba': hasattr(model, 'predict_proba'),
-        'is_fitted': getattr(model, 'fitted_', False),
+        "type": type(model).__name__,
+        "module": type(model).__module__,
+        "has_fit": hasattr(model, "fit"),
+        "has_predict": hasattr(model, "predict"),
+        "has_predict_proba": hasattr(model, "predict_proba"),
+        "is_fitted": getattr(model, "fitted_", False),
     }
 
     # Try to get model parameters
-    if hasattr(model, '__dict__'):
-        params = {k: v for k, v in model.__dict__.items()
-                 if not k.startswith('_') and not callable(v)}
-        info['parameters'] = params
+    if hasattr(model, "__dict__"):
+        params = {
+            k: v for k, v in model.__dict__.items() if not k.startswith("_") and not callable(v)
+        }
+        info["parameters"] = params
 
     return info
 
@@ -196,9 +190,9 @@ def export_model_config(model: Any, path: str) -> None:
     config = {}
 
     # Get init parameters if available
-    if hasattr(model, '__dict__'):
+    if hasattr(model, "__dict__"):
         for key, value in model.__dict__.items():
-            if not key.startswith('_') and not callable(value):
+            if not key.startswith("_") and not callable(value):
                 # Convert to JSON-serializable types
                 if isinstance(value, (int, float, str, bool, type(None))):
                     config[key] = value
@@ -207,23 +201,19 @@ def export_model_config(model: Any, path: str) -> None:
                 elif isinstance(value, dict):
                     config[key] = dict(value)
                 elif isinstance(value, np.ndarray):
-                    config[key] = {'shape': value.shape, 'dtype': str(value.dtype)}
+                    config[key] = {"shape": value.shape, "dtype": str(value.dtype)}
                 else:
                     config[key] = str(value)
 
-    config['model_type'] = type(model).__name__
+    config["model_type"] = type(model).__name__
 
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         json.dump(config, f, indent=2)
 
     print(f"Model config exported to: {path}")
 
 
-def profile_model(
-    model: Any,
-    test_data: NDArray,
-    n_runs: int = 10
-) -> Dict[str, float]:
+def profile_model(model: Any, test_data: NDArray, n_runs: int = 10) -> Dict[str, float]:
     """Profile model inference performance.
 
     Args:
@@ -253,12 +243,12 @@ def profile_model(
         times.append((end - start) * 1000)  # Convert to ms
 
     metrics = {
-        'avg_time_ms': np.mean(times),
-        'std_time_ms': np.std(times),
-        'min_time_ms': np.min(times),
-        'max_time_ms': np.max(times),
-        'throughput_samples_per_sec': len(test_data) / (np.mean(times) / 1000),
-        'latency_per_sample_ms': np.mean(times) / len(test_data)
+        "avg_time_ms": np.mean(times),
+        "std_time_ms": np.std(times),
+        "min_time_ms": np.min(times),
+        "max_time_ms": np.max(times),
+        "throughput_samples_per_sec": len(test_data) / (np.mean(times) / 1000),
+        "latency_per_sample_ms": np.mean(times) / len(test_data),
     }
 
     return metrics
@@ -273,24 +263,20 @@ class ModelRegistry:
         >>> model = registry.load('patchcore_bottle')
     """
 
-    def __init__(self, base_dir: str = './model_registry'):
+    def __init__(self, base_dir: str = "./model_registry"):
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.index_file = self.base_dir / 'index.json'
+        self.index_file = self.base_dir / "index.json"
 
         # Load existing index
         if self.index_file.exists():
-            with open(self.index_file, 'r') as f:
+            with open(self.index_file, "r") as f:
                 self.index = json.load(f)
         else:
             self.index = {}
 
     def register(
-        self,
-        name: str,
-        model: Any,
-        metadata: Optional[Dict] = None,
-        overwrite: bool = False
+        self, name: str, model: Any, metadata: Optional[Dict] = None, overwrite: bool = False
     ) -> None:
         """Register a model.
 
@@ -309,9 +295,9 @@ class ModelRegistry:
 
         # Update index
         self.index[name] = {
-            'path': str(model_path),
-            'metadata': metadata or {},
-            'registered_at': time.time()
+            "path": str(model_path),
+            "metadata": metadata or {},
+            "registered_at": time.time(),
         }
 
         self._save_index()
@@ -330,7 +316,7 @@ class ModelRegistry:
         if name not in self.index:
             raise ValueError(f"Model '{name}' not found in registry")
 
-        model_path = self.index[name]['path']
+        model_path = self.index[name]["path"]
         return load_model(model_path)
 
     def list_models(self) -> Dict[str, Dict]:
@@ -351,7 +337,7 @@ class ModelRegistry:
             raise ValueError(f"Model '{name}' not found in registry")
 
         # Remove model file
-        model_path = Path(self.index[name]['path'])
+        model_path = Path(self.index[name]["path"])
         if model_path.exists():
             model_path.unlink()
 
@@ -363,14 +349,12 @@ class ModelRegistry:
 
     def _save_index(self) -> None:
         """Save index to disk."""
-        with open(self.index_file, 'w') as f:
+        with open(self.index_file, "w") as f:
             json.dump(self.index, f, indent=2)
 
 
 def compare_models(
-    models: Dict[str, Any],
-    test_data: NDArray,
-    test_labels: NDArray
+    models: Dict[str, Any], test_data: NDArray, test_labels: NDArray
 ) -> Dict[str, Dict[str, float]]:
     """Compare multiple models on the same test set.
 
@@ -386,7 +370,7 @@ def compare_models(
         >>> models = {'PatchCore': model1, 'SimpleNet': model2}
         >>> results = compare_models(models, test_data, test_labels)
     """
-    from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
+    from sklearn.metrics import average_precision_score, f1_score, roc_auc_score
 
     results = {}
 
@@ -406,11 +390,11 @@ def compare_models(
         profile = profile_model(model, test_data[:100], n_runs=5)
 
         results[name] = {
-            'auc_roc': auc_roc,
-            'average_precision': ap,
-            'f1_score': f1,
-            'avg_inference_time_ms': profile['avg_time_ms'],
-            'throughput_fps': profile['throughput_samples_per_sec']
+            "auc_roc": auc_roc,
+            "average_precision": ap,
+            "f1_score": f1,
+            "avg_inference_time_ms": profile["avg_time_ms"],
+            "throughput_fps": profile["throughput_samples_per_sec"],
         }
 
     return results

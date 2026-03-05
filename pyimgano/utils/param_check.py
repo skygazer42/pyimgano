@@ -53,4 +53,3 @@ def check_parameter(
         else:
             if param >= high:
                 raise ValueError(f"{param_name} must be < {high}, got {param}")
-

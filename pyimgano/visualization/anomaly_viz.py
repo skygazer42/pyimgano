@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 try:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -33,7 +34,7 @@ def plot_anomaly_map(
     anomaly_map: NDArray,
     threshold: Optional[float] = None,
     alpha: float = 0.4,
-    cmap: str = 'jet',
+    cmap: str = "jet",
     save_path: Optional[str] = None,
     show: bool = True,
 ) -> Optional[Figure]:
@@ -86,9 +87,7 @@ def plot_anomaly_map(
     # Resize anomaly map to match image size
     if anomaly_map.shape[:2] != img_rgb.shape[:2]:
         anomaly_map = cv2.resize(
-            anomaly_map,
-            (img_rgb.shape[1], img_rgb.shape[0]),
-            interpolation=cv2.INTER_CUBIC
+            anomaly_map, (img_rgb.shape[1], img_rgb.shape[0]), interpolation=cv2.INTER_CUBIC
         )
 
     # Normalize anomaly map to [0, 1]
@@ -104,13 +103,13 @@ def plot_anomaly_map(
 
     # Original image
     axes[0].imshow(img_rgb)
-    axes[0].set_title('Original Image')
-    axes[0].axis('off')
+    axes[0].set_title("Original Image")
+    axes[0].axis("off")
 
     # Anomaly heatmap
     im = axes[1].imshow(anomaly_map_norm, cmap=cmap)
-    axes[1].set_title('Anomaly Heatmap')
-    axes[1].axis('off')
+    axes[1].set_title("Anomaly Heatmap")
+    axes[1].axis("off")
     plt.colorbar(im, ax=axes[1], fraction=0.046)
 
     # Overlay
@@ -120,25 +119,21 @@ def plot_anomaly_map(
     overlay = np.clip(overlay, 0, 1)
 
     axes[2].imshow(overlay)
-    axes[2].set_title(f'Overlay (alpha={alpha})')
-    axes[2].axis('off')
+    axes[2].set_title(f"Overlay (alpha={alpha})")
+    axes[2].axis("off")
 
     # Binary mask (if threshold provided)
     if threshold is not None:
         binary_mask = anomaly_map_norm >= threshold
         axes[3].imshow(img_rgb)
-        axes[3].imshow(
-            binary_mask,
-            cmap='Reds',
-            alpha=0.5 * binary_mask.astype(float)
-        )
-        axes[3].set_title(f'Binary Mask (threshold={threshold:.2f})')
-        axes[3].axis('off')
+        axes[3].imshow(binary_mask, cmap="Reds", alpha=0.5 * binary_mask.astype(float))
+        axes[3].set_title(f"Binary Mask (threshold={threshold:.2f})")
+        axes[3].axis("off")
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Figure saved to %s", save_path)
 
     if show:
@@ -190,20 +185,20 @@ def plot_roc_curve(
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    curve_label = f'{label} (AUC = {roc_auc:.3f})' if label else f'AUC = {roc_auc:.3f}'
+    curve_label = f"{label} (AUC = {roc_auc:.3f})" if label else f"AUC = {roc_auc:.3f}"
     ax.plot(fpr, tpr, lw=2, label=curve_label)
-    ax.plot([0, 1], [0, 1], 'k--', lw=1, label='Random')
+    ax.plot([0, 1], [0, 1], "k--", lw=1, label="Random")
 
-    ax.set_xlabel('False Positive Rate', fontsize=12)
-    ax.set_ylabel('True Positive Rate', fontsize=12)
-    ax.set_title('Receiver Operating Characteristic (ROC) Curve', fontsize=14)
-    ax.legend(loc='lower right', fontsize=10)
+    ax.set_xlabel("False Positive Rate", fontsize=12)
+    ax.set_ylabel("True Positive Rate", fontsize=12)
+    ax.set_title("Receiver Operating Characteristic (ROC) Curve", fontsize=14)
+    ax.legend(loc="lower right", fontsize=10)
     ax.grid(alpha=0.3)
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("ROC curve saved to %s", save_path)
 
     if show:
@@ -250,13 +245,13 @@ def plot_precision_recall_curve(
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    curve_label = f'{label} (AP = {ap:.3f})' if label else f'AP = {ap:.3f}'
+    curve_label = f"{label} (AP = {ap:.3f})" if label else f"AP = {ap:.3f}"
     ax.plot(recall, precision, lw=2, label=curve_label)
 
-    ax.set_xlabel('Recall', fontsize=12)
-    ax.set_ylabel('Precision', fontsize=12)
-    ax.set_title('Precision-Recall Curve', fontsize=14)
-    ax.legend(loc='lower left', fontsize=10)
+    ax.set_xlabel("Recall", fontsize=12)
+    ax.set_ylabel("Precision", fontsize=12)
+    ax.set_title("Precision-Recall Curve", fontsize=14)
+    ax.legend(loc="lower left", fontsize=10)
     ax.grid(alpha=0.3)
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1.05])
@@ -264,7 +259,7 @@ def plot_precision_recall_curve(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("PR curve saved to %s", save_path)
 
     if show:
@@ -317,45 +312,45 @@ def plot_score_distribution(
         normal_scores,
         bins=bins,
         alpha=0.6,
-        label=f'Normal (n={len(normal_scores)})',
-        color='blue',
-        density=True
+        label=f"Normal (n={len(normal_scores)})",
+        color="blue",
+        density=True,
     )
     ax.hist(
         anomaly_scores,
         bins=bins,
         alpha=0.6,
-        label=f'Anomaly (n={len(anomaly_scores)})',
-        color='red',
-        density=True
+        label=f"Anomaly (n={len(anomaly_scores)})",
+        color="red",
+        density=True,
     )
 
     # Add vertical lines for means
     ax.axvline(
         np.mean(normal_scores),
-        color='blue',
-        linestyle='--',
+        color="blue",
+        linestyle="--",
         linewidth=2,
-        label=f'Normal mean: {np.mean(normal_scores):.3f}'
+        label=f"Normal mean: {np.mean(normal_scores):.3f}",
     )
     ax.axvline(
         np.mean(anomaly_scores),
-        color='red',
-        linestyle='--',
+        color="red",
+        linestyle="--",
         linewidth=2,
-        label=f'Anomaly mean: {np.mean(anomaly_scores):.3f}'
+        label=f"Anomaly mean: {np.mean(anomaly_scores):.3f}",
     )
 
-    ax.set_xlabel('Anomaly Score', fontsize=12)
-    ax.set_ylabel('Density', fontsize=12)
-    ax.set_title('Anomaly Score Distribution', fontsize=14)
+    ax.set_xlabel("Anomaly Score", fontsize=12)
+    ax.set_ylabel("Density", fontsize=12)
+    ax.set_title("Anomaly Score Distribution", fontsize=14)
     ax.legend(fontsize=10)
     ax.grid(alpha=0.3)
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Score distribution saved to %s", save_path)
 
     if show:
@@ -411,13 +406,13 @@ def compare_detectors(
     for (name, scores), color in zip(scores_dict.items(), colors):
         fpr, tpr, _ = roc_curve(y_true, scores)
         roc_auc = auc(fpr, tpr)
-        ax1.plot(fpr, tpr, lw=2, color=color, label=f'{name} (AUC={roc_auc:.3f})')
+        ax1.plot(fpr, tpr, lw=2, color=color, label=f"{name} (AUC={roc_auc:.3f})")
 
-    ax1.plot([0, 1], [0, 1], 'k--', lw=1, label='Random')
-    ax1.set_xlabel('False Positive Rate', fontsize=12)
-    ax1.set_ylabel('True Positive Rate', fontsize=12)
-    ax1.set_title('ROC Curve Comparison', fontsize=14)
-    ax1.legend(loc='lower right', fontsize=10)
+    ax1.plot([0, 1], [0, 1], "k--", lw=1, label="Random")
+    ax1.set_xlabel("False Positive Rate", fontsize=12)
+    ax1.set_ylabel("True Positive Rate", fontsize=12)
+    ax1.set_title("ROC Curve Comparison", fontsize=14)
+    ax1.legend(loc="lower right", fontsize=10)
     ax1.grid(alpha=0.3)
 
     # Bar chart of AUROC scores
@@ -425,34 +420,35 @@ def compare_detectors(
     aurocs = []
     for scores in scores_dict.values():
         from sklearn.metrics import roc_auc_score
+
         aurocs.append(roc_auc_score(y_true, scores))
 
-    bars = ax2.bar(names, aurocs, color=colors[:len(names)])
-    ax2.set_ylabel('AUROC', fontsize=12)
-    ax2.set_title('AUROC Comparison', fontsize=14)
+    bars = ax2.bar(names, aurocs, color=colors[: len(names)])
+    ax2.set_ylabel("AUROC", fontsize=12)
+    ax2.set_title("AUROC Comparison", fontsize=14)
     ax2.set_ylim([0, 1.05])
-    ax2.grid(axis='y', alpha=0.3)
+    ax2.grid(axis="y", alpha=0.3)
 
     # Add value labels on bars
     for bar, auroc in zip(bars, aurocs):
         height = bar.get_height()
         ax2.text(
-            bar.get_x() + bar.get_width() / 2.,
+            bar.get_x() + bar.get_width() / 2.0,
             height,
-            f'{auroc:.3f}',
-            ha='center',
-            va='bottom',
-            fontsize=10
+            f"{auroc:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
         )
 
     # Rotate x-labels if many detectors
     if len(names) > 3:
-        ax2.set_xticklabels(names, rotation=45, ha='right')
+        ax2.set_xticklabels(names, rotation=45, ha="right")
 
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Comparison figure saved to %s", save_path)
 
     if show:
@@ -466,7 +462,7 @@ def save_anomaly_overlay(
     anomaly_map: NDArray,
     output_path: str,
     alpha: float = 0.5,
-    cmap: str = 'jet',
+    cmap: str = "jet",
 ) -> None:
     """
     Save anomaly heatmap overlaid on image (without matplotlib).
@@ -498,9 +494,7 @@ def save_anomaly_overlay(
     # Resize anomaly map
     if anomaly_map.shape[:2] != img.shape[:2]:
         anomaly_map = cv2.resize(
-            anomaly_map,
-            (img.shape[1], img.shape[0]),
-            interpolation=cv2.INTER_CUBIC
+            anomaly_map, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC
         )
 
     # Normalize to [0, 255]
@@ -510,7 +504,7 @@ def save_anomaly_overlay(
     anomaly_map_uint8 = (anomaly_map_norm * 255).astype(np.uint8)
 
     # Apply colormap
-    colormap = getattr(cv2, f'COLORMAP_{cmap.upper()}', cv2.COLORMAP_JET)
+    colormap = getattr(cv2, f"COLORMAP_{cmap.upper()}", cv2.COLORMAP_JET)
     heatmap = cv2.applyColorMap(anomaly_map_uint8, colormap)
 
     # Overlay

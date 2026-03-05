@@ -138,4 +138,3 @@ class VisionMSTOutlier(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreMSTOutlier(**self._detector_kwargs)
-

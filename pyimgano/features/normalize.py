@@ -69,4 +69,3 @@ class NormalizeExtractor(BaseFeatureExtractor):
             out = out / norms
 
         return np.asarray(out, dtype=np.float32)
-

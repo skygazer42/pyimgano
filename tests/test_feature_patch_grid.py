@@ -25,4 +25,3 @@ def test_patch_grid_extractor_numpy_inputs_smoke() -> None:
     assert feats.ndim == 2
     assert feats.shape[1] >= 64
     assert np.all(np.isfinite(feats))
-

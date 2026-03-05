@@ -57,4 +57,3 @@ def test_manifest_validate_missing_file_is_error(tmp_path: Path) -> None:
     )
     assert report.ok is False
     assert report.errors
-

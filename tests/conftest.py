@@ -63,6 +63,7 @@ def reset_random_seeds():
     # Add torch seed if torch is available
     try:
         import torch
+
         torch.manual_seed(42)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(42)
@@ -103,7 +104,9 @@ def mock_dataset_paths(temp_dir: Path) -> dict[str, list[Path]]:
 # Markers for different test categories
 def pytest_configure(config):
     """Register custom markers."""
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
     config.addinivalue_line("markers", "unit: marks tests as unit tests")
     config.addinivalue_line("markers", "requires_gpu: marks tests that require GPU")
@@ -115,6 +118,7 @@ def pytest_collection_modifyitems(config, items):
     """Modify test collection to skip GPU tests if CUDA is not available."""
     try:
         import torch
+
         has_cuda = torch.cuda.is_available()
     except ImportError:
         has_cuda = False

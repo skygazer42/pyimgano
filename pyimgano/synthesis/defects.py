@@ -35,9 +35,22 @@ def _as_u8_bgr(image: np.ndarray) -> np.ndarray:
     return arr
 
 
-def _perlin_mask(h: int, w: int, *, rng: np.random.Generator, base_div: int, octaves: int, persistence: float, thr_range: tuple[float, float], blur_sigma: float, post_thr: float) -> tuple[np.ndarray, float]:
+def _perlin_mask(
+    h: int,
+    w: int,
+    *,
+    rng: np.random.Generator,
+    base_div: int,
+    octaves: int,
+    persistence: float,
+    thr_range: tuple[float, float],
+    blur_sigma: float,
+    post_thr: float,
+) -> tuple[np.ndarray, float]:
     base_res = (max(2, h // int(base_div)), max(2, w // int(base_div)))
-    noise = fractal_perlin_noise_2d((h, w), base_res, rng=rng, octaves=int(octaves), persistence=float(persistence))
+    noise = fractal_perlin_noise_2d(
+        (h, w), base_res, rng=rng, octaves=int(octaves), persistence=float(persistence)
+    )
     thr = float(rng.uniform(float(thr_range[0]), float(thr_range[1])))
     mask = ((noise >= thr).astype(np.uint8) * 255).astype(np.uint8)
 
@@ -46,7 +59,9 @@ def _perlin_mask(h: int, w: int, *, rng: np.random.Generator, base_div: int, oct
     except Exception:
         cv2 = None
     if cv2 is not None and float(blur_sigma) > 0:
-        blur = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        blur = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         mask = ((blur >= float(post_thr)).astype(np.uint8) * 255).astype(np.uint8)
     return mask, thr
 
@@ -162,4 +177,3 @@ def crack_defect(image_u8: np.ndarray, rng: np.random.Generator) -> DefectResult
 
 
 __all__ = ["DefectResult", "rust_defect", "oil_defect", "crack_defect"]
-

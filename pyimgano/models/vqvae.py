@@ -225,13 +225,16 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
             # Use reconstruction error only as the anomaly score (more interpretable).
             return rec_vec.detach().cpu().numpy()
 
-    def get_anomaly_map(self, x, *, image_size: tuple[int, int] | None = None):  # noqa: ANN001, ANN201
+    def get_anomaly_map(
+        self, x, *, image_size: tuple[int, int] | None = None
+    ):  # noqa: ANN001, ANN201
         """Best-effort pixel-level reconstruction error map (H,W)."""
 
         import torch
         import torch.nn.functional as F
-        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
         from torch.utils.data import DataLoader
+
+        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
         if image_size is None:
             image_size = self.cfg.image_size
@@ -259,4 +262,3 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
 
 
 __all__ = ["VQVAEAnomalyDetector"]
-

@@ -28,4 +28,3 @@ def test_normalize_extractor_power_changes_distribution() -> None:
     assert Z.shape == X.shape
     assert np.all(Z >= 0.0)
     assert not np.allclose(Z, X)
-

@@ -45,4 +45,3 @@ def test_stable_hash_array_handles_non_contiguous_views() -> None:
     view = x[::2, ::2]
     assert not view.flags["C_CONTIGUOUS"]
     assert stable_hash_array(view) == stable_hash_array(np.ascontiguousarray(view))
-

@@ -36,4 +36,3 @@ def test_defects_cli_smoke(tmp_path: Path) -> None:
 
     row = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
     assert "regions" in row
-

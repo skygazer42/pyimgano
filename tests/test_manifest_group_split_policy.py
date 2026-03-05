@@ -65,4 +65,3 @@ def test_manifest_group_aware_split_uses_meta_group_id(tmp_path: Path) -> None:
 
     assert {"n0.png", "n1.png"} <= train_names, "records with same meta.group_id must stay together"
     assert "a0.png" in test_names
-

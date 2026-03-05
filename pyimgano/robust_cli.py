@@ -183,7 +183,9 @@ def _load_u8_rgb(path: str, *, resize: tuple[int, int]) -> NDArray:
     return np.ascontiguousarray(img_rgb, dtype=np.uint8)
 
 
-def _apply_resize_to_masks(masks: Optional[NDArray], *, resize: tuple[int, int]) -> Optional[NDArray]:
+def _apply_resize_to_masks(
+    masks: Optional[NDArray], *, resize: tuple[int, int]
+) -> Optional[NDArray]:
     if masks is None:
         return None
 
@@ -218,7 +220,9 @@ def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
     return parse_model_kwargs(text)
 
 
-def _merge_checkpoint_path(user_kwargs: dict[str, Any], *, checkpoint_path: str | None) -> dict[str, Any]:
+def _merge_checkpoint_path(
+    user_kwargs: dict[str, Any], *, checkpoint_path: str | None
+) -> dict[str, Any]:
     return merge_checkpoint_path(user_kwargs, checkpoint_path=checkpoint_path)
 
 
@@ -313,7 +317,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.dataset is None or args.root is None or args.category is None:
-            raise ValueError("--dataset/--root/--category are required unless --list-models is used.")
+            raise ValueError(
+                "--dataset/--root/--category are required unless --list-models is used."
+            )
 
         resize_hw = (int(args.resize[0]), int(args.resize[1]))
         split = load_benchmark_split(
@@ -328,7 +334,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         user_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
         entry = MODEL_REGISTRY.info(args.model)
-        if bool(entry.metadata.get("requires_checkpoint", False)) and "checkpoint_path" not in user_kwargs:
+        if (
+            bool(entry.metadata.get("requires_checkpoint", False))
+            and "checkpoint_path" not in user_kwargs
+        ):
             raise ValueError(
                 f"Model {args.model!r} requires a checkpoint. "
                 "Provide --checkpoint-path or set checkpoint_path in --model-kwargs."
@@ -377,9 +386,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             test_inputs = test_paths
             corruptions = []
             corruption_mode = "clean_only"
-            corruptions_skipped_reason = (
-                "input_mode=paths: corruptions are skipped because corruptions require numpy inputs."
-            )
+            corruptions_skipped_reason = "input_mode=paths: corruptions are skipped because corruptions require numpy inputs."
 
         detector = _make_detector()
 
@@ -389,7 +396,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             pixel_segf1_enabled = False
             notes.append("pixel_segf1 disabled because dataset split has no masks.")
 
-        supports_maps = hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map")
+        supports_maps = hasattr(detector, "predict_anomaly_map") or hasattr(
+            detector, "get_anomaly_map"
+        )
         if pixel_segf1_enabled and not supports_maps:
             pixel_segf1_enabled = False
             notes.append(

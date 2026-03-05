@@ -13,4 +13,3 @@ def test_msrcr_lite_smoke() -> None:
     assert out.dtype == np.uint8
     # Should change the image in most cases.
     assert not np.array_equal(out, img)
-

@@ -24,9 +24,7 @@ def load_config(path: str | Path) -> dict[str, Any]:
             import yaml  # type: ignore[import-not-found]
         except Exception as exc:  # noqa: BLE001 - dependency boundary
             raise ImportError(
-                "YAML config files require PyYAML.\n"
-                "Install it via:\n"
-                "  pip install 'PyYAML'"
+                "YAML config files require PyYAML.\n" "Install it via:\n" "  pip install 'PyYAML'"
             ) from exc
 
         with config_path.open("r", encoding="utf-8") as f:
@@ -47,4 +45,3 @@ def load_config(path: str | Path) -> dict[str, Any]:
         )
 
     return dict(data)
-

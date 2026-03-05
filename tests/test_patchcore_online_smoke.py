@@ -34,4 +34,3 @@ def test_patchcore_online_smoke_on_vectors() -> None:
     scores2 = np.asarray(det.decision_function(X_test), dtype=np.float64)
     assert scores2.shape == (X_test.shape[0],)
     assert np.isfinite(scores2).all()
-

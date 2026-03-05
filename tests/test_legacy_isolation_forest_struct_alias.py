@@ -3,7 +3,6 @@ import numpy as np
 
 def test_legacy_isolation_forest_struct_is_still_registered_and_fittable() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
@@ -21,4 +20,3 @@ def test_legacy_isolation_forest_struct_is_still_registered_and_fittable() -> No
     scores = det.decision_function(X[:8])
     assert scores.shape == (8,)
     assert np.all(np.isfinite(scores))
-

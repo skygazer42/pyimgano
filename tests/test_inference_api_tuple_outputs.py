@@ -46,4 +46,3 @@ def test_infer_supports_decision_function_tuple_outputs() -> None:
     assert results[0].anomaly_map.shape == (32, 48)
     assert results[0].anomaly_map.dtype == np.float32
     assert float(results[0].score) <= float(results[1].score)
-

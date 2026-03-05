@@ -131,9 +131,7 @@ class CoreKNN:
         if self._nn is None:
             raise RuntimeError("Internal error: missing neighbor index")
 
-        distances, _ = self._nn.kneighbors(
-            X, n_neighbors=self._k_effective, return_distance=True
-        )
+        distances, _ = self._nn.kneighbors(X, n_neighbors=self._k_effective, return_distance=True)
         return self._aggregate(distances).astype(np.float64).ravel()
 
 

@@ -26,4 +26,3 @@ def test_jpeg_robust_preprocess_constant_image_is_fixed_point() -> None:
     assert out.dtype == np.uint8
     assert int(out.min()) == 200
     assert int(out.max()) == 200
-

@@ -60,4 +60,3 @@ def test_vision_deep_svdd_smoke_can_fit_with_dummy_features() -> None:
     scores = det.decision_function(test)
     assert scores.shape == (len(test),)
     assert np.isfinite(scores).all()
-

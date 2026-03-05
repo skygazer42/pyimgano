@@ -40,4 +40,3 @@ def test_gem_pool2d_negative_inputs_are_finite() -> None:
     assert tuple(y.shape) == (1, 2)
     assert torch.isfinite(y).all()
     assert (y >= 1e-3).all()
-

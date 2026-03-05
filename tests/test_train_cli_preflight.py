@@ -109,4 +109,3 @@ def test_train_cli_preflight_manifest_errors_exit_2(tmp_path: Path, capsys) -> N
     payload = json.loads(capsys.readouterr().out)
     issues = payload["preflight"]["issues"]
     assert any(i["code"] == "MANIFEST_MISSING_IMAGE" and i["severity"] == "error" for i in issues)
-

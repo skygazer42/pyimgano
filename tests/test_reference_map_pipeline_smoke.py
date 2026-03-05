@@ -57,4 +57,3 @@ def test_reference_map_pipeline_rejects_duplicate_reference_basenames(tmp_path: 
         assert "duplicate" in str(exc).lower()
     else:  # pragma: no cover
         raise AssertionError("Expected duplicate basename error")
-

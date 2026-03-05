@@ -88,4 +88,3 @@ def subtract_background_rolling_ball(
     else:
         out = cv2.subtract(gray, bg)
     return np.asarray(out, dtype=np.uint8)
-

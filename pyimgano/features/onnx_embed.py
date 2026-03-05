@@ -12,7 +12,6 @@ from pyimgano.utils.optional_deps import require
 
 from .torchvision_backbone import _as_pil_rgb
 
-
 _InputColor = Literal["rgb", "bgr"]
 
 
@@ -110,7 +109,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
             elif str(self.checkpoint_path) != cp:
                 raise ValueError("checkpoint and checkpoint_path must match when both are provided")
         if cp is None:
-            raise ValueError("checkpoint is required for onnx_embed (provide checkpoint or checkpoint_path)")
+            raise ValueError(
+                "checkpoint is required for onnx_embed (provide checkpoint or checkpoint_path)"
+            )
 
         self.checkpoint = str(cp)
         self.checkpoint_path = str(cp)
@@ -141,7 +142,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
                 "providers": None if self.providers is None else list(self.providers),
             }
             fp = fingerprint_payload(payload)
-            self._cache = EmbeddingCache(cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp)
+            self._cache = EmbeddingCache(
+                cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp
+            )
 
     def _ensure_ready(self) -> None:
         if self._sess is not None:
@@ -179,7 +182,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
         else:
             idx = int(self.output_index)
             if idx < 0 or idx >= len(outputs):
-                raise IndexError(f"output_index out of range: {idx} for outputs of len {len(outputs)}")
+                raise IndexError(
+                    f"output_index out of range: {idx} for outputs of len {len(outputs)}"
+                )
             out_name = str(outputs[idx].name)
 
         self._sess = sess
@@ -211,7 +216,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
         rows: list[np.ndarray] = []
         for i in range(0, len(items), bs):
             batch_items = items[i : i + bs]
-            batch_np = np.stack([self._preprocess_one(it) for it in batch_items], axis=0)  # (B,3,H,W)
+            batch_np = np.stack(
+                [self._preprocess_one(it) for it in batch_items], axis=0
+            )  # (B,3,H,W)
             out_list = sess.run([out_name], {in_name: batch_np})
             if not out_list:
                 raise RuntimeError("onnxruntime returned no outputs")
@@ -251,7 +258,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
             }
 
             if not missing:
-                return np.stack([np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths])
+                return np.stack(
+                    [np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths]
+                )
 
             computed = self._extract_no_cache(list(missing))
             if computed.shape[0] != len(missing):
@@ -260,7 +269,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
                 self._cache.save(p, np.asarray(row, dtype=np.float64).reshape(-1))
                 cached_rows[p] = np.asarray(row, dtype=np.float64).reshape(-1)
 
-            return np.stack([np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths])
+            return np.stack(
+                [np.asarray(cached_rows[p], dtype=np.float64).reshape(-1) for p in paths]
+            )
 
         self.last_cache_stats_ = {"hits": 0, "misses": 0, "enabled": False}
         return self._extract_no_cache(items)

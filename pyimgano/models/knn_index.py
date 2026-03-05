@@ -12,7 +12,9 @@ from pyimgano.utils.optional_deps import optional_import, require
 class KNNIndex(Protocol):
     def fit(self, X: NDArray) -> None: ...
 
-    def kneighbors(self, X: NDArray, n_neighbors: Optional[int] = None) -> Tuple[NDArray, NDArray]: ...
+    def kneighbors(
+        self, X: NDArray, n_neighbors: Optional[int] = None
+    ) -> Tuple[NDArray, NDArray]: ...
 
 
 @dataclass
@@ -96,4 +98,3 @@ def build_knn_index(
     if backend_lower in ("faiss",):
         return FaissKNNIndex(n_neighbors=n_neighbors)
     raise ValueError(f"Unknown KNN backend: {backend}. Choose from: sklearn, faiss")
-

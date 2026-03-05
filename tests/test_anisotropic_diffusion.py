@@ -14,4 +14,3 @@ def test_anisotropic_diffusion_runs_and_preserves_contract() -> None:
     assert out.dtype == np.uint8
     assert int(out.min()) >= 0
     assert int(out.max()) <= 255
-

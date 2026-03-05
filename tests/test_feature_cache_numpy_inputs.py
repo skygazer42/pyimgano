@@ -56,4 +56,3 @@ def test_feature_cache_reuses_numpy_image_features(tmp_path) -> None:
     det2.set_feature_cache(cache_dir)
     det2.decision_function(imgs)
     assert extractor2.calls == 0
-

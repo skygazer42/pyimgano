@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 _SAFE_CHARS_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 
 
@@ -30,4 +29,3 @@ def save_anomaly_map_npy(
     out_path = maps_dir / f"{int(index):06d}_{stem}.npy"
     np.save(out_path, np.asarray(anomaly_map, dtype=np.float32))
     return out_path
-

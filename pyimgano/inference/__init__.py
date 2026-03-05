@@ -9,8 +9,8 @@ This module provides a small, production-friendly API on top of detectors:
 from __future__ import annotations
 
 from .api import (
-    InferenceTiming,
     InferenceResult,
+    InferenceTiming,
     calibrate_threshold,
     infer,
     infer_iter,

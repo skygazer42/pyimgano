@@ -22,4 +22,3 @@ def test_core_model_joblib_roundtrip(tmp_path) -> None:  # noqa: ANN001 - pytest
     assert s0.shape == s1.shape
     assert np.all(np.isfinite(s1))
     assert np.allclose(s0, s1, atol=1e-12, rtol=1e-12)
-

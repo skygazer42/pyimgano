@@ -16,7 +16,6 @@ def _write_png(path: Path, *, value: int, size: int = 16) -> None:
 
 def test_infer_cli_reference_dir_flag_applies_to_detector(tmp_path: Path) -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
-
     from pyimgano.infer_cli import main as infer_main
     from pyimgano.models.registry import MODEL_REGISTRY
 
@@ -77,14 +76,19 @@ def test_infer_cli_reference_dir_flag_applies_to_detector(tmp_path: Path) -> Non
         ]
     )
     assert rc == 0
-    rows = [json.loads(line) for line in out_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line)
+        for line in out_jsonl.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert rows
     assert rows[0]["anomaly_map"]["shape"] == [16, 16]
 
 
-def test_infer_cli_reference_dir_rejects_non_reference_detectors(tmp_path: Path, capsys) -> None:  # noqa: ANN001
+def test_infer_cli_reference_dir_rejects_non_reference_detectors(
+    tmp_path: Path, capsys
+) -> None:  # noqa: ANN001
     import pyimgano.models  # noqa: F401
-
     from pyimgano.infer_cli import main as infer_main
     from pyimgano.models.registry import MODEL_REGISTRY
 
@@ -118,4 +122,3 @@ def test_infer_cli_reference_dir_rejects_non_reference_detectors(tmp_path: Path,
     assert rc == 2
     err = capsys.readouterr().err.lower()
     assert "reference-dir" in err
-

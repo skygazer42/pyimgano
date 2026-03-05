@@ -72,5 +72,3 @@ def test_patchcore_lite_map_smoke_predict_and_maps() -> None:
     maps = np.asarray(det.predict_anomaly_map([normal, anomaly]), dtype=np.float32)
     assert maps.shape == (2, 64, 64)
     assert np.all(np.isfinite(maps))
-
-

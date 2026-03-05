@@ -27,4 +27,3 @@ def test_base_detector_can_use_pot_thresholding() -> None:
     assert labels.shape == (500,)
     assert set(np.unique(labels)).issubset({0, 1})
     assert hasattr(det, "pot_info_")
-

@@ -78,4 +78,3 @@ def test_train_cli_smoke(tmp_path):
     assert (out_dir / "config.json").exists()
     assert (out_dir / "environment.json").exists()
     assert (out_dir / "categories" / "custom" / "per_image.jsonl").exists()
-

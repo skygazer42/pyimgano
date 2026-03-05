@@ -24,4 +24,3 @@ def test_torchvision_backbone_extractor_numpy_inputs_smoke() -> None:
     assert feats.ndim == 2
     assert feats.shape[1] >= 32
     assert np.all(np.isfinite(feats))
-

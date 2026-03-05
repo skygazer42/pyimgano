@@ -18,7 +18,9 @@ def _write_mask(path: Path, *, value: int = 255) -> None:
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def test_real_iad_converter_smoke_custom_like_layout(tmp_path: Path) -> None:

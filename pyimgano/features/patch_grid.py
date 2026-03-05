@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal, Optional
 from pathlib import Path
+from typing import Any, Iterable, Literal, Optional
 
 import numpy as np
 
@@ -10,7 +10,6 @@ from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 
 from .torchvision_backbone import _as_pil_rgb, _load_torchvision_backbone, _make_device
-
 
 _InputColor = Literal["rgb", "bgr"]
 

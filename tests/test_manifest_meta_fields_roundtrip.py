@@ -74,4 +74,3 @@ def test_manifest_meta_view_id_and_condition_roundtrip(tmp_path: Path) -> None:
     # Sanity: image-level split still works.
     assert split.test_labels.shape == (len(split.test_paths),)
     assert np.isin(split.test_labels, [0, 1]).all()
-

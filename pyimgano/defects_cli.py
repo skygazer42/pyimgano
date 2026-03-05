@@ -18,7 +18,9 @@ def _guess_mask_format(path: str | Path, *, default: str = "png") -> str:
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pyimgano-defects")
-    p.add_argument("--map", required=True, help="Path to an anomaly map saved as .npy (HxW float-like)")
+    p.add_argument(
+        "--map", required=True, help="Path to an anomaly map saved as .npy (HxW float-like)"
+    )
     p.add_argument(
         "--pixel-threshold",
         type=float,
@@ -112,22 +114,48 @@ def main(argv: list[str] | None = None) -> int:
             map_smoothing_ksize=int(args.defect_map_smoothing_ksize),
             map_smoothing_sigma=float(args.defect_map_smoothing_sigma),
             hysteresis_enabled=bool(args.defect_hysteresis),
-            hysteresis_low=(float(args.defect_hysteresis_low) if args.defect_hysteresis_low is not None else None),
-            hysteresis_high=(float(args.defect_hysteresis_high) if args.defect_hysteresis_high is not None else None),
+            hysteresis_low=(
+                float(args.defect_hysteresis_low)
+                if args.defect_hysteresis_low is not None
+                else None
+            ),
+            hysteresis_high=(
+                float(args.defect_hysteresis_high)
+                if args.defect_hysteresis_high is not None
+                else None
+            ),
             mask_dilate_ksize=int(args.defects_mask_dilate),
             open_ksize=int(args.defect_open_ksize),
             close_ksize=int(args.defect_close_ksize),
             fill_holes=bool(args.defect_fill_holes),
             min_area=int(args.defect_min_area),
-            min_fill_ratio=(float(args.defect_min_fill_ratio) if args.defect_min_fill_ratio is not None else None),
-            max_aspect_ratio=(float(args.defect_max_aspect_ratio) if args.defect_max_aspect_ratio is not None else None),
-            min_solidity=(float(args.defect_min_solidity) if args.defect_min_solidity is not None else None),
-            min_score_max=(float(args.defect_min_score_max) if args.defect_min_score_max is not None else None),
-            min_score_mean=(float(args.defect_min_score_mean) if args.defect_min_score_mean is not None else None),
+            min_fill_ratio=(
+                float(args.defect_min_fill_ratio)
+                if args.defect_min_fill_ratio is not None
+                else None
+            ),
+            max_aspect_ratio=(
+                float(args.defect_max_aspect_ratio)
+                if args.defect_max_aspect_ratio is not None
+                else None
+            ),
+            min_solidity=(
+                float(args.defect_min_solidity) if args.defect_min_solidity is not None else None
+            ),
+            min_score_max=(
+                float(args.defect_min_score_max) if args.defect_min_score_max is not None else None
+            ),
+            min_score_mean=(
+                float(args.defect_min_score_mean)
+                if args.defect_min_score_mean is not None
+                else None
+            ),
             merge_nearby_enabled=bool(args.defect_merge_nearby),
             merge_nearby_max_gap_px=int(args.defect_merge_nearby_max_gap_px),
             max_regions_sort_by=str(args.defect_max_regions_sort_by),
-            max_regions=(int(args.defect_max_regions) if args.defect_max_regions is not None else None),
+            max_regions=(
+                int(args.defect_max_regions) if args.defect_max_regions is not None else None
+            ),
         )
 
         mask_meta: dict[str, Any] = {
@@ -167,4 +195,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

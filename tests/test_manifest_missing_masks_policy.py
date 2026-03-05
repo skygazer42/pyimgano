@@ -83,4 +83,3 @@ def test_missing_masks_policy_error(tmp_path: Path) -> None:
             load_masks=True,
             missing_mask_policy="error",
         )
-

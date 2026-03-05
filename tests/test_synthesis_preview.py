@@ -19,4 +19,3 @@ def test_make_preview_grid_smoke() -> None:
     assert grid.shape[2] == 3
     assert grid.dtype == np.uint8
     assert grid.shape[0] > 0 and grid.shape[1] > 0
-

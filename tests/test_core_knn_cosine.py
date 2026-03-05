@@ -33,4 +33,3 @@ def test_core_knn_cosine_accepts_torch_tensor_inputs() -> None:
     scores = np.asarray(det.decision_function(X), dtype=np.float64).reshape(-1)
     assert scores.shape == (20,)
     assert np.all(np.isfinite(scores))
-

@@ -24,6 +24,7 @@ def ensure_int(value: Any, *, name: str, low: int | None = None, high: int | Non
 
 def ensure_contamination(value: Any) -> float:
     c = float(value)
-    check_parameter(c, low=0.0, high=0.5, include_left=False, include_right=True, param_name="contamination")
+    check_parameter(
+        c, low=0.0, high=0.5, include_left=False, include_right=True, param_name="contamination"
+    )
     return c
-

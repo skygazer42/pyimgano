@@ -11,7 +11,11 @@ def test_save_run_report(tmp_path):
         "auroc": np.float64(0.9),
         "flag": np.bool_(False),
         "labels": np.array([0, 1, 0]),
-        "nested": {"x": np.int64(1), 2: np.bool_(True), "arr": np.array([1.0, 2.0], dtype=np.float32)},
+        "nested": {
+            "x": np.int64(1),
+            2: np.bool_(True),
+            "arr": np.array([1.0, 2.0], dtype=np.float32),
+        },
         "path": tmp_path / "artifact.bin",
     }
     save_run_report(path, results)

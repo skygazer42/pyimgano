@@ -15,7 +15,6 @@ from torchvision import models
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
-
 # ---------------------------------------------------------------------------
 # Flow building blocks
 # ---------------------------------------------------------------------------
@@ -39,7 +38,9 @@ class ActNorm2d(nn.Module):
             self.log_scale.data.copy_(torch.log(1.0 / std))
         self.initialized = True
 
-    def forward(self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if not self.initialized:
             self._initialize(x)
         if logdet is None:
@@ -68,7 +69,9 @@ class InvConv2d(nn.Module):
         w = self.weight.squeeze(-1).squeeze(-1)
         return torch.logdet(w)
 
-    def forward(self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if logdet is None:
             logdet = x.new_zeros(x.size(0))
         H, W = x.shape[2], x.shape[3]
@@ -97,7 +100,9 @@ class AffineCoupling(nn.Module):
             nn.Conv2d(hidden_channels, in_channels, kernel_size=3, padding=1),
         )
 
-    def forward(self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         if logdet is None:
             logdet = x.new_zeros(x.size(0))
         x1, x2 = torch.chunk(x, 2, dim=1)
@@ -123,7 +128,9 @@ class FlowStep(nn.Module):
         self.invconv = InvConv2d(channels)
         self.coupling = AffineCoupling(channels, hidden_channels)
 
-    def forward(self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         x, logdet = self.actnorm(x, logdet, reverse=reverse)
         x, logdet = self.invconv(x, logdet, reverse=reverse)
         x, logdet = self.coupling(x, logdet, reverse=reverse)
@@ -135,7 +142,9 @@ class FlowStage(nn.Module):
 
     def __init__(self, channels: int, n_steps: int, hidden_ratio: float) -> None:
         super().__init__()
-        self.steps = nn.ModuleList([FlowStep(channels, hidden_ratio=hidden_ratio) for _ in range(n_steps)])
+        self.steps = nn.ModuleList(
+            [FlowStep(channels, hidden_ratio=hidden_ratio) for _ in range(n_steps)]
+        )
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         logdet = x.new_zeros(x.size(0))
@@ -171,7 +180,11 @@ class ResNetFeatureExtractor(nn.Module):
             try:  # torchvision>=0.13
                 weights = models.ResNet18_Weights.DEFAULT
             except AttributeError:  # fallback older versions
-                weights = models.ResNet18_Weights.IMAGENET1K_V1 if hasattr(models, "ResNet18_Weights") else "DEFAULT"
+                weights = (
+                    models.ResNet18_Weights.IMAGENET1K_V1
+                    if hasattr(models, "ResNet18_Weights")
+                    else "DEFAULT"
+                )
         net = models.resnet18(weights=weights)
         self.stem = nn.Sequential(net.conv1, net.bn1, net.relu, net.maxpool)
         self.layer1 = net.layer1
@@ -265,7 +278,9 @@ class FastFlow(BaseVisionDeepDetector):
                 raise ValueError(f"Unsupported layer {layer}")
             adaptor = nn.Conv2d(in_channels, self.embedding_dim, kernel_size=1, stride=1, bias=True)
             adaptor_list.append(adaptor)
-            stage_list.append(FlowStage(self.embedding_dim, self.n_flow_steps, self.flow_hidden_ratio))
+            stage_list.append(
+                FlowStage(self.embedding_dim, self.n_flow_steps, self.flow_hidden_ratio)
+            )
 
         self.adapters = nn.ModuleList(adaptor_list).to(self.device)
         self.flow_stages = nn.ModuleList(stage_list).to(self.device)

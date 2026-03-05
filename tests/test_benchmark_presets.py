@@ -43,4 +43,3 @@ def test_build_benchmark_configs_skips_unknown_algorithms() -> None:
     cfg = build_benchmark_configs(["ecod", "definitely-not-a-real-model"])
     assert "ECOD" in cfg
     assert "definitely-not-a-real-model" not in cfg
-

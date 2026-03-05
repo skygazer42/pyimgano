@@ -26,4 +26,3 @@ def test_check_random_state_none_returns_randomstate() -> None:
 
     rs = check_random_state(None)
     assert isinstance(rs, np.random.RandomState)
-

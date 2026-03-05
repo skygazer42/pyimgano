@@ -25,7 +25,9 @@ def resolve_torch_device(device: str | None) -> "object":
 
 
 @contextmanager
-def torch_inference(model=None) -> Iterator[None]:  # noqa: ANN001 - torch is optional in type system
+def torch_inference(
+    model=None,
+) -> Iterator[None]:  # noqa: ANN001 - torch is optional in type system
     """Context manager for safe torch inference (eval + inference_mode).
 
     - Sets `model.eval()` if a model is provided.

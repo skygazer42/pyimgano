@@ -13,7 +13,9 @@ def _write_rgb(path: Path, *, seed: int) -> None:
     Image.fromarray(arr, mode="RGB").save(path)
 
 
-def test_synthesize_dataset_severity_range_and_num_defects_are_reflected_in_meta(tmp_path: Path) -> None:
+def test_synthesize_dataset_severity_range_and_num_defects_are_reflected_in_meta(
+    tmp_path: Path,
+) -> None:
     in_dir = tmp_path / "in"
     for i in range(8):
         _write_rgb(in_dir / f"{i}.png", seed=200 + i)
@@ -47,4 +49,3 @@ def test_synthesize_dataset_severity_range_and_num_defects_are_reflected_in_meta
         assert 0.25 <= sev <= 0.35
         assert int(meta.get("num_defects", 0)) == 3
         assert 1 <= int(meta.get("defects_applied", 0)) <= 3
-

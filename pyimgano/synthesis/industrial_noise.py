@@ -131,4 +131,3 @@ def dust_specks(
             cv2.circle(out, (x, y), r, color=val, thickness=-1, lineType=cv2.LINE_AA)
 
     return np.asarray(out, dtype=np.uint8)
-

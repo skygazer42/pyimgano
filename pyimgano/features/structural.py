@@ -10,7 +10,6 @@ from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 from pyimgano.io.image import read_image
 
-
 _ErrorMode = Literal["raise", "zeros"]
 
 
@@ -61,14 +60,18 @@ def _symmetry(gray: np.ndarray) -> tuple[float, float]:
     left = g[:, :half_w]
     right = g[:, -half_w:]
     right_flipped = right[:, ::-1]
-    h_sym = 1.0 - float(np.mean(np.abs(left.astype(np.float32) - right_flipped.astype(np.float32))) / 255.0)
+    h_sym = 1.0 - float(
+        np.mean(np.abs(left.astype(np.float32) - right_flipped.astype(np.float32))) / 255.0
+    )
 
     # Vertical symmetry (top/bottom)
     half_h = h // 2
     top = g[:half_h, :]
     bottom = g[-half_h:, :]
     bottom_flipped = bottom[::-1, :]
-    v_sym = 1.0 - float(np.mean(np.abs(top.astype(np.float32) - bottom_flipped.astype(np.float32))) / 255.0)
+    v_sym = 1.0 - float(
+        np.mean(np.abs(top.astype(np.float32) - bottom_flipped.astype(np.float32))) / 255.0
+    )
 
     return float(np.clip(h_sym, 0.0, 1.0)), float(np.clip(v_sym, 0.0, 1.0))
 
@@ -204,4 +207,3 @@ class StructuralFeaturesExtractor(BaseFeatureExtractor):
             rows.append(np.asarray(feats, dtype=np.float64).reshape(-1))
 
         return np.stack(rows, axis=0)
-

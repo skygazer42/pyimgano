@@ -33,4 +33,3 @@ def test_base_feature_extractor_extract_batched_rejects_non_positive_batch_size(
     ext = _Stub()
     with pytest.raises(ValueError, match="batch_size must be a positive integer"):
         ext.extract_batched([1, 2, 3], batch_size=0)
-

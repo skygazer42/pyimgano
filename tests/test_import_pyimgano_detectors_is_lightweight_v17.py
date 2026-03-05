@@ -69,4 +69,3 @@ print(
     # Accessing the attribute should not import heavy deps unless instantiated.
     assert payload["has_autoencoder"] is True
     assert payload["present"] == [], f"Unexpected heavy imports: {payload['present']}"
-

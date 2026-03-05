@@ -21,4 +21,3 @@ def test_recipe_anomalib_train_optional():
     )
     with pytest.raises(NotImplementedError):
         recipe(cfg)
-

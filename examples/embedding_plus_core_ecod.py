@@ -24,14 +24,15 @@ import numpy as np
 
 from pyimgano.models.registry import create_model
 
-
 SUPPORTED_EXT = (".png", ".jpg", ".jpeg", ".bmp")
 
 
 def _iter_images(d: Path) -> list[str]:
     if not d.exists():
         return []
-    return [str(p) for p in sorted(d.iterdir()) if p.is_file() and p.suffix.lower() in SUPPORTED_EXT]
+    return [
+        str(p) for p in sorted(d.iterdir()) if p.is_file() and p.suffix.lower() in SUPPORTED_EXT
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -85,4 +86,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

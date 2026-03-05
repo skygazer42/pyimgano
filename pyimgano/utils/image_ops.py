@@ -10,6 +10,7 @@ from PIL import Image
 try:
     Resampling = Image.Resampling  # Pillow >= 9.1
 except AttributeError:  # pragma: no cover - for older Pillow
+
     class Resampling:
         NEAREST = Image.NEAREST
         BILINEAR = Image.BILINEAR
@@ -26,8 +27,13 @@ def load_image(path: str, mode: str = "RGB") -> Image.Image:
     return image
 
 
-def resize_image(image: Image.Image, size: Tuple[int, int], *, keep_ratio: bool = False,
-                 resample=Resampling.BILINEAR) -> Image.Image:
+def resize_image(
+    image: Image.Image,
+    size: Tuple[int, int],
+    *,
+    keep_ratio: bool = False,
+    resample=Resampling.BILINEAR,
+) -> Image.Image:
     """Resize image to a target size; optionally preserve aspect ratio."""
 
     if keep_ratio:
@@ -98,15 +104,19 @@ class Compose:
 class ImagePreprocessor:
     """Utility to preprocess image paths into numpy arrays."""
 
-    def __init__(self, *, resize: Optional[Tuple[int, int]] = None,
-                 crop: Optional[Tuple[int, int]] = None,
-                 normalize_mean: Optional[Sequence[float]] = None,
-                 normalize_std: Optional[Sequence[float]] = None,
-                 augmentations: Optional[Iterable[Callable[[Image.Image], Image.Image]]] = None,
-                 output_tensor: bool = False,
-                 backend: Literal["pil", "cv2"] = "pil",
-                 error_mode: Literal["raise", "zeros"] = "raise",
-                 fallback_size: Tuple[int, int] = (224, 224)) -> None:
+    def __init__(
+        self,
+        *,
+        resize: Optional[Tuple[int, int]] = None,
+        crop: Optional[Tuple[int, int]] = None,
+        normalize_mean: Optional[Sequence[float]] = None,
+        normalize_std: Optional[Sequence[float]] = None,
+        augmentations: Optional[Iterable[Callable[[Image.Image], Image.Image]]] = None,
+        output_tensor: bool = False,
+        backend: Literal["pil", "cv2"] = "pil",
+        error_mode: Literal["raise", "zeros"] = "raise",
+        fallback_size: Tuple[int, int] = (224, 224),
+    ) -> None:
         self.resize = resize
         self.crop = crop
         self.normalize_mean = normalize_mean

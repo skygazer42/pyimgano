@@ -67,9 +67,7 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
         if supports_numpy_images:
             input_modes.append("numpy")
 
-    supports_pixel_map = ("pixel_map" in tags) or _constructor_supports_pixel_map(
-        entry.constructor
-    )
+    supports_pixel_map = ("pixel_map" in tags) or _constructor_supports_pixel_map(entry.constructor)
 
     requires_checkpoint = bool(entry.metadata.get("requires_checkpoint", False))
     _signature, accepted_kwargs, accepts_var_kwargs = get_constructor_signature_info(

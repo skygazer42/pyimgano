@@ -10,7 +10,6 @@ from importlib import import_module
 from types import ModuleType
 from typing import Optional, Tuple
 
-
 _PIP_NAME_OVERRIDES = {
     # Common module ↔ pip package mismatches.
     "cv2": "opencv-python",
@@ -35,7 +34,9 @@ def optional_import(module_name: str) -> Tuple[Optional[ModuleType], Optional[Ba
         return None, exc
 
 
-def require(module_name: str, *, extra: Optional[str] = None, purpose: Optional[str] = None) -> ModuleType:
+def require(
+    module_name: str, *, extra: Optional[str] = None, purpose: Optional[str] = None
+) -> ModuleType:
     """Import `module_name`, raising a clean ImportError with install hint if missing."""
 
     module, error = optional_import(module_name)

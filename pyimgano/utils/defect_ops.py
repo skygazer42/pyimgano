@@ -27,8 +27,9 @@ def background_subtraction(image: np.ndarray, kernel_size: int = 25) -> np.ndarr
     return residual
 
 
-def adaptive_threshold(image: np.ndarray, block_size: int = 35, c: int = 5,
-                       method: str = "gaussian") -> np.ndarray:
+def adaptive_threshold(
+    image: np.ndarray, block_size: int = 35, c: int = 5, method: str = "gaussian"
+) -> np.ndarray:
     """Adaptive threshold suited for defect segmentation."""
 
     if image.ndim == 3:
@@ -37,7 +38,11 @@ def adaptive_threshold(image: np.ndarray, block_size: int = 35, c: int = 5,
         gray = image
     if block_size % 2 == 0:
         block_size += 1
-    adaptive_method = cv2.ADAPTIVE_THRESH_GAUSSIAN_C if method.lower() == "gaussian" else cv2.ADAPTIVE_THRESH_MEAN_C
+    adaptive_method = (
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C
+        if method.lower() == "gaussian"
+        else cv2.ADAPTIVE_THRESH_MEAN_C
+    )
     thresh = cv2.adaptiveThreshold(gray, 255, adaptive_method, cv2.THRESH_BINARY, block_size, c)
     return thresh
 
@@ -56,7 +61,9 @@ def bottom_hat(image: np.ndarray, kernel_size: Tuple[int, int] = (15, 15)) -> np
     return cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel)
 
 
-def difference_of_gaussian(image: np.ndarray, sigma_small: float = 1.0, sigma_large: float = 3.0) -> np.ndarray:
+def difference_of_gaussian(
+    image: np.ndarray, sigma_small: float = 1.0, sigma_large: float = 3.0
+) -> np.ndarray:
     """Edge enhancement using difference of Gaussian filters."""
 
     blur_small = cv2.GaussianBlur(image, (0, 0), sigma_small)
@@ -65,8 +72,11 @@ def difference_of_gaussian(image: np.ndarray, sigma_small: float = 1.0, sigma_la
     return diff
 
 
-def gabor_filter_bank(image: np.ndarray, frequencies: Sequence[float] = (0.1, 0.2, 0.3),
-                      thetas: Sequence[float] = (0, 45, 90, 135)) -> np.ndarray:
+def gabor_filter_bank(
+    image: np.ndarray,
+    frequencies: Sequence[float] = (0.1, 0.2, 0.3),
+    thetas: Sequence[float] = (0, 45, 90, 135),
+) -> np.ndarray:
     """Extract texture responses using a bank of Gabor filters."""
 
     if image.ndim == 3:
@@ -77,7 +87,9 @@ def gabor_filter_bank(image: np.ndarray, frequencies: Sequence[float] = (0.1, 0.
     for theta in thetas:
         theta_rad = theta / 180 * math.pi
         for freq in frequencies:
-            kernel = cv2.getGaborKernel((21, 21), 4.0, theta_rad, 1 / freq, 0.5, 0, ktype=cv2.CV_32F)
+            kernel = cv2.getGaborKernel(
+                (21, 21), 4.0, theta_rad, 1 / freq, 0.5, 0, ktype=cv2.CV_32F
+            )
             filtered = cv2.filter2D(gray, cv2.CV_32F, kernel)
             responses.append(np.abs(filtered))
     stacked = np.stack(responses, axis=0)
@@ -93,7 +105,9 @@ def enhance_edges(image: np.ndarray, weight: float = 1.5) -> np.ndarray:
     return np.clip(enhanced, 0, 255).astype(gray.dtype)
 
 
-def local_binary_pattern(image: np.ndarray, radius: int = 1, n_points: int | None = None) -> np.ndarray:
+def local_binary_pattern(
+    image: np.ndarray, radius: int = 1, n_points: int | None = None
+) -> np.ndarray:
     """Compute Local Binary Pattern for texture anomaly detection."""
 
     if image.ndim == 3:

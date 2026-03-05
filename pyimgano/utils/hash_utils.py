@@ -56,4 +56,3 @@ def stable_hash_array(arr: Any) -> str:
         a = np.ascontiguousarray(a)
     h.update(memoryview(a).tobytes())
     return h.hexdigest()
-

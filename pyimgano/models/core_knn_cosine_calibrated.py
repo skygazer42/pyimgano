@@ -90,9 +90,9 @@ class CoreKNNCosineCalibrated(BaseDetector):
         )
         base.fit(X, y=y)
 
-        train_scores = np.asarray(getattr(base, "decision_scores_", base.decision_function(X)), dtype=np.float64).reshape(
-            -1
-        )
+        train_scores = np.asarray(
+            getattr(base, "decision_scores_", base.decision_function(X)), dtype=np.float64
+        ).reshape(-1)
         std = ScoreStandardizer(method=str(self.method), eps=float(self.standardize_eps)).fit(
             train_scores
         )
@@ -114,4 +114,3 @@ class CoreKNNCosineCalibrated(BaseDetector):
 
 
 __all__ = ["CoreKNNCosineCalibrated"]
-

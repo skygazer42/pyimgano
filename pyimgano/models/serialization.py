@@ -28,4 +28,3 @@ def load_model(path: str | Path) -> Any:
     import joblib
 
     return joblib.load(str(path))
-

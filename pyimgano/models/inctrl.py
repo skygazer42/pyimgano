@@ -26,21 +26,19 @@ from .registry import register_model
 class ResidualEncoder(nn.Module):
     """Encoder for extracting residual features."""
 
-    def __init__(
-        self,
-        backbone: str = "wide_resnet50",
-        feature_dim: int = 512
-    ):
+    def __init__(self, backbone: str = "wide_resnet50", feature_dim: int = 512):
         super().__init__()
 
         # Feature extractor
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
             backbone_dim = 1024
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
             backbone_dim = 512
@@ -92,11 +90,7 @@ class InContextAttention(nn.Module):
         self.v_proj = nn.Linear(feature_dim, feature_dim)
         self.out_proj = nn.Linear(feature_dim, feature_dim)
 
-    def forward(
-        self,
-        query: torch.Tensor,
-        context: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, query: torch.Tensor, context: torch.Tensor) -> torch.Tensor:
         """
         Compute in-context attention.
 
@@ -121,11 +115,11 @@ class InContextAttention(nn.Module):
         V_ctx = self.v_proj(context).view(K, self.num_heads, self.head_dim)
 
         # Attention scores
-        scores = torch.einsum('bhd,khd->bhk', Q, K_ctx) / (self.head_dim ** 0.5)
+        scores = torch.einsum("bhd,khd->bhk", Q, K_ctx) / (self.head_dim**0.5)
         attn_weights = F.softmax(scores, dim=-1)  # (B, H, K)
 
         # Aggregate
-        attended = torch.einsum('bhk,khd->bhd', attn_weights, V_ctx)
+        attended = torch.einsum("bhk,khd->bhd", attn_weights, V_ctx)
         attended = attended.reshape(B, -1)
 
         # Output projection
@@ -147,11 +141,7 @@ class ResidualPredictor(nn.Module):
             nn.Linear(feature_dim, feature_dim),
         )
 
-    def forward(
-        self,
-        query_feat: torch.Tensor,
-        context_feat: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, query_feat: torch.Tensor, context_feat: torch.Tensor) -> torch.Tensor:
         """
         Predict residual features.
 
@@ -248,7 +238,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
         k_shot: int = 5,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -282,20 +272,12 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return torch.from_numpy(X).float()
 
-    def _sample_context(
-        self,
-        X_tensor: torch.Tensor,
-        k: int
-    ) -> torch.Tensor:
+    def _sample_context(self, X_tensor: torch.Tensor, k: int) -> torch.Tensor:
         """Sample k-shot context samples."""
         indices = torch.randperm(len(X_tensor))[:k]
         return X_tensor[indices]
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionInCTRL":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionInCTRL":
         """
         Fit the InCTRL detector.
 
@@ -317,20 +299,18 @@ class VisionInCTRL(BaseVisionDeepDetector):
         # Initialize modules
         if self.encoder_ is None:
             self.encoder_ = ResidualEncoder(
-                backbone=self.backbone,
-                feature_dim=self.feature_dim
+                backbone=self.backbone, feature_dim=self.feature_dim
             ).to(self.device)
 
         if self.in_context_attn_ is None:
             self.in_context_attn_ = InContextAttention(
-                feature_dim=self.feature_dim,
-                num_heads=self.num_heads
+                feature_dim=self.feature_dim, num_heads=self.num_heads
             ).to(self.device)
 
         if self.residual_predictor_ is None:
-            self.residual_predictor_ = ResidualPredictor(
-                feature_dim=self.feature_dim
-            ).to(self.device)
+            self.residual_predictor_ = ResidualPredictor(feature_dim=self.feature_dim).to(
+                self.device
+            )
 
         # Sample context samples
         context_images = self._sample_context(X_tensor, self.k_shot)
@@ -339,17 +319,11 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
-            list(self.in_context_attn_.parameters()) +
-            list(self.residual_predictor_.parameters()),
-            lr=self.learning_rate
+            list(self.in_context_attn_.parameters()) + list(self.residual_predictor_.parameters()),
+            lr=self.learning_rate,
         )
 
         self.in_context_attn_.train()
@@ -366,25 +340,16 @@ class VisionInCTRL(BaseVisionDeepDetector):
                     query_features = self.encoder_(batch_images)
 
                 # In-context attention
-                context_features = self.in_context_attn_(
-                    query_features,
-                    self.context_samples_
-                )
+                context_features = self.in_context_attn_(query_features, self.context_samples_)
 
                 # Predict residuals
-                residuals = self.residual_predictor_(
-                    query_features,
-                    context_features
-                )
+                residuals = self.residual_predictor_(query_features, context_features)
 
                 # Loss: residuals should be small for normal samples
                 loss = F.mse_loss(residuals, torch.zeros_like(residuals))
 
                 # Add consistency loss
-                consistency_loss = F.mse_loss(
-                    query_features + residuals,
-                    context_features
-                )
+                consistency_loss = F.mse_loss(query_features + residuals, context_features)
                 loss = loss + 0.1 * consistency_loss
 
                 # Backward
@@ -400,10 +365,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -425,22 +387,16 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 query_features = self.encoder_(batch)
 
                 # In-context attention
-                context_features = self.in_context_attn_(
-                    query_features,
-                    self.context_samples_
-                )
+                context_features = self.in_context_attn_(query_features, self.context_samples_)
 
                 # Predict residuals
-                residuals = self.residual_predictor_(
-                    query_features,
-                    context_features
-                )
+                residuals = self.residual_predictor_(query_features, context_features)
 
                 # Anomaly score = residual magnitude
                 score = torch.norm(residuals, p=2, dim=1)

@@ -153,4 +153,3 @@ def fractal_perlin_noise_2d(
             noise = (noise - lo) / denom
 
     return np.asarray(noise, dtype=np.float32)
-

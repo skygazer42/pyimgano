@@ -13,4 +13,3 @@ def test_color_hist_extractor_shapes_and_normalization() -> None:
     assert out.shape == (2, 24)
     assert np.all(np.isfinite(out))
     assert np.allclose(out.sum(axis=1), 1.0, atol=1e-5)
-

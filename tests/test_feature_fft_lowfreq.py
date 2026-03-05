@@ -13,4 +13,3 @@ def test_fft_lowfreq_extractor_shapes_and_bounds() -> None:
     assert out.shape == (2, 2)
     assert np.all(np.isfinite(out))
     assert np.all((out >= 0.0) & (out <= 1.0))
-

@@ -11,8 +11,8 @@ import torch.nn.functional as F
 from torchvision import models
 
 from .baseCv import BaseVisionDeepDetector
-from .registry import register_model
 from .fastflow import ResNetFeatureExtractor
+from .registry import register_model
 
 
 class StudentResNetExtractor(nn.Module):

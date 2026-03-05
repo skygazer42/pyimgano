@@ -44,4 +44,3 @@ def test_feature_cli_writes_npy_and_paths_json(tmp_path) -> None:
     assert np.all(np.isfinite(feats))
     paths = json.loads(out_json.read_text(encoding="utf-8"))
     assert len(paths) == 2
-

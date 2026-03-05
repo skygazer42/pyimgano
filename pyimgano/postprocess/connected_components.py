@@ -12,7 +12,6 @@ from typing import Literal, Sequence
 
 import numpy as np
 
-
 _Reducer = Literal["max", "mean", "sum"]
 
 
@@ -25,7 +24,9 @@ class Component:
     score: float | None = None
 
 
-def label_components(binary_mask_u8: np.ndarray, *, connectivity: int = 8) -> tuple[int, np.ndarray, np.ndarray, np.ndarray]:
+def label_components(
+    binary_mask_u8: np.ndarray, *, connectivity: int = 8
+) -> tuple[int, np.ndarray, np.ndarray, np.ndarray]:
     """Return (num_labels, labels, stats, centroids) using OpenCV labeling.
 
     `binary_mask_u8` is treated as boolean (non-zero = foreground).
@@ -172,4 +173,3 @@ __all__ = [
     "score_components",
     "filter_small_components",
 ]
-

@@ -9,7 +9,12 @@ from typing import Any
 
 import numpy as np
 
-from pyimgano.inference.api import InferenceTiming, calibrate_threshold, infer_iter, result_to_jsonable
+from pyimgano.inference.api import (
+    InferenceTiming,
+    calibrate_threshold,
+    infer_iter,
+    result_to_jsonable,
+)
 from pyimgano.models.registry import create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 
@@ -82,7 +87,9 @@ def _apply_defects_defaults_from_payload(
         if value is None:
             return None
         if not isinstance(value, (list, tuple)) or len(value) != 4:
-            raise ValueError("infer-config defects.roi_xyxy_norm must be a list of length 4 or null")
+            raise ValueError(
+                "infer-config defects.roi_xyxy_norm must be a list of length 4 or null"
+            )
         try:
             return [float(v) for v in value]
         except Exception as exc:  # noqa: BLE001 - CLI boundary
@@ -193,17 +200,23 @@ def _apply_defects_defaults_from_payload(
             raise ValueError("infer-config defects.shape_filters must be a JSON object/dict.")
 
         if getattr(args, "defect_min_fill_ratio", None) is None:
-            v = _coerce_float(shape_raw.get("min_fill_ratio", None), name="shape_filters.min_fill_ratio")
+            v = _coerce_float(
+                shape_raw.get("min_fill_ratio", None), name="shape_filters.min_fill_ratio"
+            )
             if v is not None:
                 args.defect_min_fill_ratio = float(v)
 
         if getattr(args, "defect_max_aspect_ratio", None) is None:
-            v = _coerce_float(shape_raw.get("max_aspect_ratio", None), name="shape_filters.max_aspect_ratio")
+            v = _coerce_float(
+                shape_raw.get("max_aspect_ratio", None), name="shape_filters.max_aspect_ratio"
+            )
             if v is not None:
                 args.defect_max_aspect_ratio = float(v)
 
         if getattr(args, "defect_min_solidity", None) is None:
-            v = _coerce_float(shape_raw.get("min_solidity", None), name="shape_filters.min_solidity")
+            v = _coerce_float(
+                shape_raw.get("min_solidity", None), name="shape_filters.min_solidity"
+            )
             if v is not None:
                 args.defect_min_solidity = float(v)
 
@@ -258,11 +271,16 @@ def _apply_defects_defaults_from_payload(
             args.defect_max_regions_sort_by = vv
 
     if float(getattr(args, "pixel_normal_quantile", 0.999)) == 0.999:
-        v = _coerce_float(defects_payload.get("pixel_normal_quantile", None), name="pixel_normal_quantile")
+        v = _coerce_float(
+            defects_payload.get("pixel_normal_quantile", None), name="pixel_normal_quantile"
+        )
         if v is not None:
             args.pixel_normal_quantile = float(v)
 
-    if str(getattr(args, "pixel_threshold_strategy", "normal_pixel_quantile")) == "normal_pixel_quantile":
+    if (
+        str(getattr(args, "pixel_threshold_strategy", "normal_pixel_quantile"))
+        == "normal_pixel_quantile"
+    ):
         v = defects_payload.get("pixel_threshold_strategy", None)
         if v is not None:
             args.pixel_threshold_strategy = str(v)
@@ -725,7 +743,11 @@ def main(argv: list[str] | None = None) -> int:
 
         import pyimgano.models  # noqa: F401
         from pyimgano.cli import _resolve_preset_kwargs
-        from pyimgano.cli_common import build_model_kwargs, merge_checkpoint_path, parse_model_kwargs
+        from pyimgano.cli_common import (
+            build_model_kwargs,
+            merge_checkpoint_path,
+            parse_model_kwargs,
+        )
         from pyimgano.models.registry import MODEL_REGISTRY, materialize_model_constructor
 
         discovery_flags = [
@@ -867,7 +889,7 @@ def main(argv: list[str] | None = None) -> int:
                 "Use --list-models/--model-info/--list-model-presets for discovery."
             )
 
-        seed = (int(args.seed) if args.seed is not None else None)
+        seed = int(args.seed) if args.seed is not None else None
         if seed is not None:
             from pyimgano.utils.seeding import seed_everything
 
@@ -897,7 +919,9 @@ def main(argv: list[str] | None = None) -> int:
             report = load_report_from_run(args.from_run)
             _cat_name, cat_report = select_category_report(
                 report,
-                category=(str(args.from_run_category) if args.from_run_category is not None else None),
+                category=(
+                    str(args.from_run_category) if args.from_run_category is not None else None
+                ),
             )
 
             threshold_from_run = extract_threshold(cat_report)
@@ -1086,8 +1110,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.checkpoint_path is not None:
                 checkpoint_path = str(args.checkpoint_path)
             elif model_payload.get("checkpoint_path", None) is not None:
-                resolved_model_ckpt = resolve_infer_model_checkpoint_path(payload, config_path=cfg_path)
-                checkpoint_path = (str(resolved_model_ckpt) if resolved_model_ckpt is not None else None)
+                resolved_model_ckpt = resolve_infer_model_checkpoint_path(
+                    payload, config_path=cfg_path
+                )
+                checkpoint_path = (
+                    str(resolved_model_ckpt) if resolved_model_ckpt is not None else None
+                )
             user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
 
             preset_kwargs = _resolve_preset_kwargs(preset, model_name)
@@ -1142,7 +1170,10 @@ def main(argv: list[str] | None = None) -> int:
                 infer_config_postprocess = dict(post_cfg)
 
             if not bool(args.include_maps):
-                if bool(adaptation_payload.get("save_maps", False)) or infer_config_postprocess is not None:
+                if (
+                    bool(adaptation_payload.get("save_maps", False))
+                    or infer_config_postprocess is not None
+                ):
                     args.include_maps = True
         else:
             from pyimgano.cli_presets import resolve_model_preset
@@ -1301,7 +1332,7 @@ def main(argv: list[str] | None = None) -> int:
                         else None
                     ),
                 )
-                batch_size = (int(args.batch_size) if int(args.batch_size) > 0 else None)
+                batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
                 calibrate_threshold(
                     detector,
                     train_paths,
@@ -1356,7 +1387,7 @@ def main(argv: list[str] | None = None) -> int:
                     # even if the infer-config/run contains a pre-set pixel threshold.
                     infer_cfg_thr_for_resolve = None
 
-                    batch_size = (int(args.batch_size) if int(args.batch_size) > 0 else None)
+                    batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
                     calibration_maps = []
                     for r in infer_iter(
                         detector,
@@ -1370,19 +1401,23 @@ def main(argv: list[str] | None = None) -> int:
                             calibration_maps.append(r.anomaly_map)
 
             pixel_threshold_value, pixel_threshold_provenance = resolve_pixel_threshold(
-                pixel_threshold=(float(args.pixel_threshold) if args.pixel_threshold is not None else None),
+                pixel_threshold=(
+                    float(args.pixel_threshold) if args.pixel_threshold is not None else None
+                ),
                 pixel_threshold_strategy=str(args.pixel_threshold_strategy),
                 infer_config_pixel_threshold=infer_cfg_thr_for_resolve,
                 calibration_maps=calibration_maps,
                 pixel_normal_quantile=float(args.pixel_normal_quantile),
                 infer_config_source=str(infer_cfg_source),
-                roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
+                roi_xyxy_norm=(
+                    list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None
+                ),
             )
 
         t_fit_calibrate = time.perf_counter() - t_fit_start
 
         infer_timing = InferenceTiming()
-        batch_size = (int(args.batch_size) if int(args.batch_size) > 0 else None)
+        batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
         results_iter = infer_iter(
             detector,
             inputs,
@@ -1456,7 +1491,9 @@ def main(argv: list[str] | None = None) -> int:
                             "ensure --include-maps (or --defects) is enabled."
                         )
                     if pixel_threshold_value is None or pixel_threshold_provenance is None:
-                        raise RuntimeError("Internal error: pixel threshold was not resolved for --defects.")
+                        raise RuntimeError(
+                            "Internal error: pixel threshold was not resolved for --defects."
+                        )
 
                     from pyimgano.defects.extract import extract_defects_from_anomaly_map
                     from pyimgano.defects.io import save_binary_mask
@@ -1464,7 +1501,9 @@ def main(argv: list[str] | None = None) -> int:
                     defects = extract_defects_from_anomaly_map(
                         np.asarray(result.anomaly_map, dtype=np.float32),
                         pixel_threshold=float(pixel_threshold_value),
-                        roi_xyxy_norm=(list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None),
+                        roi_xyxy_norm=(
+                            list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None
+                        ),
                         mask_space=str(args.defects_mask_space),
                         border_ignore_px=int(args.defect_border_ignore_px),
                         map_smoothing_method=str(args.defect_map_smoothing),
@@ -1487,24 +1526,38 @@ def main(argv: list[str] | None = None) -> int:
                         mask_dilate_ksize=int(args.defects_mask_dilate),
                         min_area=int(args.defect_min_area),
                         min_fill_ratio=(
-                            float(args.defect_min_fill_ratio) if args.defect_min_fill_ratio is not None else None
+                            float(args.defect_min_fill_ratio)
+                            if args.defect_min_fill_ratio is not None
+                            else None
                         ),
                         max_aspect_ratio=(
-                            float(args.defect_max_aspect_ratio) if args.defect_max_aspect_ratio is not None else None
+                            float(args.defect_max_aspect_ratio)
+                            if args.defect_max_aspect_ratio is not None
+                            else None
                         ),
                         min_solidity=(
-                            float(args.defect_min_solidity) if args.defect_min_solidity is not None else None
+                            float(args.defect_min_solidity)
+                            if args.defect_min_solidity is not None
+                            else None
                         ),
                         min_score_max=(
-                            float(args.defect_min_score_max) if args.defect_min_score_max is not None else None
+                            float(args.defect_min_score_max)
+                            if args.defect_min_score_max is not None
+                            else None
                         ),
                         min_score_mean=(
-                            float(args.defect_min_score_mean) if args.defect_min_score_mean is not None else None
+                            float(args.defect_min_score_mean)
+                            if args.defect_min_score_mean is not None
+                            else None
                         ),
                         merge_nearby_enabled=bool(args.defect_merge_nearby),
                         merge_nearby_max_gap_px=int(args.defect_merge_nearby_max_gap_px),
                         max_regions_sort_by=str(args.defect_max_regions_sort_by),
-                        max_regions=(int(args.defect_max_regions) if args.defect_max_regions is not None else None),
+                        max_regions=(
+                            int(args.defect_max_regions)
+                            if args.defect_max_regions is not None
+                            else None
+                        ),
                     )
                     saved_defects_mask = defects["mask"]
 
@@ -1524,7 +1577,9 @@ def main(argv: list[str] | None = None) -> int:
                         else:  # pragma: no cover - guarded by argparse choices
                             raise ValueError(f"Unknown mask_format: {fmt!r}")
                         out_path = masks_dir / f"{i:06d}_{stem}{ext}"
-                        written = save_binary_mask(defects["mask"], out_path, format=str(args.mask_format))
+                        written = save_binary_mask(
+                            defects["mask"], out_path, format=str(args.mask_format)
+                        )
                         mask_meta.update(
                             {
                                 "path": str(written),
@@ -1589,7 +1644,9 @@ def main(argv: list[str] | None = None) -> int:
                     out_path = overlays_dir / f"{i:06d}_{stem}.png"
                     save_overlay_image(
                         input_path,
-                        anomaly_map=(result.anomaly_map if result.anomaly_map is not None else None),
+                        anomaly_map=(
+                            result.anomaly_map if result.anomaly_map is not None else None
+                        ),
                         defect_mask=saved_defects_mask,
                         out_path=out_path,
                     )
@@ -1653,6 +1710,8 @@ def main(argv: list[str] | None = None) -> int:
             if model_preset:
                 print(f"context: model_preset={model_preset!r}", file=sys.stderr)
         return 2
+
+
 def _build_postprocess_from_payload(payload: dict[str, Any]) -> AnomalyMapPostprocess:
     pr_raw = payload.get("percentile_range", (1.0, 99.0))
     if isinstance(pr_raw, (list, tuple)) and len(pr_raw) == 2:

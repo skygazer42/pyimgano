@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-
 ColorMode = Literal["bgr", "rgb", "gray"]
 
 
@@ -84,4 +83,3 @@ def resize_image(
     h, w = int(size_hw[0]), int(size_hw[1])
     interp = cv2.INTER_NEAREST if bool(is_mask) else cv2.INTER_AREA
     return cv2.resize(image, (w, h), interpolation=interp)
-

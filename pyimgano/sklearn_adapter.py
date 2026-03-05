@@ -98,8 +98,7 @@ class RegistryModelEstimator(BaseEstimator):
             available = ", ".join(list_models()[:25])
             suffix = "" if len(list_models()) <= 25 else ", ..."
             raise ValueError(
-                f"Unknown model name: {self.model!r}. "
-                f"Available (partial): {available}{suffix}"
+                f"Unknown model name: {self.model!r}. " f"Available (partial): {available}{suffix}"
             ) from exc
 
         try:
@@ -147,9 +146,7 @@ class RegistryModelEstimator(BaseEstimator):
 
         threshold = getattr(detector, "threshold_", None)
         if threshold is None:
-            raise AttributeError(
-                "Underlying detector does not expose predict() or threshold_."
-            )
+            raise AttributeError("Underlying detector does not expose predict() or threshold_.")
         scores = self.decision_function(X_norm)
         return (scores >= float(threshold)).astype(int)
 

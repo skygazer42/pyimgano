@@ -126,7 +126,13 @@ def test_workbench_preflight_manifest_detects_group_conflict(tmp_path: Path) -> 
         manifest,
         [
             {"image_path": "a.png", "category": "bottle", "split": "train", "group_id": "g1"},
-            {"image_path": "b.png", "category": "bottle", "split": "test", "label": 0, "group_id": "g1"},
+            {
+                "image_path": "b.png",
+                "category": "bottle",
+                "split": "test",
+                "label": 0,
+                "group_id": "g1",
+            },
         ],
     )
 

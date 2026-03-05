@@ -3,7 +3,6 @@ from __future__ import annotations
 
 def test_openclip_patch_map_model_is_registered_and_optional() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
-
     from pyimgano.models.registry import MODEL_REGISTRY, create_model, list_models
 
     assert "vision_openclip_patch_map" in list_models()
@@ -25,4 +24,3 @@ def test_openclip_patch_map_model_is_registered_and_optional() -> None:
     else:
         # If deps exist, ensure the safe default (no implicit downloads).
         assert getattr(det, "openclip_pretrained", None) is None
-

@@ -25,20 +25,13 @@ from .registry import register_model
 class VisualPromptLearner(nn.Module):
     """Learns visual prompts for anomaly detection."""
 
-    def __init__(
-        self,
-        num_prompts: int = 10,
-        prompt_dim: int = 512,
-        context_length: int = 16
-    ):
+    def __init__(self, num_prompts: int = 10, prompt_dim: int = 512, context_length: int = 16):
         super().__init__()
         self.num_prompts = num_prompts
         self.prompt_dim = prompt_dim
 
         # Learnable prompt embeddings
-        self.prompts = nn.Parameter(
-            torch.randn(num_prompts, context_length, prompt_dim)
-        )
+        self.prompts = nn.Parameter(torch.randn(num_prompts, context_length, prompt_dim))
 
         # Prompt encoder
         self.encoder = nn.Sequential(
@@ -73,7 +66,7 @@ class VisualPromptLearner(nn.Module):
         weights = F.softmax(similarity, dim=1)  # (B, num_prompts)
 
         # Weighted combination of prompts
-        selected_prompts = torch.einsum('bn,ncd->bcd', weights, self.prompts)  # (B, C, D)
+        selected_prompts = torch.einsum("bn,ncd->bcd", weights, self.prompts)  # (B, C, D)
         prompt_features = selected_prompts.mean(dim=1)  # (B, D)
 
         # Encode prompts
@@ -184,7 +177,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         epochs: int = 30,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -221,11 +214,13 @@ class VisionPromptAD(BaseVisionDeepDetector):
     def _build_feature_extractor(self):
         """Build pre-trained feature extractor."""
         if self.backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif self.backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -250,11 +245,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
 
         return extractor
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionPromptAD":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionPromptAD":
         """
         Fit the PromptAD detector.
 
@@ -287,28 +278,20 @@ class VisionPromptAD(BaseVisionDeepDetector):
             self.prompt_learner_ = VisualPromptLearner(
                 num_prompts=self.num_prompts,
                 prompt_dim=min(feature_dim, self.prompt_dim),
-                context_length=self.context_length
+                context_length=self.context_length,
             ).to(self.device)
 
         if self.adapter_ is None:
-            self.adapter_ = FeatureAdapter(
-                feature_dim=feature_dim
-            ).to(self.device)
+            self.adapter_ = FeatureAdapter(feature_dim=feature_dim).to(self.device)
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
-            list(self.prompt_learner_.parameters()) +
-            list(self.adapter_.parameters()),
+            list(self.prompt_learner_.parameters()) + list(self.adapter_.parameters()),
             lr=self.learning_rate,
-            weight_decay=1e-4
+            weight_decay=1e-4,
         )
 
         self.prompt_learner_.train()
@@ -367,7 +350,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and process features
                 features = self.feature_extractor_(batch)
@@ -379,10 +362,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         all_features = torch.cat(all_features, dim=0)
         self.normal_prototypes_ = all_features
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -404,7 +384,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and process features
                 features = self.feature_extractor_(batch)

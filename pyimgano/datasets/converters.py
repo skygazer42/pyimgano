@@ -18,7 +18,6 @@ from typing import Any, Callable
 
 from pyimgano.utils.path_normalize import normalize_path
 
-
 SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
 
 

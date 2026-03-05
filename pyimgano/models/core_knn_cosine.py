@@ -149,4 +149,3 @@ class CoreKNNCosineModel(CoreFeatureDetector):
 
 
 __all__ = ["CoreKNNCosineModel"]
-

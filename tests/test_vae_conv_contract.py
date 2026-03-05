@@ -47,4 +47,3 @@ def test_vae_conv_contract_fit_decision_predict(tmp_path: Path) -> None:
     labels = np.asarray(det.predict(test_paths), dtype=np.int64).reshape(-1)
     assert labels.shape == (len(test_paths),)
     assert set(labels.tolist()).issubset({0, 1})
-

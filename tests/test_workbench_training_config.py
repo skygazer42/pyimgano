@@ -58,4 +58,3 @@ def test_workbench_training_config_rejects_non_positive_values():
 
     with pytest.raises(ValueError, match="training\\.lr"):
         WorkbenchConfig.from_dict({**base, "training": {"lr": 0}})
-

@@ -9,7 +9,6 @@ from .blend import alpha_blend, poisson_blend
 from .masks import apply_roi_mask, ensure_u8_mask
 from .presets import PresetFn, make_preset
 
-
 _BlendMode = Literal["alpha", "poisson"]
 
 
@@ -55,7 +54,9 @@ class AnomalySynthesizer:
     - It is NOT a replacement for real defects.
     """
 
-    def __init__(self, spec: SynthSpec | None = None, *, preset_fn: Optional[PresetFn] = None) -> None:
+    def __init__(
+        self, spec: SynthSpec | None = None, *, preset_fn: Optional[PresetFn] = None
+    ) -> None:
         self.spec = SynthSpec() if spec is None else spec
         self._preset_fn = make_preset(self.spec.preset) if preset_fn is None else preset_fn
 
@@ -98,7 +99,12 @@ class AnomalySynthesizer:
         p = float(self.spec.probability)
         if p <= 0.0:
             empty = np.zeros(img.shape[:2], dtype=np.uint8)
-            return SynthResult(image_u8=np.asarray(img, dtype=np.uint8), mask_u8=empty, label=0, meta={"skipped": True})
+            return SynthResult(
+                image_u8=np.asarray(img, dtype=np.uint8),
+                mask_u8=empty,
+                label=0,
+                meta={"skipped": True},
+            )
         if p < 1.0:
             if float(rng.uniform(0.0, 1.0)) > p:
                 empty = np.zeros(img.shape[:2], dtype=np.uint8)
@@ -117,7 +123,9 @@ class AnomalySynthesizer:
         sev = float(np.clip(sev, 0.0, 1.0))
 
         blend = str(self.spec.blend).lower().strip()
-        poisson_mode = "mixed" if str(self.spec.poisson_mode).lower().strip() == "mixed" else "normal"
+        poisson_mode = (
+            "mixed" if str(self.spec.poisson_mode).lower().strip() == "mixed" else "normal"
+        )
 
         out_img = np.asarray(img, dtype=np.uint8)
         union_mask = np.zeros(img.shape[:2], dtype=np.uint8)
@@ -217,7 +225,9 @@ class AnomalySynthesizer:
                 "preset_id": str(self.spec.preset),
             }
         )
-        return SynthResult(image_u8=np.asarray(img, dtype=np.uint8), mask_u8=empty, label=0, meta=meta)
+        return SynthResult(
+            image_u8=np.asarray(img, dtype=np.uint8), mask_u8=empty, label=0, meta=meta
+        )
 
     def __call__(
         self,

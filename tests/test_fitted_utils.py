@@ -24,4 +24,3 @@ def test_require_fitted_ok_when_present() -> None:
             self.b = 2
 
     require_fitted(Dummy(), ["a", "b"])
-

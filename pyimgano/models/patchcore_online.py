@@ -58,7 +58,9 @@ class CorePatchCoreOnline(BaseDetector):
         if self.memory_bank_ is None:
             raise RuntimeError("Internal error: missing memory_bank_")
         bank = np.asarray(self.memory_bank_, dtype=np.float64)
-        nn = NearestNeighbors(n_neighbors=1 if bank.shape[0] <= 1 else 2, metric=self.metric, p=self.p)
+        nn = NearestNeighbors(
+            n_neighbors=1 if bank.shape[0] <= 1 else 2, metric=self.metric, p=self.p
+        )
         nn.fit(bank)
         self.nn_ = nn
 
@@ -114,7 +116,9 @@ class CorePatchCoreOnline(BaseDetector):
         if self.memory_bank_ is None:
             return self.fit(X_arr, y=y)
 
-        self.memory_bank_ = np.concatenate([np.asarray(self.memory_bank_, dtype=np.float64), X_arr], axis=0)
+        self.memory_bank_ = np.concatenate(
+            [np.asarray(self.memory_bank_, dtype=np.float64), X_arr], axis=0
+        )
         self._maybe_cap_bank()
         self._rebuild_index()
         return self
@@ -167,4 +171,3 @@ class VisionPatchCoreOnline(BaseVisionDetector):
 
 
 __all__ = ["CorePatchCoreOnline", "VisionPatchCoreOnline"]
-

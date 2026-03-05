@@ -100,7 +100,9 @@ class _CoreLOF:
         self.detector_.fit(X)
 
         # sklearn: negative_outlier_factor_ is lower (more negative) for outliers.
-        self.decision_scores_ = (-np.asarray(self.detector_.negative_outlier_factor_, dtype=np.float64)).reshape(-1)
+        self.decision_scores_ = (
+            -np.asarray(self.detector_.negative_outlier_factor_, dtype=np.float64)
+        ).reshape(-1)
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
@@ -181,7 +183,10 @@ class CoreFeatureBagging:
         if n_samples == 0:
             raise ValueError("Training set cannot be empty")
 
-        if not isinstance(self.n_estimators, (numbers.Integral, np.integer)) or self.n_estimators < 1:
+        if (
+            not isinstance(self.n_estimators, (numbers.Integral, np.integer))
+            or self.n_estimators < 1
+        ):
             raise ValueError("n_estimators must be an integer >= 1")
 
         # Feature bagging is meaningless with a single feature.
@@ -229,7 +234,9 @@ class CoreFeatureBagging:
         self.decision_scores_ = self._combine_scores(score_mat).astype(np.float64, copy=False)
         return self
 
-    def _get_train_score_matrix(self, X: NDArray[np.float64], *, n_samples: int) -> NDArray[np.float64]:
+    def _get_train_score_matrix(
+        self, X: NDArray[np.float64], *, n_samples: int
+    ) -> NDArray[np.float64]:
         mat = np.zeros((n_samples, len(self.estimators_)), dtype=np.float64)
         for i, (est, feats) in enumerate(zip(self.estimators_, self.estimators_features_)):
             scores = getattr(est, "decision_scores_", None)
@@ -267,7 +274,9 @@ class CoreFeatureBagging:
 
         score_mat = np.zeros((X.shape[0], len(self.estimators_)), dtype=np.float64)
         for i, (est, feats) in enumerate(zip(self.estimators_, self.estimators_features_)):
-            score_mat[:, i] = np.asarray(est.decision_function(X[:, feats]), dtype=np.float64).reshape(-1)
+            score_mat[:, i] = np.asarray(
+                est.decision_function(X[:, feats]), dtype=np.float64
+            ).reshape(-1)
         return self._combine_scores(score_mat).astype(np.float64, copy=False)
 
 

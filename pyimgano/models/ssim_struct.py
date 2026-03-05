@@ -65,14 +65,19 @@ def _edges(gray: np.ndarray, *, t1: int, t2: int) -> np.ndarray:
     return np.asarray(e, dtype=np.uint8)
 
 
-def _select_templates(imgs: list[np.ndarray], *, n_templates: int, random_state: Optional[int]) -> list[np.ndarray]:
+def _select_templates(
+    imgs: list[np.ndarray], *, n_templates: int, random_state: Optional[int]
+) -> list[np.ndarray]:
     if n_templates <= 1 or len(imgs) <= 1:
         return [np.asarray(imgs[0], dtype=np.uint8)]
 
     n_templates_eff = min(int(n_templates), len(imgs))
 
     small_hw = (64, 64)
-    X = np.stack([(_resize(im, size_hw=small_hw).reshape(-1).astype(np.float32) / 255.0) for im in imgs], axis=0)
+    X = np.stack(
+        [(_resize(im, size_hw=small_hw).reshape(-1).astype(np.float32) / 255.0) for im in imgs],
+        axis=0,
+    )
 
     km = KMeans(n_clusters=n_templates_eff, random_state=random_state, n_init=10)
     labels = km.fit_predict(X)
@@ -140,7 +145,9 @@ class SSIMStructDetector(BaseDetector):
         self._set_n_classes(y)
 
         imgs = [self._load_and_preprocess(it) for it in items]
-        self.templates_ = _select_templates(imgs, n_templates=int(self.n_templates), random_state=self.random_state)
+        self.templates_ = _select_templates(
+            imgs, n_templates=int(self.n_templates), random_state=self.random_state
+        )
 
         self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64)
         self._process_decision_scores()

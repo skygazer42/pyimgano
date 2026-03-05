@@ -45,4 +45,3 @@ def extract_reference_context(detector: Any) -> dict[str, Any] | None:
 
 
 __all__ = ["extract_reference_context"]
-

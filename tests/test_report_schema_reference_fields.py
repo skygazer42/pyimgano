@@ -12,12 +12,13 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 def test_benchmark_report_includes_reference_context_when_present(tmp_path: Path) -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
-
     from pyimgano.models.registry import MODEL_REGISTRY
     from pyimgano.pipelines.run_benchmark import RunConfig, run_benchmark_category
 
     class _DummyRefDetector:
-        def __init__(self, *, reference_dir=None, match_mode="basename", contamination=0.1, **kwargs):  # noqa: ANN001
+        def __init__(
+            self, *, reference_dir=None, match_mode="basename", contamination=0.1, **kwargs
+        ):  # noqa: ANN001
             self.reference_dir = reference_dir
             self.match_mode = match_mode
             self.kwargs = dict(kwargs)
@@ -77,4 +78,3 @@ def test_benchmark_report_includes_reference_context_when_present(tmp_path: Path
     assert ref["reference_dir"] == str(ref_dir)
     assert ref["match_mode"] == "basename"
     assert ref["reference_dir_exists"] is True
-

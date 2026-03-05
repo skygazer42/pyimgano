@@ -16,7 +16,6 @@ from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
-
 OPTIMIZER_DICT = {
     "sgd": optim.SGD,
     "adam": optim.Adam,
@@ -89,8 +88,12 @@ class InnerDeepSVDD(nn.Module):
     def init_center(self, features: torch.Tensor, eps: float = 0.1) -> None:
         self.eval()
         center = self.encode(features).mean(dim=0)
-        center = torch.where((center.abs() < eps) & (center < 0), torch.full_like(center, -eps), center)
-        center = torch.where((center.abs() < eps) & (center > 0), torch.full_like(center, eps), center)
+        center = torch.where(
+            (center.abs() < eps) & (center < 0), torch.full_like(center, -eps), center
+        )
+        center = torch.where(
+            (center.abs() < eps) & (center > 0), torch.full_like(center, eps), center
+        )
         self.center = center.detach()
 
     def _build_decoder(self) -> nn.Sequential:

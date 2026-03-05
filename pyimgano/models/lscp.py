@@ -157,7 +157,9 @@ class CoreLSCP:
         # Collect test scores from all detectors.
         test_scores = np.zeros((X_test.shape[0], self.n_clf), dtype=np.float64)
         for k, det in enumerate(self.detector_list):
-            test_scores[:, k] = np.asarray(det.decision_function(X_test), dtype=np.float64).reshape(-1)
+            test_scores[:, k] = np.asarray(det.decision_function(X_test), dtype=np.float64).reshape(
+                -1
+            )
 
         train_scores_norm, test_scores_norm = _zscore_standardize(self.train_scores_, test_scores)
 

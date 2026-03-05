@@ -33,4 +33,3 @@ def test_torchvision_patch_tokens_extractor_smoke(tmp_path: Path) -> None:
     assert feats.shape[0] == 2
     assert feats.shape[1] > 1
     assert np.isfinite(feats).all()
-

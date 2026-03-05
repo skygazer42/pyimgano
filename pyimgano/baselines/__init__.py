@@ -25,4 +25,3 @@ __all__ = [
     "list_baseline_suites",
     "resolve_suite_baselines",
 ]
-

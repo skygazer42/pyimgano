@@ -126,17 +126,13 @@ def validate_manifest_file(
     if check_files:
         for rec in records_checked:
             try:
-                _resolve_existing_path(
-                    rec.image_path, manifest_path=mp, root_fallback=root_path
-                )
+                _resolve_existing_path(rec.image_path, manifest_path=mp, root_fallback=root_path)
             except Exception as exc:  # noqa: BLE001 - best-effort validation
                 errors.append(str(exc))
 
             if rec.mask_path is not None:
                 try:
-                    _resolve_existing_path(
-                        rec.mask_path, manifest_path=mp, root_fallback=root_path
-                    )
+                    _resolve_existing_path(rec.mask_path, manifest_path=mp, root_fallback=root_path)
                 except Exception as exc:  # noqa: BLE001 - best-effort validation
                     errors.append(str(exc))
             elif rec.label == 1:
@@ -157,4 +153,3 @@ def validate_manifest_file(
 
 
 __all__ = ["ManifestValidationReport", "validate_manifest_file"]
-

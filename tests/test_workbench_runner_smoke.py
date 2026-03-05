@@ -90,10 +90,11 @@ def test_workbench_runner_smoke_writes_artifacts(tmp_path):
     assert maps_dir.exists()
     assert any(p.suffix == ".npy" for p in maps_dir.iterdir())
 
-    records = (out_dir / "categories" / "custom" / "per_image.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
+    records = (
+        (out_dir / "categories" / "custom" / "per_image.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     assert records
     first = json.loads(records[0])
     assert "anomaly_map" in first
-

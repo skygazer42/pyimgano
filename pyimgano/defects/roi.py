@@ -55,4 +55,3 @@ def roi_mask_from_xyxy_norm(
     if x_end > x_start and y_end > y_start:
         mask[y_start:y_end, x_start:x_end] = 1
     return mask
-

@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from pyimgano.workbench.adaptation import AdaptationConfig, MapPostprocessConfig, TilingConfig
 from pyimgano.preprocessing.industrial_presets import IlluminationContrastKnobs
+from pyimgano.workbench.adaptation import AdaptationConfig, MapPostprocessConfig, TilingConfig
 
 
 def _require_mapping(value: Any, *, name: str) -> Mapping[str, Any]:
@@ -77,9 +77,7 @@ def _parse_percentile_range(
     if value is None:
         return (float(default[0]), float(default[1]))
     if not isinstance(value, (list, tuple)) or len(value) != 2:
-        raise ValueError(
-            f"percentile_range must be a list/tuple of length 2, got {value!r}"
-        )
+        raise ValueError(f"percentile_range must be a list/tuple of length 2, got {value!r}")
     try:
         low = float(value[0])
         high = float(value[1])
@@ -305,11 +303,15 @@ class WorkbenchConfig:
         else:
             model_kwargs = dict(_require_mapping(mk_raw, name="model.model_kwargs"))
 
-        contamination = _optional_float(model_raw.get("contamination", 0.1), name="model.contamination")
+        contamination = _optional_float(
+            model_raw.get("contamination", 0.1), name="model.contamination"
+        )
         model = ModelConfig(
             name=str(model_name),
             device=str(model_raw.get("device", "cpu")),
-            preset=(str(model_raw["preset"]) if model_raw.get("preset", None) is not None else None),
+            preset=(
+                str(model_raw["preset"]) if model_raw.get("preset", None) is not None else None
+            ),
             pretrained=bool(model_raw.get("pretrained", True)),
             contamination=float(contamination if contamination is not None else 0.1),
             model_kwargs=model_kwargs,
@@ -327,7 +329,9 @@ class WorkbenchConfig:
             out_map = _require_mapping(out_raw, name="output")
             output = OutputConfig(
                 output_dir=(
-                    str(out_map["output_dir"]) if out_map.get("output_dir", None) is not None else None
+                    str(out_map["output_dir"])
+                    if out_map.get("output_dir", None) is not None
+                    else None
                 ),
                 save_run=bool(out_map.get("save_run", True)),
                 per_image_jsonl=bool(out_map.get("per_image_jsonl", True)),
@@ -344,13 +348,17 @@ class WorkbenchConfig:
                 tiling = TilingConfig()
             else:
                 t_map = _require_mapping(tiling_raw, name="adaptation.tiling")
-                tile_size = _optional_int(t_map.get("tile_size", None), name="adaptation.tiling.tile_size")
+                tile_size = _optional_int(
+                    t_map.get("tile_size", None), name="adaptation.tiling.tile_size"
+                )
                 stride = _optional_int(t_map.get("stride", None), name="adaptation.tiling.stride")
                 if tile_size is not None and tile_size <= 0:
                     raise ValueError("adaptation.tiling.tile_size must be positive or null")
                 if stride is not None and stride <= 0:
                     raise ValueError("adaptation.tiling.stride must be positive or null")
-                score_topk = _optional_float(t_map.get("score_topk", 0.1), name="adaptation.tiling.score_topk")
+                score_topk = _optional_float(
+                    t_map.get("score_topk", 0.1), name="adaptation.tiling.score_topk"
+                )
                 tiling = TilingConfig(
                     tile_size=tile_size,
                     stride=stride,
@@ -465,7 +473,9 @@ class WorkbenchConfig:
                     ic_map.get("clahe_clip_limit", 2.0),
                     name="preprocessing.illumination_contrast.clahe_clip_limit",
                 )
-                clahe_clip_limit_v = float(clahe_clip_limit if clahe_clip_limit is not None else 2.0)
+                clahe_clip_limit_v = float(
+                    clahe_clip_limit if clahe_clip_limit is not None else 2.0
+                )
                 if clahe_clip_limit_v <= 0.0:
                     raise ValueError(
                         "preprocessing.illumination_contrast.clahe_clip_limit must be > 0"
@@ -476,7 +486,9 @@ class WorkbenchConfig:
                     name="preprocessing.illumination_contrast.gamma",
                 )
                 if gamma is not None and float(gamma) <= 0.0:
-                    raise ValueError("preprocessing.illumination_contrast.gamma must be > 0 or null")
+                    raise ValueError(
+                        "preprocessing.illumination_contrast.gamma must be > 0 or null"
+                    )
 
                 lp = _optional_float(
                     ic_map.get("contrast_lower_percentile", 2.0),
@@ -536,17 +548,28 @@ class WorkbenchConfig:
             defects = DefectsConfig()
         else:
             d_map = _require_mapping(defects_raw, name="defects")
-            pixel_threshold = _optional_float(d_map.get("pixel_threshold", None), name="defects.pixel_threshold")
+            pixel_threshold = _optional_float(
+                d_map.get("pixel_threshold", None), name="defects.pixel_threshold"
+            )
             max_regions = _optional_int(d_map.get("max_regions", None), name="defects.max_regions")
             max_regions_sort_by = str(d_map.get("max_regions_sort_by", "score_max")).lower().strip()
             border_ignore_px = int(
-                _optional_int(d_map.get("border_ignore_px", 0), name="defects.border_ignore_px") or 0
+                _optional_int(d_map.get("border_ignore_px", 0), name="defects.border_ignore_px")
+                or 0
             )
             min_area = int(_optional_int(d_map.get("min_area", 0), name="defects.min_area") or 0)
-            min_score_max = _optional_float(d_map.get("min_score_max", None), name="defects.min_score_max")
-            min_score_mean = _optional_float(d_map.get("min_score_mean", None), name="defects.min_score_mean")
-            open_ksize = int(_optional_int(d_map.get("open_ksize", 0), name="defects.open_ksize") or 0)
-            close_ksize = int(_optional_int(d_map.get("close_ksize", 0), name="defects.close_ksize") or 0)
+            min_score_max = _optional_float(
+                d_map.get("min_score_max", None), name="defects.min_score_max"
+            )
+            min_score_mean = _optional_float(
+                d_map.get("min_score_mean", None), name="defects.min_score_mean"
+            )
+            open_ksize = int(
+                _optional_int(d_map.get("open_ksize", 0), name="defects.open_ksize") or 0
+            )
+            close_ksize = int(
+                _optional_int(d_map.get("close_ksize", 0), name="defects.close_ksize") or 0
+            )
 
             if border_ignore_px < 0:
                 raise ValueError("defects.border_ignore_px must be >= 0")
@@ -559,13 +582,17 @@ class WorkbenchConfig:
             if max_regions is not None and max_regions <= 0:
                 raise ValueError("defects.max_regions must be positive or null")
             if max_regions_sort_by not in ("score_max", "score_mean", "area"):
-                raise ValueError("defects.max_regions_sort_by must be one of: score_max|score_mean|area")
+                raise ValueError(
+                    "defects.max_regions_sort_by must be one of: score_max|score_mean|area"
+                )
             if min_score_max is not None and float(min_score_max) < 0.0:
                 raise ValueError("defects.min_score_max must be >= 0 or null")
             if min_score_mean is not None and float(min_score_mean) < 0.0:
                 raise ValueError("defects.min_score_mean must be >= 0 or null")
 
-            q = _optional_float(d_map.get("pixel_normal_quantile", 0.999), name="defects.pixel_normal_quantile")
+            q = _optional_float(
+                d_map.get("pixel_normal_quantile", 0.999), name="defects.pixel_normal_quantile"
+            )
             qv = float(q if q is not None else 0.999)
             if not (0.0 < qv <= 1.0):
                 raise ValueError("defects.pixel_normal_quantile must be in (0,1]")
@@ -587,7 +614,9 @@ class WorkbenchConfig:
                 ms_ksize = int(
                     _optional_int(ms_map.get("ksize", 0), name="defects.map_smoothing.ksize") or 0
                 )
-                ms_sigma = _optional_float(ms_map.get("sigma", 0.0), name="defects.map_smoothing.sigma")
+                ms_sigma = _optional_float(
+                    ms_map.get("sigma", 0.0), name="defects.map_smoothing.sigma"
+                )
                 ms_sigma_v = float(ms_sigma if ms_sigma is not None else 0.0)
                 if ms_ksize < 0:
                     raise ValueError("defects.map_smoothing.ksize must be >= 0")
@@ -595,7 +624,9 @@ class WorkbenchConfig:
                     raise ValueError("defects.map_smoothing.sigma must be >= 0")
 
                 if ms_method in ("median", "box") and ms_ksize not in (0, 1) and ms_ksize < 3:
-                    raise ValueError("defects.map_smoothing.ksize must be >= 3 for median/box smoothing")
+                    raise ValueError(
+                        "defects.map_smoothing.ksize must be >= 3 for median/box smoothing"
+                    )
 
                 map_smoothing = MapSmoothingConfig(
                     method=ms_method,
@@ -610,7 +641,9 @@ class WorkbenchConfig:
                 hyst_map = _require_mapping(hyst_raw, name="defects.hysteresis")
                 hyst_enabled = bool(hyst_map.get("enabled", False))
                 hyst_low = _optional_float(hyst_map.get("low", None), name="defects.hysteresis.low")
-                hyst_high = _optional_float(hyst_map.get("high", None), name="defects.hysteresis.high")
+                hyst_high = _optional_float(
+                    hyst_map.get("high", None), name="defects.hysteresis.high"
+                )
                 if hyst_low is not None and float(hyst_low) < 0.0:
                     raise ValueError("defects.hysteresis.low must be >= 0 or null")
                 if hyst_high is not None and float(hyst_high) < 0.0:
@@ -640,14 +673,20 @@ class WorkbenchConfig:
                 )
 
                 if sf_min_fill_ratio is not None and not (0.0 <= float(sf_min_fill_ratio) <= 1.0):
-                    raise ValueError("defects.shape_filters.min_fill_ratio must be in [0,1] or null")
+                    raise ValueError(
+                        "defects.shape_filters.min_fill_ratio must be in [0,1] or null"
+                    )
                 if sf_max_aspect_ratio is not None and float(sf_max_aspect_ratio) < 1.0:
-                    raise ValueError("defects.shape_filters.max_aspect_ratio must be >= 1.0 or null")
+                    raise ValueError(
+                        "defects.shape_filters.max_aspect_ratio must be >= 1.0 or null"
+                    )
                 if sf_min_solidity is not None and not (0.0 <= float(sf_min_solidity) <= 1.0):
                     raise ValueError("defects.shape_filters.min_solidity must be in [0,1] or null")
 
                 shape_filters = ShapeFiltersConfig(
-                    min_fill_ratio=(float(sf_min_fill_ratio) if sf_min_fill_ratio is not None else None),
+                    min_fill_ratio=(
+                        float(sf_min_fill_ratio) if sf_min_fill_ratio is not None else None
+                    ),
                     max_aspect_ratio=(
                         float(sf_max_aspect_ratio) if sf_max_aspect_ratio is not None else None
                     ),
@@ -674,7 +713,9 @@ class WorkbenchConfig:
             defects = DefectsConfig(
                 enabled=bool(d_map.get("enabled", False)),
                 pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
-                pixel_threshold_strategy=str(d_map.get("pixel_threshold_strategy", "normal_pixel_quantile")),
+                pixel_threshold_strategy=str(
+                    d_map.get("pixel_threshold_strategy", "normal_pixel_quantile")
+                ),
                 pixel_normal_quantile=qv,
                 mask_format=mask_format,
                 roi_xyxy_norm=_parse_roi_xyxy_norm(d_map.get("roi_xyxy_norm", None)),

@@ -64,9 +64,9 @@ class CoreFeatureDetector(BaseDetector):
         self.detector.fit(X_np)
 
         if hasattr(self.detector, "decision_scores_"):
-            scores = np.asarray(getattr(self.detector, "decision_scores_"), dtype=np.float64).reshape(
-                -1
-            )
+            scores = np.asarray(
+                getattr(self.detector, "decision_scores_"), dtype=np.float64
+            ).reshape(-1)
         else:
             scores = np.asarray(self.detector.decision_function(X_np), dtype=np.float64).reshape(-1)
 

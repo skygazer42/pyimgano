@@ -68,8 +68,8 @@ def test_recipe_industrial_embedding_core_fast_smoke(tmp_path: Path) -> None:
         }
     )
 
-    import pyimgano.recipes  # noqa: F401 - ensure builtin recipes registered
     import pyimgano.models  # noqa: F401 - ensure models registered
+    import pyimgano.recipes  # noqa: F401 - ensure builtin recipes registered
 
     recipe = RECIPE_REGISTRY.get("industrial-embedding-core-fast")
     report = recipe(cfg)

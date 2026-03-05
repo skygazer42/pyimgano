@@ -28,4 +28,3 @@ def test_train_cli_dry_run_prints_effective_config_without_writing(tmp_path, cap
     payload = json.loads(out)
     assert "config" in payload
     assert payload["config"]["recipe"] == "industrial-adapt"
-

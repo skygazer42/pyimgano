@@ -2,12 +2,14 @@ from __future__ import annotations
 
 
 def test_cli_plugins_flag_triggers_plugin_loading(monkeypatch) -> None:
-    from pyimgano.cli import main
     import pyimgano.plugins as plugins
+    from pyimgano.cli import main
 
     called = {"n": 0}
 
-    def _stub_load_plugins(*, groups=("pyimgano.plugins",), on_error="warn"):  # noqa: ANN001, ANN201
+    def _stub_load_plugins(
+        *, groups=("pyimgano.plugins",), on_error="warn"
+    ):  # noqa: ANN001, ANN201
         called["n"] += 1
         return []
 
@@ -20,4 +22,3 @@ def test_cli_plugins_flag_triggers_plugin_loading(monkeypatch) -> None:
 
     assert rc == 0
     assert called["n"] == 1
-

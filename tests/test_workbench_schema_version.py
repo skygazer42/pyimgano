@@ -91,4 +91,3 @@ def test_workbench_reports_are_stamped_with_schema_version(tmp_path):
         from pyimgano import __version__ as pyimgano_version
 
         assert payload["pyimgano_version"] == pyimgano_version
-

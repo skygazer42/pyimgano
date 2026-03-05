@@ -7,7 +7,6 @@ import numpy as np
 
 from .masks import ensure_u8_mask
 
-
 _Variant = Literal["normal", "scar", "3way"]
 
 
@@ -139,4 +138,3 @@ def cutpaste(
     mask[y1 : y1 + ph, x1 : x1 + pw] = 255
 
     return np.asarray(out, dtype=np.uint8), ensure_u8_mask(mask)
-

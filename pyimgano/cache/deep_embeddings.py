@@ -109,14 +109,16 @@ class CachedVisionImageDataset:
             return x, x
 
         try:
-            from PIL import Image
             import torch
+            from PIL import Image
 
             pil = Image.open(path).convert("RGB")
             out = self.transform(pil)
             out_t = torch.as_tensor(out)
             if out_t.ndim != 3:
-                raise ValueError(f"Transform must return CHW tensor, got shape {tuple(out_t.shape)}")
+                raise ValueError(
+                    f"Transform must return CHW tensor, got shape {tuple(out_t.shape)}"
+                )
             arr = out_t.detach().cpu().numpy().astype(np.float32, copy=False)
             self.cache.save(path, arr)
             return out_t, out_t
@@ -128,4 +130,3 @@ class CachedVisionImageDataset:
 
 
 __all__ = ["TensorCache", "fingerprint_transform", "CachedVisionImageDataset"]
-

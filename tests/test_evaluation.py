@@ -80,7 +80,7 @@ class TestFindOptimalThreshold:
         y_true = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         y_scores = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.6, 0.7, 0.8, 0.9])
 
-        threshold, f1 = find_optimal_threshold(y_true, y_scores, metric='f1')
+        threshold, f1 = find_optimal_threshold(y_true, y_scores, metric="f1")
 
         assert 0 <= threshold <= 1
         assert 0 <= f1 <= 1
@@ -90,7 +90,7 @@ class TestFindOptimalThreshold:
         y_true = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         y_scores = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.6, 0.7, 0.8, 0.9])
 
-        threshold, j = find_optimal_threshold(y_true, y_scores, metric='youden')
+        threshold, j = find_optimal_threshold(y_true, y_scores, metric="youden")
 
         assert 0 <= threshold <= 1
         assert -1 <= j <= 1
@@ -100,7 +100,7 @@ class TestFindOptimalThreshold:
         y_true = np.array([0, 0, 0, 1, 1, 1])
         y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
-        threshold, precision = find_optimal_threshold(y_true, y_scores, metric='precision')
+        threshold, precision = find_optimal_threshold(y_true, y_scores, metric="precision")
 
         assert 0 <= threshold <= 1
         assert 0 <= precision <= 1
@@ -110,7 +110,7 @@ class TestFindOptimalThreshold:
         y_true = np.array([0, 0, 0, 1, 1, 1])
         y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
-        threshold, recall = find_optimal_threshold(y_true, y_scores, metric='recall')
+        threshold, recall = find_optimal_threshold(y_true, y_scores, metric="recall")
 
         assert 0 <= threshold <= 1
         assert 0 <= recall <= 1
@@ -121,7 +121,7 @@ class TestFindOptimalThreshold:
         y_scores = np.array([0.1, 0.2, 0.8, 0.9])
 
         with pytest.raises(ValueError, match="Unsupported metric"):
-            find_optimal_threshold(y_true, y_scores, metric='invalid')
+            find_optimal_threshold(y_true, y_scores, metric="invalid")
 
 
 class TestClassificationMetrics:
@@ -134,15 +134,15 @@ class TestClassificationMetrics:
 
         metrics = compute_classification_metrics(y_true, y_pred)
 
-        assert metrics['precision'] == 1.0
-        assert metrics['recall'] == 1.0
-        assert metrics['f1'] == 1.0
-        assert metrics['specificity'] == 1.0
-        assert metrics['accuracy'] == 1.0
-        assert metrics['tp'] == 2
-        assert metrics['tn'] == 2
-        assert metrics['fp'] == 0
-        assert metrics['fn'] == 0
+        assert metrics["precision"] == 1.0
+        assert metrics["recall"] == 1.0
+        assert metrics["f1"] == 1.0
+        assert metrics["specificity"] == 1.0
+        assert metrics["accuracy"] == 1.0
+        assert metrics["tp"] == 2
+        assert metrics["tn"] == 2
+        assert metrics["fp"] == 0
+        assert metrics["fn"] == 0
 
     def test_all_negative_predictions(self):
         """Test metrics when all predictions are negative."""
@@ -151,13 +151,13 @@ class TestClassificationMetrics:
 
         metrics = compute_classification_metrics(y_true, y_pred)
 
-        assert metrics['precision'] == 0.0
-        assert metrics['recall'] == 0.0
-        assert metrics['f1'] == 0.0
-        assert metrics['specificity'] == 1.0
-        assert metrics['accuracy'] == 0.5
-        assert metrics['tp'] == 0
-        assert metrics['fn'] == 2
+        assert metrics["precision"] == 0.0
+        assert metrics["recall"] == 0.0
+        assert metrics["f1"] == 0.0
+        assert metrics["specificity"] == 1.0
+        assert metrics["accuracy"] == 0.5
+        assert metrics["tp"] == 0
+        assert metrics["fn"] == 2
 
     def test_all_positive_predictions(self):
         """Test metrics when all predictions are positive."""
@@ -166,9 +166,9 @@ class TestClassificationMetrics:
 
         metrics = compute_classification_metrics(y_true, y_pred)
 
-        assert metrics['recall'] == 1.0
-        assert metrics['specificity'] == 0.0
-        assert metrics['accuracy'] == 0.5
+        assert metrics["recall"] == 1.0
+        assert metrics["specificity"] == 0.0
+        assert metrics["accuracy"] == 0.5
 
 
 class TestEvaluateDetector:
@@ -181,14 +181,14 @@ class TestEvaluateDetector:
 
         results = evaluate_detector(y_true, y_scores, threshold=0.5)
 
-        assert 'auroc' in results
-        assert 'average_precision' in results
-        assert 'threshold' in results
-        assert 'metrics' in results
+        assert "auroc" in results
+        assert "average_precision" in results
+        assert "threshold" in results
+        assert "metrics" in results
 
-        assert results['threshold'] == 0.5
-        assert 0 <= results['auroc'] <= 1
-        assert 0 <= results['average_precision'] <= 1
+        assert results["threshold"] == 0.5
+        assert 0 <= results["auroc"] <= 1
+        assert 0 <= results["average_precision"] <= 1
 
     def test_with_optimal_threshold(self):
         """Test evaluation with automatic threshold finding."""
@@ -197,8 +197,8 @@ class TestEvaluateDetector:
 
         results = evaluate_detector(y_true, y_scores, find_best_threshold=True)
 
-        assert results['threshold'] is not None
-        assert 0 <= results['threshold'] <= 1
+        assert results["threshold"] is not None
+        assert 0 <= results["threshold"] <= 1
 
     def test_classification_metrics_included(self):
         """Test that classification metrics are included."""
@@ -207,16 +207,16 @@ class TestEvaluateDetector:
 
         results = evaluate_detector(y_true, y_scores)
 
-        metrics = results['metrics']
-        assert 'precision' in metrics
-        assert 'recall' in metrics
-        assert 'f1' in metrics
-        assert 'specificity' in metrics
-        assert 'accuracy' in metrics
-        assert 'tp' in metrics
-        assert 'tn' in metrics
-        assert 'fp' in metrics
-        assert 'fn' in metrics
+        metrics = results["metrics"]
+        assert "precision" in metrics
+        assert "recall" in metrics
+        assert "f1" in metrics
+        assert "specificity" in metrics
+        assert "accuracy" in metrics
+        assert "tp" in metrics
+        assert "tn" in metrics
+        assert "fp" in metrics
+        assert "fn" in metrics
 
     def test_pixel_metrics_optional(self):
         """Test that pixel-level metrics are computed when provided."""
@@ -234,11 +234,11 @@ class TestEvaluateDetector:
             pixel_scores=pixel_scores,
         )
 
-        assert 'pixel_metrics' in results
-        pixel_metrics = results['pixel_metrics']
-        assert 'pixel_auroc' in pixel_metrics
-        assert 'pixel_average_precision' in pixel_metrics
-        assert 'aupro' in pixel_metrics
+        assert "pixel_metrics" in results
+        pixel_metrics = results["pixel_metrics"]
+        assert "pixel_auroc" in pixel_metrics
+        assert "pixel_average_precision" in pixel_metrics
+        assert "aupro" in pixel_metrics
 
     def test_pixel_segf1_optional_with_fixed_threshold(self):
         """Test SegF1/bg-FPR metrics under a single global pixel threshold."""
@@ -297,11 +297,7 @@ class TestPROScore:
         pixel_labels[:, 10:40, 10:40] = 1
         pixel_scores = pixel_labels.copy()
 
-        pro_score = compute_pro_score(
-            pixel_labels,
-            pixel_scores,
-            integration_limit=0.5
-        )
+        pro_score = compute_pro_score(pixel_labels, pixel_scores, integration_limit=0.5)
 
         assert 0 <= pro_score <= 1
 

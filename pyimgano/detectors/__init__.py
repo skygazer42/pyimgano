@@ -19,7 +19,6 @@ from typing import Any, Optional, Sequence
 
 import numpy as np
 
-
 from pyimgano.features.identity import IdentityExtractor as IdentityFeatureExtractor
 
 
@@ -240,7 +239,9 @@ def _make_missing_torch_autoencoder_detector():
             from pyimgano.utils.optional_deps import require
 
             require("torch", extra="torch", purpose="pyimgano.detectors.AutoencoderDetector")
-            raise RuntimeError("Unreachable: torch was required but AutoencoderDetector was not materialized.")
+            raise RuntimeError(
+                "Unreachable: torch was required but AutoencoderDetector was not materialized."
+            )
 
     return AutoencoderDetector
 

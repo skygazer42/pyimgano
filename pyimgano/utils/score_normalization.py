@@ -88,4 +88,3 @@ def normalize(scores, method: str) -> np.ndarray:
     if m in {"quantile", "quant"}:
         return quantile(scores)
     raise ValueError(f"Unknown normalization method: {method!r}")
-

@@ -149,4 +149,3 @@ class VisionLID(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreLID(**self._detector_kwargs)
-

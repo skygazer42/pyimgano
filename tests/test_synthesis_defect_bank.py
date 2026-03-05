@@ -51,4 +51,3 @@ def test_defect_bank_preset_pastes_nonempty_mask(tmp_path: Path) -> None:
     assert meta.get("preset") == "defect_bank"
     assert "defect_item" in meta
     assert "bbox_xyxy" in meta
-

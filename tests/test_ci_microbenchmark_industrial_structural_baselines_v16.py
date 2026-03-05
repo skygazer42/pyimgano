@@ -73,4 +73,3 @@ def test_ci_microbenchmark_structural_baselines_are_stable(tmp_path: Path) -> No
 
         assert auroc >= 0.99, f"{model}: auroc={auroc}"
         assert ap >= 0.99, f"{model}: ap={ap}"
-

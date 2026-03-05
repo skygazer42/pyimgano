@@ -41,7 +41,7 @@ class ImageDecomposer:
         self.grid_size = int(np.sqrt(n_splits))
         self.mask_ratio = mask_ratio
 
-        if self.grid_size ** 2 != n_splits:
+        if self.grid_size**2 != n_splits:
             raise ValueError("n_splits must be a perfect square")
 
     def decompose(self, image: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
@@ -269,6 +269,7 @@ class RIADDetector(BaseVisionDeepDetector):
             # Resize if needed
             if img.shape[:2] != self.image_size:
                 import cv2
+
                 img = cv2.resize(img, (self.image_size[1], self.image_size[0]))
 
             # Create masked version
@@ -337,6 +338,7 @@ class RIADDetector(BaseVisionDeepDetector):
                 # Resize if needed
                 if img.shape[:2] != self.image_size:
                     import cv2
+
                     img = cv2.resize(img, (self.image_size[1], self.image_size[0]))
 
                 img_tensor = torch.from_numpy(img.transpose(2, 0, 1)).unsqueeze(0).float()
@@ -346,7 +348,7 @@ class RIADDetector(BaseVisionDeepDetector):
                 reconstructed = self.model(img_tensor)
 
                 # Reconstruction error
-                error = F.mse_loss(reconstructed, img_tensor, reduction='none')
+                error = F.mse_loss(reconstructed, img_tensor, reduction="none")
                 error = error.mean(dim=1).squeeze()  # Average across channels
 
                 # Image-level score (max error)
@@ -376,6 +378,7 @@ class RIADDetector(BaseVisionDeepDetector):
                 original_size = img.shape[:2]
                 if img.shape[:2] != self.image_size:
                     import cv2
+
                     img_resized = cv2.resize(img, (self.image_size[1], self.image_size[0]))
                 else:
                     img_resized = img
@@ -387,17 +390,14 @@ class RIADDetector(BaseVisionDeepDetector):
                 reconstructed = self.model(img_tensor)
 
                 # Reconstruction error
-                error = F.mse_loss(reconstructed, img_tensor, reduction='none')
+                error = F.mse_loss(reconstructed, img_tensor, reduction="none")
                 error = error.mean(dim=1).squeeze()  # Average across channels
 
                 # Resize to original size if needed
                 if original_size != self.image_size:
                     error = error.unsqueeze(0).unsqueeze(0)
                     error = F.interpolate(
-                        error,
-                        size=original_size,
-                        mode='bilinear',
-                        align_corners=False
+                        error, size=original_size, mode="bilinear", align_corners=False
                     )
                     error = error.squeeze()
 

@@ -45,8 +45,12 @@ def test_embedding_cache_reuses_rows_on_second_pass(tmp_path: Path) -> None:
     )
     det.fit([str(p) for p in train])
 
-    scores1 = np.asarray(det.decision_function([str(p) for p in test]), dtype=np.float64).reshape(-1)
-    scores2 = np.asarray(det.decision_function([str(p) for p in test]), dtype=np.float64).reshape(-1)
+    scores1 = np.asarray(det.decision_function([str(p) for p in test]), dtype=np.float64).reshape(
+        -1
+    )
+    scores2 = np.asarray(det.decision_function([str(p) for p in test]), dtype=np.float64).reshape(
+        -1
+    )
     assert scores1.shape == (2,)
     assert np.allclose(scores2, scores1)
 
@@ -54,4 +58,3 @@ def test_embedding_cache_reuses_rows_on_second_pass(tmp_path: Path) -> None:
     stats = getattr(fx, "last_cache_stats_", None)
     assert isinstance(stats, dict)
     assert int(stats.get("hits", 0)) >= 1
-

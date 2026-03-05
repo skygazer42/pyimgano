@@ -115,4 +115,3 @@ class VisionKDERatio(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreKDERatio(**self._detector_kwargs)
-

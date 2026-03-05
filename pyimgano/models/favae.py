@@ -28,12 +28,14 @@ class FeatureExtractor(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
             self.out_channels = 1024
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
             self.out_channels = 512
@@ -66,12 +68,7 @@ class FeatureExtractor(nn.Module):
 class AdaptiveEncoder(nn.Module):
     """Adaptive encoder with dynamic latent space."""
 
-    def __init__(
-        self,
-        in_channels: int,
-        latent_dim: int = 256,
-        adaptive_channels: int = 64
-    ):
+    def __init__(self, in_channels: int, latent_dim: int = 256, adaptive_channels: int = 64):
         super().__init__()
 
         self.latent_dim = latent_dim
@@ -98,10 +95,7 @@ class AdaptiveEncoder(nn.Module):
         self.fc_mu = nn.Linear(256, latent_dim)
         self.fc_logvar = nn.Linear(256, latent_dim)
 
-    def forward(
-        self,
-        x: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Encode input to latent distribution.
 
@@ -139,12 +133,7 @@ class AdaptiveEncoder(nn.Module):
 class AdaptiveDecoder(nn.Module):
     """Decoder with skip connections."""
 
-    def __init__(
-        self,
-        latent_dim: int,
-        out_channels: int,
-        feature_size: int = 28
-    ):
+    def __init__(self, latent_dim: int, out_channels: int, feature_size: int = 28):
         super().__init__()
 
         self.feature_size = feature_size
@@ -245,7 +234,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
         beta: float = 1.0,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -282,11 +271,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
         return torch.from_numpy(X).float()
 
     def _vae_loss(
-        self,
-        recon: torch.Tensor,
-        target: torch.Tensor,
-        mu: torch.Tensor,
-        logvar: torch.Tensor
+        self, recon: torch.Tensor, target: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Compute VAE loss.
@@ -301,7 +286,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
             KL divergence loss
         """
         # Reconstruction loss
-        recon_loss = F.mse_loss(recon, target, reduction='mean')
+        recon_loss = F.mse_loss(recon, target, reduction="mean")
 
         # KL divergence loss
         kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
@@ -311,11 +296,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         return total_loss, recon_loss, kl_loss
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionFAVAE":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionFAVAE":
         """
         Fit the FAVAE detector.
 
@@ -336,9 +317,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
-            self.feature_extractor_ = FeatureExtractor(
-                backbone=self.backbone
-            ).to(self.device)
+            self.feature_extractor_ = FeatureExtractor(backbone=self.backbone).to(self.device)
 
         # Get feature dimensions
         with torch.no_grad():
@@ -351,28 +330,23 @@ class VisionFAVAE(BaseVisionDeepDetector):
             self.encoder_ = AdaptiveEncoder(
                 in_channels=in_channels,
                 latent_dim=self.latent_dim,
-                adaptive_channels=self.adaptive_channels
+                adaptive_channels=self.adaptive_channels,
             ).to(self.device)
 
         if self.decoder_ is None:
             self.decoder_ = AdaptiveDecoder(
                 latent_dim=self.latent_dim,
                 out_channels=in_channels,
-                feature_size=self.feature_size_
+                feature_size=self.feature_size_,
             ).to(self.device)
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
             list(self.encoder_.parameters()) + list(self.decoder_.parameters()),
-            lr=self.learning_rate
+            lr=self.learning_rate,
         )
 
         self.encoder_.train()
@@ -399,10 +373,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
                 # Resize reconstruction to match features
                 if recon.shape[2:] != features.shape[2:]:
                     recon = F.interpolate(
-                        recon,
-                        size=features.shape[2:],
-                        mode='bilinear',
-                        align_corners=False
+                        recon, size=features.shape[2:], mode="bilinear", align_corners=False
                     )
 
                 # Compute loss
@@ -421,17 +392,16 @@ class VisionFAVAE(BaseVisionDeepDetector):
                 avg_loss = total_loss / len(dataloader)
                 avg_recon = total_recon / len(dataloader)
                 avg_kl = total_kl / len(dataloader)
-                print(f"Epoch {epoch + 1}/{self.epochs}, "
-                      f"Loss: {avg_loss:.4f}, "
-                      f"Recon: {avg_recon:.4f}, "
-                      f"KL: {avg_kl:.4f}")
+                print(
+                    f"Epoch {epoch + 1}/{self.epochs}, "
+                    f"Loss: {avg_loss:.4f}, "
+                    f"Recon: {avg_recon:.4f}, "
+                    f"KL: {avg_kl:.4f}"
+                )
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -453,7 +423,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)
@@ -465,10 +435,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
                 # Resize reconstruction
                 if recon.shape[2:] != features.shape[2:]:
                     recon = F.interpolate(
-                        recon,
-                        size=features.shape[2:],
-                        mode='bilinear',
-                        align_corners=False
+                        recon, size=features.shape[2:], mode="bilinear", align_corners=False
                     )
 
                 # Reconstruction error as anomaly score

@@ -16,11 +16,11 @@ from typing import Optional
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from ..utils.fitted import require_fitted
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .knn import CoreKNN
 from .registry import register_model
-from ..utils.fitted import require_fitted
 
 
 class _RPkNNBackend:
@@ -179,4 +179,3 @@ class VisionRandomProjectionKNN(BaseVisionDetector):
     def _build_detector(self):
         # Use the core backend directly (vision wrapper calls detector.fit on extracted features).
         return _RPkNNBackend(**self._detector_kwargs)
-

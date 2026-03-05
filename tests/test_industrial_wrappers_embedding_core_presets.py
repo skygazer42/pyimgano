@@ -24,4 +24,3 @@ def test_industrial_embedding_core_wrappers_accept_identity_extractor_on_vectors
         scores = np.asarray(det.decision_function(X[:7]), dtype=np.float64).reshape(-1)
         assert scores.shape == (7,)
         assert np.all(np.isfinite(scores))
-

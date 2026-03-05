@@ -184,4 +184,3 @@ class CoreOddOneOut(CoreFeatureDetector):
 
 
 __all__ = ["CoreOddOneOut"]
-

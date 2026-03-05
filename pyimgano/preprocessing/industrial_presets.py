@@ -247,7 +247,9 @@ def apply_illumination_contrast(
     elif wb in ("max_rgb", "max-rgb", "maxrgb"):
         out = max_rgb_white_balance(out)
     else:
-        raise ValueError("white_balance must be one of: none, gray_world, max_rgb. " f"Got: {wb!r}.")
+        raise ValueError(
+            "white_balance must be one of: none, gray_world, max_rgb. " f"Got: {wb!r}."
+        )
 
     if hm:
         out = homomorphic_filter(
@@ -423,5 +425,7 @@ def defect_amplification(
     else:
         raise ValueError("edge_method must be one of: sobel, canny")
 
-    out = float(tophat_weight) * tophat.astype(np.float32) + float(edge_weight) * edges.astype(np.float32)
+    out = float(tophat_weight) * tophat.astype(np.float32) + float(edge_weight) * edges.astype(
+        np.float32
+    )
     return np.clip(out, 0.0, 255.0).astype(np.uint8)

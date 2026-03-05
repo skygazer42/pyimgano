@@ -39,4 +39,3 @@ class CorePadimLite(CoreEllipticEnvelope):
 )
 class VisionPadimLite(VisionEllipticEnvelope):
     pass
-

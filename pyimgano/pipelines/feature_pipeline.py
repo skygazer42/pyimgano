@@ -32,4 +32,3 @@ class VisionFeaturePipeline(BaseVisionDetector):
         if isinstance(cd, type):
             return cd(contamination=self.contamination, **self.core_kwargs)
         return cd
-

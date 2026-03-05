@@ -18,7 +18,6 @@ import pytest
 )
 def test_core_detector_contract_decision_function_shape_dtype_finite(model_name: str) -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
-
     from pyimgano.models.registry import create_model
 
     rng = np.random.default_rng(0)
@@ -35,4 +34,3 @@ def test_core_detector_contract_decision_function_shape_dtype_finite(model_name:
     assert scores.shape == (X_test.shape[0],)
     assert scores.dtype == np.float64
     assert np.isfinite(scores).all()
-

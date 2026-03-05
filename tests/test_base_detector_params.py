@@ -47,4 +47,3 @@ def test_base_detector_set_params_rejects_unknown() -> None:
         assert "does_not_exist" in str(exc)
     else:
         raise AssertionError("Expected ValueError for unknown parameter")
-

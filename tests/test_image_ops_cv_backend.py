@@ -31,4 +31,3 @@ def test_image_preprocessor_cv2_backend_supports_output_tensor(tmp_path) -> None
     out = pre.process(str(p))
     assert out.shape == (3, 16, 16)
     assert out.dtype == np.float32
-

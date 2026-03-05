@@ -71,4 +71,3 @@ def test_vision_torch_autoencoder_supports_identity_extractor_on_vectors() -> No
     scores = np.asarray(det.decision_function(X[:5]), dtype=np.float64).reshape(-1)
     assert scores.shape == (5,)
     assert np.all(np.isfinite(scores))
-

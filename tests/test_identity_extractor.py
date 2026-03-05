@@ -16,4 +16,3 @@ def test_legacy_identity_feature_extractor_alias() -> None:
     from pyimgano.features.identity import IdentityExtractor
 
     assert IdentityFeatureExtractor is IdentityExtractor
-

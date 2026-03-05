@@ -23,4 +23,3 @@ def test_tile_apply_handles_small_images() -> None:
     assert out.shape == img.shape
     assert out.dtype == np.uint8
     assert np.array_equal(out, img)
-

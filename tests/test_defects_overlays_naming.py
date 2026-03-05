@@ -15,4 +15,3 @@ def test_overlay_filename_includes_region_ids_and_score_stats() -> None:
     assert "smax0.900" in name
     assert "smean0.500" in name
     assert "a10" in name
-

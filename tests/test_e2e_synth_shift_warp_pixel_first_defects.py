@@ -86,7 +86,9 @@ def test_e2e_synthesize_shift_warp_then_pixel_first_defects(tmp_path: Path) -> N
             "--model",
             "vision_pixel_mean_absdiff_map",
             "--model-kwargs",
-            json.dumps({"resize_hw": [64, 64], "color": "gray", "reduction": "topk_mean", "topk": 0.02}),
+            json.dumps(
+                {"resize_hw": [64, 64], "color": "gray", "reduction": "topk_mean", "topk": 0.02}
+            ),
             "--train-dir",
             str(train_dir),
             "--input",

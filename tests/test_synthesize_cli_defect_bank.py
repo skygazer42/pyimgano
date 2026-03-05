@@ -79,4 +79,3 @@ def test_synthesize_cli_defect_bank_dir_generates_anomalies_with_meta(tmp_path: 
         assert meta.get("preset_id") == "defect_bank"
         assert "severity" in meta
         assert "num_defects" in meta
-

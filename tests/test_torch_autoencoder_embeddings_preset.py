@@ -43,4 +43,3 @@ def test_vision_embedding_torch_autoencoder_smoke_on_vectors() -> None:
     scores = np.asarray(det.decision_function(X_test), dtype=np.float64)
     assert scores.shape == (X_test.shape[0],)
     assert np.isfinite(scores).all()
-

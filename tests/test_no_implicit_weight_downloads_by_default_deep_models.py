@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 
-def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(monkeypatch) -> None:  # noqa: ANN001
+def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(
+    monkeypatch,
+) -> None:  # noqa: ANN001
     """Industrial guardrail: creating models must not trigger network downloads by default.
 
     Notes
@@ -46,4 +48,6 @@ def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(monkey
             msg = str(exc).lower()
             assert "embedder" in msg or "pretrained" in msg or "hub" in msg
         else:
-            raise AssertionError(f"Expected {name} to require explicit opt-in (embedder or pretrained).")
+            raise AssertionError(
+                f"Expected {name} to require explicit opt-in (embedder or pretrained)."
+            )

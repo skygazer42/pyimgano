@@ -66,4 +66,3 @@ def test_workbench_config_adaptation_invalid_tiling_raises():
     }
     with pytest.raises(ValueError):
         WorkbenchConfig.from_dict(raw)
-

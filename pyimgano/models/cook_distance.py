@@ -142,4 +142,3 @@ class VisionCookDistance(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreCookDistance(**self._detector_kwargs)
-

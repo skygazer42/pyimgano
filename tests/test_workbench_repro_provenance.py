@@ -80,4 +80,3 @@ def test_workbench_runner_persists_seed_in_report_and_config(tmp_path):
 
     assert report_json["seed"] == 123
     assert config_json["config"]["seed"] == 123
-

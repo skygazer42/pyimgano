@@ -56,8 +56,9 @@ class HOGExtractor(BaseFeatureExtractor):
         self.transform_sqrt = bool(transform_sqrt)
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
-        from pyimgano.utils.optional_deps import require
         import cv2
+
+        from pyimgano.utils.optional_deps import require
 
         skfeature = require("skimage.feature", extra="skimage", purpose="hog feature extractor")
         hog = skfeature.hog

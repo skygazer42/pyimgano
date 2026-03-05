@@ -10,10 +10,10 @@ Policy:
 This script is intentionally conservative and text-based.
 """
 
-import sys
-from pathlib import Path
 import re
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,9 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
             key, _url = _normalize_upstream(marker)
             if not key:
                 continue
-            upstream_to_refs.setdefault(key, []).append(UpstreamRef(path=p, lineno=int(lineno), marker=marker))
+            upstream_to_refs.setdefault(key, []).append(
+                UpstreamRef(path=p, lineno=int(lineno), marker=marker)
+            )
     return upstream_to_refs
 
 
@@ -139,7 +141,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  - suggested url: {url}", file=sys.stderr)
             for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
                 rel = ref.path.relative_to(repo_root)
-                print(f"  - referenced by: {rel}:{ref.lineno}  (UPSTREAM: {ref.marker})", file=sys.stderr)
+                print(
+                    f"  - referenced by: {rel}:{ref.lineno}  (UPSTREAM: {ref.marker})",
+                    file=sys.stderr,
+                )
         print("", file=sys.stderr)
         print(
             "Fix: add an entry to third_party/NOTICE.md for each upstream repo referenced by UPSTREAM markers.",
@@ -147,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(f"OK: found {len(upstreams)} UPSTREAM marker(s) and all are covered in third_party/NOTICE.md")
+    print(
+        f"OK: found {len(upstreams)} UPSTREAM marker(s) and all are covered in third_party/NOTICE.md"
+    )
     return 0
 
 

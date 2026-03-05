@@ -68,7 +68,9 @@ def main(argv: list[str] | None = None) -> int:
 
     from pyimgano.utils.torchvision_safe import load_torchvision_backbone
 
-    model, _transform = load_torchvision_backbone(str(args.backbone), pretrained=bool(args.pretrained))
+    model, _transform = load_torchvision_backbone(
+        str(args.backbone), pretrained=bool(args.pretrained)
+    )
     model.eval()
     model.to(torch.device("cpu"))
 
@@ -122,8 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         shape = getattr(out0, "shape", None)
         if shape is not None and len(shape) >= 1 and int(shape[0]) != 1:
             raise RuntimeError(
-                "ONNX verification failed: expected batch dim 1, "
-                f"got output[0].shape={shape}"
+                "ONNX verification failed: expected batch dim 1, " f"got output[0].shape={shape}"
             )
 
     return 0

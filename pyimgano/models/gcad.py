@@ -25,18 +25,13 @@ from .registry import register_model
 class GraphConvLayer(nn.Module):
     """Graph convolutional layer for feature aggregation."""
 
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True
-    ):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True):
         super().__init__()
         self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
         if bias:
             self.bias = nn.Parameter(torch.FloatTensor(out_features))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
         self._reset_parameters()
 
@@ -46,11 +41,7 @@ class GraphConvLayer(nn.Module):
         if self.bias is not None:
             nn.init.zeros_(self.bias)
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        adj: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
         """
         Forward pass.
 
@@ -81,29 +72,18 @@ class GraphConvLayer(nn.Module):
 class GCNEncoder(nn.Module):
     """Graph Convolutional Network encoder."""
 
-    def __init__(
-        self,
-        input_dim: int,
-        hidden_dims: List[int],
-        dropout: float = 0.5
-    ):
+    def __init__(self, input_dim: int, hidden_dims: List[int], dropout: float = 0.5):
         super().__init__()
 
         self.layers = nn.ModuleList()
         dims = [input_dim] + hidden_dims
 
         for i in range(len(dims) - 1):
-            self.layers.append(
-                GraphConvLayer(dims[i], dims[i + 1])
-            )
+            self.layers.append(GraphConvLayer(dims[i], dims[i + 1]))
 
         self.dropout = dropout
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        adj: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
         """
         Forward pass through GCN layers.
 
@@ -134,18 +114,17 @@ class GCNEncoder(nn.Module):
 class FeatureExtractor(nn.Module):
     """Extract features from images using CNN."""
 
-    def __init__(
-        self,
-        backbone: str = "wide_resnet50"
-    ):
+    def __init__(self, backbone: str = "wide_resnet50"):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -246,7 +225,7 @@ class VisionGCAD(BaseVisionDeepDetector):
         epochs: int = 30,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -282,10 +261,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         return torch.from_numpy(X).float()
 
-    def _extract_patches(
-        self,
-        features: torch.Tensor
-    ) -> Tuple[torch.Tensor, int, int]:
+    def _extract_patches(self, features: torch.Tensor) -> Tuple[torch.Tensor, int, int]:
         """
         Extract patch features and create graph nodes.
 
@@ -324,11 +300,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         return patches, h_patches, w_patches
 
-    def _build_adjacency_matrix(
-        self,
-        features: torch.Tensor,
-        k: int
-    ) -> torch.Tensor:
+    def _build_adjacency_matrix(self, features: torch.Tensor, k: int) -> torch.Tensor:
         """
         Build k-NN graph adjacency matrix.
 
@@ -368,11 +340,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         return adj
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionGCAD":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionGCAD":
         """
         Fit the GCAD detector.
 
@@ -393,39 +361,25 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
-            self.feature_extractor_ = FeatureExtractor(
-                backbone=self.backbone
-            ).to(self.device)
+            self.feature_extractor_ = FeatureExtractor(backbone=self.backbone).to(self.device)
 
         # Extract features to get dimensions
         with torch.no_grad():
-            sample_features = self.feature_extractor_(
-                X_tensor[:1].to(self.device)
-            )
+            sample_features = self.feature_extractor_(X_tensor[:1].to(self.device))
             sample_patches, _, _ = self._extract_patches(sample_features)
             self.feature_dim_ = sample_patches.shape[-1]
 
         # Initialize GCN
         if self.gcn_ is None:
             self.gcn_ = GCNEncoder(
-                input_dim=self.feature_dim_,
-                hidden_dims=self.hidden_dims,
-                dropout=0.3
+                input_dim=self.feature_dim_, hidden_dims=self.hidden_dims, dropout=0.3
             ).to(self.device)
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.gcn_.parameters(),
-            lr=self.learning_rate
-        )
+        optimizer = torch.optim.Adam(self.gcn_.parameters(), lr=self.learning_rate)
 
         self.gcn_.train()
 
@@ -472,7 +426,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X), self.batch_size):
-                batch = X[i:i + self.batch_size].to(self.device)
+                batch = X[i : i + self.batch_size].to(self.device)
 
                 # Extract and encode
                 features = self.feature_extractor_(batch)
@@ -484,10 +438,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         self.memory_bank_ = torch.cat(all_features, dim=0)
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -508,7 +459,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and encode
                 features = self.feature_extractor_(batch)
@@ -524,8 +475,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
                     # Compute distances
                     dists = torch.cdist(
-                        test_feat.unsqueeze(0),
-                        memory.view(-1, memory.shape[-1])
+                        test_feat.unsqueeze(0), memory.view(-1, memory.shape[-1])
                     )  # (1, M*N)
 
                     # Anomaly score = minimum distance

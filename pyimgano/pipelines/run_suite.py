@@ -19,7 +19,11 @@ from pyimgano.models.registry import create_model
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, ensure_run_dir
 
-from .run_benchmark import ScoreThresholdStrategy, _calibrate_score_threshold, _merge_and_filter_model_kwargs
+from .run_benchmark import (
+    ScoreThresholdStrategy,
+    _calibrate_score_threshold,
+    _merge_and_filter_model_kwargs,
+)
 
 
 @dataclass(frozen=True)
@@ -31,7 +35,9 @@ class _SuiteSplit:
     pixel_skip_reason: str | None = None
 
 
-def _override_known_kwargs(kwargs: dict[str, Any], *, resize: tuple[int, int], device: str, pretrained: bool) -> dict[str, Any]:
+def _override_known_kwargs(
+    kwargs: dict[str, Any], *, resize: tuple[int, int], device: str, pretrained: bool
+) -> dict[str, Any]:
     """Apply suite-level overrides to common kwarg shapes.
 
     We keep this conservative: only override keys that are very likely to exist
@@ -41,7 +47,11 @@ def _override_known_kwargs(kwargs: dict[str, Any], *, resize: tuple[int, int], d
     out = dict(kwargs)
 
     # Pixel/template baselines frequently accept `resize_hw`.
-    if "resize_hw" in out and isinstance(out["resize_hw"], (list, tuple)) and len(out["resize_hw"]) == 2:
+    if (
+        "resize_hw" in out
+        and isinstance(out["resize_hw"], (list, tuple))
+        and len(out["resize_hw"]) == 2
+    ):
         out["resize_hw"] = [int(resize[0]), int(resize[1])]
 
     # Many deep/vision models accept `device` and `pretrained`.
@@ -199,11 +209,22 @@ def _missing_extras_hint_for_baseline(baseline: Baseline) -> str | None:
     text = " ".join([name, model, desc]).lower()
 
     # skimage-backed template baselines
-    if any(k in text for k in ["ssim", "phase_correlation", "phase-correlation"]) and not _can_import_root("skimage"):
+    if any(
+        k in text for k in ["ssim", "phase_correlation", "phase-correlation"]
+    ) and not _can_import_root("skimage"):
         return "pip install 'pyimgano[skimage]'"
 
     # torchvision embeddings / deep baselines
-    if any(k in text for k in ["torchvision", "torchscript", "patchcore", "embedding_core", "vision_embedding_core"]) and not _can_import_root("torch"):
+    if any(
+        k in text
+        for k in [
+            "torchvision",
+            "torchscript",
+            "patchcore",
+            "embedding_core",
+            "vision_embedding_core",
+        ]
+    ) and not _can_import_root("torch"):
         return "pip install 'pyimgano[torch]'"
 
     return None
@@ -346,7 +367,10 @@ def _run_one_on_split(
         elif split.pixel_skip_reason is not None:
             pixel_status = {"enabled": False, "reason": str(split.pixel_skip_reason)}
         else:
-            from pyimgano.pipelines.mvtec_visa import _compute_pixel_scores_from_detector, _extract_raw_maps_from_detector
+            from pyimgano.pipelines.mvtec_visa import (
+                _compute_pixel_scores_from_detector,
+                _extract_raw_maps_from_detector,
+            )
 
             pixel_start = time.perf_counter()
             try:
@@ -375,7 +399,9 @@ def _run_one_on_split(
                     )
 
                 if strat == "normal_pixel_quantile":
-                    from pyimgano.calibration.pixel_threshold import calibrate_normal_pixel_quantile_threshold
+                    from pyimgano.calibration.pixel_threshold import (
+                        calibrate_normal_pixel_quantile_threshold,
+                    )
                     from pyimgano.utils.splits import split_train_calibration
 
                     train_for_cal, cal_paths = split_train_calibration(
@@ -392,7 +418,9 @@ def _run_one_on_split(
                     for m in raw_maps:
                         arr = np.asarray(m, dtype=np.float32)
                         if arr.ndim != 2:
-                            raise ValueError(f"Expected 2D anomaly map for calibration, got {arr.shape}")
+                            raise ValueError(
+                                f"Expected 2D anomaly map for calibration, got {arr.shape}"
+                            )
                         if pixel_postprocess is not None:
                             arr = np.asarray(pixel_postprocess(arr), dtype=np.float32)
                         vals.append(arr.reshape(-1))
@@ -420,7 +448,9 @@ def _run_one_on_split(
             threshold=None,
             find_best_threshold=True,
             pixel_labels=(np.asarray(test_masks) if pixel_scores is not None else None),
-            pixel_scores=(np.asarray(pixel_scores, dtype=np.float32) if pixel_scores is not None else None),
+            pixel_scores=(
+                np.asarray(pixel_scores, dtype=np.float32) if pixel_scores is not None else None
+            ),
             pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
             pro_integration_limit=float(pixel_aupro_limit),
             pro_num_thresholds=int(pixel_aupro_thresholds),
@@ -432,7 +462,9 @@ def _run_one_on_split(
             threshold=float(calibrated_threshold),
             find_best_threshold=False,
             pixel_labels=(np.asarray(test_masks) if pixel_scores is not None else None),
-            pixel_scores=(np.asarray(pixel_scores, dtype=np.float32) if pixel_scores is not None else None),
+            pixel_scores=(
+                np.asarray(pixel_scores, dtype=np.float32) if pixel_scores is not None else None
+            ),
             pixel_threshold=(float(pixel_threshold) if pixel_threshold is not None else None),
             pro_integration_limit=float(pixel_aupro_limit),
             pro_num_thresholds=int(pixel_aupro_thresholds),
@@ -445,7 +477,9 @@ def _run_one_on_split(
         "train_count": int(len(train_inputs)),
         "test_count": int(len(test_inputs)),
         "test_anomaly_count": int(np.sum(np.asarray(test_labels) == 1)),
-        "test_anomaly_ratio": (float(np.mean(np.asarray(test_labels) == 1)) if len(test_inputs) > 0 else None),
+        "test_anomaly_ratio": (
+            float(np.mean(np.asarray(test_labels) == 1)) if len(test_inputs) > 0 else None
+        ),
     }
     if pixel_status is not None:
         dataset_summary["pixel_metrics_status"] = dict(pixel_status)
@@ -453,7 +487,9 @@ def _run_one_on_split(
     threshold_provenance_payload = dict(threshold_provenance)
     threshold_provenance_payload.setdefault("contamination", float(contamination))
     if calibration_quantile is not None:
-        threshold_provenance_payload.setdefault("calibration_quantile_requested", float(calibration_quantile))
+        threshold_provenance_payload.setdefault(
+            "calibration_quantile_requested", float(calibration_quantile)
+        )
 
     payload: dict[str, Any] = {
         "dataset": str(dataset),
@@ -629,7 +665,9 @@ def run_baseline_suite(
             category=str(category),
             resize=(int(resize[0]), int(resize[1])),
             seed=(int(seed) if seed is not None else None),
-            manifest_split_seed=(int(manifest_split_seed) if manifest_split_seed is not None else None),
+            manifest_split_seed=(
+                int(manifest_split_seed) if manifest_split_seed is not None else None
+            ),
             manifest_test_normal_fraction=float(manifest_test_normal_fraction),
             load_masks=bool(pixel),
         )
@@ -651,7 +689,10 @@ def run_baseline_suite(
 
         hint = _missing_extras_hint_for_baseline(b)
         if hint is not None:
-            skipped[baseline_key] = {"status": "skipped", "reason": f"Missing optional deps. Install with: {hint}"}
+            skipped[baseline_key] = {
+                "status": "skipped",
+                "reason": f"Missing optional deps. Install with: {hint}",
+            }
             continue
 
         baseline_dir = None
@@ -667,14 +708,22 @@ def run_baseline_suite(
                 variants = variants[: 1 + int(sweep_max_variants)]
 
         for variant_name, variant_override in variants:
-            variant_key = baseline_key if variant_name == "base" else _format_variant_name(baseline_key, variant_name)
+            variant_key = (
+                baseline_key
+                if variant_name == "base"
+                else _format_variant_name(baseline_key, variant_name)
+            )
 
             variant_dir = None
             if suite_dir is not None:
                 if variant_name == "base":
                     variant_dir = baseline_dir
                 else:
-                    variant_dir = baseline_dir / "variants" / str(variant_name) if baseline_dir is not None else None
+                    variant_dir = (
+                        baseline_dir / "variants" / str(variant_name)
+                        if baseline_dir is not None
+                        else None
+                    )
                     if variant_dir is not None:
                         variant_dir.mkdir(parents=True, exist_ok=True)
 
@@ -706,7 +755,9 @@ def run_baseline_suite(
                         ),
                         score_threshold_strategy=score_threshold_strategy,
                         calibration_quantile=(
-                            float(calibration_quantile) if calibration_quantile is not None else None
+                            float(calibration_quantile)
+                            if calibration_quantile is not None
+                            else None
                         ),
                         limit_train=(int(limit_train) if limit_train is not None else None),
                         limit_test=(int(limit_test) if limit_test is not None else None),
@@ -736,7 +787,9 @@ def run_baseline_suite(
                         model_kwargs=merged_variant_kwargs,
                         score_threshold_strategy=score_threshold_strategy,
                         calibration_quantile=(
-                            float(calibration_quantile) if calibration_quantile is not None else None
+                            float(calibration_quantile)
+                            if calibration_quantile is not None
+                            else None
                         ),
                         limit_train=(int(limit_train) if limit_train is not None else None),
                         limit_test=(int(limit_test) if limit_test is not None else None),
@@ -770,7 +823,9 @@ def run_baseline_suite(
                 pixel_metrics = res.get("pixel_metrics")
                 if isinstance(pixel_metrics, Mapping):
                     row["pixel_auroc"] = _safe_float(pixel_metrics.get("pixel_auroc"))
-                    row["pixel_average_precision"] = _safe_float(pixel_metrics.get("pixel_average_precision"))
+                    row["pixel_average_precision"] = _safe_float(
+                        pixel_metrics.get("pixel_average_precision")
+                    )
                     row["aupro"] = _safe_float(pixel_metrics.get("aupro"))
                     row["pixel_segf1"] = _safe_float(pixel_metrics.get("pixel_segf1"))
 
@@ -842,7 +897,9 @@ def run_baseline_suite(
                     "suite_exclude": sorted(exclude_set) if exclude_set else None,
                     "suite_continue_on_error": bool(continue_on_error),
                     "suite_sweep": (str(sweep) if sweep is not None else None),
-                    "suite_sweep_max_variants": (int(sweep_max_variants) if sweep_max_variants is not None else None),
+                    "suite_sweep_max_variants": (
+                        int(sweep_max_variants) if sweep_max_variants is not None else None
+                    ),
                     "score_threshold_strategy": str(score_threshold_strategy),
                     "calibration_quantile": calibration_quantile,
                     "limit_train": limit_train,

@@ -37,4 +37,3 @@ def test_load_config_yaml_optional(tmp_path):
         assert "pip install" in msg
     else:
         assert load_config(config_path) == {"a": 1, "b": "test"}
-

@@ -59,7 +59,9 @@ def test_phase_correlation_map_detector_is_misalignment_tolerant() -> None:
     )
     det.fit([base])
 
-    scores = np.asarray(det.decision_function([base, shifted, anomaly]), dtype=np.float64).reshape(-1)
+    scores = np.asarray(det.decision_function([base, shifted, anomaly]), dtype=np.float64).reshape(
+        -1
+    )
     assert scores.shape == (3,)
     assert np.all(np.isfinite(scores))
     assert float(scores[2]) >= float(scores[0])

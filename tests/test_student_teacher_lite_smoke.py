@@ -14,7 +14,10 @@ def test_student_teacher_lite_smoke_on_vectors() -> None:
         "vision_student_teacher_lite",
         contamination=0.1,
         teacher_extractor="identity",
-        student_extractor={"name": "pca_projector", "kwargs": {"base_extractor": "identity", "n_components": 0.8}},
+        student_extractor={
+            "name": "pca_projector",
+            "kwargs": {"base_extractor": "identity", "n_components": 0.8},
+        },
         ridge=1e-6,
     )
     det.fit(X)
@@ -25,4 +28,3 @@ def test_student_teacher_lite_smoke_on_vectors() -> None:
     assert preds.shape == (10,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

@@ -51,6 +51,7 @@ def _torchvision_embedding_extractor(
         },
     }
 
+
 def _core_score_standardizer(
     *,
     base_detector: str,

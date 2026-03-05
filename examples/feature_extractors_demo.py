@@ -19,7 +19,9 @@ def _parse_kwargs(text: str | None) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="feature_extractors_demo")
-    parser.add_argument("--list", action="store_true", help="List available feature extractors and exit")
+    parser.add_argument(
+        "--list", action="store_true", help="List available feature extractors and exit"
+    )
     parser.add_argument("--name", default="hog", help="Feature extractor name (registry)")
     parser.add_argument(
         "--kwargs",
@@ -42,7 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     ext = create_feature_extractor(str(args.name), **_parse_kwargs(args.kwargs))
 
     rng = np.random.RandomState(int(args.seed))
-    imgs = [(rng.rand(int(args.h), int(args.w), 3) * 255).astype(np.uint8) for _ in range(int(args.n))]
+    imgs = [
+        (rng.rand(int(args.h), int(args.w), 3) * 255).astype(np.uint8) for _ in range(int(args.n))
+    ]
 
     fit = getattr(ext, "fit", None)
     if callable(fit):
@@ -62,4 +66,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -27,4 +27,3 @@ def test_torch_gaussian_blur_preserves_shape_and_dtype() -> None:
     assert out.shape == img.shape
     assert out.dtype == np.uint8
     assert np.isfinite(out.astype(np.float32)).all()
-

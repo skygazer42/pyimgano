@@ -67,4 +67,3 @@ def test_vision_feature_bagging_spec_smoke_with_identity_extractor() -> None:
     det.fit(items)
     scores = np.asarray(det.decision_function(items), dtype=np.float64).reshape(-1)
     assert scores.shape == (len(items),)
-

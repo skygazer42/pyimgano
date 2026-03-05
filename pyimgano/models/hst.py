@@ -17,11 +17,11 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from ..utils.fitted import require_fitted
+from ..utils.random_state import check_random_state
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-from ..utils.fitted import require_fitted
-from ..utils.random_state import check_random_state
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,10 @@ class CoreHST(BaseDetector):
         scores = np.zeros((X_arr.shape[0],), dtype=np.float64)
         for root in forest:
             counts = np.asarray(
-                [_leaf(root, X_arr[i], max_depth=int(self.max_depth)).count for i in range(X_arr.shape[0])],
+                [
+                    _leaf(root, X_arr[i], max_depth=int(self.max_depth)).count
+                    for i in range(X_arr.shape[0])
+                ],
                 dtype=np.float64,
             )
             scores += 1.0 / (counts + 1.0)

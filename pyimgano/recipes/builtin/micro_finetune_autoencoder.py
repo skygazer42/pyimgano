@@ -9,7 +9,11 @@ import numpy as np
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.reporting.environment import collect_environment
 from pyimgano.reporting.report import save_run_report, stamp_report_payload
-from pyimgano.reporting.runs import build_workbench_run_dir_name, build_workbench_run_paths, ensure_run_dir
+from pyimgano.reporting.runs import (
+    build_workbench_run_dir_name,
+    build_workbench_run_paths,
+    ensure_run_dir,
+)
 from pyimgano.training.checkpointing import save_checkpoint
 from pyimgano.training.runner import micro_finetune
 from pyimgano.workbench.config import WorkbenchConfig
@@ -95,9 +99,13 @@ def micro_finetune_autoencoder(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "micro-finetune-autoencoder"
 
     if not bool(config.output.save_run):
-        raise ValueError(f"{recipe_name} requires output.save_run=true (needs checkpoint artifacts).")
+        raise ValueError(
+            f"{recipe_name} requires output.save_run=true (needs checkpoint artifacts)."
+        )
 
-    category_for_name = None if str(config.dataset.category).lower() == "all" else str(config.dataset.category)
+    category_for_name = (
+        None if str(config.dataset.category).lower() == "all" else str(config.dataset.category)
+    )
     run_name = build_workbench_run_dir_name(
         dataset=str(config.dataset.name),
         recipe=recipe_name,
@@ -162,4 +170,3 @@ def micro_finetune_autoencoder(config: WorkbenchConfig) -> dict[str, Any]:
 
     save_run_report(paths.report_json, payload)
     return payload
-

@@ -24,8 +24,8 @@ from typing import Iterable
 import numpy as np
 from sklearn.utils import check_array
 
-from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -64,9 +64,7 @@ class CoreSOS:
         metric = self.metric.lower()
         if metric == "none":
             if n != d:
-                raise ValueError(
-                    "If metric='none', X must be a square dissimilarity matrix."
-                )
+                raise ValueError("If metric='none', X must be a square dissimilarity matrix.")
             return X
 
         if metric == "euclidean":
@@ -135,9 +133,7 @@ class CoreSOS:
             return self
 
         if not (1.0 <= self.perplexity <= float(X.shape[0] - 1)):
-            raise ValueError(
-                f"perplexity must be in [1, n_samples-1], got {self.perplexity}"
-            )
+            raise ValueError(f"perplexity must be in [1, n_samples-1], got {self.perplexity}")
 
         D = self._x2d(X)
         A = self._d2a(D)

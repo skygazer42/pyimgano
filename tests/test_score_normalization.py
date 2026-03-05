@@ -52,4 +52,3 @@ def test_normalize_dispatch() -> None:
     assert normalize(x, "rank").shape == (3,)
     assert normalize(x, "quantile").shape == (3,)
     assert normalize(x, "zscore").shape == (3,)
-

@@ -22,7 +22,9 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def test_cli_manifest_embedding_plus_core_smoke(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+def test_cli_manifest_embedding_plus_core_smoke(
+    tmp_path: Path, monkeypatch
+) -> None:  # noqa: ANN001
     # Hard block any torchvision weight downloads in unit tests.
     import torch.hub
 
@@ -91,4 +93,3 @@ def test_cli_manifest_embedding_plus_core_smoke(tmp_path: Path, monkeypatch) -> 
     assert code == 0
     assert (out_dir / "categories" / "bottle" / "report.json").exists()
     assert (out_dir / "categories" / "bottle" / "per_image.jsonl").exists()
-

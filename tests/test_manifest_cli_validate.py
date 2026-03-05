@@ -26,7 +26,9 @@ def test_manifest_cli_validate_ok(tmp_path: Path) -> None:
     manifest = root / "manifest.jsonl"
     _write_jsonl(manifest, [{"image_path": "n0.png", "category": "demo", "split": "train"}])
 
-    rc = manifest_main(["--validate", "--manifest", str(manifest), "--root", str(root), "--category", "demo"])
+    rc = manifest_main(
+        ["--validate", "--manifest", str(manifest), "--root", str(root), "--category", "demo"]
+    )
     assert rc == 0
 
 
@@ -37,6 +39,7 @@ def test_manifest_cli_validate_reports_error(tmp_path: Path) -> None:
     manifest = root / "manifest.jsonl"
     _write_jsonl(manifest, [{"image_path": "missing.png", "category": "demo", "split": "train"}])
 
-    rc = manifest_main(["--validate", "--manifest", str(manifest), "--root", str(root), "--category", "demo"])
+    rc = manifest_main(
+        ["--validate", "--manifest", str(manifest), "--root", str(root), "--category", "demo"]
+    )
     assert rc == 1
-

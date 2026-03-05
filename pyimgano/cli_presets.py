@@ -99,7 +99,11 @@ def _load_defects_presets() -> dict[str, DefectsPreset]:
                 "border_ignore_px": 2,
                 "map_smoothing": {"method": "median", "ksize": 3, "sigma": 0.0},
                 "hysteresis": {"enabled": True, "low": None, "high": None},
-                "shape_filters": {"min_fill_ratio": 0.15, "max_aspect_ratio": 6.0, "min_solidity": 0.8},
+                "shape_filters": {
+                    "min_fill_ratio": 0.15,
+                    "max_aspect_ratio": 6.0,
+                    "min_solidity": 0.8,
+                },
                 "merge_nearby": {"enabled": True, "max_gap_px": 1},
                 "min_area": 16,
                 "min_score_max": 0.6,

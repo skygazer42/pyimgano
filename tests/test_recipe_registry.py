@@ -42,4 +42,3 @@ def test_recipe_registry_duplicate_requires_overwrite():
             _recipe,
             overwrite=False,
         )
-

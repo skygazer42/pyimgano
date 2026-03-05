@@ -65,6 +65,8 @@ def build_postprocess(config: MapPostprocessConfig | None):
         gaussian_sigma=float(config.gaussian_sigma),
         morph_open_ksize=int(config.morph_open_ksize),
         morph_close_ksize=int(config.morph_close_ksize),
-        component_threshold=(float(config.component_threshold) if config.component_threshold is not None else None),
+        component_threshold=(
+            float(config.component_threshold) if config.component_threshold is not None else None
+        ),
         min_component_area=int(config.min_component_area),
     )

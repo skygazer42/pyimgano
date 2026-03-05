@@ -6,9 +6,10 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
-from .base_detector import BaseDetector
 from pyimgano.features.protocols import FeatureExtractor, FittableFeatureExtractor
 from pyimgano.features.registry import resolve_feature_extractor
+
+from .base_detector import BaseDetector
 
 
 class BaseVisionDetector(BaseDetector):
@@ -63,14 +64,11 @@ class BaseVisionDetector(BaseDetector):
             self.feature_extractor = self._base_feature_extractor
             return
 
+        from pyimgano.cache.array_features import ArrayFeatureCache, CachedArrayFeatureExtractor
         from pyimgano.cache.features import (
             CachedFeatureExtractor,
             FeatureCache,
             fingerprint_feature_extractor,
-        )
-        from pyimgano.cache.array_features import (
-            ArrayFeatureCache,
-            CachedArrayFeatureExtractor,
         )
 
         cache_root = Path(cache_dir)
@@ -97,8 +95,8 @@ class BaseVisionDetector(BaseDetector):
     @abstractmethod
     def _build_detector(self):
         """
-    定义并返回一个具体的、经典的异常检测器实例。
-        例如: return sklearn.neighbors.LocalOutlierFactor(...)
+        定义并返回一个具体的、经典的异常检测器实例。
+            例如: return sklearn.neighbors.LocalOutlierFactor(...)
         """
         pass
 

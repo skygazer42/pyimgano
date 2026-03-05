@@ -46,4 +46,3 @@ def test_score_standardizer_minmax_clips() -> None:
     assert out.shape == (5,)
     assert np.all(out >= 0.0)
     assert np.all(out <= 1.0)
-

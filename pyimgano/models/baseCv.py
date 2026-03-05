@@ -145,9 +145,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             train_dataset = VisionArrayDataset(images=X_list, transform=self.train_transform)
         else:
             # Default: list of file paths.
-            train_dataset = VisionImageDataset(
-                image_paths=X_list, transform=self.train_transform
-            )
+            train_dataset = VisionImageDataset(image_paths=X_list, transform=self.train_transform)
 
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
@@ -231,4 +229,3 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             cache_dir=Path(cache_dir),
             transform_fingerprint=str(fp),
         )
-

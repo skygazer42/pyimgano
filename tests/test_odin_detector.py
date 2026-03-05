@@ -3,7 +3,6 @@ import numpy as np
 
 def test_core_odin_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models import create_model
 
     rng = np.random.RandomState(0)
@@ -22,7 +21,6 @@ def test_core_odin_fit_predict_smoke() -> None:
 
 def test_vision_odin_with_identity_extractor() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
@@ -38,4 +36,3 @@ def test_vision_odin_with_identity_extractor() -> None:
     scores = det.decision_function(X[:6])
     assert scores.shape == (6,)
     assert np.all(np.isfinite(scores))
-

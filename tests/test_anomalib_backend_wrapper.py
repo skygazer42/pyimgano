@@ -2,7 +2,9 @@ import numpy as np
 
 
 class _FakeInferencerDict:
-    def __init__(self, scores_by_path: dict[str, float], maps_by_path: dict[str, np.ndarray]) -> None:
+    def __init__(
+        self, scores_by_path: dict[str, float], maps_by_path: dict[str, np.ndarray]
+    ) -> None:
         self._scores_by_path = scores_by_path
         self._maps_by_path = maps_by_path
 
@@ -20,7 +22,9 @@ class _ObjResult:
 
 
 class _FakeInferencerObj:
-    def __init__(self, scores_by_path: dict[str, float], maps_by_path: dict[str, np.ndarray]) -> None:
+    def __init__(
+        self, scores_by_path: dict[str, float], maps_by_path: dict[str, np.ndarray]
+    ) -> None:
         self._scores_by_path = scores_by_path
         self._maps_by_path = maps_by_path
 

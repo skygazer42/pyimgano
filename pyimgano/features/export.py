@@ -71,4 +71,3 @@ def load_feature_export(path: str | Path) -> FeatureExport:
         ids = [str(x) for x in data["ids"].tolist()]
         feats = np.asarray(data["features"], dtype=np.float32)
     return FeatureExport(ids=ids, features=feats)
-

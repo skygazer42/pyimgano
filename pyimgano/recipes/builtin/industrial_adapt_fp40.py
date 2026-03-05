@@ -52,32 +52,54 @@ def industrial_adapt_fp40(config: WorkbenchConfig) -> dict[str, Any]:
         pixel_threshold_strategy=str(defects.pixel_threshold_strategy),
         pixel_normal_quantile=float(defects.pixel_normal_quantile),
         mask_format=str(defects.mask_format),
-        roi_xyxy_norm=defects.roi_xyxy_norm if defects.roi_xyxy_norm is not None else (0.1, 0.1, 0.9, 0.9),
+        roi_xyxy_norm=(
+            defects.roi_xyxy_norm if defects.roi_xyxy_norm is not None else (0.1, 0.1, 0.9, 0.9)
+        ),
         border_ignore_px=int(defects.border_ignore_px) if int(defects.border_ignore_px) > 0 else 2,
         map_smoothing=MapSmoothingConfig(
-            method=str(defects.map_smoothing.method) if str(defects.map_smoothing.method) != "none" else "median",
+            method=(
+                str(defects.map_smoothing.method)
+                if str(defects.map_smoothing.method) != "none"
+                else "median"
+            ),
             ksize=int(defects.map_smoothing.ksize) if int(defects.map_smoothing.ksize) > 0 else 3,
             sigma=float(defects.map_smoothing.sigma),
         ),
         hysteresis=HysteresisConfig(
-            enabled=True if not bool(defects.hysteresis.enabled) else bool(defects.hysteresis.enabled),
+            enabled=(
+                True if not bool(defects.hysteresis.enabled) else bool(defects.hysteresis.enabled)
+            ),
             low=defects.hysteresis.low,
             high=defects.hysteresis.high,
         ),
         shape_filters=ShapeFiltersConfig(
-            min_fill_ratio=defects.shape_filters.min_fill_ratio
-            if defects.shape_filters.min_fill_ratio is not None
-            else 0.15,
-            max_aspect_ratio=defects.shape_filters.max_aspect_ratio
-            if defects.shape_filters.max_aspect_ratio is not None
-            else 6.0,
-            min_solidity=defects.shape_filters.min_solidity
-            if defects.shape_filters.min_solidity is not None
-            else 0.8,
+            min_fill_ratio=(
+                defects.shape_filters.min_fill_ratio
+                if defects.shape_filters.min_fill_ratio is not None
+                else 0.15
+            ),
+            max_aspect_ratio=(
+                defects.shape_filters.max_aspect_ratio
+                if defects.shape_filters.max_aspect_ratio is not None
+                else 6.0
+            ),
+            min_solidity=(
+                defects.shape_filters.min_solidity
+                if defects.shape_filters.min_solidity is not None
+                else 0.8
+            ),
         ),
         merge_nearby=MergeNearbyConfig(
-            enabled=True if not bool(defects.merge_nearby.enabled) else bool(defects.merge_nearby.enabled),
-            max_gap_px=int(defects.merge_nearby.max_gap_px) if int(defects.merge_nearby.max_gap_px) > 0 else 1,
+            enabled=(
+                True
+                if not bool(defects.merge_nearby.enabled)
+                else bool(defects.merge_nearby.enabled)
+            ),
+            max_gap_px=(
+                int(defects.merge_nearby.max_gap_px)
+                if int(defects.merge_nearby.max_gap_px) > 0
+                else 1
+            ),
         ),
         min_area=int(defects.min_area) if int(defects.min_area) > 0 else 16,
         min_score_max=defects.min_score_max if defects.min_score_max is not None else 0.6,
@@ -91,4 +113,3 @@ def industrial_adapt_fp40(config: WorkbenchConfig) -> dict[str, Any]:
 
     cfg = replace(config, recipe=recipe_name, adaptation=adaptation, defects=defects)
     return run_workbench(config=cfg, recipe_name=recipe_name)
-

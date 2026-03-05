@@ -11,4 +11,3 @@ Some model implementations import `BaseVisionDeepDetector` from
 from .baseCv import BaseVisionDeepDetector
 
 __all__ = ["BaseVisionDeepDetector"]
-

@@ -40,4 +40,3 @@ def test_deep_models_support_tiny_mode_smoke() -> None:
         scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
         assert scores.shape == (2,)
         assert np.all(np.isfinite(scores))
-

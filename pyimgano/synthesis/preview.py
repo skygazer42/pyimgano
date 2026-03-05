@@ -29,7 +29,7 @@ def make_preview_grid(
 ) -> np.ndarray:
     """Build a simple visualization grid (uint8 BGR-ish)."""
 
-    ims = [ _as_u8_color(im) for im in list(images) ]
+    ims = [_as_u8_color(im) for im in list(images)]
     if not ims:
         return np.zeros((0, 0, 3), dtype=np.uint8)
 
@@ -64,7 +64,7 @@ def make_preview_grid(
         tile = np.asarray(im, dtype=np.uint8)
 
         if ms is not None:
-            m = (np.asarray(ms[idx]) > 0)
+            m = np.asarray(ms[idx]) > 0
             if np.any(m):
                 overlay = tile.astype(np.float32)
                 color = np.asarray(mask_color, dtype=np.float32).reshape(1, 1, 3)
@@ -120,4 +120,3 @@ def show_preview_grid(
     plt.axis("off")
     plt.tight_layout()
     plt.show()
-

@@ -25,4 +25,3 @@ def test_import_and_registry_discovery_do_not_require_network(monkeypatch) -> No
     names = models.list_models()
     assert isinstance(names, list)
     assert "vision_ecod" in names
-

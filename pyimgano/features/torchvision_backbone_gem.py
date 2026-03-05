@@ -11,7 +11,6 @@ from pyimgano.features.registry import register_feature_extractor
 
 from .torchvision_backbone import _as_pil_rgb, _load_torchvision_backbone, _make_device
 
-
 _InputColor = Literal["rgb", "bgr"]
 
 
@@ -57,7 +56,9 @@ class TorchvisionBackboneGeMExtractor(BaseFeatureExtractor):
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="TorchvisionBackboneGeMExtractor")
-        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionBackboneGeMExtractor")
+        T = require(
+            "torchvision.transforms", extra="torch", purpose="TorchvisionBackboneGeMExtractor"
+        )
         fe = require(
             "torchvision.models.feature_extraction",
             extra="torch",

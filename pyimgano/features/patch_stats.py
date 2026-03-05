@@ -109,4 +109,3 @@ class PatchStatsExtractor(BaseFeatureExtractor):
             feats.append(np.asarray(vec, dtype=np.float32))
 
         return np.stack(feats, axis=0)
-

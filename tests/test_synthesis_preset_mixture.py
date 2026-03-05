@@ -35,4 +35,3 @@ def test_make_preset_mixture_is_deterministic_for_fixed_rng() -> None:
     assert np.array_equal(o1.overlay_u8, o2.overlay_u8)
     assert np.array_equal(o1.mask_u8, o2.mask_u8)
     assert o1.meta.get("preset") == o2.meta.get("preset")
-

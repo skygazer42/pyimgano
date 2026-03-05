@@ -7,7 +7,6 @@ from numpy.typing import NDArray
 
 from pyimgano.evaluation import find_optimal_threshold
 
-
 Objective = Literal["f1", "precision", "recall", "youden"]
 
 
@@ -70,4 +69,3 @@ def split_fewshot(
     normal_scores = scores[labels == 0]
     anomaly_scores = scores[labels == 1]
     return normal_scores, anomaly_scores
-

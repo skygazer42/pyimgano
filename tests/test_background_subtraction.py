@@ -28,4 +28,3 @@ def test_rolling_ball_background_subtraction_constant_image_is_zero() -> None:
     assert out.dtype == np.uint8
     assert int(out.min()) == 0
     assert int(out.max()) == 0
-

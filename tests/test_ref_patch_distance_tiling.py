@@ -13,7 +13,9 @@ def _write_png(path: Path, *, value: int, size: int = 64) -> None:
     Image.fromarray(img, mode="RGB").save(path)
 
 
-def test_ref_patch_distance_map_tiling_runs_and_preserves_shape(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+def test_ref_patch_distance_map_tiling_runs_and_preserves_shape(
+    tmp_path: Path, monkeypatch
+) -> None:  # noqa: ANN001
     import torch.hub
 
     def _blocked(*_args, **_kwargs):  # noqa: ANN001, ANN201
@@ -49,4 +51,3 @@ def test_ref_patch_distance_map_tiling_runs_and_preserves_shape(tmp_path: Path, 
     assert amap.shape == (64, 64)
     assert np.isfinite(amap).all()
     assert float(np.max(amap)) == 0.0
-

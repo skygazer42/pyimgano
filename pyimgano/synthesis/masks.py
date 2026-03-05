@@ -74,7 +74,9 @@ def random_blob_mask(
         cv2.circle(mask, (cx, cy), r, color=255, thickness=-1)
 
     if float(blur_sigma) > 0.0:
-        m = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        m = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         thr = float(np.clip(threshold, 0.0, 1.0))
         mask = ((m >= thr).astype(np.uint8) * 255).astype(np.uint8)
 
@@ -110,7 +112,9 @@ def random_ellipse_mask(
         cv2.ellipse(mask, (cx, cy), (ax, ay), angle, 0.0, 360.0, color=255, thickness=-1)
 
     if float(blur_sigma) > 0.0:
-        m = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        m = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         thr = float(np.clip(threshold, 0.0, 1.0))
         mask = ((m >= thr).astype(np.uint8) * 255).astype(np.uint8)
 
@@ -144,7 +148,9 @@ def random_spatter_mask(
         cv2.circle(mask, (cx, cy), r, color=255, thickness=-1)
 
     if float(blur_sigma) > 0.0:
-        m = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        m = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         thr = float(np.clip(threshold, 0.0, 1.0))
         mask = ((m >= thr).astype(np.uint8) * 255).astype(np.uint8)
 
@@ -203,13 +209,15 @@ def random_edge_band_mask(
         noise = rng.uniform(0.0, 1.0, size=(h, w)).astype(np.float32)
         sigma = float(0.8 + 3.5 * irr)
         smooth = cv2.GaussianBlur(noise, ksize=(0, 0), sigmaX=sigma)
-        keep = (smooth >= float(0.35 + 0.35 * (1.0 - irr)))
+        keep = smooth >= float(0.35 + 0.35 * (1.0 - irr))
         mask = ((base > 0) & keep).astype(np.uint8) * 255
         if int(np.sum(mask > 0)) == 0:
             mask = base
 
     if float(blur_sigma) > 0.0:
-        m = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        m = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         thr = float(np.clip(threshold, 0.0, 1.0))
         mask = ((m >= thr).astype(np.uint8) * 255).astype(np.uint8)
 
@@ -276,7 +284,9 @@ def random_scratch_mask(
     mask = ((mask > 0).astype(np.uint8) * 255).astype(np.uint8)
 
     if float(s.blur_sigma) > 0.0:
-        blurred = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(s.blur_sigma))
+        blurred = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(s.blur_sigma)
+        )
         mask = ((blurred >= 0.2).astype(np.uint8) * 255).astype(np.uint8)
 
     return mask
@@ -329,7 +339,9 @@ def random_curve_scratch_mask(
 
     mask = ((mask > 0).astype(np.uint8) * 255).astype(np.uint8)
     if float(s.blur_sigma) > 0.0:
-        blurred = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(s.blur_sigma))
+        blurred = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(s.blur_sigma)
+        )
         mask = ((blurred >= 0.2).astype(np.uint8) * 255).astype(np.uint8)
     return mask
 
@@ -364,7 +376,9 @@ def random_crack_mask(
     curv = float(max(0.0, curvature))
     bp = float(np.clip(branch_prob, 0.0, 1.0))
 
-    def _draw_one(start_x: float, start_y: float, start_angle: float, *, steps_local: int, thickness: int) -> None:
+    def _draw_one(
+        start_x: float, start_y: float, start_angle: float, *, steps_local: int, thickness: int
+    ) -> None:
         x, y, angle = float(start_x), float(start_y), float(start_angle)
         pts: list[tuple[int, int]] = []
         for _i in range(steps_local + 1):
@@ -397,7 +411,9 @@ def random_crack_mask(
 
     mask = ((mask > 0).astype(np.uint8) * 255).astype(np.uint8)
     if float(blur_sigma) > 0.0:
-        blurred = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        blurred = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         mask = ((blurred >= 0.2).astype(np.uint8) * 255).astype(np.uint8)
     return mask
 
@@ -466,7 +482,9 @@ def random_brush_stroke_mask(
     mask = ensure_u8_mask(mask)
 
     if float(blur_sigma) > 0.0:
-        m = cv2.GaussianBlur(mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma))
+        m = cv2.GaussianBlur(
+            mask.astype(np.float32) / 255.0, ksize=(0, 0), sigmaX=float(blur_sigma)
+        )
         thr = float(np.clip(threshold, 0.0, 1.0))
         mask = ((m >= thr).astype(np.uint8) * 255).astype(np.uint8)
 

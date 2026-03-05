@@ -16,10 +16,7 @@ def _stack_maps(calibration_maps: Iterable[np.ndarray]) -> np.ndarray:
     if any(m.shape != first_shape for m in maps):
         shapes = ", ".join(str(m.shape) for m in maps[:4])
         suffix = "" if len(maps) <= 4 else ", ..."
-        raise ValueError(
-            "All calibration_maps must have the same shape. "
-            f"Got: {shapes}{suffix}"
-        )
+        raise ValueError("All calibration_maps must have the same shape. " f"Got: {shapes}{suffix}")
     return np.stack(maps, axis=0)
 
 
@@ -79,7 +76,9 @@ def resolve_pixel_threshold(
     roi_reason = None
     if roi_xyxy_norm is not None:
         roi_xyxy_norm = clamp_roi_xyxy_norm(roi_xyxy_norm)
-        roi_mask = roi_mask_from_xyxy_norm((int(stack.shape[1]), int(stack.shape[2])), roi_xyxy_norm)
+        roi_mask = roi_mask_from_xyxy_norm(
+            (int(stack.shape[1]), int(stack.shape[2])), roi_xyxy_norm
+        )
         roi_px_per_map = int(np.sum(roi_mask > 0))
         if roi_px_per_map > 0:
             roi_used = True

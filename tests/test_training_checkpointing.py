@@ -44,4 +44,3 @@ def test_save_checkpoint_raises_when_unsupported(tmp_path):
 
     msg = str(exc.value)
     assert "save_checkpoint" in msg or "state_dict" in msg
-

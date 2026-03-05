@@ -16,7 +16,7 @@ class MockFeatureExtractor:
 
     def extract(self, X):
         """Return mock features."""
-        n_samples = len(list(X)) if hasattr(X, '__len__') else 10
+        n_samples = len(list(X)) if hasattr(X, "__len__") else 10
         np.random.seed(42)
         return np.random.rand(n_samples, self.n_features)
 
@@ -41,21 +41,17 @@ class TestECOD:
     def test_create(self, feature_extractor):
         """Test ECOD creation."""
         detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor,
-            contamination=0.1
+            "vision_ecod", feature_extractor=feature_extractor, contamination=0.1
         )
         assert detector is not None
-        assert hasattr(detector, 'fit')
-        assert hasattr(detector, 'predict')
+        assert hasattr(detector, "fit")
+        assert hasattr(detector, "predict")
 
     def test_fit_predict(self, feature_extractor, mock_image_paths):
         """Test ECOD fit and predict."""
         train_paths, test_paths = mock_image_paths
         detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor,
-            contamination=0.1
+            "vision_ecod", feature_extractor=feature_extractor, contamination=0.1
         )
 
         detector.fit(train_paths)
@@ -63,16 +59,13 @@ class TestECOD:
 
         assert predictions.shape == (len(test_paths),)
         assert set(predictions).issubset({0, 1})
-        assert hasattr(detector, 'decision_scores_')
-        assert hasattr(detector, 'threshold_')
+        assert hasattr(detector, "decision_scores_")
+        assert hasattr(detector, "threshold_")
 
     def test_decision_function(self, feature_extractor, mock_image_paths):
         """Test ECOD decision function."""
         train_paths, test_paths = mock_image_paths
-        detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor
-        )
+        detector = models.create_model("vision_ecod", feature_extractor=feature_extractor)
 
         detector.fit(train_paths)
         scores = detector.decision_function(test_paths)
@@ -84,18 +77,14 @@ class TestECOD:
         """Test ECOD with invalid contamination."""
         with pytest.raises(ValueError, match="contamination must be in"):
             models.create_model(
-                "vision_ecod",
-                feature_extractor=feature_extractor,
-                contamination=0.6  # Invalid
+                "vision_ecod", feature_extractor=feature_extractor, contamination=0.6  # Invalid
             )
 
     def test_parallel_jobs(self, feature_extractor, mock_image_paths):
         """Test ECOD with parallel jobs."""
         train_paths, test_paths = mock_image_paths
         detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor,
-            n_jobs=-1
+            "vision_ecod", feature_extractor=feature_extractor, n_jobs=-1
         )
 
         detector.fit(train_paths)
@@ -108,19 +97,14 @@ class TestCOPOD:
 
     def test_create(self, feature_extractor):
         """Test COPOD creation."""
-        detector = models.create_model(
-            "vision_copod",
-            feature_extractor=feature_extractor
-        )
+        detector = models.create_model("vision_copod", feature_extractor=feature_extractor)
         assert detector is not None
 
     def test_fit_predict(self, feature_extractor, mock_image_paths):
         """Test COPOD fit and predict."""
         train_paths, test_paths = mock_image_paths
         detector = models.create_model(
-            "vision_copod",
-            feature_extractor=feature_extractor,
-            contamination=0.1
+            "vision_copod", feature_extractor=feature_extractor, contamination=0.1
         )
 
         detector.fit(train_paths)
@@ -136,9 +120,7 @@ class TestKNN:
     def test_create(self, feature_extractor):
         """Test KNN creation."""
         detector = models.create_model(
-            "vision_knn",
-            feature_extractor=feature_extractor,
-            n_neighbors=5
+            "vision_knn", feature_extractor=feature_extractor, n_neighbors=5
         )
         assert detector is not None
 
@@ -146,9 +128,7 @@ class TestKNN:
         """Test KNN fit and predict."""
         train_paths, test_paths = mock_image_paths
         detector = models.create_model(
-            "vision_knn",
-            feature_extractor=feature_extractor,
-            n_neighbors=10
+            "vision_knn", feature_extractor=feature_extractor, n_neighbors=10
         )
 
         detector.fit(train_paths)
@@ -161,10 +141,7 @@ class TestKNN:
         """Test different KNN scoring methods."""
         train_paths, test_paths = mock_image_paths
         detector = models.create_model(
-            "vision_knn",
-            feature_extractor=feature_extractor,
-            n_neighbors=5,
-            method=method
+            "vision_knn", feature_extractor=feature_extractor, n_neighbors=5, method=method
         )
 
         detector.fit(train_paths)
@@ -178,9 +155,7 @@ class TestPCA:
     def test_create(self, feature_extractor):
         """Test PCA creation."""
         detector = models.create_model(
-            "vision_pca",
-            feature_extractor=feature_extractor,
-            n_components=10
+            "vision_pca", feature_extractor=feature_extractor, n_components=10
         )
         assert detector is not None
 
@@ -190,7 +165,7 @@ class TestPCA:
         detector = models.create_model(
             "vision_pca",
             feature_extractor=feature_extractor,
-            n_components=0.95  # Keep 95% variance
+            n_components=0.95,  # Keep 95% variance
         )
 
         detector.fit(train_paths)
@@ -202,10 +177,7 @@ class TestPCA:
         """Test PCA with whitening."""
         train_paths, test_paths = mock_image_paths
         detector = models.create_model(
-            "vision_pca",
-            feature_extractor=feature_extractor,
-            n_components=10,
-            whiten=True
+            "vision_pca", feature_extractor=feature_extractor, n_components=10, whiten=True
         )
 
         detector.fit(train_paths)
@@ -364,20 +336,14 @@ class TestEdgeCases:
     def test_predict_before_fit(self, feature_extractor, mock_image_paths):
         """Test prediction before fitting raises error."""
         _, test_paths = mock_image_paths
-        detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor
-        )
+        detector = models.create_model("vision_ecod", feature_extractor=feature_extractor)
 
         with pytest.raises(RuntimeError, match="must be fitted"):
             detector.decision_function(test_paths)
 
     def test_empty_input(self, feature_extractor):
         """Test handling of empty input."""
-        detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor
-        )
+        detector = models.create_model("vision_ecod", feature_extractor=feature_extractor)
 
         # This should work but with warning/error handling
         # depending on implementation
@@ -389,10 +355,7 @@ class TestEdgeCases:
 
     def test_single_sample(self, feature_extractor):
         """Test with single sample."""
-        detector = models.create_model(
-            "vision_ecod",
-            feature_extractor=feature_extractor
-        )
+        detector = models.create_model("vision_ecod", feature_extractor=feature_extractor)
 
         # Single sample should work
         try:

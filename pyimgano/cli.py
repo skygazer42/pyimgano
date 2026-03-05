@@ -812,8 +812,8 @@ def main(argv: list[str] | None = None) -> int:
         # Import model implementations for side effects (registry population).
         # Keep `pyimgano.cli` importable without heavy deps; discovery/benchmarking
         # happens inside `main()`.
-        import pyimgano.models  # noqa: F401
         import pyimgano.features  # noqa: F401
+        import pyimgano.models  # noqa: F401
 
         if bool(getattr(args, "plugins", False)):
             from pyimgano.plugins import load_plugins
@@ -1143,9 +1143,12 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("--load-detector is not supported with --suite.")
 
             best_metric = str(args.suite_export_best_metric)
-            if best_metric in {"pixel_auroc", "pixel_average_precision", "aupro", "pixel_segf1"} and not bool(
-                args.pixel
-            ):
+            if best_metric in {
+                "pixel_auroc",
+                "pixel_average_precision",
+                "aupro",
+                "pixel_segf1",
+            } and not bool(args.pixel):
                 raise ValueError("--suite-export-best-metric pixel_* requires --pixel.")
 
             from pyimgano.pipelines.run_suite import run_baseline_suite
@@ -1172,9 +1175,7 @@ def main(argv: list[str] | None = None) -> int:
                 suite=str(args.suite),
                 dataset=str(dataset),
                 root=str(args.root),
-                manifest_path=(
-                    str(args.manifest_path) if args.manifest_path is not None else None
-                ),
+                manifest_path=(str(args.manifest_path) if args.manifest_path is not None else None),
                 category=str(category),
                 input_mode=str(args.input_mode),
                 seed=(int(args.seed) if args.seed is not None else None),
@@ -1233,7 +1234,9 @@ def main(argv: list[str] | None = None) -> int:
 
                 fmt = str(args.suite_export)
                 formats = ["csv", "md"] if fmt == "both" else [fmt]
-                export_suite_tables(payload, Path(run_dir), formats=formats, best_metric=best_metric)
+                export_suite_tables(
+                    payload, Path(run_dir), formats=formats, best_metric=best_metric
+                )
 
             if args.output:
                 from pyimgano.reporting.report import save_run_report
@@ -1278,9 +1281,9 @@ def main(argv: list[str] | None = None) -> int:
         auto_kwargs: dict[str, Any] = dict(preset_model_auto_kwargs)
         auto_kwargs.update(
             {
-            "device": args.device,
-            "contamination": args.contamination,
-            "pretrained": args.pretrained,
+                "device": args.device,
+                "contamination": args.contamination,
+                "pretrained": args.pretrained,
             }
         )
         if args.seed is not None:

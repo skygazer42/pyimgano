@@ -23,4 +23,3 @@ def test_ensure_contamination_validation() -> None:
         pass
     else:
         raise AssertionError("Expected ValueError for contamination=0.0")
-

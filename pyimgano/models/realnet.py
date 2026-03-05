@@ -30,11 +30,13 @@ class FeatureExtractor(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -75,12 +77,11 @@ class FeatureSelector(nn.Module):
             nn.Conv2d(in_channels, in_channels // reduction, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels // reduction, in_channels, 1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
         self.spatial_attention = nn.Sequential(
-            nn.Conv2d(in_channels, 1, kernel_size=7, padding=3),
-            nn.Sigmoid()
+            nn.Conv2d(in_channels, 1, kernel_size=7, padding=3), nn.Sigmoid()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -101,20 +102,12 @@ class AnomalyGenerator:
 
     def __init__(self, anomaly_types: list = None):
         if anomaly_types is None:
-            self.anomaly_types = [
-                'perlin_noise',
-                'cutpaste',
-                'texture',
-                'intensity',
-                'blur'
-            ]
+            self.anomaly_types = ["perlin_noise", "cutpaste", "texture", "intensity", "blur"]
         else:
             self.anomaly_types = anomaly_types
 
     def generate_anomaly(
-        self,
-        image: torch.Tensor,
-        anomaly_type: Optional[str] = None
+        self, image: torch.Tensor, anomaly_type: Optional[str] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Generate synthetic anomaly.
@@ -146,41 +139,43 @@ class AnomalyGenerator:
         y = np.random.randint(0, H - h_size)
         x = np.random.randint(0, W - w_size)
 
-        if anomaly_type == 'perlin_noise':
+        if anomaly_type == "perlin_noise":
             # Perlin-like noise using multiple octaves
             noise = self._generate_perlin_noise((h_size, w_size))
             noise_tensor = torch.from_numpy(noise).float().to(image.device)
             noise_tensor = noise_tensor.unsqueeze(0).expand(C, -1, -1)
-            anomalous_image[:, y:y+h_size, x:x+w_size] += noise_tensor * 0.5
+            anomalous_image[:, y : y + h_size, x : x + w_size] += noise_tensor * 0.5
 
-        elif anomaly_type == 'cutpaste':
+        elif anomaly_type == "cutpaste":
             # Cut and paste from different location
             src_y = np.random.randint(0, H - h_size)
             src_x = np.random.randint(0, W - w_size)
-            patch = image[:, src_y:src_y+h_size, src_x:src_x+w_size].clone()
+            patch = image[:, src_y : src_y + h_size, src_x : src_x + w_size].clone()
             # Apply random rotation
             angle = np.random.uniform(-30, 30)
             patch = self._rotate_patch(patch, angle)
-            anomalous_image[:, y:y+h_size, x:x+w_size] = patch
+            anomalous_image[:, y : y + h_size, x : x + w_size] = patch
 
-        elif anomaly_type == 'texture':
+        elif anomaly_type == "texture":
             # Random texture from uniform distribution
             texture = torch.rand(C, h_size, w_size, device=image.device) * 2 - 1
-            anomalous_image[:, y:y+h_size, x:x+w_size] += texture * 0.3
+            anomalous_image[:, y : y + h_size, x : x + w_size] += texture * 0.3
 
-        elif anomaly_type == 'intensity':
+        elif anomaly_type == "intensity":
             # Intensity change
             factor = np.random.uniform(0.3, 2.0)
-            anomalous_image[:, y:y+h_size, x:x+w_size] *= factor
+            anomalous_image[:, y : y + h_size, x : x + w_size] *= factor
 
-        elif anomaly_type == 'blur':
+        elif anomaly_type == "blur":
             # Gaussian blur
-            region = anomalous_image[:, y:y+h_size, x:x+w_size].cpu().numpy()
+            region = anomalous_image[:, y : y + h_size, x : x + w_size].cpu().numpy()
             for c in range(C):
                 region[c] = gaussian_filter(region[c], sigma=3)
-            anomalous_image[:, y:y+h_size, x:x+w_size] = torch.from_numpy(region).to(image.device)
+            anomalous_image[:, y : y + h_size, x : x + w_size] = torch.from_numpy(region).to(
+                image.device
+            )
 
-        mask[0, y:y+h_size, x:x+w_size] = 1.0
+        mask[0, y : y + h_size, x : x + w_size] = 1.0
 
         return anomalous_image, mask
 
@@ -195,21 +190,17 @@ class AnomalyGenerator:
     def _rotate_patch(self, patch: torch.Tensor, angle: float) -> torch.Tensor:
         """Rotate patch by angle."""
         # Simple rotation using affine grid
-        theta = torch.tensor([
-            [np.cos(np.radians(angle)), -np.sin(np.radians(angle)), 0],
-            [np.sin(np.radians(angle)), np.cos(np.radians(angle)), 0]
-        ], dtype=torch.float32, device=patch.device)
-
-        grid = F.affine_grid(
-            theta.unsqueeze(0),
-            patch.unsqueeze(0).size(),
-            align_corners=False
+        theta = torch.tensor(
+            [
+                [np.cos(np.radians(angle)), -np.sin(np.radians(angle)), 0],
+                [np.sin(np.radians(angle)), np.cos(np.radians(angle)), 0],
+            ],
+            dtype=torch.float32,
+            device=patch.device,
         )
-        rotated = F.grid_sample(
-            patch.unsqueeze(0),
-            grid,
-            align_corners=False
-        ).squeeze(0)
+
+        grid = F.affine_grid(theta.unsqueeze(0), patch.unsqueeze(0).size(), align_corners=False)
+        rotated = F.grid_sample(patch.unsqueeze(0), grid, align_corners=False).squeeze(0)
         return rotated
 
 
@@ -284,7 +275,7 @@ class VisionRealNet(BaseVisionDeepDetector):
         anomaly_ratio: float = 0.5,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -317,11 +308,7 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         return torch.from_numpy(X).float()
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionRealNet":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionRealNet":
         """
         Fit the RealNet detector.
 
@@ -342,9 +329,7 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
-            self.feature_extractor_ = FeatureExtractor(
-                backbone=self.backbone
-            ).to(self.device)
+            self.feature_extractor_ = FeatureExtractor(backbone=self.backbone).to(self.device)
 
         # Get feature dimensions
         with torch.no_grad():
@@ -353,23 +338,15 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         # Initialize feature selectors
         if self.feature_selectors_ is None:
-            self.feature_selectors_ = nn.ModuleList([
-                FeatureSelector(ch, self.reduction) for ch in channels
-            ]).to(self.device)
+            self.feature_selectors_ = nn.ModuleList(
+                [FeatureSelector(ch, self.reduction) for ch in channels]
+            ).to(self.device)
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.feature_selectors_.parameters(),
-            lr=self.learning_rate
-        )
+        optimizer = torch.optim.Adam(self.feature_selectors_.parameters(), lr=self.learning_rate)
         criterion = nn.BCEWithLogitsLoss()
 
         self.feature_selectors_.train()
@@ -432,7 +409,7 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 f1, f2, f3 = self.feature_extractor_(batch)
                 s1 = self.feature_selectors_[0](f1)
@@ -446,10 +423,7 @@ class VisionRealNet(BaseVisionDeepDetector):
         for i in range(3):
             self.normal_features_[i] = torch.cat(self.normal_features_[i], dim=0)
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -470,7 +444,7 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and select features
                 f1, f2, f3 = self.feature_extractor_(batch)

@@ -103,8 +103,7 @@ def _normalize_anomaly_map(anomaly_map) -> NDArray:
 
     if arr.ndim != 2:
         raise ValueError(
-            "anomalib anomaly_map must be 2D after normalization. "
-            f"Got shape {tuple(arr.shape)}"
+            "anomalib anomaly_map must be 2D after normalization. " f"Got shape {tuple(arr.shape)}"
         )
 
     return np.asarray(arr, dtype=np.float32)
@@ -138,9 +137,7 @@ class VisionAnomalibCheckpoint:
         self.device = device
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
-            raise ValueError(
-                f"contamination must be in (0, 0.5). Got {self.contamination}."
-            )
+            raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
 
         self._inferencer = (
             inferencer

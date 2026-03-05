@@ -12,7 +12,6 @@ from pyimgano.preprocessing.industrial_presets import (
     apply_illumination_contrast,
 )
 
-
 ImageInput = str | Path | np.ndarray
 
 
@@ -110,7 +109,9 @@ def parse_illumination_contrast_knobs(payload: Mapping[str, Any]) -> Illuminatio
 
     lower_p = _float("contrast_lower_percentile", defaults.contrast_lower_percentile)
     upper_p = _float("contrast_upper_percentile", defaults.contrast_upper_percentile)
-    if not (0.0 <= float(lower_p) <= 100.0 and 0.0 <= float(upper_p) <= 100.0 and lower_p < upper_p):
+    if not (
+        0.0 <= float(lower_p) <= 100.0 and 0.0 <= float(upper_p) <= 100.0 and lower_p < upper_p
+    ):
         raise ValueError(
             "preprocessing.illumination_contrast contrast percentiles must satisfy 0<=lower<upper<=100."
         )
@@ -122,9 +123,7 @@ def parse_illumination_contrast_knobs(payload: Mapping[str, Any]) -> Illuminatio
         homomorphic_gamma_low=_float("homomorphic_gamma_low", defaults.homomorphic_gamma_low),
         homomorphic_gamma_high=_float("homomorphic_gamma_high", defaults.homomorphic_gamma_high),
         homomorphic_c=_float("homomorphic_c", defaults.homomorphic_c),
-        homomorphic_per_channel=_bool(
-            "homomorphic_per_channel", defaults.homomorphic_per_channel
-        ),
+        homomorphic_per_channel=_bool("homomorphic_per_channel", defaults.homomorphic_per_channel),
         clahe=_bool("clahe", defaults.clahe),
         clahe_clip_limit=float(clahe_clip_limit),
         clahe_tile_grid_size=_int_pair("clahe_tile_grid_size", defaults.clahe_tile_grid_size),

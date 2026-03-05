@@ -15,11 +15,12 @@ Example:
 """
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 from numpy.typing import NDArray
-from dataclasses import dataclass
 
 from pyimgano.io.image import read_image, resize_image
 
@@ -27,6 +28,7 @@ from pyimgano.io.image import read_image, resize_image
 @dataclass
 class DatasetInfo:
     """Dataset information."""
+
     name: str
     categories: List[str]
     num_train: int
@@ -100,9 +102,21 @@ class MVTecDataset(BaseDataset):
     """
 
     CATEGORIES = [
-        'bottle', 'cable', 'capsule', 'carpet', 'grid',
-        'hazelnut', 'leather', 'metal_nut', 'pill', 'screw',
-        'tile', 'toothbrush', 'transistor', 'wood', 'zipper'
+        "bottle",
+        "cable",
+        "capsule",
+        "carpet",
+        "grid",
+        "hazelnut",
+        "leather",
+        "metal_nut",
+        "pill",
+        "screw",
+        "tile",
+        "toothbrush",
+        "transistor",
+        "wood",
+        "zipper",
     ]
 
     def __init__(
@@ -110,7 +124,7 @@ class MVTecDataset(BaseDataset):
         root: str,
         category: str,
         resize: Optional[Tuple[int, int]] = None,
-        load_masks: bool = True
+        load_masks: bool = True,
     ):
         super().__init__(root, category)
 
@@ -125,7 +139,7 @@ class MVTecDataset(BaseDataset):
         """Load all images from a directory."""
         images = []
 
-        for img_path in sorted(path.glob('*.png')):
+        for img_path in sorted(path.glob("*.png")):
             img = read_image(img_path, color="rgb")
 
             if self.resize is not None:
@@ -137,7 +151,7 @@ class MVTecDataset(BaseDataset):
 
     def get_train_data(self) -> NDArray:
         """Get training data (normal images only)."""
-        train_path = self.category_path / 'train' / 'good'
+        train_path = self.category_path / "train" / "good"
 
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
@@ -147,8 +161,8 @@ class MVTecDataset(BaseDataset):
 
     def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
         """Get test data with labels and optionally masks."""
-        test_path = self.category_path / 'test'
-        ground_truth_path = self.category_path / 'ground_truth'
+        test_path = self.category_path / "test"
+        ground_truth_path = self.category_path / "ground_truth"
 
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
@@ -158,7 +172,7 @@ class MVTecDataset(BaseDataset):
         masks = [] if self.load_masks else None
 
         # Load normal test images
-        normal_path = test_path / 'good'
+        normal_path = test_path / "good"
         if normal_path.exists():
             normal_imgs = self._load_images(normal_path)
             images.extend(normal_imgs)
@@ -171,7 +185,7 @@ class MVTecDataset(BaseDataset):
 
         # Load anomaly test images
         for defect_dir in sorted(test_path.iterdir()):
-            if defect_dir.name == 'good':
+            if defect_dir.name == "good":
                 continue
 
             if not defect_dir.is_dir():
@@ -185,7 +199,7 @@ class MVTecDataset(BaseDataset):
             if self.load_masks and ground_truth_path.exists():
                 mask_dir = ground_truth_path / defect_dir.name
                 if mask_dir.exists():
-                    for img_path in sorted(defect_dir.glob('*.png')):
+                    for img_path in sorted(defect_dir.glob("*.png")):
                         mask_path = mask_dir / f"{img_path.stem}_mask.png"
                         if mask_path.exists():
                             mask = read_image(mask_path, color="gray")
@@ -196,7 +210,9 @@ class MVTecDataset(BaseDataset):
                             masks.append(mask)
                         else:
                             # If mask not found, create zero mask
-                            masks.append(np.zeros(self.resize or defect_imgs[0].shape[:2], dtype=np.uint8))
+                            masks.append(
+                                np.zeros(self.resize or defect_imgs[0].shape[:2], dtype=np.uint8)
+                            )
 
         images = np.array(images)
         labels = np.array(labels)
@@ -210,28 +226,28 @@ class MVTecDataset(BaseDataset):
         test_data, test_labels, _ = self.get_test_data()
 
         return DatasetInfo(
-            name='MVTec AD',
+            name="MVTec AD",
             categories=self.CATEGORIES,
             num_train=len(train_data),
             num_test=len(test_data),
             image_size=train_data[0].shape[:2],
-            description=f'MVTec AD - {self.category} category'
+            description=f"MVTec AD - {self.category} category",
         )
 
     def get_train_paths(self) -> List[str]:
         """Get training image paths (normal only)."""
-        train_path = self.category_path / 'train' / 'good'
+        train_path = self.category_path / "train" / "good"
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
-        paths = [str(p) for p in sorted(train_path.glob('*.png'))]
+        paths = [str(p) for p in sorted(train_path.glob("*.png"))]
         if not paths:
             raise ValueError(f"No training images found in: {train_path}")
         return paths
 
     def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
         """Get test image paths with labels and optionally masks."""
-        test_path = self.category_path / 'test'
-        ground_truth_path = self.category_path / 'ground_truth'
+        test_path = self.category_path / "test"
+        ground_truth_path = self.category_path / "ground_truth"
 
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
@@ -241,8 +257,8 @@ class MVTecDataset(BaseDataset):
         masks: Optional[List[NDArray]] = [] if self.load_masks else None
 
         # Normal test images
-        normal_dir = test_path / 'good'
-        normal_paths = sorted(normal_dir.glob('*.png')) if normal_dir.exists() else []
+        normal_dir = test_path / "good"
+        normal_paths = sorted(normal_dir.glob("*.png")) if normal_dir.exists() else []
         image_paths.extend([str(p) for p in normal_paths])
         labels.extend([0] * len(normal_paths))
 
@@ -259,10 +275,10 @@ class MVTecDataset(BaseDataset):
 
         # Anomaly test images (all subdirs except good)
         for defect_dir in sorted(test_path.iterdir()):
-            if defect_dir.name == 'good' or not defect_dir.is_dir():
+            if defect_dir.name == "good" or not defect_dir.is_dir():
                 continue
 
-            defect_paths = sorted(defect_dir.glob('*.png'))
+            defect_paths = sorted(defect_dir.glob("*.png"))
             image_paths.extend([str(p) for p in defect_paths])
             labels.extend([1] * len(defect_paths))
 
@@ -408,10 +424,7 @@ class MVTecLOCODataset(BaseDataset):
         # Candidate 4: some exports add an extra "<stem>/" folder level
         candidates.append(gt_dir / rel.parent / image_path.stem / image_path.name)
         candidates.append(
-            gt_dir
-            / rel.parent
-            / image_path.stem
-            / f"{image_path.stem}_mask{image_path.suffix}"
+            gt_dir / rel.parent / image_path.stem / f"{image_path.stem}_mask{image_path.suffix}"
         )
 
         mask = None
@@ -722,7 +735,7 @@ class BTADDataset(BaseDataset):
         >>> train_imgs = dataset.get_train_data()
     """
 
-    CATEGORIES = ['01', '02', '03']
+    CATEGORIES = ["01", "02", "03"]
 
     def __init__(
         self,
@@ -744,7 +757,7 @@ class BTADDataset(BaseDataset):
         """Load all images from a directory."""
         images = []
 
-        for ext in ['*.png', '*.jpg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.bmp"]:
             for img_path in sorted(path.glob(ext)):
                 img = read_image(img_path, color="rgb")
 
@@ -757,7 +770,7 @@ class BTADDataset(BaseDataset):
 
     def get_train_data(self) -> NDArray:
         """Get training data (normal images only)."""
-        train_path = self.category_path / 'train' / 'ok'
+        train_path = self.category_path / "train" / "ok"
 
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
@@ -767,7 +780,7 @@ class BTADDataset(BaseDataset):
 
     def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
         """Get test data with labels."""
-        test_path = self.category_path / 'test'
+        test_path = self.category_path / "test"
 
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
@@ -776,14 +789,14 @@ class BTADDataset(BaseDataset):
         labels = []
 
         # Load normal test images
-        normal_path = test_path / 'ok'
+        normal_path = test_path / "ok"
         if normal_path.exists():
             normal_imgs = self._load_images(normal_path)
             images.extend(normal_imgs)
             labels.extend([0] * len(normal_imgs))
 
         # Load anomaly test images
-        defect_path = test_path / 'ko'
+        defect_path = test_path / "ko"
         if defect_path.exists():
             defect_imgs = self._load_images(defect_path)
             images.extend(defect_imgs)
@@ -800,36 +813,36 @@ class BTADDataset(BaseDataset):
         test_data, test_labels, _ = self.get_test_data()
 
         return DatasetInfo(
-            name='BTAD',
+            name="BTAD",
             categories=self.CATEGORIES,
             num_train=len(train_data),
             num_test=len(test_data),
             image_size=train_data[0].shape[:2],
-            description=f'BTAD - Category {self.category}'
+            description=f"BTAD - Category {self.category}",
         )
 
     def get_train_paths(self) -> List[str]:
-        train_path = self.category_path / 'train' / 'ok'
+        train_path = self.category_path / "train" / "ok"
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
         paths: List[str] = []
-        for ext in ['*.png', '*.jpg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.bmp"]:
             paths.extend([str(p) for p in sorted(train_path.glob(ext))])
         if not paths:
             raise ValueError(f"No training images found in: {train_path}")
         return paths
 
     def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
-        test_path = self.category_path / 'test'
+        test_path = self.category_path / "test"
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
 
-        ok_dir = test_path / 'ok'
-        ko_dir = test_path / 'ko'
+        ok_dir = test_path / "ok"
+        ko_dir = test_path / "ko"
 
         ok_paths: List[str] = []
         ko_paths: List[str] = []
-        for ext in ['*.png', '*.jpg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.bmp"]:
             if ok_dir.exists():
                 ok_paths.extend([str(p) for p in sorted(ok_dir.glob(ext))])
             if ko_dir.exists():
@@ -869,7 +882,9 @@ class VisADataset(BaseDataset):
         self.resize = resize
         self.load_masks = load_masks
 
-        base_root = self.root / "visa_pytorch" if (self.root / "visa_pytorch").exists() else self.root
+        base_root = (
+            self.root / "visa_pytorch" if (self.root / "visa_pytorch").exists() else self.root
+        )
         self.category_path = base_root / category
 
         if not self.category_path.exists():
@@ -878,7 +893,7 @@ class VisADataset(BaseDataset):
     def _load_images(self, path: Path) -> List[NDArray]:
         images: List[NDArray] = []
 
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
             for img_path in sorted(path.glob(ext)):
                 try:
                     img = read_image(img_path, color="rgb")
@@ -906,7 +921,7 @@ class VisADataset(BaseDataset):
     @staticmethod
     def _scan_images(directory: Path) -> List[Path]:
         paths: List[Path] = []
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
             paths.extend(sorted(directory.glob(ext)))
         return paths
 
@@ -994,12 +1009,12 @@ class VisADataset(BaseDataset):
         test_data, _, _ = self.get_test_data()
 
         return DatasetInfo(
-            name='VisA',
+            name="VisA",
             categories=[self.category] if self.category else [],
             num_train=len(train_data),
             num_test=len(test_data),
             image_size=train_data[0].shape[:2],
-            description=f'VisA - {self.category} category',
+            description=f"VisA - {self.category} category",
         )
 
     def get_train_paths(self) -> List[str]:
@@ -1064,7 +1079,9 @@ class VisADataset(BaseDataset):
     @staticmethod
     def list_categories(root: str) -> List[str]:
         root_path = Path(root)
-        base_root = root_path / "visa_pytorch" if (root_path / "visa_pytorch").exists() else root_path
+        base_root = (
+            root_path / "visa_pytorch" if (root_path / "visa_pytorch").exists() else root_path
+        )
         if not base_root.exists():
             return []
         return sorted([p.name for p in base_root.iterdir() if p.is_dir()])
@@ -1103,10 +1120,7 @@ class CustomDataset(BaseDataset):
     """
 
     def __init__(
-        self,
-        root: str,
-        resize: Optional[Tuple[int, int]] = None,
-        load_masks: bool = False
+        self, root: str, resize: Optional[Tuple[int, int]] = None, load_masks: bool = False
     ):
         super().__init__(root)
         self.resize = resize
@@ -1127,7 +1141,7 @@ class CustomDataset(BaseDataset):
             if not directory.exists():
                 return []
             paths: List[Path] = []
-            for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+            for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
                 paths.extend(sorted(directory.glob(ext)))
             return paths
 
@@ -1158,9 +1172,7 @@ class CustomDataset(BaseDataset):
         if self.load_masks:
             gt_dir = self.root / "ground_truth" / "anomaly"
             if not gt_dir.exists():
-                errors.append(
-                    f"Missing directory: {gt_dir} (required when load_masks=True)"
-                )
+                errors.append(f"Missing directory: {gt_dir} (required when load_masks=True)")
             else:
                 missing_masks: List[str] = []
                 for img_path in test_anomaly_imgs:
@@ -1184,7 +1196,7 @@ class CustomDataset(BaseDataset):
         """Load all images from a directory."""
         images = []
 
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
             for img_path in sorted(path.glob(ext)):
                 img = read_image(img_path, color="rgb")
 
@@ -1197,7 +1209,7 @@ class CustomDataset(BaseDataset):
 
     def get_train_data(self) -> NDArray:
         """Get training data."""
-        train_path = self.root / 'train' / 'normal'
+        train_path = self.root / "train" / "normal"
 
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
@@ -1207,7 +1219,7 @@ class CustomDataset(BaseDataset):
 
     def get_test_data(self) -> Tuple[NDArray, NDArray, Optional[NDArray]]:
         """Get test data with labels and optionally masks."""
-        test_path = self.root / 'test'
+        test_path = self.root / "test"
 
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
@@ -1217,7 +1229,7 @@ class CustomDataset(BaseDataset):
         masks = [] if self.load_masks else None
 
         # Load normal test images
-        normal_path = test_path / 'normal'
+        normal_path = test_path / "normal"
         if normal_path.exists():
             normal_imgs = self._load_images(normal_path)
             images.extend(normal_imgs)
@@ -1228,7 +1240,7 @@ class CustomDataset(BaseDataset):
                     masks.append(np.zeros(img.shape[:2], dtype=np.uint8))
 
         # Load anomaly test images
-        anomaly_path = test_path / 'anomaly'
+        anomaly_path = test_path / "anomaly"
         if anomaly_path.exists():
             anomaly_imgs = self._load_images(anomaly_path)
             images.extend(anomaly_imgs)
@@ -1236,9 +1248,9 @@ class CustomDataset(BaseDataset):
 
             # Load masks if requested
             if self.load_masks:
-                gt_path = self.root / 'ground_truth' / 'anomaly'
+                gt_path = self.root / "ground_truth" / "anomaly"
                 if gt_path.exists():
-                    for img_path in sorted(anomaly_path.glob('*.png')):
+                    for img_path in sorted(anomaly_path.glob("*.png")):
                         mask_path = gt_path / f"{img_path.stem}_mask.png"
                         if mask_path.exists():
                             mask = read_image(mask_path, color="gray")
@@ -1247,7 +1259,9 @@ class CustomDataset(BaseDataset):
                             mask = (mask > 127).astype(np.uint8)
                             masks.append(mask)
                         else:
-                            masks.append(np.zeros(self.resize or anomaly_imgs[0].shape[:2], dtype=np.uint8))
+                            masks.append(
+                                np.zeros(self.resize or anomaly_imgs[0].shape[:2], dtype=np.uint8)
+                            )
                 else:
                     # No masks available
                     for img in anomaly_imgs:
@@ -1265,36 +1279,36 @@ class CustomDataset(BaseDataset):
         test_data, test_labels, _ = self.get_test_data()
 
         return DatasetInfo(
-            name='Custom Dataset',
-            categories=['custom'],
+            name="Custom Dataset",
+            categories=["custom"],
             num_train=len(train_data),
             num_test=len(test_data),
             image_size=train_data[0].shape[:2],
-            description='User-defined custom dataset'
+            description="User-defined custom dataset",
         )
 
     def get_train_paths(self) -> List[str]:
-        train_path = self.root / 'train' / 'normal'
+        train_path = self.root / "train" / "normal"
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
         paths: List[str] = []
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
             paths.extend([str(p) for p in sorted(train_path.glob(ext))])
         if not paths:
             raise ValueError(f"No training images found in: {train_path}")
         return paths
 
     def get_test_paths(self) -> Tuple[List[str], NDArray, Optional[NDArray]]:
-        test_path = self.root / 'test'
+        test_path = self.root / "test"
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
 
-        normal_dir = test_path / 'normal'
-        anomaly_dir = test_path / 'anomaly'
+        normal_dir = test_path / "normal"
+        anomaly_dir = test_path / "anomaly"
 
         normal_paths: List[Path] = []
         anomaly_paths: List[Path] = []
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp']:
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
             if normal_dir.exists():
                 normal_paths.extend(sorted(normal_dir.glob(ext)))
             if anomaly_dir.exists():
@@ -1317,7 +1331,7 @@ class CustomDataset(BaseDataset):
                 shape = img.shape[:2] if img is not None else (256, 256)
             masks.append(np.zeros(shape, dtype=np.uint8))
 
-        gt_dir = self.root / 'ground_truth' / 'anomaly'
+        gt_dir = self.root / "ground_truth" / "anomaly"
         for img_path in anomaly_paths:
             mask = None
             mask_path = gt_dir / f"{img_path.stem}_mask.png"
@@ -1458,12 +1472,7 @@ class ManifestDataset(BaseDataset):
         )
 
 
-def load_dataset(
-    name: str,
-    root: str,
-    category: Optional[str] = None,
-    **kwargs
-) -> BaseDataset:
+def load_dataset(name: str, root: str, category: Optional[str] = None, **kwargs) -> BaseDataset:
     """Factory function to load datasets.
 
     Args:
@@ -1480,14 +1489,14 @@ def load_dataset(
         >>> train_data = dataset.get_train_data()
     """
     datasets = {
-        'mvtec': MVTecDataset,
-        'mvtec_ad': MVTecDataset,
-        'mvtec_loco': MVTecLOCODataset,
-        'mvtec_ad2': MVTecAD2Dataset,
-        'btad': BTADDataset,
-        'visa': VisADataset,
-        'custom': CustomDataset,
-        'manifest': ManifestDataset,
+        "mvtec": MVTecDataset,
+        "mvtec_ad": MVTecDataset,
+        "mvtec_loco": MVTecLOCODataset,
+        "mvtec_ad2": MVTecAD2Dataset,
+        "btad": BTADDataset,
+        "visa": VisADataset,
+        "custom": CustomDataset,
+        "manifest": ManifestDataset,
     }
 
     name_lower = name.lower()
@@ -1496,7 +1505,7 @@ def load_dataset(
 
     dataset_class = datasets[name_lower]
 
-    if name_lower in ['mvtec', 'mvtec_ad', 'mvtec_loco', 'mvtec_ad2', 'btad', 'visa', 'manifest']:
+    if name_lower in ["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "btad", "visa", "manifest"]:
         if category is None:
             raise ValueError(f"Category is required for {name} dataset")
         return dataset_class(root=root, category=category, **kwargs)

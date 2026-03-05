@@ -28,4 +28,3 @@ def test_core_imdd_rejects_invalid_n_iter() -> None:
 
     with pytest.raises(ValueError):
         CoreIMDD(n_iter=0)
-

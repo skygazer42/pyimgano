@@ -44,4 +44,3 @@ def test_demo_cli_runs_and_writes_tables(tmp_path: Path, capsys) -> None:
     assert (out_dir / "leaderboard.csv").exists()
     assert (out_dir / "best_by_baseline.csv").exists()
     assert (out_dir / "skipped.csv").exists()
-

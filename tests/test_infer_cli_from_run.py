@@ -37,7 +37,11 @@ def test_infer_cli_supports_from_run(tmp_path, monkeypatch):
                         "pretrained": False,
                         "contamination": 0.1,
                     },
-                    "output": {"save_run": True, "per_image_jsonl": False, "output_dir": str(run_dir)},
+                    "output": {
+                        "save_run": True,
+                        "per_image_jsonl": False,
+                        "output_dir": str(run_dir),
+                    },
                 }
             },
             indent=2,
@@ -139,7 +143,11 @@ def test_infer_cli_from_run_resolves_model_checkpoint_path_relative_to_run_dir(
                         "contamination": 0.1,
                         "checkpoint_path": "artifacts/backbone.onnx",
                     },
-                    "output": {"save_run": True, "per_image_jsonl": False, "output_dir": str(run_dir)},
+                    "output": {
+                        "save_run": True,
+                        "per_image_jsonl": False,
+                        "output_dir": str(run_dir),
+                    },
                 }
             },
             indent=2,

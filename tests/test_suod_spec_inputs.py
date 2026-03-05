@@ -29,4 +29,3 @@ def test_vision_suod_spec_accepts_model_specs() -> None:
     assert preds.shape == (10,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

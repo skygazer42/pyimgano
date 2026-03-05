@@ -13,10 +13,10 @@ from typing import Literal
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from ..utils.fitted import require_fitted
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-from ..utils.fitted import require_fitted
 
 logger = logging.getLogger(__name__)
 

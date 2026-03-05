@@ -35,21 +35,15 @@ class SpatialTransformerNetwork(nn.Module):
             nn.Conv2d(64, 128, kernel_size=5, padding=2),
             nn.MaxPool2d(2, stride=2),
             nn.ReLU(True),
-            nn.AdaptiveAvgPool2d((4, 4))
+            nn.AdaptiveAvgPool2d((4, 4)),
         )
 
         # Regression for affine transformation parameters
-        self.fc_loc = nn.Sequential(
-            nn.Linear(128 * 4 * 4, 256),
-            nn.ReLU(True),
-            nn.Linear(256, 6)
-        )
+        self.fc_loc = nn.Sequential(nn.Linear(128 * 4 * 4, 256), nn.ReLU(True), nn.Linear(256, 6))
 
         # Initialize the weights/bias with identity transformation
         self.fc_loc[2].weight.data.zero_()
-        self.fc_loc[2].bias.data.copy_(
-            torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        )
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -85,20 +79,19 @@ class SpatialTransformerNetwork(nn.Module):
 class RegistrationNetwork(nn.Module):
     """Network for feature registration and alignment."""
 
-    def __init__(
-        self,
-        backbone: str = "wide_resnet50"
-    ):
+    def __init__(self, backbone: str = "wide_resnet50"):
         super().__init__()
 
         # Feature extractor
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
             self.feature_channels = 1024
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
             self.feature_channels = 512
@@ -123,10 +116,7 @@ class RegistrationNetwork(nn.Module):
         # Spatial transformer for registration
         self.stn = SpatialTransformerNetwork(self.feature_channels)
 
-    def forward(
-        self,
-        x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Extract and register features.
 
@@ -209,7 +199,7 @@ class VisionRegAD(BaseVisionDeepDetector):
         epochs: int = 40,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -240,11 +230,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         return torch.from_numpy(X).float()
 
-    def _registration_loss(
-        self,
-        registered: torch.Tensor,
-        target: torch.Tensor
-    ) -> torch.Tensor:
+    def _registration_loss(self, registered: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
         Compute registration loss.
 
@@ -275,11 +261,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         return total_loss
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionRegAD":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionRegAD":
         """
         Fit the RegAD detector.
 
@@ -300,15 +282,13 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         # Initialize network
         if self.reg_network_ is None:
-            self.reg_network_ = RegistrationNetwork(
-                backbone=self.backbone
-            ).to(self.device)
+            self.reg_network_ = RegistrationNetwork(backbone=self.backbone).to(self.device)
 
         # Build reference template from training data
         with torch.no_grad():
             all_features = []
             for i in range(0, min(len(X_tensor), 100), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
                 features, _ = self.reg_network_(batch)
                 all_features.append(features)
 
@@ -317,18 +297,10 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         # Training - learn to register to reference
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Only optimize STN parameters
-        optimizer = torch.optim.Adam(
-            self.reg_network_.stn.parameters(),
-            lr=self.learning_rate
-        )
+        optimizer = torch.optim.Adam(self.reg_network_.stn.parameters(), lr=self.learning_rate)
 
         self.reg_network_.stn.train()
 
@@ -360,10 +332,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -384,7 +353,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register features
                 features, registered = self.reg_network_(batch)
@@ -402,10 +371,7 @@ class VisionRegAD(BaseVisionDeepDetector):
         """Alias for predict."""
         return self.predict(X)
 
-    def get_registration_map(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def get_registration_map(self, X: NDArray) -> NDArray:
         """
         Get pixel-level registration error maps.
 
@@ -427,7 +393,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register
                 features, registered = self.reg_network_(batch)
@@ -440,10 +406,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
                 # Resize to original image size
                 error_map = F.interpolate(
-                    error_map.unsqueeze(1),
-                    size=(H, W),
-                    mode='bilinear',
-                    align_corners=False
+                    error_map.unsqueeze(1), size=(H, W), mode="bilinear", align_corners=False
                 ).squeeze(1)
 
                 error_maps.append(error_map.cpu().numpy())

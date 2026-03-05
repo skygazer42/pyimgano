@@ -56,7 +56,9 @@ def postprocess_binary_mask(
     )
     if should_filter_components:
         binary01 = (mask > 0).astype(np.uint8)
-        num_labels, labels, stats, _centroids = cv2.connectedComponentsWithStats(binary01, connectivity=8)
+        num_labels, labels, stats, _centroids = cv2.connectedComponentsWithStats(
+            binary01, connectivity=8
+        )
         keep = np.zeros_like(mask, dtype=np.uint8)
 
         amap = None
@@ -83,12 +85,20 @@ def postprocess_binary_mask(
                 region_values = amap[labels == label_id]
                 if region_values.size == 0:
                     continue
-                if min_score_max_v is not None and float(region_values.max()) < float(min_score_max_v):
+                if min_score_max_v is not None and float(region_values.max()) < float(
+                    min_score_max_v
+                ):
                     continue
-                if min_score_mean_v is not None and float(region_values.mean()) < float(min_score_mean_v):
+                if min_score_mean_v is not None and float(region_values.mean()) < float(
+                    min_score_mean_v
+                ):
                     continue
 
-            if min_fill_ratio_v is not None or max_aspect_ratio_v is not None or min_solidity_v is not None:
+            if (
+                min_fill_ratio_v is not None
+                or max_aspect_ratio_v is not None
+                or min_solidity_v is not None
+            ):
                 width = int(stats[label_id, cv2.CC_STAT_WIDTH])
                 height = int(stats[label_id, cv2.CC_STAT_HEIGHT])
 
@@ -105,7 +115,9 @@ def postprocess_binary_mask(
 
                 if min_solidity_v is not None:
                     component = (labels == label_id).astype(np.uint8)
-                    contours, _hier = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    contours, _hier = cv2.findContours(
+                        component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                    )
                     if not contours:
                         continue
                     contour = max(contours, key=cv2.contourArea)
@@ -134,7 +146,7 @@ def postprocess_binary_mask(
 
 
 def _fill_holes_best_effort(mask_u8: np.ndarray) -> np.ndarray:
-    binary = (np.asarray(mask_u8, dtype=np.uint8) > 0)
+    binary = np.asarray(mask_u8, dtype=np.uint8) > 0
 
     try:
         from scipy.ndimage import binary_fill_holes  # type: ignore[import-not-found]

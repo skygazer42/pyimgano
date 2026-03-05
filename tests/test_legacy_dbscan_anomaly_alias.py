@@ -3,7 +3,6 @@ import numpy as np
 
 def test_legacy_dbscan_anomaly_is_still_registered_and_fittable() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
@@ -21,4 +20,3 @@ def test_legacy_dbscan_anomaly_is_still_registered_and_fittable() -> None:
     scores = det.decision_function(X[:10])
     assert scores.shape == (10,)
     assert np.all(np.isfinite(scores))
-

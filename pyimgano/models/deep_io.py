@@ -17,7 +17,9 @@ def _require_torch():
     return require("torch", extra="torch", purpose="deep model IO")
 
 
-def save_deep_detector(detector: Any, path: str | Path, *, meta: dict[str, Any] | None = None) -> Path:
+def save_deep_detector(
+    detector: Any, path: str | Path, *, meta: dict[str, Any] | None = None
+) -> Path:
     """Save `detector.model.state_dict()` to disk."""
 
     torch = _require_torch()
@@ -27,7 +29,9 @@ def save_deep_detector(detector: Any, path: str | Path, *, meta: dict[str, Any] 
 
     model = getattr(detector, "model", None)
     if model is None:
-        raise ValueError("Detector has no `.model` attribute set; fit/build the model before saving.")
+        raise ValueError(
+            "Detector has no `.model` attribute set; fit/build the model before saving."
+        )
 
     state_dict = getattr(model, "state_dict", None)
     if not callable(state_dict):

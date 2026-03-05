@@ -26,4 +26,3 @@ def test_local_contrast_normalization_constant_image_maps_to_midgray() -> None:
     # Zero-contrast input should map to the neutral center.
     assert int(out.min()) == 128
     assert int(out.max()) == 128
-

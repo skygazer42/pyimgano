@@ -242,9 +242,10 @@ class EfficientADDetector(BaseVisionDeepDetector):
     def predict_fast(self, img_path: str):  # noqa: D401
         """Legacy single-image scoring helper."""
 
-        score = float(np.asarray(self.decision_function([str(img_path)]), dtype=np.float64).reshape(-1)[0])
+        score = float(
+            np.asarray(self.decision_function([str(img_path)]), dtype=np.float64).reshape(-1)[0]
+        )
         return {"image": str(img_path), "anomaly_score": score}
 
 
 __all__ = ["EfficientADDetector"]
-

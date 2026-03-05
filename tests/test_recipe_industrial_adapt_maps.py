@@ -97,4 +97,3 @@ def test_recipe_industrial_adapt_writes_maps_when_enabled(tmp_path):
     first = json.loads(records[0])
     assert "anomaly_map" in first
     assert first["anomaly_map"]["path"].endswith(".npy")
-

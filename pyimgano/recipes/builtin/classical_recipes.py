@@ -17,8 +17,12 @@ from pyimgano.workbench.runner import run_workbench
 def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-hog-ecod"
     model_kwargs = dict(config.model.model_kwargs)
-    model_kwargs.setdefault("feature_extractor", {"name": "hog", "kwargs": {"resize_hw": [128, 128]}})
-    cfg = replace(config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs))
+    model_kwargs.setdefault(
+        "feature_extractor", {"name": "hog", "kwargs": {"resize_hw": [128, 128]}}
+    )
+    cfg = replace(
+        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+    )
     return run_workbench(config=cfg, recipe_name=recipe_name)
 
 
@@ -35,7 +39,9 @@ def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
         {"name": "lbp", "kwargs": {"n_points": 8, "radius": 1.0, "method": "uniform"}},
     )
     model_kwargs.setdefault("n_neighbors", 15)
-    cfg = replace(config, model=replace(config.model, name="vision_loop", model_kwargs=model_kwargs))
+    cfg = replace(
+        config, model=replace(config.model, name="vision_loop", model_kwargs=model_kwargs)
+    )
     return run_workbench(config=cfg, recipe_name=recipe_name)
 
 
@@ -89,7 +95,9 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
         raise ValueError(f"dataset.root directory does not exist: {in_dir}")
 
     if config.output.output_dir is not None:
-        out_base = Path(config.output.output_dir) / "__synthetic_datasets__" / f"{recipe_name}_{seed}"
+        out_base = (
+            Path(config.output.output_dir) / "__synthetic_datasets__" / f"{recipe_name}_{seed}"
+        )
         out_base.mkdir(parents=True, exist_ok=True)
         synth_root = out_base / "data"
         synthesize_dataset(
@@ -100,7 +108,9 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
             seed=seed,
             n_train=8 if config.dataset.limit_train is None else int(config.dataset.limit_train),
             n_test_normal=4,
-            n_test_anomaly=4 if config.dataset.limit_test is None else int(config.dataset.limit_test),
+            n_test_anomaly=(
+                4 if config.dataset.limit_test is None else int(config.dataset.limit_test)
+            ),
             manifest_path=synth_root / "manifest.jsonl",
             absolute_paths=True,
         )
@@ -142,7 +152,9 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
             return run_workbench(config=cfg, recipe_name=recipe_name)
 
     model_kwargs = dict(config.model.model_kwargs)
-    model_kwargs.setdefault("feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}})
+    model_kwargs.setdefault(
+        "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
+    )
     cfg = replace(
         config,
         dataset=replace(

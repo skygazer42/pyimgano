@@ -187,4 +187,3 @@ def merge_regions_nearby(regions: Sequence[dict], *, max_gap_px: int) -> list[di
         merged.append(out)
 
     return merged
-

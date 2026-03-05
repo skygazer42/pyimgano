@@ -22,7 +22,9 @@ def load_infer_config(path: str | Path) -> dict[str, Any]:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in infer config: {cfg_path}. Original error: {exc}") from exc
+        raise ValueError(
+            f"Invalid JSON in infer config: {cfg_path}. Original error: {exc}"
+        ) from exc
 
     if not isinstance(payload, dict):
         raise ValueError(

@@ -44,4 +44,3 @@ def test_infer_cli_direct_mode_default_does_not_enable_pretrained(capsys) -> Non
     out = capsys.readouterr()
     assert rc != 0
     assert "requires a patch embedder" in (out.err + out.out).lower()
-

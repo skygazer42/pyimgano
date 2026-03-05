@@ -93,4 +93,3 @@ def test_workbench_report_includes_dataset_summary(tmp_path: Path) -> None:
     assert ds["test_anomaly_ratio"] == 0.5
     assert ds["pixel_metrics"]["enabled"] is False
     assert "mask_path" in str(ds["pixel_metrics"]["reason"]).lower()
-

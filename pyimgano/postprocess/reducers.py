@@ -11,7 +11,6 @@ from typing import Literal, Optional
 
 import numpy as np
 
-
 Reducer = Literal["max", "mean", "topk_mean", "area"]
 
 
@@ -58,4 +57,3 @@ def reduce_anomaly_map(
         return float(np.mean(flat >= thr))
 
     raise ValueError(f"Unknown reducer method: {method}")
-

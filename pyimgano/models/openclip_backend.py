@@ -15,15 +15,10 @@ from typing import Any, Literal, Optional, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from .anomalydino import (
-    PatchEmbedder,
-    VisionAnomalyDINO,
-)
-
-from .patchknn_core import aggregate_patch_scores, reshape_patch_scores
-
 from pyimgano.utils.optional_deps import require
 
+from .anomalydino import PatchEmbedder, VisionAnomalyDINO
+from .patchknn_core import aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
 
 
@@ -121,8 +116,7 @@ def _load_openclip_model_and_preprocess(
     )
     if not isinstance(result, tuple):
         raise RuntimeError(
-            "Unexpected return value from open_clip.create_model_and_transforms: "
-            f"{type(result)}"
+            "Unexpected return value from open_clip.create_model_and_transforms: " f"{type(result)}"
         )
 
     if len(result) == 3:
@@ -132,8 +126,7 @@ def _load_openclip_model_and_preprocess(
         model, preprocess = result
     else:
         raise RuntimeError(
-            "Unexpected return arity from open_clip.create_model_and_transforms: "
-            f"{len(result)}"
+            "Unexpected return arity from open_clip.create_model_and_transforms: " f"{len(result)}"
         )
 
     model.eval()
@@ -421,7 +414,9 @@ class VisionOpenCLIPPromptScore:
         self.text_features_normal = text_features_normal
         self.text_features_anomaly = text_features_anomaly
         self.class_name = str(class_name)
-        self.text_prompts = dict(text_prompts) if text_prompts is not None else dict(self._DEFAULT_TEXT_PROMPTS)
+        self.text_prompts = (
+            dict(text_prompts) if text_prompts is not None else dict(self._DEFAULT_TEXT_PROMPTS)
+        )
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = openclip_pretrained
         self.device = str(device)
@@ -429,9 +424,7 @@ class VisionOpenCLIPPromptScore:
         self.normalize_embeddings = bool(normalize_embeddings)
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
-            raise ValueError(
-                f"contamination must be in (0, 0.5). Got {self.contamination}."
-            )
+            raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
 
         self.aggregation_method = str(aggregation_method)
         self.aggregation_topk = float(aggregation_topk)
@@ -539,9 +532,7 @@ class VisionOpenCLIPPromptScore:
         patch_embeddings, grid_shape, original_size = self.embedder.embed(image)
         patch_embeddings_np = np.asarray(patch_embeddings, dtype=np.float32)
         if patch_embeddings_np.ndim != 2:
-            raise ValueError(
-                f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}"
-            )
+            raise ValueError(f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}")
 
         grid_h, grid_w = int(grid_shape[0]), int(grid_shape[1])
         if patch_embeddings_np.shape[0] != grid_h * grid_w:
@@ -568,7 +559,9 @@ class VisionOpenCLIPPromptScore:
 
     def decision_function(self, X):
         self._ensure_text_features()
-        if self.text_features_normal is None or self.text_features_anomaly is None:  # pragma: no cover
+        if (
+            self.text_features_normal is None or self.text_features_anomaly is None
+        ):  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
         items = list(X)
@@ -596,7 +589,9 @@ class VisionOpenCLIPPromptScore:
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
         self._ensure_text_features()
-        if self.text_features_normal is None or self.text_features_anomaly is None:  # pragma: no cover
+        if (
+            self.text_features_normal is None or self.text_features_anomaly is None
+        ):  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
         patch_embeddings, grid_shape, original_size = self._embed(image)
@@ -635,8 +630,7 @@ class VisionOpenCLIPPromptScore:
         for m in maps[1:]:
             if m.shape != first_shape:
                 raise ValueError(
-                    "Inconsistent anomaly map shapes. "
-                    f"Expected {first_shape}, got {m.shape}."
+                    "Inconsistent anomaly map shapes. " f"Expected {first_shape}, got {m.shape}."
                 )
         return np.stack(maps)
 

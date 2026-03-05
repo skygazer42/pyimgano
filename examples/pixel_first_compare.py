@@ -26,7 +26,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--category", required=True, help="Dataset category name")
     parser.add_argument("--device", default="cpu", help="cpu|cuda")
     parser.add_argument("--contamination", type=float, default=0.1)
-    parser.add_argument("--pixel", action="store_true", help="Compute pixel-level metrics if possible")
+    parser.add_argument(
+        "--pixel", action="store_true", help="Compute pixel-level metrics if possible"
+    )
     parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=True)
     return parser
 
@@ -117,4 +119,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

@@ -21,12 +21,10 @@ using `pyimgano.models.registry.register_model` / `pyimgano.features.registry.re
 
 from __future__ import annotations
 
+import importlib.metadata as md
 import warnings
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Literal, Sequence
-
-import importlib.metadata as md
-
 
 OnError = Literal["raise", "warn", "ignore"]
 
@@ -141,4 +139,3 @@ __all__ = [
     "PluginLoadResult",
     "load_plugins",
 ]
-

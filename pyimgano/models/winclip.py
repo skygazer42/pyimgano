@@ -13,6 +13,7 @@ Key Features:
 - Strong localization through window-based attention
 - No fine-tuning required
 """
+
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -46,9 +47,7 @@ class WindowAttention:
         self.window_size = window_size
         self.stride = stride
 
-    def extract_windows(
-        self, image: NDArray
-    ) -> Tuple[List[NDArray], List[Tuple[int, int]]]:
+    def extract_windows(self, image: NDArray) -> Tuple[List[NDArray], List[Tuple[int, int]]]:
         """Extract sliding windows from image.
 
         Args:
@@ -209,16 +208,12 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         """Encode text prompts into CLIP features."""
         with torch.no_grad():
             # Encode normal prompts
-            normal_tokens = self._clip.tokenize(self.formatted_prompts["normal"]).to(
-                self.device
-            )
+            normal_tokens = self._clip.tokenize(self.formatted_prompts["normal"]).to(self.device)
             normal_features = self.model.encode_text(normal_tokens)
             normal_features = F.normalize(normal_features, dim=-1)
 
             # Encode anomaly prompts
-            anomaly_tokens = self._clip.tokenize(self.formatted_prompts["anomaly"]).to(
-                self.device
-            )
+            anomaly_tokens = self._clip.tokenize(self.formatted_prompts["anomaly"]).to(self.device)
             anomaly_features = self.model.encode_text(anomaly_tokens)
             anomaly_features = F.normalize(anomaly_features, dim=-1)
 

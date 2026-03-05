@@ -11,7 +11,6 @@ from pyimgano.features.registry import register_feature_extractor
 
 from .torchvision_backbone import _as_pil_rgb, _load_torchvision_backbone, _make_device
 
-
 _InputColor = Literal["rgb", "bgr"]
 
 
@@ -51,7 +50,9 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
 
         torch = require("torch", extra="torch", purpose="TorchvisionMultilayerExtractor")
         F = require("torch.nn.functional", extra="torch", purpose="TorchvisionMultilayerExtractor")
-        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionMultilayerExtractor")
+        T = require(
+            "torchvision.transforms", extra="torch", purpose="TorchvisionMultilayerExtractor"
+        )
         fe = require(
             "torchvision.models.feature_extraction",
             extra="torch",
@@ -63,7 +64,11 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
             str(self.backbone), pretrained=bool(self.pretrained)
         )
 
-        nodes = list(self.return_nodes) if self.return_nodes is not None else ["layer1", "layer2", "layer3", "layer4"]
+        nodes = (
+            list(self.return_nodes)
+            if self.return_nodes is not None
+            else ["layer1", "layer2", "layer3", "layer4"]
+        )
         feat_model = create_feature_extractor(model, return_nodes={n: n for n in nodes})
 
         dev = _make_device(str(self.device))

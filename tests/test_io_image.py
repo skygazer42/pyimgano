@@ -33,4 +33,3 @@ def test_read_image_missing_path_raises(tmp_path) -> None:
     except FileNotFoundError:
         return
     raise AssertionError("Expected FileNotFoundError")
-

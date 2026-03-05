@@ -20,4 +20,3 @@ def test_apply_threshold():
     scores = np.array([0.1, 0.5, 0.9])
     labels = apply_threshold(scores, threshold=0.5)
     assert labels.tolist() == [0, 1, 1]
-

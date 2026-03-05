@@ -25,12 +25,7 @@ from .registry import register_model
 class SimplifiedDiffusionModel(nn.Module):
     """Simplified diffusion model for anomaly detection."""
 
-    def __init__(
-        self,
-        in_channels: int,
-        hidden_channels: int = 128,
-        num_timesteps: int = 100
-    ):
+    def __init__(self, in_channels: int, hidden_channels: int = 128, num_timesteps: int = 100):
         super().__init__()
         self.num_timesteps = num_timesteps
 
@@ -45,11 +40,7 @@ class SimplifiedDiffusionModel(nn.Module):
             nn.Conv2d(hidden_channels, in_channels, 3, padding=1),
         )
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        t: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
         Predict noise at timestep t.
 
@@ -82,10 +73,7 @@ class GlobalDiffusion(nn.Module):
 
     def __init__(self, in_channels: int):
         super().__init__()
-        self.diffusion = SimplifiedDiffusionModel(
-            in_channels=in_channels,
-            hidden_channels=128
-        )
+        self.diffusion = SimplifiedDiffusionModel(in_channels=in_channels, hidden_channels=128)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """Apply global diffusion."""
@@ -97,10 +85,7 @@ class LocalDiffusion(nn.Module):
 
     def __init__(self, in_channels: int):
         super().__init__()
-        self.diffusion = SimplifiedDiffusionModel(
-            in_channels=in_channels,
-            hidden_channels=64
-        )
+        self.diffusion = SimplifiedDiffusionModel(in_channels=in_channels, hidden_channels=64)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """Apply local diffusion."""
@@ -117,14 +102,10 @@ class AdaptiveFusion(nn.Module):
             nn.Conv2d(in_channels * 2, 64, 3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 2, 1),
-            nn.Softmax(dim=1)
+            nn.Softmax(dim=1),
         )
 
-    def forward(
-        self,
-        global_pred: torch.Tensor,
-        local_pred: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, global_pred: torch.Tensor, local_pred: torch.Tensor) -> torch.Tensor:
         """
         Fuse global and local predictions.
 
@@ -222,7 +203,7 @@ class VisionGLAD(BaseVisionDeepDetector):
         epochs: int = 40,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -257,11 +238,13 @@ class VisionGLAD(BaseVisionDeepDetector):
     def _build_feature_extractor(self):
         """Build feature extractor."""
         if self.backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif self.backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -283,11 +266,7 @@ class VisionGLAD(BaseVisionDeepDetector):
 
         return extractor
 
-    def _add_noise(
-        self,
-        x: torch.Tensor,
-        t: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _add_noise(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Add noise at timestep t."""
         noise = torch.randn_like(x)
         alpha = 1 - t.float() / self.num_timesteps
@@ -296,11 +275,7 @@ class VisionGLAD(BaseVisionDeepDetector):
         noisy_x = alpha.sqrt() * x + (1 - alpha).sqrt() * noise
         return noisy_x, noise
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionGLAD":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionGLAD":
         """
         Fit the GLAD detector.
 
@@ -340,18 +315,13 @@ class VisionGLAD(BaseVisionDeepDetector):
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
-            list(self.global_diffusion_.parameters()) +
-            list(self.local_diffusion_.parameters()) +
-            list(self.fusion_.parameters()),
-            lr=self.learning_rate
+            list(self.global_diffusion_.parameters())
+            + list(self.local_diffusion_.parameters())
+            + list(self.fusion_.parameters()),
+            lr=self.learning_rate,
         )
 
         self.global_diffusion_.train()
@@ -397,10 +367,7 @@ class VisionGLAD(BaseVisionDeepDetector):
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -423,7 +390,7 @@ class VisionGLAD(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)

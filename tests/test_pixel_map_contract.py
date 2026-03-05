@@ -88,4 +88,3 @@ def test_pixel_anomaly_map_contract_for_key_detectors(tmp_path):
         assert anomaly_map.ndim == 2
         assert anomaly_map.shape == (64, 64)
         assert np.isfinite(anomaly_map).all()
-

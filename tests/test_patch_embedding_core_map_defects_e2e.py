@@ -38,9 +38,8 @@ def test_patch_embedding_core_map_to_defects_extract_e2e() -> None:
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-    from pyimgano.models.registry import create_model
-
     from pyimgano.defects.extract import extract_defects_from_anomaly_map
+    from pyimgano.models.registry import create_model
 
     embedder = _DummyGridMeanEmbedder(grid=8)
     train = [_make_image(value=90) for _ in range(8)]
@@ -75,4 +74,3 @@ def test_patch_embedding_core_map_to_defects_extract_e2e() -> None:
     mask = np.asarray(defects["mask"], dtype=np.uint8)
     assert mask.shape == (64, 64)
     assert int(np.sum(mask > 0)) > 0
-

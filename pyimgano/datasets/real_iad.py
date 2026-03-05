@@ -8,7 +8,6 @@ from typing import Any, Mapping
 
 from pyimgano.utils.path_normalize import normalize_path
 
-
 SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
 
 

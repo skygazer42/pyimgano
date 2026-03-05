@@ -12,7 +12,6 @@ from pyimgano.utils.optional_deps import require
 
 from .torchvision_backbone import _as_pil_rgb, _make_device
 
-
 _InputColor = Literal["rgb", "bgr"]
 
 

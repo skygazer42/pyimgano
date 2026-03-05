@@ -41,4 +41,3 @@ def test_torchvision_conv_patch_embedder_smoke_offline_default(monkeypatch) -> N
     assert np.all(np.isfinite(patches))
     norms = np.linalg.norm(patches, axis=1)
     assert float(np.median(norms)) == pytest.approx(1.0, abs=1e-3)
-

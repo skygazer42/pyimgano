@@ -44,9 +44,7 @@ class RecipeRegistry:
             return self._registry[str(name)].recipe
         except KeyError as exc:
             available = ", ".join(sorted(self._registry)) or "<empty>"
-            raise KeyError(
-                f"Recipe {name!r} not found. Available recipes: {available}"
-            ) from exc
+            raise KeyError(f"Recipe {name!r} not found. Available recipes: {available}") from exc
 
     def available(self, *, tags: Optional[Iterable[str]] = None) -> List[str]:
         if tags is None:

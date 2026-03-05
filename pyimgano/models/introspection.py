@@ -52,4 +52,3 @@ def model_entry_info(entry: _ModelEntryLike) -> dict[str, Any]:
 
 def model_info(registry: _ModelRegistryLike, name: str) -> dict[str, Any]:
     return model_entry_info(registry.info(name))
-

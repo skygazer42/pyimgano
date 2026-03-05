@@ -611,9 +611,15 @@ def build_infer_config_payload(
         },
         "hysteresis": {
             "enabled": bool(config.defects.hysteresis.enabled),
-            "low": (float(config.defects.hysteresis.low) if config.defects.hysteresis.low is not None else None),
+            "low": (
+                float(config.defects.hysteresis.low)
+                if config.defects.hysteresis.low is not None
+                else None
+            ),
             "high": (
-                float(config.defects.hysteresis.high) if config.defects.hysteresis.high is not None else None
+                float(config.defects.hysteresis.high)
+                if config.defects.hysteresis.high is not None
+                else None
             ),
         },
         "shape_filters": {
@@ -639,18 +645,20 @@ def build_infer_config_payload(
         },
         "min_area": int(config.defects.min_area),
         "min_score_max": (
-            float(config.defects.min_score_max) if config.defects.min_score_max is not None else None
+            float(config.defects.min_score_max)
+            if config.defects.min_score_max is not None
+            else None
         ),
         "min_score_mean": (
-            float(config.defects.min_score_mean) if config.defects.min_score_mean is not None else None
+            float(config.defects.min_score_mean)
+            if config.defects.min_score_mean is not None
+            else None
         ),
         "open_ksize": int(config.defects.open_ksize),
         "close_ksize": int(config.defects.close_ksize),
         "fill_holes": bool(config.defects.fill_holes),
         "max_regions": (
-            int(config.defects.max_regions)
-            if config.defects.max_regions is not None
-            else None
+            int(config.defects.max_regions) if config.defects.max_regions is not None else None
         ),
         "max_regions_sort_by": str(config.defects.max_regions_sort_by),
     }

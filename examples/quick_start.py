@@ -61,11 +61,7 @@ def main():
 
     # Create detector
     print("Creating ECOD detector...")
-    detector = models.create_model(
-        'vision_ecod',
-        contamination=0.1,
-        n_jobs=-1
-    )
+    detector = models.create_model("vision_ecod", contamination=0.1, n_jobs=-1)
 
     # Train
     print("Training on normal images...")

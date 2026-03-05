@@ -283,4 +283,3 @@ class VisionTemplateNCCMapDetector(BaseDetector):
 
 
 __all__ = ["VisionTemplateNCCMapDetector"]
-

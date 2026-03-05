@@ -27,7 +27,6 @@ from pyimgano.pipelines.reference_map_pipeline import ReferenceMapPipeline
 
 from .registry import register_model
 
-
 _Metric = Literal["l2", "cosine"]
 
 
@@ -119,7 +118,9 @@ class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):
 
         from pyimgano.utils.torchvision_safe import load_torchvision_backbone
 
-        model, weight_transform = load_torchvision_backbone(str(self.backbone), pretrained=bool(self.pretrained))
+        model, weight_transform = load_torchvision_backbone(
+            str(self.backbone), pretrained=bool(self.pretrained)
+        )
         # Extract a conv feature map at `node`.
         model = create_feature_extractor(model, return_nodes={str(self.node): "feat"})
 
@@ -172,7 +173,9 @@ class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):
         if q.ndim != 4 or r.ndim != 4:
             raise ValueError("feature maps must be 4D (N,C,H,W)")
         if q.shape != r.shape:
-            raise ValueError(f"query/reference feature map shape mismatch: {tuple(q.shape)} vs {tuple(r.shape)}")
+            raise ValueError(
+                f"query/reference feature map shape mismatch: {tuple(q.shape)} vs {tuple(r.shape)}"
+            )
 
         if self.metric == "l2":
             diff = q - r
@@ -187,11 +190,15 @@ class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):
             dist = 1.0 - cos
 
         dist = dist.to(dtype=self._torch.float32)
-        up = self._F.interpolate(dist, size=(int(out_hw[0]), int(out_hw[1])), mode="bilinear", align_corners=False)
+        up = self._F.interpolate(
+            dist, size=(int(out_hw[0]), int(out_hw[1])), mode="bilinear", align_corners=False
+        )
         return up[0, 0].detach().cpu().numpy().astype(np.float32, copy=False)
 
     # ------------------------------------------------------------------
-    def _compute_pair_map(self, *, query_rgb: np.ndarray, reference_rgb: np.ndarray, out_hw: tuple[int, int]) -> np.ndarray:
+    def _compute_pair_map(
+        self, *, query_rgb: np.ndarray, reference_rgb: np.ndarray, out_hw: tuple[int, int]
+    ) -> np.ndarray:
         q_feat = self._extract_feat_map(query_rgb)
         r_feat = self._extract_feat_map(reference_rgb)
         return self._distance_map(q_feat, r_feat, out_hw=out_hw)
@@ -239,11 +246,12 @@ class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):
                 pad_value=int(self.tile_pad_value),
             )
             tiles.append(t)
-            maps.append(self._compute_pair_map(query_rgb=q_tile, reference_rgb=r_tile, out_hw=(tile, tile)))
+            maps.append(
+                self._compute_pair_map(query_rgb=q_tile, reference_rgb=r_tile, out_hw=(tile, tile))
+            )
 
         full = stitch_maps(tiles, maps, out_shape=(h, w), reduce=str(self.tile_map_reduce))
         return np.asarray(full, dtype=np.float32)
 
 
 __all__ = ["VisionRefPatchDistanceMapDetector"]
-

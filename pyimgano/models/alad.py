@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from typing import List, Tuple, Dict, Optional
 import math
-import numpy as np
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,13 +15,13 @@ from .registry import register_model
 
 def get_activation(name: str) -> nn.Module:
     name = (name or "relu").lower()
-    if name == 'tanh':
+    if name == "tanh":
         return nn.Tanh()
-    if name == 'sigmoid':
+    if name == "sigmoid":
         return nn.Sigmoid()
-    if name == 'relu':
+    if name == "relu":
         return nn.ReLU(inplace=True)
-    if name == 'leakyrelu':
+    if name == "leakyrelu":
         return nn.LeakyReLU(0.2, inplace=True)
     raise ValueError(f"Unsupported activation: {name}")
 
@@ -30,18 +30,30 @@ class ConvEncoder(nn.Module):
     """将 3x224x224 图像编码为潜变量 z。
     结构：一串 stride=2 的卷积降采样到 7x7，再 GAP 到向量，最后线性到 latent_dim。
     """
+
     def __init__(self, latent_dim: int, in_ch: int = 3, base_ch: int = 64):
         super().__init__()
         # 224 -> 112 -> 56 -> 28 -> 14 -> 7
         self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, base_ch, 4, 2, 1), nn.BatchNorm2d(base_ch), nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1), nn.BatchNorm2d(base_ch * 2), nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1), nn.BatchNorm2d(base_ch * 4), nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch * 4, base_ch * 8, 4, 2, 1), nn.BatchNorm2d(base_ch * 8), nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch * 8, base_ch * 8, 4, 2, 1), nn.BatchNorm2d(base_ch * 8), nn.ReLU(inplace=True),
+            nn.Conv2d(in_ch, base_ch, 4, 2, 1),
+            nn.BatchNorm2d(base_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 4),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_ch * 4, base_ch * 8, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 8),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_ch * 8, base_ch * 8, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 8),
+            nn.ReLU(inplace=True),
         )
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(base_ch * 8, latent_dim)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         h = self.conv(x)
         h = self.gap(h).flatten(1)  # [B, C]
@@ -59,13 +71,21 @@ class ConvDecoder(nn.Module):
         super().__init__()
         self.fc = nn.Linear(latent_dim, base_ch * 8 * 7 * 7)
         self.deconv = nn.Sequential(
-            nn.ConvTranspose2d(base_ch * 8, base_ch * 8, 4, 2, 1), nn.BatchNorm2d(base_ch * 8), nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(base_ch * 8, base_ch * 8, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 8),
+            nn.ReLU(inplace=True),
             # 7->14
-            nn.ConvTranspose2d(base_ch * 8, base_ch * 4, 4, 2, 1), nn.BatchNorm2d(base_ch * 4), nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(base_ch * 8, base_ch * 4, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 4),
+            nn.ReLU(inplace=True),
             # 14->28
-            nn.ConvTranspose2d(base_ch * 4, base_ch * 2, 4, 2, 1), nn.BatchNorm2d(base_ch * 2), nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(base_ch * 4, base_ch * 2, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 2),
+            nn.ReLU(inplace=True),
             # 28->56
-            nn.ConvTranspose2d(base_ch * 2, base_ch, 4, 2, 1), nn.BatchNorm2d(base_ch), nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(base_ch * 2, base_ch, 4, 2, 1),
+            nn.BatchNorm2d(base_ch),
+            nn.ReLU(inplace=True),
             # 56->112
             nn.ConvTranspose2d(base_ch, out_ch, 4, 2, 1),  # 112->224
         )
@@ -76,16 +96,24 @@ class ConvDecoder(nn.Module):
         x_hat = self.deconv(h)
         return x_hat
 
+
 class DiscXX(nn.Module):
     """在图像对 (x, x') 上判别真假；输入按通道拼接为 6xHxW。"""
 
     def __init__(self, in_ch_pair: int = 6, base_ch: int = 64):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(in_ch_pair, base_ch, 4, 2, 1), nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1), nn.BatchNorm2d(base_ch * 2), nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1), nn.BatchNorm2d(base_ch * 4), nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(base_ch * 4, base_ch * 8, 4, 2, 1), nn.BatchNorm2d(base_ch * 8), nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(in_ch_pair, base_ch, 4, 2, 1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(base_ch * 4, base_ch * 8, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 8),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.fc = nn.Sequential(nn.Flatten(), nn.Linear(base_ch * 8, 1), nn.Sigmoid())
@@ -96,17 +124,27 @@ class DiscXX(nn.Module):
         out = self.fc(h)
         return out  # [B, 1]
 
+
 class ImgFeat(nn.Module):
     """图像特征提取器，用于 D_xz。
     产出一个中等维度的向量（默认 256）。
     """
+
     def __init__(self, in_ch: int = 3, base_ch: int = 64, feat_dim: int = 256):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, base_ch, 4, 2, 1), nn.BatchNorm2d(base_ch), nn.ReLU(inplace=True),  # 224->112
-            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1), nn.BatchNorm2d(base_ch * 2), nn.ReLU(inplace=True),  # 112->56
-            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1), nn.BatchNorm2d(base_ch * 4), nn.ReLU(inplace=True),  # 56->28
-            nn.Conv2d(base_ch * 4, base_ch * 4, 4, 2, 1), nn.BatchNorm2d(base_ch * 4), nn.ReLU(inplace=True),  # 28->14
+            nn.Conv2d(in_ch, base_ch, 4, 2, 1),
+            nn.BatchNorm2d(base_ch),
+            nn.ReLU(inplace=True),  # 224->112
+            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 2),
+            nn.ReLU(inplace=True),  # 112->56
+            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 4),
+            nn.ReLU(inplace=True),  # 56->28
+            nn.Conv2d(base_ch * 4, base_ch * 4, 4, 2, 1),
+            nn.BatchNorm2d(base_ch * 4),
+            nn.ReLU(inplace=True),  # 28->14
             nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.proj = nn.Linear(base_ch * 4, feat_dim)
@@ -116,9 +154,13 @@ class ImgFeat(nn.Module):
         h = h.flatten(1)
         return self.proj(h)
 
+
 class MLPDisc(nn.Module):
     """多层感知机判别器（用于 D_xz 和 D_zz）。"""
-    def __init__(self, in_dim: int, hidden: List[int], act: str = 'tanh', spectral_norm: bool = False):
+
+    def __init__(
+        self, in_dim: int, hidden: List[int], act: str = "tanh", spectral_norm: bool = False
+    ):
         super().__init__()
         layers: List[nn.Module] = []
         last = in_dim
@@ -137,6 +179,7 @@ class MLPDisc(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
+
 # ------------------------------
 # ALAD
 # ------------------------------
@@ -153,53 +196,57 @@ class ALAD(BaseVisionDeepDetector):
       - evaluating_forward(batch): 返回该 batch 的异常分数 (numpy array)
     """
 
-    def __init__(self,
-                 # ALAD 通用参数
-                 activation_hidden_gen: str = 'tanh',
-                 activation_hidden_disc: str = 'tanh',
-                 output_activation: Optional[str] = None,
-                 dropout_rate: float = 0.2,
-                 latent_dim: int = 128,
-                 disc_xx_layers: List[int] = [256, 128, 64],
-                 disc_xz_layers: List[int] = [256, 128, 64],
-                 disc_zz_layers: List[int] = [128, 64],
-                 learning_rate_gen: float = 1e-4,
-                 learning_rate_disc: float = 1e-4,
-                 add_recon_loss: bool = False,
-                 lambda_recon_loss: float = 0.1,
-                 add_disc_zz_loss: bool = True,
-                 spectral_normalization: bool = False,
-                 # CNN 相关
-                 enc_base_ch: int = 64,
-                 dec_base_ch: int = 64,
-                 xx_base_ch: int = 64,
-                 xz_feat_dim: int = 256,
-                 contamination: float = 0.1,
-                 preprocessing: bool = True,
-                 lr: float = 1e-3,
-                 epoch_num: int = 10,
-                 batch_size: int = 16,
-                 optimizer_name: str = 'adam',
-                 criterion_name: str = 'mse',
-                 device: Optional[str] = None,
-                 random_state: int = 42,
-                 verbose: int = 1,
-                 train_transform=None,
-                 eval_transform=None,
-                 **kwargs):
-        super().__init__(contamination=contamination,
-                         preprocessing=preprocessing,
-                         lr=lr,
-                         epoch_num=epoch_num,
-                         batch_size=batch_size,
-                         optimizer_name=optimizer_name,
-                         criterion_name=criterion_name,
-                         device=device,
-                         random_state=random_state,
-                         verbose=verbose,
-                         train_transform=train_transform,
-                         eval_transform=eval_transform,
-                         **kwargs)
+    def __init__(
+        self,
+        # ALAD 通用参数
+        activation_hidden_gen: str = "tanh",
+        activation_hidden_disc: str = "tanh",
+        output_activation: Optional[str] = None,
+        dropout_rate: float = 0.2,
+        latent_dim: int = 128,
+        disc_xx_layers: List[int] = [256, 128, 64],
+        disc_xz_layers: List[int] = [256, 128, 64],
+        disc_zz_layers: List[int] = [128, 64],
+        learning_rate_gen: float = 1e-4,
+        learning_rate_disc: float = 1e-4,
+        add_recon_loss: bool = False,
+        lambda_recon_loss: float = 0.1,
+        add_disc_zz_loss: bool = True,
+        spectral_normalization: bool = False,
+        # CNN 相关
+        enc_base_ch: int = 64,
+        dec_base_ch: int = 64,
+        xx_base_ch: int = 64,
+        xz_feat_dim: int = 256,
+        contamination: float = 0.1,
+        preprocessing: bool = True,
+        lr: float = 1e-3,
+        epoch_num: int = 10,
+        batch_size: int = 16,
+        optimizer_name: str = "adam",
+        criterion_name: str = "mse",
+        device: Optional[str] = None,
+        random_state: int = 42,
+        verbose: int = 1,
+        train_transform=None,
+        eval_transform=None,
+        **kwargs,
+    ):
+        super().__init__(
+            contamination=contamination,
+            preprocessing=preprocessing,
+            lr=lr,
+            epoch_num=epoch_num,
+            batch_size=batch_size,
+            optimizer_name=optimizer_name,
+            criterion_name=criterion_name,
+            device=device,
+            random_state=random_state,
+            verbose=verbose,
+            train_transform=train_transform,
+            eval_transform=eval_transform,
+            **kwargs,
+        )
         # 保存超参
         self.activation_hidden_gen = activation_hidden_gen
         self.activation_hidden_disc = activation_hidden_disc
@@ -235,7 +282,6 @@ class ALAD(BaseVisionDeepDetector):
         self.hist_loss_disc: List[float] = []
         self.hist_loss_gen: List[float] = []
 
-
     def build_model(self):
         device = self.device
         # 生成器
@@ -245,19 +291,25 @@ class ALAD(BaseVisionDeepDetector):
         # 判别器们
         self.disc_xx = DiscXX(in_ch_pair=6, base_ch=self.xx_base_ch).to(device)
         self.img_feat = ImgFeat(in_ch=3, base_ch=64, feat_dim=self.xz_feat_dim).to(device)
-        self.disc_xz = MLPDisc(in_dim=self.xz_feat_dim + self.latent_dim,
-                               hidden=self.disc_xz_layers,
-                               act=self.activation_hidden_disc,
-                               spectral_norm=self.spectral_normalization).to(device)
-        self.disc_zz = MLPDisc(in_dim=2 * self.latent_dim,
-                               hidden=self.disc_zz_layers,
-                               act=self.activation_hidden_disc,
-                               spectral_norm=self.spectral_normalization).to(device)
+        self.disc_xz = MLPDisc(
+            in_dim=self.xz_feat_dim + self.latent_dim,
+            hidden=self.disc_xz_layers,
+            act=self.activation_hidden_disc,
+            spectral_norm=self.spectral_normalization,
+        ).to(device)
+        self.disc_zz = MLPDisc(
+            in_dim=2 * self.latent_dim,
+            hidden=self.disc_zz_layers,
+            act=self.activation_hidden_disc,
+            spectral_norm=self.spectral_normalization,
+        ).to(device)
 
         # 优化器：判别器和生成器分开
-        disc_params = list(self.disc_xx.parameters()) + \
-                      list(self.disc_xz.parameters()) + \
-                      list(self.disc_zz.parameters())
+        disc_params = (
+            list(self.disc_xx.parameters())
+            + list(self.disc_xz.parameters())
+            + list(self.disc_zz.parameters())
+        )
         gen_params = list(self.enc.parameters()) + list(self.dec.parameters())
 
         self.opt_disc = optim.Adam(disc_params, lr=self.learning_rate_disc, betas=(0.5, 0.999))
@@ -304,14 +356,16 @@ class ALAD(BaseVisionDeepDetector):
         zeros = torch.zeros_like(out_true_xz)
 
         loss_dxz = bce(out_true_xz, ones) + bce(out_fake_xz, zeros)
-        loss_dxx = bce(out_true_xx, torch.ones_like(out_true_xx)) + \
-                   bce(out_fake_xx, torch.zeros_like(out_fake_xx))
+        loss_dxx = bce(out_true_xx, torch.ones_like(out_true_xx)) + bce(
+            out_fake_xx, torch.zeros_like(out_fake_xx)
+        )
 
         if self.add_disc_zz_loss:
             out_true_zz = self.disc_zz(torch.cat([z_real, z_real], dim=1))
             out_fake_zz = self.disc_zz(torch.cat([z_real, z_gen_d], dim=1))
-            loss_dzz = bce(out_true_zz, torch.ones_like(out_true_zz)) + \
-                       bce(out_fake_zz, torch.zeros_like(out_fake_zz))
+            loss_dzz = bce(out_true_zz, torch.ones_like(out_true_zz)) + bce(
+                out_fake_zz, torch.zeros_like(out_fake_zz)
+            )
             loss_disc = loss_dxz + loss_dxx + loss_dzz
         else:
             loss_disc = loss_dxz + loss_dxx
@@ -335,14 +389,16 @@ class ALAD(BaseVisionDeepDetector):
 
         # 生成器希望“骗过”判别器：伪造判为真、真实判为假
         loss_gexz = bce(out_fake_xz, ones) + bce(out_true_xz, zeros)
-        loss_gexx = bce(out_fake_xx, torch.ones_like(out_fake_xx)) + \
-                    bce(out_true_xx, torch.zeros_like(out_true_xx))
+        loss_gexx = bce(out_fake_xx, torch.ones_like(out_fake_xx)) + bce(
+            out_true_xx, torch.zeros_like(out_true_xx)
+        )
 
         if self.add_disc_zz_loss:
             out_true_zz = self.disc_zz(torch.cat([z_real, z_real], dim=1))
             out_fake_zz = self.disc_zz(torch.cat([z_real, z_gen], dim=1))
-            loss_gezz = bce(out_fake_zz, torch.ones_like(out_fake_zz)) + \
-                        bce(out_true_zz, torch.zeros_like(out_true_zz))
+            loss_gezz = bce(out_fake_zz, torch.ones_like(out_fake_zz)) + bce(
+                out_true_zz, torch.zeros_like(out_true_zz)
+            )
             cycle_consistency = loss_gezz + loss_gexx
             loss_gen = loss_gexz + cycle_consistency
         else:
@@ -364,13 +420,12 @@ class ALAD(BaseVisionDeepDetector):
         # 返回一个合并损失，供父类日志显示
         return float((loss_disc + loss_gen).item())
 
-
     @torch.no_grad()
     def evaluating_forward(self, batch: Tuple[torch.Tensor, torch.Tensor]):
-        self.enc.eval();
+        self.enc.eval()
         self.dec.eval()
-        self.disc_xx.eval();
-        self.disc_xz.eval();
+        self.disc_xx.eval()
+        self.disc_xz.eval()
         self.disc_zz.eval()
 
         x, _ = batch
@@ -389,8 +444,7 @@ class ALAD(BaseVisionDeepDetector):
         return {"loss_disc": self.hist_loss_disc, "loss_gen": self.hist_loss_gen}
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     # 准备训练/评估的图像路径列表 train_paths / test_paths
     train_paths: List[str] = [
         # '/path/to/img1.jpg', '/path/to/img2.jpg', ...
@@ -399,8 +453,7 @@ if __name__ == '__main__':
         # '/path/to/test1.jpg', '/path/to/test2.jpg', ...
     ]
     # 2) 初始化并训练
-    model = ALAD(epoch_num=5, batch_size=8, verbose=1,
-                       preprocessing=True, latent_dim=128)
+    model = ALAD(epoch_num=5, batch_size=8, verbose=1, preprocessing=True, latent_dim=128)
     model.fit(train_paths)
     # 3) 计算分数
     scores = model.decision_function(test_paths)

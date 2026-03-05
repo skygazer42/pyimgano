@@ -40,4 +40,3 @@ def test_micro_finetune_falls_back_when_kwargs_unsupported():
     assert det.called is True
     assert det.n == 1
     assert out["fit_kwargs_used"] == {}
-

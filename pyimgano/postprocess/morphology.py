@@ -10,7 +10,6 @@ from typing import Literal
 
 import numpy as np
 
-
 _KernelShape = Literal["ellipse", "rect"]
 _MorphOp = Literal["open", "close", "dilate", "erode"]
 
@@ -78,11 +77,15 @@ def morph_float01(
     return out_u8.astype(np.float32) / 255.0
 
 
-def open_float01(anomaly_map: np.ndarray, *, ksize: int, shape: _KernelShape = "ellipse") -> np.ndarray:
+def open_float01(
+    anomaly_map: np.ndarray, *, ksize: int, shape: _KernelShape = "ellipse"
+) -> np.ndarray:
     return morph_float01(anomaly_map, op="open", ksize=int(ksize), shape=shape)
 
 
-def close_float01(anomaly_map: np.ndarray, *, ksize: int, shape: _KernelShape = "ellipse") -> np.ndarray:
+def close_float01(
+    anomaly_map: np.ndarray, *, ksize: int, shape: _KernelShape = "ellipse"
+) -> np.ndarray:
     return morph_float01(anomaly_map, op="close", ksize=int(ksize), shape=shape)
 
 
@@ -92,4 +95,3 @@ __all__ = [
     "open_float01",
     "close_float01",
 ]
-

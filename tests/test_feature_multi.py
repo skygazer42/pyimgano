@@ -17,4 +17,3 @@ def test_multi_extractor_concats_feature_matrices() -> None:
     assert out.shape == (4, 5)
     assert np.allclose(out[:, :3], X)
     assert np.allclose(out[:, 3:], 1.0)
-

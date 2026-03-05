@@ -20,4 +20,3 @@ def test_get_logger_sets_level() -> None:
 
     logger = get_logger("pyimgano.tests", verbose=2)
     assert logger.level == logging.DEBUG
-

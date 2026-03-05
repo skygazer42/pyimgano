@@ -247,4 +247,3 @@ class VisionPatchCoreLiteMap:
 
 
 __all__ = ["VisionPatchCoreLiteMap"]
-

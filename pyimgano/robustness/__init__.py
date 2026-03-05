@@ -5,4 +5,3 @@ from .types import Corruption
 __all__ = [
     "Corruption",
 ]
-

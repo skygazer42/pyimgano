@@ -147,7 +147,9 @@ class VisionPatchEmbeddingCoreMap:
     def _patch_scores(self, embedded: _EmbeddedImage) -> NDArray:
         if self._core is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self._core.decision_function(embedded.patch_embeddings), dtype=np.float64).reshape(-1)
+        scores = np.asarray(
+            self._core.decision_function(embedded.patch_embeddings), dtype=np.float64
+        ).reshape(-1)
         if scores.shape[0] != embedded.patch_embeddings.shape[0]:
             raise ValueError(
                 "core_detector.decision_function must return one score per patch. "
@@ -230,4 +232,3 @@ class VisionPatchEmbeddingCoreMap:
 
 
 __all__ = ["VisionPatchEmbeddingCoreMap"]
-

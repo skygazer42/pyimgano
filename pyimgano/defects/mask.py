@@ -17,4 +17,3 @@ def anomaly_map_to_binary_mask(anomaly_map: np.ndarray, pixel_threshold: float) 
     m = np.asarray(anomaly_map, dtype=np.float32)
     t = float(pixel_threshold)
     return (m >= t).astype(np.uint8) * 255
-

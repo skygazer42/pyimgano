@@ -106,7 +106,9 @@ def guided_filter(
     img = _to_gray(img0)
     g = _to_gray(g0)
     if img.shape != g.shape:
-        raise ValueError(f"image and guidance must have the same shape, got {img.shape} vs {g.shape}")
+        raise ValueError(
+            f"image and guidance must have the same shape, got {img.shape} vs {g.shape}"
+        )
 
     r = int(radius)
     e = float(eps)
@@ -144,4 +146,3 @@ def guided_filter(
         out = np.clip(q * 255.0, 0.0, 255.0)
         return np.rint(out).astype(np.uint8)
     return q.astype(np.float32, copy=False)
-

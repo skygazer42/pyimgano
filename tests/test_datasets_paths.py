@@ -84,4 +84,3 @@ def test_custom_path_accessors(tmp_path: Path) -> None:
     assert len(test_paths) == 2
     assert set(labels.tolist()).issubset({0, 1})
     assert masks is not None
-

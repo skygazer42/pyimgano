@@ -11,7 +11,6 @@ from typing import TypeVar
 
 from joblib import Parallel, cpu_count, delayed
 
-
 T = TypeVar("T")
 U = TypeVar("U")
 
@@ -57,7 +56,4 @@ def parallel_map(
     if n <= 1 or len(xs) <= 1:
         return [fn(x) for x in xs]
 
-    return Parallel(n_jobs=n, backend=str(backend))(
-        delayed(fn)(x) for x in xs
-    )
-
+    return Parallel(n_jobs=n, backend=str(backend))(delayed(fn)(x) for x in xs)

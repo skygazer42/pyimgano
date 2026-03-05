@@ -165,4 +165,3 @@ def tile_apply(
     if img.dtype == np.uint8:
         return np.rint(np.clip(out, 0.0, 255.0)).astype(np.uint8)
     return out.astype(img.dtype, copy=False)
-

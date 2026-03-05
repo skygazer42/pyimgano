@@ -14,4 +14,3 @@ def test_standard_scaler_extractor_centers_features() -> None:
     assert Z.shape == X.shape
     # Approximately zero mean per feature
     assert np.allclose(Z.mean(axis=0), 0.0, atol=1e-5)
-

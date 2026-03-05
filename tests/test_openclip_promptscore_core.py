@@ -15,4 +15,3 @@ def test_prompt_patch_scores_diff_mode():
     )
     assert scores.shape == (2,)
     assert float(scores[1]) > float(scores[0])
-

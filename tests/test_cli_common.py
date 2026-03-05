@@ -30,7 +30,6 @@ def test_merge_checkpoint_path_detects_conflict():
 
 def test_build_model_kwargs_filters_auto_kwargs_for_strict_models():
     import pyimgano.models  # noqa: F401 - populate registry
-
     from pyimgano.cli_common import build_model_kwargs
 
     out = build_model_kwargs(
@@ -40,4 +39,3 @@ def test_build_model_kwargs_filters_auto_kwargs_for_strict_models():
         auto_kwargs={"device": "cpu", "contamination": 0.2, "pretrained": False},
     )
     assert out == {"contamination": 0.2}
-

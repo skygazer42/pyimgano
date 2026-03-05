@@ -34,4 +34,3 @@ def test_cutpaste_determinism() -> None:
 
     assert np.array_equal(o1, o2)
     assert np.array_equal(m1, m2)
-

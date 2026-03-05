@@ -1,11 +1,12 @@
 import os
+
 import cv2
-import numpy as np
-from sklearn.svm import OneClassSVM
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from tqdm import tqdm
 import joblib
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import OneClassSVM
+from tqdm import tqdm
 
 from .registry import register_model
 
@@ -16,7 +17,7 @@ from .registry import register_model
     metadata={"description": "基于多特征的一类 SVM 图像检测器"},
 )
 class ImageAnomalyDetector:
-    def __init__(self, feature_type='combined', nu=0.05, cnn_pretrained: bool = False):
+    def __init__(self, feature_type="combined", nu=0.05, cnn_pretrained: bool = False):
         """
         初始化异常检测器
         feature_type: 'histogram', 'hog', 'combined', 'cnn'
@@ -24,7 +25,7 @@ class ImageAnomalyDetector:
         """
         self.feature_type = feature_type
         self.cnn_pretrained = bool(cnn_pretrained)
-        self.ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=nu)
+        self.ocsvm = OneClassSVM(kernel="rbf", gamma="auto", nu=nu)
         self.scaler = StandardScaler()
         self.pca = PCA(n_components=128)  # 降维到128维
         self.is_trained = False
@@ -41,7 +42,7 @@ class ImageAnomalyDetector:
 
         features = []
 
-        if self.feature_type in ['histogram', 'combined']:
+        if self.feature_type in ["histogram", "combined"]:
             # 1. 颜色直方图特征
             hist_b = cv2.calcHist([img], [0], None, [64], [0, 256])
             hist_g = cv2.calcHist([img], [1], None, [64], [0, 256])
@@ -49,49 +50,59 @@ class ImageAnomalyDetector:
             hist_gray = cv2.calcHist([gray], [0], None, [64], [0, 256])
 
             # 归一化
-            hist_features = np.concatenate([
-                hist_b.flatten() / (hist_b.sum() + 1e-6),
-                hist_g.flatten() / (hist_g.sum() + 1e-6),
-                hist_r.flatten() / (hist_r.sum() + 1e-6),
-                hist_gray.flatten() / (hist_gray.sum() + 1e-6)
-            ])
+            hist_features = np.concatenate(
+                [
+                    hist_b.flatten() / (hist_b.sum() + 1e-6),
+                    hist_g.flatten() / (hist_g.sum() + 1e-6),
+                    hist_r.flatten() / (hist_r.sum() + 1e-6),
+                    hist_gray.flatten() / (hist_gray.sum() + 1e-6),
+                ]
+            )
             features.extend(hist_features)
 
-        if self.feature_type in ['hog', 'combined']:
+        if self.feature_type in ["hog", "combined"]:
             # 2. HOG特征（边缘和形状）
             from pyimgano.utils.optional_deps import require
 
-            skfeature = require("skimage.feature", extra="skimage", purpose="HOG features (one_class_cnn)")
+            skfeature = require(
+                "skimage.feature", extra="skimage", purpose="HOG features (one_class_cnn)"
+            )
             hog = skfeature.hog
             resized = cv2.resize(gray, (128, 128))
-            hog_features = hog(resized,
-                               orientations=9,
-                               pixels_per_cell=(16, 16),
-                               cells_per_block=(2, 2),
-                               feature_vector=True)
+            hog_features = hog(
+                resized,
+                orientations=9,
+                pixels_per_cell=(16, 16),
+                cells_per_block=(2, 2),
+                feature_vector=True,
+            )
             features.extend(hog_features)
 
-        if self.feature_type == 'combined':
+        if self.feature_type == "combined":
             # 3. 纹理特征（LBP）
             from pyimgano.utils.optional_deps import require
 
-            skfeature = require("skimage.feature", extra="skimage", purpose="LBP features (one_class_cnn)")
+            skfeature = require(
+                "skimage.feature", extra="skimage", purpose="LBP features (one_class_cnn)"
+            )
             local_binary_pattern = skfeature.local_binary_pattern
             resized = cv2.resize(gray, (128, 128))
-            lbp = local_binary_pattern(resized, P=8, R=1, method='uniform')
+            lbp = local_binary_pattern(resized, P=8, R=1, method="uniform")
             lbp_hist, _ = np.histogram(lbp.ravel(), bins=59, range=(0, 59))
             lbp_hist = lbp_hist.astype("float")
-            lbp_hist /= (lbp_hist.sum() + 1e-6)
+            lbp_hist /= lbp_hist.sum() + 1e-6
             features.extend(lbp_hist)
 
             # 4. 统计特征
-            features.extend([
-                gray.mean(),
-                gray.std(),
-                cv2.Laplacian(gray, cv2.CV_64F).var(),  # 模糊度
-                img.mean(),
-                img.std()
-            ])
+            features.extend(
+                [
+                    gray.mean(),
+                    gray.std(),
+                    cv2.Laplacian(gray, cv2.CV_64F).var(),  # 模糊度
+                    img.mean(),
+                    img.std(),
+                ]
+            )
 
         return np.array(features)
 
@@ -100,8 +111,12 @@ class ImageAnomalyDetector:
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="one_class_cnn CNN feature extraction")
-        transforms = require("torchvision.transforms", extra="torch", purpose="one_class_cnn CNN feature extraction")
-        models = require("torchvision.models", extra="torch", purpose="one_class_cnn CNN feature extraction")
+        transforms = require(
+            "torchvision.transforms", extra="torch", purpose="one_class_cnn CNN feature extraction"
+        )
+        models = require(
+            "torchvision.models", extra="torch", purpose="one_class_cnn CNN feature extraction"
+        )
 
         # 加载预训练模型
         try:
@@ -115,13 +130,14 @@ class ImageAnomalyDetector:
         feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
 
         # 图像预处理
-        transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-        ])
+        transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
 
         # 读取和预处理图像
         img = cv2.imread(image_path)
@@ -142,14 +158,14 @@ class ImageAnomalyDetector:
         # 获取所有图片路径
         image_paths = []
         for filename in os.listdir(image_folder):
-            if filename.endswith('.jpg') or filename.endswith('.png'):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
                 image_paths.append(os.path.join(image_folder, filename))
 
         # 提取所有图片的特征
         features_list = []
         for img_path in tqdm(image_paths, desc="提取特征"):
             try:
-                if self.feature_type == 'cnn':
+                if self.feature_type == "cnn":
                     feat = self.extract_cnn_features(img_path)
                 else:
                     feat = self.extract_features(img_path)
@@ -191,14 +207,14 @@ class ImageAnomalyDetector:
             raise ValueError("模型尚未训练！")
 
         # 提取特征
-        if self.feature_type == 'cnn':
+        if self.feature_type == "cnn":
             feat = self.extract_cnn_features(image_path)
         else:
             feat = self.extract_features(image_path)
 
         # 预处理
         feat_scaled = self.scaler.transform([feat])
-        if hasattr(self, 'pca') and feat_scaled.shape[1] > 128:
+        if hasattr(self, "pca") and feat_scaled.shape[1] > 128:
             feat_reduced = self.pca.transform(feat_scaled)
         else:
             feat_reduced = feat_scaled
@@ -211,11 +227,11 @@ class ImageAnomalyDetector:
         anomaly_score = -score  # 分数越低越异常，转换为越高越异常
 
         return {
-            'prediction': 'normal' if prediction == 1 else 'anomaly',
-            'is_normal': prediction == 1,
-            'anomaly_score': anomaly_score,
-            'decision_value': score,
-            'confidence': abs(score - self.threshold_percentile_95)
+            "prediction": "normal" if prediction == 1 else "anomaly",
+            "is_normal": prediction == 1,
+            "anomaly_score": anomaly_score,
+            "decision_value": score,
+            "confidence": abs(score - self.threshold_percentile_95),
         }
 
     def batch_predict(self, test_folder):
@@ -223,11 +239,11 @@ class ImageAnomalyDetector:
         results = []
 
         for filename in os.listdir(test_folder):
-            if filename.endswith('.jpg') or filename.endswith('.png'):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
                 img_path = os.path.join(test_folder, filename)
                 try:
                     result = self.predict(img_path)
-                    result['filename'] = filename
+                    result["filename"] = filename
                     results.append(result)
                 except Exception as e:
                     print(f"预测 {filename} 时出错: {e}")
@@ -237,12 +253,12 @@ class ImageAnomalyDetector:
     def save_model(self, save_path):
         """保存模型"""
         model_data = {
-            'ocsvm': self.ocsvm,
-            'scaler': self.scaler,
-            'pca': self.pca if hasattr(self, 'pca') else None,
-            'feature_type': self.feature_type,
-            'threshold_percentile_95': self.threshold_percentile_95,
-            'is_trained': self.is_trained
+            "ocsvm": self.ocsvm,
+            "scaler": self.scaler,
+            "pca": self.pca if hasattr(self, "pca") else None,
+            "feature_type": self.feature_type,
+            "threshold_percentile_95": self.threshold_percentile_95,
+            "is_trained": self.is_trained,
         }
         joblib.dump(model_data, save_path)
         print(f"模型已保存到: {save_path}")
@@ -250,12 +266,12 @@ class ImageAnomalyDetector:
     def load_model(self, load_path):
         """加载模型"""
         model_data = joblib.load(load_path)
-        self.ocsvm = model_data['ocsvm']
-        self.scaler = model_data['scaler']
-        self.pca = model_data['pca']
-        self.feature_type = model_data['feature_type']
-        self.threshold_percentile_95 = model_data['threshold_percentile_95']
-        self.is_trained = model_data['is_trained']
+        self.ocsvm = model_data["ocsvm"]
+        self.scaler = model_data["scaler"]
+        self.pca = model_data["pca"]
+        self.feature_type = model_data["feature_type"]
+        self.threshold_percentile_95 = model_data["threshold_percentile_95"]
+        self.is_trained = model_data["is_trained"]
         print(f"模型已从 {load_path} 加载")
 
 
@@ -263,8 +279,7 @@ class ImageAnomalyDetector:
 if __name__ == "__main__":
     # 1. 创建检测器
     detector = ImageAnomalyDetector(
-        feature_type='combined',  # 使用组合特征
-        nu=0.05  # 假设最多5%的训练数据可能是异常
+        feature_type="combined", nu=0.05  # 使用组合特征  # 假设最多5%的训练数据可能是异常
     )
 
     # 2. 训练模型

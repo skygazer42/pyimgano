@@ -19,9 +19,13 @@ def test_score_direction_core_kde_ratio_outlier_higher() -> None:
     x_inlier = np.zeros((1, 4), dtype=np.float64)
     x_outlier = np.full((1, 4), 8.0, dtype=np.float64)
 
-    det = create_model("core_kde_ratio", contamination=0.1, bandwidth_local=0.2, bandwidth_global=1.0)
+    det = create_model(
+        "core_kde_ratio", contamination=0.1, bandwidth_local=0.2, bandwidth_global=1.0
+    )
     det.fit(X_train)
-    s = np.asarray(det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64)
+    s = np.asarray(
+        det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64
+    )
     assert s.shape == (2,)
     assert np.all(np.isfinite(s))
     assert float(s[1]) > float(s[0])
@@ -42,10 +46,13 @@ def test_score_direction_core_knn_cosine_outlier_higher() -> None:
     x_inlier = _unit_rows(np.array([[1.0] + [0.0] * (d - 1)], dtype=np.float64))
     x_outlier = _unit_rows(np.array([[-1.0] + [0.0] * (d - 1)], dtype=np.float64))
 
-    det = create_model("core_knn_cosine", contamination=0.1, n_neighbors=5, method="largest", normalize=True)
+    det = create_model(
+        "core_knn_cosine", contamination=0.1, n_neighbors=5, method="largest", normalize=True
+    )
     det.fit(X_train)
-    s = np.asarray(det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64)
+    s = np.asarray(
+        det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64
+    )
     assert s.shape == (2,)
     assert np.all(np.isfinite(s))
     assert float(s[1]) > float(s[0])
-

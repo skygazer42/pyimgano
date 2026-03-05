@@ -16,4 +16,3 @@ def test_require_raises_importerror():
         assert "pip install" in message
     else:
         raise AssertionError("Expected ImportError to be raised")
-

@@ -26,4 +26,3 @@ def test_feature_bagging_spec_rejects_estimator_instances() -> None:
     X = np.random.default_rng(0).normal(size=(16, 4)).astype(np.float64)
     with pytest.raises(TypeError, match="Instances are not supported"):
         det.fit(X)
-

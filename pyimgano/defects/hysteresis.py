@@ -32,7 +32,9 @@ def hysteresis_anomaly_map_to_binary_mask(
     if int(high_bin.max()) == 0:
         return np.zeros_like(low_bin, dtype=np.uint8)
 
-    num_labels, labels, _stats, _centroids = cv2.connectedComponentsWithStats(low_bin, connectivity=8)
+    num_labels, labels, _stats, _centroids = cv2.connectedComponentsWithStats(
+        low_bin, connectivity=8
+    )
     if num_labels <= 1:
         return np.zeros_like(low_bin, dtype=np.uint8)
 
@@ -43,4 +45,3 @@ def hysteresis_anomaly_map_to_binary_mask(
 
     keep = np.isin(labels, seed_labels).astype(np.uint8)
     return keep * 255
-

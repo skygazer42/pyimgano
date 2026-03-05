@@ -36,4 +36,3 @@ def test_dataset_converters_registry_has_expected_names(tmp_path: Path) -> None:
     )
     assert out.exists()
     assert records
-

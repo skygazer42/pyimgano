@@ -24,4 +24,3 @@ def test_build_postprocess_builds_callable():
     m = np.arange(16, dtype=np.float32).reshape(4, 4)
     out = post(m)
     assert out.shape == (4, 4)
-

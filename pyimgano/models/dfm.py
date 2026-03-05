@@ -12,11 +12,11 @@ from typing import Iterable, Optional
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
-from torchvision import models, transforms
+from numpy.typing import NDArray
 from sklearn.covariance import LedoitWolf
+from torchvision import models, transforms
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
@@ -89,19 +89,17 @@ class VisionDFM(BaseVisionDeepDetector):
         self.inv_cov = None
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            ),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
 
         logger.info(
-            "Initialized DFM with backbone=%s, layers=%s, device=%s",
-            backbone, self.layers, device
+            "Initialized DFM with backbone=%s, layers=%s, device=%s", backbone, self.layers, device
         )
 
     def _build_model(self):
@@ -133,13 +131,12 @@ class VisionDFM(BaseVisionDeepDetector):
         def get_activation(name):
             def hook(module, input, output):
                 self.feature_maps[name] = output.detach()
+
             return hook
 
         for layer in self.layers:
             if hasattr(self.model, layer):
-                getattr(self.model, layer).register_forward_hook(
-                    get_activation(layer)
-                )
+                getattr(self.model, layer).register_forward_hook(get_activation(layer))
 
     def _extract_features(self, image_path: str) -> NDArray:
         """Extract features from image."""

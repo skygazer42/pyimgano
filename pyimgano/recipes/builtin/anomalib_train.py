@@ -30,4 +30,3 @@ def anomalib_train(config: WorkbenchConfig) -> dict[str, Any]:
         "For now, train models with anomalib directly and use pyimgano for evaluation/inference.\n"
         "Follow-up milestones will integrate anomalib training end-to-end."
     )
-

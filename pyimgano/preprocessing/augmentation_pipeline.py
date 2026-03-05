@@ -15,55 +15,45 @@ from typing import Callable, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from .augmentation import (
+from .augmentation import (  # Geometric; Color; Noise; Blur; Weather; Cutout; Distortion; Advanced; Industrial camera robustness; Industrial defect synthesis (optional / use with care)
+    BlurType,
     GeometricTransform,
     NoiseType,
-    BlurType,
     WeatherEffect,
-    # Geometric
-    rotate_image,
-    flip_image,
-    scale_image,
-    translate_image,
-    shear_image,
-    perspective_transform,
-    # Color
+    add_dust,
+    add_fog,
+    add_gaussian_noise,
+    add_poisson_noise,
+    add_rain,
+    add_salt_pepper_noise,
+    add_scratches,
+    add_shadow,
+    add_snow,
+    add_speckle_noise,
+    add_specular_highlight,
     adjust_brightness,
     adjust_contrast,
-    adjust_saturation,
     adjust_hue,
+    adjust_saturation,
     color_jitter,
-    # Noise
-    add_gaussian_noise,
-    add_salt_pepper_noise,
-    add_poisson_noise,
-    add_speckle_noise,
-    # Blur
-    motion_blur,
-    defocus_blur,
-    glass_blur,
-    # Weather
-    add_rain,
-    add_fog,
-    add_snow,
-    add_shadow,
-    # Cutout
-    random_cutout,
-    grid_mask,
-    # Distortion
-    elastic_transform,
-    grid_distortion,
-    # Advanced
-    mixup,
     cutmix,
-    # Industrial camera robustness
+    defocus_blur,
+    elastic_transform,
+    flip_image,
+    glass_blur,
+    grid_distortion,
+    grid_mask,
     jpeg_compress,
-    vignette,
+    mixup,
+    motion_blur,
+    perspective_transform,
     random_channel_gain,
-    # Industrial defect synthesis (optional / use with care)
-    add_scratches,
-    add_dust,
-    add_specular_highlight,
+    random_cutout,
+    rotate_image,
+    scale_image,
+    shear_image,
+    translate_image,
+    vignette,
 )
 
 
@@ -113,11 +103,11 @@ class Compose:
         return image
 
     def __repr__(self) -> str:
-        format_string = self.__class__.__name__ + '('
+        format_string = self.__class__.__name__ + "("
         for t in self.transforms:
-            format_string += '\n'
-            format_string += f'    {t}'
-        format_string += '\n)'
+            format_string += "\n"
+            format_string += f"    {t}"
+        format_string += "\n)"
         return format_string
 
 
@@ -126,11 +116,7 @@ class OneOf:
     Select one transform from multiple options.
     """
 
-    def __init__(
-        self,
-        transforms: List[Union[AugmentationTransform, Callable]],
-        p: float = 1.0
-    ):
+    def __init__(self, transforms: List[Union[AugmentationTransform, Callable]], p: float = 1.0):
         """
         Initialize one-of selection.
 
@@ -174,6 +160,7 @@ class RandomApply:
 
 # Concrete Transform Classes
 
+
 class RandomRotate(AugmentationTransform):
     """Random rotation augmentation."""
 
@@ -201,10 +188,7 @@ class RandomScale(AugmentationTransform):
     """Random scale augmentation."""
 
     def __init__(
-        self,
-        scale_range: Tuple[float, float] = (0.8, 1.2),
-        keep_size: bool = True,
-        p: float = 0.5
+        self, scale_range: Tuple[float, float] = (0.8, 1.2), keep_size: bool = True, p: float = 0.5
     ):
         super().__init__(p)
         self.scale_range = scale_range
@@ -218,11 +202,7 @@ class RandomScale(AugmentationTransform):
 class RandomTranslate(AugmentationTransform):
     """Random translation augmentation."""
 
-    def __init__(
-        self,
-        translate_range: Tuple[float, float] = (-0.1, 0.1),
-        p: float = 0.5
-    ):
+    def __init__(self, translate_range: Tuple[float, float] = (-0.1, 0.1), p: float = 0.5):
         super().__init__(p)
         self.translate_range = translate_range
 
@@ -236,11 +216,7 @@ class RandomTranslate(AugmentationTransform):
 class RandomShear(AugmentationTransform):
     """Random shear augmentation."""
 
-    def __init__(
-        self,
-        shear_range: Tuple[float, float] = (-0.2, 0.2),
-        p: float = 0.5
-    ):
+    def __init__(self, shear_range: Tuple[float, float] = (-0.2, 0.2), p: float = 0.5):
         super().__init__(p)
         self.shear_range = shear_range
 
@@ -270,7 +246,7 @@ class ColorJitter(AugmentationTransform):
         contrast: Tuple[float, float] = (0.8, 1.2),
         saturation: Tuple[float, float] = (0.8, 1.2),
         hue: Tuple[float, float] = (-10, 10),
-        p: float = 0.5
+        p: float = 0.5,
     ):
         super().__init__(p)
         self.brightness = brightness
@@ -297,12 +273,7 @@ class GaussianNoise(AugmentationTransform):
 class SaltPepperNoise(AugmentationTransform):
     """Salt-and-pepper noise augmentation."""
 
-    def __init__(
-        self,
-        salt_prob: float = 0.01,
-        pepper_prob: float = 0.01,
-        p: float = 0.5
-    ):
+    def __init__(self, salt_prob: float = 0.01, pepper_prob: float = 0.01, p: float = 0.5):
         super().__init__(p)
         self.salt_prob = salt_prob
         self.pepper_prob = pepper_prob
@@ -318,7 +289,7 @@ class MotionBlur(AugmentationTransform):
         self,
         kernel_size_range: Tuple[int, int] = (3, 15),
         angle_range: Tuple[float, float] = (-45, 45),
-        p: float = 0.5
+        p: float = 0.5,
     ):
         super().__init__(p)
         self.kernel_size_range = kernel_size_range
@@ -347,11 +318,7 @@ class DefocusBlur(AugmentationTransform):
 class RandomRain(AugmentationTransform):
     """Random rain effect augmentation."""
 
-    def __init__(
-        self,
-        intensity_range: Tuple[float, float] = (0.3, 0.7),
-        p: float = 0.5
-    ):
+    def __init__(self, intensity_range: Tuple[float, float] = (0.3, 0.7), p: float = 0.5):
         super().__init__(p)
         self.intensity_range = intensity_range
 
@@ -363,11 +330,7 @@ class RandomRain(AugmentationTransform):
 class RandomFog(AugmentationTransform):
     """Random fog effect augmentation."""
 
-    def __init__(
-        self,
-        intensity_range: Tuple[float, float] = (0.3, 0.7),
-        p: float = 0.5
-    ):
+    def __init__(self, intensity_range: Tuple[float, float] = (0.3, 0.7), p: float = 0.5):
         super().__init__(p)
         self.intensity_range = intensity_range
 
@@ -379,11 +342,7 @@ class RandomFog(AugmentationTransform):
 class RandomSnow(AugmentationTransform):
     """Random snow effect augmentation."""
 
-    def __init__(
-        self,
-        intensity_range: Tuple[float, float] = (0.3, 0.7),
-        p: float = 0.5
-    ):
+    def __init__(self, intensity_range: Tuple[float, float] = (0.3, 0.7), p: float = 0.5):
         super().__init__(p)
         self.intensity_range = intensity_range
 
@@ -399,7 +358,7 @@ class RandomShadow(AugmentationTransform):
         self,
         num_shadows: int = 1,
         intensity_range: Tuple[float, float] = (0.3, 0.7),
-        p: float = 0.5
+        p: float = 0.5,
     ):
         super().__init__(p)
         self.num_shadows = num_shadows
@@ -418,7 +377,7 @@ class RandomCutout(AugmentationTransform):
         num_holes: int = 1,
         hole_size: Union[int, Tuple[int, int]] = 32,
         fill_value: int = 0,
-        p: float = 0.5
+        p: float = 0.5,
     ):
         super().__init__(p)
         self.num_holes = num_holes
@@ -433,11 +392,7 @@ class GridMask(AugmentationTransform):
     """Grid mask augmentation."""
 
     def __init__(
-        self,
-        grid_size: int = 32,
-        ratio: float = 0.5,
-        fill_value: int = 0,
-        p: float = 0.5
+        self, grid_size: int = 32, ratio: float = 0.5, fill_value: int = 0, p: float = 0.5
     ):
         super().__init__(p)
         self.grid_size = grid_size
@@ -462,6 +417,7 @@ class ElasticTransform(AugmentationTransform):
 
 # Preset Augmentation Pipelines
 
+
 def get_light_augmentation() -> Compose:
     """
     Get light augmentation pipeline for training.
@@ -469,17 +425,19 @@ def get_light_augmentation() -> Compose:
     Returns:
         Compose object with light augmentations
     """
-    return Compose([
-        RandomFlip(mode="horizontal", p=0.5),
-        RandomRotate(angle_range=(-10, 10), p=0.3),
-        ColorJitter(
-            brightness=(0.9, 1.1),
-            contrast=(0.9, 1.1),
-            saturation=(0.9, 1.1),
-            hue=(-5, 5),
-            p=0.3
-        ),
-    ])
+    return Compose(
+        [
+            RandomFlip(mode="horizontal", p=0.5),
+            RandomRotate(angle_range=(-10, 10), p=0.3),
+            ColorJitter(
+                brightness=(0.9, 1.1),
+                contrast=(0.9, 1.1),
+                saturation=(0.9, 1.1),
+                hue=(-5, 5),
+                p=0.3,
+            ),
+        ]
+    )
 
 
 def get_medium_augmentation() -> Compose:
@@ -489,22 +447,27 @@ def get_medium_augmentation() -> Compose:
     Returns:
         Compose object with medium augmentations
     """
-    return Compose([
-        RandomFlip(mode="horizontal", p=0.5),
-        RandomRotate(angle_range=(-20, 20), p=0.5),
-        RandomScale(scale_range=(0.9, 1.1), p=0.3),
-        ColorJitter(
-            brightness=(0.8, 1.2),
-            contrast=(0.8, 1.2),
-            saturation=(0.8, 1.2),
-            hue=(-10, 10),
-            p=0.5
-        ),
-        OneOf([
-            GaussianNoise(std_range=(10, 25), p=1.0),
-            SaltPepperNoise(salt_prob=0.01, pepper_prob=0.01, p=1.0),
-        ], p=0.3),
-    ])
+    return Compose(
+        [
+            RandomFlip(mode="horizontal", p=0.5),
+            RandomRotate(angle_range=(-20, 20), p=0.5),
+            RandomScale(scale_range=(0.9, 1.1), p=0.3),
+            ColorJitter(
+                brightness=(0.8, 1.2),
+                contrast=(0.8, 1.2),
+                saturation=(0.8, 1.2),
+                hue=(-10, 10),
+                p=0.5,
+            ),
+            OneOf(
+                [
+                    GaussianNoise(std_range=(10, 25), p=1.0),
+                    SaltPepperNoise(salt_prob=0.01, pepper_prob=0.01, p=1.0),
+                ],
+                p=0.3,
+            ),
+        ]
+    )
 
 
 def get_heavy_augmentation() -> Compose:
@@ -514,32 +477,43 @@ def get_heavy_augmentation() -> Compose:
     Returns:
         Compose object with heavy augmentations
     """
-    return Compose([
-        RandomFlip(mode="horizontal", p=0.5),
-        RandomRotate(angle_range=(-30, 30), p=0.5),
-        RandomScale(scale_range=(0.8, 1.2), p=0.5),
-        RandomShear(shear_range=(-0.2, 0.2), p=0.3),
-        OneOf([
-            RandomPerspective(strength=0.2, p=1.0),
-            ElasticTransform(alpha=100, sigma=10, p=1.0),
-        ], p=0.3),
-        ColorJitter(
-            brightness=(0.7, 1.3),
-            contrast=(0.7, 1.3),
-            saturation=(0.7, 1.3),
-            hue=(-15, 15),
-            p=0.5
-        ),
-        OneOf([
-            GaussianNoise(std_range=(15, 35), p=1.0),
-            SaltPepperNoise(salt_prob=0.02, pepper_prob=0.02, p=1.0),
-        ], p=0.5),
-        OneOf([
-            MotionBlur(kernel_size_range=(5, 15), p=1.0),
-            DefocusBlur(radius_range=(3, 7), p=1.0),
-        ], p=0.3),
-        RandomCutout(num_holes=1, hole_size=32, p=0.3),
-    ])
+    return Compose(
+        [
+            RandomFlip(mode="horizontal", p=0.5),
+            RandomRotate(angle_range=(-30, 30), p=0.5),
+            RandomScale(scale_range=(0.8, 1.2), p=0.5),
+            RandomShear(shear_range=(-0.2, 0.2), p=0.3),
+            OneOf(
+                [
+                    RandomPerspective(strength=0.2, p=1.0),
+                    ElasticTransform(alpha=100, sigma=10, p=1.0),
+                ],
+                p=0.3,
+            ),
+            ColorJitter(
+                brightness=(0.7, 1.3),
+                contrast=(0.7, 1.3),
+                saturation=(0.7, 1.3),
+                hue=(-15, 15),
+                p=0.5,
+            ),
+            OneOf(
+                [
+                    GaussianNoise(std_range=(15, 35), p=1.0),
+                    SaltPepperNoise(salt_prob=0.02, pepper_prob=0.02, p=1.0),
+                ],
+                p=0.5,
+            ),
+            OneOf(
+                [
+                    MotionBlur(kernel_size_range=(5, 15), p=1.0),
+                    DefocusBlur(radius_range=(3, 7), p=1.0),
+                ],
+                p=0.3,
+            ),
+            RandomCutout(num_holes=1, hole_size=32, p=0.3),
+        ]
+    )
 
 
 def get_weather_augmentation() -> Compose:
@@ -549,14 +523,19 @@ def get_weather_augmentation() -> Compose:
     Returns:
         Compose object with weather augmentations
     """
-    return Compose([
-        OneOf([
-            RandomRain(intensity_range=(0.3, 0.6), p=1.0),
-            RandomFog(intensity_range=(0.2, 0.5), p=1.0),
-            RandomSnow(intensity_range=(0.3, 0.6), p=1.0),
-            RandomShadow(num_shadows=1, intensity_range=(0.3, 0.6), p=1.0),
-        ], p=0.5),
-    ])
+    return Compose(
+        [
+            OneOf(
+                [
+                    RandomRain(intensity_range=(0.3, 0.6), p=1.0),
+                    RandomFog(intensity_range=(0.2, 0.5), p=1.0),
+                    RandomSnow(intensity_range=(0.3, 0.6), p=1.0),
+                    RandomShadow(num_shadows=1, intensity_range=(0.3, 0.6), p=1.0),
+                ],
+                p=0.5,
+            ),
+        ]
+    )
 
 
 def get_anomaly_augmentation() -> Compose:
@@ -569,22 +548,27 @@ def get_anomaly_augmentation() -> Compose:
     Returns:
         Compose object with anomaly-preserving augmentations
     """
-    return Compose([
-        RandomFlip(mode="horizontal", p=0.5),
-        RandomRotate(angle_range=(-15, 15), p=0.5),
-        ColorJitter(
-            brightness=(0.85, 1.15),
-            contrast=(0.85, 1.15),
-            saturation=(0.85, 1.15),
-            hue=(-8, 8),
-            p=0.5
-        ),
-        OneOf([
-            GaussianNoise(std_range=(5, 15), p=1.0),
-            SaltPepperNoise(salt_prob=0.005, pepper_prob=0.005, p=1.0),
-        ], p=0.3),
-        # Avoid heavy distortions that might hide anomalies
-    ])
+    return Compose(
+        [
+            RandomFlip(mode="horizontal", p=0.5),
+            RandomRotate(angle_range=(-15, 15), p=0.5),
+            ColorJitter(
+                brightness=(0.85, 1.15),
+                contrast=(0.85, 1.15),
+                saturation=(0.85, 1.15),
+                hue=(-8, 8),
+                p=0.5,
+            ),
+            OneOf(
+                [
+                    GaussianNoise(std_range=(5, 15), p=1.0),
+                    SaltPepperNoise(salt_prob=0.005, pepper_prob=0.005, p=1.0),
+                ],
+                p=0.3,
+            ),
+            # Avoid heavy distortions that might hide anomalies
+        ]
+    )
 
 
 def get_industrial_camera_robust_augmentation() -> Compose:
@@ -763,19 +747,16 @@ class AugmentationPipeline:
             transforms: List of transforms
         """
         self.transforms = transforms
-        self.stats = {
-            'total_images': 0,
-            'transform_applications': {}
-        }
+        self.stats = {"total_images": 0, "transform_applications": {}}
 
     def __call__(self, image: NDArray, **kwargs) -> NDArray:
         """Apply pipeline and track statistics."""
-        self.stats['total_images'] += 1
+        self.stats["total_images"] += 1
 
         for transform in self.transforms:
             transform_name = transform.__class__.__name__
-            if transform_name not in self.stats['transform_applications']:
-                self.stats['transform_applications'][transform_name] = 0
+            if transform_name not in self.stats["transform_applications"]:
+                self.stats["transform_applications"][transform_name] = 0
 
             # Apply transform
             original_image = image.copy()
@@ -783,7 +764,7 @@ class AugmentationPipeline:
 
             # Check if transform was applied (image changed)
             if not np.array_equal(image, original_image):
-                self.stats['transform_applications'][transform_name] += 1
+                self.stats["transform_applications"][transform_name] += 1
 
         return image
 
@@ -793,7 +774,4 @@ class AugmentationPipeline:
 
     def reset_stats(self):
         """Reset statistics."""
-        self.stats = {
-            'total_images': 0,
-            'transform_applications': {}
-        }
+        self.stats = {"total_images": 0, "transform_applications": {}}

@@ -7,7 +7,7 @@ using OpenCV and PyTorch for anomaly detection tasks.
 
 import logging
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union, Callable
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class EdgeDetectionMethod(Enum):
     """Edge detection methods."""
+
     CANNY = "canny"
     SOBEL = "sobel"
     SOBEL_X = "sobel_x"
@@ -29,6 +30,7 @@ class EdgeDetectionMethod(Enum):
 
 class MorphOperation(Enum):
     """Morphological operations."""
+
     EROSION = "erosion"
     DILATION = "dilation"
     OPENING = "opening"
@@ -40,6 +42,7 @@ class MorphOperation(Enum):
 
 class FilterType(Enum):
     """Filter types."""
+
     GAUSSIAN = "gaussian"
     BILATERAL = "bilateral"
     MEDIAN = "median"
@@ -48,9 +51,7 @@ class FilterType(Enum):
 
 
 def edge_detection(
-    image: NDArray,
-    method: Union[str, EdgeDetectionMethod] = "canny",
-    **kwargs
+    image: NDArray, method: Union[str, EdgeDetectionMethod] = "canny", **kwargs
 ) -> NDArray:
     """
     Apply edge detection to image.
@@ -84,32 +85,32 @@ def edge_detection(
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     if method == EdgeDetectionMethod.CANNY:
-        threshold1 = kwargs.get('threshold1', 50)
-        threshold2 = kwargs.get('threshold2', 150)
-        aperture_size = kwargs.get('aperture_size', 3)
+        threshold1 = kwargs.get("threshold1", 50)
+        threshold2 = kwargs.get("threshold2", 150)
+        aperture_size = kwargs.get("aperture_size", 3)
         edges = cv2.Canny(image, threshold1, threshold2, apertureSize=aperture_size)
 
     elif method == EdgeDetectionMethod.SOBEL:
-        ksize = kwargs.get('ksize', 3)
-        dx = kwargs.get('dx', 1)
-        dy = kwargs.get('dy', 1)
+        ksize = kwargs.get("ksize", 3)
+        dx = kwargs.get("dx", 1)
+        dy = kwargs.get("dy", 1)
         sobel_x = cv2.Sobel(image, cv2.CV_64F, dx, 0, ksize=ksize)
         sobel_y = cv2.Sobel(image, cv2.CV_64F, 0, dy, ksize=ksize)
         edges = np.sqrt(sobel_x**2 + sobel_y**2)
         edges = np.uint8(np.clip(edges, 0, 255))
 
     elif method == EdgeDetectionMethod.SOBEL_X:
-        ksize = kwargs.get('ksize', 3)
+        ksize = kwargs.get("ksize", 3)
         edges = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=ksize)
         edges = np.uint8(np.absolute(edges))
 
     elif method == EdgeDetectionMethod.SOBEL_Y:
-        ksize = kwargs.get('ksize', 3)
+        ksize = kwargs.get("ksize", 3)
         edges = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=ksize)
         edges = np.uint8(np.absolute(edges))
 
     elif method == EdgeDetectionMethod.LAPLACIAN:
-        ksize = kwargs.get('ksize', 3)
+        ksize = kwargs.get("ksize", 3)
         edges = cv2.Laplacian(image, cv2.CV_64F, ksize=ksize)
         edges = np.uint8(np.absolute(edges))
 
@@ -212,9 +213,7 @@ def morphological_operation(
 
 
 def apply_filter(
-    image: NDArray,
-    filter_type: Union[str, FilterType] = "gaussian",
-    **kwargs
+    image: NDArray, filter_type: Union[str, FilterType] = "gaussian", **kwargs
 ) -> NDArray:
     """
     Apply filter to image.
@@ -243,22 +242,22 @@ def apply_filter(
         filter_type = FilterType(filter_type.lower())
 
     if filter_type == FilterType.GAUSSIAN:
-        ksize = kwargs.get('ksize', (5, 5))
-        sigma = kwargs.get('sigma', 0)
+        ksize = kwargs.get("ksize", (5, 5))
+        sigma = kwargs.get("sigma", 0)
         result = cv2.GaussianBlur(image, ksize, sigma)
 
     elif filter_type == FilterType.BILATERAL:
-        d = kwargs.get('d', 9)
-        sigma_color = kwargs.get('sigmaColor', 75)
-        sigma_space = kwargs.get('sigmaSpace', 75)
+        d = kwargs.get("d", 9)
+        sigma_color = kwargs.get("sigmaColor", 75)
+        sigma_space = kwargs.get("sigmaSpace", 75)
         result = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
 
     elif filter_type == FilterType.MEDIAN:
-        ksize = kwargs.get('ksize', 5)
+        ksize = kwargs.get("ksize", 5)
         result = cv2.medianBlur(image, ksize)
 
     elif filter_type in [FilterType.BOX, FilterType.MEAN]:
-        ksize = kwargs.get('ksize', (5, 5))
+        ksize = kwargs.get("ksize", (5, 5))
         result = cv2.blur(image, ksize)
 
     else:
@@ -268,11 +267,7 @@ def apply_filter(
     return result
 
 
-def normalize_image(
-    image: NDArray,
-    method: str = "minmax",
-    **kwargs
-) -> NDArray:
+def normalize_image(image: NDArray, method: str = "minmax", **kwargs) -> NDArray:
     """
     Normalize image.
 
@@ -299,8 +294,8 @@ def normalize_image(
     image = image.astype(np.float32)
 
     if method == "minmax":
-        min_val = kwargs.get('min_val', 0)
-        max_val = kwargs.get('max_val', 1)
+        min_val = kwargs.get("min_val", 0)
+        max_val = kwargs.get("max_val", 1)
         img_min = image.min()
         img_max = image.max()
 
@@ -519,7 +514,9 @@ class ImageEnhancer:
         template = 7
         search = 21
         if arr.ndim == 2:
-            den = cv2.fastNlMeansDenoising(arr, None, h=h, templateWindowSize=template, searchWindowSize=search)
+            den = cv2.fastNlMeansDenoising(
+                arr, None, h=h, templateWindowSize=template, searchWindowSize=search
+            )
         elif arr.ndim == 3 and arr.shape[2] == 3:
             den = cv2.fastNlMeansDenoisingColored(
                 arr,
@@ -540,12 +537,7 @@ class ImageEnhancer:
         return np.asarray(out, dtype=np.uint8)
 
     # Edge detection methods
-    def detect_edges(
-        self,
-        image: NDArray,
-        method: str = "canny",
-        **kwargs
-    ) -> NDArray:
+    def detect_edges(self, image: NDArray, method: str = "canny", **kwargs) -> NDArray:
         """Detect edges in image."""
         return edge_detection(image, method, **kwargs)
 
@@ -556,11 +548,7 @@ class ImageEnhancer:
         threshold2: int = 150,
     ) -> NDArray:
         """Apply Canny edge detection."""
-        return edge_detection(
-            image, "canny",
-            threshold1=threshold1,
-            threshold2=threshold2
-        )
+        return edge_detection(image, "canny", threshold1=threshold1, threshold2=threshold2)
 
     def sobel_edges(self, image: NDArray, ksize: int = 3) -> NDArray:
         """Apply Sobel edge detection."""
@@ -579,9 +567,7 @@ class ImageEnhancer:
     ) -> NDArray:
         """Apply erosion."""
         return morphological_operation(
-            image, "erosion",
-            kernel_size=kernel_size,
-            iterations=iterations
+            image, "erosion", kernel_size=kernel_size, iterations=iterations
         )
 
     def dilate(
@@ -592,9 +578,7 @@ class ImageEnhancer:
     ) -> NDArray:
         """Apply dilation."""
         return morphological_operation(
-            image, "dilation",
-            kernel_size=kernel_size,
-            iterations=iterations
+            image, "dilation", kernel_size=kernel_size, iterations=iterations
         )
 
     def opening(
@@ -658,7 +642,9 @@ class ImageEnhancer:
             squeeze_back = False
 
         if arr.ndim != 3 or arr.shape[2] not in (1, 3):
-            raise ValueError(f"Expected image shape (H,W) or (H,W,3), got {np.asarray(image).shape}")
+            raise ValueError(
+                f"Expected image shape (H,W) or (H,W,3), got {np.asarray(image).shape}"
+            )
 
         k = int(kernel_size)
         if k <= 0:
@@ -677,7 +663,9 @@ class ImageEnhancer:
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch")
-        F = require("torch.nn.functional", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch")
+        F = require(
+            "torch.nn.functional", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch"
+        )
 
         # Torch path (CPU fallback if CUDA not present).
         # Keep everything float32 for speed and determinism.
@@ -715,12 +703,7 @@ class ImageEnhancer:
         sigma_space: float = 75,
     ) -> NDArray:
         """Apply bilateral filter (edge-preserving)."""
-        return apply_filter(
-            image, "bilateral",
-            d=d,
-            sigmaColor=sigma_color,
-            sigmaSpace=sigma_space
-        )
+        return apply_filter(image, "bilateral", d=d, sigmaColor=sigma_color, sigmaSpace=sigma_space)
 
     def median_blur(self, image: NDArray, ksize: int = 5) -> NDArray:
         """Apply median blur."""
@@ -749,9 +732,7 @@ class ImageEnhancer:
             Sharpened image
         """
         # Sharpening kernel
-        kernel = np.array([[-1, -1, -1],
-                          [-1,  9, -1],
-                          [-1, -1, -1]]) * amount / 9
+        kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]) * amount / 9
 
         if len(image.shape) == 2:
             sharpened = cv2.filter2D(image, -1, kernel)
@@ -856,11 +837,7 @@ class PreprocessingPipeline:
         self.enhancer = ImageEnhancer()
         logger.info("Initialized PreprocessingPipeline")
 
-    def add_step(
-        self,
-        operation: str,
-        **kwargs
-    ) -> "PreprocessingPipeline":
+    def add_step(self, operation: str, **kwargs) -> "PreprocessingPipeline":
         """
         Add a preprocessing step.
 
@@ -941,37 +918,28 @@ class PreprocessingPipeline:
 
 
 # Import advanced operations
-from .advanced_operations import (
-    # Frequency domain
-    apply_fft,
-    apply_ifft,
-    frequency_filter,
-    # Texture analysis
-    apply_gabor_filter,
-    compute_lbp,
-    compute_glcm_features,
-    # Color space
-    convert_color_space,
-    equalize_color_histogram,
-    # Enhancement
-    gamma_correction,
-    contrast_stretching,
-    retinex_ssr,
-    retinex_msr,
-    # Denoising
-    non_local_means_denoising,
+from .advanced_operations import (  # Frequency domain; Texture analysis; Color space; Enhancement; Denoising; Feature extraction; Advanced morphology; Segmentation; Pyramids
     anisotropic_diffusion,
-    # Feature extraction
-    extract_hog_features,
-    detect_corners,
-    # Advanced morphology
     apply_advanced_morphology,
-    # Segmentation
+    apply_fft,
+    apply_gabor_filter,
+    apply_ifft,
     apply_threshold,
-    watershed_segmentation,
-    # Pyramids
+    compute_glcm_features,
+    compute_lbp,
+    contrast_stretching,
+    convert_color_space,
+    detect_corners,
+    equalize_color_histogram,
+    extract_hog_features,
+    frequency_filter,
+    gamma_correction,
     gaussian_pyramid,
     laplacian_pyramid,
+    non_local_means_denoising,
+    retinex_msr,
+    retinex_ssr,
+    watershed_segmentation,
 )
 
 
@@ -1002,10 +970,7 @@ class AdvancedImageEnhancer(ImageEnhancer):
         return apply_ifft(magnitude, phase)
 
     def frequency_filter(
-        self,
-        image: NDArray,
-        filter_type: str = "lowpass",
-        cutoff_frequency: float = 30.0
+        self, image: NDArray, filter_type: str = "lowpass", cutoff_frequency: float = 30.0
     ) -> NDArray:
         """Apply frequency domain filter."""
         return frequency_filter(image, filter_type, cutoff_frequency)
@@ -1018,17 +983,13 @@ class AdvancedImageEnhancer(ImageEnhancer):
         frequency: float = 0.1,
         theta: float = 0,
         sigma_x: float = 3.0,
-        sigma_y: float = 3.0
+        sigma_y: float = 3.0,
     ) -> NDArray:
         """Apply Gabor filter for texture analysis."""
         return apply_gabor_filter(image, frequency, theta, sigma_x, sigma_y)
 
     def compute_lbp(
-        self,
-        image: NDArray,
-        n_points: int = 8,
-        radius: float = 1.0,
-        method: str = "uniform"
+        self, image: NDArray, n_points: int = 8, radius: float = 1.0, method: str = "uniform"
     ) -> NDArray:
         """Compute Local Binary Pattern features."""
         return compute_lbp(image, n_points, radius, method)
@@ -1037,27 +998,18 @@ class AdvancedImageEnhancer(ImageEnhancer):
         self,
         image: NDArray,
         distances: list = [1],
-        angles: list = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+        angles: list = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4],
     ) -> dict:
         """Compute GLCM texture features."""
         return compute_glcm_features(image, distances, angles)
 
     # Color Space Operations
 
-    def convert_color(
-        self,
-        image: NDArray,
-        from_space: str,
-        to_space: str
-    ) -> NDArray:
+    def convert_color(self, image: NDArray, from_space: str, to_space: str) -> NDArray:
         """Convert between color spaces."""
         return convert_color_space(image, from_space, to_space)
 
-    def equalize_color_hist(
-        self,
-        image: NDArray,
-        method: str = "hsv"
-    ) -> NDArray:
+    def equalize_color_hist(self, image: NDArray, method: str = "hsv") -> NDArray:
         """Equalize color histogram."""
         return equalize_color_histogram(image, method)
 
@@ -1068,10 +1020,7 @@ class AdvancedImageEnhancer(ImageEnhancer):
         return gamma_correction(image, gamma)
 
     def contrast_stretch(
-        self,
-        image: NDArray,
-        lower_percentile: float = 2,
-        upper_percentile: float = 98
+        self, image: NDArray, lower_percentile: float = 2, upper_percentile: float = 98
     ) -> NDArray:
         """Apply contrast stretching."""
         return contrast_stretching(image, lower_percentile, upper_percentile)
@@ -1080,11 +1029,7 @@ class AdvancedImageEnhancer(ImageEnhancer):
         """Apply Single-Scale Retinex."""
         return retinex_ssr(image, sigma)
 
-    def retinex_multi(
-        self,
-        image: NDArray,
-        sigmas: list = [15, 80, 250]
-    ) -> NDArray:
+    def retinex_multi(self, image: NDArray, sigmas: list = [15, 80, 250]) -> NDArray:
         """Apply Multi-Scale Retinex."""
         return retinex_msr(image, sigmas)
 
@@ -1095,12 +1040,10 @@ class AdvancedImageEnhancer(ImageEnhancer):
         image: NDArray,
         h: float = 10,
         template_window_size: int = 7,
-        search_window_size: int = 21
+        search_window_size: int = 21,
     ) -> NDArray:
         """Apply non-local means denoising."""
-        return non_local_means_denoising(
-            image, h, template_window_size, search_window_size
-        )
+        return non_local_means_denoising(image, h, template_window_size, search_window_size)
 
     def anisotropic_diffusion(
         self,
@@ -1108,7 +1051,7 @@ class AdvancedImageEnhancer(ImageEnhancer):
         niter: int = 10,
         kappa: float = 50,
         gamma: float = 0.1,
-        option: int = 1
+        option: int = 1,
     ) -> NDArray:
         """Apply anisotropic diffusion."""
         return anisotropic_diffusion(image, niter, kappa, gamma, option)
@@ -1121,19 +1064,14 @@ class AdvancedImageEnhancer(ImageEnhancer):
         orientations: int = 9,
         pixels_per_cell: Tuple[int, int] = (8, 8),
         cells_per_block: Tuple[int, int] = (2, 2),
-        visualize: bool = False
+        visualize: bool = False,
     ) -> Union[NDArray, Tuple[NDArray, NDArray]]:
         """Extract HOG features."""
         return extract_hog_features(
             image, orientations, pixels_per_cell, cells_per_block, visualize
         )
 
-    def detect_corners(
-        self,
-        image: NDArray,
-        method: str = "harris",
-        **kwargs
-    ) -> NDArray:
+    def detect_corners(self, image: NDArray, method: str = "harris", **kwargs) -> NDArray:
         """Detect corners in image."""
         return detect_corners(image, method, **kwargs)
 
@@ -1157,37 +1095,20 @@ class AdvancedImageEnhancer(ImageEnhancer):
 
     # Segmentation
 
-    def threshold(
-        self,
-        image: NDArray,
-        method: str = "otsu",
-        **kwargs
-    ) -> NDArray:
+    def threshold(self, image: NDArray, method: str = "otsu", **kwargs) -> NDArray:
         """Apply thresholding for segmentation."""
         return apply_threshold(image, method, **kwargs)
 
-    def watershed(
-        self,
-        image: NDArray,
-        markers: Optional[NDArray] = None
-    ) -> NDArray:
+    def watershed(self, image: NDArray, markers: Optional[NDArray] = None) -> NDArray:
         """Apply watershed segmentation."""
         return watershed_segmentation(image, markers)
 
     # Image Pyramids
 
-    def build_gaussian_pyramid(
-        self,
-        image: NDArray,
-        levels: int = 3
-    ) -> list:
+    def build_gaussian_pyramid(self, image: NDArray, levels: int = 3) -> list:
         """Create Gaussian pyramid."""
         return gaussian_pyramid(image, levels)
 
-    def build_laplacian_pyramid(
-        self,
-        image: NDArray,
-        levels: int = 3
-    ) -> list:
+    def build_laplacian_pyramid(self, image: NDArray, levels: int = 3) -> list:
         """Create Laplacian pyramid."""
         return laplacian_pyramid(image, levels)

@@ -18,7 +18,9 @@ def _write_mask(path: Path, *, value: int = 255) -> None:
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
 def test_mvtec_ad2_manifest_converter_writes_expected_records(tmp_path: Path) -> None:
@@ -55,4 +57,3 @@ def test_mvtec_ad2_manifest_converter_writes_expected_records(tmp_path: Path) ->
     anomaly = [r for r in records if r.get("split") == "test" and int(r.get("label", 0)) == 1]
     assert anomaly
     assert any("mask_path" in r for r in anomaly)
-

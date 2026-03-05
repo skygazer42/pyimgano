@@ -27,4 +27,3 @@ def test_selected_core_models_handle_constant_inputs(model_name: str) -> None:
 
     assert scores.shape == (10,)
     assert np.all(np.isfinite(scores))
-

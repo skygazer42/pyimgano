@@ -43,4 +43,3 @@ def test_registry_model_info_method_matches_introspection() -> None:
     via_registry = registry.model_info("toy")
     via_introspection = model_info(registry, "toy")
     assert via_registry == via_introspection
-

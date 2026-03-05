@@ -14,4 +14,3 @@ def test_multi_extractor_accepts_registry_specs() -> None:
     assert Z.shape == (3, 8)
     assert np.allclose(Z[:, :4], X)
     assert np.allclose(Z[:, 4:], X)
-

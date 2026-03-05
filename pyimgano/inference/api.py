@@ -84,7 +84,7 @@ def calibrate_threshold(
         bs = None
     else:
         bsv = int(batch_size)
-        bs = (bsv if bsv > 0 else None)
+        bs = bsv if bsv > 0 else None
 
     chunks = [normalized] if bs is None or bs >= len(normalized) else []
     if not chunks:
@@ -138,7 +138,9 @@ def _torch_inference_context(*, amp: bool) -> ExitStack:
             )
     except Exception:
         # Best-effort: never fail inference due to AMP wrapper issues.
-        warnings.warn("AMP context failed to initialize; continuing without autocast.", RuntimeWarning)
+        warnings.warn(
+            "AMP context failed to initialize; continuing without autocast.", RuntimeWarning
+        )
 
     return stack
 
@@ -304,14 +306,12 @@ def infer_iter(
         bs = None
     else:
         bsv = int(batch_size)
-        bs = (bsv if bsv > 0 else None)
+        bs = bsv if bsv > 0 else None
 
     def _yield_chunk(chunk: Sequence[Any]):
         t0 = time.perf_counter()
         with _torch_inference_context(amp=bool(amp)):
-            scores, maps_from_decision = _call_decision_function_with_optional_maps(
-                detector, chunk
-            )
+            scores, maps_from_decision = _call_decision_function_with_optional_maps(detector, chunk)
 
             labels: Optional[np.ndarray]
             if threshold is not None:

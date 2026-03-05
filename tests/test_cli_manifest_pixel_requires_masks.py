@@ -71,4 +71,3 @@ def test_cli_manifest_pixel_mode_is_ok_without_masks(tmp_path: Path, capsys) -> 
     assert isinstance(status, dict)
     assert status.get("enabled") is False
     assert status.get("reason"), "expected a reason explaining why pixel metrics were disabled"
-

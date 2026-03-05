@@ -17,11 +17,12 @@ Implementation includes:
 - Pixel-level anomaly localization
 """
 
+from typing import List, Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import List, Optional, Tuple
 from numpy.typing import NDArray
 
 from pyimgano.models.base_dl import BaseVisionDeepDetector
@@ -32,9 +33,7 @@ class CrossScaleFlow(nn.Module):
 
     def __init__(self, in_channels: int, num_flows: int = 8):
         super().__init__()
-        self.flows = nn.ModuleList([
-            AffineCouplingLayer(in_channels) for _ in range(num_flows)
-        ])
+        self.flows = nn.ModuleList([AffineCouplingLayer(in_channels) for _ in range(num_flows)])
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward pass through flows.
@@ -85,7 +84,7 @@ class AffineCouplingLayer(nn.Module):
             nn.Conv2d(in_channels, in_channels, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels, in_channels - self.split_idx, 3, padding=1),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
         self.translation_net = nn.Sequential(
@@ -106,7 +105,7 @@ class AffineCouplingLayer(nn.Module):
             y: Output [B, C, H, W]
             log_det: Log determinant [B]
         """
-        x1, x2 = x[:, :self.split_idx], x[:, self.split_idx:]
+        x1, x2 = x[:, : self.split_idx], x[:, self.split_idx :]
 
         # Compute scale and translation
         s = self.scale_net(x1)
@@ -130,7 +129,7 @@ class AffineCouplingLayer(nn.Module):
         Returns:
             x: Output [B, C, H, W]
         """
-        y1, y2 = y[:, :self.split_idx], y[:, self.split_idx:]
+        y1, y2 = y[:, : self.split_idx], y[:, self.split_idx :]
 
         # Compute scale and translation
         s = self.scale_net(y1)
@@ -150,26 +149,26 @@ class MultiScaleFeatureExtractor(nn.Module):
         super().__init__()
 
         if backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
 
             self.layer1 = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
-                model.maxpool, model.layer1
+                model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
             )
             self.layer2 = model.layer2
             self.layer3 = model.layer3
 
             self.out_channels = [64, 128, 256]
         elif backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
             model = wide_resnet50_2(weights=weights)
 
             self.layer1 = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
-                model.maxpool, model.layer1
+                model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
             )
             self.layer2 = model.layer2
             self.layer3 = model.layer3
@@ -246,15 +245,16 @@ class CSFlowDetector(BaseVisionDeepDetector):
 
         # Feature extractor
         self.feature_extractor = MultiScaleFeatureExtractor(
-            backbone=backbone,
-            pretrained=pretrained
+            backbone=backbone, pretrained=pretrained
         ).to(self.device)
 
         # Flow models for each scale
-        self.flows = nn.ModuleList([
-            CrossScaleFlow(in_channels=ch, num_flows=num_flows)
-            for ch in self.feature_extractor.out_channels
-        ]).to(self.device)
+        self.flows = nn.ModuleList(
+            [
+                CrossScaleFlow(in_channels=ch, num_flows=num_flows)
+                for ch in self.feature_extractor.out_channels
+            ]
+        ).to(self.device)
 
         self.fitted_ = False
 
@@ -317,7 +317,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
 
             # Mini-batch training
             for i in range(0, N, self.batch_size):
-                batch = X[i:i + self.batch_size]
+                batch = X[i : i + self.batch_size]
 
                 # Extract features
                 features = self._extract_features(batch)
@@ -328,7 +328,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
                     z, log_det = flow(feat)
 
                     # Negative log likelihood (assuming standard normal prior)
-                    log_likelihood = -0.5 * torch.sum(z ** 2, dim=[1, 2, 3]) + log_det
+                    log_likelihood = -0.5 * torch.sum(z**2, dim=[1, 2, 3]) + log_det
                     loss = -log_likelihood.mean()
 
                     total_loss += loss
@@ -373,7 +373,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
                 z, log_det = flow(feat)
 
                 # Negative log likelihood
-                log_likelihood = -0.5 * torch.sum(z ** 2, dim=[1, 2, 3]) + log_det
+                log_likelihood = -0.5 * torch.sum(z**2, dim=[1, 2, 3]) + log_det
                 scores = -log_likelihood  # Higher = more anomalous
 
                 scores_list.append(scores.cpu().numpy())
@@ -408,14 +408,14 @@ class CSFlowDetector(BaseVisionDeepDetector):
                 z, _ = flow(feat)
 
                 # Spatial likelihood (per pixel)
-                spatial_likelihood = -0.5 * torch.sum(z ** 2, dim=1)  # [B, H, W]
+                spatial_likelihood = -0.5 * torch.sum(z**2, dim=1)  # [B, H, W]
 
                 # Upsample to image size
                 upsampled = F.interpolate(
                     spatial_likelihood.unsqueeze(1),
                     size=(H_img, W_img),
-                    mode='bilinear',
-                    align_corners=False
+                    mode="bilinear",
+                    align_corners=False,
                 )
 
                 anomaly_maps.append(-upsampled.squeeze(1).cpu().numpy())  # Negate for anomaly

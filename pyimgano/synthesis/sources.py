@@ -108,4 +108,3 @@ class TextureSourceBank:
             out = out * scale + bias
 
         return np.clip(out, 0.0, 255.0).astype(np.uint8)
-

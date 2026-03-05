@@ -17,11 +17,12 @@ Implementation includes:
 - Saliency map generation
 """
 
+from typing import Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import Optional, Tuple
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 
@@ -72,9 +73,10 @@ class SpectralResidual:
 
         # Average filter (box filter)
         kernel_size = 3
-        avg_filter = np.ones((kernel_size, kernel_size)) / (kernel_size ** 2)
+        avg_filter = np.ones((kernel_size, kernel_size)) / (kernel_size**2)
         from scipy.signal import convolve2d
-        log_amplitude_filtered = convolve2d(log_amplitude, avg_filter, mode='same')
+
+        log_amplitude_filtered = convolve2d(log_amplitude, avg_filter, mode="same")
 
         # Spectral residual
         spectral_residual = log_amplitude - log_amplitude_filtered
@@ -84,7 +86,9 @@ class SpectralResidual:
         saliency_map = np.abs(np.fft.ifft2(residual_fft)) ** 2
 
         # Normalize
-        saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min() + 1e-8)
+        saliency_map = (saliency_map - saliency_map.min()) / (
+            saliency_map.max() - saliency_map.min() + 1e-8
+        )
 
         return saliency_map
 
@@ -96,12 +100,15 @@ class FeatureExtractor(nn.Module):
         super().__init__()
 
         if backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
             # Extract features up to layer3
             self.features = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
+                model.conv1,
+                model.bn1,
+                model.relu,
                 model.maxpool,
                 model.layer1,
                 model.layer2,
@@ -109,11 +116,14 @@ class FeatureExtractor(nn.Module):
             )
             self.output_dim = 256
         elif backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
             model = wide_resnet50_2(weights=weights)
             self.features = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
+                model.conv1,
+                model.bn1,
+                model.relu,
                 model.maxpool,
                 model.layer1,
                 model.layer2,
@@ -176,10 +186,9 @@ class DSRDetector(BaseVisionDeepDetector):
         self.threshold_percentile = threshold_percentile
 
         # Initialize feature extractor
-        self.feature_extractor = FeatureExtractor(
-            backbone=backbone,
-            pretrained=pretrained
-        ).to(self.device)
+        self.feature_extractor = FeatureExtractor(backbone=backbone, pretrained=pretrained).to(
+            self.device
+        )
 
         self.spectral_residual = SpectralResidual()
         self.fitted_ = False
@@ -262,9 +271,9 @@ class DSRDetector(BaseVisionDeepDetector):
 
         # Store statistics
         self.normal_scores_stats = {
-            'mean': np.mean(anomaly_maps),
-            'std': np.std(anomaly_maps),
-            'percentile_95': np.percentile(anomaly_maps, self.threshold_percentile)
+            "mean": np.mean(anomaly_maps),
+            "std": np.std(anomaly_maps),
+            "percentile_95": np.percentile(anomaly_maps, self.threshold_percentile),
         }
 
         self.fitted_ = True
@@ -293,7 +302,9 @@ class DSRDetector(BaseVisionDeepDetector):
 
         # Normalize using normal statistics
         if self.normal_scores_stats is not None:
-            scores = (scores - self.normal_scores_stats['mean']) / (self.normal_scores_stats['std'] + 1e-8)
+            scores = (scores - self.normal_scores_stats["mean"]) / (
+                self.normal_scores_stats["std"] + 1e-8
+            )
 
         return scores
 
@@ -325,17 +336,14 @@ class DSRDetector(BaseVisionDeepDetector):
         for i in range(N):
             map_tensor = torch.from_numpy(anomaly_maps[i]).unsqueeze(0).unsqueeze(0).float()
             upsampled = F.interpolate(
-                map_tensor,
-                size=(H_img, W_img),
-                mode='bilinear',
-                align_corners=False
+                map_tensor, size=(H_img, W_img), mode="bilinear", align_corners=False
             )
             upsampled_maps[i] = upsampled.squeeze().numpy()
 
         # Normalize
         if self.normal_scores_stats is not None:
-            upsampled_maps = (upsampled_maps - self.normal_scores_stats['mean']) / (
-                self.normal_scores_stats['std'] + 1e-8
+            upsampled_maps = (upsampled_maps - self.normal_scores_stats["mean"]) / (
+                self.normal_scores_stats["std"] + 1e-8
             )
 
         return upsampled_maps
@@ -356,8 +364,8 @@ class DSRDetector(BaseVisionDeepDetector):
             # Use auto threshold from normal data
             if self.normal_scores_stats is not None:
                 threshold = (
-                    self.normal_scores_stats['percentile_95'] - self.normal_scores_stats['mean']
-                ) / (self.normal_scores_stats['std'] + 1e-8)
+                    self.normal_scores_stats["percentile_95"] - self.normal_scores_stats["mean"]
+                ) / (self.normal_scores_stats["std"] + 1e-8)
             else:
                 threshold = 0.0
 

@@ -118,4 +118,3 @@ class VisionStudentTeacherLite(BaseDetector):
         resid = T - (S @ W)
         scores = np.linalg.norm(resid, axis=1)
         return np.asarray(scores, dtype=np.float64).reshape(-1)
-

@@ -22,4 +22,3 @@ from pyimgano.pipelines.feature_pipeline import VisionFeaturePipeline
 )
 class VisionFeaturePipelineModel(VisionFeaturePipeline):
     pass
-

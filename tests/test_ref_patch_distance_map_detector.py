@@ -47,7 +47,10 @@ def test_ref_patch_distance_map_detector_smoke(tmp_path: Path, monkeypatch) -> N
     )
     det.fit([str(query_dir / "a.png")])
 
-    scores = np.asarray(det.decision_function([str(query_dir / "a.png"), str(query_dir / "b.png")]), dtype=np.float64)
+    scores = np.asarray(
+        det.decision_function([str(query_dir / "a.png"), str(query_dir / "b.png")]),
+        dtype=np.float64,
+    )
     assert scores.shape == (2,)
     assert np.isfinite(scores).all()
     assert float(scores[1]) > float(scores[0])
@@ -57,7 +60,9 @@ def test_ref_patch_distance_map_detector_smoke(tmp_path: Path, monkeypatch) -> N
     assert np.isfinite(amap).all()
 
 
-def test_ref_patch_distance_map_detector_missing_reference(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+def test_ref_patch_distance_map_detector_missing_reference(
+    tmp_path: Path, monkeypatch
+) -> None:  # noqa: ANN001
     import torch.hub
 
     def _blocked(*_args, **_kwargs):  # noqa: ANN001, ANN201
@@ -91,4 +96,3 @@ def test_ref_patch_distance_map_detector_missing_reference(tmp_path: Path, monke
         pass
     else:  # pragma: no cover
         raise AssertionError("Expected missing reference error")
-

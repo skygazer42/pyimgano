@@ -25,4 +25,3 @@ def test_guided_filter_constant_image_is_fixed_point() -> None:
     assert out.dtype == np.uint8
     assert int(out.min()) == 128
     assert int(out.max()) == 128
-

@@ -26,4 +26,3 @@ def test_parallel_map_runs_and_preserves_order() -> None:
 
     out = parallel_map(lambda x: x + 1, [1, 2, 3, 4], n_jobs=2, backend="threading")
     assert out == [2, 3, 4, 5]
-

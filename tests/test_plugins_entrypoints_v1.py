@@ -34,4 +34,3 @@ def test_load_plugins_entrypoints_registers_models(monkeypatch) -> None:
     assert any(r.get("name") == "dummy" and r.get("status") == "loaded" for r in results)
 
     assert "plugin_dummy_model" in set(models.list_models())
-

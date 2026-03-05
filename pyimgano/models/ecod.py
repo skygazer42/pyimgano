@@ -70,9 +70,7 @@ class CoreECOD:
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_train, n_features = self._X_sorted.shape
         if X.shape[1] != n_features:
-            raise ValueError(
-                f"Expected {n_features} features, got {X.shape[1]}"
-            )
+            raise ValueError(f"Expected {n_features} features, got {X.shape[1]}")
 
         # Compute feature-wise tail scores and sum.
         scores_by_feature = np.empty((X.shape[0], n_features), dtype=np.float64)
@@ -84,9 +82,7 @@ class CoreECOD:
             # Left-tail: P(X_train <= x)
             cdf_l = np.searchsorted(col_sorted, x_col, side="right") / float(n_train)
             # Right-tail: P(X_train >= x) = P(-X_train <= -x)
-            cdf_r = (n_train - np.searchsorted(col_sorted, x_col, side="left")) / float(
-                n_train
-            )
+            cdf_r = (n_train - np.searchsorted(col_sorted, x_col, side="left")) / float(n_train)
 
             cdf_l = np.clip(cdf_l, self.eps, 1.0)
             cdf_r = np.clip(cdf_r, self.eps, 1.0)

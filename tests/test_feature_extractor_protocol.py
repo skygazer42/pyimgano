@@ -26,4 +26,3 @@ def test_fittable_feature_extractor_protocol_runtime_check() -> None:
             return np.ones((len(inputs), 2), dtype=np.float32)
 
     assert isinstance(Dummy(), FittableFeatureExtractor)
-

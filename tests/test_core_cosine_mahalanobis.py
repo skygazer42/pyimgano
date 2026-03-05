@@ -35,8 +35,9 @@ def test_core_cosine_mahalanobis_smoke_and_direction() -> None:
     )
     det.fit(X_train)
 
-    scores = np.asarray(det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64)
+    scores = np.asarray(
+        det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64
+    )
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
     assert float(scores[1]) > float(scores[0])
-

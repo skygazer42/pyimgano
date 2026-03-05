@@ -46,7 +46,7 @@ def calibrate_normal_pixel_quantile_threshold(
                 "pixel_labels and pixel_scores must have the same shape. "
                 f"Got labels={labels.shape} vs scores={scores.shape}."
             )
-        bg = (labels <= 0)
+        bg = labels <= 0
         if int(np.sum(bg)) == 0:
             raise ValueError("No background (normal) pixels found in pixel_labels.")
         scores = scores[bg]
@@ -56,4 +56,3 @@ def calibrate_normal_pixel_quantile_threshold(
 
     thr = float(np.quantile(scores.reshape(-1), qf))
     return thr
-

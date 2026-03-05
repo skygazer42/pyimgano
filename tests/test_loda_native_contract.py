@@ -47,4 +47,3 @@ def test_vision_loda_with_identity_extractor() -> None:
     scores = det.decision_function(X[:5])
     assert scores.shape == (5,)
     assert np.isfinite(scores).all()
-

@@ -10,16 +10,16 @@ Reference:
     In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (pp. 98-107).
 """
 
-import math
 import logging
+import math
 from typing import Iterable, List, Optional
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
@@ -38,11 +38,13 @@ class ConditionalFlow(nn.Module):
 
         self.flows = nn.ModuleList()
         for _ in range(n_flows):
-            self.flows.append(nn.Sequential(
-                nn.Linear(feature_dim + condition_dim, 256),
-                nn.ReLU(),
-                nn.Linear(256, feature_dim * 2)  # mean and log_scale
-            ))
+            self.flows.append(
+                nn.Sequential(
+                    nn.Linear(feature_dim + condition_dim, 256),
+                    nn.ReLU(),
+                    nn.Linear(256, feature_dim * 2),  # mean and log_scale
+                )
+            )
 
     def forward(self, z, condition):
         log_det_jacobian = 0
@@ -157,19 +159,21 @@ class VisionCFlow(BaseVisionDeepDetector):
         self._build_model()
 
         # Image preprocessing
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            ),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
 
         logger.info(
             "Initialized CFlow with backbone=%s, n_flows=%d, epochs=%d, device=%s",
-            backbone, n_flows, epochs, device
+            backbone,
+            n_flows,
+            epochs,
+            device,
         )
 
     def _build_model(self):
@@ -177,9 +181,7 @@ class VisionCFlow(BaseVisionDeepDetector):
         # Feature extractor (frozen)
         if self.backbone_name == "resnet18":
             try:
-                weights = (
-                    models.ResNet18_Weights.DEFAULT if self.pretrained_backbone else None
-                )
+                weights = models.ResNet18_Weights.DEFAULT if self.pretrained_backbone else None
                 backbone = models.resnet18(weights=weights)
             except Exception:  # pragma: no cover - fallback for older torchvision
                 backbone = models.resnet18(pretrained=self.pretrained_backbone)
@@ -200,9 +202,7 @@ class VisionCFlow(BaseVisionDeepDetector):
 
         # Flow for patch-level features
         self.flow = ConditionalFlow(
-            feature_dim=self.feature_dim,
-            condition_dim=self.condition_dim,
-            n_flows=self.n_flows
+            feature_dim=self.feature_dim, condition_dim=self.condition_dim, n_flows=self.n_flows
         )
         self.flow.to(self.device)
 

@@ -33,4 +33,3 @@ def pairwise_distances_no_broadcast(X, Y):
 
     diff = X - Y
     return np.sqrt(np.sum(diff * diff, axis=1))
-

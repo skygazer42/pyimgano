@@ -29,4 +29,3 @@ def test_morphology_u8_mask_smoke() -> None:
     out = morph_u8(mask, op="open", ksize=3)
     assert out.shape == mask.shape
     assert out.dtype == np.uint8
-

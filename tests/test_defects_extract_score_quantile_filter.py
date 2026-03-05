@@ -24,4 +24,3 @@ def test_extract_defects_can_filter_regions_by_score_quantile() -> None:
 
     assert len(out["regions"]) == 1
     assert out["regions"][0]["bbox_xyxy"] == [5, 5, 6, 6]
-

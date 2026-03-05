@@ -19,8 +19,8 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import check_array
 
 from ..utils.param_check import check_parameter
-from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 

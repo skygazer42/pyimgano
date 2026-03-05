@@ -25,21 +25,19 @@ from .registry import register_model
 class PrototypicalEncoder(nn.Module):
     """Encoder network for prototypical learning."""
 
-    def __init__(
-        self,
-        backbone: str = "wide_resnet50",
-        projection_dim: int = 256
-    ):
+    def __init__(self, backbone: str = "wide_resnet50", projection_dim: int = 256):
         super().__init__()
 
         # Feature extractor
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
             feature_dim = 1024
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
             feature_dim = 512
@@ -145,7 +143,7 @@ class VisionPANDA(BaseVisionDeepDetector):
         margin: float = 0.5,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -179,11 +177,7 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return torch.from_numpy(X).float()
 
-    def _prototype_loss(
-        self,
-        embeddings: torch.Tensor,
-        prototypes: torch.Tensor
-    ) -> torch.Tensor:
+    def _prototype_loss(self, embeddings: torch.Tensor, prototypes: torch.Tensor) -> torch.Tensor:
         """
         Compute prototypical loss.
 
@@ -231,18 +225,14 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
                 embeddings = self.encoder_(batch)
                 all_embeddings.append(embeddings.cpu().numpy())
 
         all_embeddings = np.vstack(all_embeddings)
 
         # Use K-means to find initial prototypes
-        kmeans = KMeans(
-            n_clusters=self.n_prototypes,
-            random_state=self.random_state,
-            n_init=10
-        )
+        kmeans = KMeans(n_clusters=self.n_prototypes, random_state=self.random_state, n_init=10)
         kmeans.fit(all_embeddings)
 
         # Initialize prototypes
@@ -250,11 +240,7 @@ class VisionPANDA(BaseVisionDeepDetector):
             torch.from_numpy(kmeans.cluster_centers_).float().to(self.device)
         )
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionPANDA":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionPANDA":
         """
         Fit the PANDA detector.
 
@@ -276,8 +262,7 @@ class VisionPANDA(BaseVisionDeepDetector):
         # Initialize encoder
         if self.encoder_ is None:
             self.encoder_ = PrototypicalEncoder(
-                backbone=self.backbone,
-                projection_dim=self.projection_dim
+                backbone=self.backbone, projection_dim=self.projection_dim
             ).to(self.device)
 
         # Initialize prototypes
@@ -285,17 +270,11 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimize both encoder and prototypes
         optimizer = torch.optim.Adam(
-            list(self.encoder_.parameters()) + [self.prototypes_],
-            lr=self.learning_rate
+            list(self.encoder_.parameters()) + [self.prototypes_], lr=self.learning_rate
         )
 
         self.encoder_.train()
@@ -329,10 +308,7 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -353,7 +329,7 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract embeddings
                 embeddings = self.encoder_(batch)
@@ -371,10 +347,7 @@ class VisionPANDA(BaseVisionDeepDetector):
         """Alias for predict."""
         return self.predict(X)
 
-    def get_prototype_assignments(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def get_prototype_assignments(self, X: NDArray) -> NDArray:
         """
         Get prototype assignments for samples.
 
@@ -395,7 +368,7 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract embeddings
                 embeddings = self.encoder_(batch)

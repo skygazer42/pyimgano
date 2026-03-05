@@ -2,28 +2,31 @@
 
 from __future__ import annotations
 
-from functools import partial
 import random
+from functools import partial
 from typing import Any, Callable, Iterable, Mapping, MutableMapping, Sequence, Tuple
 
 import numpy as np
-from PIL import Image
-from PIL import ImageEnhance
+from PIL import Image, ImageEnhance
 
 try:
     Resampling = Image.Resampling  # Pillow>=9.1
 except AttributeError:  # pragma: no cover
+
     class Resampling:
         NEAREST = Image.NEAREST
         BILINEAR = Image.BILINEAR
         BICUBIC = Image.BICUBIC
         LANCZOS = Image.LANCZOS
 
+
 try:
     Transform = Image.Transform  # Pillow>=9.1
 except AttributeError:  # pragma: no cover - compatibility
+
     class Transform:
         AFFINE = Image.AFFINE
+
 
 from .image_ops import random_horizontal_flip
 from .image_ops_cv import (
@@ -39,6 +42,7 @@ from .image_ops_cv import (
 
 try:  # optional torchvision support
     import torchvision.transforms as T
+
     _TORCHVISION_AVAILABLE = True
 except ImportError:  # pragma: no cover - optional dependency
     T = None
@@ -46,6 +50,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 try:  # diffusion support
     from diffusers import StableDiffusionImg2ImgPipeline, StableDiffusionPipeline
+
     _DIFFUSERS_AVAILABLE = True
 except ImportError:  # pragma: no cover
     StableDiffusionPipeline = None
@@ -62,8 +67,14 @@ class AugmentationRegistry:
     def __init__(self) -> None:
         self._store: MutableMapping[str, tuple[Callable[..., AugmentationFn], bool]] = {}
 
-    def register(self, name: str, factory: Callable[..., AugmentationFn], *, override: bool = False,
-                 is_factory: bool = True) -> None:
+    def register(
+        self,
+        name: str,
+        factory: Callable[..., AugmentationFn],
+        *,
+        override: bool = False,
+        is_factory: bool = True,
+    ) -> None:
         if not override and name in self._store:
             raise KeyError(f"Augmentation {name!r} already registered")
         self._store[name] = (factory, is_factory)
@@ -86,8 +97,13 @@ class AugmentationRegistry:
 AUGMENTATION_REGISTRY = AugmentationRegistry()
 
 
-def register_augmentation(name: str, factory: Callable[..., AugmentationFn], *, override: bool = False,
-                          is_factory: bool = True) -> None:
+def register_augmentation(
+    name: str,
+    factory: Callable[..., AugmentationFn],
+    *,
+    override: bool = False,
+    is_factory: bool = True,
+) -> None:
     AUGMENTATION_REGISTRY.register(name, factory, override=override, is_factory=is_factory)
 
 
@@ -102,7 +118,9 @@ def _wrap_pil_function(func: Callable[..., Image.Image]) -> Callable[..., Augmen
             img = data if is_pil else Image.fromarray(data)
             result = func(img, **kwargs)
             return result if is_pil else np.asarray(result)
+
         return augmentation
+
     return factory
 
 
@@ -113,11 +131,15 @@ def _wrap_numpy_function(func: Callable[..., np.ndarray]) -> Callable[..., Augme
             array = np.asarray(data) if is_pil else data
             result = func(array, **kwargs)
             return result if not is_pil else Image.fromarray(result)
+
         return augmentation
+
     return factory
 
 
-def _wrap_torchvision_transform(transform_cls: Callable, *, to_pil: bool = True) -> Callable[..., AugmentationFn]:
+def _wrap_torchvision_transform(
+    transform_cls: Callable, *, to_pil: bool = True
+) -> Callable[..., AugmentationFn]:
     if not _TORCHVISION_AVAILABLE:
         raise ImportError("torchvision is required for this augmentation")
 
@@ -156,13 +178,15 @@ def random_cutout(image: np.ndarray, max_frac: float = 0.4, fill: int = 0) -> np
     left = np.random.randint(0, max(1, w - cut_w + 1))
     out = image.copy()
     if c is None:
-        out[top:top + cut_h, left:left + cut_w] = fill
+        out[top : top + cut_h, left : left + cut_w] = fill
     else:
-        out[top:top + cut_h, left:left + cut_w, :] = fill
+        out[top : top + cut_h, left : left + cut_w, :] = fill
     return out
 
 
-def mixup_batch(images: np.ndarray, labels: np.ndarray, alpha: float = 1.0) -> Tuple[np.ndarray, np.ndarray, float]:
+def mixup_batch(
+    images: np.ndarray, labels: np.ndarray, alpha: float = 1.0
+) -> Tuple[np.ndarray, np.ndarray, float]:
     """Perform mixup on batch of images and labels."""
 
     if alpha <= 0:
@@ -174,7 +198,9 @@ def mixup_batch(images: np.ndarray, labels: np.ndarray, alpha: float = 1.0) -> T
     return mixed_images, mixed_labels, lam
 
 
-def cutmix_batch(images: np.ndarray, labels: np.ndarray, alpha: float = 1.0) -> Tuple[np.ndarray, np.ndarray, float]:
+def cutmix_batch(
+    images: np.ndarray, labels: np.ndarray, alpha: float = 1.0
+) -> Tuple[np.ndarray, np.ndarray, float]:
     """Perform CutMix augmentation on batch."""
 
     if alpha <= 0:
@@ -250,10 +276,17 @@ def trivial_augment(image: Image.Image, magnitude: float = 0.5) -> Image.Image:
     return operation(image, magnitude)
 
 
-def color_jitter(image: Image.Image | np.ndarray, brightness: float = 0.4, contrast: float = 0.4,
-                 saturation: float = 0.4, hue: float = 0.1) -> Image.Image | np.ndarray:
+def color_jitter(
+    image: Image.Image | np.ndarray,
+    brightness: float = 0.4,
+    contrast: float = 0.4,
+    saturation: float = 0.4,
+    hue: float = 0.1,
+) -> Image.Image | np.ndarray:
     if _TORCHVISION_AVAILABLE:
-        transform = T.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+        transform = T.ColorJitter(
+            brightness=brightness, contrast=contrast, saturation=saturation, hue=hue
+        )
         is_pil = isinstance(image, Image.Image)
         img = image if is_pil else Image.fromarray(image)
         result = transform(img)
@@ -261,6 +294,7 @@ def color_jitter(image: Image.Image | np.ndarray, brightness: float = 0.4, contr
 
     is_pil = isinstance(image, Image.Image)
     img = image if is_pil else Image.fromarray(image)
+
     def jitter(enhance_cls, magnitude):
         if magnitude <= 0:
             return img
@@ -290,7 +324,9 @@ def _autoaugment_policy(name: str):
     return mapping[name]
 
 
-def auto_augment(image: Image.Image | np.ndarray, policy: str = "imagenet") -> Image.Image | np.ndarray:
+def auto_augment(
+    image: Image.Image | np.ndarray, policy: str = "imagenet"
+) -> Image.Image | np.ndarray:
     if not _TORCHVISION_AVAILABLE:
         raise ImportError("torchvision is required for AutoAugment")
     transform = T.AutoAugment(policy=_autoaugment_policy(policy))
@@ -300,7 +336,9 @@ def auto_augment(image: Image.Image | np.ndarray, policy: str = "imagenet") -> I
     return result if is_pil else np.asarray(result)
 
 
-def rand_augment(image: Image.Image | np.ndarray, num_ops: int = 2, magnitude: int = 9) -> Image.Image | np.ndarray:
+def rand_augment(
+    image: Image.Image | np.ndarray, num_ops: int = 2, magnitude: int = 9
+) -> Image.Image | np.ndarray:
     if not _TORCHVISION_AVAILABLE:
         raise ImportError("torchvision is required for RandAugment")
     transform = T.RandAugment(num_ops=num_ops, magnitude=magnitude)
@@ -308,6 +346,7 @@ def rand_augment(image: Image.Image | np.ndarray, num_ops: int = 2, magnitude: i
     img = image if is_pil else Image.fromarray(image)
     result = transform(img)
     return result if is_pil else np.asarray(result)
+
 
 def resolve_augmentation(spec: Any, registry: AugmentationRegistry | None = None) -> AugmentationFn:
     registry = registry or AUGMENTATION_REGISTRY
@@ -324,8 +363,12 @@ def resolve_augmentation(spec: Any, registry: AugmentationRegistry | None = None
     raise TypeError(f"Unsupported augmentation spec: {spec!r}")
 
 
-def build_augmentation_pipeline(augmentations: Sequence[Any], *, return_type: str = "same",
-                                registry: AugmentationRegistry | None = None) -> AugmentationFn:
+def build_augmentation_pipeline(
+    augmentations: Sequence[Any],
+    *,
+    return_type: str = "same",
+    registry: AugmentationRegistry | None = None,
+) -> AugmentationFn:
     registry = registry or AUGMENTATION_REGISTRY
     resolved = [resolve_augmentation(spec, registry=registry) for spec in augmentations]
 
@@ -360,7 +403,9 @@ def _register_default_augmentations() -> None:
     register_augmentation("gaussian_noise", _wrap_numpy_function(add_gaussian_noise))
     register_augmentation("random_gaussian_noise", _wrap_numpy_function(random_gaussian_noise))
     register_augmentation("brightness_contrast", _wrap_numpy_function(adjust_brightness_contrast))
-    register_augmentation("random_brightness_contrast", _wrap_numpy_function(random_brightness_contrast))
+    register_augmentation(
+        "random_brightness_contrast", _wrap_numpy_function(random_brightness_contrast)
+    )
     register_augmentation("gaussian_blur", _wrap_numpy_function(gaussian_blur))
     register_augmentation("motion_blur", _wrap_numpy_function(motion_blur))
     register_augmentation("random_cutout", _wrap_numpy_function(random_cutout))
@@ -397,11 +442,15 @@ class DiffusionAugmentor:
         self.device = device
 
         if pipeline == "txt2img":
-            self.pipe = StableDiffusionPipeline.from_pretrained(model, torch_dtype=_resolve_torch_dtype(dtype), **kwargs)
+            self.pipe = StableDiffusionPipeline.from_pretrained(
+                model, torch_dtype=_resolve_torch_dtype(dtype), **kwargs
+            )
         elif pipeline == "img2img":
             if StableDiffusionImg2ImgPipeline is None:
                 raise ImportError("StableDiffusionImg2ImgPipeline not available; update diffusers")
-            self.pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model, torch_dtype=_resolve_torch_dtype(dtype), **kwargs)
+            self.pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+                model, torch_dtype=_resolve_torch_dtype(dtype), **kwargs
+            )
         else:
             raise ValueError("pipeline must be 'txt2img' or 'img2img'")
 
@@ -409,20 +458,48 @@ class DiffusionAugmentor:
             self.pipe.to(device)
         self.pipe.safety_checker = None
 
-    def generate(self, prompt: str, *, num_images: int = 1, guidance_scale: float = 7.5,
-                 height: int | None = None, width: int | None = None, **kwargs) -> list[Image.Image]:
+    def generate(
+        self,
+        prompt: str,
+        *,
+        num_images: int = 1,
+        guidance_scale: float = 7.5,
+        height: int | None = None,
+        width: int | None = None,
+        **kwargs,
+    ) -> list[Image.Image]:
         if self.pipeline_type != "txt2img":
             raise RuntimeError("generate is only available for txt2img pipeline")
-        result = self.pipe(prompt=prompt, num_images_per_prompt=num_images, guidance_scale=guidance_scale,
-                           height=height, width=width, **kwargs)
+        result = self.pipe(
+            prompt=prompt,
+            num_images_per_prompt=num_images,
+            guidance_scale=guidance_scale,
+            height=height,
+            width=width,
+            **kwargs,
+        )
         return result.images
 
-    def augment(self, image: Image.Image, prompt: str, *, strength: float = 0.75, guidance_scale: float = 7.5,
-                num_images: int = 1, **kwargs) -> list[Image.Image]:
+    def augment(
+        self,
+        image: Image.Image,
+        prompt: str,
+        *,
+        strength: float = 0.75,
+        guidance_scale: float = 7.5,
+        num_images: int = 1,
+        **kwargs,
+    ) -> list[Image.Image]:
         if self.pipeline_type != "img2img":
             raise RuntimeError("augment requires img2img pipeline")
-        result = self.pipe(prompt=prompt, image=image, strength=strength, guidance_scale=guidance_scale,
-                           num_images_per_prompt=num_images, **kwargs)
+        result = self.pipe(
+            prompt=prompt,
+            image=image,
+            strength=strength,
+            guidance_scale=guidance_scale,
+            num_images_per_prompt=num_images,
+            **kwargs,
+        )
         return result.images
 
     def __call__(self, *args, **kwargs):

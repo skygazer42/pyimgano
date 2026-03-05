@@ -49,4 +49,3 @@ def test_require_with_extra_mentions_pyimgano_extras_hint() -> None:
         assert "unit-test" in msg
     else:  # pragma: no cover
         raise AssertionError("Expected ImportError for missing module")
-

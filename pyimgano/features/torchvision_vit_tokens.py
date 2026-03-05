@@ -10,7 +10,6 @@ from pyimgano.features.registry import register_feature_extractor
 
 from .torchvision_backbone import _as_pil_rgb, _make_device
 
-
 _InputColor = Literal["rgb", "bgr"]
 _Pool = Literal["cls", "mean"]
 
@@ -61,9 +60,13 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="TorchvisionViTTokensExtractor")
-        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionViTTokensExtractor")
+        T = require(
+            "torchvision.transforms", extra="torch", purpose="TorchvisionViTTokensExtractor"
+        )
 
-        model, weight_transform = _load_torchvision_vit(str(self.backbone), pretrained=bool(self.pretrained))
+        model, weight_transform = _load_torchvision_vit(
+            str(self.backbone), pretrained=bool(self.pretrained)
+        )
 
         # Best-effort: drop the classification head if present. We do not rely
         # on it, but stripping avoids accidentally returning logits if someone
@@ -126,7 +129,9 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
 
                 # Token extraction (cls + patch tokens).
                 if not hasattr(self._model, "_process_input"):
-                    raise TypeError("Backbone does not support ViT token extraction (missing _process_input).")
+                    raise TypeError(
+                        "Backbone does not support ViT token extraction (missing _process_input)."
+                    )
                 if not hasattr(self._model, "encoder") or not hasattr(self._model, "class_token"):
                     raise TypeError("Backbone does not look like a torchvision VisionTransformer.")
 

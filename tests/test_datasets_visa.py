@@ -44,4 +44,3 @@ def test_load_visa_paths(tmp_path: Path) -> None:
     assert set(labels.tolist()).issubset({0, 1})
     assert masks is not None
     assert masks.shape[0] == len(test_paths)
-

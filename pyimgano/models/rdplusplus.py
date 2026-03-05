@@ -17,11 +17,12 @@ Implementation includes:
 - Progressive refinement
 """
 
+from typing import List, Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import List, Optional, Tuple
 from numpy.typing import NDArray
 
 from pyimgano.models.base_dl import BaseVisionDeepDetector
@@ -34,26 +35,26 @@ class MultiScaleEncoder(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
             model = wide_resnet50_2(weights=weights)
 
             self.layer1 = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
-                model.maxpool, model.layer1
+                model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
             )
             self.layer2 = model.layer2
             self.layer3 = model.layer3
 
             self.out_channels = [256, 512, 1024]
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
 
             self.layer1 = nn.Sequential(
-                model.conv1, model.bn1, model.relu,
-                model.maxpool, model.layer1
+                model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
             )
             self.layer2 = model.layer2
             self.layer3 = model.layer3
@@ -95,7 +96,7 @@ class AttentionModule(nn.Module):
             nn.Conv2d(channels, channels // 8, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(channels // 8, channels, 1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
         # Spatial attention
@@ -103,7 +104,7 @@ class AttentionModule(nn.Module):
             nn.Conv2d(channels, channels // 8, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(channels // 8, 1, 1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -133,18 +134,22 @@ class StudentDecoder(nn.Module):
         super().__init__()
 
         # Decoder layers (reverse order)
-        self.decoder_layers = nn.ModuleList([
-            self._make_decoder_block(in_channels[2], in_channels[1]),
-            self._make_decoder_block(in_channels[1], in_channels[0]),
-            self._make_decoder_block(in_channels[0], in_channels[0]),
-        ])
+        self.decoder_layers = nn.ModuleList(
+            [
+                self._make_decoder_block(in_channels[2], in_channels[1]),
+                self._make_decoder_block(in_channels[1], in_channels[0]),
+                self._make_decoder_block(in_channels[0], in_channels[0]),
+            ]
+        )
 
         # Attention modules
-        self.attention_modules = nn.ModuleList([
-            AttentionModule(in_channels[1]),
-            AttentionModule(in_channels[0]),
-            AttentionModule(in_channels[0]),
-        ])
+        self.attention_modules = nn.ModuleList(
+            [
+                AttentionModule(in_channels[1]),
+                AttentionModule(in_channels[0]),
+                AttentionModule(in_channels[0]),
+            ]
+        )
 
         # Output projection
         self.output_proj = nn.Conv2d(in_channels[0], in_channels[0], 1)
@@ -183,7 +188,7 @@ class StudentDecoder(nn.Module):
 
             # Upsample for next level
             if i < len(self.decoder_layers) - 1:
-                x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+                x = F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=False)
 
             student_features.append(x)
 
@@ -239,15 +244,10 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         self.lambda_rec = lambda_rec
 
         # Teacher encoder (frozen)
-        self.teacher = MultiScaleEncoder(
-            backbone=backbone,
-            pretrained=pretrained
-        ).to(self.device)
+        self.teacher = MultiScaleEncoder(backbone=backbone, pretrained=pretrained).to(self.device)
 
         # Student decoder (trainable)
-        self.student = StudentDecoder(
-            in_channels=self.teacher.out_channels
-        ).to(self.device)
+        self.student = StudentDecoder(in_channels=self.teacher.out_channels).to(self.device)
 
         self.fitted_ = False
 
@@ -280,9 +280,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         return images
 
     def _compute_loss(
-        self,
-        teacher_features: List[torch.Tensor],
-        student_features: List[torch.Tensor]
+        self, teacher_features: List[torch.Tensor], student_features: List[torch.Tensor]
     ) -> torch.Tensor:
         """Compute reverse distillation loss.
 
@@ -299,7 +297,9 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         for t_feat, s_feat in zip(teacher_features, student_features):
             # Resize if needed
             if t_feat.shape != s_feat.shape:
-                s_feat = F.interpolate(s_feat, size=t_feat.shape[2:], mode='bilinear', align_corners=False)
+                s_feat = F.interpolate(
+                    s_feat, size=t_feat.shape[2:], mode="bilinear", align_corners=False
+                )
 
             # Cosine similarity loss
             t_feat_norm = F.normalize(t_feat, dim=1)
@@ -312,7 +312,9 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         # Reconstruction loss (MSE)
         for t_feat, s_feat in zip(teacher_features, student_features):
             if t_feat.shape != s_feat.shape:
-                s_feat = F.interpolate(s_feat, size=t_feat.shape[2:], mode='bilinear', align_corners=False)
+                s_feat = F.interpolate(
+                    s_feat, size=t_feat.shape[2:], mode="bilinear", align_corners=False
+                )
 
             rec_loss = F.mse_loss(s_feat, t_feat)
             total_loss += self.lambda_rec * rec_loss
@@ -345,7 +347,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
             num_batches = 0
 
             for i in range(0, N, self.batch_size):
-                batch = X[i:i + self.batch_size]
+                batch = X[i : i + self.batch_size]
 
                 # Preprocess
                 images = self._extract_features(batch)
@@ -402,7 +404,9 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         for t_feat, s_feat in zip(teacher_features, student_features):
             # Resize
             if t_feat.shape != s_feat.shape:
-                s_feat = F.interpolate(s_feat, size=t_feat.shape[2:], mode='bilinear', align_corners=False)
+                s_feat = F.interpolate(
+                    s_feat, size=t_feat.shape[2:], mode="bilinear", align_corners=False
+                )
 
             # Difference
             diff = torch.sum((t_feat - s_feat) ** 2, dim=1)  # [B, H, W]
@@ -444,17 +448,16 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         for t_feat, s_feat in zip(teacher_features, student_features):
             # Resize
             if t_feat.shape != s_feat.shape:
-                s_feat = F.interpolate(s_feat, size=t_feat.shape[2:], mode='bilinear', align_corners=False)
+                s_feat = F.interpolate(
+                    s_feat, size=t_feat.shape[2:], mode="bilinear", align_corners=False
+                )
 
             # Difference
             diff = torch.sum((t_feat - s_feat) ** 2, dim=1, keepdim=True)  # [B, 1, H, W]
 
             # Upsample to image size
             diff_upsampled = F.interpolate(
-                diff,
-                size=(H_img, W_img),
-                mode='bilinear',
-                align_corners=False
+                diff, size=(H_img, W_img), mode="bilinear", align_corners=False
             )
 
             anomaly_maps.append(diff_upsampled)

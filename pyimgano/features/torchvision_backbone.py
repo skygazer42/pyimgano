@@ -10,7 +10,6 @@ import numpy as np
 from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 
-
 _InputColor = Literal["rgb", "bgr"]
 _Pool = Literal["avg", "max", "gem", "cls"]
 
@@ -49,7 +48,9 @@ def _as_pil_rgb(item: Any, *, input_color: _InputColor):  # noqa: ANN001, ANN201
                 return _as_pil_rgb(arr_hwc, input_color=input_color)
             if int(t.shape[2]) in (1, 3):  # HWC
                 return _as_pil_rgb(t.numpy(), input_color=input_color)
-            raise ValueError(f"Unsupported torch image shape: {tuple(t.shape)} (expected CHW or HWC)")
+            raise ValueError(
+                f"Unsupported torch image shape: {tuple(t.shape)} (expected CHW or HWC)"
+            )
 
         raise ValueError(f"Unsupported torch image ndim={int(t.ndim)} (expected 2 or 3)")
 
@@ -194,7 +195,9 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
                 "input_color": str(self.input_color),
             }
             fp = fingerprint_payload(payload)
-            self._cache = EmbeddingCache(cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp)
+            self._cache = EmbeddingCache(
+                cache_dir=Path(str(self.cache_dir)), extractor_fingerprint=fp
+            )
 
     def _ensure_ready(self) -> None:
         if self._model is not None:
@@ -232,7 +235,11 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
             except Exception:
                 pass
 
-        if bool(self.compile) and str(getattr(dev, "type", "cpu")) == "cuda" and hasattr(torch, "compile"):
+        if (
+            bool(self.compile)
+            and str(getattr(dev, "type", "cpu")) == "cuda"
+            and hasattr(torch, "compile")
+        ):
             try:  # pragma: no cover - compilation is backend dependent
                 model = torch.compile(model, mode="reduce-overhead")  # type: ignore[assignment]
             except Exception:
@@ -371,7 +378,9 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
             raise RuntimeError("Internal error: model not initialized")
 
         if not hasattr(model, "_process_input"):
-            raise TypeError("Backbone does not support ViT token extraction (missing _process_input).")
+            raise TypeError(
+                "Backbone does not support ViT token extraction (missing _process_input)."
+            )
         if not hasattr(model, "encoder") or not hasattr(model, "class_token"):
             raise TypeError("pool='cls' requires a torchvision VisionTransformer backbone.")
 

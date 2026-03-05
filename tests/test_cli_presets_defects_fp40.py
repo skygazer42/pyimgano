@@ -64,4 +64,3 @@ def test_defects_preset_does_not_override_explicit_cli_knobs() -> None:
     )
     _apply_defects_preset_if_requested(args)
     assert int(args.defect_min_area) == 1
-

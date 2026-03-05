@@ -28,12 +28,14 @@ class TeacherEncoder(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
             self.out_channels = 1024
         elif backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
             self.out_channels = 512
@@ -64,11 +66,7 @@ class TeacherEncoder(nn.Module):
 class AnomalyAwareStudent(nn.Module):
     """Student network with anomaly awareness."""
 
-    def __init__(
-        self,
-        in_channels: int,
-        hidden_channels: int = 256
-    ):
+    def __init__(self, in_channels: int, hidden_channels: int = 256):
         super().__init__()
 
         # Feature decoder
@@ -89,13 +87,10 @@ class AnomalyAwareStudent(nn.Module):
             nn.Conv2d(128, 64, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 1, kernel_size=1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
-    def forward(
-        self,
-        x: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass.
 
@@ -179,7 +174,7 @@ class VisionAST(BaseVisionDeepDetector):
         anomaly_ratio: float = 0.3,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -213,8 +208,7 @@ class VisionAST(BaseVisionDeepDetector):
         return torch.from_numpy(X).float()
 
     def _generate_synthetic_anomalies(
-        self,
-        images: torch.Tensor
+        self, images: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Generate synthetic anomalies for training.
@@ -237,7 +231,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         for i in range(B):
             # Random anomaly type
-            anomaly_type = np.random.choice(['cutpaste', 'noise', 'blur'])
+            anomaly_type = np.random.choice(["cutpaste", "noise", "blur"])
 
             # Random anomaly region
             h_size = np.random.randint(H // 8, H // 3)
@@ -245,31 +239,29 @@ class VisionAST(BaseVisionDeepDetector):
             y = np.random.randint(0, H - h_size)
             x = np.random.randint(0, W - w_size)
 
-            if anomaly_type == 'cutpaste':
+            if anomaly_type == "cutpaste":
                 # Paste from random location
                 src_y = np.random.randint(0, H - h_size)
                 src_x = np.random.randint(0, W - w_size)
-                anomalous_images[i, :, y:y+h_size, x:x+w_size] = \
-                    images[i, :, src_y:src_y+h_size, src_x:src_x+w_size]
+                anomalous_images[i, :, y : y + h_size, x : x + w_size] = images[
+                    i, :, src_y : src_y + h_size, src_x : src_x + w_size
+                ]
 
-            elif anomaly_type == 'noise':
+            elif anomaly_type == "noise":
                 # Add Gaussian noise
                 noise = torch.randn(C, h_size, w_size, device=images.device) * 0.5
-                anomalous_images[i, :, y:y+h_size, x:x+w_size] += noise
+                anomalous_images[i, :, y : y + h_size, x : x + w_size] += noise
 
-            elif anomaly_type == 'blur':
+            elif anomaly_type == "blur":
                 # Apply blur
-                region = anomalous_images[i, :, y:y+h_size, x:x+w_size]
+                region = anomalous_images[i, :, y : y + h_size, x : x + w_size]
                 region = F.avg_pool2d(
-                    region.unsqueeze(0),
-                    kernel_size=5,
-                    stride=1,
-                    padding=2
+                    region.unsqueeze(0), kernel_size=5, stride=1, padding=2
                 ).squeeze(0)
-                anomalous_images[i, :, y:y+h_size, x:x+w_size] = region
+                anomalous_images[i, :, y : y + h_size, x : x + w_size] = region
 
             # Mark anomaly location
-            anomaly_masks[i, 0, y:y+h_size, x:x+w_size] = 1.0
+            anomaly_masks[i, 0, y : y + h_size, x : x + w_size] = 1.0
 
         return anomalous_images, anomaly_masks
 
@@ -278,7 +270,7 @@ class VisionAST(BaseVisionDeepDetector):
         student_features: torch.Tensor,
         teacher_features: torch.Tensor,
         anomaly_map: torch.Tensor,
-        ground_truth_mask: torch.Tensor
+        ground_truth_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Compute training loss.
@@ -299,9 +291,7 @@ class VisionAST(BaseVisionDeepDetector):
         # Resize ground truth to match anomaly map
         if anomaly_map.shape[2:] != ground_truth_mask.shape[2:]:
             ground_truth_mask = F.interpolate(
-                ground_truth_mask,
-                size=anomaly_map.shape[2:],
-                mode='nearest'
+                ground_truth_mask, size=anomaly_map.shape[2:], mode="nearest"
             )
 
         anomaly_loss = F.binary_cross_entropy(anomaly_map, ground_truth_mask)
@@ -311,11 +301,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         return total_loss, recon_loss, anomaly_loss
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionAST":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionAST":
         """
         Fit the AST detector.
 
@@ -346,23 +332,14 @@ class VisionAST(BaseVisionDeepDetector):
         # Initialize student
         if self.student_ is None:
             self.student_ = AnomalyAwareStudent(
-                in_channels=in_channels,
-                hidden_channels=self.hidden_channels
+                in_channels=in_channels, hidden_channels=self.hidden_channels
             ).to(self.device)
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.student_.parameters(),
-            lr=self.learning_rate
-        )
+        optimizer = torch.optim.Adam(self.student_.parameters(), lr=self.learning_rate)
 
         self.student_.train()
 
@@ -388,13 +365,18 @@ class VisionAST(BaseVisionDeepDetector):
                     )
                     # Combine
                     mixed_images = torch.cat([normal_images, synthetic_anomalies], dim=0)
-                    mixed_masks = torch.cat([
-                        torch.zeros(n_normal, 1, *normal_images.shape[2:], device=self.device),
-                        anomaly_masks
-                    ], dim=0)
+                    mixed_masks = torch.cat(
+                        [
+                            torch.zeros(n_normal, 1, *normal_images.shape[2:], device=self.device),
+                            anomaly_masks,
+                        ],
+                        dim=0,
+                    )
                 else:
                     mixed_images = normal_images
-                    mixed_masks = torch.zeros(n_normal, 1, *normal_images.shape[2:], device=self.device)
+                    mixed_masks = torch.zeros(
+                        n_normal, 1, *normal_images.shape[2:], device=self.device
+                    )
 
                 # Extract teacher features
                 teacher_features = self.teacher_(mixed_images)
@@ -404,10 +386,7 @@ class VisionAST(BaseVisionDeepDetector):
 
                 # Compute loss
                 loss, recon_loss, anomaly_loss = self._compute_loss(
-                    student_features,
-                    teacher_features,
-                    anomaly_map,
-                    mixed_masks
+                    student_features, teacher_features, anomaly_map, mixed_masks
                 )
 
                 # Backward
@@ -423,17 +402,16 @@ class VisionAST(BaseVisionDeepDetector):
                 avg_loss = total_loss / len(dataloader)
                 avg_recon = total_recon / len(dataloader)
                 avg_anomaly = total_anomaly / len(dataloader)
-                print(f"Epoch {epoch + 1}/{self.epochs}, "
-                      f"Loss: {avg_loss:.4f}, "
-                      f"Recon: {avg_recon:.4f}, "
-                      f"Anomaly: {avg_anomaly:.4f}")
+                print(
+                    f"Epoch {epoch + 1}/{self.epochs}, "
+                    f"Loss: {avg_loss:.4f}, "
+                    f"Recon: {avg_recon:.4f}, "
+                    f"Anomaly: {avg_anomaly:.4f}"
+                )
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -454,7 +432,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract teacher features
                 teacher_features = self.teacher_(batch)
@@ -478,10 +456,7 @@ class VisionAST(BaseVisionDeepDetector):
         """Alias for predict."""
         return self.predict(X)
 
-    def get_anomaly_map(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def get_anomaly_map(self, X: NDArray) -> NDArray:
         """
         Get pixel-level anomaly maps.
 
@@ -503,7 +478,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 teacher_features = self.teacher_(batch)
@@ -516,16 +491,10 @@ class VisionAST(BaseVisionDeepDetector):
 
                 # Resize to original size
                 recon_error = F.interpolate(
-                    recon_error,
-                    size=(H, W),
-                    mode='bilinear',
-                    align_corners=False
+                    recon_error, size=(H, W), mode="bilinear", align_corners=False
                 )
                 anomaly_map = F.interpolate(
-                    anomaly_map,
-                    size=(H, W),
-                    mode='bilinear',
-                    align_corners=False
+                    anomaly_map, size=(H, W), mode="bilinear", align_corners=False
                 )
 
                 # Combine

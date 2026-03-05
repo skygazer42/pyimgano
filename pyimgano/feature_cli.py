@@ -90,7 +90,9 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional JSONL manifest path (enables manifest input mode; overrides --root/--pattern)",
     )
-    parser.add_argument("--manifest-category", default=None, help="Optional category filter for --manifest")
+    parser.add_argument(
+        "--manifest-category", default=None, help="Optional category filter for --manifest"
+    )
     parser.add_argument(
         "--manifest-split",
         default=None,
@@ -168,7 +170,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if not manifest_path.exists():
             raise FileNotFoundError(f"--manifest not found: {manifest_path}")
-        root_fb = None if args.manifest_root_fallback is None else Path(str(args.manifest_root_fallback))
+        root_fb = (
+            None if args.manifest_root_fallback is None else Path(str(args.manifest_root_fallback))
+        )
         label = None if args.manifest_label is None else int(args.manifest_label)
         paths = _resolve_manifest_paths(
             manifest_path=manifest_path,
@@ -180,7 +184,9 @@ def main(argv: list[str] | None = None) -> int:
         if not paths:
             raise ValueError("No manifest records matched the provided filters.")
 
-    extractor = create_feature_extractor(str(args.extractor), **_parse_kwargs(args.extractor_kwargs))
+    extractor = create_feature_extractor(
+        str(args.extractor), **_parse_kwargs(args.extractor_kwargs)
+    )
 
     # Best-effort: allow setting a common `.device` attribute without forcing every
     # extractor to implement a full config protocol.
@@ -196,7 +202,11 @@ def main(argv: list[str] | None = None) -> int:
             fit(paths)
 
     if args.cache_dir is not None:
-        from pyimgano.cache.features import CachedFeatureExtractor, FeatureCache, fingerprint_feature_extractor
+        from pyimgano.cache.features import (
+            CachedFeatureExtractor,
+            FeatureCache,
+            fingerprint_feature_extractor,
+        )
 
         cache_root = Path(str(args.cache_dir))
         fp = fingerprint_feature_extractor(extractor)

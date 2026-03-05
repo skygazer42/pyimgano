@@ -11,9 +11,8 @@ from scipy import stats
 from sklearn.utils import check_array, check_random_state
 
 from ..utils.param_check import check_parameter
-
-from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -29,16 +28,19 @@ def _resolve_distance_measure(dis_measure: str):
         return np.var
     if dis_measure == "iqr":
         return stats.iqr
-    raise ValueError(
-        "Unknown dissimilarity measure type, choose from {'aad','var','iqr'}"
-    )
+    raise ValueError("Unknown dissimilarity measure type, choose from {'aad','var','iqr'}")
 
 
 class CoreIMDD:
     """Pure NumPy implementation of LMDD/IMDD detector."""
 
-    def __init__(self, contamination: float = 0.1, n_iter: int = 50, dis_measure: str = "aad",
-                 random_state=None) -> None:
+    def __init__(
+        self,
+        contamination: float = 0.1,
+        n_iter: int = 50,
+        dis_measure: str = "aad",
+        random_state=None,
+    ) -> None:
         self.contamination = contamination
         check_parameter(n_iter, low=1, param_name="n_iter")
         self.n_iter = n_iter

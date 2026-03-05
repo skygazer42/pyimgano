@@ -55,4 +55,3 @@ def test_onnx_export_cli_smoke(tmp_path: Path) -> None:
     assert feats.shape[1] > 0
     assert feats.dtype == np.float64
     assert np.isfinite(feats).all()
-

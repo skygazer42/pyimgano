@@ -37,4 +37,3 @@ def test_core_models_fit_predict_smoke(model_name: str) -> None:
     assert preds.shape == (10,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

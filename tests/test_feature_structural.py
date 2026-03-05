@@ -40,4 +40,3 @@ def test_structural_features_extractor_error_mode_zeros() -> None:
     feats = ext.extract(["/pyimgano__definitely_missing__nope.png"])
     assert feats.shape == (1, 15)
     assert np.allclose(feats, 0.0)
-

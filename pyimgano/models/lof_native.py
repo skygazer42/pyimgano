@@ -49,4 +49,3 @@ class VisionLOF(BaseVisionDetector):
 
     def decision_function(self, X):
         return super().decision_function(X)
-

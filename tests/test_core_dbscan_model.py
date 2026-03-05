@@ -3,7 +3,6 @@ import numpy as np
 
 def test_core_dbscan_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models import create_model
 
     rng = np.random.RandomState(0)
@@ -22,4 +21,3 @@ def test_core_dbscan_fit_predict_smoke() -> None:
     assert preds.shape == (12,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

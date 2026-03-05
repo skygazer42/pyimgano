@@ -217,7 +217,9 @@ class VisionPhaseCorrelationMapDetector(BaseDetector):
 
         from pyimgano.utils.optional_deps import require
 
-        skreg = require("skimage.registration", extra="skimage", purpose="phase correlation alignment")
+        skreg = require(
+            "skimage.registration", extra="skimage", purpose="phase correlation alignment"
+        )
         phase_cross_correlation = skreg.phase_cross_correlation
 
         query_f = np.asarray(query_rep_u8, dtype=np.float32)

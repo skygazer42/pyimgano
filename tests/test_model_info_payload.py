@@ -1,6 +1,5 @@
 def test_registry_model_info_includes_capabilities_payload() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
-
     from pyimgano.models.registry import model_info
 
     info = model_info("vision_ecod")
@@ -22,7 +21,6 @@ def test_registry_model_info_includes_capabilities_payload() -> None:
 
 def test_core_models_are_reported_as_features_input_mode() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
-
     from pyimgano.models.registry import model_info
 
     info = model_info("core_deep_svdd")

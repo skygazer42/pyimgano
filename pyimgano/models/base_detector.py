@@ -34,9 +34,7 @@ class BaseDetector:
     def __init__(self, contamination: float = 0.1) -> None:
         if isinstance(contamination, (float, int)):
             if not (0.0 < float(contamination) <= 0.5):
-                raise ValueError(
-                    f"contamination must be in (0, 0.5], got: {contamination}"
-                )
+                raise ValueError(f"contamination must be in (0, 0.5], got: {contamination}")
         self.contamination = float(contamination)
         # Thresholding configuration (default: quantile based on contamination).
         # This is intentionally attribute-based so subclasses don't need to
@@ -75,7 +73,9 @@ class BaseDetector:
         """Compute threshold and training labels from `decision_scores_`."""
 
         if not hasattr(self, "decision_scores_"):
-            raise AttributeError("decision_scores_ missing; set it before calling _process_decision_scores().")
+            raise AttributeError(
+                "decision_scores_ missing; set it before calling _process_decision_scores()."
+            )
 
         scores = np.asarray(self.decision_scores_, dtype=np.float64)
         if scores.ndim != 1:
@@ -202,9 +202,7 @@ class BaseDetector:
         """
 
         if return_confidence:
-            raise NotImplementedError(
-                "return_confidence is not implemented in native BaseDetector"
-            )
+            raise NotImplementedError("return_confidence is not implemented in native BaseDetector")
 
         if not hasattr(self, "decision_scores_"):
             raise RuntimeError("Model must be fitted before calling predict_proba().")

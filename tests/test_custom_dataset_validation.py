@@ -66,4 +66,3 @@ def test_custom_dataset_validate_structure_missing_masks(tmp_path: Path) -> None
         assert "mask" in msg
         return
     raise AssertionError("Expected ValueError")
-

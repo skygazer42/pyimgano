@@ -48,4 +48,3 @@ def test_array_feature_cache_reuses_disk_features(tmp_path) -> None:
     wrapped2 = CachedArrayFeatureExtractor(base_extractor=base2, cache=cache2)
     _ = wrapped2.extract(arrays)
     assert base2.calls == 0
-

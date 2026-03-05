@@ -25,11 +25,7 @@ class BayesianPromptGenerator(nn.Module):
     """Generates prompts using Bayesian inference."""
 
     def __init__(
-        self,
-        input_dim: int,
-        prompt_dim: int = 512,
-        num_prompts: int = 5,
-        hidden_dim: int = 256
+        self, input_dim: int, prompt_dim: int = 512, num_prompts: int = 5, hidden_dim: int = 256
     ):
         super().__init__()
         self.num_prompts = num_prompts
@@ -38,13 +34,13 @@ class BayesianPromptGenerator(nn.Module):
         self.mean_network = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, prompt_dim * num_prompts)
+            nn.Linear(hidden_dim, prompt_dim * num_prompts),
         )
 
         self.logvar_network = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, prompt_dim * num_prompts)
+            nn.Linear(hidden_dim, prompt_dim * num_prompts),
         )
 
         self.prompt_dim = prompt_dim
@@ -105,7 +101,7 @@ class PromptFlowNetwork(nn.Module):
             nn.Linear(prompt_dim, hidden_dim // 2),
             nn.ReLU(),
             nn.Linear(hidden_dim // 2, 1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, prompts: torch.Tensor) -> torch.Tensor:
@@ -202,7 +198,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         num_samples: int = 10,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -237,11 +233,13 @@ class VisionBayesianPF(BaseVisionDeepDetector):
     def _build_feature_extractor(self):
         """Build feature extractor."""
         if self.backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif self.backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -266,11 +264,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         return extractor
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionBayesianPF":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionBayesianPF":
         """
         Fit the BayesianPF detector (minimal calibration).
 
@@ -304,14 +298,13 @@ class VisionBayesianPF(BaseVisionDeepDetector):
                 input_dim=feature_dim,
                 prompt_dim=self.prompt_dim,
                 num_prompts=self.num_prompts,
-                hidden_dim=self.hidden_dim
+                hidden_dim=self.hidden_dim,
             ).to(self.device)
 
         # Initialize prompt flow
         if self.prompt_flow_ is None:
             self.prompt_flow_ = PromptFlowNetwork(
-                prompt_dim=self.prompt_dim,
-                hidden_dim=self.hidden_dim
+                prompt_dim=self.prompt_dim, hidden_dim=self.hidden_dim
             ).to(self.device)
 
         # Compute reference statistics from normal samples
@@ -321,7 +314,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         with torch.no_grad():
             all_scores = []
             for i in range(0, len(X_tensor), 32):
-                batch = X_tensor[i:i + 32].to(self.device)
+                batch = X_tensor[i : i + 32].to(self.device)
                 features = self.feature_extractor_(batch)
 
                 # Sample multiple times for Bayesian inference
@@ -339,20 +332,19 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
             # Store statistics
             self.reference_statistics_ = {
-                'mean': all_scores.mean().item(),
-                'std': all_scores.std().item()
+                "mean": all_scores.mean().item(),
+                "std": all_scores.std().item(),
             }
 
-        print(f"Calibrated with normal samples: "
-              f"mean={self.reference_statistics_['mean']:.4f}, "
-              f"std={self.reference_statistics_['std']:.4f}")
+        print(
+            f"Calibrated with normal samples: "
+            f"mean={self.reference_statistics_['mean']:.4f}, "
+            f"std={self.reference_statistics_['std']:.4f}"
+        )
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores (zero-shot).
 
@@ -374,7 +366,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), 32):
-                batch = X_tensor[i:i + 32].to(self.device)
+                batch = X_tensor[i : i + 32].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)
@@ -391,8 +383,9 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
                 # Normalize using reference statistics
                 if self.reference_statistics_ is not None:
-                    avg_scores = (avg_scores - self.reference_statistics_['mean']) / \
-                                 (self.reference_statistics_['std'] + 1e-8)
+                    avg_scores = (avg_scores - self.reference_statistics_["mean"]) / (
+                        self.reference_statistics_["std"] + 1e-8
+                    )
 
                 scores.append(avg_scores.cpu().numpy())
 
@@ -402,10 +395,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         """Alias for predict."""
         return self.predict(X)
 
-    def predict_with_uncertainty(
-        self,
-        X: NDArray
-    ) -> tuple[NDArray, NDArray]:
+    def predict_with_uncertainty(self, X: NDArray) -> tuple[NDArray, NDArray]:
         """
         Predict anomaly scores with uncertainty estimates.
 
@@ -430,7 +420,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), 32):
-                batch = X_tensor[i:i + 32].to(self.device)
+                batch = X_tensor[i : i + 32].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)

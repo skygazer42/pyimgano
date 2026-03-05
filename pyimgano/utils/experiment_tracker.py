@@ -17,16 +17,18 @@ Example:
 
 import json
 import time
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, asdict
-from datetime import datetime
+
 import numpy as np
 
 
 @dataclass
 class ExperimentConfig:
     """Experiment configuration."""
+
     name: str
     created_at: str
     model_type: str
@@ -56,18 +58,18 @@ class Experiment:
         self.artifacts = []
 
         # Create subdirectories
-        self.params_file = self.exp_dir / 'params.json'
-        self.metrics_file = self.exp_dir / 'metrics.json'
-        self.artifacts_dir = self.exp_dir / 'artifacts'
+        self.params_file = self.exp_dir / "params.json"
+        self.metrics_file = self.exp_dir / "metrics.json"
+        self.artifacts_dir = self.exp_dir / "artifacts"
         self.artifacts_dir.mkdir(exist_ok=True)
 
         # Load existing if available
         if self.params_file.exists():
-            with open(self.params_file, 'r') as f:
+            with open(self.params_file, "r") as f:
                 self.params = json.load(f)
 
         if self.metrics_file.exists():
-            with open(self.metrics_file, 'r') as f:
+            with open(self.metrics_file, "r") as f:
                 self.metrics = json.load(f)
 
     def log_param(self, key: str, value: Any) -> None:
@@ -101,11 +103,11 @@ class Experiment:
             self.metrics[key] = []
 
         entry = {
-            'value': value,
-            'timestamp': time.time(),
+            "value": value,
+            "timestamp": time.time(),
         }
         if step is not None:
-            entry['step'] = step
+            entry["step"] = step
 
         self.metrics[key].append(entry)
         self._save_metrics()
@@ -132,20 +134,20 @@ class Experiment:
         artifact_path = self.artifacts_dir / name
 
         # Save based on extension
-        if name.endswith('.json'):
-            with open(artifact_path, 'w') as f:
+        if name.endswith(".json"):
+            with open(artifact_path, "w") as f:
                 json.dump(data, f, indent=2)
-        elif name.endswith(('.pkl', '.pickle')):
-            with open(artifact_path, 'wb') as f:
+        elif name.endswith((".pkl", ".pickle")):
+            with open(artifact_path, "wb") as f:
                 pickle.dump(data, f)
-        elif name.endswith('.npy'):
+        elif name.endswith(".npy"):
             np.save(artifact_path, data)
-        elif name.endswith('.txt'):
-            with open(artifact_path, 'w') as f:
+        elif name.endswith(".txt"):
+            with open(artifact_path, "w") as f:
                 f.write(str(data))
         else:
             # Binary data
-            with open(artifact_path, 'wb') as f:
+            with open(artifact_path, "wb") as f:
                 f.write(data)
 
         self.artifacts.append(str(artifact_path))
@@ -170,29 +172,26 @@ class Experiment:
         latest_metrics = {}
         for key, values in self.metrics.items():
             if values:
-                latest_metrics[key] = values[-1]['value']
+                latest_metrics[key] = values[-1]["value"]
 
         return {
-            'name': self.name,
-            'params': self.params,
-            'latest_metrics': latest_metrics,
-            'tags': self.tags,
-            'num_artifacts': len(self.artifacts),
-            'exp_dir': str(self.exp_dir)
+            "name": self.name,
+            "params": self.params,
+            "latest_metrics": latest_metrics,
+            "tags": self.tags,
+            "num_artifacts": len(self.artifacts),
+            "exp_dir": str(self.exp_dir),
         }
 
     def _save_params(self) -> None:
         """Save parameters to disk."""
-        save_dict = {
-            'params': self.params,
-            'tags': self.tags
-        }
-        with open(self.params_file, 'w') as f:
+        save_dict = {"params": self.params, "tags": self.tags}
+        with open(self.params_file, "w") as f:
             json.dump(save_dict, f, indent=2)
 
     def _save_metrics(self) -> None:
         """Save metrics to disk."""
-        with open(self.metrics_file, 'w') as f:
+        with open(self.metrics_file, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
 
@@ -207,15 +206,15 @@ class ExperimentTracker:
         >>> tracker.list_experiments()
     """
 
-    def __init__(self, base_dir: str = './experiments'):
+    def __init__(self, base_dir: str = "./experiments"):
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-        self.index_file = self.base_dir / 'index.json'
+        self.index_file = self.base_dir / "index.json"
 
         # Load existing index
         if self.index_file.exists():
-            with open(self.index_file, 'r') as f:
+            with open(self.index_file, "r") as f:
                 self.index = json.load(f)
         else:
             self.index = {}
@@ -226,7 +225,7 @@ class ExperimentTracker:
         model_type: Optional[str] = None,
         dataset: Optional[str] = None,
         category: Optional[str] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> Experiment:
         """Create a new experiment.
 
@@ -241,7 +240,7 @@ class ExperimentTracker:
             Experiment instance
         """
         # Generate unique ID
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         exp_id = f"{name}_{timestamp}"
 
         exp_dir = self.base_dir / exp_id
@@ -251,20 +250,16 @@ class ExperimentTracker:
 
         # Log config
         if model_type:
-            exp.log_param('model_type', model_type)
+            exp.log_param("model_type", model_type)
         if dataset:
-            exp.log_param('dataset', dataset)
+            exp.log_param("dataset", dataset)
         if category:
-            exp.log_param('category', category)
+            exp.log_param("category", category)
         if description:
-            exp.log_param('description', description)
+            exp.log_param("description", description)
 
         # Update index
-        self.index[exp_id] = {
-            'name': name,
-            'created_at': timestamp,
-            'exp_dir': str(exp_dir)
-        }
+        self.index[exp_id] = {"name": name, "created_at": timestamp, "exp_dir": str(exp_dir)}
         self._save_index()
 
         print(f"Experiment created: {exp_id}")
@@ -283,8 +278,8 @@ class ExperimentTracker:
         if exp_id not in self.index:
             raise ValueError(f"Experiment '{exp_id}' not found")
 
-        exp_dir = self.index[exp_id]['exp_dir']
-        exp = Experiment(exp_dir, self.index[exp_id]['name'])
+        exp_dir = self.index[exp_id]["exp_dir"]
+        exp = Experiment(exp_dir, self.index[exp_id]["name"])
 
         return exp
 
@@ -300,8 +295,8 @@ class ExperimentTracker:
             try:
                 exp = self.get_experiment(exp_id)
                 summary = exp.get_summary()
-                summary['exp_id'] = exp_id
-                summary['created_at'] = info['created_at']
+                summary["exp_id"] = exp_id
+                summary["created_at"] = info["created_at"]
                 experiments.append(summary)
             except Exception as e:
                 print(f"Error loading experiment {exp_id}: {e}")
@@ -318,9 +313,10 @@ class ExperimentTracker:
             raise ValueError(f"Experiment '{exp_id}' not found")
 
         # Remove directory
-        exp_dir = Path(self.index[exp_id]['exp_dir'])
+        exp_dir = Path(self.index[exp_id]["exp_dir"])
         if exp_dir.exists():
             import shutil
+
             shutil.rmtree(exp_dir)
 
         # Remove from index
@@ -330,9 +326,7 @@ class ExperimentTracker:
         print(f"Experiment '{exp_id}' deleted")
 
     def compare_experiments(
-        self,
-        exp_ids: List[str],
-        metrics: Optional[List[str]] = None
+        self, exp_ids: List[str], metrics: Optional[List[str]] = None
     ) -> Dict[str, Dict[str, float]]:
         """Compare multiple experiments.
 
@@ -350,20 +344,15 @@ class ExperimentTracker:
             summary = exp.get_summary()
 
             if metrics is None:
-                results[exp_id] = summary['latest_metrics']
+                results[exp_id] = summary["latest_metrics"]
             else:
                 results[exp_id] = {
-                    k: v for k, v in summary['latest_metrics'].items()
-                    if k in metrics
+                    k: v for k, v in summary["latest_metrics"].items() if k in metrics
                 }
 
         return results
 
-    def generate_report(
-        self,
-        exp_id: str,
-        output_path: Optional[str] = None
-    ) -> str:
+    def generate_report(self, exp_id: str, output_path: Optional[str] = None) -> str:
         """Generate markdown report for an experiment.
 
         Args:
@@ -384,7 +373,7 @@ class ExperimentTracker:
         report += "## Parameters\n\n"
         report += "| Parameter | Value |\n"
         report += "|-----------|-------|\n"
-        for key, value in summary['params'].items():
+        for key, value in summary["params"].items():
             report += f"| {key} | {value} |\n"
         report += "\n"
 
@@ -392,22 +381,22 @@ class ExperimentTracker:
         report += "## Metrics\n\n"
         report += "| Metric | Value |\n"
         report += "|--------|-------|\n"
-        for key, value in summary['latest_metrics'].items():
+        for key, value in summary["latest_metrics"].items():
             report += f"| {key} | {value:.4f} |\n"
         report += "\n"
 
         # Tags
-        if summary['tags']:
+        if summary["tags"]:
             report += "## Tags\n\n"
-            report += ", ".join(summary['tags']) + "\n\n"
+            report += ", ".join(summary["tags"]) + "\n\n"
 
         # Artifacts
-        if summary['num_artifacts'] > 0:
+        if summary["num_artifacts"] > 0:
             report += f"## Artifacts\n\n"
             report += f"Number of artifacts: {summary['num_artifacts']}\n\n"
 
         if output_path:
-            with open(output_path, 'w') as f:
+            with open(output_path, "w") as f:
                 f.write(report)
             print(f"Report saved to: {output_path}")
 
@@ -415,7 +404,7 @@ class ExperimentTracker:
 
     def _save_index(self) -> None:
         """Save index to disk."""
-        with open(self.index_file, 'w') as f:
+        with open(self.index_file, "w") as f:
             json.dump(self.index, f, indent=2)
 
 
@@ -425,8 +414,8 @@ def track_experiment(
     train_data: Any,
     test_data: Any,
     test_labels: Any,
-    base_dir: str = './experiments',
-    **kwargs
+    base_dir: str = "./experiments",
+    **kwargs,
 ) -> Experiment:
     """Quick experiment tracking helper.
 
@@ -452,7 +441,7 @@ def track_experiment(
         ...     backbone='resnet50'
         ... )
     """
-    from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
+    from sklearn.metrics import average_precision_score, f1_score, roc_auc_score
 
     # Create tracker and experiment
     tracker = ExperimentTracker(base_dir)
@@ -466,7 +455,7 @@ def track_experiment(
     start_time = time.time()
     model.fit(train_data)
     train_time = time.time() - start_time
-    exp.log_metric('train_time_sec', train_time)
+    exp.log_metric("train_time_sec", train_time)
 
     # Evaluate
     print("Evaluating model...")
@@ -478,9 +467,9 @@ def track_experiment(
     ap = average_precision_score(test_labels, scores)
     f1 = f1_score(test_labels, predictions)
 
-    exp.log_metric('auc_roc', auc_roc)
-    exp.log_metric('average_precision', ap)
-    exp.log_metric('f1_score', f1)
+    exp.log_metric("auc_roc", auc_roc)
+    exp.log_metric("average_precision", ap)
+    exp.log_metric("f1_score", f1)
 
     print(f"AUC-ROC: {auc_roc:.4f}")
     print(f"AP: {ap:.4f}")

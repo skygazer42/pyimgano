@@ -27,4 +27,3 @@ def test_fractal_perlin_noise_smoke() -> None:
     assert n.dtype == np.float32
     assert float(np.min(n)) >= 0.0
     assert float(np.max(n)) <= 1.0
-

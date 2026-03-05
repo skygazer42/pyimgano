@@ -123,4 +123,3 @@ class VisionPatchCoreLite(BaseVisionDetector):
 
     def _build_detector(self):
         return CorePatchCoreLite(**self._detector_kwargs)
-

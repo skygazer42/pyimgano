@@ -3,7 +3,6 @@ import numpy as np
 
 def test_ssim_struct_fit_and_scores_on_numpy_images() -> None:
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models import create_model
 
     base = np.zeros((128, 128, 3), dtype=np.uint8)
@@ -31,4 +30,3 @@ def test_ssim_struct_fit_and_scores_on_numpy_images() -> None:
     preds = det.predict([base, changed])
     assert preds.shape == (2,)
     assert set(np.unique(preds)).issubset({0, 1})
-

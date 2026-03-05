@@ -44,7 +44,9 @@ class _ZScoreScaler:
         mu = np.mean(X, axis=0)
         sigma = np.std(X, axis=0)
         sigma = np.where(sigma > 0.0, sigma, 1.0)
-        return cls(mean_=mu.astype(np.float64, copy=False), scale_=sigma.astype(np.float64, copy=False))
+        return cls(
+            mean_=mu.astype(np.float64, copy=False), scale_=sigma.astype(np.float64, copy=False)
+        )
 
     def transform(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         return (X - self.mean_) / self.scale_
@@ -146,11 +148,17 @@ class CoreSUOD:
         score_mat_norm = self._scaler.transform(score_mat)
 
         self._estimators_ = list(estimators)
-        self.decision_scores_ = _combine(score_mat_norm, self.combination).astype(np.float64, copy=False)
+        self.decision_scores_ = _combine(score_mat_norm, self.combination).astype(
+            np.float64, copy=False
+        )
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.decision_scores_ is None or self._scaler is None or not hasattr(self, "_estimators_"):
+        if (
+            self.decision_scores_ is None
+            or self._scaler is None
+            or not hasattr(self, "_estimators_")
+        ):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         X = check_array(X, ensure_2d=True, dtype=np.float64)

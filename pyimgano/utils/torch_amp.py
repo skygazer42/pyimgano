@@ -11,7 +11,6 @@ Goals:
 from contextlib import nullcontext
 from typing import Any, ContextManager, Literal
 
-
 _AmpDType = Literal["float16", "bfloat16"]
 
 
@@ -80,4 +79,3 @@ def amp_autocast(
 
 
 __all__ = ["amp_autocast"]
-

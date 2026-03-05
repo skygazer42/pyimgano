@@ -148,9 +148,7 @@ class VisionMAD(BaseVisionDetector):
         consistency_correction: bool = True,
     ) -> None:
         if not 0 < float(contamination) < 0.5:
-            raise ValueError(
-                f"contamination must be in (0, 0.5), got {contamination}"
-            )
+            raise ValueError(f"contamination must be in (0, 0.5), got {contamination}")
 
         self._detector_kwargs = {
             "aggregation": aggregation,

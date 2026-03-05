@@ -105,8 +105,12 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar=("H", "W"),
         help="Resize used for demo dataset + suite run. Default: 64 64.",
     )
-    parser.add_argument("--limit-train", type=int, default=2, help="Limit number of train images. Default: 2.")
-    parser.add_argument("--limit-test", type=int, default=2, help="Limit number of test images. Default: 2.")
+    parser.add_argument(
+        "--limit-train", type=int, default=2, help="Limit number of train images. Default: 2."
+    )
+    parser.add_argument(
+        "--limit-test", type=int, default=2, help="Limit number of test images. Default: 2."
+    )
     parser.add_argument(
         "--save-run",
         action=argparse.BooleanOptionalAction,

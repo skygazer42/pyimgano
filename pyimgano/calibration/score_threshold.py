@@ -42,4 +42,3 @@ def resolve_calibration_quantile(
     if not 0.0 < q < 1.0:
         raise ValueError(f"fallback quantile must be in (0,1), got {q}")
     return q, "fallback"
-

@@ -23,7 +23,9 @@ def extract_regions_from_mask(
         raise ValueError(f"mask_u8 must be 2D (H, W), got shape {mask_u8.shape}")
 
     binary01 = (np.asarray(mask_u8, dtype=np.uint8) > 0).astype(np.uint8)
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary01, connectivity=8)
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+        binary01, connectivity=8
+    )
 
     amap: np.ndarray | None
     if anomaly_map is None:
@@ -31,9 +33,7 @@ def extract_regions_from_mask(
     else:
         amap = np.asarray(anomaly_map, dtype=np.float32)
         if amap.shape != binary01.shape:
-            raise ValueError(
-                f"anomaly_map must have shape {binary01.shape}, got {amap.shape}"
-            )
+            raise ValueError(f"anomaly_map must have shape {binary01.shape}, got {amap.shape}")
 
     regions: list[dict] = []
     for label_id in range(1, num_labels):
@@ -72,7 +72,9 @@ def extract_regions_from_mask(
 
         if include_solidity:
             component = (labels == label_id).astype(np.uint8)
-            contours, _hier = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, _hier = cv2.findContours(
+                component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
             solidity: float | None = None
             if contours:
                 contour = max(contours, key=cv2.contourArea)
@@ -81,7 +83,7 @@ def extract_regions_from_mask(
                 if hull_area > 0.0:
                     contour_area = float(cv2.contourArea(contour))
                     solidity = contour_area / hull_area
-            region["solidity"] = (round(float(solidity), 6) if solidity is not None else None)
+            region["solidity"] = round(float(solidity), 6) if solidity is not None else None
 
         regions.append(region)
 

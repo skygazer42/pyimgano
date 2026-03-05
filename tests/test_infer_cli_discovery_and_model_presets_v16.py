@@ -41,8 +41,8 @@ def test_infer_cli_can_list_model_presets(capsys) -> None:
 
 
 def test_infer_cli_accepts_model_preset_name_as_model(tmp_path: Path, monkeypatch) -> None:
-    from pyimgano.infer_cli import main as infer_main
     import pyimgano.infer_cli as infer_cli
+    from pyimgano.infer_cli import main as infer_main
 
     input_dir = tmp_path / "inputs"
     _write_png(input_dir / "a.png")
@@ -70,4 +70,3 @@ def test_infer_cli_accepts_model_preset_name_as_model(tmp_path: Path, monkeypatc
     )
     assert rc == 0
     assert created.get("name") == "vision_feature_pipeline"
-

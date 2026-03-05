@@ -112,7 +112,9 @@ class CoreCrossMAD:
         km.fit(X_fit)
 
         self.centers_ = np.asarray(km.cluster_centers_, dtype=np.float64)
-        self.decision_scores_ = np.asarray(self.decision_function(X_np), dtype=np.float64).reshape(-1)
+        self.decision_scores_ = np.asarray(self.decision_function(X_np), dtype=np.float64).reshape(
+            -1
+        )
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
@@ -244,4 +246,3 @@ class VisionCrossMAD(BaseVisionDetector):
 
 
 __all__ = ["CoreCrossMADModel", "VisionCrossMAD"]
-

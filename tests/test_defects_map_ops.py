@@ -16,4 +16,3 @@ def test_compute_roi_stats_returns_max_and_mean() -> None:
     stats = compute_roi_stats(m, roi_xyxy_norm=[0.0, 0.0, 0.5, 1.0])
     assert set(stats) == {"max", "mean"}
     assert stats["max"] >= stats["mean"]
-

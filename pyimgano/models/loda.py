@@ -6,21 +6,22 @@ Vision LODA - 基于LODA算法的视觉异常检测器
 
 import logging
 import numbers
-import warnings
-import numpy as np
-import cv2
 import os
-from sklearn.utils import check_array
-from sklearn.preprocessing import StandardScaler
+import warnings
+
+import cv2
+import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import check_array
 from tqdm import tqdm
+
+from ..utils.fitted import require_fitted
 
 # 只从本地基类导入
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-
-from ..utils.fitted import require_fitted
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # ===================================================================
 #                     工具函数
 # ===================================================================
+
 
 def get_optimal_n_bins(data, max_bins=50):
     """
@@ -73,6 +75,7 @@ def get_optimal_n_bins(data, max_bins=50):
 #                     特征提取器
 # ===================================================================
 
+
 class LODAFeatureExtractor:
     """
     LODA专用的图像特征提取器
@@ -86,7 +89,7 @@ class LODAFeatureExtractor:
         是否标准化特征
     """
 
-    def __init__(self, method='histogram', normalize=True):
+    def __init__(self, method="histogram", normalize=True):
         self.method = method
         self.normalize = normalize
         self.scaler = StandardScaler() if normalize else None
@@ -149,37 +152,36 @@ class LODAFeatureExtractor:
 
         features = []
 
-        if self.method in ['histogram', 'combined']:
+        if self.method in ["histogram", "combined"]:
             # 直方图特征
             for i in range(3):
                 hist, _ = np.histogram(img[:, :, i], bins=32, range=(0, 256))
                 hist = hist.astype(float) / (hist.sum() + 1e-6)
                 features.extend(hist)
 
-        if self.method in ['statistical', 'combined']:
+        if self.method in ["statistical", "combined"]:
             # 统计特征
             for i in range(3):
                 channel = img[:, :, i].flatten()
-                features.extend([
-                    channel.mean() / 255.0,
-                    channel.std() / 255.0,
-                    np.percentile(channel, 25) / 255.0,
-                    np.percentile(channel, 50) / 255.0,
-                    np.percentile(channel, 75) / 255.0,
-                    channel.min() / 255.0,
-                    channel.max() / 255.0
-                ])
+                features.extend(
+                    [
+                        channel.mean() / 255.0,
+                        channel.std() / 255.0,
+                        np.percentile(channel, 25) / 255.0,
+                        np.percentile(channel, 50) / 255.0,
+                        np.percentile(channel, 75) / 255.0,
+                        channel.min() / 255.0,
+                        channel.max() / 255.0,
+                    ]
+                )
 
             # 添加简单的纹理特征
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             grad_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
             grad_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-            grad_mag = np.sqrt(grad_x ** 2 + grad_y ** 2)
+            grad_mag = np.sqrt(grad_x**2 + grad_y**2)
 
-            features.extend([
-                grad_mag.mean() / 255.0,
-                grad_mag.std() / 255.0
-            ])
+            features.extend([grad_mag.mean() / 255.0, grad_mag.std() / 255.0])
 
         return np.array(features)
 
@@ -187,6 +189,7 @@ class LODAFeatureExtractor:
 # ===================================================================
 #                     核心LODA算法
 # ===================================================================
+
 
 @register_model(
     "core_loda",
@@ -247,7 +250,7 @@ class CoreLODA(BaseDetector):
             for i in range(self.n_random_cuts):
                 # 随机设置一些分量为0（稀疏投影）
                 rands = np.random.permutation(n_components)[:n_zero_components]
-                self.projections_[i, rands] = 0.
+                self.projections_[i, rands] = 0.0
 
                 # 投影数据
                 projected_data = self.projections_[i, :].dot(X.T)
@@ -257,8 +260,7 @@ class CoreLODA(BaseDetector):
                 self.n_bins_.append(n_bins)
 
                 # 创建直方图
-                histogram, limits = np.histogram(
-                    projected_data, bins=n_bins, density=False)
+                histogram, limits = np.histogram(projected_data, bins=n_bins, density=False)
                 histogram = histogram.astype(np.float64)
                 histogram += 1e-12  # 避免log(0)
                 histogram /= np.sum(histogram)
@@ -267,8 +269,7 @@ class CoreLODA(BaseDetector):
                 self.limits_.append(limits)
 
                 # 计算训练样本的分数
-                inds = np.searchsorted(limits, projected_data,
-                                       side='right') - 1
+                inds = np.searchsorted(limits, projected_data, side="right") - 1
                 inds = np.clip(inds, 0, n_bins - 1)
                 pred_scores[:, 0] += -self.weights[i] * np.log(histogram[inds])
 
@@ -281,23 +282,22 @@ class CoreLODA(BaseDetector):
             for i in range(self.n_random_cuts):
                 # 随机设置一些分量为0
                 rands = np.random.permutation(n_components)[:n_zero_components]
-                self.projections_[i, rands] = 0.
+                self.projections_[i, rands] = 0.0
 
                 # 投影数据
                 projected_data = self.projections_[i, :].dot(X.T)
 
                 # 创建直方图
                 self.histograms_[i, :], self.limits_[i, :] = np.histogram(
-                    projected_data, bins=self.n_bins, density=False)
+                    projected_data, bins=self.n_bins, density=False
+                )
                 self.histograms_[i, :] += 1e-12
                 self.histograms_[i, :] /= np.sum(self.histograms_[i, :])
 
                 # 计算训练样本的分数
-                inds = np.searchsorted(self.limits_[i, :], projected_data,
-                                       side='right') - 1
+                inds = np.searchsorted(self.limits_[i, :], projected_data, side="right") - 1
                 inds = np.clip(inds, 0, self.n_bins - 1)
-                pred_scores[:, 0] += -self.weights[i] * np.log(
-                    self.histograms_[i, inds])
+                pred_scores[:, 0] += -self.weights[i] * np.log(self.histograms_[i, inds])
         else:
             raise ValueError(f"n_bins必须是整数或'auto'，得到: {self.n_bins}")
 
@@ -321,22 +321,18 @@ class CoreLODA(BaseDetector):
 
                 histogram = self.histograms_[i]
                 limits = self.limits_[i]
-                inds = np.searchsorted(limits, projected_data,
-                                       side='right') - 1
+                inds = np.searchsorted(limits, projected_data, side="right") - 1
                 inds = np.clip(inds, 0, histogram.size - 1)
-                pred_scores[:, 0] += -self.weights[i] * np.log(
-                    histogram[inds])
+                pred_scores[:, 0] += -self.weights[i] * np.log(histogram[inds])
 
         elif isinstance(self.n_bins, numbers.Integral):
             # 固定bin模式
             for i in range(self.n_random_cuts):
                 projected_data = self.projections_[i, :].dot(X.T)
 
-                inds = np.searchsorted(self.limits_[i, :], projected_data,
-                                       side='right') - 1
+                inds = np.searchsorted(self.limits_[i, :], projected_data, side="right") - 1
                 inds = np.clip(inds, 0, self.n_bins - 1)
-                pred_scores[:, 0] += -self.weights[i] * np.log(
-                    self.histograms_[i, inds])
+                pred_scores[:, 0] += -self.weights[i] * np.log(self.histograms_[i, inds])
 
         pred_scores /= self.n_random_cuts
         return pred_scores.ravel()
@@ -347,6 +343,7 @@ class CoreLODA(BaseDetector):
 # ===================================================================
 #                     VisionLODA主类
 # ===================================================================
+
 
 @register_model(
     "vision_loda",
@@ -390,13 +387,15 @@ class VisionLODA(BaseVisionDetector):
     >>> labels = detector.predict(test_image_paths)
     """
 
-    def __init__(self,
-                 contamination=0.1,
-                 feature_extractor=None,
-                 n_bins=10,
-                 n_random_cuts=100,
-                 feature_method='histogram',
-                 normalize_features=True):
+    def __init__(
+        self,
+        contamination=0.1,
+        feature_extractor=None,
+        n_bins=10,
+        n_random_cuts=100,
+        feature_method="histogram",
+        normalize_features=True,
+    ):
 
         # 保存LODA特定参数
         self.n_bins = n_bins
@@ -405,8 +404,7 @@ class VisionLODA(BaseVisionDetector):
         # 如果未提供特征提取器，创建默认的
         if feature_extractor is None:
             feature_extractor = LODAFeatureExtractor(
-                method=feature_method,
-                normalize=normalize_features
+                method=feature_method, normalize=normalize_features
             )
             logger.info(
                 "LODA: using default feature extractor (method=%s, normalize=%s)",
@@ -416,8 +414,7 @@ class VisionLODA(BaseVisionDetector):
 
         # 调用父类构造函数
         super(VisionLODA, self).__init__(
-            contamination=contamination,
-            feature_extractor=feature_extractor
+            contamination=contamination, feature_extractor=feature_extractor
         )
 
     def _build_detector(self):
@@ -426,9 +423,7 @@ class VisionLODA(BaseVisionDetector):
         BaseVisionDetector要求的接口
         """
         return CoreLODA(
-            contamination=self.contamination,
-            n_bins=self.n_bins,
-            n_random_cuts=self.n_random_cuts
+            contamination=self.contamination, n_bins=self.n_bins, n_random_cuts=self.n_random_cuts
         )
 
     def visualize_projections(self, n_projections=5):
@@ -444,7 +439,7 @@ class VisionLODA(BaseVisionDetector):
 
         plt = require("matplotlib.pyplot", extra="viz", purpose="VisionLODA visualization")
 
-        if not hasattr(self.detector, 'projections_'):
+        if not hasattr(self.detector, "projections_"):
             logger.warning("LODA: visualize_projections called before fit()")
             return
 
@@ -459,9 +454,9 @@ class VisionLODA(BaseVisionDetector):
 
             # 显示投影向量的强度
             axes[i].bar(range(len(projection)), np.abs(projection))
-            axes[i].set_title(f'投影 {i + 1}')
-            axes[i].set_xlabel('特征索引')
-            axes[i].set_ylabel('投影权重绝对值')
+            axes[i].set_title(f"投影 {i + 1}")
+            axes[i].set_xlabel("特征索引")
+            axes[i].set_ylabel("投影权重绝对值")
 
         plt.tight_layout()
         plt.show()
@@ -479,7 +474,7 @@ class VisionLODA(BaseVisionDetector):
 
         plt = require("matplotlib.pyplot", extra="viz", purpose="VisionLODA visualization")
 
-        if not hasattr(self.detector, 'histograms_'):
+        if not hasattr(self.detector, "histograms_"):
             logger.warning("LODA: visualize_histograms called before fit()")
             return
 
@@ -500,9 +495,9 @@ class VisionLODA(BaseVisionDetector):
                 n_bins = self.n_bins
 
             axes[i].bar(range(n_bins), histogram)
-            axes[i].set_title(f'直方图 {i + 1} (bins={n_bins})')
-            axes[i].set_xlabel('Bin索引')
-            axes[i].set_ylabel('概率')
+            axes[i].set_title(f"直方图 {i + 1} (bins={n_bins})")
+            axes[i].set_xlabel("Bin索引")
+            axes[i].set_ylabel("概率")
 
         plt.tight_layout()
         plt.show()
@@ -513,7 +508,7 @@ class VisionLODA(BaseVisionDetector):
 
         plt = require("matplotlib.pyplot", extra="viz", purpose="VisionLODA visualization")
 
-        if not hasattr(self.detector, 'decision_scores_'):
+        if not hasattr(self.detector, "decision_scores_"):
             logger.warning("LODA: visualize_scores called before fit()")
             return
 
@@ -521,27 +516,34 @@ class VisionLODA(BaseVisionDetector):
 
         # 分数分布直方图
         plt.subplot(1, 2, 1)
-        plt.hist(self.detector.decision_scores_, bins=30, edgecolor='black')
-        plt.axvline(self.detector.threshold_, color='r',
-                    linestyle='--', label=f'阈值={self.detector.threshold_:.3f}')
-        plt.xlabel('异常分数')
-        plt.ylabel('频数')
-        plt.title('异常分数分布')
+        plt.hist(self.detector.decision_scores_, bins=30, edgecolor="black")
+        plt.axvline(
+            self.detector.threshold_,
+            color="r",
+            linestyle="--",
+            label=f"阈值={self.detector.threshold_:.3f}",
+        )
+        plt.xlabel("异常分数")
+        plt.ylabel("频数")
+        plt.title("异常分数分布")
         plt.legend()
 
         # 分数排序图
         plt.subplot(1, 2, 2)
         sorted_scores = np.sort(self.detector.decision_scores_)
         n_samples = len(sorted_scores)
-        colors = ['blue' if s <= self.detector.threshold_ else 'red'
-                  for s in sorted_scores]
+        colors = ["blue" if s <= self.detector.threshold_ else "red" for s in sorted_scores]
 
         plt.scatter(range(n_samples), sorted_scores, c=colors, s=10, alpha=0.5)
-        plt.axhline(self.detector.threshold_, color='r',
-                    linestyle='--', label=f'阈值={self.detector.threshold_:.3f}')
-        plt.xlabel('样本索引（按分数排序）')
-        plt.ylabel('异常分数')
-        plt.title('排序后的异常分数')
+        plt.axhline(
+            self.detector.threshold_,
+            color="r",
+            linestyle="--",
+            label=f"阈值={self.detector.threshold_:.3f}",
+        )
+        plt.xlabel("样本索引（按分数排序）")
+        plt.ylabel("异常分数")
+        plt.title("排序后的异常分数")
         plt.legend()
 
         plt.tight_layout()
@@ -549,7 +551,7 @@ class VisionLODA(BaseVisionDetector):
 
     def get_info(self):
         """获取模型信息"""
-        if not hasattr(self.detector, 'projections_'):
+        if not hasattr(self.detector, "projections_"):
             return {"status": "模型未训练"}
 
         info = {
@@ -558,7 +560,7 @@ class VisionLODA(BaseVisionDetector):
             "随机切割数": self.n_random_cuts,
             "特征维度": self.detector.projections_.shape[1],
             "污染率": self.contamination,
-            "阈值": float(self.detector.threshold_)
+            "阈值": float(self.detector.threshold_),
         }
 
         # 添加bin数量信息
@@ -569,7 +571,7 @@ class VisionLODA(BaseVisionDetector):
             info["bin数量"] = self.n_bins
 
         # 添加检测结果统计
-        if hasattr(self.detector, 'labels_'):
+        if hasattr(self.detector, "labels_"):
             n_anomalies = self.detector.labels_.sum()
             n_total = len(self.detector.labels_)
             info["训练集异常数"] = f"{n_anomalies}/{n_total} ({n_anomalies / n_total * 100:.1f}%)"
@@ -588,39 +590,24 @@ if __name__ == "__main__":
     # 示例1: 使用固定bin数量
     print("\n示例1: 固定bin数量")
     detector1 = VisionLODA(
-        n_bins=10,
-        n_random_cuts=100,
-        contamination=0.1,
-        feature_method='histogram'
+        n_bins=10, n_random_cuts=100, contamination=0.1, feature_method="histogram"
     )
     print("创建成功，使用固定10个bins")
 
     # 示例2: 使用自动bin数量
     print("\n示例2: 自动确定bin数量")
-    detector2 = VisionLODA(
-        n_bins='auto',
-        n_random_cuts=50,
-        feature_method='combined'
-    )
+    detector2 = VisionLODA(n_bins="auto", n_random_cuts=50, feature_method="combined")
     print("创建成功，自动确定bin数量")
 
     # 示例3: 自定义特征提取器
     print("\n示例3: 自定义特征提取器")
-    custom_extractor = LODAFeatureExtractor(
-        method='statistical',
-        normalize=False
-    )
-    detector3 = VisionLODA(
-        feature_extractor=custom_extractor,
-        n_bins=15,
-        n_random_cuts=200
-    )
+    custom_extractor = LODAFeatureExtractor(method="statistical", normalize=False)
+    detector3 = VisionLODA(feature_extractor=custom_extractor, n_bins=15, n_random_cuts=200)
     print("创建成功，使用统计特征，不标准化")
 
     # 示例4: 使用模拟数据演示完整流程
     print("\n示例4: 模拟数据演示")
     print("-" * 40)
-
 
     # 创建模拟特征提取器
     class MockExtractor:
@@ -642,13 +629,9 @@ if __name__ == "__main__":
             np.random.shuffle(data)
             return data
 
-
     # 创建检测器
     mock_detector = VisionLODA(
-        feature_extractor=MockExtractor(),
-        n_bins='auto',
-        n_random_cuts=100,
-        contamination=0.1
+        feature_extractor=MockExtractor(), n_bins="auto", n_random_cuts=100, contamination=0.1
     )
 
     # 训练
@@ -689,7 +672,7 @@ if __name__ == "__main__":
         {"n_bins": 5, "name": "少量bins(5)"},
         {"n_bins": 20, "name": "中等bins(20)"},
         {"n_bins": 50, "name": "大量bins(50)"},
-        {"n_bins": "auto", "name": "自动bins"}
+        {"n_bins": "auto", "name": "自动bins"},
     ]
 
     for config in configs:
@@ -697,7 +680,7 @@ if __name__ == "__main__":
             feature_extractor=MockExtractor(),
             n_bins=config["n_bins"],
             n_random_cuts=50,
-            contamination=0.1
+            contamination=0.1,
         )
 
         # 简单训练
@@ -708,7 +691,9 @@ if __name__ == "__main__":
         small_test = [f"test_{i}.jpg" for i in range(20)]
         test_scores = detector.decision_function(small_test)
 
-        print(f"{config['name']:15} - 平均分数: {test_scores.mean():.3f}, "
-              f"标准差: {test_scores.std():.3f}")
+        print(
+            f"{config['name']:15} - 平均分数: {test_scores.mean():.3f}, "
+            f"标准差: {test_scores.std():.3f}"
+        )
 
     print("\n完成所有示例！")

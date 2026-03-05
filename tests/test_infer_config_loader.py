@@ -44,7 +44,9 @@ def test_infer_config_category_selection_requires_flag_when_ambiguous(tmp_path: 
     assert "infer-category" in msg
 
 
-def test_infer_config_category_selection_propagates_threshold_and_checkpoint(tmp_path: Path) -> None:
+def test_infer_config_category_selection_propagates_threshold_and_checkpoint(
+    tmp_path: Path,
+) -> None:
     from pyimgano.inference.config import select_infer_category
 
     payload = {

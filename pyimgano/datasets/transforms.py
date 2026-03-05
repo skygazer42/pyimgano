@@ -6,7 +6,6 @@ from typing import Iterable, Tuple
 
 from torchvision import transforms
 
-
 __all__ = [
     "default_train_transforms",
     "default_eval_transforms",
@@ -20,10 +19,12 @@ def to_tensor_normalized(
 ) -> transforms.Compose:
     """构建标准张量化并归一化的转换。"""
 
-    return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=mean, std=std),
-    ])
+    return transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=mean, std=std),
+        ]
+    )
 
 
 def default_train_transforms(
@@ -49,9 +50,10 @@ def default_eval_transforms(
 ) -> transforms.Compose:
     """默认验证/测试阶段的预处理流程。"""
 
-    return transforms.Compose([
-        transforms.Resize(resize),
-        transforms.CenterCrop(crop_size),
-        to_tensor_normalized(),
-    ])
-
+    return transforms.Compose(
+        [
+            transforms.Resize(resize),
+            transforms.CenterCrop(crop_size),
+            to_tensor_normalized(),
+        ]
+    )

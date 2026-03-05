@@ -23,6 +23,7 @@ class FeatureExtractor(Protocol):
 class FittableFeatureExtractor(FeatureExtractor, Protocol):
     """Optional protocol: extractor can be fit on training inputs."""
 
-    def fit(self, inputs: Iterable[Any], y: Any | None = None) -> "FittableFeatureExtractor":  # pragma: no cover
+    def fit(
+        self, inputs: Iterable[Any], y: Any | None = None
+    ) -> "FittableFeatureExtractor":  # pragma: no cover
         ...
-

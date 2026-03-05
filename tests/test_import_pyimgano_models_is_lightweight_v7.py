@@ -56,4 +56,3 @@ print(json.dumps({"present": present, "n_models": len(models.list_models())}))
 
     assert int(payload["n_models"]) > 0
     assert payload["present"] == [], f"Unexpected heavy imports: {payload['present']}"
-

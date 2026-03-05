@@ -4,7 +4,6 @@ from typing import Literal, Optional
 
 import numpy as np
 
-
 IlluminationMode = Literal["gradient", "vignette"]
 
 

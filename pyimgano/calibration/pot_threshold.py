@@ -119,4 +119,3 @@ def fit_pot_threshold(
             "alpha": a,
             "tail_fraction": tf,
         }
-

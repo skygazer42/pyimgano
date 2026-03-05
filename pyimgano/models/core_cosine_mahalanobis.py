@@ -94,4 +94,3 @@ class CoreCosineMahalanobis(CoreFeatureDetector):
 
 
 __all__ = ["CoreCosineMahalanobis"]
-

@@ -21,4 +21,3 @@ def test_base_detector_score_samples_is_decision_function() -> None:
     X = np.array([[0.0, 0.0], [10.0, 0.0], [1.0, 1.0]])
     det = DummyDetector().fit(X)
     assert np.allclose(det.score_samples(X), det.decision_function(X))
-

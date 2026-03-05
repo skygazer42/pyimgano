@@ -28,11 +28,11 @@ def main() -> None:
 
     detector = create_model(
         "vision_mambaad",
-        device="cuda",       # or "cpu"
-        epochs=3,            # small demo value
+        device="cuda",  # or "cpu"
+        epochs=3,  # small demo value
         batch_size=4,
         lr=1e-3,
-        image_size=518,      # DINOv2-friendly input size
+        image_size=518,  # DINOv2-friendly input size
         aggregation_method="topk_mean",
         aggregation_topk=0.01,
         contamination=0.1,
@@ -52,4 +52,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

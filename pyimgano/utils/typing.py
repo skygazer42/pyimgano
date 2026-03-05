@@ -11,7 +11,6 @@ from typing import Iterable, Sequence, Union
 import numpy as np
 from numpy.typing import NDArray
 
-
 ArrayLike = Union[Sequence[float], NDArray[np.generic]]
 FloatArray = NDArray[np.floating]
 IntArray = NDArray[np.integer]
@@ -45,4 +44,3 @@ def ensure_iterable_str(x) -> Iterable[str]:
     if isinstance(x, (str, bytes)):
         return [str(x)]
     return [str(v) for v in x]
-

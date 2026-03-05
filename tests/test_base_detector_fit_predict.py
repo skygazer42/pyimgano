@@ -23,4 +23,3 @@ def test_base_detector_fit_predict_roundtrip() -> None:
     labels = det.fit_predict(X)
     assert labels.shape == (3,)
     assert set(np.unique(labels)).issubset({0, 1})
-

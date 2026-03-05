@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 _PYOD_IMPORT_RE = re.compile(r"^\s*(?:from\s+pyod\b|import\s+pyod\b)", re.MULTILINE)
 
 

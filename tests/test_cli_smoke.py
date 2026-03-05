@@ -125,4 +125,4 @@ def test_cli_supports_numpy_input_mode_flag(tmp_path, capsys):
     )
     assert code == 0
     out = capsys.readouterr().out
-    assert "\"input_mode\"" in out
+    assert '"input_mode"' in out

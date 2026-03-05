@@ -19,8 +19,8 @@ def _build_patchcore_inspection_model(
 ):
     require("patchcore", purpose="patchcore-inspection backend detectors")
 
-    from patchcore.patchcore import PatchCore  # type: ignore[import-not-found]
     import patchcore.common  # type: ignore[import-not-found]
+    from patchcore.patchcore import PatchCore  # type: ignore[import-not-found]
 
     faiss_on_gpu = "cuda" in str(device)
     nn_method = patchcore.common.FaissNN(faiss_on_gpu, int(faiss_num_workers))
@@ -93,9 +93,7 @@ class VisionPatchCoreInspectionCheckpoint:
         self.device = str(device)
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
-            raise ValueError(
-                f"contamination must be in (0, 0.5). Got {self.contamination}."
-            )
+            raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
 
         self.resize = int(resize)
         self.imagesize = int(imagesize)
@@ -118,8 +116,8 @@ class VisionPatchCoreInspectionCheckpoint:
         self.threshold_: Optional[float] = None
 
     def _load_images(self, paths: Sequence[str]):
-        from PIL import Image
         import torch
+        from PIL import Image
 
         tensors = []
         for path in paths:

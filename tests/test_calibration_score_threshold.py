@@ -36,4 +36,3 @@ def test_resolve_calibration_quantile_rejects_invalid_explicit() -> None:
 
     with pytest.raises(ValueError, match="calibration_quantile must be in \\(0,1\\)"):
         resolve_calibration_quantile(_Det(), calibration_quantile=1.0)
-

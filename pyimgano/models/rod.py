@@ -26,8 +26,8 @@ import numpy as np
 from sklearn.preprocessing import RobustScaler
 from sklearn.utils import check_array
 
-from .core_feature_base import CoreFeatureDetector
 from .baseml import BaseVisionDetector
+from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
@@ -71,7 +71,9 @@ def _geometric_median(points: np.ndarray, eps: float = 1e-5, max_iter: int = 256
     return gm
 
 
-def _fit_minmax_params(values: np.ndarray, *, feature_min: float, feature_max: float) -> tuple[float, float]:
+def _fit_minmax_params(
+    values: np.ndarray, *, feature_min: float, feature_max: float
+) -> tuple[float, float]:
     v = np.asarray(values, dtype=np.float64).reshape(-1)
     if v.size == 0:
         # arbitrary but stable
@@ -81,7 +83,9 @@ def _fit_minmax_params(values: np.ndarray, *, feature_min: float, feature_max: f
     return data_min, data_max
 
 
-def _transform_minmax(values: np.ndarray, *, data_min: float, data_max: float, feature_min: float, feature_max: float) -> np.ndarray:
+def _transform_minmax(
+    values: np.ndarray, *, data_min: float, data_max: float, feature_min: float, feature_max: float
+) -> np.ndarray:
     v = np.asarray(values, dtype=np.float64).reshape(-1)
     denom = data_max - data_min
     if denom <= 0.0 or not np.isfinite(denom):
@@ -239,9 +243,7 @@ class CoreROD:
         if self._n_features_in is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         if X.shape[1] != self._n_features_in:
-            raise ValueError(
-                f"Expected {self._n_features_in} features, got {X.shape[1]}"
-            )
+            raise ValueError(f"Expected {self._n_features_in} features, got {X.shape[1]}")
 
         # Ensure at least 3 dims by padding zeros (ROD is 3D-native).
         if X.shape[1] < 3:
@@ -281,7 +283,12 @@ class CoreROD:
             X_scaled = self.data_scaler_.transform(X_use)
             if self.subspaces_ is None:
                 raise RuntimeError("Internal error: missing subspaces")
-            if self.gm_ is None or self.mad_median_ is None or self.angle_params1_ is None or self.angle_params2_ is None:
+            if (
+                self.gm_ is None
+                or self.mad_median_ is None
+                or self.angle_params1_ is None
+                or self.angle_params2_ is None
+            ):
                 raise RuntimeError("Internal error: missing fitted parameters")
 
         assert self.subspaces_ is not None

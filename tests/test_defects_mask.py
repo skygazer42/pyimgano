@@ -8,4 +8,3 @@ def test_anomaly_map_to_binary_mask_thresholds_to_uint8_255() -> None:
     mask = anomaly_map_to_binary_mask(m, pixel_threshold=0.5)
     assert mask.dtype == np.uint8
     assert mask.tolist() == [[0, 255]]
-

@@ -113,4 +113,3 @@ def test_infer_cli_roi_applies_to_regions_but_masks_can_be_full_or_roi(
     assert int(m_full[0, 0]) == 255  # full mask includes outside ROI blob
     assert int(m_roi[0, 0]) == 0  # ROI mask excludes outside ROI blob
     assert int(np.sum(m_full > 0)) > int(np.sum(m_roi > 0))
-

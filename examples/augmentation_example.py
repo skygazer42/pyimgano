@@ -21,39 +21,36 @@ import cv2
 import numpy as np
 
 # Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from pyimgano.preprocessing import (
-    # Pipeline classes
+from pyimgano.preprocessing import (  # Pipeline classes; Transform classes; Preset pipelines
+    AugmentationPipeline,
+    ColorJitter,
     Compose,
+    DefocusBlur,
+    ElasticTransform,
+    GaussianNoise,
+    GridMask,
+    MotionBlur,
     OneOf,
     RandomApply,
-    AugmentationPipeline,
-    # Transform classes
-    RandomRotate,
-    RandomFlip,
-    RandomScale,
-    RandomTranslate,
-    RandomShear,
-    RandomPerspective,
-    ColorJitter,
-    GaussianNoise,
-    SaltPepperNoise,
-    MotionBlur,
-    DefocusBlur,
-    RandomRain,
-    RandomFog,
-    RandomSnow,
-    RandomShadow,
     RandomCutout,
-    GridMask,
-    ElasticTransform,
-    # Preset pipelines
+    RandomFlip,
+    RandomFog,
+    RandomPerspective,
+    RandomRain,
+    RandomRotate,
+    RandomScale,
+    RandomShadow,
+    RandomShear,
+    RandomSnow,
+    RandomTranslate,
+    SaltPepperNoise,
+    get_anomaly_augmentation,
+    get_heavy_augmentation,
     get_light_augmentation,
     get_medium_augmentation,
-    get_heavy_augmentation,
     get_weather_augmentation,
-    get_anomaly_augmentation,
 )
 
 
@@ -74,9 +71,9 @@ def create_test_image():
 
 def example_geometric_transforms():
     """Example 1: Geometric transformations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 1: Geometric Transformations")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -113,19 +110,15 @@ def example_geometric_transforms():
 
 def example_color_augmentations():
     """Example 2: Color augmentations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 2: Color Augmentations")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
     print("\n1. Color Jitter (random brightness, contrast, saturation, hue):")
     color_jitter = ColorJitter(
-        brightness=(0.5, 1.5),
-        contrast=(0.5, 1.5),
-        saturation=(0.5, 1.5),
-        hue=(-20, 20),
-        p=1.0
+        brightness=(0.5, 1.5), contrast=(0.5, 1.5), saturation=(0.5, 1.5), hue=(-20, 20), p=1.0
     )
     jittered = color_jitter(img)
     print(f"   Applied color jitter, result shape: {jittered.shape}")
@@ -134,9 +127,9 @@ def example_color_augmentations():
 
 def example_noise_augmentations():
     """Example 3: Noise augmentations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 3: Noise Augmentations")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -153,9 +146,9 @@ def example_noise_augmentations():
 
 def example_blur_augmentations():
     """Example 4: Blur augmentations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 4: Blur Augmentations")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -172,9 +165,9 @@ def example_blur_augmentations():
 
 def example_weather_effects():
     """Example 5: Weather effects."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 5: Weather Effects")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -201,9 +194,9 @@ def example_weather_effects():
 
 def example_cutout_augmentations():
     """Example 6: Cutout and occlusion."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 6: Cutout and Occlusion")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -220,9 +213,9 @@ def example_cutout_augmentations():
 
 def example_elastic_transforms():
     """Example 7: Elastic and grid distortions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 7: Elastic Transforms")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -234,20 +227,22 @@ def example_elastic_transforms():
 
 def example_compose_pipeline():
     """Example 8: Compose multiple augmentations."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 8: Compose Multiple Augmentations")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
     print("\nCreating pipeline with 5 augmentations:")
-    pipeline = Compose([
-        RandomRotate(angle_range=(-15, 15), p=0.7),
-        RandomFlip(mode="horizontal", p=0.5),
-        ColorJitter(brightness=(0.8, 1.2), contrast=(0.8, 1.2), p=0.6),
-        GaussianNoise(std_range=(5, 15), p=0.4),
-        RandomCutout(num_holes=1, hole_size=32, p=0.3),
-    ])
+    pipeline = Compose(
+        [
+            RandomRotate(angle_range=(-15, 15), p=0.7),
+            RandomFlip(mode="horizontal", p=0.5),
+            ColorJitter(brightness=(0.8, 1.2), contrast=(0.8, 1.2), p=0.6),
+            GaussianNoise(std_range=(5, 15), p=0.4),
+            RandomCutout(num_holes=1, hole_size=32, p=0.3),
+        ]
+    )
 
     print("\nApplying pipeline 5 times:")
     for i in range(5):
@@ -257,21 +252,24 @@ def example_compose_pipeline():
 
 def example_one_of():
     """Example 9: OneOf augmentation (select one from multiple)."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 9: OneOf Augmentation")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
     print("\nOneOf: Apply one of three weather effects:")
-    one_of_weather = OneOf([
-        RandomRain(intensity_range=(0.4, 0.6), p=1.0),
-        RandomFog(intensity_range=(0.3, 0.5), p=1.0),
-        RandomSnow(intensity_range=(0.4, 0.6), p=1.0),
-    ], p=0.8)
+    one_of_weather = OneOf(
+        [
+            RandomRain(intensity_range=(0.4, 0.6), p=1.0),
+            RandomFog(intensity_range=(0.3, 0.5), p=1.0),
+            RandomSnow(intensity_range=(0.4, 0.6), p=1.0),
+        ],
+        p=0.8,
+    )
 
     print("\nApplying OneOf 10 times:")
-    effects_applied = {'rain': 0, 'fog': 0, 'snow': 0, 'none': 0}
+    effects_applied = {"rain": 0, "fog": 0, "snow": 0, "none": 0}
 
     for i in range(10):
         augmented = one_of_weather(img)
@@ -281,9 +279,9 @@ def example_one_of():
 
 def example_preset_pipelines():
     """Example 10: Preset augmentation pipelines."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 10: Preset Augmentation Pipelines")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -320,46 +318,50 @@ def example_preset_pipelines():
 
 def example_custom_pipeline_for_training():
     """Example 11: Custom training pipeline."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 11: Custom Training Pipeline")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
     print("\nBuilding custom augmentation pipeline for anomaly detection training:")
 
     # Custom pipeline
-    train_pipeline = Compose([
-        # Geometric augmentations
-        RandomFlip(mode="horizontal", p=0.5),
-        RandomFlip(mode="vertical", p=0.2),
-        RandomRotate(angle_range=(-20, 20), p=0.5),
-        RandomScale(scale_range=(0.9, 1.1), p=0.3),
-
-        # Color augmentations
-        ColorJitter(
-            brightness=(0.85, 1.15),
-            contrast=(0.85, 1.15),
-            saturation=(0.85, 1.15),
-            hue=(-10, 10),
-            p=0.5
-        ),
-
-        # Noise (one of)
-        OneOf([
-            GaussianNoise(std_range=(5, 15), p=1.0),
-            SaltPepperNoise(salt_prob=0.01, pepper_prob=0.01, p=1.0),
-        ], p=0.3),
-
-        # Blur (one of)
-        OneOf([
-            MotionBlur(kernel_size_range=(3, 9), p=1.0),
-            DefocusBlur(radius_range=(2, 4), p=1.0),
-        ], p=0.2),
-
-        # Cutout
-        RandomCutout(num_holes=1, hole_size=24, p=0.2),
-    ])
+    train_pipeline = Compose(
+        [
+            # Geometric augmentations
+            RandomFlip(mode="horizontal", p=0.5),
+            RandomFlip(mode="vertical", p=0.2),
+            RandomRotate(angle_range=(-20, 20), p=0.5),
+            RandomScale(scale_range=(0.9, 1.1), p=0.3),
+            # Color augmentations
+            ColorJitter(
+                brightness=(0.85, 1.15),
+                contrast=(0.85, 1.15),
+                saturation=(0.85, 1.15),
+                hue=(-10, 10),
+                p=0.5,
+            ),
+            # Noise (one of)
+            OneOf(
+                [
+                    GaussianNoise(std_range=(5, 15), p=1.0),
+                    SaltPepperNoise(salt_prob=0.01, pepper_prob=0.01, p=1.0),
+                ],
+                p=0.3,
+            ),
+            # Blur (one of)
+            OneOf(
+                [
+                    MotionBlur(kernel_size_range=(3, 9), p=1.0),
+                    DefocusBlur(radius_range=(2, 4), p=1.0),
+                ],
+                p=0.2,
+            ),
+            # Cutout
+            RandomCutout(num_holes=1, hole_size=24, p=0.2),
+        ]
+    )
 
     print("\nApplying custom pipeline 5 times:")
     for i in range(5):
@@ -369,9 +371,9 @@ def example_custom_pipeline_for_training():
 
 def example_augmentation_statistics():
     """Example 12: Track augmentation statistics."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 12: Augmentation Statistics")
-    print("="*60)
+    print("=" * 60)
 
     img = create_test_image()
 
@@ -394,16 +396,16 @@ def example_augmentation_statistics():
     stats = pipeline.get_stats()
     print(f"   Total images processed: {stats['total_images']}")
     print("\n   Transform application counts:")
-    for transform_name, count in stats['transform_applications'].items():
-        percentage = (count / stats['total_images']) * 100
+    for transform_name, count in stats["transform_applications"].items():
+        percentage = (count / stats["total_images"]) * 100
         print(f"      {transform_name}: {count} times ({percentage:.1f}%)")
 
 
 def example_batch_augmentation():
     """Example 13: Batch augmentation."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Example 13: Batch Augmentation")
-    print("="*60)
+    print("=" * 60)
 
     # Create batch of images
     batch_size = 10
@@ -426,9 +428,9 @@ def example_batch_augmentation():
 
 def main():
     """Run all examples."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PyImgAno Image Augmentation Examples")
-    print("="*60)
+    print("=" * 60)
 
     try:
         example_geometric_transforms()
@@ -495,9 +497,9 @@ def main():
     except Exception as e:
         print(f"\nError in batch augmentation: {e}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("All examples completed!")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":

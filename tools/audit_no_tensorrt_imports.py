@@ -24,7 +24,6 @@ import re
 import sys
 from pathlib import Path
 
-
 _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("import tensorrt", re.compile(r"^\s*import\s+tensorrt\b", re.MULTILINE)),
     ("from tensorrt import", re.compile(r"^\s*from\s+tensorrt\b\s+import\b", re.MULTILINE)),
@@ -82,4 +81,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main(sys.argv[1:]))
-

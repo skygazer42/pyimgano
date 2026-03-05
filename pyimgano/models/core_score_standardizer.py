@@ -56,7 +56,9 @@ class CoreScoreStandardizer(BaseDetector):
         if isinstance(spec, str):
             if spec == "core_score_standardizer":
                 raise ValueError("core_score_standardizer cannot wrap itself")
-            return create_model(spec, contamination=float(self.contamination), **dict(self.base_kwargs))
+            return create_model(
+                spec, contamination=float(self.contamination), **dict(self.base_kwargs)
+            )
         if isinstance(spec, type):
             return spec(contamination=float(self.contamination), **dict(self.base_kwargs))
         return spec
@@ -74,7 +76,9 @@ class CoreScoreStandardizer(BaseDetector):
             fit(X)
 
         if hasattr(base, "decision_scores_"):
-            train_scores = np.asarray(getattr(base, "decision_scores_"), dtype=np.float64).reshape(-1)
+            train_scores = np.asarray(getattr(base, "decision_scores_"), dtype=np.float64).reshape(
+                -1
+            )
         else:
             train_scores = np.asarray(base.decision_function(X), dtype=np.float64).reshape(-1)
 
@@ -93,4 +97,3 @@ class CoreScoreStandardizer(BaseDetector):
         std: ScoreStandardizer = self.standardizer_  # type: ignore[assignment]
         scores = np.asarray(base.decision_function(X), dtype=np.float64).reshape(-1)  # type: ignore[union-attr]
         return std.transform(scores)
-

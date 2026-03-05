@@ -52,4 +52,3 @@ def scale_bbox_xyxy_inclusive(
         y2d = y1d
 
     return [int(x1d), int(y1d), int(x2d), int(y2d)]
-

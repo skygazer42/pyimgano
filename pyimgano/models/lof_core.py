@@ -75,7 +75,9 @@ class CoreLOF:
         self.detector_ = det
 
         # sklearn: more negative => more abnormal. Negate to match "higher => more anomalous".
-        self.decision_scores_ = (-np.asarray(det.negative_outlier_factor_, dtype=np.float64)).reshape(-1)
+        self.decision_scores_ = (
+            -np.asarray(det.negative_outlier_factor_, dtype=np.float64)
+        ).reshape(-1)
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
@@ -123,4 +125,3 @@ class CoreLOFModel(CoreFeatureDetector):
 
     def _build_detector(self):
         return CoreLOF(**self._backend_kwargs)
-

@@ -45,4 +45,3 @@ class VisionEmbeddingCoreDetector(VisionFeaturePipeline):
             feature_extractor=feature_extractor,
             contamination=float(contamination),
         )
-

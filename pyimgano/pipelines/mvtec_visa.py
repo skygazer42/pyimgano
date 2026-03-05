@@ -7,13 +7,12 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from pyimgano.calibration.pixel_threshold import calibrate_normal_pixel_quantile_threshold
+from pyimgano.datasets import load_dataset
 from pyimgano.evaluation import evaluate_detector
 from pyimgano.models import create_model
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
-from pyimgano.calibration.pixel_threshold import calibrate_normal_pixel_quantile_threshold
 from pyimgano.utils.splits import split_train_calibration
-from pyimgano.datasets import load_dataset
-
 
 DatasetName = Literal["mvtec", "mvtec_ad", "mvtec_loco", "mvtec_ad2", "visa", "btad", "custom"]
 
@@ -95,7 +94,11 @@ def evaluate_split(
     calibration_paths: list[str] = []
 
     if bool(pixel_segf1):
-        strategy = "normal_pixel_quantile" if pixel_threshold_strategy is None else str(pixel_threshold_strategy)
+        strategy = (
+            "normal_pixel_quantile"
+            if pixel_threshold_strategy is None
+            else str(pixel_threshold_strategy)
+        )
         if strategy not in ("normal_pixel_quantile", "supervised_segf1"):
             raise ValueError(
                 "Unsupported pixel_threshold_strategy. "
@@ -118,10 +121,7 @@ def evaluate_split(
         pixel_scores_used is None
         and compute_pixel_scores
         and split.test_masks is not None
-        and (
-            hasattr(detector, "predict_anomaly_map")
-            or hasattr(detector, "get_anomaly_map")
-        )
+        and (hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map"))
     ):
         try:
             pixel_scores_used = _compute_pixel_scores_from_detector(
@@ -145,7 +145,11 @@ def evaluate_split(
                 "Ensure the detector exposes predict_anomaly_map() or get_anomaly_map()."
             )
 
-        strategy = "normal_pixel_quantile" if pixel_threshold_strategy is None else str(pixel_threshold_strategy)
+        strategy = (
+            "normal_pixel_quantile"
+            if pixel_threshold_strategy is None
+            else str(pixel_threshold_strategy)
+        )
         if strategy == "normal_pixel_quantile":
             calib_paths = calibration_paths if calibration_paths else list(train_paths)
             if not calib_paths:

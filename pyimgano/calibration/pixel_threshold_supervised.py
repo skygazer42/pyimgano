@@ -68,7 +68,7 @@ def calibrate_supervised_segf1_threshold(
         )
 
     s = scores.reshape(-1)
-    y = (labels.reshape(-1) > 0)
+    y = labels.reshape(-1) > 0
 
     if not np.all(np.isfinite(s)):
         s = np.nan_to_num(s, nan=-np.inf, posinf=np.inf, neginf=-np.inf)
@@ -85,7 +85,7 @@ def calibrate_supervised_segf1_threshold(
     best_thr = float(unique[0])
 
     for thr in unique:
-        pred = (s >= float(thr))
+        pred = s >= float(thr)
         tp = int(np.sum(pred & y))
         fp = int(np.sum(pred & ~y))
         fn = int(np.sum((~pred) & y))
@@ -98,4 +98,3 @@ def calibrate_supervised_segf1_threshold(
             best_thr = float(thr)
 
     return float(best_thr)
-

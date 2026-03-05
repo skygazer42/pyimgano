@@ -18,4 +18,3 @@ def test_reduce_anomaly_map_area() -> None:
     m = np.array([[0.0, 0.6], [0.4, 0.9]], dtype=np.float32)
     s = reduce_anomaly_map(m, method="area", area_threshold=0.5)
     assert abs(float(s) - 0.5) < 1e-9
-

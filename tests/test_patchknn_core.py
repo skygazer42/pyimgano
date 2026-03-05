@@ -13,4 +13,3 @@ def test_aggregate_patch_scores_topk_mean():
 def test_reshape_patch_scores_requires_exact_count():
     with pytest.raises(ValueError, match="Expected"):
         reshape_patch_scores(np.ones((3,), dtype=np.float32), grid_h=2, grid_w=2)
-

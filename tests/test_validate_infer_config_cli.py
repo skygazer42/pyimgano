@@ -53,4 +53,3 @@ def test_validate_infer_config_cli_rejects_bad_mask_format(tmp_path: Path, capsy
     assert rc == 1
     err = capsys.readouterr().err.lower()
     assert "mask_format" in err
-

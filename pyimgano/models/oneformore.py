@@ -31,7 +31,7 @@ class ContinualDiffusion(nn.Module):
         hidden_channels: int = 128,
         num_timesteps: int = 1000,
         beta_start: float = 0.0001,
-        beta_end: float = 0.02
+        beta_end: float = 0.02,
     ):
         super().__init__()
         self.num_timesteps = num_timesteps
@@ -42,19 +42,23 @@ class ContinualDiffusion(nn.Module):
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
 
         # U-Net style denoising network
-        self.encoder = nn.ModuleList([
-            self._make_block(in_channels, hidden_channels),
-            self._make_block(hidden_channels, hidden_channels * 2),
-            self._make_block(hidden_channels * 2, hidden_channels * 4),
-        ])
+        self.encoder = nn.ModuleList(
+            [
+                self._make_block(in_channels, hidden_channels),
+                self._make_block(hidden_channels, hidden_channels * 2),
+                self._make_block(hidden_channels * 2, hidden_channels * 4),
+            ]
+        )
 
         self.bottleneck = self._make_block(hidden_channels * 4, hidden_channels * 4)
 
-        self.decoder = nn.ModuleList([
-            self._make_block(hidden_channels * 8, hidden_channels * 2),
-            self._make_block(hidden_channels * 4, hidden_channels),
-            self._make_block(hidden_channels * 2, in_channels),
-        ])
+        self.decoder = nn.ModuleList(
+            [
+                self._make_block(hidden_channels * 8, hidden_channels * 2),
+                self._make_block(hidden_channels * 4, hidden_channels),
+                self._make_block(hidden_channels * 2, in_channels),
+            ]
+        )
 
         # Time embedding
         self.time_mlp = nn.Sequential(
@@ -74,11 +78,7 @@ class ContinualDiffusion(nn.Module):
             nn.SiLU(),
         )
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        t: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
         Predict noise at timestep t.
 
@@ -111,8 +111,8 @@ class ContinualDiffusion(nn.Module):
 
         # Decoder with skip connections
         for i, decoder in enumerate(self.decoder):
-            h = F.interpolate(h, scale_factor=2, mode='nearest')
-            h = torch.cat([h, enc_features[-(i+1)]], dim=1)
+            h = F.interpolate(h, scale_factor=2, mode="nearest")
+            h = torch.cat([h, enc_features[-(i + 1)]], dim=1)
             h = decoder(h)
 
         return h
@@ -154,14 +154,16 @@ class GradientProjection:
         for prev_grad in self.task_gradients:
             similarity = torch.dot(current_grad, prev_grad)
             if similarity < 0:  # Only project if gradients conflict
-                current_grad = current_grad - similarity * prev_grad / (prev_grad.norm() ** 2 + 1e-8)
+                current_grad = current_grad - similarity * prev_grad / (
+                    prev_grad.norm() ** 2 + 1e-8
+                )
 
         # Update model gradients
         idx = 0
         for param in model.parameters():
             if param.grad is not None:
                 param_size = param.grad.numel()
-                param.grad.copy_(current_grad[idx:idx + param_size].view_as(param.grad))
+                param.grad.copy_(current_grad[idx : idx + param_size].view_as(param.grad))
                 idx += param_size
 
 
@@ -240,7 +242,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
         use_gradient_projection: bool = True,
         device: str = "cuda",
         random_state: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = backbone
@@ -276,11 +278,13 @@ class VisionOneForMore(BaseVisionDeepDetector):
     def _build_feature_extractor(self):
         """Build feature extractor."""
         if self.backbone == "wide_resnet50":
-            from torchvision.models import wide_resnet50_2, Wide_ResNet50_2_Weights
+            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
+
             weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
             resnet = wide_resnet50_2(weights=weights)
         elif self.backbone == "resnet18":
-            from torchvision.models import resnet18, ResNet18_Weights
+            from torchvision.models import ResNet18_Weights, resnet18
+
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
@@ -302,11 +306,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         return extractor
 
-    def _add_noise(
-        self,
-        x: torch.Tensor,
-        t: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _add_noise(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Add noise to clean images."""
         noise = torch.randn_like(x)
 
@@ -316,11 +316,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
         noisy_x = alpha_t.sqrt() * x + (1 - alpha_t).sqrt() * noise
         return noisy_x, noise
 
-    def fit(
-        self,
-        X: NDArray,
-        y: Optional[NDArray] = None
-    ) -> "VisionOneForMore":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionOneForMore":
         """
         Fit the One-for-More detector.
 
@@ -353,7 +349,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
             self.diffusion_model_ = ContinualDiffusion(
                 in_channels=in_channels,
                 hidden_channels=self.hidden_channels,
-                num_timesteps=self.num_timesteps
+                num_timesteps=self.num_timesteps,
             ).to(self.device)
 
         # Initialize gradient projection
@@ -362,17 +358,9 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         # Training
         dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.diffusion_model_.parameters(),
-            lr=self.learning_rate
-        )
+        optimizer = torch.optim.Adam(self.diffusion_model_.parameters(), lr=self.learning_rate)
 
         self.diffusion_model_.train()
 
@@ -387,12 +375,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
                     features = self.feature_extractor_(batch_images)
 
                 # Random timesteps
-                t = torch.randint(
-                    0,
-                    self.num_timesteps,
-                    (len(batch_images),),
-                    device=self.device
-                )
+                t = torch.randint(0, self.num_timesteps, (len(batch_images),), device=self.device)
 
                 # Add noise
                 noisy_features, noise = self._add_noise(features, t)
@@ -425,10 +408,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         return self
 
-    def predict(
-        self,
-        X: NDArray
-    ) -> NDArray:
+    def predict(self, X: NDArray) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -449,7 +429,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         with torch.no_grad():
             for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i:i + self.batch_size].to(self.device)
+                batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)

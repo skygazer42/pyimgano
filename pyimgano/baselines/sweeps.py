@@ -50,7 +50,9 @@ def _sweep_plan_from_mapping(obj: Mapping[str, Any]) -> SweepPlan:
             variants_by_entry[str(entry_name)] = ()
             continue
         if not isinstance(variants, (list, tuple)):
-            raise ValueError("Custom sweep JSON 'variants_by_entry' values must be lists of variants.")
+            raise ValueError(
+                "Custom sweep JSON 'variants_by_entry' values must be lists of variants."
+            )
 
         out: list[SweepVariant] = []
         for v in variants:
@@ -146,12 +148,24 @@ def _industrial_small() -> SweepPlan:
                 ),
             ),
             "industrial-structural-iforest": (
-                SweepVariant(name="max_size_256", override={"feature_extractor": {"kwargs": {"max_size": 256}}}),
-                SweepVariant(name="max_size_768", override={"feature_extractor": {"kwargs": {"max_size": 768}}}),
+                SweepVariant(
+                    name="max_size_256",
+                    override={"feature_extractor": {"kwargs": {"max_size": 256}}},
+                ),
+                SweepVariant(
+                    name="max_size_768",
+                    override={"feature_extractor": {"kwargs": {"max_size": 768}}},
+                ),
             ),
             "industrial-structural-mst": (
-                SweepVariant(name="max_size_256", override={"feature_extractor": {"kwargs": {"max_size": 256}}}),
-                SweepVariant(name="max_size_768", override={"feature_extractor": {"kwargs": {"max_size": 768}}}),
+                SweepVariant(
+                    name="max_size_256",
+                    override={"feature_extractor": {"kwargs": {"max_size": 256}}},
+                ),
+                SweepVariant(
+                    name="max_size_768",
+                    override={"feature_extractor": {"kwargs": {"max_size": 768}}},
+                ),
             ),
             # Pixel stats: sweep topk reducer.
             "industrial-pixel-mean-absdiff-map": (
@@ -334,7 +348,10 @@ def _industrial_deep_map_small() -> SweepPlan:
                 ),
                 SweepVariant(
                     name="core_iforest",
-                    override={"core_detector": "core_iforest", "core_kwargs": {"n_estimators": 200, "n_jobs": 1}},
+                    override={
+                        "core_detector": "core_iforest",
+                        "core_kwargs": {"n_estimators": 200, "n_jobs": 1},
+                    },
                     description="Swap core detector to IsolationForest (robust, slower).",
                 ),
             ),

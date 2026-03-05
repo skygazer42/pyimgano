@@ -70,9 +70,7 @@ class CoreMCD:
             )
 
         if self.support_fraction is not None and not (0.0 < float(self.support_fraction) <= 1.0):
-            raise ValueError(
-                f"support_fraction must be in (0, 1], got {self.support_fraction}"
-            )
+            raise ValueError(f"support_fraction must be in (0, 1], got {self.support_fraction}")
 
         self.estimator_ = MinCovDet(
             support_fraction=self.support_fraction,
@@ -81,9 +79,9 @@ class CoreMCD:
         )
         self.estimator_.fit(X)
 
-        self.decision_scores_ = (
-            np.asarray(self.estimator_.mahalanobis(X), dtype=np.float64).reshape(-1)
-        )
+        self.decision_scores_ = np.asarray(
+            self.estimator_.mahalanobis(X), dtype=np.float64
+        ).reshape(-1)
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
@@ -92,9 +90,7 @@ class CoreMCD:
 
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if int(X.shape[1]) != int(self.n_features_in_):
-            raise ValueError(
-                f"Expected {self.n_features_in_} features, got {X.shape[1]}"
-            )
+            raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
 
         return np.asarray(self.estimator_.mahalanobis(X), dtype=np.float64).reshape(-1)
 

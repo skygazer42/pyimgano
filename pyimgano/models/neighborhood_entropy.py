@@ -151,4 +151,3 @@ class VisionNeighborhoodEntropy(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreNeighborhoodEntropy(**self._detector_kwargs)
-

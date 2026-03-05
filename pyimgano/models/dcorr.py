@@ -17,11 +17,11 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from ..utils.fitted import require_fitted
+from ..utils.random_state import check_random_state
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
-from ..utils.fitted import require_fitted
-from ..utils.random_state import check_random_state
 
 logger = logging.getLogger(__name__)
 

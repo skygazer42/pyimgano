@@ -14,7 +14,6 @@ from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_
 
 from .mvtec_visa import load_benchmark_split
 
-
 ScoreThresholdStrategy = Literal["train_quantile", "test_optimal_f1", "median"]
 
 
@@ -45,7 +44,9 @@ class RunConfig:
     manifest_test_normal_fraction: float = 0.2
 
 
-def list_dataset_categories(*, dataset: str, root: str, manifest_path: str | None = None) -> list[str]:
+def list_dataset_categories(
+    *, dataset: str, root: str, manifest_path: str | None = None
+) -> list[str]:
     """Compatibility wrapper for category discovery."""
 
     from pyimgano.datasets.catalog import list_dataset_categories as _list
@@ -105,7 +106,9 @@ def _calibrate_score_threshold(
 
     q, q_source = resolve_calibration_quantile(
         detector,
-        calibration_quantile=(float(calibration_quantile) if calibration_quantile is not None else None),
+        calibration_quantile=(
+            float(calibration_quantile) if calibration_quantile is not None else None
+        ),
     )
 
     scores = np.asarray(detector.decision_function(list(train_inputs)), dtype=np.float64)
@@ -173,7 +176,6 @@ def _merge_and_filter_model_kwargs(
     return out
 
 
-
 def run_benchmark_category(
     *,
     config: RunConfig,
@@ -224,7 +226,10 @@ def run_benchmark_category(
     pixel_skip_reason: str | None = None
     if config.input_mode == "paths":
         if str(config.dataset).lower() == "manifest":
-            from pyimgano.datasets.manifest import ManifestSplitPolicy, load_manifest_benchmark_split
+            from pyimgano.datasets.manifest import (
+                ManifestSplitPolicy,
+                load_manifest_benchmark_split,
+            )
 
             mp = str(config.manifest_path) if config.manifest_path is not None else str(config.root)
             root_fallback = str(config.root) if config.manifest_path is not None else None
@@ -281,13 +286,9 @@ def run_benchmark_category(
         test_data, test_labels, test_masks = ds.get_test_data()
         test_data_arr = np.asarray(test_data)
         train_inputs = [train_data[i] for i in range(int(train_data.shape[0]))]
-        test_inputs = [
-            test_data_arr[i] for i in range(int(test_data_arr.shape[0]))
-        ]
+        test_inputs = [test_data_arr[i] for i in range(int(test_data_arr.shape[0]))]
     else:
-        raise ValueError(
-            f"Unknown input_mode: {config.input_mode!r}. Choose from: paths, numpy."
-        )
+        raise ValueError(f"Unknown input_mode: {config.input_mode!r}. Choose from: paths, numpy.")
     timing["load_data_s"] = float(time.perf_counter() - load_start)
 
     if config.limit_train is not None:
@@ -547,14 +548,20 @@ def run_benchmark(
             resize=(int(resize[0]), int(resize[1])),
             model_kwargs=dict(model_kwargs or {}),
             cache_dir=(str(cache_dir) if cache_dir is not None else None),
-            load_detector_path=(str(load_detector_path) if load_detector_path is not None else None),
-            save_detector_path=(str(save_detector_path) if save_detector_path is not None else None),
+            load_detector_path=(
+                str(load_detector_path) if load_detector_path is not None else None
+            ),
+            save_detector_path=(
+                str(save_detector_path) if save_detector_path is not None else None
+            ),
             score_threshold_strategy=score_threshold_strategy,
             calibration_quantile=calibration_quantile,
             limit_train=limit_train,
             limit_test=limit_test,
             manifest_path=(str(manifest_path) if manifest_path is not None else None),
-            manifest_split_seed=(int(manifest_split_seed) if manifest_split_seed is not None else None),
+            manifest_split_seed=(
+                int(manifest_split_seed) if manifest_split_seed is not None else None
+            ),
             manifest_test_normal_fraction=float(manifest_test_normal_fraction),
         )
         return run_benchmark_category(
@@ -600,7 +607,9 @@ def run_benchmark(
             limit_train=limit_train,
             limit_test=limit_test,
             manifest_path=(str(manifest_path) if manifest_path is not None else None),
-            manifest_split_seed=(int(manifest_split_seed) if manifest_split_seed is not None else None),
+            manifest_split_seed=(
+                int(manifest_split_seed) if manifest_split_seed is not None else None
+            ),
             manifest_test_normal_fraction=float(manifest_test_normal_fraction),
         )
 

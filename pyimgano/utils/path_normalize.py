@@ -52,4 +52,3 @@ def normalize_path(value: str | Path) -> str:
         rest = rest.replace("//", "/")
 
     return prefix + rest
-

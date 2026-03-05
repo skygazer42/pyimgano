@@ -49,4 +49,3 @@ def test_synthetic_anomaly_dataset_can_disable_synthesis(tmp_path: Path) -> None
     item = ds[0]
     assert item.label == 0
     assert int(np.sum(item.mask_u8 > 0)) == 0
-

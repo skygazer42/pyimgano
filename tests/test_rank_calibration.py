@@ -20,4 +20,3 @@ def test_rank_calibrator_empirical_cdf_mapping() -> None:
     assert out.shape == (3,)
     assert out.dtype == np.float64
     assert out.tolist() == pytest.approx([0.25, 0.5, 1.0])
-

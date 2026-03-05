@@ -90,4 +90,3 @@ class VisionOddOneOut(BaseVisionDetector):
 
 
 __all__ = ["VisionOddOneOut"]
-

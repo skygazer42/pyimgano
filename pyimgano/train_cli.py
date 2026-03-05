@@ -331,16 +331,24 @@ def main(argv: list[str] | None = None) -> int:
 
         infer_config_payload: dict[str, Any] | None = None
         if bool(args.export_infer_config) or bool(args.export_deploy_bundle):
-            if bool(args.export_deploy_bundle) and bool(cfg.defects.enabled) and cfg.defects.pixel_threshold is None:
+            if (
+                bool(args.export_deploy_bundle)
+                and bool(cfg.defects.enabled)
+                and cfg.defects.pixel_threshold is None
+            ):
                 raise ValueError(
                     "--export-deploy-bundle with defects.enabled=true requires defects.pixel_threshold to be set.\n"
                     "Deploy bundles are intended to be self-contained for `pyimgano-infer --infer-config ... --defects`."
                 )
             if not bool(cfg.output.save_run):
-                raise ValueError("--export-infer-config/--export-deploy-bundle require output.save_run=true.")
+                raise ValueError(
+                    "--export-infer-config/--export-deploy-bundle require output.save_run=true."
+                )
             run_dir_raw = report.get("run_dir", None)
             if run_dir_raw is None:
-                raise ValueError("--export-infer-config/--export-deploy-bundle require recipe output to include run_dir.")
+                raise ValueError(
+                    "--export-infer-config/--export-deploy-bundle require recipe output to include run_dir."
+                )
             run_dir = Path(str(run_dir_raw))
             infer_config_path = run_dir / "artifacts" / "infer_config.json"
 
@@ -351,12 +359,18 @@ def main(argv: list[str] | None = None) -> int:
 
         if bool(args.export_deploy_bundle):
             if infer_config_payload is None:
-                raise RuntimeError("Internal error: infer-config payload was not built for deploy bundle.")
+                raise RuntimeError(
+                    "Internal error: infer-config payload was not built for deploy bundle."
+                )
             run_dir_raw = report.get("run_dir", None)
             if run_dir_raw is None:
-                raise ValueError("--export-deploy-bundle requires recipe output to include run_dir.")
+                raise ValueError(
+                    "--export-deploy-bundle requires recipe output to include run_dir."
+                )
             run_dir = Path(str(run_dir_raw))
-            bundle_dir = _export_deploy_bundle(run_dir=run_dir, infer_config_payload=infer_config_payload)
+            bundle_dir = _export_deploy_bundle(
+                run_dir=run_dir, infer_config_payload=infer_config_payload
+            )
             report = dict(report)
             report["deploy_bundle_dir"] = str(bundle_dir)
 

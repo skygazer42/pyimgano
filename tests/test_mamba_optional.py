@@ -77,4 +77,3 @@ def test_fit_mambaad_raises_importerror_when_mamba_ssm_missing(monkeypatch):
     message = str(excinfo.value)
     assert "Optional dependency 'mamba_ssm'" in message
     assert "pip install 'pyimgano[mamba]'" in message
-

@@ -64,4 +64,3 @@ __all__ = [
     "ensure_anomaly_map_2d",
     "DeepIOState",
 ]
-

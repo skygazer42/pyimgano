@@ -1,6 +1,5 @@
-import json
-
 import importlib.util
+import json
 
 import numpy as np
 import pytest

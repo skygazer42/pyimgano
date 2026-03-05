@@ -66,12 +66,8 @@ def test_apply_geo_jitter_warps_mask_deterministically() -> None:
     mask = np.zeros((32, 32), dtype=np.uint8)
     mask[10:22, 10:22] = 1
 
-    out_img1, out_mask1 = apply_geo_jitter(
-        img, mask=mask, severity=4, rng=np.random.default_rng(0)
-    )
-    out_img2, out_mask2 = apply_geo_jitter(
-        img, mask=mask, severity=4, rng=np.random.default_rng(0)
-    )
+    out_img1, out_mask1 = apply_geo_jitter(img, mask=mask, severity=4, rng=np.random.default_rng(0))
+    out_img2, out_mask2 = apply_geo_jitter(img, mask=mask, severity=4, rng=np.random.default_rng(0))
 
     assert out_img1.shape == img.shape
     assert out_img1.dtype == np.uint8

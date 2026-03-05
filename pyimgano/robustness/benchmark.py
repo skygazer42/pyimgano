@@ -158,7 +158,9 @@ def _evaluate_condition(
     t0 = time.perf_counter()
     scores = _call_decision_function(detector, inputs)
     maps = None
-    if masks is not None and (hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map")):
+    if masks is not None and (
+        hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map")
+    ):
         raw = _extract_raw_maps(detector, inputs)
         maps = _align_maps_to_masks(raw, masks, postprocess=postprocess)
     t1 = time.perf_counter()
@@ -247,7 +249,11 @@ def run_robustness_benchmark(
 
     pixel_threshold = None
     if bool(pixel_segf1):
-        strategy = "normal_pixel_quantile" if pixel_threshold_strategy is None else str(pixel_threshold_strategy)
+        strategy = (
+            "normal_pixel_quantile"
+            if pixel_threshold_strategy is None
+            else str(pixel_threshold_strategy)
+        )
         if strategy != "normal_pixel_quantile":
             raise ValueError(
                 "Unsupported pixel_threshold_strategy. "

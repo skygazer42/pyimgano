@@ -20,4 +20,3 @@ def test_industrial_noise_ops_smoke() -> None:
     out3 = dust_specks(img, severity=4, rng=np.random.default_rng(2))
     assert out3.shape == img.shape
     assert out3.dtype == np.uint8
-

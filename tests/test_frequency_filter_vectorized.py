@@ -23,4 +23,3 @@ def test_frequency_filter_preserves_shape_and_dtype(filter_type: str) -> None:
     assert out.shape == img.shape
     assert out.dtype == np.uint8
     assert np.isfinite(out.astype(np.float32)).all()
-

@@ -72,9 +72,9 @@ def test_build_model_kwargs_does_not_override_user_values():
 
 
 def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
-    import pyimgano.cli as cli
-
     import importlib
+
+    import pyimgano.cli as cli
 
     pipeline = importlib.import_module("pyimgano.pipelines.run_benchmark")
 
@@ -110,9 +110,9 @@ def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
 
 
 def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
-    import pyimgano.cli as cli
-
     import importlib
+
+    import pyimgano.cli as cli
 
     pipeline = importlib.import_module("pyimgano.pipelines.run_benchmark")
 
@@ -274,9 +274,9 @@ def test_build_model_kwargs_user_overrides_preset_values():
 
 
 def test_cli_applies_preset_for_patchcore(monkeypatch):
-    import pyimgano.cli as cli
-
     import importlib
+
+    import pyimgano.cli as cli
 
     pipeline = importlib.import_module("pyimgano.pipelines.run_benchmark")
 

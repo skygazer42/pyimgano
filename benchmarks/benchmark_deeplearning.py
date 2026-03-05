@@ -19,17 +19,17 @@ import time
 import warnings
 from typing import List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
-import matplotlib.pyplot as plt
 
 # Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pyimgano.models import create_model
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class BenchmarkResult:
@@ -48,18 +48,20 @@ class BenchmarkResult:
     def __repr__(self):
         if self.error:
             return f"{self.algorithm_name}: ERROR - {self.error}"
-        return (f"{self.algorithm_name}: "
-                f"Train={self.total_train_time:.1f}s ({self.train_time_per_epoch:.2f}s/epoch), "
-                f"Inference={self.inference_time*1000:.2f}ms/img, "
-                f"Model={self.model_size_mb:.1f}MB, "
-                f"AUC-ROC={self.auc_roc:.4f}")
+        return (
+            f"{self.algorithm_name}: "
+            f"Train={self.total_train_time:.1f}s ({self.train_time_per_epoch:.2f}s/epoch), "
+            f"Inference={self.inference_time*1000:.2f}ms/img, "
+            f"Model={self.model_size_mb:.1f}MB, "
+            f"AUC-ROC={self.auc_roc:.4f}"
+        )
 
 
 def generate_image_data(
     n_normal: int = 500,
     n_anomaly: int = 50,
     image_size: Tuple[int, int] = (64, 64),
-    random_state: int = 42
+    random_state: int = 42,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Generate synthetic image data for benchmarking."""
     np.random.seed(random_state)
@@ -83,14 +85,11 @@ def generate_image_data(
         anomaly_images.append(img)
 
     # Prepare train/test splits
-    X_train = np.array(normal_images[:int(0.8*n_normal)])
+    X_train = np.array(normal_images[: int(0.8 * n_normal)])
     y_train = np.zeros(len(X_train))
 
-    X_test = np.array(normal_images[int(0.8*n_normal):] + anomaly_images)
-    y_test = np.hstack([
-        np.zeros(n_normal - int(0.8*n_normal)),
-        np.ones(n_anomaly)
-    ])
+    X_test = np.array(normal_images[int(0.8 * n_normal) :] + anomaly_images)
+    y_test = np.hstack([np.zeros(n_normal - int(0.8 * n_normal)), np.ones(n_anomaly)])
 
     return X_train, y_train, X_test, y_test
 
@@ -110,7 +109,7 @@ def benchmark_algorithm(
     X_test: np.ndarray,
     y_test: np.ndarray,
     algorithm_name: str,
-    epochs: int = 10
+    epochs: int = 10,
 ) -> BenchmarkResult:
     """Benchmark a single deep learning algorithm."""
     result = BenchmarkResult(algorithm_name)
@@ -119,6 +118,7 @@ def benchmark_algorithm(
         # Initialize detector
         detector_kwargs = dict(detector_params)
         if model_name.startswith("vision_"):
+
             class IdentityExtractor:
                 def extract(self, X):
                     return np.asarray(X)
@@ -170,15 +170,12 @@ def benchmark_algorithm(
 
 
 def benchmark_autoencoder(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark Autoencoder-based methods."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmarking Autoencoder Methods")
-    print("="*60)
+    print("=" * 60)
 
     results = []
     input_dim = np.prod(X_train.shape[1:])
@@ -188,18 +185,21 @@ def benchmark_autoencoder(
     result = benchmark_algorithm(
         "core_deep_svdd",
         {
-            'contamination': 0.1,
-            'n_features': input_dim,
-            'use_autoencoder': True,
-            'epochs': 10,
-            'batch_size': 32,
-            'lr': 0.001,
-            'hidden_neurons': [128, 64, 32],
-            'verbose': 0,
+            "contamination": 0.1,
+            "n_features": input_dim,
+            "use_autoencoder": True,
+            "epochs": 10,
+            "batch_size": 32,
+            "lr": 0.001,
+            "hidden_neurons": [128, 64, 32],
+            "verbose": 0,
         },
-        X_train, y_train, X_test, y_test,
+        X_train,
+        y_train,
+        X_test,
+        y_test,
         "DeepSVDD (AE mode)",
-        epochs=10
+        epochs=10,
     )
     results.append(result)
     print(f"   {result}")
@@ -208,15 +208,12 @@ def benchmark_autoencoder(
 
 
 def benchmark_deep_svdd(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark Deep SVDD method."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmarking Deep SVDD")
-    print("="*60)
+    print("=" * 60)
 
     results = []
     input_dim = np.prod(X_train.shape[1:])
@@ -225,16 +222,19 @@ def benchmark_deep_svdd(
     result = benchmark_algorithm(
         "core_deep_svdd",
         {
-            'n_features': input_dim,
-            'hidden_neurons': [128, 64, 32],
-            'epochs': 10,
-            'batch_size': 32,
-            'verbose': 0,
-            'contamination': 0.1,
+            "n_features": input_dim,
+            "hidden_neurons": [128, 64, 32],
+            "epochs": 10,
+            "batch_size": 32,
+            "verbose": 0,
+            "contamination": 0.1,
         },
-        X_train, y_train, X_test, y_test,
+        X_train,
+        y_train,
+        X_test,
+        y_test,
         "Deep SVDD",
-        epochs=10
+        epochs=10,
     )
     results.append(result)
     print(f"   {result}")
@@ -243,8 +243,7 @@ def benchmark_deep_svdd(
 
 
 def plot_benchmark_results(
-    all_results: List[BenchmarkResult],
-    output_path: str = "benchmark_deeplearning_results.png"
+    all_results: List[BenchmarkResult], output_path: str = "benchmark_deeplearning_results.png"
 ):
     """Plot benchmark results."""
     # Filter out error results
@@ -262,61 +261,64 @@ def plot_benchmark_results(
 
     # Create subplots
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('Deep Learning Algorithms Benchmark Results', fontsize=16)
+    fig.suptitle("Deep Learning Algorithms Benchmark Results", fontsize=16)
 
     # Training time per epoch
-    axes[0, 0].barh(algorithms, train_times, color='skyblue')
-    axes[0, 0].set_xlabel('Training Time per Epoch (seconds)')
-    axes[0, 0].set_title('Training Time Comparison')
-    axes[0, 0].grid(axis='x', alpha=0.3)
+    axes[0, 0].barh(algorithms, train_times, color="skyblue")
+    axes[0, 0].set_xlabel("Training Time per Epoch (seconds)")
+    axes[0, 0].set_title("Training Time Comparison")
+    axes[0, 0].grid(axis="x", alpha=0.3)
 
     # Inference time
-    axes[0, 1].barh(algorithms, inference_times, color='lightgreen')
-    axes[0, 1].set_xlabel('Inference Time (ms per image)')
-    axes[0, 1].set_title('Inference Time Comparison')
-    axes[0, 1].grid(axis='x', alpha=0.3)
+    axes[0, 1].barh(algorithms, inference_times, color="lightgreen")
+    axes[0, 1].set_xlabel("Inference Time (ms per image)")
+    axes[0, 1].set_title("Inference Time Comparison")
+    axes[0, 1].grid(axis="x", alpha=0.3)
 
     # Model size
-    axes[1, 0].barh(algorithms, model_sizes, color='lightcoral')
-    axes[1, 0].set_xlabel('Model Size (MB)')
-    axes[1, 0].set_title('Model Size Comparison')
-    axes[1, 0].grid(axis='x', alpha=0.3)
+    axes[1, 0].barh(algorithms, model_sizes, color="lightcoral")
+    axes[1, 0].set_xlabel("Model Size (MB)")
+    axes[1, 0].set_title("Model Size Comparison")
+    axes[1, 0].grid(axis="x", alpha=0.3)
 
     # AUC-ROC
-    axes[1, 1].barh(algorithms, auc_rocs, color='plum')
-    axes[1, 1].set_xlabel('AUC-ROC Score')
-    axes[1, 1].set_title('Detection Accuracy Comparison')
+    axes[1, 1].barh(algorithms, auc_rocs, color="plum")
+    axes[1, 1].set_xlabel("AUC-ROC Score")
+    axes[1, 1].set_title("Detection Accuracy Comparison")
     axes[1, 1].set_xlim([0, 1])
-    axes[1, 1].grid(axis='x', alpha=0.3)
+    axes[1, 1].grid(axis="x", alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     print(f"\nBenchmark plot saved to {output_path}")
 
 
 def save_results_csv(
-    all_results: List[BenchmarkResult],
-    output_path: str = "benchmark_deeplearning_results.csv"
+    all_results: List[BenchmarkResult], output_path: str = "benchmark_deeplearning_results.csv"
 ):
     """Save benchmark results to CSV."""
-    with open(output_path, 'w') as f:
-        f.write("Algorithm,Train_Time_Per_Epoch(s),Total_Train_Time(s),"
-               "Inference_Time(s),Model_Size(MB),AUC_ROC,Error\n")
+    with open(output_path, "w") as f:
+        f.write(
+            "Algorithm,Train_Time_Per_Epoch(s),Total_Train_Time(s),"
+            "Inference_Time(s),Model_Size(MB),AUC_ROC,Error\n"
+        )
         for result in all_results:
             if result.error:
                 f.write(f"{result.algorithm_name},,,,,,{result.error}\n")
             else:
-                f.write(f"{result.algorithm_name},{result.train_time_per_epoch:.4f},"
-                       f"{result.total_train_time:.2f},{result.inference_time:.6f},"
-                       f"{result.model_size_mb:.2f},{result.auc_roc:.4f},\n")
+                f.write(
+                    f"{result.algorithm_name},{result.train_time_per_epoch:.4f},"
+                    f"{result.total_train_time:.2f},{result.inference_time:.6f},"
+                    f"{result.model_size_mb:.2f},{result.auc_roc:.4f},\n"
+                )
     print(f"Results saved to {output_path}")
 
 
 def main():
     """Run all deep learning algorithm benchmarks."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PyImgAno Deep Learning Algorithms Benchmark")
-    print("="*60)
+    print("=" * 60)
 
     # Check device
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -325,9 +327,7 @@ def main():
     # Generate synthetic image data
     print("\nGenerating synthetic image dataset...")
     X_train, y_train, X_test, y_test = generate_image_data(
-        n_normal=500,
-        n_anomaly=50,
-        image_size=(64, 64)
+        n_normal=500, n_anomaly=50, image_size=(64, 64)
     )
     print(f"Training set: {X_train.shape[0]} samples, shape: {X_train.shape}")
     print(f"Test set: {X_test.shape[0]} samples ({np.sum(y_test)} anomalies)")
@@ -343,9 +343,9 @@ def main():
     all_results.extend(benchmark_deep_svdd(X_train_flat, y_train, X_test_flat, y_test))
 
     # Print summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark Summary")
-    print("="*60)
+    print("=" * 60)
 
     valid_results = [r for r in all_results if r.error is None]
     if valid_results:
@@ -355,21 +355,27 @@ def main():
         best_size = min(valid_results, key=lambda r: r.model_size_mb)
         best_accuracy = max(valid_results, key=lambda r: r.auc_roc)
 
-        print(f"\n🏆 Fastest Training: {best_train.algorithm_name} "
-              f"({best_train.train_time_per_epoch:.2f}s/epoch)")
-        print(f"🏆 Fastest Inference: {best_inference.algorithm_name} "
-              f"({best_inference.inference_time*1000:.2f}ms)")
+        print(
+            f"\n🏆 Fastest Training: {best_train.algorithm_name} "
+            f"({best_train.train_time_per_epoch:.2f}s/epoch)"
+        )
+        print(
+            f"🏆 Fastest Inference: {best_inference.algorithm_name} "
+            f"({best_inference.inference_time*1000:.2f}ms)"
+        )
         print(f"🏆 Smallest Model: {best_size.algorithm_name} ({best_size.model_size_mb:.1f}MB)")
-        print(f"🏆 Best Accuracy: {best_accuracy.algorithm_name} "
-              f"(AUC-ROC: {best_accuracy.auc_roc:.4f})")
+        print(
+            f"🏆 Best Accuracy: {best_accuracy.algorithm_name} "
+            f"(AUC-ROC: {best_accuracy.auc_roc:.4f})"
+        )
 
     # Save results
     save_results_csv(all_results)
     plot_benchmark_results(all_results)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark completed!")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":

@@ -44,8 +44,12 @@ def apply_slight_warp(
 
     angle = float(rng.uniform(-abs(float(max_rotate_deg)), abs(float(max_rotate_deg))))
     scale = 1.0 + float(rng.uniform(-abs(float(max_scale_delta)), abs(float(max_scale_delta))))
-    tx = float(rng.uniform(-abs(float(max_translate_frac)), abs(float(max_translate_frac)))) * float(w)
-    ty = float(rng.uniform(-abs(float(max_translate_frac)), abs(float(max_translate_frac)))) * float(h)
+    tx = float(
+        rng.uniform(-abs(float(max_translate_frac)), abs(float(max_translate_frac)))
+    ) * float(w)
+    ty = float(
+        rng.uniform(-abs(float(max_translate_frac)), abs(float(max_translate_frac)))
+    ) * float(h)
 
     center = (float(w - 1) * 0.5, float(h - 1) * 0.5)
     m = cv2.getRotationMatrix2D(center, angle, scale).astype(np.float32)

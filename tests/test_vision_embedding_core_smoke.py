@@ -24,4 +24,3 @@ def test_vision_embedding_core_smoke_on_vectors() -> None:
     assert preds.shape == (10,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

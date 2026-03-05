@@ -29,4 +29,3 @@ def test_train_cli_recipe_info_outputs_json(capsys):
     out = capsys.readouterr().out
     parsed = json.loads(out)
     assert parsed["name"] == "industrial-adapt"
-

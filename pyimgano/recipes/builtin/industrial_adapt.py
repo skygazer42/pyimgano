@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from pyimgano.recipes.registry import register_recipe
-from pyimgano.workbench.runner import run_workbench
 from pyimgano.workbench.config import WorkbenchConfig
+from pyimgano.workbench.runner import run_workbench
 
 
 @register_recipe(

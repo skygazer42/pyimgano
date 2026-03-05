@@ -19,20 +19,20 @@ Metrics measured:
 import os
 import sys
 import time
-import psutil
 import warnings
 from typing import Dict, List, Tuple
 
-import numpy as np
-from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
+import numpy as np
+import psutil
+from sklearn.metrics import roc_auc_score
 
 # Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pyimgano.models import create_model
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class BenchmarkResult:
@@ -49,18 +49,17 @@ class BenchmarkResult:
     def __repr__(self):
         if self.error:
             return f"{self.algorithm_name}: ERROR - {self.error}"
-        return (f"{self.algorithm_name}: "
-                f"Train={self.train_time:.3f}s, "
-                f"Inference={self.inference_time:.4f}s/img, "
-                f"Memory={self.memory_usage:.1f}MB, "
-                f"AUC-ROC={self.auc_roc:.4f}")
+        return (
+            f"{self.algorithm_name}: "
+            f"Train={self.train_time:.3f}s, "
+            f"Inference={self.inference_time:.4f}s/img, "
+            f"Memory={self.memory_usage:.1f}MB, "
+            f"AUC-ROC={self.auc_roc:.4f}"
+        )
 
 
 def generate_synthetic_data(
-    n_normal: int = 1000,
-    n_anomaly: int = 100,
-    n_features: int = 100,
-    random_state: int = 42
+    n_normal: int = 1000, n_anomaly: int = 100, n_features: int = 100, random_state: int = 42
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Generate synthetic anomaly detection dataset."""
     np.random.seed(random_state)
@@ -76,8 +75,8 @@ def generate_synthetic_data(
     X_train = normal_data
     y_train = np.zeros(n_normal)
 
-    X_test = np.vstack([normal_data[:n_normal//5], anomaly_data])
-    y_test = np.hstack([np.zeros(n_normal//5), np.ones(n_anomaly)])
+    X_test = np.vstack([normal_data[: n_normal // 5], anomaly_data])
+    y_test = np.hstack([np.zeros(n_normal // 5), np.ones(n_anomaly)])
 
     return X_train, y_train, X_test, y_test
 
@@ -95,12 +94,13 @@ def benchmark_algorithm(
     y_train: np.ndarray,
     X_test: np.ndarray,
     y_test: np.ndarray,
-    algorithm_name: str
+    algorithm_name: str,
 ) -> BenchmarkResult:
     """Benchmark a single algorithm."""
     result = BenchmarkResult(algorithm_name)
 
     try:
+
         class IdentityExtractor:
             def extract(self, X):
                 return np.asarray(X)
@@ -144,37 +144,24 @@ def benchmark_algorithm(
 
 
 def benchmark_statistical_methods(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark statistical anomaly detection methods."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmarking Statistical Methods")
-    print("="*60)
+    print("=" * 60)
 
     results = []
 
     # MAD Detector
     print("\n1. MAD Detector...")
-    result = benchmark_algorithm(
-        "vision_mad",
-        {},
-        X_train, y_train, X_test, y_test,
-        "MAD"
-    )
+    result = benchmark_algorithm("vision_mad", {}, X_train, y_train, X_test, y_test, "MAD")
     results.append(result)
     print(f"   {result}")
 
     # HBOS (Histogram-based Outlier Score)
     print("\n2. HBOS (Histogram-based Outlier Score)...")
-    result = benchmark_algorithm(
-        "vision_hbos",
-        {},
-        X_train, y_train, X_test, y_test,
-        "HBOS"
-    )
+    result = benchmark_algorithm("vision_hbos", {}, X_train, y_train, X_test, y_test, "HBOS")
     results.append(result)
     print(f"   {result}")
 
@@ -182,25 +169,19 @@ def benchmark_statistical_methods(
 
 
 def benchmark_distance_methods(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark distance-based anomaly detection methods."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmarking Distance-Based Methods")
-    print("="*60)
+    print("=" * 60)
 
     results = []
 
     # KNN Detector
     print("\n1. KNN Detector (k=5)...")
     result = benchmark_algorithm(
-        "vision_knn",
-        {'n_neighbors': 5},
-        X_train, y_train, X_test, y_test,
-        "KNN"
+        "vision_knn", {"n_neighbors": 5}, X_train, y_train, X_test, y_test, "KNN"
     )
     results.append(result)
     print(f"   {result}")
@@ -208,10 +189,7 @@ def benchmark_distance_methods(
     # COF Detector
     print("\n2. COF Detector (k=20)...")
     result = benchmark_algorithm(
-        "vision_cof",
-        {'n_neighbors': 20},
-        X_train, y_train, X_test, y_test,
-        "COF"
+        "vision_cof", {"n_neighbors": 20}, X_train, y_train, X_test, y_test, "COF"
     )
     results.append(result)
     print(f"   {result}")
@@ -220,37 +198,24 @@ def benchmark_distance_methods(
 
 
 def benchmark_density_methods(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark density-based anomaly detection methods."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmarking Density-Based Methods")
-    print("="*60)
+    print("=" * 60)
 
     results = []
 
     # ECOD Detector
     print("\n1. ECOD Detector...")
-    result = benchmark_algorithm(
-        "vision_ecod",
-        {},
-        X_train, y_train, X_test, y_test,
-        "ECOD"
-    )
+    result = benchmark_algorithm("vision_ecod", {}, X_train, y_train, X_test, y_test, "ECOD")
     results.append(result)
     print(f"   {result}")
 
     # COPOD Detector
     print("\n2. COPOD Detector...")
-    result = benchmark_algorithm(
-        "vision_copod",
-        {},
-        X_train, y_train, X_test, y_test,
-        "COPOD"
-    )
+    result = benchmark_algorithm("vision_copod", {}, X_train, y_train, X_test, y_test, "COPOD")
     results.append(result)
     print(f"   {result}")
 
@@ -258,25 +223,19 @@ def benchmark_density_methods(
 
 
 def benchmark_isolation_methods(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark isolation-based anomaly detection methods."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmarking Isolation-Based Methods")
-    print("="*60)
+    print("=" * 60)
 
     results = []
 
     # Isolation Forest
     print("\n1. Isolation Forest (100 trees)...")
     result = benchmark_algorithm(
-        "vision_iforest",
-        {'n_estimators': 100},
-        X_train, y_train, X_test, y_test,
-        "IForest"
+        "vision_iforest", {"n_estimators": 100}, X_train, y_train, X_test, y_test, "IForest"
     )
     results.append(result)
     print(f"   {result}")
@@ -284,7 +243,9 @@ def benchmark_isolation_methods(
     return results
 
 
-def plot_benchmark_results(all_results: List[BenchmarkResult], output_path: str = "benchmark_classical_results.png"):
+def plot_benchmark_results(
+    all_results: List[BenchmarkResult], output_path: str = "benchmark_classical_results.png"
+):
     """Plot benchmark results."""
     # Filter out error results
     valid_results = [r for r in all_results if r.error is None]
@@ -301,64 +262,66 @@ def plot_benchmark_results(all_results: List[BenchmarkResult], output_path: str 
 
     # Create subplots
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('Classical Algorithms Benchmark Results', fontsize=16)
+    fig.suptitle("Classical Algorithms Benchmark Results", fontsize=16)
 
     # Training time
-    axes[0, 0].barh(algorithms, train_times, color='skyblue')
-    axes[0, 0].set_xlabel('Training Time (seconds)')
-    axes[0, 0].set_title('Training Time Comparison')
-    axes[0, 0].grid(axis='x', alpha=0.3)
+    axes[0, 0].barh(algorithms, train_times, color="skyblue")
+    axes[0, 0].set_xlabel("Training Time (seconds)")
+    axes[0, 0].set_title("Training Time Comparison")
+    axes[0, 0].grid(axis="x", alpha=0.3)
 
     # Inference time
-    axes[0, 1].barh(algorithms, inference_times, color='lightgreen')
-    axes[0, 1].set_xlabel('Inference Time (ms per image)')
-    axes[0, 1].set_title('Inference Time Comparison')
-    axes[0, 1].grid(axis='x', alpha=0.3)
+    axes[0, 1].barh(algorithms, inference_times, color="lightgreen")
+    axes[0, 1].set_xlabel("Inference Time (ms per image)")
+    axes[0, 1].set_title("Inference Time Comparison")
+    axes[0, 1].grid(axis="x", alpha=0.3)
 
     # Memory usage
-    axes[1, 0].barh(algorithms, memory_usages, color='lightcoral')
-    axes[1, 0].set_xlabel('Memory Usage (MB)')
-    axes[1, 0].set_title('Memory Usage Comparison')
-    axes[1, 0].grid(axis='x', alpha=0.3)
+    axes[1, 0].barh(algorithms, memory_usages, color="lightcoral")
+    axes[1, 0].set_xlabel("Memory Usage (MB)")
+    axes[1, 0].set_title("Memory Usage Comparison")
+    axes[1, 0].grid(axis="x", alpha=0.3)
 
     # AUC-ROC
-    axes[1, 1].barh(algorithms, auc_rocs, color='plum')
-    axes[1, 1].set_xlabel('AUC-ROC Score')
-    axes[1, 1].set_title('Detection Accuracy Comparison')
+    axes[1, 1].barh(algorithms, auc_rocs, color="plum")
+    axes[1, 1].set_xlabel("AUC-ROC Score")
+    axes[1, 1].set_title("Detection Accuracy Comparison")
     axes[1, 1].set_xlim([0, 1])
-    axes[1, 1].grid(axis='x', alpha=0.3)
+    axes[1, 1].grid(axis="x", alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     print(f"\nBenchmark plot saved to {output_path}")
 
 
-def save_results_csv(all_results: List[BenchmarkResult], output_path: str = "benchmark_classical_results.csv"):
+def save_results_csv(
+    all_results: List[BenchmarkResult], output_path: str = "benchmark_classical_results.csv"
+):
     """Save benchmark results to CSV."""
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("Algorithm,Train_Time(s),Inference_Time(s),Memory_Usage(MB),AUC_ROC,Error\n")
         for result in all_results:
             if result.error:
                 f.write(f"{result.algorithm_name},,,,,{result.error}\n")
             else:
-                f.write(f"{result.algorithm_name},{result.train_time:.4f},"
-                       f"{result.inference_time:.6f},{result.memory_usage:.2f},"
-                       f"{result.auc_roc:.4f},\n")
+                f.write(
+                    f"{result.algorithm_name},{result.train_time:.4f},"
+                    f"{result.inference_time:.6f},{result.memory_usage:.2f},"
+                    f"{result.auc_roc:.4f},\n"
+                )
     print(f"Results saved to {output_path}")
 
 
 def main():
     """Run all classical algorithm benchmarks."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PyImgAno Classical Algorithms Benchmark")
-    print("="*60)
+    print("=" * 60)
 
     # Generate synthetic data
     print("\nGenerating synthetic dataset...")
     X_train, y_train, X_test, y_test = generate_synthetic_data(
-        n_normal=1000,
-        n_anomaly=100,
-        n_features=100
+        n_normal=1000, n_anomaly=100, n_features=100
     )
     print(f"Training set: {X_train.shape[0]} samples")
     print(f"Test set: {X_test.shape[0]} samples ({np.sum(y_test)} anomalies)")
@@ -372,9 +335,9 @@ def main():
     all_results.extend(benchmark_isolation_methods(X_train, y_train, X_test, y_test))
 
     # Print summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark Summary")
-    print("="*60)
+    print("=" * 60)
 
     valid_results = [r for r in all_results if r.error is None]
     if valid_results:
@@ -385,17 +348,21 @@ def main():
         best_accuracy = max(valid_results, key=lambda r: r.auc_roc)
 
         print(f"\n🏆 Fastest Training: {best_train.algorithm_name} ({best_train.train_time:.3f}s)")
-        print(f"🏆 Fastest Inference: {best_inference.algorithm_name} ({best_inference.inference_time*1000:.2f}ms)")
+        print(
+            f"🏆 Fastest Inference: {best_inference.algorithm_name} ({best_inference.inference_time*1000:.2f}ms)"
+        )
         print(f"🏆 Lowest Memory: {best_memory.algorithm_name} ({best_memory.memory_usage:.1f}MB)")
-        print(f"🏆 Best Accuracy: {best_accuracy.algorithm_name} (AUC-ROC: {best_accuracy.auc_roc:.4f})")
+        print(
+            f"🏆 Best Accuracy: {best_accuracy.algorithm_name} (AUC-ROC: {best_accuracy.auc_roc:.4f})"
+        )
 
     # Save results
     save_results_csv(all_results)
     plot_benchmark_results(all_results)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark completed!")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":

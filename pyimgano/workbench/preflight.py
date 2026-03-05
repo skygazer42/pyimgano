@@ -8,7 +8,6 @@ import numpy as np
 
 from pyimgano.workbench.config import WorkbenchConfig
 
-
 IssueSeverity = Literal["error", "warning", "info"]
 
 
@@ -189,9 +188,7 @@ def _preflight_manifest(*, config: WorkbenchConfig, issues: list[PreflightIssue]
 
     policy = _manifest_split_policy_from_config(config=config)
 
-    records, raw_categories = _load_manifest_records_best_effort(
-        manifest_path=mp, issues=issues
-    )
+    records, raw_categories = _load_manifest_records_best_effort(manifest_path=mp, issues=issues)
     if not records:
         issues.append(
             _issue(
@@ -323,9 +320,7 @@ def _parse_manifest_json(text: str, *, lineno: int) -> Mapping[str, Any]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"Manifest line {lineno}: invalid JSON ({exc.msg}).") from exc
     if not isinstance(raw, Mapping):
-        raise ValueError(
-            f"Manifest line {lineno}: expected JSON object, got {type(raw).__name__}."
-        )
+        raise ValueError(f"Manifest line {lineno}: expected JSON object, got {type(raw).__name__}.")
     return raw
 
 
@@ -446,7 +441,11 @@ def _preflight_manifest_category(
                     "MANIFEST_GROUP_SPLIT_CONFLICT",
                     "error",
                     "Conflicting explicit split values within a group_id.",
-                    context={"category": str(category), "group_id": str(gid), "splits": sorted(splits)},
+                    context={
+                        "category": str(category),
+                        "group_id": str(gid),
+                        "splits": sorted(splits),
+                    },
                 )
             )
             continue
@@ -459,7 +458,11 @@ def _preflight_manifest_category(
                     "MANIFEST_GROUP_ANOMALY_IN_TRAIN",
                     "error",
                     "Group contains anomalies but is explicitly assigned to train/val.",
-                    context={"category": str(category), "group_id": str(gid), "split": str(explicit_split)},
+                    context={
+                        "category": str(category),
+                        "group_id": str(gid),
+                        "split": str(explicit_split),
+                    },
                 )
             )
 
@@ -552,7 +555,9 @@ def _preflight_manifest_category(
                     any_mask_path = True
 
         assigned_counts["calibration"] = (
-            int(assigned_counts["val"]) if int(assigned_counts["val"]) > 0 else int(assigned_counts["train"])
+            int(assigned_counts["val"])
+            if int(assigned_counts["val"]) > 0
+            else int(assigned_counts["train"])
         )
 
         mask_coverage = {
@@ -560,7 +565,9 @@ def _preflight_manifest_category(
             "anomaly_test_with_mask_path": int(anomaly_test_with_mask_path),
             "anomaly_test_mask_exists": int(anomaly_test_mask_exists),
             "fraction_with_mask_path": (
-                float(anomaly_test_with_mask_path / anomaly_test_total) if anomaly_test_total else None
+                float(anomaly_test_with_mask_path / anomaly_test_total)
+                if anomaly_test_total
+                else None
             ),
             "fraction_mask_exists": (
                 float(anomaly_test_mask_exists / anomaly_test_total) if anomaly_test_total else None
@@ -589,7 +596,9 @@ def _preflight_manifest_category(
     }
 
 
-def _preflight_non_manifest(*, config: WorkbenchConfig, issues: list[PreflightIssue]) -> dict[str, Any]:
+def _preflight_non_manifest(
+    *, config: WorkbenchConfig, issues: list[PreflightIssue]
+) -> dict[str, Any]:
     from pyimgano.datasets.catalog import list_dataset_categories
 
     dataset = str(config.dataset.name)

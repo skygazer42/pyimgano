@@ -81,7 +81,9 @@ class LBPExtractor(BaseFeatureExtractor):
 
             lbp = local_binary_pattern(gray, P=self.n_points, R=self.radius, method=self.method)
             if lbp.dtype.kind == "f":
-                hist, _ = np.histogram(lbp.ravel(), bins=bins, range=(float(lbp.min()), float(lbp.max()) + 1e-6))
+                hist, _ = np.histogram(
+                    lbp.ravel(), bins=bins, range=(float(lbp.min()), float(lbp.max()) + 1e-6)
+                )
             else:
                 hist, _ = np.histogram(lbp.ravel(), bins=bins, range=(0, bins))
             hist = hist.astype(np.float32)

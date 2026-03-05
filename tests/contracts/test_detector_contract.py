@@ -14,7 +14,6 @@ def _write_png(path, *, value: int = 128) -> None:
 def test_detector_contract_fit_score_predict(tmp_path, model_name: str) -> None:
     # Import model implementations for side effects (registry population).
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.registry import create_model
 
     root = tmp_path / "ds"

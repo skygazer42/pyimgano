@@ -70,6 +70,10 @@ def test_e2e_tiling_defects_smoke(tmp_path: Path) -> None:
     )
     assert rc == 0
 
-    records = [json.loads(line) for line in out_jsonl.read_text(encoding="utf-8").splitlines() if line.strip()]
+    records = [
+        json.loads(line)
+        for line in out_jsonl.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert records
     assert any(r.get("defects", {}).get("regions") for r in records)

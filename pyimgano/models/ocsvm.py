@@ -100,9 +100,7 @@ class CoreOCSVM:
 
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if int(X.shape[1]) != int(self.n_features_in_):
-            raise ValueError(
-                f"Expected {self.n_features_in_} features, got {X.shape[1]}"
-            )
+            raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
 
         if self.preprocessing and self.scaler_ is not None:
             X_eval = self.scaler_.transform(X)
@@ -110,7 +108,9 @@ class CoreOCSVM:
             X_eval = X
 
         # sklearn: positive => inlier. We flip the sign.
-        scores = -np.asarray(self.estimator_.decision_function(X_eval), dtype=np.float64).reshape(-1)
+        scores = -np.asarray(self.estimator_.decision_function(X_eval), dtype=np.float64).reshape(
+            -1
+        )
         return scores
 
 

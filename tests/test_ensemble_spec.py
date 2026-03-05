@@ -29,4 +29,3 @@ def test_resolve_model_spec_instance_passthrough() -> None:
     base = create_model("core_knn", contamination=0.1, n_neighbors=5)
     det = resolve_model_spec(base, default_contamination=0.2)
     assert det is base
-

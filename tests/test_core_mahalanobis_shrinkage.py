@@ -19,4 +19,3 @@ def test_core_mahalanobis_shrinkage_smoke() -> None:
     assert preds.shape == (11,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
-

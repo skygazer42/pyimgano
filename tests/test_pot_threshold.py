@@ -21,4 +21,3 @@ def test_fit_pot_threshold_falls_back_when_tail_too_small() -> None:
     assert info["method"] == "quantile_fallback"
     # Fallback quantile for alpha=0.2 => 80th percentile => 3.2
     assert thr == np.quantile(scores, 0.8)
-

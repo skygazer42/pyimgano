@@ -21,8 +21,18 @@ def test_synthesize_cli_from_manifest_appends_anomalies(tmp_path: Path) -> None:
 
     in_manifest = tmp_path / "in_manifest.jsonl"
     lines = [
-        {"image_path": str((src / "a.png").resolve()), "category": "c1", "split": "train", "label": 0},
-        {"image_path": str((src / "b.png").resolve()), "category": "c1", "split": "train", "label": 0},
+        {
+            "image_path": str((src / "a.png").resolve()),
+            "category": "c1",
+            "split": "train",
+            "label": 0,
+        },
+        {
+            "image_path": str((src / "b.png").resolve()),
+            "category": "c1",
+            "split": "train",
+            "label": 0,
+        },
     ]
     in_manifest.write_text("\n".join(json.dumps(x) for x in lines) + "\n", encoding="utf-8")
 
@@ -52,7 +62,11 @@ def test_synthesize_cli_from_manifest_appends_anomalies(tmp_path: Path) -> None:
     assert code == 0
     assert out_manifest.exists()
 
-    rows = [json.loads(line) for line in out_manifest.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line)
+        for line in out_manifest.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert rows
 
     synth = [r for r in rows if r.get("label") == 1]
@@ -61,4 +75,3 @@ def test_synthesize_cli_from_manifest_appends_anomalies(tmp_path: Path) -> None:
     for r in synth:
         assert Path(r["image_path"]).exists()
         assert Path(r["mask_path"]).exists()
-

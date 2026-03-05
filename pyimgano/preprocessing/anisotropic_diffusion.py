@@ -74,9 +74,9 @@ def anisotropic_diffusion(
     for _ in range(iters):
         # Directional gradients (4-neighborhood).
         nabla_n = np.roll(img, -1, axis=0) - img  # north
-        nabla_s = np.roll(img, 1, axis=0) - img   # south
+        nabla_s = np.roll(img, 1, axis=0) - img  # south
         nabla_e = np.roll(img, -1, axis=1) - img  # east
-        nabla_w = np.roll(img, 1, axis=1) - img   # west
+        nabla_w = np.roll(img, 1, axis=1) - img  # west
 
         if opt == 1:
             c_n = np.exp(-((nabla_n / k) ** 2))
@@ -92,4 +92,3 @@ def anisotropic_diffusion(
         img = img + g * (c_n * nabla_n + c_s * nabla_s + c_e * nabla_e + c_w * nabla_w)
 
     return np.clip(img, 0.0, 255.0).astype(np.uint8)
-

@@ -22,4 +22,3 @@ def test_pickle_rejects_non_classical_detector(tmp_path) -> None:
 
     with pytest.raises(TypeError):
         save_detector(tmp_path / "x.pkl", object())
-

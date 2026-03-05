@@ -42,4 +42,3 @@ def test_corruptions_dataset_smoke_synthesis_preset(tmp_path: Path) -> None:
     assert item.mask_u8 is not None
     assert item.mask_u8.shape == (32, 32)
     assert item.mask_u8.dtype == np.uint8
-

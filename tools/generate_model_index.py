@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = ROOT / "pyimgano" / "models"
 OUT_PATH = ROOT / "docs" / "MODEL_INDEX.md"
@@ -181,12 +180,14 @@ def _render_markdown(regs: list[Registration]) -> str:
     lines.append("")
     lines.append("```python")
     lines.append("from pyimgano.models import list_models")
-    lines.append("print(list_models(tags=[\"pixel_map\"])[:10])")
+    lines.append('print(list_models(tags=["pixel_map"])[:10])')
     lines.append("```")
     lines.append("")
     lines.append("## Adding your own model")
     lines.append("")
-    lines.append("Register models via `@register_model(...)` and implement the detector contract (`fit`, `decision_function`).")
+    lines.append(
+        "Register models via `@register_model(...)` and implement the detector contract (`fit`, `decision_function`)."
+    )
     lines.append("See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.")
     lines.append("")
     lines.append("| Name | Tags | Year | Backend | Description | Module |")

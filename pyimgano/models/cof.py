@@ -143,7 +143,11 @@ class CoreCOF:
             acd = self._ac_dist_for_point(
                 chain_order=order,
                 dist_to_query=dist_q[i],
-                dist_train=self._dist_train if self._dist_train is not None else distance_matrix(self.X_train_, self.X_train_),
+                dist_train=(
+                    self._dist_train
+                    if self._dist_train is not None
+                    else distance_matrix(self.X_train_, self.X_train_)
+                ),
                 k=k,
             )
             denom = float(np.sum(self._ac_dist_train[order]))

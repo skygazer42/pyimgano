@@ -18,4 +18,3 @@ def test_get_activation_by_name_rejects_unknown() -> None:
 
     with pytest.raises(ValueError, match="Unknown activation"):
         get_activation_by_name("__does_not_exist__")
-

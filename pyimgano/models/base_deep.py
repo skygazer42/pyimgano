@@ -129,8 +129,8 @@ class BaseDeepLearningDetector(BaseDetector):
     @staticmethod
     def _set_seed(seed: int) -> None:
         torch = _require_torch()
-        import random
         import os
+        import random
 
         os.environ["PYTHONHASHSEED"] = str(int(seed))
         random.seed(int(seed))

@@ -9,7 +9,6 @@ import numpy as np
 from pyimgano.postprocess.connected_components import filter_small_components
 from pyimgano.postprocess.morphology import close_float01, open_float01
 
-
 _NormalizeMethod = Literal["minmax", "percentile", "none"]
 
 
@@ -56,7 +55,11 @@ class AnomalyMapPostprocess:
         if self.morph_close_ksize and self.morph_close_ksize > 0:
             processed = close_float01(processed, ksize=int(self.morph_close_ksize))
 
-        if self.component_threshold is not None and self.min_component_area and self.min_component_area > 0:
+        if (
+            self.component_threshold is not None
+            and self.min_component_area
+            and self.min_component_area > 0
+        ):
             processed, _comps = filter_small_components(
                 processed,
                 threshold=float(self.component_threshold),

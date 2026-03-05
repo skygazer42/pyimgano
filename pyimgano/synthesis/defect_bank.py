@@ -21,7 +21,6 @@ import numpy as np
 from .masks import ensure_u8_mask
 from .presets import PresetFn, PresetResult
 
-
 SUPPORTED_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
 
 
@@ -151,7 +150,9 @@ def _load_defect_item_u8(
     meta: dict[str, object] = {
         "item_path": str(item.image_path),
         "mask_path": (None if item.mask_path is None else str(item.mask_path)),
-        "has_alpha_mask": bool(item.mask_path is None and img_raw.ndim == 3 and img_raw.shape[2] == 4),
+        "has_alpha_mask": bool(
+            item.mask_path is None and img_raw.ndim == 3 and img_raw.shape[2] == 4
+        ),
     }
     return img_u8, mask_u8, alpha_mask_u8, meta
 
@@ -197,7 +198,9 @@ def make_defect_bank_preset(
         if meta_crop.get("skipped"):
             empty = np.zeros((h, w), dtype=np.uint8)
             meta = {"preset": "defect_bank", **dict(meta_item), **dict(meta_crop)}
-            return PresetResult(overlay_u8=np.asarray(base, dtype=np.uint8), mask_u8=empty, meta=meta)
+            return PresetResult(
+                overlay_u8=np.asarray(base, dtype=np.uint8), mask_u8=empty, meta=meta
+            )
 
         # Keep a binary mask for label semantics, but preserve alpha for blending when available.
         defect_mask_u8 = ensure_u8_mask(defect_alpha_u8, shape_hw=defect_u8.shape[:2])
@@ -250,8 +253,15 @@ def make_defect_bank_preset(
         denom = float(max(dh, dw))
         if denom <= 0.0:
             empty = np.zeros((h, w), dtype=np.uint8)
-            meta = {"preset": "defect_bank", **dict(meta_item), "skipped": True, "reason": "bad_defect_shape"}
-            return PresetResult(overlay_u8=np.asarray(base, dtype=np.uint8), mask_u8=empty, meta=meta)
+            meta = {
+                "preset": "defect_bank",
+                **dict(meta_item),
+                "skipped": True,
+                "reason": "bad_defect_shape",
+            }
+            return PresetResult(
+                overlay_u8=np.asarray(base, dtype=np.uint8), mask_u8=empty, meta=meta
+            )
 
         r = float(target_max / denom)
         new_h = int(np.clip(int(round(dh * r)), 1, h))

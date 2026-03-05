@@ -17,4 +17,3 @@ def test_roi_mask_from_xyxy_norm_shape_and_coverage() -> None:
     # ROI should include some pixels and exclude some pixels.
     assert int(mask.sum()) > 0
     assert int(mask.sum()) < int(mask.size)
-

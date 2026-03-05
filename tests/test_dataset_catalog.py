@@ -39,7 +39,7 @@ def test_dataset_catalog_manifest_reads_jsonl(tmp_path) -> None:
 
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 '{"image_path":"a.png","category":"bottle"}',
                 '{"image_path":"b.png","category":"cable"}',
@@ -61,7 +61,7 @@ def test_dataset_catalog_manifest_accepts_manifest_path_param(tmp_path) -> None:
 
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 '{"image_path":"a.png","category":"bottle"}',
                 '{"image_path":"b.png","category":"cable"}',

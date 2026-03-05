@@ -12,4 +12,3 @@ def test_patch_stats_extractor_shapes_and_finite() -> None:
 
     assert out.shape == (2, 2 * 3 * 2)
     assert np.all(np.isfinite(out))
-

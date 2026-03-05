@@ -48,4 +48,3 @@ def test_synthetic_anomaly_dataset_wrapper_can_disable_anomalies(tmp_path: Path)
     item = ds[0]
     assert item.label == 0
     assert int(item.mask_u8.max()) == 0
-

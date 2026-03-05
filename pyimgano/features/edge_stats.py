@@ -81,4 +81,3 @@ class EdgeStatsExtractor(BaseFeatureExtractor):
             feats.append(vec)
 
         return np.stack(feats, axis=0)
-

@@ -46,7 +46,9 @@ class PCAProjector(BaseFeatureExtractor):
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        pca = PCA(n_components=self.n_components, whiten=self.whiten, random_state=self.random_state)
+        pca = PCA(
+            n_components=self.n_components, whiten=self.whiten, random_state=self.random_state
+        )
         pca.fit(X)
         self._pca = pca
         return self

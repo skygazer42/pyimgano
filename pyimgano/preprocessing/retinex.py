@@ -54,7 +54,9 @@ def msrcr_lite(
         raise ValueError("sigmas must be non-empty")
     low_p, high_p = float(clip_percentiles[0]), float(clip_percentiles[1])
     if not (0.0 <= low_p < high_p <= 100.0):
-        raise ValueError(f"clip_percentiles must satisfy 0<=low<high<=100, got {clip_percentiles!r}")
+        raise ValueError(
+            f"clip_percentiles must satisfy 0<=low<high<=100, got {clip_percentiles!r}"
+        )
 
     x = img.astype(np.float32) + 1.0
 
@@ -81,4 +83,3 @@ def msrcr_lite(
 
     out = np.stack(outs, axis=-1)
     return np.asarray(out, dtype=np.uint8)
-

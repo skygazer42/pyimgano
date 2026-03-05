@@ -50,4 +50,3 @@ def test_mvtec_ad2_path_accessors(tmp_path: Path) -> None:
     assert masks.shape == (2, 32, 32)
     assert masks[0].sum() == 0
     assert masks[1].sum() > 0
-

@@ -11,8 +11,8 @@ reasons; this file provides a stable, torch-like surface under
 from __future__ import annotations
 
 from pyimgano.utils.datasets import (  # noqa: F401
-    BTADDataset,
     BaseDataset,
+    BTADDataset,
     CustomDataset,
     DatasetInfo,
     ManifestDataset,

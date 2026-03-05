@@ -76,11 +76,7 @@ class PreprocessingMixin:
         else:
             logger.info("Preprocessing disabled")
 
-    def add_preprocessing_step(
-        self,
-        operation: str,
-        **kwargs
-    ) -> None:
+    def add_preprocessing_step(self, operation: str, **kwargs) -> None:
         """
         Add a preprocessing step to the pipeline.
 
@@ -107,10 +103,7 @@ class PreprocessingMixin:
         logger.info("Added preprocessing step: %s", operation)
 
     def preprocess_image(
-        self,
-        image: Union[str, NDArray],
-        operation: Optional[str] = None,
-        **kwargs
+        self, image: Union[str, NDArray], operation: Optional[str] = None, **kwargs
     ) -> NDArray:
         """
         Preprocess a single image.
@@ -152,7 +145,7 @@ class PreprocessingMixin:
                 raise ValueError(f"Failed to load image: {image}")
 
         # Apply preprocessing
-        if self.use_preprocessing_pipeline and hasattr(self, 'preprocessing_pipeline'):
+        if self.use_preprocessing_pipeline and hasattr(self, "preprocessing_pipeline"):
             # Use pipeline
             if len(self.preprocessing_pipeline) == 0:
                 logger.warning("Preprocessing pipeline is empty")
@@ -207,7 +200,9 @@ class PreprocessingMixin:
         if m.ndim != 2:
             raise ValueError(f"mask must be 2D (H,W), got shape {m.shape}")
         if m.shape[0] != img.shape[0] or m.shape[1] != img.shape[1]:
-            raise ValueError(f"mask shape must match image H,W. Got mask={m.shape} image={img.shape}")
+            raise ValueError(
+                f"mask shape must match image H,W. Got mask={m.shape} image={img.shape}"
+            )
 
         roi = m.astype(bool)
         if bool(invert_mask):
@@ -236,7 +231,9 @@ class PreprocessingMixin:
         if out.ndim == 3 and enh.ndim == 2:
             enh = np.repeat(enh[:, :, None], out.shape[2], axis=2)
         if out.shape != enh.shape:
-            raise ValueError(f"Enhanced image shape must match input. Got {enh.shape} vs {out.shape}")
+            raise ValueError(
+                f"Enhanced image shape must match input. Got {enh.shape} vs {out.shape}"
+            )
 
         if out.ndim == 3:
             roi_idx = roi[:, :, None]
@@ -247,10 +244,7 @@ class PreprocessingMixin:
         return out
 
     def preprocess_images(
-        self,
-        images: List[Union[str, NDArray]],
-        operation: Optional[str] = None,
-        **kwargs
+        self, images: List[Union[str, NDArray]], operation: Optional[str] = None, **kwargs
     ) -> List[NDArray]:
         """
         Preprocess multiple images.
@@ -274,18 +268,12 @@ class PreprocessingMixin:
         >>> images = ['img1.jpg', 'img2.jpg', 'img3.jpg']
         >>> processed = detector.preprocess_images(images)
         """
-        return [
-            self.preprocess_image(img, operation, **kwargs)
-            for img in images
-        ]
+        return [self.preprocess_image(img, operation, **kwargs) for img in images]
 
     # Convenience methods for common operations
 
     def preprocess_with_edges(
-        self,
-        image: Union[str, NDArray],
-        method: str = "canny",
-        **kwargs
+        self, image: Union[str, NDArray], method: str = "canny", **kwargs
     ) -> NDArray:
         """
         Preprocess image with edge detection.
@@ -313,10 +301,7 @@ class PreprocessingMixin:
         return self.enhancer.detect_edges(image, method, **kwargs)
 
     def preprocess_with_blur(
-        self,
-        image: Union[str, NDArray],
-        filter_type: str = "gaussian",
-        **kwargs
+        self, image: Union[str, NDArray], filter_type: str = "gaussian", **kwargs
     ) -> NDArray:
         """
         Preprocess image with blur filter.
@@ -351,10 +336,7 @@ class PreprocessingMixin:
             raise ValueError(f"Unknown filter type: {filter_type}")
 
     def preprocess_with_morphology(
-        self,
-        image: Union[str, NDArray],
-        operation: str = "erosion",
-        **kwargs
+        self, image: Union[str, NDArray], operation: str = "erosion", **kwargs
     ) -> NDArray:
         """
         Preprocess image with morphological operation.
@@ -380,11 +362,11 @@ class PreprocessingMixin:
             image = cv2.imread(image)
 
         operations_map = {
-            'erosion': self.enhancer.erode,
-            'dilation': self.enhancer.dilate,
-            'opening': self.enhancer.opening,
-            'closing': self.enhancer.closing,
-            'gradient': self.enhancer.morphological_gradient,
+            "erosion": self.enhancer.erode,
+            "dilation": self.enhancer.dilate,
+            "opening": self.enhancer.opening,
+            "closing": self.enhancer.closing,
+            "gradient": self.enhancer.morphological_gradient,
         }
 
         if operation not in operations_map:
@@ -410,13 +392,13 @@ class PreprocessingMixin:
             Preprocessing configuration info
         """
         info = {
-            'enabled': self.preprocessing_enabled,
-            'pipeline_mode': self.use_preprocessing_pipeline,
+            "enabled": self.preprocessing_enabled,
+            "pipeline_mode": self.use_preprocessing_pipeline,
         }
 
         if self.preprocessing_enabled and self.use_preprocessing_pipeline:
-            info['pipeline_steps'] = len(self.preprocessing_pipeline)
-            info['steps'] = [name for name, _, _ in self.preprocessing_pipeline.steps]
+            info["pipeline_steps"] = len(self.preprocessing_pipeline)
+            info["steps"] = [name for name, _, _ in self.preprocessing_pipeline.steps]
 
         return info
 

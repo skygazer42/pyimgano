@@ -134,4 +134,3 @@ class VisionStudentizedResidual(BaseVisionDetector):
 
     def _build_detector(self):
         return CoreStudentizedResidual(**self._detector_kwargs)
-

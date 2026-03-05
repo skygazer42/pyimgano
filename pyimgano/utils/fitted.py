@@ -15,4 +15,3 @@ def require_fitted(obj: object, attrs: Iterable[str]) -> None:
     if missing:
         missing_str = ", ".join(repr(m) for m in missing)
         raise RuntimeError(f"Estimator is not fitted yet. Missing: {missing_str}")
-

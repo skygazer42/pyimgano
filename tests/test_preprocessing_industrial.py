@@ -35,4 +35,3 @@ def test_homomorphic_filter_runs_and_preserves_contract() -> None:
     assert out.dtype == np.uint8
     assert out.min() >= 0
     assert out.max() <= 255
-

@@ -49,4 +49,3 @@ def test_torchvision_backbone_cache_dir_creates_cached_embeddings(tmp_path: Path
     stats = getattr(extractor, "last_cache_stats_", None)
     assert isinstance(stats, dict)
     assert int(stats.get("hits", 0)) >= 1
-

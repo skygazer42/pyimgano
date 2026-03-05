@@ -112,4 +112,3 @@ class ScoreStandardizer:
     def fit_transform(self, train_scores) -> np.ndarray:
         self.fit(train_scores)
         return self.transform(train_scores)
-

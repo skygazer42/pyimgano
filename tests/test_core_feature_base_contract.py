@@ -36,4 +36,3 @@ def test_core_feature_detector_contract_fit_predict() -> None:
     assert scores.shape == (X.shape[0],)
     assert labels.shape == (X.shape[0],)
     assert set(labels).issubset({0, 1})
-

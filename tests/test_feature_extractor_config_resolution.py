@@ -3,7 +3,6 @@ import numpy as np
 
 def test_model_kwargs_can_resolve_feature_extractor_from_json_spec() -> None:
     import pyimgano.models  # noqa: F401 - registry population
-
     from pyimgano.cli_common import build_model_kwargs
     from pyimgano.models import create_model
 

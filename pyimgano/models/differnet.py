@@ -205,9 +205,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
         if self.train_difference:
             self.diff_modules = nn.ModuleDict()
             for layer in ["layer1", "layer2", "layer3"]:
-                self.diff_modules[layer] = DifferenceModule(
-                    feature_dims[layer], out_channels=1
-                ).to(self.device)
+                self.diff_modules[layer] = DifferenceModule(feature_dims[layer], out_channels=1).to(
+                    self.device
+                )
 
     def fit(self, X: NDArray, y: Optional[NDArray] = None, **kwargs):
         """Fit the DifferNet detector.
@@ -310,9 +310,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
                 for i in range(len(X)):
                     # Get feature for current image
                     layer_idx = ["layer1", "layer2", "layer3"].index(layer_name)
-                    feat_i = all_features[i // self.batch_size][layer_idx][
-                        i % self.batch_size
-                    ].to(self.device)
+                    feat_i = all_features[i // self.batch_size][layer_idx][i % self.batch_size].to(
+                        self.device
+                    )
 
                     # Get random neighbor
                     nn_idx = np.random.randint(0, len(X))
@@ -321,9 +321,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     ].to(self.device)
 
                     # Compute difference (should be small for normal samples)
-                    diff_map = diff_module(
-                        feat_i.unsqueeze(0), feat_nn.unsqueeze(0)
-                    )
+                    diff_map = diff_module(feat_i.unsqueeze(0), feat_nn.unsqueeze(0))
 
                     # Loss: minimize difference for normal samples
                     loss = diff_map.abs().mean()
@@ -457,12 +455,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     f"Memory bank dim mismatch for layer {layer_name}: expected {c}, got {nn_vec.shape[0]}"
                 )
 
-            nn_feat = (
-                torch.from_numpy(nn_vec)
-                .view(1, c, 1, 1)
-                .expand(1, c, h, w)
-                .to(self.device)
-            )
+            nn_feat = torch.from_numpy(nn_vec).view(1, c, 1, 1).expand(1, c, h, w).to(self.device)
 
             diff_map = self.diff_modules[layer_name](feat, nn_feat)
             total_diff += diff_map.abs().mean().item()
@@ -513,16 +506,17 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     idx = np.asarray(indices, dtype=np.int64).reshape(-1)
                     nn_idx = int(idx[int(np.argmin(d))])
 
-                    nn_vec = np.asarray(self.memory_bank[layer_name][nn_idx], dtype=np.float32).reshape(-1)
+                    nn_vec = np.asarray(
+                        self.memory_bank[layer_name][nn_idx], dtype=np.float32
+                    ).reshape(-1)
                     nn_feat = (
-                        torch.from_numpy(nn_vec)
-                        .view(1, c, 1, 1)
-                        .expand(1, c, h, w)
-                        .to(self.device)
+                        torch.from_numpy(nn_vec).view(1, c, 1, 1).expand(1, c, h, w).to(self.device)
                     )
 
                     diff_map = self.diff_modules[layer_name](feat, nn_feat).abs()  # (1,1,h,w)
-                    up = F.interpolate(diff_map, size=(h_img, w_img), mode="bilinear", align_corners=False)
+                    up = F.interpolate(
+                        diff_map, size=(h_img, w_img), mode="bilinear", align_corners=False
+                    )
                     maps.append(up[0, 0].detach().cpu().numpy())
             else:
                 layers = (
@@ -536,7 +530,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     _b, c, h, w = feat.shape
                     feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W,C)
 
-                    distances, _ = self.kd_trees[layer_name].query(feat_flat, k=int(self.k_neighbors))
+                    distances, _ = self.kd_trees[layer_name].query(
+                        feat_flat, k=int(self.k_neighbors)
+                    )
                     d = np.asarray(distances, dtype=np.float32)
                     if d.ndim == 1:
                         patch_scores = d
@@ -544,8 +540,12 @@ class DifferNetDetector(BaseVisionDeepDetector):
                         patch_scores = d.mean(axis=1)
 
                     patch_map = patch_scores.reshape(int(h), int(w)).astype(np.float32, copy=False)
-                    patch_map_t = torch.from_numpy(patch_map).view(1, 1, int(h), int(w)).to(self.device)
-                    up = F.interpolate(patch_map_t, size=(h_img, w_img), mode="bilinear", align_corners=False)
+                    patch_map_t = (
+                        torch.from_numpy(patch_map).view(1, 1, int(h), int(w)).to(self.device)
+                    )
+                    up = F.interpolate(
+                        patch_map_t, size=(h_img, w_img), mode="bilinear", align_corners=False
+                    )
                     maps.append(up[0, 0].detach().cpu().numpy())
 
         if not maps:

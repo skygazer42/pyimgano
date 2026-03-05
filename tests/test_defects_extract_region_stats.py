@@ -27,4 +27,3 @@ def test_extract_defects_includes_region_shape_stats_by_default() -> None:
     assert abs(float(r["aspect_ratio"]) - (4.0 / 3.0)) < 1e-6
     assert r["solidity"] is not None
     assert 0.9 <= float(r["solidity"]) <= 1.0
-

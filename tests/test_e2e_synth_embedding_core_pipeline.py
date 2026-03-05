@@ -11,7 +11,9 @@ def _write_rgb(path: Path, *, color: tuple[int, int, int]) -> None:
     Image.new("RGB", (48, 48), color=color).save(path)
 
 
-def test_e2e_synthetic_dataset_plus_embedding_plus_core_pipeline(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+def test_e2e_synthetic_dataset_plus_embedding_plus_core_pipeline(
+    tmp_path: Path, monkeypatch
+) -> None:  # noqa: ANN001
     """End-to-end smoke: synthesize -> manifest split -> embeddings -> core detector."""
 
     import torch.hub
@@ -84,4 +86,3 @@ def test_e2e_synthetic_dataset_plus_embedding_plus_core_pipeline(tmp_path: Path,
 
     assert scores.shape == (len(split.test_paths),)
     assert np.all(np.isfinite(scores))
-

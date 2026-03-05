@@ -50,7 +50,9 @@ class CoreHBOS:
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def _fit_feature(self, values: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    def _fit_feature(
+        self, values: NDArray[np.float64]
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         values = np.asarray(values, dtype=np.float64).reshape(-1)
         if values.size == 0:
             raise ValueError("HBOS requires non-empty training data")
@@ -94,9 +96,7 @@ class CoreHBOS:
 
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if X.shape[1] != self.n_features_in_:
-            raise ValueError(
-                f"Expected {self.n_features_in_} features, got {X.shape[1]}"
-            )
+            raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
 
         scores = np.zeros((X.shape[0],), dtype=np.float64)
         for j in range(self.n_features_in_):

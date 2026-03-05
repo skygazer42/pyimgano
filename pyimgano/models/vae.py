@@ -125,7 +125,14 @@ def _build_conv_vae(*, cfg: VAEConfig):
             return recon, mu, logvar
 
         @staticmethod
-        def loss(recon: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor, *, beta: float):
+        def loss(
+            recon: torch.Tensor,
+            x: torch.Tensor,
+            mu: torch.Tensor,
+            logvar: torch.Tensor,
+            *,
+            beta: float,
+        ):
             # Reconstruction in normalized space.
             rec = F.mse_loss(recon, x, reduction="none").flatten(1).mean(dim=1)
             kl = -0.5 * torch.sum(1.0 + logvar - mu.pow(2) - logvar.exp(), dim=1)
@@ -223,12 +230,15 @@ class VAEAnomalyDetector(BaseVisionDeepDetector):
             score = rec
             return score.detach().cpu().numpy()
 
-    def get_anomaly_map(self, x, *, image_size: tuple[int, int] | None = None):  # noqa: ANN001, ANN201
+    def get_anomaly_map(
+        self, x, *, image_size: tuple[int, int] | None = None
+    ):  # noqa: ANN001, ANN201
         """Best-effort pixel-level reconstruction error map (H,W)."""
 
         import torch
-        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
         from torch.utils.data import DataLoader
+
+        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
         if image_size is None:
             image_size = self.cfg.image_size
