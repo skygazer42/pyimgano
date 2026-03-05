@@ -5,9 +5,12 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 
 import numpy as np
-from torch.utils.data import Dataset
+
+from pyimgano.utils.optional_deps import require
 
 from pyimgano.synthesis.synthesizer import AnomalySynthesizer
+
+Dataset = require("torch.utils.data", extra="torch", purpose="torch-backed datasets").Dataset
 
 
 def _read_u8_bgr(path: str | Path) -> np.ndarray:

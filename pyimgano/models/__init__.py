@@ -306,35 +306,17 @@ def _make_lazy_constructor(*, model_name: str, module_name: str):
         try:
             import_module(f"{__name__}.{module_name}")
         except ModuleNotFoundError as exc:
+            from pyimgano.utils.extras import extra_for_root_module, extras_install_hint
+
             missing = getattr(exc, "name", None)
             root = (str(missing).split(".", 1)[0] if missing else "").strip()
-            dep_to_extra = {
-                # Deep backends
-                "torch": "torch",
-                "torchvision": "torch",
-                # Deployment backends
-                "onnx": "onnx",
-                "onnxruntime": "onnx",
-                "openvino": "openvino",
-                # Image / speed
-                "skimage": "skimage",
-                "numba": "numba",
-                # Visualization
-                "matplotlib": "viz",
-                # Existing optional backends
-                "open_clip": "clip",
-                "faiss": "faiss",
-                "anomalib": "anomalib",
-                "diffusers": "diffusion",
-                "mamba_ssm": "mamba",
-            }
-            extra = dep_to_extra.get(root)
+            extra = extra_for_root_module(root)
             if extra is not None:
                 raise ImportError(
                     f"Optional dependency {root!r} is required to construct model {model_name!r} "
                     f"(implementation module {module_name!r}).\n"
                     "Install it via:\n"
-                    f"  pip install 'pyimgano[{extra}]'\n"
+                    f"  {extras_install_hint([extra])}\n"
                     f"Original error: {exc}"
                 ) from exc
             raise

@@ -198,7 +198,7 @@ def _missing_extras_hint_for_baseline(baseline: Baseline) -> str | None:
     if any(
         k in text for k in ["ssim", "phase_correlation", "phase-correlation"]
     ) and not _can_import_root("skimage"):
-        return "pip install 'pyimgano[skimage]'"
+        return extras_install_hint(["skimage"])
 
     # torchvision embeddings / deep baselines
     if any(
@@ -211,7 +211,7 @@ def _missing_extras_hint_for_baseline(baseline: Baseline) -> str | None:
             "vision_embedding_core",
         ]
     ) and not _can_import_root("torch"):
-        return "pip install 'pyimgano[torch]'"
+        return extras_install_hint(["torch"])
 
     return None
 

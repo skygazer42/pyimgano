@@ -33,6 +33,7 @@ def _run_py(code: str) -> dict[str, object]:
         "pyimgano.datasets.transforms",
         "pyimgano.datasets.corruptions",
         "pyimgano.datasets.datamodule",
+        "pyimgano.datasets.synthetic",
     ],
 )
 def test_torch_backed_dataset_modules_raise_actionable_import_error(module: str) -> None:

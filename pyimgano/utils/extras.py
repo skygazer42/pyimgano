@@ -23,7 +23,10 @@ EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
     "openvino": ("openvino",),
     "skimage": ("skimage",),
     "numba": ("numba",),
+    "diffusion": ("diffusers", "transformers", "accelerate", "torch"),
+    "viz": ("matplotlib", "seaborn"),
     "faiss": ("faiss",),
+    "patchcore_inspection": ("patchcore",),
     # Extras that imply torch.
     "clip": ("open_clip", "torch"),
     "anomalib": ("anomalib", "torch"),
@@ -74,3 +77,28 @@ def extra_importable(extra: str) -> bool:
 def extras_install_hint(extras: Iterable[str]) -> str:
     spec = ",".join(sorted({str(e) for e in extras if str(e).strip()}))
     return f"pip install 'pyimgano[{spec}]'"
+
+
+_ROOT_TO_EXTRA: dict[str, str] = {}
+# Preserve insertion-order priority:
+# base extras first, then extras that imply others, then meta-extras.
+for _extra, _roots in EXTRA_ROOT_MODULES.items():
+    for _root in _roots:
+        _ROOT_TO_EXTRA.setdefault(str(_root), str(_extra))
+
+
+def extra_for_root_module(module_root: str) -> str | None:
+    """Return the canonical extra name for a missing import root.
+
+    Notes
+    -----
+    A module root can appear in multiple extras (e.g. `torch` is implied by
+    `clip`, `anomalib`, `diffusion`, ...). We treat the *first* extra that
+    declares a given root module in `EXTRA_ROOT_MODULES` as canonical.
+    """
+
+    root = str(module_root).split(".", 1)[0].strip()
+    if not root:
+        return None
+
+    return _ROOT_TO_EXTRA.get(root)
