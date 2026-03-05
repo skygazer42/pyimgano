@@ -212,6 +212,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 - Added coverage for `--require-extras` when a module exists but fails to import.
 
+## [0.6.30] - 2026-03-05
+
+### Baselines / Suites
+- Aligned suite extras skip hints with packaging extras:
+  - `torch` now checks both `torch` and `torchvision`
+  - `onnx` now checks `onnxruntime`, `onnx`, and `onnxscript`
+- This makes `pyimgano-benchmark --suite ...` skip optional baselines more accurately instead of attempting to run and failing later.
+
+### Tests
+- Added coverage for suite skip hints when a dependency in an extra group is missing (e.g. `torchvision` missing under `pyimgano[torch]`).
+
 ## [0.6.28] - 2026-03-05
 
 ### CLI

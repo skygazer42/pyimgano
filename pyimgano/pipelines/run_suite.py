@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Baseline suite runner for `pyimgano-benchmark --suite ...`.
 
 The suite runner is designed for industrial baseline selection:
@@ -8,9 +6,12 @@ The suite runner is designed for industrial baseline selection:
 - Write per-baseline run artifacts under a single suite output directory.
 """
 
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Mapping, Optional, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -168,8 +169,11 @@ def _can_import_root(module_root: str) -> bool:
 
 
 _EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
-    "torch": ("torch",),
-    "onnx": ("onnxruntime",),
+    # Mirror `pyproject.toml` extras:
+    # - pyimgano[torch] installs torch + torchvision
+    # - pyimgano[onnx] installs onnxruntime + onnx (+ onnxscript for torch.onnx.export)
+    "torch": ("torch", "torchvision"),
+    "onnx": ("onnxruntime", "onnx", "onnxscript"),
     "openvino": ("openvino",),
     "skimage": ("skimage",),
     "numba": ("numba",),
@@ -193,7 +197,7 @@ def _missing_extras_hint_for_baseline(baseline: Baseline) -> str | None:
     if requires_extras:
         missing = [e for e in requires_extras if not _extra_available(e)]
         if missing:
-            extra_spec = ",".join(sorted(set(str(e) for e in missing)))
+            extra_spec = ",".join(sorted({str(e) for e in missing}))
             return f"pip install 'pyimgano[{extra_spec}]'"
         return None
 

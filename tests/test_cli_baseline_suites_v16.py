@@ -579,7 +579,7 @@ def test_benchmark_cli_suite_sweep_max_variants_caps_rows(tmp_path: Path, capsys
         "industrial-pixel-mean-absdiff-map",
         "industrial-template-ncc-map",
     }
-    for base_name, rs in by_base.items():
+    for _base_name, rs in by_base.items():
         variants = [str(r.get("variant")) for r in rs]
         assert variants.count("base") == 1
         assert len(rs) == 2
@@ -634,3 +634,79 @@ def test_suite_skips_optional_baselines_when_extras_missing(
 
     assert "industrial-embed-knn-cosine" in skipped
     assert "pyimgano[torch]" in str(skipped["industrial-embed-knn-cosine"].get("reason", ""))
+
+
+def test_suite_torch_extra_requires_torchvision_for_skip_hints(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    """Suite skip hints should reflect the actual `pyimgano[torch]` extra (torch + torchvision)."""
+
+    import pyimgano.pipelines.run_suite as run_suite
+    from pyimgano.cli import main as benchmark_main
+
+    def _fake_can_import_root(root: str) -> bool:
+        # Simulate an environment where torch is present but torchvision is missing.
+        if root == "torchvision":
+            return False
+        return True
+
+    monkeypatch.setattr(run_suite, "_can_import_root", _fake_can_import_root)
+
+    root = tmp_path / "custom"
+    _write_custom_dataset(root)
+
+    rc = benchmark_main(
+        [
+            "--dataset",
+            "custom",
+            "--root",
+            str(root),
+            "--suite",
+            "industrial-v1",
+            "--device",
+            "cpu",
+            "--no-pretrained",
+            "--resize",
+            "64",
+            "64",
+            "--limit-train",
+            "2",
+            "--limit-test",
+            "2",
+            "--no-save-run",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    skipped = payload.get("skipped", {})
+    assert isinstance(skipped, dict)
+
+    assert "industrial-embed-knn-cosine" in skipped
+    assert "pyimgano[torch]" in str(skipped["industrial-embed-knn-cosine"].get("reason", ""))
+
+
+def test_suite_onnx_extra_requires_onnxscript_for_skip_hints(monkeypatch) -> None:
+    """Suite skip hints should reflect the actual `pyimgano[onnx]` extra contents."""
+
+    import pyimgano.pipelines.run_suite as run_suite
+    from pyimgano.baselines.suites import Baseline
+
+    def _fake_can_import_root(root: str) -> bool:
+        if root == "onnxscript":
+            return False
+        return True
+
+    monkeypatch.setattr(run_suite, "_can_import_root", _fake_can_import_root)
+
+    b = Baseline(
+        name="dummy",
+        model="dummy",
+        kwargs={},
+        description="dummy",
+        optional=True,
+        requires_extras=("onnx",),
+    )
+
+    hint = run_suite._missing_extras_hint_for_baseline(b)
+    assert "pyimgano[onnx]" in str(hint)
