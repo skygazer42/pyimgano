@@ -14,6 +14,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
+from pyimgano.utils.extras import extra_for_root_module, extras_install_hint
+
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     # ---------------------------------------------------------------------
     # image_ops
@@ -120,13 +122,27 @@ def __getattr__(name: str) -> Any:  # pragma: no cover - thin delegation
     try:
         module = import_module(f"{__name__}.{module_name}")
     except ModuleNotFoundError as exc:
-        # Make optional extras errors actionable without importing them by default.
-        if module_name in {"advanced_viz"}:
+        missing = getattr(exc, "name", None)
+        root = (str(missing).split(".", 1)[0] if missing else "").strip()
+        if root and root != "pyimgano":
+            extra = extra_for_root_module(root)
+            if extra is not None:
+                raise ImportError(
+                    f"Optional dependency {root!r} is required for pyimgano.utils.{name}.\n"
+                    f"Install with:\n  {extras_install_hint([extra])}\n"
+                    f"Original error: {exc}"
+                ) from exc
+
+            # Fallback to pip package install hints for common module↔pip mismatches.
+            from pyimgano.utils.optional_deps import _PIP_NAME_OVERRIDES  # noqa: PLC0415
+
+            pip_target = _PIP_NAME_OVERRIDES.get(root, root)
             raise ImportError(
-                "Optional dependency missing for advanced visualization utilities.\n"
-                "Install with:\n  pip install 'pyimgano[viz]'\n"
+                f"Optional dependency {root!r} is required for pyimgano.utils.{name}.\n"
+                f"Install with:\n  pip install '{pip_target}'\n"
                 f"Original error: {exc}"
             ) from exc
+
         raise
 
     value = getattr(module, attr)

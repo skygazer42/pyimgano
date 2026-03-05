@@ -17,6 +17,10 @@ def _build_patchcore_inspection_model(
     device: str,
     faiss_num_workers: int,
 ):
+    # `patchcore-inspection` is an optional backend installed separately (VCS).
+    # We still want missing dependency errors to be actionable.
+    require("torch", extra="torch", purpose="patchcore-inspection backend detectors")
+    require("faiss", extra="faiss", purpose="patchcore-inspection backend detectors")
     require("patchcore", purpose="patchcore-inspection backend detectors")
 
     import patchcore.common  # type: ignore[import-not-found]
@@ -38,7 +42,11 @@ def _build_patchcore_inspection_model(
 def _build_transform(*, resize: int, imagesize: int):
     # Keep imports local to reduce import-time overhead for users that don't
     # use this backend.
-    from torchvision import transforms  # type: ignore[import-not-found]
+    transforms = require(
+        "torchvision.transforms",
+        extra="torch",
+        purpose="patchcore-inspection backend transforms",
+    )
 
     # Match patchcore-inspection's default ImageNet normalization.
     return transforms.Compose(
@@ -116,7 +124,7 @@ class VisionPatchCoreInspectionCheckpoint:
         self.threshold_: Optional[float] = None
 
     def _load_images(self, paths: Sequence[str]):
-        import torch
+        torch = require("torch", extra="torch", purpose="patchcore-inspection backend inference")
         from PIL import Image
 
         tensors = []
@@ -126,7 +134,7 @@ class VisionPatchCoreInspectionCheckpoint:
         return torch.stack(tensors, dim=0)
 
     def _predict(self, paths: Sequence[str], *, return_maps: bool) -> _PredictResult:
-        import torch
+        torch = require("torch", extra="torch", purpose="patchcore-inspection backend inference")
 
         scores_list: list[float] = []
         maps_list: list[np.ndarray] = []

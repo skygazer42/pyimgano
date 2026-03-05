@@ -19,6 +19,30 @@ def test_patchcore_inspection_checkpoint_wrapper_requires_patchcore_if_no_infere
         )
 
 
+def test_patchcore_inspection_checkpoint_wrapper_missing_torch_has_actionable_hint(monkeypatch):
+    import pyimgano.utils.optional_deps as optional_deps
+
+    orig = optional_deps.import_module
+
+    def _fake_import_module(name, package=None):
+        if str(name).startswith(("torch", "torchvision")):
+            raise ModuleNotFoundError(f"No module named {name!r}", name=str(name))
+        return orig(name, package=package)
+
+    monkeypatch.setattr(optional_deps, "import_module", _fake_import_module)
+
+    from pyimgano.models import create_model
+
+    with pytest.raises(ImportError) as excinfo:
+        create_model(
+            "vision_patchcore_inspection_checkpoint",
+            checkpoint_path="does-not-exist",
+            device="cpu",
+        )
+
+    assert "pyimgano[torch]" in str(excinfo.value)
+
+
 class _FakePatchCoreInferencer:
     def __init__(self, *, scores: list[float], maps: list[np.ndarray]) -> None:
         self._scores = list(scores)
