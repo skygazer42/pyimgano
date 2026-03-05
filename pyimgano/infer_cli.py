@@ -496,9 +496,40 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Print stage timing summary to stderr",
     )
     parser.add_argument(
+        "--profile-json",
+        default=None,
+        help="Optional path to write a JSON profile payload (stable, machine-friendly).",
+    )
+    parser.add_argument(
         "--amp",
         action="store_true",
         help="Best-effort AMP/autocast for torch-backed models (requires torch + CUDA)",
+    )
+    parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help=(
+            "Best-effort production mode: record per-input errors and keep going. "
+            "Exits with code 1 if any errors occurred."
+        ),
+    )
+    parser.add_argument(
+        "--max-errors",
+        type=int,
+        default=0,
+        help=(
+            "Stop early after N errors when --continue-on-error is set. "
+            "Default: 0 (no limit)."
+        ),
+    )
+    parser.add_argument(
+        "--flush-every",
+        type=int,
+        default=0,
+        help=(
+            "Flush JSONL output files every N records (stability vs performance). "
+            "Default: 0 (no periodic flush)."
+        ),
     )
     parser.add_argument(
         "--include-anomaly-map-values",
@@ -1418,15 +1449,21 @@ def main(argv: list[str] | None = None) -> int:
 
         infer_timing = InferenceTiming()
         batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
-        results_iter = infer_iter(
-            detector,
-            inputs,
-            include_maps=bool(args.include_maps),
-            postprocess=postprocess,
-            batch_size=batch_size,
-            amp=bool(args.amp),
-            timing=infer_timing,
-        )
+        continue_on_error = bool(getattr(args, "continue_on_error", False))
+        max_errors = int(getattr(args, "max_errors", 0))
+        flush_every = int(getattr(args, "flush_every", 0))
+
+        results_iter = None
+        if not bool(continue_on_error):
+            results_iter = infer_iter(
+                detector,
+                inputs,
+                include_maps=bool(args.include_maps),
+                postprocess=postprocess,
+                batch_size=batch_size,
+                amp=bool(args.amp),
+                timing=infer_timing,
+            )
 
         maps_dir: Path | None = None
         if args.save_maps is not None:
@@ -1461,16 +1498,58 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
             t_loop_start = time.perf_counter()
-            count = 0
-            for i, (input_path, result) in enumerate(zip(inputs, results_iter)):
-                count += 1
+            out_written = 0
+            regions_written = 0
+            errors = 0
+            processed = 0
+            stop_early = False
+
+            def _write_out_record(record: dict[str, Any]) -> None:
+                nonlocal out_written
+                line = json.dumps(record, sort_keys=True)
+                if out_f is not None:
+                    out_f.write(line)
+                    out_f.write("\n")
+                    out_written += 1
+                    if int(flush_every) > 0 and (out_written % int(flush_every) == 0):
+                        out_f.flush()
+                else:
+                    print(line)
+
+            def _write_regions_payload(payload: dict[str, Any]) -> None:
+                nonlocal regions_written
+                if regions_f is None:
+                    return
+                regions_f.write(json.dumps(payload, sort_keys=True))
+                regions_f.write("\n")
+                regions_written += 1
+                if int(flush_every) > 0 and (regions_written % int(flush_every) == 0):
+                    regions_f.flush()
+
+            def _make_error_record(
+                *, index: int, input_path: str, exc: Exception, stage: str
+            ) -> dict[str, Any]:
+                return {
+                    "status": "error",
+                    "index": int(index),
+                    "input": str(input_path),
+                    "error": {
+                        "type": str(type(exc).__name__),
+                        "message": str(exc),
+                        "stage": str(stage),
+                    },
+                }
+
+            def _process_ok_result(
+                *, index: int, input_path: str, result: Any, include_status: bool
+            ) -> None:
                 anomaly_map_path: str | None = None
                 if maps_dir is not None:
                     if result.anomaly_map is None:
                         anomaly_map_path = None
                     else:
                         stem = Path(input_path).stem
-                        out_path = maps_dir / f"{i:06d}_{stem}.npy"
+                        out_path = maps_dir / f"{index:06d}_{stem}.npy"
                         np.save(out_path, np.asarray(result.anomaly_map, dtype=np.float32))
                         anomaly_map_path = str(out_path)
 
@@ -1479,8 +1558,10 @@ def main(argv: list[str] | None = None) -> int:
                     anomaly_map_path=anomaly_map_path,
                     include_anomaly_map_values=bool(args.include_anomaly_map_values),
                 )
-                record["index"] = int(i)
+                record["index"] = int(index)
                 record["input"] = str(input_path)
+                if include_status:
+                    record["status"] = "ok"
 
                 saved_defects_mask: np.ndarray | None = None
                 if bool(args.defects):
@@ -1576,7 +1657,7 @@ def main(argv: list[str] | None = None) -> int:
                             ext = ".npz"
                         else:  # pragma: no cover - guarded by argparse choices
                             raise ValueError(f"Unknown mask_format: {fmt!r}")
-                        out_path = masks_dir / f"{i:06d}_{stem}{ext}"
+                        out_path = masks_dir / f"{index:06d}_{stem}{ext}"
                         written = save_binary_mask(
                             defects["mask"], out_path, format=str(args.mask_format)
                         )
@@ -1598,9 +1679,9 @@ def main(argv: list[str] | None = None) -> int:
                         "map_stats_roi": defects.get("map_stats_roi", None),
                     }
 
-                    if regions_f is not None:
-                        regions_payload = {
-                            "index": int(i),
+                    _write_regions_payload(
+                        {
+                            "index": int(index),
                             "input": str(input_path),
                             "defects": {
                                 "space": defects["space"],
@@ -1610,8 +1691,7 @@ def main(argv: list[str] | None = None) -> int:
                                 "map_stats_roi": defects.get("map_stats_roi", None),
                             },
                         }
-                        regions_f.write(json.dumps(regions_payload, sort_keys=True))
-                        regions_f.write("\n")
+                    )
 
                     if bool(args.defects_image_space):
                         try:
@@ -1641,7 +1721,7 @@ def main(argv: list[str] | None = None) -> int:
                     from pyimgano.defects.overlays import save_overlay_image
 
                     stem = Path(input_path).stem
-                    out_path = overlays_dir / f"{i:06d}_{stem}.png"
+                    out_path = overlays_dir / f"{index:06d}_{stem}.png"
                     save_overlay_image(
                         input_path,
                         anomaly_map=(
@@ -1651,22 +1731,108 @@ def main(argv: list[str] | None = None) -> int:
                         out_path=out_path,
                     )
 
-                line = json.dumps(record, sort_keys=True)
-                if out_f is not None:
-                    out_f.write(line)
-                    out_f.write("\n")
-                else:
-                    print(line)
+                _write_out_record(record)
+
+            if bool(continue_on_error):
+                chunk_size = int(batch_size) if batch_size is not None else 1
+                for start in range(0, len(inputs), int(chunk_size)):
+                    chunk = inputs[start : start + int(chunk_size)]
+                    try:
+                        chunk_results = list(
+                            infer_iter(
+                                detector,
+                                chunk,
+                                include_maps=bool(args.include_maps),
+                                postprocess=postprocess,
+                                batch_size=None,
+                                amp=bool(args.amp),
+                                timing=infer_timing,
+                            )
+                        )
+                        for j, r in enumerate(chunk_results):
+                            idx = int(start + j)
+                            try:
+                                _process_ok_result(
+                                    index=idx,
+                                    input_path=str(chunk[j]),
+                                    result=r,
+                                    include_status=True,
+                                )
+                            except Exception as exc:  # noqa: BLE001 - best-effort mode
+                                errors += 1
+                                _write_out_record(
+                                    _make_error_record(
+                                        index=idx,
+                                        input_path=str(chunk[j]),
+                                        exc=exc,
+                                        stage="artifacts",
+                                    )
+                                )
+                            processed += 1
+                    except Exception:
+                        # Fallback: isolate per-input failures (batch failed).
+                        for j, p in enumerate(chunk):
+                            idx = int(start + j)
+                            try:
+                                one = list(
+                                    infer_iter(
+                                        detector,
+                                        [p],
+                                        include_maps=bool(args.include_maps),
+                                        postprocess=postprocess,
+                                        batch_size=None,
+                                        amp=bool(args.amp),
+                                        timing=infer_timing,
+                                    )
+                                )
+                                if len(one) != 1:
+                                    raise RuntimeError("Internal error: expected 1 result for 1 input")
+                                _process_ok_result(
+                                    index=idx,
+                                    input_path=str(p),
+                                    result=one[0],
+                                    include_status=True,
+                                )
+                            except Exception as exc:  # noqa: BLE001 - best-effort mode
+                                errors += 1
+                                _write_out_record(
+                                    _make_error_record(
+                                        index=idx,
+                                        input_path=str(p),
+                                        exc=exc,
+                                        stage="infer",
+                                    )
+                                )
+                            processed += 1
+
+                            if int(max_errors) > 0 and int(errors) >= int(max_errors):
+                                stop_early = True
+                                break
+                    if bool(stop_early):
+                        break
+            else:
+                if results_iter is None:  # pragma: no cover - defensive
+                    raise RuntimeError("Internal error: results_iter was not initialized")
+
+                count = 0
+                for i, (input_path, result) in enumerate(zip(inputs, results_iter)):
+                    _process_ok_result(
+                        index=int(i),
+                        input_path=str(input_path),
+                        result=result,
+                        include_status=False,
+                    )
+                    count += 1
+
+                if count != len(inputs):
+                    raise RuntimeError(
+                        "Internal error: inference iterator produced fewer results than inputs "
+                        f"({count} vs {len(inputs)})."
+                    )
 
             t_loop = time.perf_counter() - t_loop_start
             t_infer = float(infer_timing.seconds)
             t_artifacts = max(0.0, float(t_loop) - float(t_infer))
-
-            if count != len(inputs):
-                raise RuntimeError(
-                    "Internal error: inference iterator produced fewer results than inputs "
-                    f"({count} vs {len(inputs)})."
-                )
         finally:
             if out_f is not None:
                 out_f.close()
@@ -1691,6 +1857,32 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
 
+        if args.profile_json is not None:
+            profile_path = Path(str(args.profile_json))
+            profile_path.parent.mkdir(parents=True, exist_ok=True)
+            total = time.perf_counter() - t_total_start
+            profile_payload = {
+                "tool": "pyimgano-infer",
+                "counts": {
+                    "inputs": int(len(inputs)),
+                    "processed": int(len(inputs) if not bool(continue_on_error) else processed),
+                    "errors": int(errors),
+                },
+                "timing_seconds": {
+                    "load_model": float(t_load_model),
+                    "fit_calibrate": float(t_fit_calibrate),
+                    "infer": float(t_infer),
+                    "artifacts": float(t_artifacts),
+                    "total": float(total),
+                },
+            }
+            profile_path.write_text(
+                json.dumps(profile_payload, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+        if bool(continue_on_error) and int(errors) > 0:
+            return 1
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI boundary
         import sys

@@ -113,24 +113,49 @@ def _torch_inference_context(*, amp: bool) -> ExitStack:
     """
 
     stack = ExitStack()
+    torch = None
+    try:
+        import sys
+
+        torch = sys.modules.get("torch")
+    except Exception:
+        torch = None
+
+    if torch is None:
+        if not bool(amp):
+            return stack
+        try:
+            import torch as _torch  # type: ignore[import-not-found]
+
+            torch = _torch
+        except Exception:
+            warnings.warn(
+                "AMP requested but torch is not installed; continuing without AMP.\n"
+                "Install torch (and optionally CUDA) for autocast acceleration.",
+                RuntimeWarning,
+            )
+            return stack
+
+    # Always disable grad for torch-backed detectors (best-effort).
+    try:
+        stack.enter_context(torch.inference_mode())
+    except Exception:
+        # Best-effort: keep going even if the context manager is unavailable/broken.
+        pass
+
     if not bool(amp):
         return stack
 
     try:
-        import torch  # type: ignore[import-not-found]
-    except Exception:
-        warnings.warn(
-            "AMP requested but torch is not installed; continuing without AMP.\n"
-            "Install torch (and optionally CUDA) for autocast acceleration.",
-            RuntimeWarning,
-        )
-        return stack
-
-    stack.enter_context(torch.inference_mode())
-
-    try:
         if torch.cuda.is_available():
-            stack.enter_context(torch.cuda.amp.autocast())
+            # Prefer the newer API: torch.amp.autocast(device_type="cuda")
+            if hasattr(torch, "amp") and hasattr(torch.amp, "autocast"):
+                try:
+                    stack.enter_context(torch.amp.autocast(device_type="cuda"))
+                except TypeError:
+                    stack.enter_context(torch.amp.autocast("cuda"))
+            else:
+                stack.enter_context(torch.cuda.amp.autocast())
         else:
             warnings.warn(
                 "AMP requested but CUDA is not available; continuing without autocast.",
