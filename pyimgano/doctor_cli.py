@@ -143,6 +143,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "Example: --require-extras torch,skimage"
         ),
     )
+    parser.add_argument(
+        "--accelerators",
+        action="store_true",
+        help=(
+            "Include best-effort accelerator runtime checks (torch CUDA/MPS, "
+            "onnxruntime providers, openvino devices)."
+        ),
+    )
     return parser
 
 
@@ -163,8 +171,171 @@ def _build_require_extras_check(required_extras: list[str]) -> dict[str, Any]:
     }
 
 
+def _build_accelerator_checks() -> dict[str, Any]:
+    """Best-effort hardware/runtime accelerator checks.
+
+    Notes
+    -----
+    This function should be safe to call even when optional runtimes are not
+    installed. It must not raise; it returns structured error payloads.
+    """
+
+    checks: dict[str, Any] = {}
+
+    # ------------------------------------------------------------------
+    # torch
+    torch_mod, torch_err = optional_import("torch")
+    if torch_mod is None:
+        checks["torch"] = {
+            "available": False,
+            "install_hint": extras_install_hint(["torch"]),
+            "error": str(torch_err) if torch_err is not None else "missing",
+        }
+    else:
+        torch = torch_mod
+        payload: dict[str, Any] = {
+            "available": True,
+            "install_hint": None,
+            "torch_version": getattr(torch, "__version__", None),
+        }
+
+        # CUDA
+        cuda_compiled = getattr(getattr(torch, "version", None), "cuda", None) is not None
+        cuda_available = False
+        try:
+            cuda_available = bool(getattr(torch, "cuda").is_available())
+        except Exception as exc:  # noqa: BLE001 - best-effort diagnostics
+            payload["cuda_error"] = str(exc)
+
+        cuda: dict[str, Any] = {
+            "compiled": bool(cuda_compiled),
+            "available": bool(cuda_available),
+            "version": getattr(getattr(torch, "version", None), "cuda", None),
+        }
+
+        if cuda_available:
+            try:
+                cuda["device_count"] = int(torch.cuda.device_count())
+            except Exception as exc:  # noqa: BLE001
+                cuda["device_count_error"] = str(exc)
+
+            devices: list[dict[str, Any]] = []
+            try:
+                for i in range(int(cuda.get("device_count") or 0)):
+                    try:
+                        prop = torch.cuda.get_device_properties(int(i))
+                        devices.append(
+                            {
+                                "index": int(i),
+                                "name": getattr(prop, "name", None),
+                                "total_memory": int(getattr(prop, "total_memory", 0)),
+                                "major": int(getattr(prop, "major", 0)),
+                                "minor": int(getattr(prop, "minor", 0)),
+                            }
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        devices.append({"index": int(i), "error": str(exc)})
+                cuda["devices"] = devices
+            except Exception as exc:  # noqa: BLE001
+                cuda["devices_error"] = str(exc)
+
+            # cuDNN version (best-effort)
+            try:
+                cudnn = getattr(getattr(torch, "backends", None), "cudnn", None)
+                ver = cudnn.version() if cudnn is not None and callable(cudnn.version) else None
+                cuda["cudnn_version"] = int(ver) if ver is not None else None
+            except Exception as exc:  # noqa: BLE001
+                cuda["cudnn_error"] = str(exc)
+
+        payload["cuda"] = cuda
+
+        # MPS (Apple Silicon)
+        mps_available = False
+        try:
+            backends = getattr(torch, "backends", None)
+            mps = getattr(backends, "mps", None) if backends is not None else None
+            if mps is not None and callable(getattr(mps, "is_available", None)):
+                mps_available = bool(mps.is_available())
+        except Exception:
+            mps_available = False
+        payload["mps"] = {"available": bool(mps_available)}
+
+        checks["torch"] = payload
+
+    # ------------------------------------------------------------------
+    # onnxruntime
+    ort_mod, ort_err = optional_import("onnxruntime")
+    if ort_mod is None:
+        checks["onnxruntime"] = {
+            "available": False,
+            "install_hint": extras_install_hint(["onnx"]),
+            "error": str(ort_err) if ort_err is not None else "missing",
+        }
+    else:
+        ort = ort_mod
+        providers = None
+        providers_error = None
+        try:
+            providers = list(ort.get_available_providers())
+        except Exception as exc:  # noqa: BLE001
+            providers_error = str(exc)
+
+        checks["onnxruntime"] = {
+            "available": True,
+            "install_hint": None,
+            "onnxruntime_version": getattr(ort, "__version__", None),
+            "available_providers": providers,
+            "providers_error": providers_error,
+        }
+
+    # ------------------------------------------------------------------
+    # openvino
+    ov_mod, ov_err = optional_import("openvino")
+    if ov_mod is None:
+        checks["openvino"] = {
+            "available": False,
+            "install_hint": extras_install_hint(["openvino"]),
+            "error": str(ov_err) if ov_err is not None else "missing",
+        }
+    else:
+        openvino = ov_mod
+        devices = None
+        devices_error = None
+        try:
+            try:
+                from openvino.runtime import Core  # type: ignore[import-not-found]
+            except Exception:
+                # Some versions expose `openvino.runtime` as an attribute.
+                Core = getattr(getattr(openvino, "runtime", None), "Core", None)  # type: ignore[assignment]
+            if Core is None:
+                raise RuntimeError("openvino.runtime.Core not found")
+
+            core = Core()
+            if hasattr(core, "available_devices"):
+                devices = list(core.available_devices)
+            elif hasattr(core, "get_available_devices"):
+                devices = list(core.get_available_devices())
+            else:
+                raise RuntimeError("OpenVINO Core does not expose available devices")
+        except Exception as exc:  # noqa: BLE001
+            devices_error = str(exc)
+
+        checks["openvino"] = {
+            "available": True,
+            "install_hint": None,
+            "openvino_version": getattr(openvino, "__version__", None),
+            "devices": devices,
+            "devices_error": devices_error,
+        }
+
+    return checks
+
+
 def _collect_payload(
-    *, suites_to_check: list[str] | None = None, require_extras: list[str] | None = None
+    *,
+    suites_to_check: list[str] | None = None,
+    require_extras: list[str] | None = None,
+    accelerators: bool = False,
 ) -> dict[str, Any]:
     import pyimgano
 
@@ -248,6 +419,9 @@ def _collect_payload(
     if require_extras:
         payload["require_extras"] = _build_require_extras_check(require_extras)
 
+    if bool(accelerators):
+        payload["accelerators"] = _build_accelerator_checks()
+
     return payload
 
 
@@ -255,13 +429,17 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     try:
-        payload = _collect_payload(suites_to_check=args.suite, require_extras=args.require_extras)
+        payload = _collect_payload(
+            suites_to_check=args.suite,
+            require_extras=args.require_extras,
+            accelerators=bool(getattr(args, "accelerators", False)),
+        )
     except Exception as exc:  # noqa: BLE001 - CLI boundary
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
     if bool(args.json):
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        print(json.dumps(payload, sort_keys=True))
         req = payload.get("require_extras")
         if isinstance(req, dict) and req.get("ok") is False:
             return 1
@@ -306,6 +484,58 @@ def main(argv: list[str] | None = None) -> int:
             print(msg)
         else:
             print("require_extras: OK")
+
+    accelerators = payload.get("accelerators")
+    if isinstance(accelerators, dict) and accelerators:
+        print("accelerators:")
+        t = accelerators.get("torch") or {}
+        if isinstance(t, dict):
+            if bool(t.get("available")):
+                cuda = t.get("cuda") or {}
+                cuda_ok = bool(isinstance(cuda, dict) and cuda.get("available"))
+                count = None
+                if isinstance(cuda, dict):
+                    count = cuda.get("device_count")
+                suffix = ""
+                if cuda_ok:
+                    suffix = f" (cuda devices: {count})"
+                print(f"- torch: OK{suffix}")
+            else:
+                hint = t.get("install_hint")
+                msg = "- torch: MISSING"
+                if hint:
+                    msg += f" → {hint}"
+                print(msg)
+
+        ort = accelerators.get("onnxruntime") or {}
+        if isinstance(ort, dict):
+            if bool(ort.get("available")):
+                prov = ort.get("available_providers") or []
+                suffix = ""
+                if isinstance(prov, list) and prov:
+                    suffix = f" (providers: {', '.join(str(x) for x in prov)})"
+                print(f"- onnxruntime: OK{suffix}")
+            else:
+                hint = ort.get("install_hint")
+                msg = "- onnxruntime: MISSING"
+                if hint:
+                    msg += f" → {hint}"
+                print(msg)
+
+        ov = accelerators.get("openvino") or {}
+        if isinstance(ov, dict):
+            if bool(ov.get("available")):
+                devs = ov.get("devices") or []
+                suffix = ""
+                if isinstance(devs, list) and devs:
+                    suffix = f" (devices: {', '.join(str(x) for x in devs)})"
+                print(f"- openvino: OK{suffix}")
+            else:
+                hint = ov.get("install_hint")
+                msg = "- openvino: MISSING"
+                if hint:
+                    msg += f" → {hint}"
+                print(msg)
 
     print("optional_modules:")
     for m in payload.get("optional_modules", []) or []:

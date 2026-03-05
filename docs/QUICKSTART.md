@@ -75,6 +75,8 @@ Optional: print a quick environment report (including optional extras availabili
 pyimgano-doctor
 pyimgano-doctor --json
 pyimgano-doctor --suite industrial-v4 --json
+pyimgano-doctor --require-extras torch,skimage --json   # CI/deploy gate: exit 1 if missing
+pyimgano-doctor --accelerators --json   # runtime checks: torch CUDA/MPS, onnxruntime providers, openvino devices
 ```
 
 ---
