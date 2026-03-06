@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal, Optional, Sequence
+from typing import Any, Iterable, Literal, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -90,6 +90,7 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
     output_name: Optional[str] = None
     output_index: int = 0
     providers: Optional[Sequence[str]] = None
+    session_options: Optional[Mapping[str, Any]] = None
     cache_dir: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -126,6 +127,79 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
             raise ValueError("input_color must be one of: rgb|bgr")
         self.input_color = ic  # type: ignore[assignment]
 
+        # Optional: onnxruntime SessionOptions knobs (production tuning).
+        if self.session_options is not None:
+            if not isinstance(self.session_options, Mapping):
+                raise TypeError("session_options must be a mapping/dict when provided.")
+
+            allowed = {
+                "intra_op_num_threads",
+                "inter_op_num_threads",
+                "execution_mode",
+                "graph_optimization_level",
+                "enable_mem_pattern",
+                "enable_cpu_mem_arena",
+                "log_severity_level",
+                "log_verbosity_level",
+                "session_config_entries",
+            }
+            opts = dict(self.session_options)
+            unknown = sorted(set(opts) - set(allowed))
+            if unknown:
+                raise ValueError(
+                    "Unknown session_options key(s): "
+                    f"{unknown}. Allowed: {sorted(allowed)}"
+                )
+
+            v = opts.get("intra_op_num_threads", None)
+            if v is not None:
+                vv = int(v)
+                if vv < 0:
+                    raise ValueError("session_options.intra_op_num_threads must be >= 0")
+
+            v = opts.get("inter_op_num_threads", None)
+            if v is not None:
+                vv = int(v)
+                if vv < 0:
+                    raise ValueError("session_options.inter_op_num_threads must be >= 0")
+
+            v = opts.get("execution_mode", None)
+            if v is not None:
+                mode = str(v).strip().lower()
+                if mode not in ("sequential", "parallel"):
+                    raise ValueError(
+                        "session_options.execution_mode must be 'sequential' or 'parallel'"
+                    )
+
+            v = opts.get("graph_optimization_level", None)
+            if v is not None:
+                lvl = str(v).strip().lower()
+                if lvl not in ("disable", "basic", "extended", "all"):
+                    raise ValueError(
+                        "session_options.graph_optimization_level must be one of: "
+                        "disable|basic|extended|all"
+                    )
+
+            v = opts.get("enable_mem_pattern", None)
+            if v is not None and not isinstance(v, bool):
+                raise ValueError("session_options.enable_mem_pattern must be a boolean")
+
+            v = opts.get("enable_cpu_mem_arena", None)
+            if v is not None and not isinstance(v, bool):
+                raise ValueError("session_options.enable_cpu_mem_arena must be a boolean")
+
+            v = opts.get("log_severity_level", None)
+            if v is not None:
+                _ = int(v)
+
+            v = opts.get("log_verbosity_level", None)
+            if v is not None:
+                _ = int(v)
+
+            v = opts.get("session_config_entries", None)
+            if v is not None and not isinstance(v, Mapping):
+                raise ValueError("session_options.session_config_entries must be a mapping/dict")
+
         if self.cache_dir is not None:
             from pyimgano.cache.embeddings import EmbeddingCache, fingerprint_payload
 
@@ -140,6 +214,9 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
                 "output_name": None if self.output_name is None else str(self.output_name),
                 "output_index": int(self.output_index),
                 "providers": None if self.providers is None else list(self.providers),
+                "session_options": (
+                    None if self.session_options is None else dict(self.session_options)
+                ),
             }
             fp = fingerprint_payload(payload)
             self._cache = EmbeddingCache(
@@ -161,7 +238,76 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
         else:
             providers = [str(p) for p in self.providers]
 
-        sess = ort.InferenceSession(str(ckpt), providers=providers)
+        sess_options = None
+        if self.session_options is not None:
+            opts = dict(self.session_options)
+            sess_options = ort.SessionOptions()
+
+            v = opts.get("intra_op_num_threads", None)
+            if v is not None:
+                sess_options.intra_op_num_threads = int(v)
+
+            v = opts.get("inter_op_num_threads", None)
+            if v is not None:
+                sess_options.inter_op_num_threads = int(v)
+
+            v = opts.get("execution_mode", None)
+            if v is not None:
+                mode = str(v).strip().lower()
+                enum = getattr(ort, "ExecutionMode", None)
+                if enum is None:
+                    raise ValueError("onnxruntime.ExecutionMode is not available in this version.")
+                if mode == "sequential":
+                    sess_options.execution_mode = getattr(enum, "ORT_SEQUENTIAL")
+                elif mode == "parallel":
+                    sess_options.execution_mode = getattr(enum, "ORT_PARALLEL")
+                else:  # pragma: no cover - validated in __post_init__
+                    raise ValueError(f"Unknown execution_mode: {mode!r}")
+
+            v = opts.get("graph_optimization_level", None)
+            if v is not None:
+                lvl = str(v).strip().lower()
+                enum = getattr(ort, "GraphOptimizationLevel", None)
+                if enum is None:
+                    raise ValueError(
+                        "onnxruntime.GraphOptimizationLevel is not available in this version."
+                    )
+                if lvl == "disable":
+                    sess_options.graph_optimization_level = getattr(enum, "ORT_DISABLE_ALL")
+                elif lvl == "basic":
+                    sess_options.graph_optimization_level = getattr(enum, "ORT_ENABLE_BASIC")
+                elif lvl == "extended":
+                    sess_options.graph_optimization_level = getattr(enum, "ORT_ENABLE_EXTENDED")
+                elif lvl == "all":
+                    sess_options.graph_optimization_level = getattr(enum, "ORT_ENABLE_ALL")
+                else:  # pragma: no cover - validated in __post_init__
+                    raise ValueError(f"Unknown graph_optimization_level: {lvl!r}")
+
+            v = opts.get("enable_mem_pattern", None)
+            if v is not None and hasattr(sess_options, "enable_mem_pattern"):
+                sess_options.enable_mem_pattern = bool(v)
+
+            v = opts.get("enable_cpu_mem_arena", None)
+            if v is not None and hasattr(sess_options, "enable_cpu_mem_arena"):
+                sess_options.enable_cpu_mem_arena = bool(v)
+
+            v = opts.get("log_severity_level", None)
+            if v is not None and hasattr(sess_options, "log_severity_level"):
+                sess_options.log_severity_level = int(v)
+
+            v = opts.get("log_verbosity_level", None)
+            if v is not None and hasattr(sess_options, "log_verbosity_level"):
+                sess_options.log_verbosity_level = int(v)
+
+            entries = opts.get("session_config_entries", None)
+            if entries is not None:
+                for k, vv in dict(entries).items():
+                    sess_options.add_session_config_entry(str(k), str(vv))
+
+        if sess_options is None:
+            sess = ort.InferenceSession(str(ckpt), providers=providers)
+        else:
+            sess = ort.InferenceSession(str(ckpt), providers=providers, sess_options=sess_options)
 
         inputs = list(sess.get_inputs())
         if not inputs:

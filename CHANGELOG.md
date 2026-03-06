@@ -200,6 +200,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.36] - 2026-03-06
+
+### Feature Extractors
+- `onnx_embed` now supports a `session_options` mapping for production CPU tuning (threads, execution mode, graph optimization level, memory arena/pattern, logging, and session config entries).
+- `onnx_embed` embedding cache fingerprint now includes `session_options` to avoid mixing cached embeddings across runtime configurations.
+
+### Models
+- Industrial ONNX wrappers (`vision_onnx_*`) now accept `session_options` and pass it through to the default `onnx_embed` extractor.
+
+### Docs
+- Documented onnxruntime CPU SessionOptions tuning for `vision_onnx_*` in `docs/INDUSTRIAL_EMBEDDING_PLUS_CORE.md`.
+
+### Tests
+- Added coverage for `onnx_embed` SessionOptions plumbing, wrapper pass-through, and cache fingerprinting.
+
 ## [0.6.35] - 2026-03-05
 
 ### CLI

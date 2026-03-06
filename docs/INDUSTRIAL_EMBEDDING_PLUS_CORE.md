@@ -149,6 +149,62 @@ Then run a wrapper model that expects `checkpoint_path`:
 - `vision_onnx_ecod`
 - `vision_onnx_knn_cosine_calibrated`
 
+### ONNX Runtime CPU tuning (SessionOptions)
+
+For production CPU inference you can pass a small `session_options` mapping to the
+`onnx_embed` extractor (or directly to the `vision_onnx_*` wrappers). This exposes
+common onnxruntime `SessionOptions` knobs (threads, optimization level, etc.) without
+making `onnxruntime` a hard dependency at import time.
+
+Supported keys:
+
+- `intra_op_num_threads` (int, >= 0)
+- `inter_op_num_threads` (int, >= 0)
+- `execution_mode` (`"sequential"` or `"parallel"`)
+- `graph_optimization_level` (`"disable" | "basic" | "extended" | "all"`)
+- `enable_mem_pattern` (bool)
+- `enable_cpu_mem_arena` (bool)
+- `log_severity_level` (int)
+- `log_verbosity_level` (int)
+- `session_config_entries` (mapping; forwarded to `add_session_config_entry`)
+
+Python example (industrial wrapper):
+
+```python
+from pyimgano.models import create_model
+
+det = create_model(
+    "vision_onnx_ecod",
+    checkpoint_path="/path/to/resnet18_embed.onnx",
+    device="cpu",
+    session_options={
+        "intra_op_num_threads": 8,
+        "inter_op_num_threads": 1,
+        "execution_mode": "sequential",
+        "graph_optimization_level": "all",
+    },
+)
+```
+
+CLI example (`pyimgano-infer`):
+
+```bash
+pyimgano-infer \
+  --model vision_onnx_ecod \
+  --checkpoint-path /path/to/resnet18_embed.onnx \
+  --model-kwargs '{"device":"cpu","session_options":{"intra_op_num_threads":8,"inter_op_num_threads":1,"execution_mode":"sequential","graph_optimization_level":"all"}}' \
+  --train-dir /path/to/train/good \
+  --input /path/to/query_dir_or_file \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Practical notes:
+
+- Start with `execution_mode="sequential"` + `inter_op_num_threads=1` to avoid CPU
+  oversubscription, then tune `intra_op_num_threads` to match your physical cores.
+- If you see memory spikes or you run highly variable batch shapes, consider
+  `enable_mem_pattern=False` for stability.
+
 ## Score Hygiene
 
 All detectors in `pyimgano` follow:

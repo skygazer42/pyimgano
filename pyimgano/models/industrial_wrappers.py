@@ -71,6 +71,7 @@ def _default_onnx_embedding_extractor(
     image_size: int = 224,
     cache_dir: str | None = None,
     providers: list[str] | None = None,
+    session_options: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {
         "checkpoint_path": str(checkpoint_path),
@@ -82,6 +83,8 @@ def _default_onnx_embedding_extractor(
         kwargs["cache_dir"] = str(cache_dir)
     if providers is not None:
         kwargs["providers"] = [str(p) for p in providers]
+    if session_options is not None:
+        kwargs["session_options"] = dict(session_options)
     return {"name": "onnx_embed", "kwargs": kwargs}
 
 
@@ -1186,6 +1189,7 @@ class VisionONNXECOD(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         # Advanced override knobs:
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
@@ -1201,6 +1205,7 @@ class VisionONNXECOD(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1242,6 +1247,7 @@ class VisionONNXCOPOD(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1256,6 +1262,7 @@ class VisionONNXCOPOD(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1288,6 +1295,7 @@ class VisionONNXIForest(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1302,6 +1310,7 @@ class VisionONNXIForest(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1334,6 +1343,7 @@ class VisionONNXKNNCosine(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1348,6 +1358,7 @@ class VisionONNXKNNCosine(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1387,6 +1398,7 @@ class VisionONNXKNNCosineCalibrated(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1403,6 +1415,7 @@ class VisionONNXKNNCosineCalibrated(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1443,6 +1456,7 @@ class VisionONNXCosineMahalanobis(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1457,6 +1471,7 @@ class VisionONNXCosineMahalanobis(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1496,6 +1511,7 @@ class VisionONNXLID(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1510,6 +1526,7 @@ class VisionONNXLID(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1550,6 +1567,7 @@ class VisionONNXLOF(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1564,6 +1582,7 @@ class VisionONNXLOF(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1604,6 +1623,7 @@ class VisionONNXMCD(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1618,6 +1638,7 @@ class VisionONNXMCD(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1648,6 +1669,7 @@ class VisionONNXMSTOutlier(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1662,6 +1684,7 @@ class VisionONNXMSTOutlier(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1692,6 +1715,7 @@ class VisionONNXPcaMD(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1706,6 +1730,7 @@ class VisionONNXPcaMD(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1745,6 +1770,7 @@ class VisionONNXExtraTreesDensity(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1759,6 +1785,7 @@ class VisionONNXExtraTreesDensity(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
@@ -1798,6 +1825,7 @@ class VisionONNXOddOneOut(VisionEmbeddingCoreDetector):
         image_size: int = 224,
         cache_dir: str | None = None,
         providers: list[str] | None = None,
+        session_options: Mapping[str, Any] | None = None,
         embedding_extractor: str | Any = "onnx_embed",
         embedding_kwargs: Mapping[str, Any] | None = None,
         core_kwargs: Mapping[str, Any] | None = None,
@@ -1812,6 +1840,7 @@ class VisionONNXOddOneOut(VisionEmbeddingCoreDetector):
                 image_size=int(image_size),
                 cache_dir=cache_dir,
                 providers=providers,
+                session_options=session_options,
             )["kwargs"]
 
         super().__init__(
