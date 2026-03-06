@@ -85,8 +85,15 @@ print(list_models()[:10])
 Example model names you can start with:
 
 - Classical baselines: `vision_ecod`, `vision_copod`, `vision_iforest`, `vision_knn`, `vision_pca`, `vision_ocsvm`
+- Direct feature-matrix baselines: `core_ecod`, `core_iforest`, `core_knn`, `core_lof`, `core_mahalanobis`
 - Pixel-map industrial inspection: `vision_patchcore`, `vision_padim`, `vision_softpatch`, `vision_spade`, `vision_stfpm`, `vision_draem`, `vision_anomalydino`, `vision_superad`
 - anomalib checkpoint wrappers (optional): `vision_*_anomalib`, `vision_anomalib_checkpoint`
+
+Two routes that are especially useful in production:
+
+- `core_*` models for precomputed features / embeddings
+- `vision_embedding_core` when you want `torchvision_backbone`, `torchscript_embed`, or `onnx_embed`
+  paired with a classical scorer
 
 To discover models from the CLI:
 
@@ -105,7 +112,8 @@ pyimgano-benchmark --list-models --tags pixel_map
 
 **PyOD advantage:** More algorithms, especially for tabular data
 
-**PyImgAno advantage:** Visual-specific algorithms and implementations
+**PyImgAno advantage:** Visual-specific algorithms, pixel-map outputs, and a cleaner bridge from
+image embeddings to `core_*` classical detectors.
 
 ### Preprocessing
 

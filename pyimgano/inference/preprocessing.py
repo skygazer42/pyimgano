@@ -151,7 +151,11 @@ class PreprocessingDetector:
         self.illumination_contrast = illumination_contrast
 
     def __getattr__(self, name: str) -> Any:  # pragma: no cover - thin delegation
-        return getattr(self.detector, name)
+        try:
+            detector = object.__getattribute__(self, "detector")
+        except AttributeError as exc:
+            raise AttributeError(name) from exc
+        return getattr(detector, name)
 
     def _preprocess_item(self, item: ImageInput) -> NDArray[np.uint8]:
         if isinstance(item, (str, Path)):

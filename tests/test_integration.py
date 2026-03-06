@@ -275,8 +275,32 @@ def _write_demo_png(path: Path, *, value: int) -> None:
 def test_workbench_recipe_smoke_manifest(tmp_path: Path, recipe_name: str) -> None:
     # Ensure builtin recipes are registered.
     import pyimgano.recipes  # noqa: F401
+    from pyimgano.models.registry import MODEL_REGISTRY
     from pyimgano.recipes.registry import RECIPE_REGISTRY
     from pyimgano.workbench.config import WorkbenchConfig
+
+    class _PixelMapDummyDetector:
+        def __init__(self, **kwargs):  # noqa: ANN003 - test stub
+            self.kwargs = dict(kwargs)
+
+        def fit(self, X, y=None, **kwargs):  # noqa: ANN001, ARG002 - test stub
+            self.fit_inputs = list(X)
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001 - test stub
+            items = list(X)
+            return np.linspace(0.0, 1.0, num=len(items), dtype=np.float32)
+
+        def predict_anomaly_map(self, X):  # noqa: ANN001 - test stub
+            items = list(X)
+            return np.zeros((len(items), 16, 16), dtype=np.float32)
+
+    MODEL_REGISTRY.register(
+        "test_workbench_recipe_pixel_map_dummy",
+        _PixelMapDummyDetector,
+        tags=("vision", "classical", "pixel_map"),
+        overwrite=True,
+    )
 
     root = tmp_path / "data"
     train0 = root / "train_0.png"
@@ -313,7 +337,7 @@ def test_workbench_recipe_smoke_manifest(tmp_path: Path, recipe_name: str) -> No
                 "limit_test": 2,
             },
             "model": {
-                "name": "vision_ecod",
+                "name": "test_workbench_recipe_pixel_map_dummy",
                 "device": "cpu",
                 "pretrained": False,
                 "contamination": 0.1,

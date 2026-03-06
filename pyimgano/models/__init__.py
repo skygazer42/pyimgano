@@ -167,6 +167,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "superad",
     # Optional foundation + sequence modeling
     "mambaad",
+    "snarm",
     # Pipelines registered as models
     "feature_pipeline",
     "vision_embedding_core",

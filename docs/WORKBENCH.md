@@ -27,6 +27,7 @@ examples/configs/industrial_adapt_fast.json
 examples/configs/industrial_adapt_preprocessing_illumination.json
 examples/configs/industrial_adapt_maps_tiling.json
 examples/configs/industrial_adapt_defects_roi.json
+examples/configs/manifest_industrial_workflow_balanced.json
 ```
 
 2) Edit at least:

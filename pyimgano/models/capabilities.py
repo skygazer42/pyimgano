@@ -33,12 +33,13 @@ def _constructor_supports_numpy(constructor: Any) -> bool:
         return False
 
     try:
+        from pyimgano.models.baseml import BaseVisionDetector
         from pyimgano.models.baseCv import BaseVisionDeepDetector
     except Exception:
         return False
 
     try:
-        return issubclass(constructor, BaseVisionDeepDetector)
+        return issubclass(constructor, (BaseVisionDetector, BaseVisionDeepDetector))
     except TypeError:
         return False
 

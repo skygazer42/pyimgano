@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 
 import pyimgano.infer_cli as infer_cli
+from pyimgano.models.registry import MODEL_REGISTRY
 
 
 def _write_png(path: Path) -> None:
@@ -210,7 +211,7 @@ def test_infer_cli_errors_when_preprocessing_enabled_on_non_numpy_model(
                 "from_run": str(run_dir),
                 "category": "custom",
                 "model": {
-                    "name": "vision_ecod",
+                    "name": "test_infer_cfg_path_only_detector",
                     "device": "cpu",
                     "pretrained": False,
                     "contamination": 0.1,
@@ -266,6 +267,16 @@ def test_infer_cli_errors_when_preprocessing_enabled_on_non_numpy_model(
 
     det = _NumpyOnlyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    class _PathOnlyDetector:
+        pass
+
+    MODEL_REGISTRY.register(
+        "test_infer_cfg_path_only_detector",
+        _PathOnlyDetector,
+        tags=("vision", "classical"),
+        overwrite=True,
+    )
 
     rc = infer_cli.main(
         [
@@ -1099,6 +1110,9 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
 
 def test_infer_cli_infer_config_requires_category_when_ambiguous(tmp_path: Path, capsys) -> None:
     cfg_path = tmp_path / "infer_config.json"
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
     cfg_path.write_text(
         json.dumps(
             {
@@ -1111,7 +1125,7 @@ def test_infer_cli_infer_config_requires_category_when_ambiguous(tmp_path: Path,
         encoding="utf-8",
     )
 
-    rc = infer_cli.main(["--infer-config", str(cfg_path), "--input", str(tmp_path)])
+    rc = infer_cli.main(["--infer-config", str(cfg_path), "--input", str(input_dir)])
     assert rc == 2
     err = capsys.readouterr().err.lower()
     assert "infer-category" in err

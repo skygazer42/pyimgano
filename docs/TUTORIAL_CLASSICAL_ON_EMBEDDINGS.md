@@ -34,6 +34,28 @@ Good starting points:
 - `core_loop`, `core_ldof`, `core_odin` (local neighborhood geometry)
 - `core_rrcf`, `core_hst` (tree/ensemble baselines)
 
+## 1b. Projection-Aware Baselines: `core_kpca` and `core_pca_md`
+
+These are useful when your embeddings contain low-dimensional structure and you
+want a projection-style score instead of a pure neighborhood or density score.
+
+```python
+from pyimgano.models import create_model
+
+det_kpca = create_model("core_kpca", contamination=0.05, kernel="rbf", gamma=0.1)
+det_kpca.fit(X_train)
+scores_kpca = det_kpca.decision_function(X_test)
+
+det_pca_md = create_model("core_pca_md", contamination=0.05, n_components=0.95)
+det_pca_md.fit(X_train)
+scores_pca_md = det_pca_md.decision_function(X_test)
+```
+
+Practical heuristic:
+
+- try `core_kpca` when you suspect nonlinear structure in the embedding space
+- try `core_pca_md` when you want a simpler, more audit-friendly linear baseline
+
 ## 2. Use `vision_*` Wrappers With `identity` Extractor (Sklearn-Style Ergonomics)
 
 If you already have a workflow that expects `vision_*` models, you can still run them on embeddings
@@ -103,4 +125,3 @@ scores = det.decision_function(X_test)
 - All detectors follow the same scoring convention: **higher score = more anomalous**.
 - For large datasets, prefer `core_ecod`/`core_copod`-style baselines, or pre-reduce your
   embeddings (e.g. PCA).
-

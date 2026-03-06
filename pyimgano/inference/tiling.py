@@ -437,4 +437,8 @@ class TiledDetector:
 
     def __getattr__(self, name: str):
         # Proxy unknown attributes (e.g. threshold_, decision_scores_) to the wrapped detector.
-        return getattr(self.detector, name)
+        try:
+            detector = object.__getattribute__(self, "detector")
+        except AttributeError as exc:
+            raise AttributeError(name) from exc
+        return getattr(detector, name)

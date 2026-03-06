@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -134,9 +135,9 @@ def test_infer_cli_onnx_sweep_selects_best_session_options_and_applies_to_model(
             opt = getattr(self._sess_options, "graph_optimization_level", None)
             opt_penalty = 0 if opt == _GraphOptimizationLevel.ORT_ENABLE_ALL else 1
             work = (intra - 2) ** 2 + opt_penalty
-            # Deterministic CPU work so timing-based selection is stable in unit tests.
-            for _ in range(20_000 + (work * 20_000)):
-                pass
+            # Use wall-clock delay instead of CPU busy work so suite load does not
+            # scramble the intended ordering of candidates.
+            time.sleep(0.002 + (work * 0.02))
             return [np.zeros((batch, 8), dtype=np.float32)]
 
     class _FakeORT:

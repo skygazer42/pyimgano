@@ -22,6 +22,34 @@ from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.maps import save_anomaly_map_npy
 
 
+def _require_pixel_map_model_for_workbench_features(*, config: WorkbenchConfig) -> None:
+    needs: list[str] = []
+    if bool(getattr(config.adaptation, "save_maps", False)):
+        needs.append("adaptation.save_maps")
+    if getattr(config.adaptation, "postprocess", None) is not None:
+        needs.append("adaptation.postprocess")
+    if bool(getattr(config.defects, "enabled", False)):
+        needs.append("defects.enabled")
+
+    if not needs:
+        return
+
+    from pyimgano.models.capabilities import compute_model_capabilities
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    entry = MODEL_REGISTRY.info(str(config.model.name))
+    caps = compute_model_capabilities(entry)
+    if caps.supports_pixel_map:
+        return
+
+    raise ValueError(
+        "These workbench options require a model that supports pixel maps: "
+        f"{', '.join(needs)}. "
+        f"model={config.model.name!r} supports_pixel_map={bool(caps.supports_pixel_map)!r}. "
+        "Choose a model with tag 'pixel_map' or disable the pixel-map-dependent options."
+    )
+
+
 def _load_split_paths(
     *,
     config: WorkbenchConfig,
@@ -444,6 +472,7 @@ def run_workbench(
         raise ValueError("adaptation.save_maps requires output.save_run=true.")
     if bool(config.training.enabled) and not bool(config.output.save_run):
         raise ValueError("training.enabled requires output.save_run=true.")
+    _require_pixel_map_model_for_workbench_features(config=config)
 
     run_dir = None
     paths = None

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import inspect
 import json
 from typing import Any
 
-from pyimgano.models.registry import MODEL_REGISTRY
+from pyimgano.models.introspection import get_constructor_signature_info
+from pyimgano.models.registry import MODEL_REGISTRY, materialize_model_constructor
 
 
 def parse_model_kwargs(text: str | None) -> dict[str, Any]:
@@ -45,18 +45,9 @@ def merge_checkpoint_path(
 def _get_model_signature_info(model_name: str) -> tuple[set[str], bool]:
     """Return (accepted_kwarg_names, accepts_var_kwargs) for a registered model."""
 
-    entry = MODEL_REGISTRY.info(model_name)
-    constructor = entry.constructor
-    sig = inspect.signature(constructor)
-
-    accepts_var_kwargs = any(
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
-    accepted = {
-        name
-        for name, p in sig.parameters.items()
-        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-    }
+    MODEL_REGISTRY.info(model_name)
+    constructor = materialize_model_constructor(model_name)
+    _signature, accepted, accepts_var_kwargs = get_constructor_signature_info(constructor)
     return accepted, accepts_var_kwargs
 
 

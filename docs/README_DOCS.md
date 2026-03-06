@@ -79,6 +79,9 @@ If you’re updating docs, these pages form the "happy path" for most industrial
 - `docs/PLUGINS.md` (third-party extension mechanism; enterprise/internal models)
 - `docs/MANIFEST_DATASET.md` (recommended custom dataset format: JSONL manifest, paths-first)
 - `docs/INDUSTRIAL_INFERENCE.md` (numpy-first + tiling + defects output)
+- `docs/CORE_MODELS.md` (direct `core_*` detectors on feature matrices)
+- `docs/TUTORIAL_EMBEDDINGS_PLUS_CORE.md` (industrial embeddings + classical scorer pattern)
+- `docs/STRUCTURE_TEMPLATE_BASELINES.md` (CPU-friendly aligned/template baselines)
 - `docs/FALSE_POSITIVE_DEBUGGING.md` (practical FP tuning with overlays/ROI/filters)
 - `docs/CLI_REFERENCE.md` (CLI flags + JSONL schemas)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pyimgano.models.baseml import BaseVisionDetector
 from pyimgano.models.capabilities import compute_model_capabilities
 from pyimgano.models.registry import ModelRegistry
 
@@ -62,3 +63,19 @@ def test_capabilities_mark_classical_models_as_save_load_capable() -> None:
 
     caps = compute_model_capabilities(registry.info("classical"))
     assert caps.supports_save_load is True
+
+
+def test_capabilities_include_numpy_for_base_vision_detector_models() -> None:
+    class _VisionModel(BaseVisionDetector):
+        def __init__(self, *, contamination: float = 0.1, feature_extractor=None) -> None:
+            super().__init__(contamination=contamination, feature_extractor=feature_extractor)
+
+        def _build_detector(self):
+            return object()
+
+    registry = ModelRegistry()
+    registry.register("vision_base", _VisionModel, tags=["vision", "classical"])
+
+    caps = compute_model_capabilities(registry.info("vision_base"))
+    assert "paths" in caps.input_modes
+    assert "numpy" in caps.input_modes

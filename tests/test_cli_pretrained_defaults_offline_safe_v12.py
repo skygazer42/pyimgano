@@ -22,13 +22,22 @@ def test_robust_cli_pretrained_default_is_false() -> None:
     assert args.pretrained is False
 
 
-def test_infer_cli_direct_mode_default_does_not_enable_pretrained(capsys) -> None:
+def test_infer_cli_direct_mode_default_does_not_enable_pretrained(capsys, tmp_path) -> None:
     """Regression: `pyimgano-infer --model ...` must not silently enable pretrained.
 
     We use `vision_anomalydino` because it only auto-loads a torch.hub DINOv2
     embedder when pretrained=True. With the offline-safe default, it should
     fail fast and ask for an explicit embedder or `--pretrained`.
     """
+
+    import numpy as np
+    from PIL import Image
+
+    # Create a real image so the CLI gets past input-path validation
+    # and reaches model creation, which is where the pretrained guard fires.
+    img_path = tmp_path / "dummy.png"
+    arr = np.zeros((32, 32, 3), dtype=np.uint8)
+    Image.fromarray(arr, mode="RGB").save(str(img_path))
 
     from pyimgano.infer_cli import main
 
@@ -37,7 +46,7 @@ def test_infer_cli_direct_mode_default_does_not_enable_pretrained(capsys) -> Non
             "--model",
             "vision_anomalydino",
             "--input",
-            "/does/not/exist.png",
+            str(img_path),
         ]
     )
 

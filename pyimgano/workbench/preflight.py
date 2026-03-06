@@ -36,7 +36,7 @@ def run_preflight(*, config: WorkbenchConfig) -> PreflightReport:
     issues: list[PreflightIssue] = []
     summary: dict[str, Any] = {}
 
-    _preflight_preprocessing_model_compat(config=config, issues=issues)
+    _preflight_model_compat(config=config, issues=issues)
 
     ds = dataset.lower()
     if ds == "manifest":
@@ -47,7 +47,7 @@ def run_preflight(*, config: WorkbenchConfig) -> PreflightReport:
     return PreflightReport(dataset=dataset, category=category, summary=summary, issues=issues)
 
 
-def _preflight_preprocessing_model_compat(
+def _preflight_model_compat(
     *,
     config: WorkbenchConfig,
     issues: list[PreflightIssue],
@@ -57,7 +57,25 @@ def _preflight_preprocessing_model_compat(
     except Exception:  # noqa: BLE001 - best-effort config probing
         illumination_contrast = None
 
-    if illumination_contrast is None:
+    try:
+        adaptation = config.adaptation
+    except Exception:  # noqa: BLE001 - best-effort config probing
+        adaptation = None
+    try:
+        defects = config.defects
+    except Exception:  # noqa: BLE001 - best-effort config probing
+        defects = None
+
+    save_maps_enabled = bool(getattr(adaptation, "save_maps", False))
+    postprocess_enabled = getattr(adaptation, "postprocess", None) is not None
+    defects_enabled = bool(getattr(defects, "enabled", False))
+
+    if (
+        illumination_contrast is None
+        and not save_maps_enabled
+        and not postprocess_enabled
+        and not defects_enabled
+    ):
         return
 
     model_name = str(config.model.name)
@@ -69,7 +87,7 @@ def _preflight_preprocessing_model_compat(
             _issue(
                 "MODEL_REGISTRY_IMPORT_FAILED",
                 "warning",
-                "Unable to import pyimgano.models to validate preprocessing/model compatibility.",
+                "Unable to import pyimgano.models to validate model/config compatibility.",
                 context={"model": model_name, "error": str(exc)},
             )
         )
@@ -85,7 +103,7 @@ def _preflight_preprocessing_model_compat(
             _issue(
                 "MODEL_REGISTRY_LOOKUP_FAILED",
                 "warning",
-                "Unable to look up model in registry to validate preprocessing/model compatibility.",
+                "Unable to look up model in registry to validate model/config compatibility.",
                 context={"model": model_name, "error": str(exc)},
             )
         )
@@ -93,7 +111,7 @@ def _preflight_preprocessing_model_compat(
 
     caps = compute_model_capabilities(entry)
     supported_input_modes = tuple(str(m) for m in caps.input_modes)
-    if "numpy" not in supported_input_modes:
+    if illumination_contrast is not None and "numpy" not in supported_input_modes:
         issues.append(
             _issue(
                 "PREPROCESSING_REQUIRES_NUMPY_MODEL",
@@ -104,6 +122,42 @@ def _preflight_preprocessing_model_compat(
                     "supported_input_modes": supported_input_modes,
                     "hint": "Choose a model with tag 'numpy' or disable preprocessing.",
                 },
+            )
+        )
+
+    if caps.supports_pixel_map:
+        return
+
+    pixel_map_context = {
+        "model": model_name,
+        "supports_pixel_map": bool(caps.supports_pixel_map),
+        "hint": "Choose a model with tag 'pixel_map' or disable the pixel-map-dependent option.",
+    }
+    if save_maps_enabled:
+        issues.append(
+            _issue(
+                "SAVE_MAPS_REQUIRES_PIXEL_MAP_MODEL",
+                "error",
+                "adaptation.save_maps requires a model that supports pixel maps.",
+                context=pixel_map_context,
+            )
+        )
+    if postprocess_enabled:
+        issues.append(
+            _issue(
+                "POSTPROCESS_REQUIRES_PIXEL_MAP_MODEL",
+                "error",
+                "adaptation.postprocess requires a model that supports pixel maps.",
+                context=pixel_map_context,
+            )
+        )
+    if defects_enabled:
+        issues.append(
+            _issue(
+                "DEFECTS_REQUIRES_PIXEL_MAP_MODEL",
+                "error",
+                "defects.enabled requires a model that supports pixel maps.",
+                context=pixel_map_context,
             )
         )
 

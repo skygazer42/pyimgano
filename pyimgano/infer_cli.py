@@ -1382,6 +1382,7 @@ def main(argv: list[str] | None = None) -> int:
         defects_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
         illumination_contrast_knobs = None
+        tiling_payload: dict[str, Any] | None = None
 
         t_load_start = time.perf_counter()
         if from_run:
@@ -1523,6 +1524,20 @@ def main(argv: list[str] | None = None) -> int:
                 ic = None
             if ic is not None:
                 illumination_contrast_knobs = ic
+            try:
+                tiling = cfg.adaptation.tiling
+            except Exception:
+                tiling = None
+            if tiling is not None and getattr(tiling, "tile_size", None) is not None:
+                tiling_payload = {
+                    "tile_size": int(tiling.tile_size),
+                    "stride": (
+                        int(tiling.stride) if getattr(tiling, "stride", None) is not None else None
+                    ),
+                    "score_reduce": str(tiling.score_reduce),
+                    "score_topk": float(tiling.score_topk),
+                    "map_reduce": str(tiling.map_reduce),
+                }
         elif infer_config_mode:
             from pyimgano.inference.config import (
                 load_infer_config,
@@ -1572,6 +1587,9 @@ def main(argv: list[str] | None = None) -> int:
                 adaptation_payload = {}
             if not isinstance(adaptation_payload, dict):
                 raise ValueError("infer-config key 'adaptation' must be a JSON object/dict.")
+            tiling_raw = adaptation_payload.get("tiling", None)
+            if isinstance(tiling_raw, dict):
+                tiling_payload = dict(tiling_raw)
 
             threshold_from_run = extract_threshold(payload)
             trained_checkpoint_path = resolve_infer_checkpoint_path(payload, config_path=cfg_path)
@@ -1641,24 +1659,6 @@ def main(argv: list[str] | None = None) -> int:
                 load_checkpoint_into_detector(detector, trained_checkpoint_path)
             if threshold_from_run is not None:
                 setattr(detector, "threshold_", float(threshold_from_run))
-
-            # Apply default tiling settings from infer-config when the CLI did not
-            # explicitly request tiling.
-            tiling = adaptation_payload.get("tiling", None)
-            if (
-                args.tile_size is None
-                and isinstance(tiling, dict)
-                and tiling.get("tile_size", None) is not None
-            ):
-                args.tile_size = int(tiling.get("tile_size"))
-                if tiling.get("stride", None) is not None:
-                    args.tile_stride = int(tiling.get("stride"))
-                if tiling.get("score_reduce", None) is not None:
-                    args.tile_score_reduce = str(tiling.get("score_reduce"))
-                if tiling.get("map_reduce", None) is not None:
-                    args.tile_map_reduce = str(tiling.get("map_reduce"))
-                if tiling.get("score_topk", None) is not None:
-                    args.tile_score_topk = float(tiling.get("score_topk"))
 
             # Infer-config may request maps/postprocess by default.
             post_cfg = adaptation_payload.get("postprocess", None)
@@ -1766,6 +1766,21 @@ def main(argv: list[str] | None = None) -> int:
 
         if defects_payload is not None:
             _apply_defects_defaults_from_payload(args, defects_payload)
+
+        if (
+            args.tile_size is None
+            and isinstance(tiling_payload, dict)
+            and tiling_payload.get("tile_size", None) is not None
+        ):
+            args.tile_size = int(tiling_payload.get("tile_size"))
+            if tiling_payload.get("stride", None) is not None:
+                args.tile_stride = int(tiling_payload.get("stride"))
+            if tiling_payload.get("score_reduce", None) is not None:
+                args.tile_score_reduce = str(tiling_payload.get("score_reduce"))
+            if tiling_payload.get("map_reduce", None) is not None:
+                args.tile_map_reduce = str(tiling_payload.get("map_reduce"))
+            if tiling_payload.get("score_topk", None) is not None:
+                args.tile_score_topk = float(tiling_payload.get("score_topk"))
 
         if args.tile_size is not None:
             from pyimgano.inference.tiling import TiledDetector

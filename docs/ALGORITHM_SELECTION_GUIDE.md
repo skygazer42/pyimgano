@@ -43,6 +43,10 @@ If your station is stable (pose/background mostly fixed) and you want a fast pix
 | `ssim_template_map` | Structure stable, illumination varies | SSIM template similarity map turned into anomaly map |
 | `vision_phase_correlation_map` | Small XY misalignment | Phase-corr alignment before abs-diff map |
 
+See also:
+
+- `docs/STRUCTURE_TEMPLATE_BASELINES.md` for when to use `ssim_template`, `ssim_struct`, and structural-feature baselines like `lof_structure`.
+
 ## Industrial Integration (numpy-first)
 
 If your upstream system already gives you decoded numpy frames (video pipelines, cameras, backend services),
@@ -55,6 +59,7 @@ Recommended starting points:
 
 - `vision_patchcore`, `vision_softpatch`, `vision_anomalydino` (pixel maps + strong baselines)
 - `vision_score_ensemble` (robustness via rank-normalized score ensembling)
+- `vision_embedding_core` when you already have or want explicit embeddings plus a simple `core_*` detector
 
 Discovery tip:
 
