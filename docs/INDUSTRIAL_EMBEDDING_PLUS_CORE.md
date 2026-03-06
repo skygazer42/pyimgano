@@ -192,7 +192,20 @@ CLI example (`pyimgano-infer`):
 pyimgano-infer \
   --model vision_onnx_ecod \
   --checkpoint-path /path/to/resnet18_embed.onnx \
-  --model-kwargs '{"device":"cpu","session_options":{"intra_op_num_threads":8,"inter_op_num_threads":1,"execution_mode":"sequential","graph_optimization_level":"all"}}' \
+  --onnx-session-options '{"intra_op_num_threads":8,"inter_op_num_threads":1,"execution_mode":"sequential","graph_optimization_level":"all"}' \
+  --train-dir /path/to/train/good \
+  --input /path/to/query_dir_or_file \
+  --save-jsonl /tmp/pyimgano_results.jsonl
+```
+
+Optional: auto-tune on your machine with a tiny sweep (applies the chosen config automatically):
+
+```bash
+pyimgano-infer \
+  --model vision_onnx_ecod \
+  --checkpoint-path /path/to/resnet18_embed.onnx \
+  --onnx-sweep \
+  --onnx-sweep-json /tmp/pyimgano_onnx_sweep.json \
   --train-dir /path/to/train/good \
   --input /path/to/query_dir_or_file \
   --save-jsonl /tmp/pyimgano_results.jsonl

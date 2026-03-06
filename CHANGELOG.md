@@ -55,6 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLIs now default to offline-safe behavior (`--no-pretrained`) to avoid implicit weight downloads.
   - Affected: `pyimgano-benchmark`, `pyimgano-robust-benchmark`, and direct `pyimgano-infer --model ...`.
   - Opt in explicitly via `--pretrained` when you want upstream weights (may download).
+- `pyimgano-infer` now supports ONNX Runtime CPU tuning helpers for ONNX-based routes:
+  - `--onnx-session-options` (SessionOptions shorthand; avoids nested `--model-kwargs`)
+  - `--onnx-sweep` (small grid sweep over threads + graph optimization level; optional `--onnx-sweep-json`)
 
 ### Feature Extractors
 - Added `torchscript_embed` feature extractor for industrial “bring-your-own checkpoint” deployments (TorchScript `.pt`),

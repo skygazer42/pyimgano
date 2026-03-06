@@ -21,6 +21,399 @@ from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
 
+def _parse_json_mapping_arg(text: str, *, arg_name: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{arg_name} must be valid JSON. Original error: {exc}") from exc
+
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{arg_name} must be a JSON object (e.g. '{{\"k\": 1}}').")
+
+    return dict(parsed)
+
+
+def _parse_csv_ints_arg(text: str, *, arg_name: str) -> list[int]:
+    raw = [t.strip() for t in str(text).split(",")]
+    out: list[int] = []
+    for item in raw:
+        if not item:
+            continue
+        try:
+            out.append(int(item))
+        except Exception as exc:  # noqa: BLE001 - CLI boundary
+            raise ValueError(f"{arg_name} must be a comma-separated list of ints, got {text!r}") from exc
+    return out
+
+
+def _parse_csv_strs_arg(text: str, *, arg_name: str) -> list[str]:
+    raw = [t.strip() for t in str(text).split(",")]
+    return [t for t in raw if t]
+
+
+def _looks_like_onnx_route(model_name: str, user_kwargs: dict[str, Any]) -> bool:
+    name = str(model_name)
+    if "onnx" in name:
+        return True
+    if str(user_kwargs.get("embedding_extractor", "")).strip() == "onnx_embed":
+        return True
+    fx = user_kwargs.get("feature_extractor", None)
+    if fx == "onnx_embed":
+        return True
+    if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
+        return True
+    return False
+
+
+def _apply_onnx_session_options_shorthand(
+    *,
+    model_name: str,
+    user_kwargs: dict[str, Any],
+    session_options: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Best-effort injection of session_options into model kwargs.
+
+    Supported targets:
+    - `vision_onnx_*` wrappers: top-level `session_options`
+    - embedding wrappers that accept `embedding_kwargs`: nested `embedding_kwargs.session_options`
+    - feature-pipeline models that accept `feature_extractor`: nested `feature_extractor.kwargs.session_options`
+    """
+
+    if not session_options:
+        return dict(user_kwargs)
+
+    if not _looks_like_onnx_route(model_name, user_kwargs):
+        raise ValueError(
+            "--onnx-session-options is only supported for ONNX-based routes "
+            "(e.g. vision_onnx_* or embedding_extractor='onnx_embed')."
+        )
+
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    entry = MODEL_REGISTRY.info(str(model_name))
+    sig = inspect.signature(entry.constructor)
+    accepts_var_kwargs = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    )
+    accepted = {
+        name
+        for name, p in sig.parameters.items()
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+
+    out = dict(user_kwargs)
+
+    # Preferred: first-class kwarg on industrial ONNX wrappers.
+    if accepts_var_kwargs or ("session_options" in accepted):
+        base = out.get("session_options", None)
+        merged = dict(base) if isinstance(base, dict) else {}
+        merged.update(dict(session_options))
+        out["session_options"] = merged
+        return out
+
+    # Next-best: embedding-core style models.
+    if "embedding_kwargs" in accepted:
+        embedder = out.get("embedding_extractor", None)
+        if embedder is not None and str(embedder) != "onnx_embed":
+            raise ValueError(
+                "--onnx-session-options requires embedding_extractor='onnx_embed' when targeting embedding_kwargs."
+            )
+        ek = out.get("embedding_kwargs", None)
+        ek_dict = dict(ek) if isinstance(ek, dict) else {}
+        base = ek_dict.get("session_options", None)
+        merged = dict(base) if isinstance(base, dict) else {}
+        merged.update(dict(session_options))
+        ek_dict["session_options"] = merged
+        out["embedding_kwargs"] = ek_dict
+        return out
+
+    # Feature-pipeline models may pass a JSON-friendly feature_extractor spec.
+    if "feature_extractor" in accepted:
+        fx = out.get("feature_extractor", None)
+        if fx == "onnx_embed":
+            out["feature_extractor"] = {
+                "name": "onnx_embed",
+                "kwargs": {"session_options": dict(session_options)},
+            }
+            return out
+        if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
+            fx_kwargs = fx.get("kwargs", None)
+            fx_kwargs_dict = dict(fx_kwargs) if isinstance(fx_kwargs, dict) else {}
+            base = fx_kwargs_dict.get("session_options", None)
+            merged = dict(base) if isinstance(base, dict) else {}
+            merged.update(dict(session_options))
+            fx_kwargs_dict["session_options"] = merged
+            out["feature_extractor"] = {"name": "onnx_embed", "kwargs": fx_kwargs_dict}
+            return out
+
+    raise ValueError(
+        "--onnx-session-options could not be applied to this model. "
+        "Use --model-kwargs to pass session_options directly."
+    )
+
+
+def _default_onnx_sweep_intra_values() -> list[int]:
+    import os
+
+    n = int(os.cpu_count() or 8)
+    cap = max(1, min(n, 16))
+    vals = [1, 2, 4, 8, 16]
+    out = [v for v in vals if v <= cap]
+    return out or [1]
+
+
+def _run_onnx_session_options_sweep(
+    *,
+    checkpoint_path: str,
+    device: str,
+    image_size: int,
+    batch_size: int,
+    inputs: list[str],
+    base_session_options: dict[str, Any],
+    intra_values: list[int],
+    opt_levels: list[str],
+    repeats: int,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run a small timing+stability sweep for onnx_embed SessionOptions."""
+
+    import statistics
+    import time
+
+    if str(device).strip().lower() != "cpu":
+        raise ValueError("--onnx-sweep currently supports device='cpu' only.")
+    if repeats <= 0:
+        raise ValueError("--onnx-sweep-repeats must be > 0")
+    if not inputs:
+        raise ValueError("--onnx-sweep requires at least one input image")
+
+    from pyimgano.features.onnx_embed import ONNXEmbedExtractor
+
+    sample_inputs = list(inputs)
+
+    candidates: list[dict[str, Any]] = []
+    best: dict[str, Any] | None = None
+
+    for intra in intra_values:
+        for opt in opt_levels:
+            so = dict(base_session_options)
+            so["intra_op_num_threads"] = int(intra)
+            so["graph_optimization_level"] = str(opt)
+
+            row: dict[str, Any] = {"session_options": dict(so)}
+            try:
+                extractor = ONNXEmbedExtractor(
+                    checkpoint_path=str(checkpoint_path),
+                    device="cpu",
+                    batch_size=int(batch_size),
+                    image_size=int(image_size),
+                    session_options=dict(so),
+                )
+
+                # Warm up to materialize the ORT session and stabilize timings.
+                extractor.extract(sample_inputs[:1])
+
+                timings: list[float] = []
+                first_out = None
+                second_out = None
+                for i in range(int(repeats)):
+                    t0 = time.perf_counter()
+                    out = extractor.extract(sample_inputs)
+                    t1 = time.perf_counter()
+                    timings.append(float(t1 - t0))
+                    if i == 0:
+                        first_out = np.asarray(out)
+                    elif i == 1:
+                        second_out = np.asarray(out)
+
+                stable = True
+                if first_out is None:
+                    stable = False
+                else:
+                    stable = bool(np.all(np.isfinite(first_out)))
+                if stable and (first_out is not None) and (second_out is not None):
+                    stable = bool(np.allclose(first_out, second_out, rtol=1e-5, atol=1e-6))
+
+                row.update(
+                    {
+                        "ok": True,
+                        "stable": bool(stable),
+                        "timing_seconds": list(timings),
+                        "median_seconds": float(statistics.median(timings)) if timings else None,
+                        "stdev_seconds": float(statistics.pstdev(timings))
+                        if len(timings) >= 2
+                        else 0.0,
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 - CLI boundary
+                row.update(
+                    {
+                        "ok": False,
+                        "stable": False,
+                        "error": {
+                            "type": type(exc).__name__,
+                            "message": str(exc),
+                        },
+                    }
+                )
+
+            candidates.append(row)
+
+            if bool(row.get("ok")) and bool(row.get("stable")):
+                if best is None:
+                    best = dict(row)
+                else:
+                    # Rank by median latency; tie-break by lower stdev.
+                    a = float(row.get("median_seconds") or 1e99)
+                    b = float(best.get("median_seconds") or 1e99)
+                    if a < b:
+                        best = dict(row)
+                    elif a == b:
+                        sa = float(row.get("stdev_seconds") or 1e99)
+                        sb = float(best.get("stdev_seconds") or 1e99)
+                        if sa < sb:
+                            best = dict(row)
+
+    payload = {
+        "checkpoint_path": str(checkpoint_path),
+        "device": str(device),
+        "image_size": int(image_size),
+        "batch_size": int(batch_size),
+        "samples": int(len(sample_inputs)),
+        "repeats": int(repeats),
+        "grid": {
+            "intra_op_num_threads": [int(v) for v in intra_values],
+            "graph_optimization_level": [str(v) for v in opt_levels],
+        },
+        "base_session_options": dict(base_session_options),
+        "candidates": list(candidates),
+        "best": None if best is None else dict(best),
+    }
+
+    if best is None:
+        raise RuntimeError(
+            "ONNX sweep failed: no stable candidates. "
+            "Try reducing the grid (threads/opt-levels) or inspect --onnx-sweep-json."
+        )
+
+    best_opts = dict(best.get("session_options") or {})
+    return best_opts, payload
+
+
+def _extract_onnx_checkpoint_path_for_sweep(user_kwargs: dict[str, Any]) -> str | None:
+    ckpt = user_kwargs.get("checkpoint_path", None)
+    if ckpt is not None and str(ckpt).strip():
+        return str(ckpt)
+
+    ek = user_kwargs.get("embedding_kwargs", None)
+    if isinstance(ek, dict):
+        ckpt2 = ek.get("checkpoint_path", None)
+        if ckpt2 is not None and str(ckpt2).strip():
+            return str(ckpt2)
+
+    fx = user_kwargs.get("feature_extractor", None)
+    if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
+        kw = fx.get("kwargs", None)
+        if isinstance(kw, dict):
+            ckpt3 = kw.get("checkpoint_path", None)
+            if ckpt3 is not None and str(ckpt3).strip():
+                return str(ckpt3)
+
+    return None
+
+
+def _extract_session_options_for_sweep(user_kwargs: dict[str, Any]) -> dict[str, Any]:
+    so = user_kwargs.get("session_options", None)
+    if isinstance(so, dict):
+        return dict(so)
+    ek = user_kwargs.get("embedding_kwargs", None)
+    if isinstance(ek, dict):
+        so2 = ek.get("session_options", None)
+        if isinstance(so2, dict):
+            return dict(so2)
+    fx = user_kwargs.get("feature_extractor", None)
+    if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
+        kw = fx.get("kwargs", None)
+        if isinstance(kw, dict):
+            so3 = kw.get("session_options", None)
+            if isinstance(so3, dict):
+                return dict(so3)
+    return {}
+
+
+def _maybe_apply_onnx_session_options_and_sweep(
+    *,
+    args: argparse.Namespace,
+    model_name: str,
+    device: str,
+    user_kwargs: dict[str, Any],
+    inputs: list[str],
+    onnx_session_options_cli: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Apply --onnx-session-options and/or --onnx-sweep to model kwargs (best-effort)."""
+
+    if not bool(getattr(args, "onnx_sweep", False)) and not onnx_session_options_cli:
+        return dict(user_kwargs)
+
+    if bool(getattr(args, "onnx_sweep", False)):
+        sweep_inputs = inputs[: int(getattr(args, "onnx_sweep_samples", 32) or 32)]
+        intra_values = (
+            _parse_csv_ints_arg(str(args.onnx_sweep_intra), arg_name="--onnx-sweep-intra")
+            if getattr(args, "onnx_sweep_intra", None)
+            else _default_onnx_sweep_intra_values()
+        )
+        opt_levels = (
+            _parse_csv_strs_arg(
+                str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels"
+            )
+            if getattr(args, "onnx_sweep_opt_levels", None)
+            else ["all", "extended"]
+        )
+
+        base_so = _extract_session_options_for_sweep(user_kwargs)
+        if onnx_session_options_cli:
+            base_so.update(dict(onnx_session_options_cli))
+
+        ckpt_for_sweep = _extract_onnx_checkpoint_path_for_sweep(user_kwargs)
+        if ckpt_for_sweep is None:
+            raise ValueError(
+                "--onnx-sweep requires checkpoint_path for ONNX models. "
+                "Provide --checkpoint-path (or set checkpoint_path in --model-kwargs)."
+            )
+
+        best_so, sweep_payload = _run_onnx_session_options_sweep(
+            checkpoint_path=str(ckpt_for_sweep),
+            device=str(device),
+            image_size=int(user_kwargs.get("image_size", 224)),
+            batch_size=int(user_kwargs.get("batch_size", 16)),
+            inputs=list(sweep_inputs),
+            base_session_options=dict(base_so),
+            intra_values=[int(v) for v in intra_values],
+            opt_levels=[str(v) for v in opt_levels],
+            repeats=int(getattr(args, "onnx_sweep_repeats", 3)),
+        )
+
+        if getattr(args, "onnx_sweep_json", None) is not None:
+            sweep_path = Path(str(args.onnx_sweep_json))
+            sweep_path.parent.mkdir(parents=True, exist_ok=True)
+            sweep_path.write_text(
+                json.dumps({"tool": "pyimgano-infer", "onnx_sweep": sweep_payload}, indent=2),
+                encoding="utf-8",
+            )
+
+        return _apply_onnx_session_options_shorthand(
+            model_name=model_name,
+            user_kwargs=dict(user_kwargs),
+            session_options=dict(best_so),
+        )
+
+    # No sweep: just apply the shorthand.
+    return _apply_onnx_session_options_shorthand(
+        model_name=model_name,
+        user_kwargs=dict(user_kwargs),
+        session_options=dict(onnx_session_options_cli or {}),
+    )
+
+
 def _require_numpy_model_for_preprocessing(model_name: str) -> None:
     from pyimgano.models.capabilities import compute_model_capabilities
     from pyimgano.models.registry import MODEL_REGISTRY
@@ -403,6 +796,50 @@ def _build_parser() -> argparse.ArgumentParser:
         "--model-kwargs",
         default=None,
         help="JSON object of extra model constructor kwargs, e.g. '{\"k\": 1}' (advanced)",
+    )
+    parser.add_argument(
+        "--onnx-session-options",
+        default=None,
+        help=(
+            "Optional JSON object of onnxruntime SessionOptions to pass to ONNX-based routes "
+            "(e.g. vision_onnx_* wrappers). This avoids nested --model-kwargs. "
+            "Example: '{\"intra_op_num_threads\":8,\"graph_optimization_level\":\"all\"}'"
+        ),
+    )
+    parser.add_argument(
+        "--onnx-sweep",
+        action="store_true",
+        help=(
+            "Run a small onnxruntime CPU SessionOptions sweep (threads + graph optimization level) "
+            "and apply the best session_options before inference. Requires an ONNX route and --device cpu."
+        ),
+    )
+    parser.add_argument(
+        "--onnx-sweep-intra",
+        default=None,
+        help="Comma-separated intra_op_num_threads values for --onnx-sweep (default: 1,2,4,8 capped at 16).",
+    )
+    parser.add_argument(
+        "--onnx-sweep-opt-levels",
+        default=None,
+        help="Comma-separated graph_optimization_level values for --onnx-sweep (default: all,extended).",
+    )
+    parser.add_argument(
+        "--onnx-sweep-repeats",
+        type=int,
+        default=3,
+        help="Timed repeats per candidate for --onnx-sweep (default: 3).",
+    )
+    parser.add_argument(
+        "--onnx-sweep-samples",
+        type=int,
+        default=32,
+        help="Max number of input images used for --onnx-sweep timing (default: 32).",
+    )
+    parser.add_argument(
+        "--onnx-sweep-json",
+        default=None,
+        help="Optional path to write ONNX sweep results JSON (grid + timings + selected best).",
     )
     parser.add_argument(
         "--checkpoint-path",
@@ -919,11 +1356,23 @@ def main(argv: list[str] | None = None) -> int:
                 "Use --list-models/--model-info/--list-model-presets for discovery."
             )
 
+        onnx_session_options_cli: dict[str, Any] | None = None
+        if getattr(args, "onnx_session_options", None) is not None:
+            onnx_session_options_cli = _parse_json_mapping_arg(
+                str(args.onnx_session_options), arg_name="--onnx-session-options"
+            )
+
         seed = int(args.seed) if args.seed is not None else None
         if seed is not None:
             from pyimgano.utils.seeding import seed_everything
 
             seed_everything(int(seed))
+
+        inputs: list[str] = []
+        for raw in args.input:
+            inputs.extend(_collect_image_paths(raw))
+        if not inputs:
+            raise ValueError("No input images found.")
 
         from_run = args.from_run is not None
         infer_config_mode = args.infer_config is not None
@@ -1025,6 +1474,15 @@ def main(argv: list[str] | None = None) -> int:
 
                         checkpoint_path = str(resolved)
             user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
+
+            user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
+                args=args,
+                model_name=model_name,
+                device=str(device),
+                user_kwargs=dict(user_kwargs),
+                inputs=list(inputs),
+                onnx_session_options_cli=onnx_session_options_cli,
+            )
 
             preset_kwargs = _resolve_preset_kwargs(preset, model_name)
             model_kwargs = build_model_kwargs(
@@ -1147,6 +1605,14 @@ def main(argv: list[str] | None = None) -> int:
                     str(resolved_model_ckpt) if resolved_model_ckpt is not None else None
                 )
             user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
+            user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
+                args=args,
+                model_name=model_name,
+                device=str(device),
+                user_kwargs=dict(user_kwargs),
+                inputs=list(inputs),
+                onnx_session_options_cli=onnx_session_options_cli,
+            )
 
             preset_kwargs = _resolve_preset_kwargs(preset, model_name)
             model_kwargs = build_model_kwargs(
@@ -1262,6 +1728,14 @@ def main(argv: list[str] | None = None) -> int:
 
             user_kwargs = parse_model_kwargs(args.model_kwargs)
             user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
+            user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
+                args=args,
+                model_name=model_name,
+                device=str(device),
+                user_kwargs=dict(user_kwargs),
+                inputs=list(inputs),
+                onnx_session_options_cli=onnx_session_options_cli,
+            )
 
             auto_kwargs: dict[str, Any] = dict(preset_model_auto_kwargs)
             auto_kwargs.update(
@@ -1370,12 +1844,6 @@ def main(argv: list[str] | None = None) -> int:
                     batch_size=batch_size,
                     amp=bool(args.amp),
                 )
-
-        inputs: list[str] = []
-        for raw in args.input:
-            inputs.extend(_collect_image_paths(raw))
-        if not inputs:
-            raise ValueError("No input images found.")
 
         if bool(args.defects) and not bool(args.include_maps):
             args.include_maps = True

@@ -300,6 +300,12 @@ Optional:
   - `--tile-score-reduce max|mean|topk_mean` + `--tile-score-topk` — aggregate tile scores into an image score
 - `--seed INT` — best-effort deterministic seeding (also passed as `random_seed/random_state` when supported)
 - `--batch-size N` — run inference in chunks (preserves output order; can reduce peak memory)
+- ONNX Runtime CPU tuning (ONNX routes only):
+  - `--onnx-session-options JSON` — pass onnxruntime `SessionOptions` knobs without nested `--model-kwargs`
+    - Example: `--onnx-session-options '{"intra_op_num_threads":8,"inter_op_num_threads":1,"execution_mode":"sequential","graph_optimization_level":"all"}'`
+  - `--onnx-sweep` — run a small grid search over `(intra_op_num_threads, graph_optimization_level)` and apply the best config
+    - Optional knobs: `--onnx-sweep-intra 1,2,4,8`, `--onnx-sweep-opt-levels all,extended`, `--onnx-sweep-repeats N`, `--onnx-sweep-samples N`
+    - `--onnx-sweep-json PATH` writes a machine-friendly sweep report (timings + chosen best)
 - `--profile` — print stage timing summary to stderr (load model, fit/calibrate, infer, artifacts)
 - `--profile-json PATH` — write a JSON profile payload (stable, machine-friendly)
 - `--amp` — best-effort AMP/autocast for torch-backed models (requires torch + CUDA; otherwise runs without AMP)
