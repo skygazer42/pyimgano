@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_torchvision_vit_tokens_extractor_cls_pool_shape() -> None:

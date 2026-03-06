@@ -5,7 +5,6 @@ Vision CBLOF - 基于聚类的视觉异常检测器
 """
 
 import logging
-import os
 import warnings
 
 import cv2

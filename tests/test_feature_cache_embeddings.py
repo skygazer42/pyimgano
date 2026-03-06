@@ -6,6 +6,9 @@ import numpy as np
 import pytest
 from PIL import Image
 
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
+
 
 def _write_rgb(path: Path, *, value: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

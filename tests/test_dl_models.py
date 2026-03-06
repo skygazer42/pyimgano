@@ -14,6 +14,9 @@ import pytest
 
 from pyimgano.models import create_model
 
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
+
 
 @pytest.fixture
 def sample_images(tmp_path):

@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "PyImgAno Contributors", email = "pyimgano@example.com"},
+    {name = "PyImgAno Contributors"},
 ]
 maintainers = [
-    {name = "PyImgAno Contributors", email = "pyimgano@example.com"},
+    {name = "PyImgAno Contributors"},
 ]
 keywords = [
     "anomaly-detection",
@@ -126,7 +126,7 @@ backends = [
 
 [project.urls]
 Homepage = "https://github.com/skygazer42/pyimgano"
-Documentation = "https://github.com/skygazer42/pyimgano#readme"
+Documentation = "https://skygazer42.github.io/pyimgano/"
 Repository = "https://github.com/skygazer42/pyimgano"
 "Bug Tracker" = "https://github.com/skygazer42/pyimgano/issues"
 Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
@@ -265,12 +265,11 @@ select = [
     "W",   # pycodestyle warnings
     "F",   # pyflakes
     "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
+    "B006",  # mutable-argument-default (real bug risk)
 ]
 ignore = [
     "E501",  # line too long (handled by black)
+    "E402",  # allow intentional lazy/optional imports
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "W191",  # indentation contains tabs

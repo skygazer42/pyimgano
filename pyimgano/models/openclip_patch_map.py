@@ -11,7 +11,7 @@ Key constraints:
 - default `openclip_pretrained=None` to avoid implicit weight downloads
 """
 
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray

@@ -196,8 +196,6 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
         return _build_conv_vqvae(cfg=self.cfg)
 
     def training_forward(self, batch) -> float:  # noqa: ANN001
-        import torch
-        import torch.nn.functional as F
 
         images, _targets = batch
         images = images.to(self.device)

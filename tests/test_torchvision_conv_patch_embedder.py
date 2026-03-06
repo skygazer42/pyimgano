@@ -3,6 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
+
 
 def test_torchvision_conv_patch_embedder_smoke_offline_default(monkeypatch) -> None:
     torch = __import__("torch")

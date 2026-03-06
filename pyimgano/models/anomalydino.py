@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal, Optional, Protocol, Tuple, Union
+from typing import Any, Iterable, Optional, Protocol, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,8 +17,7 @@ class PatchEmbedder(Protocol):
 
     def embed(
         self, image: Union[str, np.ndarray]
-    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
-        ...
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
 
 
 @dataclass

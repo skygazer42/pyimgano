@@ -57,7 +57,7 @@ class ImageReader:
     """
 
     MAGIC_NUMBERS = {
-        b"\xFF\xD8\xFF": "jpeg",
+        b"\xff\xd8\xff": "jpeg",
         b"\x89PNG\r\n\x1a\n": "png",
         b"RIFF": "webp",  # Needs additional check
         b"\x00\x00\x00": "heif",  # Simplified

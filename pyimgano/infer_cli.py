@@ -42,7 +42,9 @@ def _parse_csv_ints_arg(text: str, *, arg_name: str) -> list[int]:
         try:
             out.append(int(item))
         except Exception as exc:  # noqa: BLE001 - CLI boundary
-            raise ValueError(f"{arg_name} must be a comma-separated list of ints, got {text!r}") from exc
+            raise ValueError(
+                f"{arg_name} must be a comma-separated list of ints, got {text!r}"
+            ) from exc
     return out
 
 
@@ -239,9 +241,9 @@ def _run_onnx_session_options_sweep(
                         "stable": bool(stable),
                         "timing_seconds": list(timings),
                         "median_seconds": float(statistics.median(timings)) if timings else None,
-                        "stdev_seconds": float(statistics.pstdev(timings))
-                        if len(timings) >= 2
-                        else 0.0,
+                        "stdev_seconds": (
+                            float(statistics.pstdev(timings)) if len(timings) >= 2 else 0.0
+                        ),
                     }
                 )
             except Exception as exc:  # noqa: BLE001 - CLI boundary
@@ -362,9 +364,7 @@ def _maybe_apply_onnx_session_options_and_sweep(
             else _default_onnx_sweep_intra_values()
         )
         opt_levels = (
-            _parse_csv_strs_arg(
-                str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels"
-            )
+            _parse_csv_strs_arg(str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels")
             if getattr(args, "onnx_sweep_opt_levels", None)
             else ["all", "extended"]
         )
@@ -803,7 +803,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Optional JSON object of onnxruntime SessionOptions to pass to ONNX-based routes "
             "(e.g. vision_onnx_* wrappers). This avoids nested --model-kwargs. "
-            "Example: '{\"intra_op_num_threads\":8,\"graph_optimization_level\":\"all\"}'"
+            'Example: \'{"intra_op_num_threads":8,"graph_optimization_level":"all"}\''
         ),
     )
     parser.add_argument(

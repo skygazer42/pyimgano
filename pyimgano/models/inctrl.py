@@ -10,7 +10,7 @@ from different application domains without further training on target data.
 Uses in-context learning with few-shot sample prompts.
 """
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch

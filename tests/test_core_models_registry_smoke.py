@@ -28,7 +28,14 @@ def test_core_models_fit_predict_smoke(model_name: str) -> None:
     rng = np.random.RandomState(0)
     X = rng.normal(size=(80, 8))
 
-    det = create_model(model_name, contamination=0.1)
+    try:
+        det = create_model(model_name, contamination=0.1)
+    except ImportError as exc:
+        # Some core_* classical models are gated behind optional extras (e.g. numba).
+        # In the minimal test environment (no heavy extras), skip those entries.
+        if "pyimgano[" in str(exc) or "Optional dependency" in str(exc):
+            pytest.skip(str(exc))
+        raise
     det.fit(X)
     scores = det.decision_function(X[:10])
     preds = det.predict(X[:10])

@@ -12,7 +12,6 @@ Features:
 
 import json
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Callable, Generator, Optional, Tuple, Union
 

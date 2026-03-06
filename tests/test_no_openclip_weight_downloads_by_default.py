@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 import types
 
+import pytest
+
 
 def test_openclip_extractor_default_pretrained_is_none() -> None:
     from pyimgano.features.openclip_embed import OpenCLIPExtractor
@@ -17,6 +19,7 @@ def test_openclip_extractor_passes_pretrained_none(monkeypatch) -> None:
     We simulate an `open_clip` module and assert the extractor forwards
     `pretrained=None` into `create_model_and_transforms(...)`.
     """
+    pytest.importorskip("torch")
 
     calls: list[object] = []
 

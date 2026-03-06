@@ -206,7 +206,7 @@ def _make_synthesizer(
 
 
 def _normalize_severity_range(
-    severity_range: tuple[float, float] | list[float] | None
+    severity_range: tuple[float, float] | list[float] | None,
 ) -> tuple[float, float]:
     if severity_range is None:
         return 1.0, 1.0

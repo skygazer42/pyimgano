@@ -10,8 +10,6 @@ Industrial pipelines often need reproducibility for:
 This module provides a small helper without imposing a strict global policy.
 """
 
-from typing import Optional
-
 
 def set_torch_determinism(
     seed: int = 42,

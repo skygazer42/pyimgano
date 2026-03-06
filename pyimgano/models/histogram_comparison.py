@@ -17,7 +17,6 @@ Usage:
 
 from typing import Literal, Optional, Tuple
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
 from skimage import color

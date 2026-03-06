@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 
 def test_core_oddoneout_scores_outliers_higher() -> None:
@@ -30,7 +31,7 @@ def test_core_oddoneout_scores_outliers_higher() -> None:
 
 
 def test_core_oddoneout_accepts_torch_tensor_inputs() -> None:
-    import torch
+    torch = pytest.importorskip("torch")
 
     from pyimgano.models import create_model
 

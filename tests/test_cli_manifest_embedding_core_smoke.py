@@ -4,8 +4,12 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from pyimgano.cli import main as cli_main
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def _write_png(path: Path, *, value: int) -> None:

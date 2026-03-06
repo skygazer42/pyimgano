@@ -6,12 +6,9 @@ Vision LODA - 基于LODA算法的视觉异常检测器
 
 import logging
 import numbers
-import os
-import warnings
 
 import cv2
 import numpy as np
-from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 from tqdm import tqdm

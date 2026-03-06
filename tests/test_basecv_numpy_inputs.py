@@ -1,10 +1,13 @@
 import numpy as np
+import pytest
 
-import pyimgano.models.baseCv as baseCv
-from pyimgano.datasets.array import VisionArrayDataset
+pytest.importorskip("torch")
 
 
 def test_basecv_accepts_numpy_list(monkeypatch):
+    import pyimgano.models.baseCv as baseCv
+    from pyimgano.datasets.array import VisionArrayDataset
+
     class DummyDeep(baseCv.BaseVisionDeepDetector):
         def build_model(self):
             import torch.nn as nn

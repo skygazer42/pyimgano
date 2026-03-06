@@ -159,6 +159,9 @@ class TestDeepLearningWorkflow:
     @pytest.mark.slow
     def test_simplenet_workflow(self, synthetic_dataset):
         """Test SimpleNet end-to-end."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torchvision")
+
         detector = models.create_model(
             "vision_simplenet", epochs=2, batch_size=2, device="cpu"  # Minimal for testing
         )
@@ -177,6 +180,9 @@ class TestDeepLearningWorkflow:
     @pytest.mark.slow
     def test_patchcore_workflow(self, synthetic_dataset):
         """Test PatchCore end-to-end."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torchvision")
+
         detector = models.create_model("vision_patchcore", coreset_sampling_ratio=0.5, device="cpu")
 
         # Train (feature extraction only)
@@ -219,6 +225,9 @@ class TestErrorHandling:
 
     def test_model_not_fitted(self):
         """Test that predict before fit raises error."""
+        pytest.importorskip("torch")
+        pytest.importorskip("torchvision")
+
         detector = models.create_model("vision_patchcore")
 
         with pytest.raises(RuntimeError, match="not fitted"):

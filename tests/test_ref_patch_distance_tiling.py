@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def _write_png(path: Path, *, value: int, size: int = 64) -> None:

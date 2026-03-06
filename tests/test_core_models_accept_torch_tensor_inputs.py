@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 
 def test_core_models_accept_torch_tensor_inputs() -> None:
-    torch = __import__("torch")
+    torch = pytest.importorskip("torch")
 
     from pyimgano.models.registry import create_model
 

@@ -20,7 +20,7 @@ lightweight, we cap the number of evaluated 3D subspaces by default.
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Iterable, Sequence
+from typing import Iterable
 
 import numpy as np
 from sklearn.preprocessing import RobustScaler

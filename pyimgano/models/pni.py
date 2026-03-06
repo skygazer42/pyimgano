@@ -17,7 +17,7 @@ Implementation follows the paper's architecture with:
 - Optional feature alignment for better matching
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -36,11 +36,11 @@ class PyramidFeatureExtractor(nn.Module):
     def __init__(
         self,
         backbone: str = "wide_resnet50",
-        feature_levels: List[str] = ["layer1", "layer2", "layer3"],
+        feature_levels: Optional[List[str]] = None,
         pretrained: bool = False,
     ):
         super().__init__()
-        self.feature_levels = feature_levels
+        self.feature_levels = list(feature_levels or ["layer1", "layer2", "layer3"])
 
         # Load pre-trained backbone
         if backbone == "wide_resnet50":
@@ -58,7 +58,7 @@ class PyramidFeatureExtractor(nn.Module):
 
         # Extract feature layers
         self.feature_extractors = nn.ModuleDict()
-        for level in feature_levels:
+        for level in self.feature_levels:
             if level == "layer1":
                 self.feature_extractors[level] = nn.Sequential(
                     model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
@@ -167,7 +167,7 @@ class PNIDetector(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "wide_resnet50",
-        feature_levels: List[str] = ["layer1", "layer2", "layer3"],
+        feature_levels: Optional[List[str]] = None,
         k_neighbors: int = 9,
         aggregation: str = "mean",
         weights: Optional[List[float]] = None,
@@ -178,6 +178,7 @@ class PNIDetector(BaseVisionDeepDetector):
     ):
         super().__init__(device=device, **kwargs)
 
+        feature_levels = list(feature_levels or ["layer1", "layer2", "layer3"])
         self.backbone_name = backbone
         self.feature_levels = feature_levels
         self.k_neighbors = k_neighbors

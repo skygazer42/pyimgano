@@ -33,4 +33,3 @@ from .registry import register_model
 )
 class VisionSNARM(VisionMambaAD):
     """Experimental SNARM-inspired detector backed by VisionMambaAD."""
-

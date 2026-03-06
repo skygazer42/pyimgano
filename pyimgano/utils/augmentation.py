@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from functools import partial
-from typing import Any, Callable, Iterable, Mapping, MutableMapping, Sequence, Tuple
+from typing import Any, Callable, Mapping, MutableMapping, Sequence, Tuple
 
 import numpy as np
 from PIL import Image, ImageEnhance

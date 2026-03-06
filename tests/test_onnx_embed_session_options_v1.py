@@ -9,8 +9,8 @@ import pytest
 def test_onnx_embed_extractor_applies_session_options(monkeypatch, tmp_path: Path) -> None:
     """SessionOptions plumbing should be deterministic and not require real onnxruntime."""
 
-    from pyimgano.features.onnx_embed import ONNXEmbedExtractor
     import pyimgano.features.onnx_embed as onnx_embed
+    from pyimgano.features.onnx_embed import ONNXEmbedExtractor
 
     captured = {"sess_options": None}
 

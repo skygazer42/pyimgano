@@ -9,7 +9,7 @@ import numpy as np
 
 from pyimgano.calibration.score_threshold import resolve_calibration_quantile
 from pyimgano.evaluation import evaluate_detector
-from pyimgano.models.registry import MODEL_REGISTRY, create_model, materialize_model_constructor
+from pyimgano.models.registry import create_model, materialize_model_constructor
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
 

@@ -16,7 +16,7 @@ import pytest
     ],
 )
 def test_core_detector_contract_torch_inputs_and_nan_handling(model_name: str) -> None:
-    torch = __import__("torch")
+    torch = pytest.importorskip("torch")
 
     import pyimgano.models  # noqa: F401 - registry population side effects
     from pyimgano.models.registry import create_model

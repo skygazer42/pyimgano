@@ -15,9 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 from defusedxml import ElementTree as ET
-from numpy.typing import NDArray
 
 
 @dataclass
@@ -294,9 +292,11 @@ class VOCFormat:
             "filename": root.find("filename").text if root.find("filename") is not None else "",
             "width": int(size.find("width").text) if size is not None else 0,
             "height": int(size.find("height").text) if size is not None else 0,
-            "depth": int(size.find("depth").text)
-            if size is not None and size.find("depth") is not None
-            else 3,
+            "depth": (
+                int(size.find("depth").text)
+                if size is not None and size.find("depth") is not None
+                else 3
+            ),
         }
 
         # Extract boxes

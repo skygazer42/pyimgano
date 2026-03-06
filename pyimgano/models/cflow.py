@@ -12,7 +12,7 @@ Reference:
 
 import logging
 import math
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 import cv2
 import numpy as np

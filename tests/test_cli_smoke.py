@@ -1,3 +1,5 @@
+import pytest
+
 from pyimgano.cli import main
 
 
@@ -6,6 +8,9 @@ def test_cli_importable():
 
 
 def test_cli_pixel_mode_uses_pipeline_alignment(tmp_path, capsys):
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+
     import cv2
     import numpy as np
 

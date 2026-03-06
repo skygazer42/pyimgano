@@ -11,7 +11,7 @@ Reference:
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import cv2
 import numpy as np

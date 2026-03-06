@@ -131,6 +131,7 @@ Table of Contents
 
    benchmarks
    contributing
+   stability
    changelog
    license
 

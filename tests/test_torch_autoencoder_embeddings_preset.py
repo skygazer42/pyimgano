@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_vision_embedding_torch_autoencoder_defaults_are_safe() -> None:

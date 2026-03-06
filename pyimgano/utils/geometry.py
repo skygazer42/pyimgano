@@ -300,7 +300,7 @@ class HomographyTransform:
             Bird's-eye view warped image
         """
         # Compute width and height of new image
-        (tl, tr, br, bl) = pts
+        tl, tr, br, bl = pts
 
         widthA = np.linalg.norm(br - bl)
         widthB = np.linalg.norm(tr - tl)

@@ -6,6 +6,9 @@ include README_ja.md
 include README_ko.md
 include CHANGELOG.md
 include CONTRIBUTING.md
+include CODE_OF_CONDUCT.md
+include SECURITY.md
+include CITATION.cff
 
 # Include requirements files
 include requirements.txt

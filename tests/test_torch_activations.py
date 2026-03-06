@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_get_activation_by_name_known_values() -> None:
     import torch.nn as nn

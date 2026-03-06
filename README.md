@@ -41,7 +41,8 @@ Production-oriented **visual anomaly detection** (image-level + pixel-level) for
 pip install pyimgano
 ```
 
-> Note: `pip install pyimgano` works after publishing to PyPI. Until then, install from source:
+> Note: `pip install pyimgano` installs the latest release from PyPI.
+> If you need the latest unreleased changes on `main`, install from source:
 >
 > ```bash
 > git clone https://github.com/skygazer42/pyimgano.git
@@ -367,6 +368,7 @@ Start here:
 - `docs/QUICKSTART.md`
 - `docs/WORKBENCH.md`
 - `docs/CLI_REFERENCE.md`
+- `docs/STABILITY.md` (public API + compatibility expectations)
 
 Production/industrial:
 - `docs/INDUSTRIAL_INFERENCE.md` (numpy-first IO, tiling, postprocess, defects export)
@@ -381,13 +383,19 @@ Reference:
 
 ## Contributing
 
-See `CONTRIBUTING.md`.
+See:
+
+- `CONTRIBUTING.md`
+- `CODE_OF_CONDUCT.md`
+- `SECURITY.md`
 
 ## License
 
 MIT. See `LICENSE`.
 
 ## Citation
+
+GitHub citation metadata is provided via `CITATION.cff`.
 
 ```bibtex
 @software{pyimgano2026,

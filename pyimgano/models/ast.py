@@ -8,7 +8,7 @@ Enhances student-teacher framework with anomaly-aware training using
 synthetic anomalies to improve detection sensitivity.
 """
 
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch

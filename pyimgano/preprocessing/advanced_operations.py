@@ -17,7 +17,6 @@ from typing import Optional, Tuple, Union
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-from scipy import ndimage
 
 from pyimgano.utils.optional_deps import require
 
@@ -250,7 +249,9 @@ def compute_lbp(
 
 
 def compute_glcm_features(
-    image: NDArray, distances: list = [1], angles: list = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
+    image: NDArray,
+    distances: Optional[list] = None,
+    angles: Optional[list] = None,
 ) -> dict:
     """
     Compute Gray-Level Co-occurrence Matrix features.
@@ -265,6 +266,9 @@ def compute_glcm_features(
     """
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    distances = [1] if distances is None else list(distances)
+    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4] if angles is None else list(angles)
 
     skfeature = require("skimage.feature", extra="skimage", purpose="GLCM texture features")
     greycomatrix = getattr(skfeature, "graycomatrix", None) or getattr(
@@ -456,7 +460,7 @@ def retinex_ssr(image: NDArray, sigma: float = 15.0) -> NDArray:
         return retinex.astype(np.uint8)
 
 
-def retinex_msr(image: NDArray, sigmas: list = [15, 80, 250]) -> NDArray:
+def retinex_msr(image: NDArray, sigmas: Optional[list] = None) -> NDArray:
     """
     Multi-Scale Retinex for illumination invariant processing.
 
@@ -467,6 +471,8 @@ def retinex_msr(image: NDArray, sigmas: list = [15, 80, 250]) -> NDArray:
     Returns:
         Retinex enhanced image
     """
+    sigmas = list(sigmas or [15, 80, 250])
+
     result = np.zeros_like(image, dtype=np.float32)
 
     for sigma in sigmas:

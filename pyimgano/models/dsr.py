@@ -17,7 +17,7 @@ Implementation includes:
 - Saliency map generation
 """
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch

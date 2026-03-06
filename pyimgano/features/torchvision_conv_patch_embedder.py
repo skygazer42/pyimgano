@@ -15,7 +15,7 @@ Key constraints
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Tuple, Union
+from typing import Any, Literal, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray

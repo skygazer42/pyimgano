@@ -12,7 +12,6 @@ Key Features:
 - Efficient training
 """
 
-import warnings
 from typing import Optional, Tuple
 
 import numpy as np
@@ -21,7 +20,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, TensorDataset
-from torchvision import models
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model

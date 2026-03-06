@@ -151,7 +151,9 @@ def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) ->
             try:
                 model = build_fn()
             except Exception as exc:
-                raise ValueError(f"Failed to build detector model before checkpoint load: {exc}") from exc
+                raise ValueError(
+                    f"Failed to build detector model before checkpoint load: {exc}"
+                ) from exc
 
             device = getattr(detector, "device", None)
             move_to = getattr(model, "to", None)

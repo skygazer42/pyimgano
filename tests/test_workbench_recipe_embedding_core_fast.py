@@ -4,9 +4,13 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from pyimgano.recipes.registry import RECIPE_REGISTRY
 from pyimgano.workbench.config import WorkbenchConfig
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def _write_png(path: Path, *, value: int) -> None:

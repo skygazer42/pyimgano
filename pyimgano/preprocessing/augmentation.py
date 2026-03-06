@@ -14,7 +14,7 @@ This module provides comprehensive augmentation operations including:
 
 import random
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import cv2
 import numpy as np

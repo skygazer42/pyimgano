@@ -215,6 +215,11 @@ def test_additional_classical_models_fit_predict(
     model_kwargs,
 ):
     """Smoke-test additional classical models registered by pyimgano."""
+    # Some classical models use optional numba acceleration and are intentionally
+    # gated behind `pyimgano[numba]`.
+    if model_name in {"vision_qmcd", "vision_lmdd"}:
+        pytest.importorskip("numba")
+
     train_paths, test_paths = mock_image_paths
     detector = models.create_model(
         model_name,

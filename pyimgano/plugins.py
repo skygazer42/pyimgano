@@ -24,7 +24,7 @@ from __future__ import annotations
 import importlib.metadata as md
 import warnings
 from dataclasses import asdict, dataclass
-from typing import Any, Iterable, Literal, Sequence
+from typing import Any, Literal, Sequence
 
 OnError = Literal["raise", "warn", "ignore"]
 

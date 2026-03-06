@@ -54,6 +54,9 @@ class _FakePatchCoreInferencer:
 
 
 def test_patchcore_inspection_wrapper_calibrates_threshold_and_maps(tmp_path):
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+
     import cv2
 
     from pyimgano.models.patchcore_inspection_backend import VisionPatchCoreInspectionCheckpoint

@@ -23,7 +23,7 @@ This module keeps the spec format small and stable.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from .registry import create_model
 

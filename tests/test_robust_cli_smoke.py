@@ -3,11 +3,15 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pytest
 
 from pyimgano.robust_cli import main
 
 
 def test_robust_cli_smoke(tmp_path, capsys) -> None:
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+
     import cv2
 
     root = tmp_path / "mvtec"

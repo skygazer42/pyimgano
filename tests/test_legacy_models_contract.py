@@ -18,6 +18,8 @@ def test_legacy_models_follow_base_detector_contract(model_name: str) -> None:
     from pyimgano.models import create_model
 
     if model_name in {"ssim_template", "ssim_struct"}:
+        pytest.importorskip("skimage")
+
         base = np.zeros((96, 96, 3), dtype=np.uint8)
         base[20:70, 30:60, :] = 200
         train = [base for _ in range(6)]

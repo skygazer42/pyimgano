@@ -1,6 +1,10 @@
 import numpy as np
+import pytest
 
 from pyimgano.models import create_model
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_patchcore_accepts_numpy_images(monkeypatch):

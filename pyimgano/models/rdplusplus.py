@@ -17,9 +17,8 @@ Implementation includes:
 - Progressive refinement
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

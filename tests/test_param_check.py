@@ -24,6 +24,8 @@ def test_check_parameter_enforces_bounds() -> None:
 
 
 def test_core_imdd_rejects_invalid_n_iter() -> None:
+    pytest.importorskip("numba")
+
     from pyimgano.models.imdd import CoreIMDD
 
     with pytest.raises(ValueError):

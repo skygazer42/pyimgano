@@ -9,8 +9,7 @@ This module provides functions to visualize:
 """
 
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional
 
 import cv2
 import numpy as np

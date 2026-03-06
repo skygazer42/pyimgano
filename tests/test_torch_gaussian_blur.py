@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
 
 
 def test_torch_gaussian_blur_constant_image_is_fixed_point() -> None:

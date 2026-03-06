@@ -11,8 +11,7 @@ Features:
 - Web-based visualization
 """
 
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -32,7 +31,6 @@ except ImportError:
     HAS_PIL = False
 
 try:
-    import matplotlib.patches as patches
     import matplotlib.pyplot as plt
 
     HAS_MATPLOTLIB = True
@@ -413,7 +411,6 @@ class HeatmapVisualizer:
             colored = cv2.applyColorMap(heatmap_uint8, cmap)
             colored = cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
         elif HAS_MATPLOTLIB:
-            import matplotlib.cm as cm
 
             cmap_fn = plt.get_cmap(colormap)
             colored = (cmap_fn(heatmap)[:, :, :3] * 255).astype(np.uint8)

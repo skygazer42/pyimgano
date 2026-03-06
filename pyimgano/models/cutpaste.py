@@ -14,7 +14,6 @@ Key Features:
 - Fast training and inference
 """
 
-import warnings
 from typing import Optional, Tuple
 
 import cv2

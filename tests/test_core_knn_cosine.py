@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 
 def test_core_knn_cosine_smoke() -> None:
@@ -22,7 +23,7 @@ def test_core_knn_cosine_smoke() -> None:
 
 
 def test_core_knn_cosine_accepts_torch_tensor_inputs() -> None:
-    torch = __import__("torch")
+    torch = pytest.importorskip("torch")
 
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model

@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it."
+title: "pyimgano: Production-oriented Visual Anomaly Detection"
+type: software
+authors:
+  - name: "PyImgAno Contributors"
+license: "MIT"
+repository-code: "https://github.com/skygazer42/pyimgano"
+url: "https://github.com/skygazer42/pyimgano"
+version: "0.6.36"

@@ -8,7 +8,7 @@ Uses two student networks learning from a single teacher, providing
 complementary anomaly detection capabilities through different perspectives.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import torch

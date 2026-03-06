@@ -26,6 +26,7 @@ def audit_pixel_map_models() -> list[str]:
     _ensure_repo_root_on_sys_path()
     import pyimgano.models  # noqa: F401 - populate registry
     from pyimgano.models.registry import MODEL_REGISTRY, list_models
+    from pyimgano.utils.extras import extra_for_root_module
 
     issues: list[str] = []
     imported_modules: set[str] = set()
@@ -42,6 +43,23 @@ def audit_pixel_map_models() -> list[str]:
             if module_name and module_name not in imported_modules:
                 try:
                     import_module(f"pyimgano.models.{module_name}")
+                except ModuleNotFoundError as exc:
+                    # Optional pixel-map models (deep/torch backends) may not be importable
+                    # in a minimal environment. Treat missing optional deps as a skip,
+                    # not a contract issue.
+                    missing = getattr(exc, "name", None)
+                    root = (str(missing).split(".", 1)[0] if missing else "").strip()
+                    if root and extra_for_root_module(root) is not None:
+                        continue
+                    issues.append(f"{name}: failed to import module {module_name!r}: {exc}")
+                    continue
+                except ImportError as exc:
+                    # Many optional-deps gates raise ImportError with a `pyimgano[...]` hint.
+                    # Skip those modules; they can't be audited without the extra installed.
+                    if "pyimgano[" in str(exc):
+                        continue
+                    issues.append(f"{name}: failed to import module {module_name!r}: {exc}")
+                    continue
                 except Exception as exc:  # noqa: BLE001 - tool boundary
                     issues.append(f"{name}: failed to import module {module_name!r}: {exc}")
                     continue

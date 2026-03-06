@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("torch")
+
+
 def test_torch_inference_sets_eval_then_restores_train_mode() -> None:
     import torch
 

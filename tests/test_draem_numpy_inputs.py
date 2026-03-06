@@ -1,6 +1,10 @@
 import numpy as np
+import pytest
 
 from pyimgano.models import create_model
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_draem_accepts_numpy_images_for_scoring_and_maps():

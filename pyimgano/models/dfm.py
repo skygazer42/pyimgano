@@ -13,7 +13,6 @@ from typing import Iterable, Optional
 import cv2
 import numpy as np
 import torch
-import torch.nn as nn
 from numpy.typing import NDArray
 from sklearn.covariance import LedoitWolf
 from torchvision import models, transforms

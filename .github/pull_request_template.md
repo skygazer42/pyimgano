@@ -61,7 +61,7 @@ Before submitting your PR, please review the following checklist:
 
 - [ ] Code formatted with `black`
 - [ ] Imports sorted with `isort`
-- [ ] Linting passes (`flake8` and `ruff`)
+- [ ] Linting passes (`flake8`)
 - [ ] Type checking passes (`mypy`)
 - [ ] Tests pass (`pytest`)
 - [ ] Coverage maintained or improved

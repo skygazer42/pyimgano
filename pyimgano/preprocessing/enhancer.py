@@ -997,8 +997,8 @@ class AdvancedImageEnhancer(ImageEnhancer):
     def compute_glcm(
         self,
         image: NDArray,
-        distances: list = [1],
-        angles: list = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4],
+        distances: Optional[list] = None,
+        angles: Optional[list] = None,
     ) -> dict:
         """Compute GLCM texture features."""
         return compute_glcm_features(image, distances, angles)
@@ -1029,7 +1029,7 @@ class AdvancedImageEnhancer(ImageEnhancer):
         """Apply Single-Scale Retinex."""
         return retinex_ssr(image, sigma)
 
-    def retinex_multi(self, image: NDArray, sigmas: list = [15, 80, 250]) -> NDArray:
+    def retinex_multi(self, image: NDArray, sigmas: Optional[list] = None) -> NDArray:
         """Apply Multi-Scale Retinex."""
         return retinex_msr(image, sigmas)
 

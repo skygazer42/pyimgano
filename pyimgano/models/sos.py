@@ -60,7 +60,7 @@ class CoreSOS:
         self.decision_scores_: np.ndarray | None = None
 
     def _x2d(self, X: np.ndarray) -> np.ndarray:
-        (n, d) = X.shape
+        n, d = X.shape
         metric = self.metric.lower()
         if metric == "none":
             if n != d:
@@ -78,7 +78,7 @@ class CoreSOS:
         return distance.squareform(distance.pdist(X, metric))
 
     def _d2a(self, D: np.ndarray) -> np.ndarray:
-        (n, _) = D.shape
+        n, _ = D.shape
         A = np.zeros((n, n), dtype=np.float64)
         beta = np.ones((n,), dtype=np.float64)
         logU = float(np.log(self.perplexity))

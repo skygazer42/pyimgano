@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
 
 
 def test_base_deep_detector_fit_score_predict_smoke() -> None:

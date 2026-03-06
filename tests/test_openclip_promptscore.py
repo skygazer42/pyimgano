@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from pyimgano import models
 
@@ -66,7 +67,7 @@ def test_openclip_promptscore_accepts_numpy_inputs_with_custom_embedder():
 
 
 def test_openclip_promptscore_caches_text_features_by_class_name():
-    import torch
+    torch = pytest.importorskip("torch")
 
     from pyimgano.models.openclip_backend import VisionOpenCLIPPromptScore
 

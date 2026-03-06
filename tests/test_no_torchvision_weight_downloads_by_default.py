@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
+
 
 def test_no_torchvision_weight_downloads_by_default(monkeypatch) -> None:
     """Guardrail: our defaults must not trigger implicit model-weight downloads.

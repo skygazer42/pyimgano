@@ -18,7 +18,6 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 
@@ -138,7 +137,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         window_stride: int = 112,
         text_prompts: Optional[List[str]] = None,
         k_shot: int = 0,
-        scales: List[float] = [1.0],
+        scales: Optional[List[float]] = None,
         device: Optional[str] = None,
         **kwargs,
     ):
@@ -153,7 +152,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         self.window_size = window_size
         self.window_stride = window_stride
         self.k_shot = k_shot
-        self.scales = scales
+        self.scales = list(scales or [1.0])
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

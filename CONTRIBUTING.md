@@ -4,7 +4,10 @@ First off, thank you for considering contributing to PyImgAno! It's people like 
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by our commitment to fostering an open and welcoming environment. Please be respectful and constructive in all interactions.
+This project and everyone participating in it is governed by our commitment to
+fostering an open and welcoming environment.
+
+Please read and follow `CODE_OF_CONDUCT.md`.
 
 ## How Can I Contribute?
 
@@ -61,7 +64,6 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
    # Run linters
    flake8 pyimgano tests
-   ruff check pyimgano tests
 
    # Type checking
    mypy pyimgano
@@ -133,7 +135,6 @@ We use the following tools to maintain code quality:
 - **isort**: Import sorting
 - **flake8**: Linting
 - **mypy**: Type checking
-- **ruff**: Fast Python linter
 
 Configuration is in `pyproject.toml` and `.flake8`.
 

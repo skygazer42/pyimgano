@@ -14,7 +14,6 @@ Example:
     >>> test_data, test_labels = dataset.get_test_data()
 """
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple

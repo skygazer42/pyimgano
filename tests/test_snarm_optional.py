@@ -12,6 +12,8 @@ def test_snarm_model_registered_without_mamba_ssm():
 
 
 def test_fit_snarm_raises_importerror_when_mamba_ssm_missing(monkeypatch):
+    pytest.importorskip("torch")
+
     import pyimgano.models as models
 
     class DummyEmbedder:

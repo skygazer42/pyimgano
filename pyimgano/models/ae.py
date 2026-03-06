@@ -163,7 +163,6 @@ class OptimizedAEDetector(BaseVisionDeepDetector):
         return _build_autoencoder(cfg=self.cfg)
 
     def training_forward(self, batch) -> float:  # noqa: ANN001
-        import torch
 
         images, targets = batch
         images = images.to(self.device)

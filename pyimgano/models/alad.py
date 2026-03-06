@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import math
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -204,9 +203,9 @@ class ALAD(BaseVisionDeepDetector):
         output_activation: Optional[str] = None,
         dropout_rate: float = 0.2,
         latent_dim: int = 128,
-        disc_xx_layers: List[int] = [256, 128, 64],
-        disc_xz_layers: List[int] = [256, 128, 64],
-        disc_zz_layers: List[int] = [128, 64],
+        disc_xx_layers: Optional[List[int]] = None,
+        disc_xz_layers: Optional[List[int]] = None,
+        disc_zz_layers: Optional[List[int]] = None,
         learning_rate_gen: float = 1e-4,
         learning_rate_disc: float = 1e-4,
         add_recon_loss: bool = False,
@@ -253,9 +252,9 @@ class ALAD(BaseVisionDeepDetector):
         self.output_activation = output_activation
         self.dropout_rate = dropout_rate
         self.latent_dim = latent_dim
-        self.disc_xx_layers = disc_xx_layers
-        self.disc_xz_layers = disc_xz_layers
-        self.disc_zz_layers = disc_zz_layers
+        self.disc_xx_layers = list(disc_xx_layers or [256, 128, 64])
+        self.disc_xz_layers = list(disc_xz_layers or [256, 128, 64])
+        self.disc_zz_layers = list(disc_zz_layers or [128, 64])
         self.learning_rate_gen = learning_rate_gen
         self.learning_rate_disc = learning_rate_disc
         self.add_recon_loss = add_recon_loss

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
+
 
 def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(
     monkeypatch,

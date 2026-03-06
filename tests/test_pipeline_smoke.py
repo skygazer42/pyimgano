@@ -1,4 +1,9 @@
+import pytest
+
 from pyimgano.pipelines.mvtec_visa import build_default_detector
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_build_default_detector():

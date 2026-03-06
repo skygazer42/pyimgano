@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any
 
 from pyimgano.features.protocols import FeatureExtractor, FittableFeatureExtractor
 from pyimgano.features.registry import resolve_feature_extractor

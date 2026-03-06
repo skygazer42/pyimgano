@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
 
 
 def test_core_deep_svdd_smoke_can_fit_and_score() -> None:

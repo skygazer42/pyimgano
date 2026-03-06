@@ -1,4 +1,8 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_torchvision_multilayer_extractor_numpy_inputs_smoke() -> None:

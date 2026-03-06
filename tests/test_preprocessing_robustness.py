@@ -52,9 +52,18 @@ def test_preprocessing_ops_preserve_shapes_dtypes_and_finiteness() -> None:
     assert jr.shape == color.shape
     assert jr.dtype == np.uint8
 
-    tg = enh.gaussian_blur_torch(color, kernel_size=5, sigma=1.0, device="cpu")
-    assert tg.shape == color.shape
-    assert tg.dtype == np.uint8
+    arrays = [gf, ad, sc_g, sc_c, da, out, lcn, jr]
 
-    for arr in [gf, ad, sc_g, sc_c, da, out, lcn, jr, tg]:
+    # Torch-backed ops are optional in the minimal test environment.
+    try:
+        import torch  # noqa: F401
+    except ModuleNotFoundError:
+        tg = None
+    else:
+        tg = enh.gaussian_blur_torch(color, kernel_size=5, sigma=1.0, device="cpu")
+        assert tg.shape == color.shape
+        assert tg.dtype == np.uint8
+        arrays.append(tg)
+
+    for arr in arrays:
         assert np.isfinite(np.asarray(arr, dtype=np.float32)).all()

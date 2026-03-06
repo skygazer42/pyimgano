@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("skimage")
 
 
 def test_ssim_struct_fit_and_scores_on_numpy_images() -> None:

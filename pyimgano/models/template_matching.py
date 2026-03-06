@@ -20,7 +20,6 @@ from typing import Literal, Optional, Tuple
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-from scipy.signal import correlate2d
 from skimage import color
 
 from ..base import BaseVisionClassicalDetector

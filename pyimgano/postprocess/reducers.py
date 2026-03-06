@@ -7,7 +7,7 @@ often need a single image-level score for ranking / thresholding.
 """
 
 import math
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 

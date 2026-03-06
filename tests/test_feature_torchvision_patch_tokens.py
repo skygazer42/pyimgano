@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def _write_rgb(path: Path, *, value: int) -> None:

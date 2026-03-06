@@ -218,7 +218,7 @@ class VisionGCAD(BaseVisionDeepDetector):
         self,
         backbone: str = "wide_resnet50",
         patch_size: int = 8,
-        hidden_dims: List[int] = [256, 128, 64],
+        hidden_dims: Optional[List[int]] = None,
         k_neighbors: int = 8,
         learning_rate: float = 1e-4,
         batch_size: int = 16,
@@ -230,7 +230,7 @@ class VisionGCAD(BaseVisionDeepDetector):
         super().__init__(**kwargs)
         self.backbone = backbone
         self.patch_size = patch_size
-        self.hidden_dims = hidden_dims
+        self.hidden_dims = list(hidden_dims or [256, 128, 64])
         self.k_neighbors = k_neighbors
         self.learning_rate = learning_rate
         self.batch_size = batch_size

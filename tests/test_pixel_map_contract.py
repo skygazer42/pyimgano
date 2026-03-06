@@ -36,48 +36,63 @@ def test_pixel_anomaly_map_contract_for_key_detectors(tmp_path):
 
     embedder = _FakePatchEmbedder()
 
-    detectors = [
-        create_model(
-            "vision_patchcore",
-            coreset_sampling_ratio=1.0,
-            pretrained=False,
-            device="cpu",
-        ),
-        create_model(
-            "vision_anomalydino",
-            embedder=embedder,
-            contamination=0.1,
-            knn_backend="sklearn",
-            n_neighbors=1,
-            coreset_sampling_ratio=1.0,
-        ),
-        create_model(
-            "vision_softpatch",
-            embedder=embedder,
-            contamination=0.1,
-            knn_backend="sklearn",
-            n_neighbors=1,
-            coreset_sampling_ratio=1.0,
-            train_patch_outlier_quantile=0.0,
-        ),
-        create_model(
-            "vision_openclip_patchknn",
-            embedder=embedder,
-            contamination=0.1,
-            knn_backend="sklearn",
-            n_neighbors=1,
-            coreset_sampling_ratio=1.0,
-        ),
-        create_model(
-            "vision_openclip_promptscore",
-            embedder=embedder,
-            text_features_normal=np.array([1.0, 0.0], dtype=np.float32),
-            text_features_anomaly=np.array([0.0, 1.0], dtype=np.float32),
-            contamination=0.1,
-            aggregation_method="topk_mean",
-            aggregation_topk=0.25,
-        ),
-    ]
+    detectors = []
+
+    # PatchCore requires optional torch/torchvision. Keep the contract test runnable
+    # in a minimal environment by conditionally including it.
+    try:
+        import torch  # noqa: F401
+        import torchvision  # noqa: F401
+    except ModuleNotFoundError:
+        pass
+    else:
+        detectors.append(
+            create_model(
+                "vision_patchcore",
+                coreset_sampling_ratio=1.0,
+                pretrained=False,
+                device="cpu",
+            )
+        )
+
+    detectors.extend(
+        [
+            create_model(
+                "vision_anomalydino",
+                embedder=embedder,
+                contamination=0.1,
+                knn_backend="sklearn",
+                n_neighbors=1,
+                coreset_sampling_ratio=1.0,
+            ),
+            create_model(
+                "vision_softpatch",
+                embedder=embedder,
+                contamination=0.1,
+                knn_backend="sklearn",
+                n_neighbors=1,
+                coreset_sampling_ratio=1.0,
+                train_patch_outlier_quantile=0.0,
+            ),
+            create_model(
+                "vision_openclip_patchknn",
+                embedder=embedder,
+                contamination=0.1,
+                knn_backend="sklearn",
+                n_neighbors=1,
+                coreset_sampling_ratio=1.0,
+            ),
+            create_model(
+                "vision_openclip_promptscore",
+                embedder=embedder,
+                text_features_normal=np.array([1.0, 0.0], dtype=np.float32),
+                text_features_anomaly=np.array([0.0, 1.0], dtype=np.float32),
+                contamination=0.1,
+                aggregation_method="topk_mean",
+                aggregation_topk=0.25,
+            ),
+        ]
+    )
 
     for detector in detectors:
         detector.fit(normal_paths)

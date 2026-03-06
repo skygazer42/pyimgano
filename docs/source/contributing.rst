@@ -6,6 +6,8 @@ We welcome contributions!
 Start here:
 
 - https://github.com/skygazer42/pyimgano/blob/main/CONTRIBUTING.md
+- https://github.com/skygazer42/pyimgano/blob/main/CODE_OF_CONDUCT.md
+- https://github.com/skygazer42/pyimgano/blob/main/SECURITY.md
 
 Docs
 ----

@@ -33,8 +33,8 @@ def _constructor_supports_numpy(constructor: Any) -> bool:
         return False
 
     try:
-        from pyimgano.models.baseml import BaseVisionDetector
         from pyimgano.models.baseCv import BaseVisionDeepDetector
+        from pyimgano.models.baseml import BaseVisionDetector
     except Exception:
         return False
 

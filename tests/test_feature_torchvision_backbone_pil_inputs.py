@@ -1,4 +1,8 @@
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("torchvision")
 
 
 def test_torchvision_backbone_extractor_pil_inputs_smoke() -> None:

@@ -15,8 +15,7 @@ Key Features:
 - Good generalization
 """
 
-import warnings
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -93,7 +92,7 @@ class DevNetModel(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: list = [128, 64],
+        hidden_dims: Optional[list] = None,
         dropout: float = 0.2,
     ):
         """Initialize model.
@@ -104,6 +103,8 @@ class DevNetModel(nn.Module):
             dropout: Dropout rate.
         """
         super().__init__()
+
+        hidden_dims = list(hidden_dims or [128, 64])
 
         layers = []
         prev_dim = input_dim
@@ -218,7 +219,7 @@ class DevNetDetector(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "resnet18",
-        hidden_dims: list = [128, 64],
+        hidden_dims: Optional[list] = None,
         dropout: float = 0.2,
         margin: float = 5.0,
         pretrained: bool = False,
@@ -231,7 +232,7 @@ class DevNetDetector(BaseVisionDeepDetector):
         super().__init__(**kwargs)
 
         self.backbone_name = backbone
-        self.hidden_dims = hidden_dims
+        self.hidden_dims = list(hidden_dims or [128, 64])
         self.dropout = dropout
         self.margin = margin
         self.pretrained = pretrained

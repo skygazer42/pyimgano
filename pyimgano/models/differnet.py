@@ -14,8 +14,7 @@ Key Features:
 - Good localization performance
 """
 
-import warnings
-from typing import Iterable, Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -23,7 +22,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from scipy.spatial import cKDTree
-from torch.utils.data import DataLoader, TensorDataset
 from torchvision import models
 
 from .baseCv import BaseVisionDeepDetector
