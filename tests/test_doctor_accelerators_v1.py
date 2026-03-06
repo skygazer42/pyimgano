@@ -89,4 +89,3 @@ assert int(rc) == 0
     )
     assert payload.get("tool") == "pyimgano-doctor"
     assert "accelerators" not in payload
-

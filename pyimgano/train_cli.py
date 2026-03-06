@@ -207,7 +207,7 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
                         dst_rel = cand
                         break
                     i += 1
-            container[key] = str(dst_rel)
+            container[key] = dst_rel.as_posix()
         else:
             dst_rel = Path(raw)
 

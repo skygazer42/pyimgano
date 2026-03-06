@@ -396,7 +396,6 @@ class VisionLODA(BaseVisionDetector):
         feature_method="histogram",
         normalize_features=True,
     ):
-
         # 保存LODA特定参数
         self.n_bins = n_bins
         self.n_random_cuts = n_random_cuts
@@ -644,14 +643,14 @@ if __name__ == "__main__":
     scores = mock_detector.decision_function(test_paths)
     labels = mock_detector.predict(test_paths)
 
-    print(f"\n检测结果:")
+    print("\n检测结果:")
     print(f"  异常分数范围: [{scores.min():.3f}, {scores.max():.3f}]")
     print(f"  平均分数: {scores.mean():.3f}")
     print(f"  检测到异常: {labels.sum()}/{len(labels)} ({labels.sum() / len(labels) * 100:.1f}%)")
 
     # 显示模型信息
     info = mock_detector.get_info()
-    print(f"\n模型信息:")
+    print("\n模型信息:")
     for key, value in info.items():
         print(f"  {key}: {value}")
 

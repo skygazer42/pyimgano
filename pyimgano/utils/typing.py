@@ -6,6 +6,7 @@ cross-module type hints consistent.
 
 from __future__ import annotations
 
+import os
 from typing import Iterable, Sequence, Union
 
 import numpy as np
@@ -17,7 +18,7 @@ IntArray = NDArray[np.integer]
 UInt8Array = NDArray[np.uint8]
 
 
-PathLikeStr = Union[str, "os.PathLike[str]"]  # pragma: no cover - typing only
+PathLikeStr = Union[str, os.PathLike[str]]  # pragma: no cover - typing only
 
 
 def ensure_1d_float_array(x) -> FloatArray:

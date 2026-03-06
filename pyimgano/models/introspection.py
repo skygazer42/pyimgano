@@ -12,7 +12,8 @@ class _ModelEntryLike(Protocol):
 
 
 class _ModelRegistryLike(Protocol):
-    def info(self, name: str) -> _ModelEntryLike: ...
+    def info(self, name: str) -> _ModelEntryLike:
+        ...
 
 
 def get_constructor_signature_info(

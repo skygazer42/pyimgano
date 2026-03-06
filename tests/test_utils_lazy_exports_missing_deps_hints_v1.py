@@ -118,4 +118,3 @@ print(json.dumps({"ok": ok, "error": err}))
 """,
     )
     assert payload.get("ok") is True, payload.get("error")
-

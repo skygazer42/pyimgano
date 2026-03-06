@@ -70,7 +70,7 @@ def load_model(path: str) -> Any:
         >>> detector = load_model('patchcore_bottle.pkl')
     """
     with open(path, "rb") as f:
-        save_dict = pickle.load(f)
+        save_dict = pickle.load(f)  # nosec B301 - expected to load trusted artifacts
 
     model = save_dict["model"]
     metadata = save_dict.get("metadata", {})
@@ -136,7 +136,7 @@ def load_checkpoint(path: str) -> Dict[str, Any]:
         >>> epoch = checkpoint['epoch']
     """
     with open(path, "rb") as f:
-        checkpoint = pickle.load(f)
+        checkpoint = pickle.load(f)  # nosec B301 - expected to load trusted artifacts
 
     print(f"Checkpoint loaded from: {path}")
     print(f"Epoch: {checkpoint.get('epoch', 'N/A')}")

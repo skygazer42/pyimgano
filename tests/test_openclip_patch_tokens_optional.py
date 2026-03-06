@@ -5,7 +5,7 @@ import pytest
 def test_openclip_vit_patch_embedder_shapes(tmp_path):
     open_clip = pytest.importorskip("open_clip")
 
-    PIL = pytest.importorskip("PIL")  # noqa: N806 - used for importorskip guard
+    pytest.importorskip("PIL")
     from PIL import Image  # noqa: E402
 
     from pyimgano.models.openclip_backend import OpenCLIPViTPatchEmbedder  # noqa: E402

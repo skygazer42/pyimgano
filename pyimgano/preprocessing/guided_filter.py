@@ -120,16 +120,16 @@ def guided_filter(
     # Work in [0,1] if input is uint8 for numerical stability.
     uint8_in = img.dtype == np.uint8
     if uint8_in:
-        I = g.astype(np.float32) / 255.0
+        guidance_f = g.astype(np.float32) / 255.0
         p = img.astype(np.float32) / 255.0
     else:
-        I = g.astype(np.float32)
+        guidance_f = g.astype(np.float32)
         p = img.astype(np.float32)
 
-    mean_I = _box_mean(I, radius=r)
+    mean_I = _box_mean(guidance_f, radius=r)
     mean_p = _box_mean(p, radius=r)
-    corr_I = _box_mean(I * I, radius=r)
-    corr_Ip = _box_mean(I * p, radius=r)
+    corr_I = _box_mean(guidance_f * guidance_f, radius=r)
+    corr_Ip = _box_mean(guidance_f * p, radius=r)
 
     var_I = corr_I - mean_I * mean_I
     cov_Ip = corr_Ip - mean_I * mean_p
@@ -140,7 +140,7 @@ def guided_filter(
     mean_a = _box_mean(a, radius=r)
     mean_b = _box_mean(b, radius=r)
 
-    q = mean_a * I + mean_b
+    q = mean_a * guidance_f + mean_b
 
     if uint8_in:
         out = np.clip(q * 255.0, 0.0, 255.0)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Sequence
@@ -138,7 +139,6 @@ def _merge_and_filter_model_kwargs(
     try:
         # Ensure we inspect the real constructor signature, not a lazy placeholder.
         constructor = materialize_model_constructor(model_name)
-        entry = MODEL_REGISTRY.info(model_name)
     except Exception as exc:
         raise ValueError(f"Unknown model: {model_name!r}") from exc
 
@@ -275,7 +275,7 @@ def run_benchmark_category(
 
         from pyimgano.datasets import load_dataset
 
-        ds = load_dataset(
+        ds = load_dataset(  # nosec B615 - pyimgano.datasets.load_dataset, not Hugging Face Hub
             config.dataset,
             config.root,
             category=config.category,

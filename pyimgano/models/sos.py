@@ -138,8 +138,8 @@ class CoreSOS:
         D = self._x2d(X)
         A = self._d2a(D)
         B = self._a2b(A)
-        O = self._b2o(B)
-        self.decision_scores_ = np.asarray(O, dtype=np.float64).ravel()
+        outlier_prob = self._b2o(B)
+        self.decision_scores_ = np.asarray(outlier_prob, dtype=np.float64).ravel()
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
@@ -153,8 +153,8 @@ class CoreSOS:
         D = self._x2d(X)
         A = self._d2a(D)
         B = self._a2b(A)
-        O = self._b2o(B)
-        return np.asarray(O, dtype=np.float64).ravel()
+        outlier_prob = self._b2o(B)
+        return np.asarray(outlier_prob, dtype=np.float64).ravel()
 
 
 @register_model(

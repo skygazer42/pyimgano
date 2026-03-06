@@ -453,7 +453,6 @@ class VisionCBLOF(BaseVisionDetector):
         n_components=50,
         random_state=None,
     ):
-
         # 保存CBLOF特定参数
         self.n_clusters = n_clusters
         self.alpha = alpha
@@ -505,7 +504,6 @@ class VisionCBLOF(BaseVisionDetector):
         n_clusters = self.detector.n_clusters_
         cluster_sizes = self.detector.cluster_sizes_
         large_clusters = self.detector.large_cluster_labels_
-        small_clusters = self.detector.small_cluster_labels_
 
         # 创建可视化
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
@@ -621,13 +619,13 @@ if __name__ == "__main__":
     scores = mock_detector.decision_function(test_paths)
     labels = mock_detector.predict(test_paths)
 
-    print(f"\n检测结果:")
+    print("\n检测结果:")
     print(f"  异常分数范围: [{scores.min():.3f}, {scores.max():.3f}]")
     print(f"  检测到异常: {labels.sum()}/{len(labels)}")
 
     # 显示聚类信息
     info = mock_detector.get_cluster_info()
-    print(f"\n模型信息:")
+    print("\n模型信息:")
     for key, value in info.items():
         print(f"  {key}: {value}")
 

@@ -234,7 +234,6 @@ class VisionPatchCore(BaseVisionDeepDetector):
         features : ndarray of shape (n_patches, feature_dim)
             Extracted patch features
         """
-        cv2 = self._cv2
         torch = self._torch
         F = self._F
 

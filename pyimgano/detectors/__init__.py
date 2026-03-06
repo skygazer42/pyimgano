@@ -14,23 +14,13 @@ This module exists to keep older code working with minimal changes.
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
 import numpy as np
 
 from pyimgano.features.identity import IdentityExtractor as IdentityFeatureExtractor
-
-
-def _ensure_extractor(feature_extractor):
-    return feature_extractor if feature_extractor is not None else IdentityFeatureExtractor()
-
-
-# ---------------------------------------------------------------------------
-# Classical / shallow wrappers (native)
-# ---------------------------------------------------------------------------
-
-
 from pyimgano.models.cof import VisionCOF as _VisionCOF
 from pyimgano.models.copod import VisionCOPOD as _VisionCOPOD
 from pyimgano.models.ecod import VisionECOD as _VisionECOD
@@ -45,6 +35,15 @@ from pyimgano.models.loci import VisionLOCI as _VisionLOCI
 from pyimgano.models.mad import VisionMAD as _VisionMAD
 from pyimgano.models.ocsvm import VisionOCSVM as _VisionOCSVM
 from pyimgano.models.pca import VisionPCA as _VisionPCA
+
+
+def _ensure_extractor(feature_extractor):
+    return feature_extractor if feature_extractor is not None else IdentityFeatureExtractor()
+
+
+# ---------------------------------------------------------------------------
+# Classical / shallow wrappers (native)
+# ---------------------------------------------------------------------------
 
 
 class HistogramBasedDetector(_VisionHBOS):
@@ -188,9 +187,6 @@ class FeatureBaggingDetector(_VisionFeatureBagging):
 # ---------------------------------------------------------------------------
 # Deep (feature-based) wrappers
 # ---------------------------------------------------------------------------
-
-
-import importlib.util
 
 
 def _normalize_legacy_autoencoder_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:

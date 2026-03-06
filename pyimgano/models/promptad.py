@@ -54,8 +54,6 @@ class VisualPromptLearner(nn.Module):
         prompted_features : torch.Tensor
             Features with learned prompts (B, D)
         """
-        B = features.size(0)
-
         # Select relevant prompts based on input
         # Compute similarity to each prompt
         features_norm = F.normalize(features, p=2, dim=1)
@@ -224,7 +222,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
         else:
-            raise ValueError(f"Unsupported backbone: {backbone}")
+            raise ValueError(f"Unsupported backbone: {self.backbone}")
 
         extractor = nn.Sequential(
             resnet.conv1,

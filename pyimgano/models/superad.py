@@ -18,7 +18,8 @@ class PatchEmbedder(Protocol):
 
     def embed(
         self, image: Union[str, np.ndarray]
-    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
+        ...
 
 
 @dataclass

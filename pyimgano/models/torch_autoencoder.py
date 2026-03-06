@@ -100,7 +100,7 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         torch.manual_seed(seed)
 
     def _build_model(self, n_features: int):
-        torch = _require_torch()
+        _require_torch()
         import torch.nn as nn
 
         dims = [int(n_features)] + [int(d) for d in self.cfg.hidden_dims]
