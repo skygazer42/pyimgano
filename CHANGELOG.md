@@ -203,6 +203,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
 - Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
 
+## [0.6.37] - 2026-03-07
+
+### Fixed
+- Restored Python 3.9 runtime compatibility (avoid `zip(..., strict=...)` and runtime-evaluated PEP 604 unions in production modules).
+
+### Tooling
+- `tox`: default `tox` run no longer gates on `type` / `coverage` (run explicitly via `tox -e type` / `tox -e coverage`).
+
+### Packaging
+- `pyproject.toml`: use SPDX-style `license = "MIT"` to satisfy upcoming setuptools deprecations.
+
 ## [0.6.36] - 2026-03-06
 
 ### Feature Extractors
