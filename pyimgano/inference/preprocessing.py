@@ -17,12 +17,28 @@ from pyimgano.preprocessing.industrial_presets import (
 ImageInput = Union[str, Path, np.ndarray]
 
 
-def _load_rgb_u8_hwc_from_path(path: str | Path) -> NDArray[np.uint8]:
-    img = Image.open(str(path)).convert("RGB")
-    arr = np.asarray(img, dtype=np.uint8)
-    if arr.ndim != 3 or arr.shape[2] != 3:
-        raise ValueError(f"Expected RGB image shape (H,W,3), got {arr.shape} for {path}")
-    return np.ascontiguousarray(arr)
+def _load_rgb_u8_hwc_from_path(
+    path: str | Path,
+    *,
+    u16_max: int | None = None,
+) -> NDArray[np.uint8]:
+    """Load an image path into canonical RGB/u8/HWC.
+
+    Best-effort strategy:
+    - Prefer OpenCV `IMREAD_UNCHANGED` + `normalize_numpy_image` for 16-bit robustness.
+    - Fall back to Pillow `convert("RGB")` when OpenCV is unavailable.
+    """
+
+    try:
+        from pyimgano.inference.image_decode import load_path_as_rgb_u8_hwc
+
+        return np.ascontiguousarray(load_path_as_rgb_u8_hwc(path, u16_max=u16_max), dtype=np.uint8)
+    except ImportError:
+        img = Image.open(str(path)).convert("RGB")
+        arr = np.asarray(img, dtype=np.uint8)
+        if arr.ndim != 3 or arr.shape[2] != 3:
+            raise ValueError(f"Expected RGB image shape (H,W,3), got {arr.shape} for {path}")
+        return np.ascontiguousarray(arr)
 
 
 def parse_illumination_contrast_knobs(payload: Mapping[str, Any]) -> IlluminationContrastKnobs:
@@ -148,9 +164,11 @@ class PreprocessingDetector:
         *,
         detector: Any,
         illumination_contrast: IlluminationContrastKnobs | None = None,
+        u16_max: int | None = None,
     ) -> None:
         self.detector = detector
         self.illumination_contrast = illumination_contrast
+        self.u16_max = None if u16_max is None else int(u16_max)
 
     def __getattr__(self, name: str) -> Any:  # pragma: no cover - thin delegation
         try:
@@ -161,7 +179,7 @@ class PreprocessingDetector:
 
     def _preprocess_item(self, item: ImageInput) -> NDArray[np.uint8]:
         if isinstance(item, (str, Path)):
-            arr = _load_rgb_u8_hwc_from_path(item)
+            arr = _load_rgb_u8_hwc_from_path(item, u16_max=self.u16_max)
         else:
             arr = np.asarray(item)
             if arr.dtype != np.uint8:

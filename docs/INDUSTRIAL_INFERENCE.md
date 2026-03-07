@@ -115,6 +115,32 @@ Notes on threshold calibration:
 - A common industrial heuristic is `quantile = 1 - contamination` (e.g. contamination=0.1 → quantile=0.9).
 - For stricter false-positive control on “clean” normal sets, `0.995` or `0.999` are common starting points.
 
+### Convenience wrappers for OpenCV frames (`bgr_u8_hwc`)
+
+If your in-memory inputs are always OpenCV-style frames (`bgr_u8_hwc`), you can use:
+
+```python
+from pyimgano.inference import calibrate_threshold_bgr, infer_bgr, infer_iter_bgr
+
+calibrate_threshold_bgr(detector, train_frames_bgr, quantile=0.995)
+results = infer_bgr(detector, test_frames_bgr, include_maps=True, postprocess=post)
+for r in infer_iter_bgr(detector, test_frames_bgr, include_maps=True, postprocess=post):
+    pass
+```
+
+### 16-bit note: `u16_max`
+
+For industrial 12-bit sensors stored in `uint16`, pass `u16_max=4095`:
+
+```python
+results = infer(
+    detector,
+    gray_u16_frames,
+    input_format=ImageFormat.GRAY_U16_HW,
+    u16_max=4095,
+)
+```
+
 ## 3) Capability tags (`numpy`, `pixel_map`)
 
 Many detectors accept different input types and expose different outputs.

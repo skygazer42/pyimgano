@@ -33,6 +33,7 @@ def _normalize_inputs(
     inputs: Sequence[ImageInput],
     *,
     input_format: str | ImageFormat | None,
+    u16_max: int | None = None,
 ) -> list[str] | list[np.ndarray]:
     if not inputs:
         return []
@@ -55,7 +56,7 @@ def _normalize_inputs(
         for item in inputs:
             if not isinstance(item, np.ndarray):
                 raise TypeError("Mixed input types are not supported (paths + arrays).")
-            out_arr.append(normalize_numpy_image(item, input_format=fmt))
+            out_arr.append(normalize_numpy_image(item, input_format=fmt, u16_max=u16_max))
         return out_arr
 
     raise TypeError(f"Unsupported input type: {type(first)}. Expected str|Path|np.ndarray.")
@@ -66,6 +67,7 @@ def calibrate_threshold(
     calibration_inputs: Sequence[ImageInput],
     *,
     input_format: str | ImageFormat | None = None,
+    u16_max: int | None = None,
     quantile: float = 0.995,
     batch_size: int | None = None,
     amp: bool = False,
@@ -75,7 +77,11 @@ def calibrate_threshold(
     if not 0.0 < float(quantile) < 1.0:
         raise ValueError(f"quantile must be in (0,1), got {quantile}")
 
-    normalized = _normalize_inputs(calibration_inputs, input_format=input_format)
+    normalized = _normalize_inputs(
+        calibration_inputs,
+        input_format=input_format,
+        u16_max=u16_max,
+    )
     if not normalized:
         raise ValueError("calibration_inputs must be non-empty.")
 
@@ -283,6 +289,7 @@ def infer(
     inputs: Sequence[ImageInput],
     *,
     input_format: str | ImageFormat | None = None,
+    u16_max: int | None = None,
     include_maps: bool = False,
     postprocess: AnomalyMapPostprocess | None = None,
     batch_size: int | None = None,
@@ -299,6 +306,7 @@ def infer(
             detector,
             inputs,
             input_format=input_format,
+            u16_max=u16_max,
             include_maps=include_maps,
             postprocess=postprocess,
             batch_size=batch_size,
@@ -307,11 +315,82 @@ def infer(
     )
 
 
+def infer_bgr(
+    detector: Any,
+    inputs: Sequence[ImageInput],
+    *,
+    include_maps: bool = False,
+    postprocess: AnomalyMapPostprocess | None = None,
+    batch_size: int | None = None,
+    amp: bool = False,
+) -> list[InferenceResult]:
+    """Convenience wrapper for the most common OpenCV numpy input: `bgr_u8_hwc`.
+
+    This keeps the strict "explicit ImageFormat" contract while making the
+    common case ergonomic.
+    """
+
+    return infer(
+        detector,
+        inputs,
+        input_format=ImageFormat.BGR_U8_HWC,
+        include_maps=include_maps,
+        postprocess=postprocess,
+        batch_size=batch_size,
+        amp=amp,
+    )
+
+
+def infer_iter_bgr(
+    detector: Any,
+    inputs: Sequence[ImageInput],
+    *,
+    include_maps: bool = False,
+    postprocess: AnomalyMapPostprocess | None = None,
+    batch_size: int | None = None,
+    amp: bool = False,
+    timing: InferenceTiming | None = None,
+):
+    """Iterator convenience wrapper for `bgr_u8_hwc` numpy inputs."""
+
+    return infer_iter(
+        detector,
+        inputs,
+        input_format=ImageFormat.BGR_U8_HWC,
+        include_maps=include_maps,
+        postprocess=postprocess,
+        batch_size=batch_size,
+        amp=amp,
+        timing=timing,
+    )
+
+
+def calibrate_threshold_bgr(
+    detector: Any,
+    calibration_inputs: Sequence[ImageInput],
+    *,
+    quantile: float = 0.995,
+    batch_size: int | None = None,
+    amp: bool = False,
+) -> float:
+    """Convenience wrapper for calibrating from `bgr_u8_hwc` numpy images."""
+
+    return calibrate_threshold(
+        detector,
+        calibration_inputs,
+        input_format=ImageFormat.BGR_U8_HWC,
+        quantile=quantile,
+        batch_size=batch_size,
+        amp=amp,
+    )
+
+
 def infer_iter(
     detector: Any,
     inputs: Sequence[ImageInput],
     *,
     input_format: str | ImageFormat | None = None,
+    u16_max: int | None = None,
     include_maps: bool = False,
     postprocess: AnomalyMapPostprocess | None = None,
     batch_size: int | None = None,
@@ -324,7 +403,7 @@ def infer_iter(
     float32 maps in memory can be expensive.
     """
 
-    normalized = _normalize_inputs(inputs, input_format=input_format)
+    normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)
 
     bs: int | None
