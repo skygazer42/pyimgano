@@ -20,17 +20,18 @@ include .editorconfig
 include .pre-commit-config.yaml
 include tox.ini
 
-# Include documentation
-recursive-include docs *.md *.rst *.html *.css *.js *.png *.jpg
+# Include documentation (Sphinx source + markdown docs).
+# Keep this list tight to avoid noisy sdist build warnings.
+recursive-include docs *.md *.rst *.html *.py *.gitkeep
 
 # Include tests (for source distributions)
 recursive-include tests *.py
 
 # Include examples
-recursive-include examples *.py *.ipynb *.md *.json
+recursive-include examples *.py *.json
 
-# Include type stubs
-recursive-include pyimgano py.typed *.pyi
+# Include typing marker (PEP 561)
+recursive-include pyimgano py.typed
 
 # Exclude development and build artifacts
 global-exclude __pycache__

@@ -146,5 +146,6 @@ def save_overlay_image(
             canvas[edges > 0] = np.asarray([255.0, 255.0, 255.0], dtype=np.float32)
 
     out_u8 = np.clip(canvas, 0.0, 255.0).astype(np.uint8)
-    Image.fromarray(out_u8, mode="RGB").save(out)
+    # Pillow 13 deprecates the `mode=` argument; HWC uint8 arrays map to "RGB".
+    Image.fromarray(out_u8).save(out)
     return out

@@ -37,7 +37,8 @@ def save_binary_mask_png(mask_u8: np.ndarray, path: str | Path) -> str:
     if arr.ndim != 2:
         raise ValueError(f"mask_u8 must be 2D for PNG export, got shape {arr.shape}")
 
-    Image.fromarray(arr, mode="L").save(p)
+    # Pillow 13 deprecates the `mode=` argument; 2D uint8 arrays map to "L".
+    Image.fromarray(arr).save(p)
     return str(p)
 
 
