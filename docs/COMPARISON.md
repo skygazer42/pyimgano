@@ -511,7 +511,7 @@ See [CAPABILITY_ASSESSMENT.md](./CAPABILITY_ASSESSMENT.md) for detailed roadmap.
 ## References
 
 - **scikit-learn Outlier Detection**: https://scikit-learn.org/stable/modules/outlier_detection.html
-- **PyImgAno Repository**: https://github.com/jhlu2019/pyimgano
+- **PyImgAno Repository**: https://github.com/skygazer42/pyimgano
 
 ## Frequently Asked Questions
 
@@ -551,11 +551,11 @@ scores = -detector.score_samples(features_test)
 
 Both projects welcome contributions!
 
-- **PyImgAno**: https://github.com/jhlu2019/pyimgano/blob/main/CONTRIBUTING.md
+- **PyImgAno**: https://github.com/skygazer42/pyimgano/blob/main/CONTRIBUTING.md
 
 ## Support
 
-- **PyImgAno**: https://github.com/jhlu2019/pyimgano/issues
+- **PyImgAno**: https://github.com/skygazer42/pyimgano/issues
 
 ---
 
