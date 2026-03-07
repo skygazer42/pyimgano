@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pytest
 
-from pyimgano.inference.api import calibrate_threshold, infer, results_to_jsonable
+from pyimgano.inference.api import calibrate_threshold, infer, infer_bgr, results_to_jsonable
 from pyimgano.inputs.image_format import ImageFormat
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 
@@ -137,6 +137,55 @@ def test_infer_supports_batch_size_chunking_preserves_order() -> None:
     out = infer(det, imgs, input_format=ImageFormat.RGB_U8_HWC, batch_size=2)
     assert [r.score for r in out] == pytest.approx([0.0, 100 / 255.0, 250 / 255.0])
     assert [r.label for r in out] == [0, 0, 1]
+
+
+def test_infer_threads_u16_max_to_normalization() -> None:
+    class _MaxScore:
+        def __init__(self) -> None:
+            self.threshold_ = 0.0
+
+        def decision_function(self, X):
+            items = list(X)
+            scores: list[float] = []
+            for item in items:
+                arr = np.asarray(item)
+                assert arr.shape == (2, 2, 3)
+                assert arr.dtype == np.uint8
+                scores.append(float(arr.max()))
+            return np.asarray(scores, dtype=np.float32)
+
+    gray_u16 = np.zeros((2, 2), dtype=np.uint16)
+    gray_u16[0, 0] = 4095
+
+    det = _MaxScore()
+
+    # Default scaling (u16_max=None -> 65535) should keep this relatively small.
+    out_default = infer(det, [gray_u16], input_format=ImageFormat.GRAY_U16_HW)
+    assert 0.0 <= float(out_default[0].score) < 32.0
+
+    # Industrial 12-bit sensors stored in uint16 often need u16_max=4095.
+    out_12bit = infer(det, [gray_u16], input_format=ImageFormat.GRAY_U16_HW, u16_max=4095)
+    assert float(out_12bit[0].score) == pytest.approx(255.0)
+
+
+def test_infer_bgr_convenience_swaps_channels() -> None:
+    class _FirstChannel:
+        def __init__(self) -> None:
+            self.threshold_ = None
+
+        def decision_function(self, X):
+            items = list(X)
+            assert len(items) == 1
+            arr = np.asarray(items[0])
+            # inference API always passes canonical RGB/u8/HWC for numpy inputs
+            assert arr.shape == (1, 1, 3)
+            assert arr.dtype == np.uint8
+            return np.asarray([float(arr[0, 0, 0])], dtype=np.float32)
+
+    # BGR: [B, G, R] = [10, 20, 30] should become RGB [30, 20, 10]
+    bgr = np.asarray([[[10, 20, 30]]], dtype=np.uint8)
+    out = infer_bgr(_FirstChannel(), [bgr])
+    assert float(out[0].score) == pytest.approx(30.0)
 
 
 def test_infer_amp_is_best_effort() -> None:

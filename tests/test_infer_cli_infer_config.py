@@ -1068,6 +1068,7 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
             score_reduce: str,
             score_topk: float,
             map_reduce: str,
+            u16_max: int | None,
         ) -> None:
             constructed.update(
                 {
@@ -1076,6 +1077,7 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
                     "score_reduce": str(score_reduce),
                     "score_topk": float(score_topk),
                     "map_reduce": str(map_reduce),
+                    "u16_max": (None if u16_max is None else int(u16_max)),
                 }
             )
             self.detector = detector
@@ -1105,6 +1107,7 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
         "score_reduce": "topk_mean",
         "score_topk": 0.2,
         "map_reduce": "hann",
+        "u16_max": None,
     }
 
 

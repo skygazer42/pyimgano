@@ -248,21 +248,15 @@ def _reduce_scores(scores: NDArray, *, mode: ScoreReduce, topk: float) -> float:
     raise ValueError(f"Unknown score reduce mode: {mode}. Choose from: max, mean, topk_mean")
 
 
-def _load_rgb_u8_hwc_from_path(path: Union[str, Path]) -> NDArray:
-    try:
-        import cv2
-    except Exception as exc:  # pragma: no cover
-        raise ImportError(
-            "opencv-python is required to load images from disk for tiled inference.\n"
-            "Install it via:\n  pip install 'opencv-python'\n"
-            f"Original error: {exc}"
-        ) from exc
+def _load_rgb_u8_hwc_from_path(path: Union[str, Path], *, u16_max: int | None = None) -> NDArray:
+    """Load an image path into canonical RGB/u8/HWC.
 
-    img_bgr = cv2.imread(str(path))
-    if img_bgr is None:
-        raise ValueError(f"Failed to load image: {path}")
-    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    return np.asarray(img_rgb, dtype=np.uint8)
+    Uses OpenCV `IMREAD_UNCHANGED` under the hood to preserve 16-bit inputs.
+    """
+
+    from pyimgano.inference.image_decode import load_path_as_rgb_u8_hwc
+
+    return np.asarray(load_path_as_rgb_u8_hwc(path, u16_max=u16_max), dtype=np.uint8)
 
 
 def _resize_map(anomaly_map: NDArray, *, target_h: int, target_w: int) -> NDArray:
@@ -294,6 +288,7 @@ class TiledDetector:
         stride: Optional[int] = None,
         pad_mode: str = "reflect",
         pad_value: int = 0,
+        u16_max: int | None = None,
         score_reduce: ScoreReduce = "max",
         score_topk: float = 0.1,
         map_reduce: MapReduce = "max",
@@ -303,6 +298,7 @@ class TiledDetector:
         self.stride = int(stride) if stride is not None else int(tile_size)
         self.pad_mode = str(pad_mode)
         self.pad_value = int(pad_value)
+        self.u16_max = None if u16_max is None else int(u16_max)
         self.score_reduce = score_reduce
         self.score_topk = float(score_topk)
         self.map_reduce = map_reduce
@@ -324,7 +320,7 @@ class TiledDetector:
 
     def _to_image_array(self, item: ImageInput) -> NDArray:
         if isinstance(item, (str, Path)):
-            return _load_rgb_u8_hwc_from_path(item)
+            return _load_rgb_u8_hwc_from_path(item, u16_max=self.u16_max)
         return np.asarray(item)
 
     def _iter_tiles(self, image: NDArray) -> tuple[list[NDArray], list[Tile]]:

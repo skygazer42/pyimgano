@@ -910,6 +910,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default=0.1,
         help="Top-k fraction used for tile-score reduce mode 'topk_mean'",
     )
+    parser.add_argument(
+        "--u16-max",
+        type=int,
+        default=None,
+        help=(
+            "Optional max value for uint16 inputs when the CLI decodes images via OpenCV "
+            "IMREAD_UNCHANGED (e.g. 4095 for 12-bit sensors). "
+            "Only used for tiling/preprocessing wrapper decode paths."
+        ),
+    )
     parser.add_argument("--save-jsonl", default=None, help="Optional JSONL output path")
     parser.add_argument(
         "--save-maps",
@@ -1792,6 +1802,7 @@ def main(argv: list[str] | None = None) -> int:
                 score_reduce=str(args.tile_score_reduce),
                 score_topk=float(args.tile_score_topk),
                 map_reduce=str(args.tile_map_reduce),
+                u16_max=(int(args.u16_max) if args.u16_max is not None else None),
             )
             # Ensure a threshold loaded from --from-run/--infer-config remains visible after wrapping.
             if threshold_from_run is not None:
@@ -1816,6 +1827,7 @@ def main(argv: list[str] | None = None) -> int:
             detector = PreprocessingDetector(
                 detector=detector,
                 illumination_contrast=illumination_contrast_knobs,
+                u16_max=(int(args.u16_max) if args.u16_max is not None else None),
             )
             if threshold_from_run is not None:
                 setattr(detector, "threshold_", float(threshold_from_run))
