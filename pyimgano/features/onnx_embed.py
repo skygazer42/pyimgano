@@ -410,7 +410,8 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
             computed = self._extract_no_cache(list(missing))
             if computed.shape[0] != len(missing):
                 raise RuntimeError("Internal error: computed embeddings batch mismatch")
-            for p, row in zip(missing, computed, strict=True):
+            # zip(strict=...) is Python 3.10+. We already validated lengths above.
+            for p, row in zip(missing, computed):
                 self._cache.save(p, np.asarray(row, dtype=np.float64).reshape(-1))
                 cached_rows[p] = np.asarray(row, dtype=np.float64).reshape(-1)
 

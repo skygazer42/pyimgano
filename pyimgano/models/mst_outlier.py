@@ -38,7 +38,9 @@ def _mst_node_scores_from_distance_matrix(D: np.ndarray) -> np.ndarray:
     coo = mst.tocoo()
 
     scores = np.zeros((n,), dtype=np.float64)
-    for i, j, w in zip(coo.row, coo.col, coo.data, strict=False):
+    # NOTE: zip(strict=...) is Python 3.10+. We support Python 3.9 (see requires-python),
+    # so keep the default (non-strict) zip behavior here.
+    for i, j, w in zip(coo.row, coo.col, coo.data):
         wi = float(w)
         if wi > scores[int(i)]:
             scores[int(i)] = wi

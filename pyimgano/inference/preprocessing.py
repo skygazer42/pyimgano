@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -12,7 +12,9 @@ from pyimgano.preprocessing.industrial_presets import (
     apply_illumination_contrast,
 )
 
-ImageInput = str | Path | np.ndarray
+# NOTE: Python 3.9 does not support `type1 | type2` unions at runtime (PEP 604).
+# Keep this as a typing-only alias while maintaining runtime compatibility.
+ImageInput = Union[str, Path, np.ndarray]
 
 
 def _load_rgb_u8_hwc_from_path(path: str | Path) -> NDArray[np.uint8]:
