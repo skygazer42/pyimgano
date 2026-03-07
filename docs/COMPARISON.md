@@ -498,11 +498,11 @@ sk = IsolationForest(n_estimators=100, random_state=42)
 
 ### PyImgAno Goals (to match PyOD quality)
 
-1. ✅ 37+ algorithms (Done)
+1. ✅ 120+ registered model entry points (Done)
 2. ✅ 80+ preprocessing operations (Done)
 3. ✅ Comprehensive benchmarks (Done)
-4. ⏳ Sphinx API documentation (In progress)
-5. ⏳ Increase test coverage to 90%+
+4. ✅ Sphinx documentation site (Done; expanding API surface coverage)
+5. ⏳ Increase test coverage (core surface) to 90%+
 6. ⏳ Publish academic paper
 7. ⏳ Grow community to 1000+ stars
 
@@ -537,11 +537,14 @@ scores = -detector.score_samples(features_test)
 
 ### Q: Which has better algorithms?
 
-**A:** PyOD has more algorithms (40+ vs 37+), but PyImgAno has image-specific implementations and preprocessing that may perform better on visual data.
+**A:** They optimize for different things:
+
+- **PyOD** focuses on broad, mature tabular/embedding anomaly detection baselines.
+- **PyImgAno** focuses on visual industrial workflows (preprocessing, tiling, pixel maps, defects export, JSONL) and bundles many image-focused baselines and wrappers.
 
 ### Q: Is PyImgAno production-ready?
 
-**A:** PyImgAno is in beta (v0.2.0). Core functionality is stable, but it's newer than PyOD. For mission-critical applications, consider PyOD's maturity or thoroughly test PyImgAno.
+**A:** PyImgAno is in beta (v0.6.x). Core functionality is stable, but it's newer than PyOD. For mission-critical applications, consider PyOD's maturity or thoroughly test PyImgAno in your target environment and data distribution.
 
 ### Q: Can PyImgAno replace PyOD?
 
