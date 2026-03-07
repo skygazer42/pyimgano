@@ -11,6 +11,18 @@ Regenerate:
 python tools/generate_tag_history.py
 ```
 
+## v0.6.37 - 2026-03-07
+
+### Fixed
+- Restored Python 3.9 runtime compatibility (avoid `zip(..., strict=...)` and runtime-evaluated PEP 604 unions in production modules).
+
+### Tooling
+- `tox`: default `tox` run no longer gates on `type` / `coverage` (run explicitly via `tox -e type` / `tox -e coverage`).
+
+### Packaging
+- `pyproject.toml`: use SPDX-style `license = "MIT"` to satisfy upcoming setuptools deprecations.
+
+
 ## v0.6.36 - 2026-03-06
 
 ### Feature Extractors
