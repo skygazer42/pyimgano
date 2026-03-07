@@ -37,4 +37,6 @@ def test_run_writes_environment_json(tmp_path):
     env_path = out_dir / "environment.json"
     assert env_path.exists()
     env = json.loads(env_path.read_text(encoding="utf-8"))
-    assert {"timestamp_utc", "python", "platform", "packages"}.issubset(env.keys())
+    assert {"timestamp_utc", "python", "platform", "packages", "fingerprint_sha256"}.issubset(
+        env.keys()
+    )
