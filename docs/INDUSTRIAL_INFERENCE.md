@@ -14,6 +14,7 @@ less error-prone by:
 In production you often have frames already decoded in memory, usually as:
 
 - OpenCV frames: **BGR / uint8 / HWC**
+- Industrial cameras: **GRAY / uint8 / HW** (common)
 - Deep learning tensors: **RGB / float32 / CHW** in `[0, 1]`
 
 Use `ImageFormat` + `normalize_numpy_image` to convert into the canonical format:
@@ -25,6 +26,9 @@ from pyimgano.inputs import ImageFormat, normalize_numpy_image
 
 bgr_u8_hwc: np.ndarray = ...
 rgb_u8_hwc = normalize_numpy_image(bgr_u8_hwc, input_format=ImageFormat.BGR_U8_HWC)
+
+gray_u8_hw: np.ndarray = ...
+rgb_u8_hwc2 = normalize_numpy_image(gray_u8_hw, input_format=ImageFormat.GRAY_U8_HW)
 ```
 
 ## 2) Inference API

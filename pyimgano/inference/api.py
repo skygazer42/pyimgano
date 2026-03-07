@@ -5,7 +5,7 @@ import warnings
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -88,8 +88,9 @@ def calibrate_threshold(
 
     chunks = [normalized] if bs is None or bs >= len(normalized) else []
     if not chunks:
-        for start in range(0, len(normalized), int(bs)):
-            chunks.append(normalized[start : start + int(bs)])
+        assert bs is not None
+        for start in range(0, len(normalized), bs):
+            chunks.append(normalized[start : start + bs])
 
     scores_all: list[np.ndarray] = []
     with _torch_inference_context(amp=bool(amp)):
@@ -125,7 +126,7 @@ def _torch_inference_context(*, amp: bool) -> ExitStack:
         if not bool(amp):
             return stack
         try:
-            import torch as _torch  # type: ignore[import-not-found]
+            import torch as _torch
 
             torch = _torch
         except Exception:
@@ -174,11 +175,11 @@ def _call_decision_function(detector: Any, inputs: Sequence[Any]) -> np.ndarray:
     """Best-effort wrapper around `decision_function` for list-vs-batch conventions."""
 
     scores, _maps = _call_decision_function_with_optional_maps(detector, inputs)
-    return np.asarray(scores, dtype=np.float32)
+    return cast(np.ndarray, np.asarray(scores, dtype=np.float32))
 
 
 def _normalize_decision_scores(scores: Any, *, n_expected: int) -> np.ndarray:
-    arr = np.asarray(scores, dtype=np.float32)
+    arr = cast(np.ndarray, np.asarray(scores, dtype=np.float32))
     if arr.ndim != 1:
         arr = arr.reshape(-1)
     if int(arr.shape[0]) != int(n_expected):
@@ -189,7 +190,7 @@ def _normalize_decision_scores(scores: Any, *, n_expected: int) -> np.ndarray:
 
 
 def _normalize_decision_maps(maps: Any, *, n_expected: int) -> np.ndarray:
-    arr = np.asarray(maps, dtype=np.float32)
+    arr = cast(np.ndarray, np.asarray(maps, dtype=np.float32))
     if arr.ndim < 3:
         raise ValueError(
             "decision_function returned maps with ndim < 3. Expected shape like (N,H,W)[,...]."

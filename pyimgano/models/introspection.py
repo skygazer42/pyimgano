@@ -5,10 +5,21 @@ from typing import Any, Callable, Mapping, Protocol, Sequence
 
 
 class _ModelEntryLike(Protocol):
-    name: str
-    constructor: Callable[..., Any]
-    tags: Sequence[str]
-    metadata: Mapping[str, Any]
+    # Read-only structural protocol: callers only need attribute access.
+    # Using properties keeps the protocol compatible with dataclasses that use
+    # narrower concrete types (e.g. tuple[str, ...] for tags).
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def constructor(self) -> Callable[..., Any]: ...
+
+    @property
+    def tags(self) -> Sequence[str]: ...
+
+    @property
+    def metadata(self) -> Mapping[str, Any]: ...
 
 
 class _ModelRegistryLike(Protocol):

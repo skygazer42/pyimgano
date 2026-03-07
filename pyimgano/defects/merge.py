@@ -97,8 +97,11 @@ def merge_regions_nearby(regions: Sequence[dict], *, max_gap_px: int) -> list[di
 
         member_ids: list[int] = []
         for m in members:
+            rid = m.get("id", None)
+            if rid is None:
+                continue
             try:
-                member_ids.append(int(m.get("id")))
+                member_ids.append(int(rid))
             except Exception:
                 continue
         member_ids = sorted(set(member_ids))

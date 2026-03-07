@@ -7,10 +7,18 @@ from pyimgano.models.introspection import get_constructor_signature_info
 
 
 class _ModelEntryLike(Protocol):
-    name: str
-    constructor: Any
-    tags: Sequence[str]
-    metadata: Mapping[str, Any]
+    # Read-only structural protocol: capabilities logic only reads attributes.
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def constructor(self) -> Any: ...
+
+    @property
+    def tags(self) -> Sequence[str]: ...
+
+    @property
+    def metadata(self) -> Mapping[str, Any]: ...
 
 
 @dataclass(frozen=True)
