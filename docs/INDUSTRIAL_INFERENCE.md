@@ -15,6 +15,7 @@ In production you often have frames already decoded in memory, usually as:
 
 - OpenCV frames: **BGR / uint8 / HWC**
 - Industrial cameras: **GRAY / uint8 / HW** (common)
+- Industrial cameras (higher bit depth): **GRAY / uint16 / HW** (12-bit/16-bit sensors)
 - Deep learning tensors: **RGB / float32 / CHW** in `[0, 1]`
 
 Use `ImageFormat` + `normalize_numpy_image` to convert into the canonical format:
@@ -29,6 +30,10 @@ rgb_u8_hwc = normalize_numpy_image(bgr_u8_hwc, input_format=ImageFormat.BGR_U8_H
 
 gray_u8_hw: np.ndarray = ...
 rgb_u8_hwc2 = normalize_numpy_image(gray_u8_hw, input_format=ImageFormat.GRAY_U8_HW)
+
+# 12-bit sensors are often stored in uint16 with max around 4095:
+gray_u16_hw: np.ndarray = ...
+rgb_u8_hwc3 = normalize_numpy_image(gray_u16_hw, input_format=ImageFormat.GRAY_U16_HW, u16_max=4095)
 ```
 
 ## 2) Inference API

@@ -10,7 +10,11 @@ from pyimgano.inputs.image_format import ImageFormat, normalize_numpy_image, par
         ("bgr_u8_hwc", ImageFormat.BGR_U8_HWC),
         ("gray_u8_hw", ImageFormat.GRAY_U8_HW),
         ("gray_u8_hwc1", ImageFormat.GRAY_U8_HWC1),
+        ("gray_u16_hw", ImageFormat.GRAY_U16_HW),
+        ("gray_u16_hwc1", ImageFormat.GRAY_U16_HWC1),
         ("rgb_u8_hwc", ImageFormat.RGB_U8_HWC),
+        ("bgr_u16_hwc", ImageFormat.BGR_U16_HWC),
+        ("rgb_u16_hwc", ImageFormat.RGB_U16_HWC),
         ("bgr_f32_hwc", ImageFormat.BGR_F32_HWC),
         ("rgb_f32_hwc", ImageFormat.RGB_F32_HWC),
         ("rgb_f32_chw", ImageFormat.RGB_F32_CHW),
@@ -66,6 +70,55 @@ def test_normalize_gray_u8_hwc1_to_rgb_u8_hwc_repeats_channels():
     assert int(out[0, 0, 0]) == 42
     assert int(out[0, 0, 1]) == 42
     assert int(out[0, 0, 2]) == 42
+
+
+def test_normalize_gray_u16_hw_to_rgb_u8_hwc_scales_to_255_by_default():
+    gray = np.zeros((2, 3), dtype=np.uint16)
+    gray[0, 0] = 65535
+    out = normalize_numpy_image(gray, input_format=ImageFormat.GRAY_U16_HW)
+    assert out.shape == (2, 3, 3)
+    assert out.dtype == np.uint8
+    assert int(out[0, 0, 0]) == 255
+    assert int(out[0, 0, 1]) == 255
+    assert int(out[0, 0, 2]) == 255
+
+
+def test_normalize_gray_u16_hw_allows_custom_u16_max_for_12bit_sensors():
+    gray = np.zeros((2, 3), dtype=np.uint16)
+    gray[0, 0] = 4095
+    gray[0, 1] = 2048
+    out = normalize_numpy_image(gray, input_format=ImageFormat.GRAY_U16_HW, u16_max=4095)
+    assert out.shape == (2, 3, 3)
+    assert out.dtype == np.uint8
+    assert int(out[0, 0, 0]) == 255
+    # 2048/4095*255 ~= 127.56 -> 128
+    assert int(out[0, 1, 0]) == 128
+
+
+def test_normalize_rgb_u16_hwc_scales_channels():
+    rgb = np.zeros((2, 3, 3), dtype=np.uint16)
+    rgb[..., 0] = 65535  # R
+    rgb[..., 1] = 32768  # G
+    rgb[..., 2] = 0  # B
+    out = normalize_numpy_image(rgb, input_format=ImageFormat.RGB_U16_HWC)
+    assert out.shape == (2, 3, 3)
+    assert out.dtype == np.uint8
+    assert int(out[0, 0, 0]) == 255
+    assert int(out[0, 0, 1]) == 128
+    assert int(out[0, 0, 2]) == 0
+
+
+def test_normalize_bgr_u16_hwc_swaps_and_scales():
+    bgr = np.zeros((2, 3, 3), dtype=np.uint16)
+    bgr[..., 0] = 0  # B
+    bgr[..., 1] = 32768  # G
+    bgr[..., 2] = 65535  # R
+    out = normalize_numpy_image(bgr, input_format=ImageFormat.BGR_U16_HWC)
+    assert out.shape == (2, 3, 3)
+    assert out.dtype == np.uint8
+    assert int(out[0, 0, 0]) == 255  # R
+    assert int(out[0, 0, 1]) == 128  # G
+    assert int(out[0, 0, 2]) == 0  # B
 
 
 def test_normalize_bgr_f32_hwc_to_rgb_u8_hwc_swaps_and_scales():
