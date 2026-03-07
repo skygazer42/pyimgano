@@ -1,0 +1,18 @@
+{
+  "dataset": "visa",
+  "root": "/path/to/visa_pytorch",
+  "category": "candle",
+  "suite": "industrial-v4",
+  "suite_sweep": "industrial-template-small",
+  "suite_sweep_max_variants": 1,
+  "suite_export": "both",
+  "device": "cpu",
+  "pretrained": false,
+  "save_run": true,
+  "per_image_jsonl": true,
+  "resize": [256, 256],
+  "contamination": 0.1,
+  "suite_continue_on_error": true,
+  "output_dir": null
+}
+

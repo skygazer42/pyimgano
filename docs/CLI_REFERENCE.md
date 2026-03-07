@@ -9,6 +9,7 @@ PyImgAno provides the following CLIs:
 - `pyimgano-defects` — standalone anomaly-map → mask → regions defects export
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
 - `pyimgano-doctor` — environment + optional dependency (extras) sanity check
+- `pyimgano-weights` — local weights/checkpoints manifest validation + hashing (never downloads)
 - `pyimgano-manifest` — generate a JSONL manifest from a `custom`-layout dataset tree
 - `pyimgano-datasets` — dataset converter discovery + metadata
 - `pyimgano-synthesize` — anomaly synthesis + manifest generation
@@ -74,6 +75,21 @@ Notes:
 - CLIs default to **offline-safe** behavior (`--no-pretrained`). Use `--pretrained` explicitly when you want upstream weights (may download).
 - `--model` can be either a registered model name (e.g. `vision_patchcore`) or a **model preset name**
   (e.g. `industrial-pixel-mad-map`). To discover presets, use `pyimgano-infer --list-model-presets`.
+
+### Config Files (`--config`)
+
+For reproducible benchmark runs, you can load flags from a JSON config:
+
+```bash
+pyimgano-benchmark --config benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json
+```
+
+Rules:
+- Config values are applied first.
+- Explicit CLI flags override config values.
+- Config JSON can be:
+  - a JSON object: keys are argparse dest names (example: `suite_sweep_max_variants`)
+  - a JSON list of argv tokens: exact flags (example: `["--dataset","mvtec", ...]`)
 
 ### Discovery
 

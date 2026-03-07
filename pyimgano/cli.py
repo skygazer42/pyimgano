@@ -15,6 +15,15 @@ from pyimgano.utils.optional_deps import optional_import
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-benchmark")
     parser.add_argument(
+        "--config",
+        default=None,
+        help=(
+            "Optional benchmark config (JSON). "
+            "When provided, config values are applied first and explicit CLI flags override them. "
+            "Accepts a file path, '@path.json', or inline JSON (object or list)."
+        ),
+    )
+    parser.add_argument(
         "--dataset",
         default=None,
         choices=[
@@ -803,9 +812,165 @@ def _build_model_kwargs(
     return out
 
 
+def _extract_config_spec(argv: list[str]) -> tuple[str | None, list[str]]:
+    """Extract --config from argv and return (spec, argv_without_config)."""
+
+    spec = None
+    cleaned: list[str] = []
+    i = 0
+    while i < len(argv):
+        item = str(argv[i])
+        if item == "--config":
+            if i + 1 >= len(argv):
+                raise ValueError("--config requires a value")
+            spec = str(argv[i + 1])
+            i += 2
+            continue
+        if item.startswith("--config="):
+            spec = item.split("=", 1)[1]
+            i += 1
+            continue
+        cleaned.append(item)
+        i += 1
+    return spec, cleaned
+
+
+def _load_config_spec(spec: str) -> Any:
+    text = str(spec).strip()
+    if not text:
+        raise ValueError("--config must not be empty")
+
+    if text.startswith("@"):
+        text = text[1:].strip()
+
+    if text.startswith("{") or text.startswith("["):
+        try:
+            return json.loads(text)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError("Failed to parse inline --config JSON") from exc
+
+    path = Path(text)
+    if not path.exists():
+        raise FileNotFoundError(f"Benchmark config not found: {path}")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Failed to parse benchmark config JSON: {path}") from exc
+
+
+def _primary_option_string(action: argparse.Action) -> str | None:
+    for s in getattr(action, "option_strings", ()) or ():
+        if str(s).startswith("--") and not str(s).startswith("--no-"):
+            return str(s)
+    opts = list(getattr(action, "option_strings", ()) or ())
+    return str(opts[0]) if opts else None
+
+
+def _argv_from_config_obj(parser: argparse.ArgumentParser, obj: Any) -> list[str]:
+    """Convert a config payload to argv tokens.
+
+    Supported config forms:
+    - list[str]: treated as a raw argv token list (exact, explicit)
+    - dict: keys map to argparse dest names; values map to option values
+    """
+
+    if isinstance(obj, list):
+        out: list[str] = []
+        for item in obj:
+            if not isinstance(item, str):
+                raise ValueError("--config JSON list must contain only strings")
+            if item.strip():
+                out.append(item)
+        return out
+
+    if not isinstance(obj, dict):
+        raise ValueError("--config JSON must be an object (dict) or a list of argv strings")
+
+    actions_by_dest: dict[str, argparse.Action] = {}
+    for act in parser._actions:  # noqa: SLF001 - argparse introspection for config expansion
+        dest = getattr(act, "dest", None)
+        if isinstance(dest, str) and dest:
+            actions_by_dest[dest] = act
+
+    out: list[str] = []
+    for raw_key, value in obj.items():
+        key = str(raw_key)
+        if key == "config":
+            continue
+
+        action = actions_by_dest.get(key)
+        if action is None:
+            raise ValueError(f"Unknown --config key: {key!r}")
+
+        if value is None:
+            continue
+
+        # BooleanOptionalAction supports --flag / --no-flag style toggles.
+        if isinstance(action, argparse.BooleanOptionalAction):
+            if not isinstance(value, bool):
+                raise ValueError(f"--config key {key!r} must be boolean for this flag")
+            opts = [str(s) for s in action.option_strings]
+            pos = next((o for o in opts if o.startswith("--") and not o.startswith("--no-")), None)
+            neg = next((o for o in opts if o.startswith("--no-")), None)
+            if pos is None or neg is None:
+                raise ValueError(
+                    f"Internal error: expected --flag/--no-flag option strings for {key!r}"
+                )
+            out.append(pos if value else neg)
+            continue
+
+        # store_true flags
+        if isinstance(action, argparse._StoreTrueAction):  # noqa: SLF001 - stable stdlib type
+            if bool(value):
+                opt = _primary_option_string(action)
+                if opt is None:
+                    raise ValueError(f"Internal error: missing option string for {key!r}")
+                out.append(opt)
+            continue
+
+        # append flags (repeatable)
+        if isinstance(action, argparse._AppendAction):  # noqa: SLF001 - stable stdlib type
+            opt = _primary_option_string(action)
+            if opt is None:
+                raise ValueError(f"Internal error: missing option string for {key!r}")
+            items = value if isinstance(value, list) else [value]
+            for item in items:
+                if item is None:
+                    continue
+                out.extend([opt, str(item)])
+            continue
+
+        opt = _primary_option_string(action)
+        if opt is None:
+            raise ValueError(f"Internal error: missing option string for {key!r}")
+
+        nargs = getattr(action, "nargs", None)
+        if nargs is None:
+            out.extend([opt, str(value)])
+            continue
+
+        # nargs > 1 or fixed-size tuples/lists
+        if isinstance(value, (list, tuple)):
+            out.append(opt)
+            out.extend([str(v) for v in value])
+            continue
+
+        raise ValueError(f"--config key {key!r} must be a list/tuple for nargs={nargs!r}")
+
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    config_spec, cleaned_argv = _extract_config_spec(raw_argv)
+
+    if config_spec is not None:
+        cfg_obj = _load_config_spec(str(config_spec))
+        cfg_argv = _argv_from_config_obj(parser, cfg_obj)
+        args = parser.parse_args(cfg_argv + cleaned_argv)
+    else:
+        args = parser.parse_args(cleaned_argv)
 
     try:
         # Import model implementations for side effects (registry population).
