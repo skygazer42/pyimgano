@@ -28,7 +28,11 @@ logger = logging.getLogger(__name__)
 @register_model(
     "core_loop",
     tags=("classical", "core", "features", "neighbors", "probability"),
-    metadata={"description": "LoOP - Local Outlier Probability (native implementation)"},
+    metadata={
+        "description": "LoOP - Local Outlier Probability (native implementation)",
+        "paper": "Kriegel et al., CIKM 2009",
+        "year": 2009,
+    },
 )
 class CoreLoOP(BaseDetector):
     """Tabular LoOP detector."""
@@ -120,7 +124,11 @@ class CoreLoOP(BaseDetector):
 @register_model(
     "vision_loop",
     tags=("vision", "classical", "neighbors", "probability"),
-    metadata={"description": "Vision LoOP - Local Outlier Probability"},
+    metadata={
+        "description": "Vision LoOP - Local Outlier Probability",
+        "paper": "Kriegel et al., CIKM 2009",
+        "year": 2009,
+    },
 )
 class VisionLoOP(BaseVisionDetector):
     """Vision wrapper for LoOP (runs on extracted features)."""

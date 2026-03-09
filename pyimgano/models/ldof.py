@@ -47,7 +47,11 @@ def _mean_pairwise_distance(points_2d: np.ndarray) -> float:
 @register_model(
     "core_ldof",
     tags=("classical", "core", "features", "neighbors", "local"),
-    metadata={"description": "LDOF - Local Distance-based Outlier Factor (native)"},
+    metadata={
+        "description": "LDOF - Local Distance-based Outlier Factor (native)",
+        "paper": "Zhang et al., PAKDD 2009",
+        "year": 2009,
+    },
 )
 class CoreLDOF(BaseDetector):
     def __init__(
@@ -127,7 +131,11 @@ class CoreLDOF(BaseDetector):
 @register_model(
     "vision_ldof",
     tags=("vision", "classical", "neighbors", "local"),
-    metadata={"description": "Vision LDOF - Local Distance-based Outlier Factor"},
+    metadata={
+        "description": "Vision LDOF - Local Distance-based Outlier Factor",
+        "paper": "Zhang et al., PAKDD 2009",
+        "year": 2009,
+    },
 )
 class VisionLDOF(BaseVisionDetector):
     def __init__(

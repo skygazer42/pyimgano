@@ -30,6 +30,38 @@ def test_infer_cli_can_list_models(capsys) -> None:
     assert "vision_ecod" in out
 
 
+def test_infer_cli_can_list_models_by_year_and_type(capsys) -> None:
+    from pyimgano.infer_cli import main as infer_main
+
+    rc = infer_main(["--list-models", "--year", "2021", "--type", "deep-vision"])
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "cutpaste" in out
+    assert "core_qmcd" not in out
+
+
+def test_infer_cli_can_list_models_by_specific_method_type(capsys) -> None:
+    from pyimgano.infer_cli import main as infer_main
+
+    rc = infer_main(["--list-models", "--type", "one-class-svm", "--year", "2001"])
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "vision_ocsvm" in out
+    assert "vision_lof" not in out
+
+
+def test_infer_cli_can_list_models_by_density_estimation_type(capsys) -> None:
+    from pyimgano.infer_cli import main as infer_main
+
+    rc = infer_main(["--list-models", "--type", "density-estimation", "--year", "2019"])
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "vision_rkde_anomalib" in out
+
+
 def test_infer_cli_can_list_model_presets(capsys) -> None:
     from pyimgano.infer_cli import main as infer_main
 
@@ -38,6 +70,33 @@ def test_infer_cli_can_list_model_presets(capsys) -> None:
 
     out = capsys.readouterr().out.strip().splitlines()
     assert "industrial-structural-ecod" in out
+
+
+def test_infer_cli_can_list_model_presets_by_family(capsys) -> None:
+    from pyimgano.infer_cli import main as infer_main
+
+    rc = infer_main(["--list-model-presets", "--family", "graph"])
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "industrial-structural-rgraph" in out
+    assert "industrial-structural-lof" not in out
+
+
+def test_infer_cli_can_list_model_presets_by_family_as_json(capsys) -> None:
+    import json
+
+    from pyimgano.infer_cli import main as infer_main
+
+    rc = infer_main(["--list-model-presets", "--family", "distillation", "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert isinstance(payload, list)
+    assert any(
+        item["name"] == "industrial-reverse-distillation" and "distillation" in item["tags"]
+        for item in payload
+    )
 
 
 def test_infer_cli_accepts_model_preset_name_as_model(tmp_path: Path, monkeypatch) -> None:

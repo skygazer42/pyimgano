@@ -1,0 +1,155 @@
+"""Named preprocessing schemes for discovery-oriented CLI and config workflows."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Mapping, Optional
+
+
+@dataclass(frozen=True)
+class PreprocessingScheme:
+    name: str
+    description: str
+    deployable: bool
+    tags: tuple[str, ...] = ()
+    config_key: str | None = None
+    payload: Mapping[str, Any] | None = None
+    entrypoint: str | None = None
+
+
+_SCHEMES: dict[str, PreprocessingScheme] = {
+    "illumination-contrast-balanced": PreprocessingScheme(
+        name="illumination-contrast-balanced",
+        description=(
+            "Balanced industrial illumination normalization with gray-world white balance, "
+            "mild homomorphic filtering, CLAHE, and percentile contrast stretching."
+        ),
+        deployable=True,
+        tags=("illumination", "contrast", "deployable", "industrial"),
+        config_key="preprocessing.illumination_contrast",
+        payload={
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": True,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 2.0,
+            "gamma": None,
+            "contrast_lower_percentile": 1.0,
+            "contrast_upper_percentile": 99.0,
+        },
+    ),
+    "illumination-contrast-lowlight": PreprocessingScheme(
+        name="illumination-contrast-lowlight",
+        description=(
+            "Stronger low-light recovery for dim production lines with gray-world white balance, "
+            "homomorphic filtering, CLAHE, and a gentle gamma lift."
+        ),
+        deployable=True,
+        tags=("illumination", "contrast", "deployable", "lowlight", "industrial"),
+        config_key="preprocessing.illumination_contrast",
+        payload={
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": True,
+            "homomorphic_cutoff": 0.2,
+            "homomorphic_gamma_low": 0.7,
+            "homomorphic_gamma_high": 1.35,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 2.5,
+            "gamma": 1.08,
+            "contrast_lower_percentile": 0.5,
+            "contrast_upper_percentile": 99.5,
+        },
+    ),
+    "illumination-contrast-texture-boost": PreprocessingScheme(
+        name="illumination-contrast-texture-boost",
+        description=(
+            "Texture-biased normalization for subtle surface defects with max-RGB white balance, "
+            "CLAHE, and tighter percentile contrast stretching."
+        ),
+        deployable=True,
+        tags=("illumination", "contrast", "deployable", "texture", "industrial"),
+        config_key="preprocessing.illumination_contrast",
+        payload={
+            "enabled": True,
+            "white_balance": "max_rgb",
+            "homomorphic": False,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 3.0,
+            "gamma": None,
+            "contrast_lower_percentile": 2.0,
+            "contrast_upper_percentile": 98.0,
+        },
+    ),
+    "retinex-msrcr-lite": PreprocessingScheme(
+        name="retinex-msrcr-lite",
+        description=(
+            "Retinex-based illumination flattening for Python API workflows using "
+            "`pyimgano.preprocessing.msrcr_lite`."
+        ),
+        deployable=False,
+        tags=("retinex", "illumination", "python-api"),
+        entrypoint="pyimgano.preprocessing.msrcr_lite",
+    ),
+    "rolling-ball-flatfield": PreprocessingScheme(
+        name="rolling-ball-flatfield",
+        description=(
+            "Background/flat-field correction for uneven lighting using the rolling-ball background "
+            "estimate and subtraction helpers."
+        ),
+        deployable=False,
+        tags=("background", "flatfield", "python-api"),
+        entrypoint="pyimgano.preprocessing.subtract_background_rolling_ball",
+    ),
+    "guided-filter-denoise": PreprocessingScheme(
+        name="guided-filter-denoise",
+        description=(
+            "Edge-preserving denoising using guided filtering for Python API image cleanup before "
+            "feature extraction or scoring."
+        ),
+        deployable=False,
+        tags=("denoise", "edge-preserving", "python-api"),
+        entrypoint="pyimgano.preprocessing.guided_filter",
+    ),
+    "defect-amplify-local-contrast": PreprocessingScheme(
+        name="defect-amplify-local-contrast",
+        description=(
+            "Defect amplification helper that boosts local contrast for weak texture anomalies in "
+            "manual preprocessing pipelines."
+        ),
+        deployable=False,
+        tags=("defect-boost", "contrast", "python-api"),
+        entrypoint="pyimgano.preprocessing.defect_amplification",
+    ),
+}
+
+
+def list_preprocessing_schemes(*, deployable_only: bool = False) -> list[PreprocessingScheme]:
+    """Return named preprocessing schemes, optionally limited to deployable ones."""
+
+    items = sorted(_SCHEMES.values(), key=lambda item: item.name)
+    if not deployable_only:
+        return items
+    return [item for item in items if item.deployable]
+
+
+def resolve_preprocessing_scheme(name: str) -> Optional[PreprocessingScheme]:
+    """Return a preprocessing scheme by name if it exists."""
+
+    return _SCHEMES.get(str(name).strip(), None)
+
+
+__all__ = [
+    "PreprocessingScheme",
+    "list_preprocessing_schemes",
+    "resolve_preprocessing_scheme",
+]

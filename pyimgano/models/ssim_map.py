@@ -254,6 +254,8 @@ class _BaseSSIMMapDetector(BaseDetector):
     tags=("vision", "classical", "template", "ssim", "pixel_map"),
     metadata={
         "description": "SSIM template detector with pixel anomaly maps (1 - SSIM map)",
+        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "year": 2004,
     },
 )
 class SSIMTemplateMapDetector(_BaseSSIMMapDetector):
@@ -284,6 +286,8 @@ class SSIMTemplateMapDetector(_BaseSSIMMapDetector):
     tags=("vision", "classical", "template", "ssim", "structural", "pixel_map"),
     metadata={
         "description": "Structural SSIM (edges) with pixel anomaly maps",
+        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "year": 2004,
     },
 )
 class SSIMStructMapDetector(_BaseSSIMMapDetector):

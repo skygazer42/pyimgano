@@ -46,7 +46,7 @@ class ModelRegistry:
             name=name,
             constructor=constructor,
             tags=tuple(tags or ()),
-            metadata=metadata or {},
+            metadata=_apply_default_metadata_fields(tags=tuple(tags or ()), metadata=metadata),
         )
         self._registry[name] = entry
 
@@ -78,6 +78,29 @@ class ModelRegistry:
 
 
 MODEL_REGISTRY = ModelRegistry()
+
+
+def _apply_default_metadata_fields(
+    *,
+    tags: Iterable[str],
+    metadata: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    meta = dict(metadata or {})
+    tag_set = {str(tag).strip().lower() for tag in tags}
+    requires_checkpoint = bool(meta.get("requires_checkpoint", False))
+
+    if requires_checkpoint and not str(meta.get("weights_source", "")).strip():
+        backend = str(meta.get("backend", "")).strip().lower()
+        if backend == "anomalib" or "anomalib" in tag_set:
+            meta["weights_source"] = "upstream-anomalib-checkpoint"
+        elif backend == "patchcore_inspection" or "patchcore_inspection" in tag_set:
+            meta["weights_source"] = "upstream-patchcore-inspection-checkpoint"
+        elif "onnx" in tag_set:
+            meta["weights_source"] = "local-exported-onnx"
+        elif "torchscript" in tag_set:
+            meta["weights_source"] = "local-exported-torchscript"
+
+    return meta
 
 
 def materialize_model_constructor(name: str) -> Callable[..., Any]:
@@ -145,11 +168,13 @@ def register_model(
         if has_map_method and "pixel_map" not in tag_list:
             tag_list.append("pixel_map")
 
+        metadata_payload = _apply_default_metadata_fields(tags=tag_list, metadata=metadata)
+
         MODEL_REGISTRY.register(
             name,
             constructor,
             tags=tag_list,
-            metadata=metadata,
+            metadata=metadata_payload,
             overwrite=overwrite,
         )
         return constructor
@@ -238,3 +263,24 @@ def model_info(name: str) -> Dict[str, Any]:
     payload["requires_checkpoint"] = bool(caps.requires_checkpoint)
     payload["supports_save_load"] = bool(caps.supports_save_load)
     return payload
+
+
+def model_metadata_contract() -> list[dict[str, Any]]:
+    """Return the structured metadata contract for registry models."""
+
+    from pyimgano.models.metadata_contract import metadata_contract_fields
+
+    return metadata_contract_fields()
+
+
+def audit_model_metadata(
+    *,
+    names: Optional[Iterable[str]] = None,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Audit registry entries against the model metadata contract."""
+
+    from pyimgano.models.metadata_contract import audit_metadata_contract
+
+    selected = None if names is None else list(names)
+    return audit_metadata_contract(MODEL_REGISTRY, names=selected, limit=limit)

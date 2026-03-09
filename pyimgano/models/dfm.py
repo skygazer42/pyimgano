@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
     tags=("vision", "deep", "dfm", "fast", "gaussian"),
     metadata={
         "description": "DFM - Fast discriminative feature modeling",
+        "paper": "Probabilistic Modeling of Deep Features for Out-of-Distribution and Adversarial Detection",
+        "year": 2019,
         "speed": "very-fast",
         "training": "none",
     },

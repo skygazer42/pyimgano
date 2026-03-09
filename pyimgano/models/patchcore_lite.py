@@ -30,6 +30,8 @@ from .registry import register_model
     tags=("classical", "core", "features", "neighbors", "memory_bank", "patchcore"),
     metadata={
         "description": "PatchCore-lite: coreset memory bank + nearest-neighbor distance (image-level)",
+        "paper": "Towards Total Recall in Industrial Anomaly Detection",
+        "year": 2022,
         "type": "neighbors",
     },
 )
@@ -99,6 +101,8 @@ class CorePatchCoreLite(BaseDetector):
     tags=("vision", "classical", "neighbors", "memory_bank", "patchcore"),
     metadata={
         "description": "PatchCore-lite: embedding extractor + coreset memory bank + NN distance (image-level)",
+        "paper": "Towards Total Recall in Industrial Anomaly Detection",
+        "year": 2022,
     },
 )
 class VisionPatchCoreLite(BaseVisionDetector):

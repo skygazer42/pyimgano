@@ -54,6 +54,16 @@ def test_cli_list_models_supports_core_tag(capsys):
     assert "vision_knn" not in out
 
 
+def test_cli_list_models_supports_year_and_type_filters(capsys):
+    from pyimgano.cli import main
+
+    code = main(["--list-models", "--year", "2001", "--type", "one-class-svm"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "vision_ocsvm" in out
+    assert "vision_lof" not in out
+
+
 def test_cli_model_info_outputs_text(capsys):
     from pyimgano.cli import main
 

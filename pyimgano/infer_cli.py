@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import inspect
 import json
+import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -705,6 +706,25 @@ def _apply_defects_preset_if_requested(args: argparse.Namespace) -> None:
     _apply_defects_defaults_from_payload(args, dict(preset.payload))
 
 
+def _resolve_preprocessing_preset_knobs(args: argparse.Namespace):
+    preset_name = getattr(args, "preprocessing_preset", None)
+    if preset_name is None:
+        return None
+
+    from pyimgano.cli_presets import resolve_preprocessing_preset
+    from pyimgano.inference.preprocessing import parse_illumination_contrast_knobs
+
+    preset = resolve_preprocessing_preset(str(preset_name))
+    if preset is None:
+        raise ValueError(f"Unknown preprocessing preset: {preset_name!r}")
+    if str(getattr(preset, "config_key", "")) != "preprocessing.illumination_contrast":
+        raise ValueError(
+            "Only preprocessing.illumination_contrast presets are currently supported by pyimgano-infer."
+        )
+    payload = dict(getattr(preset, "payload", {}) or {})
+    return parse_illumination_contrast_knobs(payload)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-infer")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -776,8 +796,41 @@ def _build_parser() -> argparse.ArgumentParser:
         action="append",
         default=None,
         help=(
-            "Filter --list-models by required tags (comma-separated or repeatable). "
-            "Example: --tags vision,classical"
+            "Filter discovery results by required tags (comma-separated or repeatable). "
+            "Works with --list-models and --list-model-presets. Example: --tags vision,classical"
+        ),
+    )
+    parser.add_argument(
+        "--family",
+        default=None,
+        help=(
+            "Optional algorithm family/tag filter for discovery. "
+            "Works with --list-models and --list-model-presets. Example: --family patchcore"
+        ),
+    )
+    parser.add_argument(
+        "--type",
+        dest="algorithm_type",
+        default=None,
+        help=(
+            "Optional high-level algorithm type/tag filter for discovery. "
+            "Works with --list-models. Example: --type deep-vision"
+        ),
+    )
+    parser.add_argument(
+        "--year",
+        default=None,
+        help=(
+            "Optional publication year filter for discovery. "
+            "Works with --list-models. Example: --year 2021"
+        ),
+    )
+    parser.add_argument(
+        "--preprocessing-preset",
+        default=None,
+        help=(
+            "Optional deployable preprocessing preset. "
+            "Use `pyim --list preprocessing --deployable-only` to discover names."
         ),
     )
     parser.add_argument("--device", default=None, help="cpu|cuda (model dependent)")
@@ -1225,7 +1278,16 @@ def main(argv: list[str] | None = None) -> int:
             merge_checkpoint_path,
             parse_model_kwargs,
         )
+        from pyimgano.cli_presets import list_model_preset_infos, list_model_presets
+        from pyimgano.discovery import (
+            list_model_names,
+            resolve_family_tags,
+            resolve_type_tags,
+            resolve_year_filter,
+        )
         from pyimgano.models.registry import MODEL_REGISTRY, materialize_model_constructor
+
+        preprocessing_preset_knobs = _resolve_preprocessing_preset_knobs(args)
 
         discovery_flags = [
             bool(getattr(args, "list_models", False)),
@@ -1237,18 +1299,24 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 "--list-models, --model-info, --list-model-presets, and --model-preset-info are mutually exclusive."
             )
+        if getattr(args, "algorithm_type", None) is not None and not bool(
+            getattr(args, "list_models", False)
+        ):
+            raise ValueError("--type is supported only with --list-models.")
+        if getattr(args, "year", None) is not None and not bool(getattr(args, "list_models", False)):
+            raise ValueError("--year is supported only with --list-models.")
+        if getattr(args, "algorithm_type", None) is not None:
+            resolve_type_tags(str(getattr(args, "algorithm_type")))
+        if getattr(args, "year", None) is not None:
+            resolve_year_filter(str(getattr(args, "year")))
 
         if bool(getattr(args, "list_models", False)):
-            tags: list[str] = []
-            tags_raw = getattr(args, "tags", None)
-            if tags_raw:
-                for item in tags_raw:
-                    for tag in str(item).split(","):
-                        tag = tag.strip()
-                        if tag:
-                            tags.append(tag)
-
-            names = MODEL_REGISTRY.available(tags=tags or None)
+            names = list_model_names(
+                tags=getattr(args, "tags", None),
+                family=getattr(args, "family", None),
+                algorithm_type=getattr(args, "algorithm_type", None),
+                year=getattr(args, "year", None),
+            )
             if bool(getattr(args, "json", False)):
                 print(json.dumps(names, indent=2))
             else:
@@ -1312,18 +1380,28 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if bool(getattr(args, "list_model_presets", False)):
-            from pyimgano.cli_presets import list_model_presets
+            preset_tags: list[str] = []
+            tags_raw = getattr(args, "tags", None)
+            if tags_raw:
+                for item in tags_raw:
+                    for tag in str(item).split(","):
+                        tag = tag.strip()
+                        if tag:
+                            preset_tags.append(tag)
+            family = getattr(args, "family", None)
+            if family is not None:
+                preset_tags.extend(resolve_family_tags(str(family)))
 
-            names = list_model_presets()
+            names = list_model_presets(tags=preset_tags or None)
             if bool(getattr(args, "json", False)):
-                print(json.dumps(names, indent=2))
+                print(json.dumps(list_model_preset_infos(tags=preset_tags or None), indent=2))
             else:
                 for name in names:
                     print(name)
             return 0
 
         if getattr(args, "model_preset_info", None) is not None:
-            from pyimgano.cli_presets import resolve_model_preset
+            from pyimgano.cli_presets import model_preset_info, resolve_model_preset
             from pyimgano.utils.jsonable import to_jsonable
 
             preset_name = str(getattr(args, "model_preset_info"))
@@ -1331,13 +1409,7 @@ def main(argv: list[str] | None = None) -> int:
             if preset is None:
                 raise ValueError(f"Unknown model preset: {preset_name!r}")
 
-            payload = {
-                "name": preset.name,
-                "model": preset.model,
-                "kwargs": dict(preset.kwargs),
-                "description": preset.description,
-                "optional": bool(preset.optional),
-            }
+            payload = model_preset_info(preset_name)
             if bool(getattr(args, "json", False)):
                 print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
             else:
@@ -1351,6 +1423,8 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     print("  <none>")
                 print(f"Optional: {'yes' if payload['optional'] else 'no'}")
+                tags_out = payload.get("tags", [])
+                print(f"Tags: {', '.join(str(t) for t in tags_out) if tags_out else '<none>'}")
                 print(f"Description: {payload['description']}")
             return 0
 
@@ -1465,8 +1539,6 @@ def main(argv: list[str] | None = None) -> int:
                             # Backwards-compat fallback: allow relative to the current working dir.
                             cwd_cand = p.resolve()
                             if cwd_cand.exists():
-                                import sys
-
                                 print(
                                     "warning: model.checkpoint_path resolved relative to CWD; "
                                     "consider making it relative to --from-run for portability.",
@@ -1551,6 +1623,7 @@ def main(argv: list[str] | None = None) -> int:
         elif infer_config_mode:
             from pyimgano.inference.config import (
                 load_infer_config,
+                normalize_infer_config_schema,
                 resolve_infer_checkpoint_path,
                 resolve_infer_model_checkpoint_path,
                 select_infer_category,
@@ -1559,6 +1632,9 @@ def main(argv: list[str] | None = None) -> int:
 
             cfg_path = Path(str(args.infer_config))
             payload = load_infer_config(cfg_path)
+            payload, schema_warnings = normalize_infer_config_schema(payload)
+            for warning in schema_warnings:
+                print(f"warning: {warning}", file=sys.stderr)
             payload = select_infer_category(
                 payload,
                 category=(str(args.infer_category) if args.infer_category is not None else None),
@@ -1776,6 +1852,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if defects_payload is not None:
             _apply_defects_defaults_from_payload(args, defects_payload)
+
+        if preprocessing_preset_knobs is not None:
+            illumination_contrast_knobs = preprocessing_preset_knobs
 
         if (
             args.tile_size is None
@@ -2336,8 +2415,6 @@ def main(argv: list[str] | None = None) -> int:
                 regions_f.close()
 
         if bool(args.profile):
-            import sys
-
             total = time.perf_counter() - t_total_start
             print(
                 "profile: "
@@ -2381,8 +2458,6 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI boundary
-        import sys
-
         print(f"error: {exc}", file=sys.stderr)
         from_run = getattr(args, "from_run", None)
         if from_run:

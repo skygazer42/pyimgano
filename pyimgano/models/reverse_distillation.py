@@ -45,12 +45,20 @@ class StudentResNetExtractor(nn.Module):
 @register_model(
     "vision_reverse_dist",
     tags=("vision", "deep", "distillation"),
-    metadata={"description": "Reverse distillation anomaly detector (alias)"},
+    metadata={
+        "description": "Reverse distillation anomaly detector (alias)",
+        "paper": "Anomaly Detection via Reverse Distillation from One-Class Embedding",
+        "year": 2022,
+    },
 )
 @register_model(
     "vision_reverse_distillation",
     tags=("vision", "deep", "distillation"),
-    metadata={"description": "Reverse distillation anomaly detector"},
+    metadata={
+        "description": "Reverse distillation anomaly detector",
+        "paper": "Anomaly Detection via Reverse Distillation from One-Class Embedding",
+        "year": 2022,
+    },
 )
 class ReverseDistillation(BaseVisionDeepDetector):
     """Reverse Distillation anomaly detector (RD4AD style)."""

@@ -53,3 +53,45 @@ def test_validate_infer_config_cli_rejects_bad_mask_format(tmp_path: Path, capsy
     assert rc == 1
     err = capsys.readouterr().err.lower()
     assert "mask_format" in err
+
+
+def test_validate_infer_config_cli_backfills_legacy_schema_version(tmp_path: Path, capsys) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "defects": {"mask_format": "png"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--json"])
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["schema_version"] == 1
+
+
+def test_validate_infer_config_cli_rejects_future_schema_version(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "schema_version": 999,
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg)])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "schema_version" in err

@@ -41,7 +41,7 @@ class _EmbeddedImage:
 
 @register_model(
     "vision_patchcore_lite_map",
-    tags=("vision", "deep", "patchcore", "lite", "patchknn", "numpy", "pixel_map"),
+    tags=("vision", "deep", "patchcore", "memory_bank", "lite", "patchknn", "numpy", "pixel_map"),
     metadata={
         "description": "PatchCore-lite anomaly map: conv patch embeddings + memory bank kNN distance",
         "paper": "PatchCore (Roth et al., CVPR 2022) - lite baseline",

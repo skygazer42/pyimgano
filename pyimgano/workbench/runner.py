@@ -8,6 +8,7 @@ import numpy as np
 
 from pyimgano.evaluation import evaluate_detector
 from pyimgano.inference.api import infer
+from pyimgano.inference.config import INFER_CONFIG_SCHEMA_VERSION
 from pyimgano.models.registry import create_model
 from pyimgano.reporting.environment import collect_environment
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
@@ -718,6 +719,7 @@ def build_infer_config_payload(
         }
 
     out: dict[str, Any] = {
+        "schema_version": int(INFER_CONFIG_SCHEMA_VERSION),
         "model": model_payload,
         "adaptation": adaptation_payload,
         "defects": defects_payload,

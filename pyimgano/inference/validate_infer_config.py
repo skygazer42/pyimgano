@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from pyimgano.inference.config import (
+    INFER_CONFIG_SCHEMA_VERSION,
     load_infer_config,
+    normalize_infer_config_schema,
     resolve_infer_checkpoint_path,
     resolve_infer_model_checkpoint_path,
     select_infer_category,
@@ -116,13 +118,18 @@ def validate_infer_config_payload(
 
     warnings: list[str] = []
     normalized: dict[str, Any] = dict(payload)
+    normalized, schema_warnings = normalize_infer_config_schema(normalized)
+    warnings.extend(schema_warnings)
 
     normalized = select_infer_category(normalized, category=category)
 
-    # Schema/version fields are additive; validate if present.
-    if "schema_version" in normalized and normalized["schema_version"] is not None:
-        normalized["schema_version"] = _coerce_int(
-            normalized["schema_version"], name="schema_version"
+    normalized["schema_version"] = int(
+        _coerce_int(normalized["schema_version"], name="schema_version")
+    )
+    if int(normalized["schema_version"]) != int(INFER_CONFIG_SCHEMA_VERSION):
+        raise ValueError(
+            "infer-config schema_version is not compatible with this pyimgano build.\n"
+            f"Got schema_version={normalized['schema_version']}, expected={INFER_CONFIG_SCHEMA_VERSION}."
         )
 
     if "pyimgano_version" in normalized and normalized["pyimgano_version"] is not None:

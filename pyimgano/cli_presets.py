@@ -7,7 +7,7 @@ They help keep industrial command lines short while remaining fully reproducible
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,7 @@ class CLIPreset:
     optional: bool = False
     # Optional extras required to run this preset (used for suite skip hints).
     requires_extras: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,7 @@ def _load_presets() -> dict[str, CLIPreset]:
             description=str(preset.description),
             optional=bool(preset.optional),
             requires_extras=tuple(getattr(preset, "requires_extras", ())),
+            tags=tuple(getattr(preset, "tags", ())),
         )
 
     # CLI-only aliases / opinionated presets (kept here so `industrial_classical`
@@ -77,6 +79,7 @@ def _load_presets() -> dict[str, CLIPreset]:
         description="Balanced default: torchvision embeddings -> Mahalanobis shrinkage -> rank standardization.",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("embeddings", "gaussian", "calibration", "classical"),
     )
     return out
 
@@ -122,16 +125,76 @@ def _load_defects_presets() -> dict[str, DefectsPreset]:
 _DEFECTS_PRESETS = _load_defects_presets()
 
 
-def list_model_presets() -> list[str]:
+def _load_preprocessing_presets():
+    from pyimgano.preprocessing.catalog import list_preprocessing_schemes
+
+    out = {}
+    for scheme in list_preprocessing_schemes(deployable_only=True):
+        if scheme.payload is None or scheme.config_key is None:
+            continue
+        out[str(scheme.name)] = scheme
+    return out
+
+
+_PREPROCESSING_PRESETS = _load_preprocessing_presets()
+
+
+def _normalize_tag_filter(tags: Optional[Iterable[str]]) -> list[str]:
+    out: list[str] = []
+    if tags is None:
+        return out
+    for item in tags:
+        for piece in str(item).split(","):
+            tag = piece.strip()
+            if tag:
+                out.append(tag)
+    return out
+
+
+def list_model_presets(*, tags: Optional[Iterable[str]] = None) -> list[str]:
     """List available CLI preset names."""
 
-    return sorted(_PRESETS.keys())
+    required = set(_normalize_tag_filter(tags))
+    if not required:
+        return sorted(_PRESETS.keys())
+    return sorted(
+        name for name, preset in _PRESETS.items() if required.issubset(set(preset.tags))
+    )
 
 
 def list_defects_presets() -> list[str]:
     """List available defects preset names for `pyimgano-infer`."""
 
     return sorted(_DEFECTS_PRESETS.keys())
+
+
+def list_preprocessing_presets() -> list[str]:
+    """List deployable preprocessing preset names for CLI workflows."""
+
+    return sorted(_PREPROCESSING_PRESETS.keys())
+
+
+def model_preset_info(name: str) -> dict[str, Any]:
+    """Return a JSON-friendly model preset payload."""
+
+    preset = resolve_model_preset(name)
+    if preset is None:
+        raise KeyError(f"Unknown model preset: {name!r}")
+    return {
+        "name": preset.name,
+        "model": preset.model,
+        "kwargs": dict(preset.kwargs),
+        "description": preset.description,
+        "optional": bool(preset.optional),
+        "requires_extras": list(preset.requires_extras),
+        "tags": list(preset.tags),
+    }
+
+
+def list_model_preset_infos(*, tags: Optional[Iterable[str]] = None) -> list[dict[str, Any]]:
+    """Return JSON-friendly model preset payloads, optionally filtered by tags."""
+
+    return [model_preset_info(name) for name in list_model_presets(tags=tags)]
 
 
 def resolve_model_preset(name: str) -> Optional[CLIPreset]:
@@ -148,11 +211,22 @@ def resolve_defects_preset(name: str) -> Optional[DefectsPreset]:
     return _DEFECTS_PRESETS.get(key, None)
 
 
+def resolve_preprocessing_preset(name: str):
+    """Return a deployable preprocessing preset if `name` is known, else None."""
+
+    key = str(name).strip()
+    return _PREPROCESSING_PRESETS.get(key, None)
+
+
 __all__ = [
     "CLIPreset",
     "DefectsPreset",
     "list_model_presets",
+    "list_model_preset_infos",
+    "model_preset_info",
     "resolve_model_preset",
     "list_defects_presets",
     "resolve_defects_preset",
+    "list_preprocessing_presets",
+    "resolve_preprocessing_preset",
 ]

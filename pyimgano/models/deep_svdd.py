@@ -134,7 +134,11 @@ class InnerDeepSVDD(nn.Module):
 @register_model(
     "core_deep_svdd",
     tags=("deep", "core", "features", "torch", "one-class"),
-    metadata={"description": "核心 DeepSVDD 异常检测器"},
+    metadata={
+        "description": "核心 DeepSVDD 异常检测器",
+        "paper": "Deep One-Class Classification",
+        "year": 2018,
+    },
 )
 class CoreDeepSVDD(BaseDetector):
     """核心 DeepSVDD 实现（native BaseDetector contract）。"""
@@ -304,7 +308,11 @@ class CoreDeepSVDD(BaseDetector):
 @register_model(
     "vision_deep_svdd",
     tags=("vision", "deep", "torch"),
-    metadata={"description": "基于 DeepSVDD 的视觉异常检测器"},
+    metadata={
+        "description": "基于 DeepSVDD 的视觉异常检测器",
+        "paper": "Deep One-Class Classification",
+        "year": 2018,
+    },
 )
 class VisionDeepSVDD(BaseVisionDetector):
     """视觉版 DeepSVDD：对图像提取特征后，在特征空间训练 DeepSVDD。"""

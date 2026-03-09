@@ -191,7 +191,11 @@ class LODAFeatureExtractor:
 @register_model(
     "core_loda",
     tags=("classical", "core", "features", "projection", "density"),
-    metadata={"description": "核心 LODA 算法实现"},
+    metadata={
+        "description": "核心 LODA 算法实现",
+        "paper": "Pevny, Machine Learning 2016",
+        "year": 2016,
+    },
 )
 class CoreLODA(BaseDetector):
     """
@@ -345,7 +349,11 @@ class CoreLODA(BaseDetector):
 @register_model(
     "vision_loda",
     tags=("vision", "classical"),
-    metadata={"description": "基于 LODA 的视觉异常检测器"},
+    metadata={
+        "description": "基于 LODA 的视觉异常检测器",
+        "paper": "Pevny, Machine Learning 2016",
+        "year": 2016,
+    },
 )
 class VisionLODA(BaseVisionDetector):
     """

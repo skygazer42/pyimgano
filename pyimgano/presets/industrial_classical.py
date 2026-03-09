@@ -29,6 +29,7 @@ class ModelPreset:
     optional: bool = False
     # Optional extras required to run this preset (used for suite skip hints).
     requires_extras: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
 
 
 def _structural_feature_extractor(*, max_size: int = 512) -> dict[str, Any]:
@@ -179,6 +180,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_detector": "core_ecod",
         },
         description="Fast industrial baseline: structural features -> ECOD.",
+        tags=("structural", "classical"),
     ),
     "industrial-structural-iforest": ModelPreset(
         name="industrial-structural-iforest",
@@ -189,6 +191,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_kwargs": {"n_estimators": 200, "n_jobs": 1},
         },
         description="Robust baseline: structural features -> IsolationForest.",
+        tags=("structural", "ensemble", "classical"),
     ),
     "industrial-structural-mst": ModelPreset(
         name="industrial-structural-mst",
@@ -199,6 +202,73 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_kwargs": {"metric": "euclidean", "score_mode": "max"},
         },
         description="Graph baseline: structural features -> MST outlier score.",
+        tags=("structural", "graph", "classical"),
+    ),
+    "industrial-structural-lof": ModelPreset(
+        name="industrial-structural-lof",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _structural_feature_extractor(max_size=512),
+            "core_detector": "core_lof",
+            "core_kwargs": {"n_neighbors": 20, "metric": "minkowski", "p": 2},
+        },
+        description="Neighborhood baseline: structural features -> LOF for local density anomalies.",
+        tags=("structural", "neighbors", "density", "classical"),
+    ),
+    "industrial-structural-rgraph": ModelPreset(
+        name="industrial-structural-rgraph",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _structural_feature_extractor(max_size=512),
+            "core_detector": "core_rgraph",
+            "core_kwargs": {"n_nonzero": 10, "transition_steps": 10, "gamma": 25.0},
+        },
+        description="Graph baseline: structural features -> R-Graph random-walk anomaly score.",
+        tags=("structural", "graph", "classical"),
+    ),
+    "industrial-structural-mahalanobis": ModelPreset(
+        name="industrial-structural-mahalanobis",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _structural_feature_extractor(max_size=512),
+            "core_detector": "core_mahalanobis",
+            "core_kwargs": {"reg": 1e-6},
+        },
+        description="Gaussian baseline: structural features -> Mahalanobis distance.",
+        tags=("structural", "gaussian", "distance", "classical"),
+    ),
+    "industrial-structural-suod": ModelPreset(
+        name="industrial-structural-suod",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _structural_feature_extractor(max_size=512),
+            "core_detector": "core_suod",
+            "core_kwargs": {"combination": "average", "standardize": "zscore"},
+        },
+        description="Ensemble baseline: structural features -> SUOD-style score ensemble.",
+        tags=("structural", "ensemble", "classical"),
+    ),
+    "industrial-structural-kmeans": ModelPreset(
+        name="industrial-structural-kmeans",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _structural_feature_extractor(max_size=512),
+            "core_detector": "core_kmeans",
+            "core_kwargs": {"n_clusters": 8, "random_state": 42, "algorithm": "lloyd"},
+        },
+        description="Clustering baseline: structural features -> KMeans distance-to-centroid score.",
+        tags=("structural", "clustering", "classical"),
+    ),
+    "industrial-structural-dbscan": ModelPreset(
+        name="industrial-structural-dbscan",
+        model="vision_feature_pipeline",
+        kwargs={
+            "feature_extractor": _structural_feature_extractor(max_size=512),
+            "core_detector": "core_dbscan",
+            "core_kwargs": {"eps": 0.5, "min_samples": 5, "metric": "minkowski", "p": 2},
+        },
+        description="Clustering baseline: structural features -> DBSCAN-inspired distance-to-core-set score.",
+        tags=("structural", "clustering", "density", "classical"),
     ),
     # ------------------------------------------------------------------
     # Additional CPU-friendly feature pipeline baselines (core-only).
@@ -210,6 +280,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_detector": "core_ecod",
         },
         description="Fast baseline: edge statistics features (Canny/Sobel) -> ECOD.",
+        tags=("edge", "classical"),
     ),
     "industrial-patch-stats-ecod": ModelPreset(
         name="industrial-patch-stats-ecod",
@@ -221,6 +292,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_detector": "core_ecod",
         },
         description="Fast baseline: patch-grid statistics features -> ECOD (good for texture/spot defects).",
+        tags=("patch", "texture", "classical"),
     ),
     "industrial-color-hist-ecod": ModelPreset(
         name="industrial-color-hist-ecod",
@@ -230,6 +302,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_detector": "core_ecod",
         },
         description="Fast baseline: HSV color histogram features -> ECOD (good for color/contamination anomalies).",
+        tags=("color", "classical"),
     ),
     "industrial-fft-lowfreq-ecod": ModelPreset(
         name="industrial-fft-lowfreq-ecod",
@@ -239,6 +312,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "core_detector": "core_ecod",
         },
         description="Fast baseline: FFT low-frequency energy ratios -> ECOD (good for blur/texture shift).",
+        tags=("fft", "frequency", "classical"),
     ),
     # ------------------------------------------------------------------
     # Optional (skimage) classical texture baselines (still CPU-friendly).
@@ -252,6 +326,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Texture baseline: LBP histogram features -> ECOD.",
         optional=True,
         requires_extras=("skimage",),
+        tags=("texture", "lbp", "classical"),
     ),
     "industrial-hog-ecod": ModelPreset(
         name="industrial-hog-ecod",
@@ -263,6 +338,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Texture baseline: HOG features -> ECOD.",
         optional=True,
         requires_extras=("skimage",),
+        tags=("texture", "hog", "classical"),
     ),
     "industrial-gabor-ecod": ModelPreset(
         name="industrial-gabor-ecod",
@@ -274,6 +350,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Texture baseline: Gabor filter bank statistics -> ECOD.",
         optional=True,
         requires_extras=("skimage",),
+        tags=("texture", "gabor", "classical"),
     ),
     "industrial-pixel-mean-absdiff-map": ModelPreset(
         name="industrial-pixel-mean-absdiff-map",
@@ -285,6 +362,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "topk": 0.01,
         },
         description="Aligned template baseline: per-pixel mean template abs-diff anomaly map (fast CPU, pixel_map).",
+        tags=("template", "pixel_map", "classical"),
     ),
     "industrial-pixel-gaussian-map": ModelPreset(
         name="industrial-pixel-gaussian-map",
@@ -298,6 +376,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "std_floor": 1.0,
         },
         description="Aligned template baseline: per-pixel mean+std z-score anomaly map (robust to noise/illumination, pixel_map).",
+        tags=("template", "gaussian", "pixel_map", "classical"),
     ),
     "industrial-pixel-mad-map": ModelPreset(
         name="industrial-pixel-mad-map",
@@ -313,6 +392,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "random_state": 0,
         },
         description="Aligned template baseline: robust per-pixel median+MAD z-score anomaly map (noisy-normal friendly, pixel_map).",
+        tags=("template", "robust", "pixel_map", "classical"),
     ),
     "industrial-ssim-template-map": ModelPreset(
         name="industrial-ssim-template-map",
@@ -327,6 +407,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Pixel-first template baseline: SSIM map vs best template (anomaly map = 1 - SSIM).",
         optional=True,  # requires scikit-image (pyimgano[skimage])
         requires_extras=("skimage",),
+        tags=("template", "ssim", "pixel_map", "classical"),
     ),
     "industrial-ssim-struct-map": ModelPreset(
         name="industrial-ssim-struct-map",
@@ -343,6 +424,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Pixel-first template baseline: SSIM on edge maps (Canny) for illumination-robust template inspection.",
         optional=True,  # requires scikit-image (pyimgano[skimage])
         requires_extras=("skimage",),
+        tags=("template", "ssim", "structural", "pixel_map", "classical"),
     ),
     "industrial-template-ncc-map": ModelPreset(
         name="industrial-template-ncc-map",
@@ -356,6 +438,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
             "topk": 0.01,
         },
         description="Pixel-first template baseline: local NCC similarity vs best template → anomaly map (aligned inspection).",
+        tags=("template", "ncc", "pixel_map", "classical"),
     ),
     "industrial-phase-correlation-map": ModelPreset(
         name="industrial-phase-correlation-map",
@@ -371,6 +454,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Pixel-first template baseline: phase-correlation alignment vs best template + abs-diff anomaly map (misalignment tolerant).",
         optional=True,  # requires scikit-image (pyimgano[skimage])
         requires_extras=("skimage",),
+        tags=("template", "phase_corr", "pixel_map", "classical"),
     ),
     "industrial-embed-ecod": ModelPreset(
         name="industrial-embed-ecod",
@@ -383,6 +467,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Embeddings route: torchvision backbone embeddings -> ECOD.",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("embeddings", "classical"),
     ),
     "industrial-embed-knn-cosine": ModelPreset(
         name="industrial-embed-knn-cosine",
@@ -396,6 +481,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Embeddings route: torchvision backbone embeddings -> cosine kNN distance.",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("embeddings", "neighbors", "classical"),
     ),
     "industrial-embed-mahalanobis-shrinkage": ModelPreset(
         name="industrial-embed-mahalanobis-shrinkage",
@@ -409,6 +495,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Embeddings route: torchvision backbone embeddings -> Mahalanobis (Ledoit-Wolf shrinkage).",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("embeddings", "gaussian", "classical"),
     ),
     "industrial-embed-mahalanobis-shrinkage-rank": ModelPreset(
         name="industrial-embed-mahalanobis-shrinkage-rank",
@@ -426,6 +513,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Recommended: embeddings -> Mahalanobis shrinkage -> rank standardization ([0,1]).",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("embeddings", "gaussian", "calibration", "classical"),
     ),
     "industrial-embed-lid": ModelPreset(
         name="industrial-embed-lid",
@@ -439,6 +527,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Embeddings route: torchvision backbone embeddings -> LID (kNN statistic).",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("embeddings", "neighbors", "classical"),
     ),
     "industrial-openclip-knn": ModelPreset(
         name="industrial-openclip-knn",
@@ -453,6 +542,54 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Optional: OpenCLIP embeddings -> kNN distance (requires open_clip_torch).",
         optional=True,
         requires_extras=("clip",),
+        tags=("embeddings", "neighbors", "clip", "classical"),
+    ),
+    "industrial-embed-torch-autoencoder": ModelPreset(
+        name="industrial-embed-torch-autoencoder",
+        model="vision_embedding_torch_autoencoder",
+        kwargs={
+            "device": "cpu",
+            "embedding_kwargs": {
+                "backbone": "resnet18",
+                "pretrained": False,
+                "pool": "avg",
+                "device": "cpu",
+            },
+            "ae_kwargs": {
+                "hidden_dims": [64, 32],
+                "activation": "relu",
+                "dropout": 0.0,
+                "epochs": 30,
+                "batch_size": 64,
+                "lr": 0.001,
+                "weight_decay": 0.0,
+                "device": "cpu",
+                "preprocessing": True,
+                "random_state": 0,
+            },
+        },
+        description="Embeddings route: torchvision embeddings -> torch MLP autoencoder reconstruction error.",
+        optional=True,
+        requires_extras=("torch",),
+        tags=("embeddings", "reconstruction", "autoencoder", "deep"),
+    ),
+    "industrial-reverse-distillation": ModelPreset(
+        name="industrial-reverse-distillation",
+        model="vision_reverse_distillation",
+        kwargs={
+            "backbone": "resnet18",
+            "pretrained_backbone": False,
+            "selected_layers": ["layer2", "layer3", "layer4"],
+            "epoch_num": 20,
+            "batch_size": 16,
+            "lr": 0.001,
+            "device": "cpu",
+            "random_state": 42,
+        },
+        description="Deep distillation baseline: reverse distillation with a resnet18 teacher/student pair.",
+        optional=True,
+        requires_extras=("torch",),
+        tags=("distillation", "deep", "student-teacher"),
     ),
     "industrial-patchcore-lite-map": ModelPreset(
         name="industrial-patchcore-lite-map",
@@ -474,6 +611,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Deep pixel-map baseline: conv patch embeddings -> memory bank kNN distance map (PatchCore-lite-map).",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("patchcore", "pixel_map", "deep"),
     ),
     "industrial-patch-embedding-core-map": ModelPreset(
         name="industrial-patch-embedding-core-map",
@@ -492,6 +630,7 @@ INDUSTRIAL_CLASSICAL_PRESETS: dict[str, ModelPreset] = {
         description="Deep+classical hybrid: conv patch embeddings -> core detector -> anomaly map (generic industrial baseline).",
         optional=True,  # requires torch/torchvision (pyimgano[torch])
         requires_extras=("torch",),
+        tags=("patchcore", "pixel_map", "hybrid"),
     ),
 }
 

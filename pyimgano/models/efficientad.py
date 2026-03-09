@@ -90,6 +90,8 @@ def _build_student(*, out_dim: int, width: int):
     tags=("vision", "deep", "distillation"),
     metadata={
         "description": "EfficientAD-lite: teacher/student embedding distillation (contract-aligned)",
+        "paper": "EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies",
+        "year": 2024,
     },
     overwrite=True,
 )

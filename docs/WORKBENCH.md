@@ -57,6 +57,10 @@ This writes a run directory containing:
 - optional: `artifacts/maps/*.npy`
 - optional: `checkpoints/<cat>/...`
 
+`artifacts/infer_config.json` is stamped with `schema_version=1`. Legacy infer-configs without a
+schema version are still accepted by `pyimgano-infer` and `pyimgano-validate-infer-config`; they are
+normalized to schema version `1` with a warning for backwards compatibility.
+
 Optionally, export a deploy-friendly bundle directory (infer-config + checkpoints + metadata):
 
 ```bash
@@ -103,6 +107,8 @@ Notes:
   and loads checkpoints when the detector supports it.
 - For production shipping, prefer `artifacts/infer_config.json` (`pyimgano-infer --infer-config ...`):
   it’s a minimal “what inference needs” payload and includes `threshold_provenance` for auditing.
+- Future infer-config schema versions are rejected explicitly when the installed pyimgano build does
+  not support them, rather than being silently accepted.
 - For high-resolution inference, you can still use `pyimgano-infer` tiling flags (see
   `docs/INDUSTRIAL_INFERENCE.md`).
 - When using `preprocessing.illumination_contrast`, the detector must support numpy inputs (tag: `numpy`).

@@ -68,3 +68,20 @@ def test_infer_config_category_selection_propagates_threshold_and_checkpoint(
     assert out["threshold_provenance"]["quantile"] == 0.7
     assert out["checkpoint"]["path"] == "checkpoints/cat/model.pt"
     assert "per_category" not in out
+
+
+def test_normalize_infer_config_schema_backfills_legacy_payload() -> None:
+    from pyimgano.inference.config import normalize_infer_config_schema
+
+    payload, warnings = normalize_infer_config_schema({"model": {"name": "vision_ecod"}})
+    assert payload["schema_version"] == 1
+    assert warnings
+    assert "schema_version" in warnings[0]
+
+
+def test_normalize_infer_config_schema_rejects_future_version() -> None:
+    from pyimgano.inference.config import normalize_infer_config_schema
+
+    with pytest.raises(ValueError) as exc:
+        normalize_infer_config_schema({"schema_version": 999, "model": {"name": "vision_ecod"}})
+    assert "schema_version" in str(exc.value)

@@ -50,6 +50,34 @@ pyimgano-demo
 
 提示：用 `pyimgano-demo --help` 查看可选参数（suite/sweep/output 等）。
 
+可选：先做一次环境自检，看看哪些 baseline 会因为缺少 extras 被跳过：
+
+```bash
+pyimgano-doctor --suite industrial-v4
+```
+
+统一发现入口：
+
+```bash
+pyim --list
+pyim --list models --family patchcore
+pyim --list models --year 2021 --type deep-vision
+pyim --list models --type flow-based
+pyim --list model-presets --family graph
+pyim --list years --json
+pyim --list types --json
+pyim --list preprocessing --deployable-only
+
+pyimgano-infer --list-model-presets --family distillation --json
+pyimgano-infer --list-models --year 2021 --type deep-vision
+pyimgano-infer --list-models --year 2001 --type one-class-svm
+
+pyimgano-infer \
+  --model vision_patchcore \
+  --preprocessing-preset illumination-contrast-balanced \
+  --input /path/to/images
+```
+
 ### 训练（workbench）→ 导出 `infer_config.json`
 
 从模板配置开始（需要把数据路径改成你自己的）：

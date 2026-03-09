@@ -70,6 +70,28 @@ Optional: sanity-check your environment and which baselines would be skipped due
 pyimgano-doctor --suite industrial-v4
 ```
 
+Unified discovery shortcut:
+
+```bash
+pyim --list
+pyim --list models --family patchcore
+pyim --list models --year 2021 --type deep-vision
+pyim --list models --type flow-based
+pyim --list model-presets --family graph
+pyim --list years --json
+pyim --list types --json
+pyim --list preprocessing --deployable-only
+
+pyimgano-infer --list-model-presets --family distillation --json
+pyimgano-infer --list-models --year 2021 --type deep-vision
+pyimgano-infer --list-models --year 2001 --type one-class-svm
+
+pyimgano-infer \
+  --model vision_patchcore \
+  --preprocessing-preset illumination-contrast-balanced \
+  --input /path/to/images
+```
+
 Optional: run inference + defects export on the demo dataset produced by `pyimgano-demo`:
 
 ```bash

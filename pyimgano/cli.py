@@ -227,6 +227,31 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--family",
+        default=None,
+        help=(
+            "Optional algorithm family/tag filter for --list-models. "
+            "Example: --family patchcore"
+        ),
+    )
+    parser.add_argument(
+        "--type",
+        dest="algorithm_type",
+        default=None,
+        help=(
+            "Optional high-level algorithm type/tag filter for --list-models. "
+            "Example: --type one-class-svm"
+        ),
+    )
+    parser.add_argument(
+        "--year",
+        default=None,
+        help=(
+            "Optional publication year filter for --list-models. "
+            "Example: --year 2021"
+        ),
+    )
+    parser.add_argument(
         "--feature-tags",
         action="append",
         default=None,
@@ -985,6 +1010,13 @@ def main(argv: list[str] | None = None) -> int:
             # Best-effort: keep going even if a plugin fails to load.
             load_plugins(groups=("pyimgano.plugins",), on_error="warn")
 
+        from pyimgano.discovery import (
+            list_model_names,
+            resolve_family_tags,
+            resolve_type_tags,
+            resolve_year_filter,
+        )
+
         tags_raw = getattr(args, "tags", None)
         feature_tags_raw = getattr(args, "feature_tags", None)
 
@@ -1005,17 +1037,26 @@ def main(argv: list[str] | None = None) -> int:
                 "--list-suites, --suite-info, --list-sweeps, --sweep-info, "
                 "--list-feature-extractors, and --feature-info are mutually exclusive."
             )
+        if getattr(args, "family", None) is not None and not bool(args.list_models):
+            raise ValueError("--family is supported only with --list-models.")
+        if getattr(args, "algorithm_type", None) is not None and not bool(args.list_models):
+            raise ValueError("--type is supported only with --list-models.")
+        if getattr(args, "year", None) is not None and not bool(args.list_models):
+            raise ValueError("--year is supported only with --list-models.")
+        if getattr(args, "family", None) is not None:
+            resolve_family_tags(str(getattr(args, "family")))
+        if getattr(args, "algorithm_type", None) is not None:
+            resolve_type_tags(str(getattr(args, "algorithm_type")))
+        if getattr(args, "year", None) is not None:
+            resolve_year_filter(str(getattr(args, "year")))
 
         if bool(args.list_models):
-            tags: list[str] = []
-            if tags_raw:
-                for item in tags_raw:
-                    for tag in str(item).split(","):
-                        tag = tag.strip()
-                        if tag:
-                            tags.append(tag)
-
-            names = MODEL_REGISTRY.available(tags=tags or None)
+            names = list_model_names(
+                tags=tags_raw,
+                family=getattr(args, "family", None),
+                algorithm_type=getattr(args, "algorithm_type", None),
+                year=getattr(args, "year", None),
+            )
             if bool(args.json):
                 print(json.dumps(names, indent=2))
             else:

@@ -37,13 +37,47 @@ def audit_registry(*, limit: int | None = None) -> list[str]:
     return issues
 
 
+def audit_registry_metadata(*, limit: int | None = None) -> dict[str, Any]:
+    """Audit registry metadata against the structured metadata contract."""
+
+    _ensure_repo_root_on_sys_path()
+    import pyimgano.models  # noqa: F401
+    from pyimgano.models.registry import audit_model_metadata
+
+    return audit_model_metadata(limit=limit)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="audit_registry")
     parser.add_argument(
         "--limit", type=int, default=None, help="Optional limit for models to check"
     )
+    parser.add_argument(
+        "--metadata-contract",
+        action="store_true",
+        help="Audit registry metadata contract instead of JSON-encoding model_info payloads.",
+    )
     parser.add_argument("--json", action="store_true", help="Output JSON")
     args = parser.parse_args(argv)
+
+    if bool(args.metadata_contract):
+        payload = audit_registry_metadata(limit=args.limit)
+        summary = payload["summary"]
+        ok = not (
+            summary["models_with_required_issues"]
+            or summary["models_with_recommended_issues"]
+            or summary["models_with_invalid_fields"]
+        )
+        if bool(args.json):
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(
+                "Metadata audit: "
+                f"required={summary['models_with_required_issues']} "
+                f"recommended={summary['models_with_recommended_issues']} "
+                f"invalid={summary['models_with_invalid_fields']}"
+            )
+        return 0 if ok else 1
 
     issues = audit_registry(limit=args.limit)
     ok = not issues

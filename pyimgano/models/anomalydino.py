@@ -29,9 +29,11 @@ class _EmbeddedImage:
 
 @register_model(
     "vision_anomalydino",
-    tags=("vision", "deep", "anomalydino", "knn", "dinov2", "numpy", "pixel_map"),
+    tags=("vision", "deep", "anomalydino", "knn", "dinov2", "numpy", "pixel_map", "neighbors"),
     metadata={
         "description": "AnomalyDINO-style DINOv2 patch-kNN detector (few-shot friendly)",
+        "paper": "AnomalyDINO: Boosting Patch-based Few-shot Anomaly Detection with DINOv2",
+        "year": 2025,
     },
 )
 class VisionAnomalyDINO:

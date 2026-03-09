@@ -135,6 +135,8 @@ class CoreDBSCAN:
     metadata={
         "description": "Core DBSCAN-inspired distance-to-core-set detector on feature matrices",
         "input": "features",
+        "paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "year": 1996,
     },
 )
 class CoreDBSCANModel(CoreFeatureDetector):
@@ -169,7 +171,11 @@ class CoreDBSCANModel(CoreFeatureDetector):
 @register_model(
     "vision_dbscan",
     tags=("vision", "classical", "clustering", "dbscan", "density"),
-    metadata={"description": "Vision wrapper for DBSCAN-inspired distance-to-core-set baseline"},
+    metadata={
+        "description": "Vision wrapper for DBSCAN-inspired distance-to-core-set baseline",
+        "paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "year": 1996,
+    },
 )
 class VisionDBSCAN(BaseVisionDetector):
     def __init__(
@@ -211,6 +217,8 @@ class VisionDBSCAN(BaseVisionDetector):
     metadata={
         "description": "Structural-features DBSCAN-inspired anomaly baseline (modernized)",
         "legacy_name": True,
+        "paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "year": 1996,
     },
     overwrite=True,
 )

@@ -117,6 +117,8 @@ class CoreHBOS:
         "input": "features",
         "interpretable": True,
         "fast": True,
+        "paper": "Goldstein & Dengel, KI 2012",
+        "year": 2012,
     },
 )
 class CoreHBOSModel(CoreFeatureDetector):
@@ -149,6 +151,8 @@ class CoreHBOSModel(CoreFeatureDetector):
         "description": "HBOS - Histogram-based Outlier Score (fast, interpretable baseline)",
         "interpretable": True,
         "fast": True,
+        "paper": "Goldstein & Dengel, KI 2012",
+        "year": 2012,
     },
 )
 class VisionHBOS(BaseVisionDetector):

@@ -185,7 +185,11 @@ class MLPDisc(nn.Module):
 @register_model(
     "vision_alad",
     tags=("vision", "deep", "gan"),
-    metadata={"description": "Adversarially Learned Anomaly Detection"},
+    metadata={
+        "description": "Adversarially Learned Anomaly Detection",
+        "paper": "Adversarially Learned Anomaly Detection, arXiv 2018",
+        "year": 2018,
+    },
 )
 class ALAD(BaseVisionDeepDetector):
     """ALAD，继承 BaseVisionDeepDetector。

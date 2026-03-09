@@ -98,6 +98,8 @@ class CoreLOF:
     metadata={
         "description": "Core Local Outlier Factor detector on feature matrices (sklearn backend)",
         "input": "features",
+        "paper": "Breunig et al., SIGMOD 2000",
+        "year": 2000,
     },
 )
 class CoreLOFModel(CoreFeatureDetector):

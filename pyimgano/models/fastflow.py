@@ -217,7 +217,11 @@ class ResNetFeatureExtractor(nn.Module):
 @register_model(
     "vision_fastflow",
     tags=("vision", "deep", "flow"),
-    metadata={"description": "FastFlow-based visual anomaly detector"},
+    metadata={
+        "description": "FastFlow-based visual anomaly detector",
+        "paper": "FastFlow: Unsupervised Anomaly Detection and Localization via 2D Normalizing Flows",
+        "year": 2021,
+    },
 )
 class FastFlow(BaseVisionDeepDetector):
     """Implementation of FastFlow (ICCV'21) anomaly detector."""

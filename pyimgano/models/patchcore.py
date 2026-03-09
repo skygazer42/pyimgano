@@ -32,7 +32,7 @@ ImageInput = Union[str, NDArray]
 
 @register_model(
     "vision_patchcore",
-    tags=("vision", "deep", "patchcore", "sota", "cvpr2022", "numpy", "pixel_map"),
+    tags=("vision", "deep", "patchcore", "memory_bank", "sota", "cvpr2022", "numpy", "pixel_map"),
     metadata={
         "description": "PatchCore - SOTA patch-level anomaly detection (CVPR 2022)",
         "paper": "Towards Total Recall in Industrial Anomaly Detection",

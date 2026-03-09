@@ -103,6 +103,8 @@ def _select_templates(
     metadata={
         "description": "Structural SSIM template-match baseline (edges; modernized)",
         "legacy_name": True,
+        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "year": 2004,
     },
     overwrite=True,
 )

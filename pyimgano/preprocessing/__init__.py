@@ -71,6 +71,7 @@ from .augmentation_pipeline import (  # Pipeline classes; Transform classes; Pre
     get_weather_augmentation,
 )
 from .background import estimate_background_rolling_ball, subtract_background_rolling_ball
+from .catalog import PreprocessingScheme, list_preprocessing_schemes, resolve_preprocessing_scheme
 from .enhancer import (
     AdvancedImageEnhancer,
     ImageEnhancer,
@@ -188,4 +189,7 @@ __all__ = [
     "shading_correction",
     "retinex_illumination_normalization",
     "defect_amplification",
+    "PreprocessingScheme",
+    "list_preprocessing_schemes",
+    "resolve_preprocessing_scheme",
 ]

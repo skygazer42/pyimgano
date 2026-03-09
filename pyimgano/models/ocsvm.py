@@ -120,6 +120,8 @@ class CoreOCSVM:
     metadata={
         "description": "Core One-Class SVM detector on feature matrices (native wrapper)",
         "input": "features",
+        "paper": "Estimating the Support of a High-Dimensional Distribution",
+        "year": 2001,
     },
 )
 class CoreOCSVMModel(CoreFeatureDetector):
@@ -164,6 +166,8 @@ class CoreOCSVMModel(CoreFeatureDetector):
     tags=("vision", "classical", "svm", "one-class", "ocsvm"),
     metadata={
         "description": "One-Class SVM outlier detector (sklearn backend)",
+        "paper": "Estimating the Support of a High-Dimensional Distribution",
+        "year": 2001,
     },
 )
 class VisionOCSVM(BaseVisionDetector):

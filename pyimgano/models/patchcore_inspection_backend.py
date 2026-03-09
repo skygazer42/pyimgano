@@ -70,11 +70,13 @@ class _PredictResult:
 
 @register_model(
     "vision_patchcore_inspection_checkpoint",
-    tags=("vision", "deep", "backend", "patchcore_inspection", "patchcore"),
+    tags=("vision", "deep", "backend", "patchcore_inspection", "patchcore", "memory_bank"),
     metadata={
         "description": "PatchCore (amazon-science/patchcore-inspection) checkpoint wrapper (optional backend)",
         "backend": "patchcore_inspection",
         "requires_checkpoint": True,
+        "paper": "Towards Total Recall in Industrial Anomaly Detection",
+        "year": 2022,
     },
 )
 class VisionPatchCoreInspectionCheckpoint:

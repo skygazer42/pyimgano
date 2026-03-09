@@ -213,6 +213,8 @@ class ImageFeatureExtractor:
     metadata={
         "description": "Core CBLOF detector on feature matrices (native implementation)",
         "input": "features",
+        "paper": "He et al., SDM 2003",
+        "year": 2003,
     },
 )
 class CoreCBLOF(BaseDetector):
@@ -389,7 +391,11 @@ class CoreCBLOF(BaseDetector):
 @register_model(
     "vision_cblof",
     tags=("vision", "classical", "clustering"),
-    metadata={"description": "基于 CBLOF 的视觉异常检测器"},
+    metadata={
+        "description": "基于 CBLOF 的视觉异常检测器",
+        "paper": "He et al., SDM 2003",
+        "year": 2003,
+    },
 )
 class VisionCBLOF(BaseVisionDetector):
     """

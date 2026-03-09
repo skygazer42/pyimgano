@@ -60,6 +60,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--category", default=None, help="Override dataset.category from config")
     parser.add_argument("--model", default=None, help="Override model.name from config")
     parser.add_argument("--device", default=None, help="Override model.device from config")
+    parser.add_argument(
+        "--preprocessing-preset",
+        default=None,
+        help=(
+            "Override preprocessing with a deployable preset. "
+            "Use `pyim --list preprocessing --deployable-only` to discover names."
+        ),
+    )
 
     return parser
 
@@ -241,6 +249,20 @@ def _apply_overrides(raw: dict[str, Any], args: argparse.Namespace) -> dict[str,
         model["name"] = str(args.model)
     if args.device is not None:
         model["device"] = str(args.device)
+
+    if args.preprocessing_preset is not None:
+        from pyimgano.cli_presets import resolve_preprocessing_preset
+
+        preset = resolve_preprocessing_preset(str(args.preprocessing_preset))
+        if preset is None:
+            raise ValueError(f"Unknown preprocessing preset: {args.preprocessing_preset!r}")
+        if str(getattr(preset, "config_key", "")) != "preprocessing.illumination_contrast":
+            raise ValueError(
+                "Only preprocessing.illumination_contrast presets are currently supported by pyimgano-train."
+            )
+        preprocessing = dict(out.get("preprocessing", {}) or {})
+        preprocessing["illumination_contrast"] = dict(getattr(preset, "payload", {}) or {})
+        out["preprocessing"] = preprocessing
 
     if dataset:
         out["dataset"] = dataset

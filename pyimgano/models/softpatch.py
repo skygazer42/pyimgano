@@ -22,9 +22,21 @@ class _EmbeddedImage:
 
 @register_model(
     "vision_softpatch",
-    tags=("vision", "deep", "softpatch", "patchknn", "robust", "numpy", "pixel_map"),
+    tags=(
+        "vision",
+        "deep",
+        "softpatch",
+        "patchknn",
+        "robust",
+        "numpy",
+        "pixel_map",
+        "memory_bank",
+        "neighbors",
+    ),
     metadata={
         "description": "SoftPatch-inspired robust patch-memory detector (few-shot friendly)",
+        "paper": "SoftPatch: Unsupervised Anomaly Detection with Noisy Data",
+        "year": 2022,
     },
 )
 class VisionSoftPatch:

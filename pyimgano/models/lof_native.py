@@ -15,6 +15,8 @@ from .registry import register_model
     tags=("vision", "classical", "lof", "neighbors", "density"),
     metadata={
         "description": "Vision wrapper for LOF (Local Outlier Factor, novelty mode)",
+        "paper": "Breunig et al., SIGMOD 2000",
+        "year": 2000,
     },
 )
 class VisionLOF(BaseVisionDetector):

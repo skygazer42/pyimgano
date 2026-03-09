@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+INFER_CONFIG_SCHEMA_VERSION = 1
+
 
 def load_infer_config(path: str | Path) -> dict[str, Any]:
     """Load an exported infer-config JSON payload from disk.
@@ -31,6 +33,49 @@ def load_infer_config(path: str | Path) -> dict[str, Any]:
             f"Infer config must be a JSON object/dict, got {type(payload).__name__}: {cfg_path}"
         )
     return dict(payload)
+
+
+def normalize_infer_config_schema(
+    payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Normalize infer-config schema versioning and return compatibility warnings."""
+
+    if not isinstance(payload, Mapping):
+        raise ValueError(
+            f"infer-config payload must be a JSON object/dict, got {type(payload).__name__}"
+        )
+
+    out = dict(payload)
+    warnings: list[str] = []
+    raw_version = out.get("schema_version", None)
+
+    if raw_version is None:
+        out["schema_version"] = int(INFER_CONFIG_SCHEMA_VERSION)
+        warnings.append(
+            "infer-config is missing schema_version; assuming legacy schema_version=1 for backwards compatibility."
+        )
+        return out, warnings
+
+    try:
+        version = int(raw_version)
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        raise ValueError(f"infer-config schema_version must be an int, got {raw_version!r}") from exc
+
+    if version <= 0:
+        out["schema_version"] = int(INFER_CONFIG_SCHEMA_VERSION)
+        warnings.append(
+            f"infer-config schema_version={version} is deprecated; migrating to schema_version=1."
+        )
+        return out, warnings
+
+    if version > int(INFER_CONFIG_SCHEMA_VERSION):
+        raise ValueError(
+            "infer-config schema_version is newer than this pyimgano build supports.\n"
+            f"Got schema_version={version}, supported={INFER_CONFIG_SCHEMA_VERSION}."
+        )
+
+    out["schema_version"] = int(version)
+    return out, warnings
 
 
 def select_infer_category(

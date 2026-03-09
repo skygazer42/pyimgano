@@ -108,6 +108,8 @@ def _select_templates(
     metadata={
         "description": "SSIM template-match baseline (modernized; native BaseDetector contract)",
         "legacy_name": True,
+        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "year": 2004,
     },
     overwrite=True,
 )

@@ -3,8 +3,15 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from pyimgano.models.registry import MODEL_REGISTRY
+
+
+def _write_png(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img = np.zeros((8, 8, 3), dtype=np.uint8)
+    Image.fromarray(img, mode="RGB").save(path)
 
 
 def test_train_cli_export_infer_config_writes_artifact(tmp_path):
@@ -317,6 +324,158 @@ def test_train_cli_export_deploy_bundle_rewrites_absolute_model_checkpoint_path(
     copied = bundle_dir / "artifacts_abs" / "abs_backbone.onnx"
     assert copied.exists()
     assert copied.read_text(encoding="utf-8") == "onnx_abs"
+
+
+def test_train_cli_export_deploy_bundle_stamps_infer_config_schema_version(tmp_path):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {
+            "run_dir": str(run_dir),
+            "dataset": str(cfg.dataset.name),
+            "category": str(cfg.dataset.category),
+            "model": str(cfg.model.name),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed", "source": "test"},
+        }
+
+    RECIPE_REGISTRY.register(
+        "test_export_deploy_bundle_schema_version_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_export_deploy_bundle_schema_version_recipe",
+        "dataset": {"name": "custom", "root": str(root), "category": "custom", "resize": [16, 16]},
+        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "output": {"output_dir": str(out_dir), "save_run": True, "per_image_jsonl": False},
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+
+    payload = json.loads((out_dir / "deploy_bundle" / "infer_config.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 1
+
+
+def test_validate_cli_accepts_legacy_deploy_bundle_without_schema_version(tmp_path, capsys):
+    from pyimgano.validate_infer_config_cli import main
+
+    bundle = tmp_path / "deploy_bundle"
+    bundle.mkdir(parents=True, exist_ok=True)
+    cfg = bundle / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "defects": {"mask_format": "png"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["schema_version"] == 1
+
+
+def test_infer_cli_accepts_legacy_deploy_bundle_with_preprocessing_and_defects(
+    tmp_path, monkeypatch
+):
+    import pyimgano.infer_cli as infer_cli
+
+    run_dir = tmp_path / "run"
+    bundle = run_dir / "deploy_bundle"
+    ckpt_dir = bundle / "checkpoints" / "custom"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_path = ckpt_dir / "model.pt"
+    ckpt_path.write_text("ckpt", encoding="utf-8")
+
+    cfg = bundle / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_patchcore",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "preprocessing": {
+                    "illumination_contrast": {
+                        "white_balance": "gray_world",
+                    }
+                },
+                "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+                "defects": {"pixel_threshold": 0.5, "mask_format": "png"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+    masks_dir = tmp_path / "masks"
+
+    class _DummyMapDetector:
+        def __init__(self):
+            self.threshold_ = None
+            self.loaded = None
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            self.loaded = str(path)
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+        def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
+            _ = item
+            m = np.zeros((4, 4), dtype=np.float32)
+            m[1:3, 1:3] = 1.0
+            return m
+
+    det = _DummyMapDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(cfg),
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--save-masks",
+            str(masks_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert det.loaded == str(ckpt_path)
+
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip())
+    assert record["defects"]["pixel_threshold"] == 0.5
 
 
 def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_enabled(

@@ -2,6 +2,7 @@
 
 PyImgAno provides the following CLIs:
 
+- `pyim` — unified discovery shortcut for models, families, presets, and preprocessing schemes
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
 - `pyimgano-demo` — minimal offline demo (creates a tiny custom dataset + runs a suite/sweep)
 - `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
@@ -56,6 +57,41 @@ pyimgano-demo --export none --no-sweep
 pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/infer/results.jsonl + masks/ + overlays/ + regions.jsonl
 ```
 
+## `pyim`
+
+`pyim` is a lightweight discovery-first shortcut for the most common "what can I run?" questions.
+It complements the heavier CLIs by exposing models, curated families, model presets, defects presets,
+feature extractors, and named preprocessing schemes through one entrypoint.
+
+Common usage:
+
+```bash
+pyim --list
+pyim --list models --family patchcore
+pyim --list models --year 2021 --type deep-vision
+pyim --list models --type flow-based
+pyim --list model-presets --family graph
+pyim --list years --json
+pyim --list types --json
+pyim --list metadata-contract --json
+pyim --audit-metadata --json
+pyim --list preprocessing --deployable-only
+pyim --list families --json
+```
+
+Notes:
+
+- `--list` accepts: `all`, `models`, `families`, `types`, `years`, `features`, `model-presets`, `defects-presets`, `preprocessing`.
+- `--list metadata-contract` prints the structured model metadata contract used by discovery and audits.
+- `--audit-metadata` audits registry models against the metadata contract and returns a non-zero exit code when issues are present.
+- `--family NAME` filters model and model-preset discovery using curated families or raw registry tags.
+- `--type NAME` filters model discovery using curated high-level types such as `deep-vision`, `flow-based`, `one-class-svm`, `classical-core`, or raw registry tags.
+- `--year VALUE` filters model discovery by publication year or timeline buckets such as `pre-2001` and `unknown`.
+- `--tags a,b --tags c` works for model and feature discovery and is repeatable.
+- `--deployable-only` restricts preprocessing output to infer/workbench-safe presets.
+- `--json` prints machine-friendly JSON payloads instead of text blocks.
+- See `docs/MODEL_METADATA_CONTRACT.md` for field semantics and audit policy.
+
 ## `pyimgano-benchmark`
 
 ### Common Usage
@@ -94,6 +130,7 @@ Rules:
 ### Discovery
 
 - List models: `pyimgano-benchmark --list-models`
+- Filter models by family/type/year: `pyimgano-benchmark --list-models --family patchcore`, `pyimgano-benchmark --list-models --type one-class-svm --year 2001`
 - Load third-party plugins (entry points) before discovery: `pyimgano-benchmark --plugins --list-models`
 - Filter models by tags: `pyimgano-benchmark --list-models --tags vision,deep`
 - Model info (constructor signature + accepted kwargs): `pyimgano-benchmark --model-info vision_patchcore`
@@ -273,7 +310,13 @@ Notes:
 Presets are just **named (model + kwargs)** pairs that keep industrial command lines short while staying reproducible.
 
 - List presets: `pyimgano-infer --list-model-presets`
+- List models by publication year and type: `pyimgano-infer --list-models --year 2021 --type deep-vision`
+- List classical one-class SVM style models from a verified publication year: `pyimgano-infer --list-models --year 2001 --type one-class-svm`
+- Filter preset discovery by family/tag: `pyimgano-infer --list-model-presets --family graph`
+- JSON preset discovery returns metadata (`name`, `model`, `kwargs`, `requires_extras`, `tags`):
+  `pyimgano-infer --list-model-presets --family distillation --json`
 - Show preset details (model/kwargs/description): `pyimgano-infer --model-preset-info industrial-pixel-mad-map`
+- For a unified discovery view across models, presets, and preprocessing schemes, use `pyim --list`.
 
 Example:
 
@@ -286,6 +329,28 @@ pyimgano-infer \
   --save-maps /tmp/pyimgano_maps \
   --save-jsonl out.jsonl
 ```
+
+### Deployable Preprocessing Presets
+
+For numpy-capable inference routes, `pyimgano-infer` can apply a named deployable preprocessing preset
+before scoring. This is useful when you want consistent illumination/contrast normalization without
+copying a long list of low-level knobs into every command.
+
+- Discover preprocessing schemes: `pyim --list preprocessing --deployable-only`
+- Apply a preprocessing preset directly:
+
+```bash
+pyimgano-infer \
+  --model vision_patchcore \
+  --preprocessing-preset illumination-contrast-balanced \
+  --input /path/to/inputs
+```
+
+Notes:
+
+- Current CLI support is limited to `preprocessing.illumination_contrast` presets.
+- These presets require a numpy-capable model path. If the selected detector cannot consume numpy inputs,
+  the CLI reports `PREPROCESSING_REQUIRES_NUMPY_MODEL`.
 
 ### Deployment-Friendly Embeddings
 
@@ -426,6 +491,9 @@ Notes:
 - For multi-category infer-configs, pass `--infer-category NAME`.
 - To skip file existence checks (portable configs), pass `--no-check-files`.
 - To print the normalized payload, pass `--json`.
+- Exported infer-configs use `schema_version=1`.
+- Legacy infer-configs without `schema_version` are accepted and normalized to `1` with a warning.
+- Future infer-config schema versions are rejected with a clear compatibility error.
 
 ---
 
@@ -477,6 +545,8 @@ Flags override the config (useful for quick experiments):
 
 - `--dataset NAME` / `--root PATH` / `--category CAT`
 - `--model MODEL_NAME` / `--device cpu|cuda`
+- `--preprocessing-preset NAME` — override `preprocessing.illumination_contrast` with a deployable preset
+  discovered via `pyim --list preprocessing --deployable-only`
 
 ### Preflight dataset validation
 
