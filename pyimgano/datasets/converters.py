@@ -128,11 +128,19 @@ class DatasetConverter:
 
 
 def _build_registry() -> dict[str, DatasetConverter]:
+    from pyimgano.datasets.btad import convert_btad_to_manifest
     from pyimgano.datasets.mvtec_ad2 import convert_mvtec_ad2_to_manifest
     from pyimgano.datasets.rad import convert_rad_to_manifest
     from pyimgano.datasets.real_iad import convert_real_iad_to_manifest
+    from pyimgano.datasets.visa import convert_visa_to_manifest
 
     items = [
+        DatasetConverter(
+            name="btad",
+            description="BTAD category converter (train/ok + test/ok,ko; paths-first).",
+            requires_category=True,
+            convert=convert_btad_to_manifest,
+        ),
         DatasetConverter(
             name="custom",
             description="Built-in custom layout (train/normal + test/{normal,anomaly} + optional ground_truth masks).",
@@ -156,6 +164,12 @@ def _build_registry() -> dict[str, DatasetConverter]:
             description="RAD-like converter with multi-view metadata in meta (best-effort).",
             requires_category=False,
             convert=convert_rad_to_manifest,
+        ),
+        DatasetConverter(
+            name="visa",
+            description="VisA category converter (visa_pytorch export layout; paths-first).",
+            requires_category=True,
+            convert=convert_visa_to_manifest,
         ),
     ]
     return {c.name: c for c in items}

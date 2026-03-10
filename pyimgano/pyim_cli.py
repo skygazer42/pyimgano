@@ -44,6 +44,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "model-presets",
             "defects-presets",
             "preprocessing",
+            "recipes",
+            "datasets",
         ),
         help=(
             "List available items. Default with no value: all. "
@@ -145,6 +147,18 @@ def _render_names_text(title: str, items: list[str]) -> None:
     _print_named_block(title, items)
 
 
+def _normalize_tags(tags: list[str] | None) -> list[str]:
+    if tags is None:
+        return []
+    out: list[str] = []
+    for item in tags:
+        for piece in str(item).split(","):
+            t = piece.strip()
+            if t:
+                out.append(t)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -199,6 +213,49 @@ def main(argv: list[str] | None = None) -> int:
         except KeyError as exc:
             parser.error(str(exc))
 
+    if list_kind == "recipes":
+        # Builtin recipes are registered on import.
+        import pyimgano.recipes  # noqa: F401
+
+        from pyimgano.recipes.registry import list_recipes as _list_recipes
+        from pyimgano.recipes.registry import recipe_info as _recipe_info
+
+        tag_filter = _normalize_tags(list(args.tags or [])) or None
+        names = _list_recipes(tags=tag_filter)
+        infos = [_recipe_info(name) for name in names]
+        if args.json:
+            return _emit_json(infos)
+
+        lines = []
+        for info in infos:
+            meta = info.get("metadata", {}) or {}
+            desc = str(meta.get("description", "")).strip()
+            suffix = f": {desc}" if desc else ""
+            lines.append(f"{info.get('name')}{suffix}")
+        _print_named_block("Recipes", lines)
+        return 0
+
+    if list_kind == "datasets":
+        from pyimgano.datasets.converters import list_dataset_converters
+
+        payload = [
+            {
+                "name": str(c.name),
+                "description": str(c.description),
+                "requires_category": bool(c.requires_category),
+            }
+            for c in list_dataset_converters()
+        ]
+        if args.json:
+            return _emit_json(payload)
+
+        lines = []
+        for c in payload:
+            req = " (category required)" if bool(c.get("requires_category", False)) else ""
+            lines.append(f"{c['name']}{req}: {c['description']}")
+        _print_named_block("Datasets", lines)
+        return 0
+
     preset_tags = list(args.tags or [])
     if args.family is not None:
         preset_tags.extend(resolve_family_tags(str(args.family)))
@@ -218,6 +275,31 @@ def main(argv: list[str] | None = None) -> int:
     model_presets = list_model_presets(tags=preset_tags or None)
     model_preset_infos = list_model_preset_infos(tags=preset_tags or None)
     defects_presets = list_defects_presets()
+
+    # Recipes/datasets are lightweight but still imported lazily to keep
+    # non-all list operations fast and dependency-safe.
+    recipes: list[dict[str, Any]] = []
+    datasets: list[dict[str, Any]] = []
+    if list_kind == "all":
+        import pyimgano.recipes  # noqa: F401
+
+        from pyimgano.recipes.registry import list_recipes as _list_recipes
+        from pyimgano.recipes.registry import recipe_info as _recipe_info
+
+        tag_filter = _normalize_tags(list(args.tags or [])) or None
+        recipe_names = _list_recipes(tags=tag_filter)
+        recipes = [_recipe_info(name) for name in recipe_names]
+
+        from pyimgano.datasets.converters import list_dataset_converters
+
+        datasets = [
+            {
+                "name": str(c.name),
+                "description": str(c.description),
+                "requires_category": bool(c.requires_category),
+            }
+            for c in list_dataset_converters()
+        ]
 
     if list_kind == "models":
         if args.json:
@@ -283,6 +365,8 @@ def main(argv: list[str] | None = None) -> int:
         "features": features,
         "model_presets": model_presets,
         "defects_presets": defects_presets,
+        "recipes": recipes,
+        "datasets": datasets,
     }
     if args.json:
         return _emit_json(payload)
@@ -296,6 +380,20 @@ def main(argv: list[str] | None = None) -> int:
     _render_names_text("Feature Extractors", features)
     _render_names_text("Model Presets", model_presets)
     _render_names_text("Defects Presets", defects_presets)
+    if recipes:
+        lines = []
+        for info in recipes:
+            meta = info.get("metadata", {}) or {}
+            desc = str(meta.get("description", "")).strip()
+            suffix = f": {desc}" if desc else ""
+            lines.append(f"{info.get('name')}{suffix}")
+        _print_named_block("Recipes", lines)
+    if datasets:
+        lines = []
+        for c in datasets:
+            req = " (category required)" if bool(c.get("requires_category", False)) else ""
+            lines.append(f"{c['name']}{req}: {c['description']}")
+        _print_named_block("Datasets", lines)
     return 0
 
 

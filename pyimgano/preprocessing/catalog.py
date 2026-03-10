@@ -90,6 +90,87 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "contrast_upper_percentile": 98.0,
         },
     ),
+    "illumination-contrast-aggressive": PreprocessingScheme(
+        name="illumination-contrast-aggressive",
+        description=(
+            "Aggressive illumination/contrast normalization for difficult production data: "
+            "gray-world white balance + homomorphic filtering + strong CLAHE + contrast stretching."
+        ),
+        deployable=True,
+        tags=("illumination", "contrast", "deployable", "industrial", "aggressive"),
+        config_key="preprocessing.illumination_contrast",
+        payload={
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": True,
+            "homomorphic_cutoff": 0.18,
+            "homomorphic_gamma_low": 0.65,
+            "homomorphic_gamma_high": 1.45,
+            "homomorphic_c": 1.0,
+            "homomorphic_per_channel": True,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 3.5,
+            "gamma": 1.05,
+            "contrast_stretch": True,
+            "contrast_lower_percentile": 0.5,
+            "contrast_upper_percentile": 99.5,
+        },
+    ),
+    "illumination-contrast-no-homomorphic": PreprocessingScheme(
+        name="illumination-contrast-no-homomorphic",
+        description=(
+            "Frequency-domain-free industrial preset: gray-world white balance + CLAHE + "
+            "mild contrast stretching (no homomorphic filter)."
+        ),
+        deployable=True,
+        tags=("illumination", "contrast", "deployable", "industrial", "no-homomorphic"),
+        config_key="preprocessing.illumination_contrast",
+        payload={
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": False,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "homomorphic_c": 1.0,
+            "homomorphic_per_channel": True,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 2.2,
+            "gamma": None,
+            "contrast_stretch": True,
+            "contrast_lower_percentile": 1.0,
+            "contrast_upper_percentile": 99.0,
+        },
+    ),
+    "illumination-contrast-color-stable": PreprocessingScheme(
+        name="illumination-contrast-color-stable",
+        description=(
+            "Color-stable preset for color-sensitive inspection: max-RGB white balance + "
+            "gentle CLAHE + mild gamma lift (avoids heavy global contrast stretching)."
+        ),
+        deployable=True,
+        tags=("illumination", "contrast", "deployable", "industrial", "color-stable"),
+        config_key="preprocessing.illumination_contrast",
+        payload={
+            "enabled": True,
+            "white_balance": "max_rgb",
+            "homomorphic": False,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "homomorphic_c": 1.0,
+            "homomorphic_per_channel": True,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 1.8,
+            "gamma": 1.03,
+            "contrast_stretch": False,
+            "contrast_lower_percentile": 2.0,
+            "contrast_upper_percentile": 98.0,
+        },
+    ),
     "retinex-msrcr-lite": PreprocessingScheme(
         name="retinex-msrcr-lite",
         description=(
@@ -129,6 +210,24 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
         deployable=False,
         tags=("defect-boost", "contrast", "python-api"),
         entrypoint="pyimgano.preprocessing.defect_amplification",
+    ),
+    "anisotropic-diffusion-denoise": PreprocessingScheme(
+        name="anisotropic-diffusion-denoise",
+        description=(
+            "Edge-preserving denoising using Perona–Malik anisotropic diffusion (Python API helper)."
+        ),
+        deployable=False,
+        tags=("denoise", "edge-preserving", "python-api", "industrial"),
+        entrypoint="pyimgano.preprocessing.anisotropic_diffusion",
+    ),
+    "shading-correction-rolling-ball": PreprocessingScheme(
+        name="shading-correction-rolling-ball",
+        description=(
+            "Shading correction preset for uneven illumination: rolling-ball background subtraction + CLAHE."
+        ),
+        deployable=False,
+        tags=("background", "flatfield", "illumination", "python-api", "industrial"),
+        entrypoint="pyimgano.preprocessing.shading_correction",
     ),
 }
 

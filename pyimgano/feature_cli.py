@@ -26,6 +26,18 @@ def _collect_paths(root: Path, *, pattern: str) -> list[str]:
     return paths
 
 
+def _normalize_tags(tags: list[str] | None) -> list[str]:
+    if tags is None:
+        return []
+    out: list[str] = []
+    for item in tags:
+        for piece in str(item).split(","):
+            tag = piece.strip()
+            if tag:
+                out.append(tag)
+    return out
+
+
 def _resolve_manifest_paths(
     *,
     manifest_path: Path,
@@ -79,6 +91,34 @@ def _resolve_manifest_paths(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pyimgano-features")
+
+    mode = parser.add_mutually_exclusive_group(required=False)
+    mode.add_argument(
+        "--list-extractors",
+        action="store_true",
+        help="List available registered feature extractors and exit",
+    )
+    mode.add_argument(
+        "--extractor-info",
+        default=None,
+        metavar="NAME",
+        help="Show signature/metadata for one feature extractor and exit",
+    )
+    parser.add_argument(
+        "--tags",
+        action="append",
+        default=None,
+        help=(
+            "Optional tags filter for --list-extractors (comma-separated or repeatable). "
+            "Example: --tags texture"
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON payload for --list-extractors/--extractor-info",
+    )
+
     parser.add_argument("--root", required=False, help="Root directory containing images")
     parser.add_argument(
         "--pattern",
@@ -110,7 +150,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional root fallback for resolving relative manifest paths",
     )
-    parser.add_argument("--output", required=True, help="Output .npy path for feature matrix")
+    parser.add_argument(
+        "--output",
+        required=False,
+        help="Output .npy path for feature matrix (required unless using --list-extractors/--extractor-info)",
+    )
     parser.add_argument(
         "--paths-json",
         default=None,
@@ -154,6 +198,43 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+
+    if bool(getattr(args, "list_extractors", False)):
+        from pyimgano.features import list_feature_extractors
+
+        tags = _normalize_tags(list(getattr(args, "tags", None) or [])) or None
+        payload = list_feature_extractors(tags=tags)
+        if bool(getattr(args, "json", False)):
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            for name in payload:
+                print(name)
+        return 0
+
+    if getattr(args, "extractor_info", None) is not None:
+        from pyimgano.features import feature_info
+
+        payload = feature_info(str(getattr(args, "extractor_info")))
+        if bool(getattr(args, "json", False)):
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(f"name: {payload.get('name')}")
+            tags = payload.get("tags", None)
+            if tags:
+                print(f"tags: {', '.join(str(t) for t in tags)}")
+            meta = payload.get("metadata", None)
+            if isinstance(meta, dict) and meta:
+                for k in sorted(meta):
+                    print(f"{k}: {meta[k]}")
+            if payload.get("signature", None) is not None:
+                print(f"signature: {payload.get('signature')}")
+            accepted = payload.get("accepted_kwargs", None)
+            if accepted:
+                print(f"accepted_kwargs: {', '.join(str(x) for x in accepted)}")
+        return 0
+
+    if args.output is None:
+        raise ValueError("--output is required unless using --list-extractors/--extractor-info.")
 
     from pyimgano.features import create_feature_extractor
 

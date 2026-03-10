@@ -27,6 +27,87 @@ def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
 
 
 @register_recipe(
+    "classical-structural-ecod",
+    tags=("builtin", "classical", "cpu"),
+    metadata={"description": "CPU-friendly baseline: structural features + ECOD"},
+)
+def classical_structural_ecod(config: WorkbenchConfig) -> dict[str, Any]:
+    recipe_name = "classical-structural-ecod"
+    model_kwargs = dict(config.model.model_kwargs)
+    model_kwargs.setdefault(
+        "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
+    )
+    cfg = replace(
+        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+    )
+    return run_workbench(config=cfg, recipe_name=recipe_name)
+
+
+@register_recipe(
+    "classical-edge-ecod",
+    tags=("builtin", "classical", "cpu"),
+    metadata={"description": "CPU-friendly baseline: edge statistics features + ECOD"},
+)
+def classical_edge_ecod(config: WorkbenchConfig) -> dict[str, Any]:
+    recipe_name = "classical-edge-ecod"
+    model_kwargs = dict(config.model.model_kwargs)
+    model_kwargs.setdefault(
+        "feature_extractor",
+        {
+            "name": "edge_stats",
+            "kwargs": {"canny_threshold1": 50, "canny_threshold2": 150, "sobel_ksize": 3},
+        },
+    )
+    cfg = replace(
+        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+    )
+    return run_workbench(config=cfg, recipe_name=recipe_name)
+
+
+@register_recipe(
+    "classical-patch-stats-ecod",
+    tags=("builtin", "classical", "cpu"),
+    metadata={"description": "CPU-friendly baseline: patch-grid statistics features + ECOD"},
+)
+def classical_patch_stats_ecod(config: WorkbenchConfig) -> dict[str, Any]:
+    recipe_name = "classical-patch-stats-ecod"
+    model_kwargs = dict(config.model.model_kwargs)
+    model_kwargs.setdefault(
+        "feature_extractor",
+        {
+            "name": "patch_stats",
+            "kwargs": {
+                "grid": [4, 4],
+                "stats": ["mean", "std", "skew", "kurt"],
+                "resize_hw": [128, 128],
+            },
+        },
+    )
+    cfg = replace(
+        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+    )
+    return run_workbench(config=cfg, recipe_name=recipe_name)
+
+
+@register_recipe(
+    "classical-fft-lowfreq-ecod",
+    tags=("builtin", "classical", "cpu"),
+    metadata={"description": "CPU-friendly baseline: FFT low-frequency energy ratios + ECOD"},
+)
+def classical_fft_lowfreq_ecod(config: WorkbenchConfig) -> dict[str, Any]:
+    recipe_name = "classical-fft-lowfreq-ecod"
+    model_kwargs = dict(config.model.model_kwargs)
+    model_kwargs.setdefault(
+        "feature_extractor",
+        {"name": "fft_lowfreq", "kwargs": {"size_hw": [64, 64], "radii": [4, 8, 16]}},
+    )
+    cfg = replace(
+        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+    )
+    return run_workbench(config=cfg, recipe_name=recipe_name)
+
+
+@register_recipe(
     "classical-lbp-loop",
     tags=("builtin", "classical"),
     metadata={"description": "Classical baseline: LBP features + LoOP"},
