@@ -168,6 +168,15 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     # Optional foundation + sequence modeling
     "mambaad",
     "snarm",
+    # Parallel 2026Q1 expansion placeholders
+    "visionad",
+    "univad",
+    "filopp",
+    "adaclip",
+    "aaclip",
+    "one_to_normal",
+    "logsad",
+    "anogen",
     # Pipelines registered as models
     "feature_pipeline",
     "vision_embedding_core",
