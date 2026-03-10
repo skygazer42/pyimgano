@@ -37,7 +37,7 @@ def _normalize_with_backend(normalizer: Any, image: NDArray) -> NDArray:
 
 @register_model(
     "vision_one_to_normal",
-    tags=("vision", "deep", "reconstruction", "few-shot", "pixel_map", "numpy"),
+    tags=("vision", "deep", "reconstruction", "few-shot", "pixel_map", "numpy", "one_to_normal"),
     metadata={
         "description": "One-to-Normal family adapter with residual scoring and residual maps.",
         "paper": "One-to-Normal",

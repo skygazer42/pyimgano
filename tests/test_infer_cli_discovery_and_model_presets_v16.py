@@ -62,6 +62,17 @@ def test_infer_cli_can_list_models_by_density_estimation_type(capsys) -> None:
     assert "vision_rkde_anomalib" in out
 
 
+def test_infer_cli_can_list_models_by_new_parallel_family(capsys) -> None:
+    from pyimgano.infer_cli import main as infer_main
+
+    rc = infer_main(["--list-models", "--family", "one-to-normal", "--year", "2025"])
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "vision_one_to_normal" in out
+    assert "vision_anogen_adapter" not in out
+
+
 def test_infer_cli_can_list_model_presets(capsys) -> None:
     from pyimgano.infer_cli import main as infer_main
 

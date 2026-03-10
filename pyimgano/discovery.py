@@ -88,6 +88,46 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
         tags=("clip",),
     ),
     ModelFamily(
+        name="visionad",
+        description="VisionAD few-shot patch-embedding search detectors.",
+        tags=("visionad",),
+    ),
+    ModelFamily(
+        name="univad",
+        description="UniVAD training-free few-shot multi-layer support fusion detectors.",
+        tags=("univad",),
+    ),
+    ModelFamily(
+        name="filopp",
+        description="FiLo++ VLM patch-localization and prompt-scoring detectors.",
+        tags=("filopp",),
+    ),
+    ModelFamily(
+        name="adaclip",
+        description="AdaCLIP static/dynamic prompt fusion zero-shot detectors.",
+        tags=("adaclip",),
+    ),
+    ModelFamily(
+        name="aaclip",
+        description="AA-CLIP anomaly-aware anchor competition detectors.",
+        tags=("aaclip",),
+    ),
+    ModelFamily(
+        name="one_to_normal",
+        description="One-to-Normal residual normalization and reconstruction detectors.",
+        tags=("one_to_normal",),
+    ),
+    ModelFamily(
+        name="logsad",
+        description="LogSAD visual-logic zero-shot anomaly detectors.",
+        tags=("logsad",),
+    ),
+    ModelFamily(
+        name="anogen",
+        description="AnoGen anomaly-driven generation and residual scoring detectors.",
+        tags=("anogen",),
+    ),
+    ModelFamily(
         name="backend",
         description="Optional backend wrappers and external integration families.",
         tags=("backend",),

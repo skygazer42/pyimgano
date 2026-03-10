@@ -38,6 +38,25 @@ def test_pyim_list_families_outputs_json(capsys):
     assert any(item["name"] == "neighbors" and item["model_count"] > 0 for item in payload)
 
 
+def test_pyim_list_families_includes_parallel_algorithm_families(capsys):
+    from pyimgano.pyim_cli import main
+
+    code = main(["--list", "families", "--json"])
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    names = {item["name"] for item in payload}
+    assert {
+        "visionad",
+        "univad",
+        "filopp",
+        "adaclip",
+        "aaclip",
+        "one_to_normal",
+        "logsad",
+        "anogen",
+    }.issubset(names)
+
+
 def test_pyim_list_metadata_contract_outputs_json(capsys):
     from pyimgano.pyim_cli import main
 
