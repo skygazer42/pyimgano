@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if bool(args.json):
-        rc = cli_output.emit_json(payload)
+        rc = cli_output.emit_json(payload, indent=None)
         req = payload.get("require_extras")
         if isinstance(req, dict) and req.get("ok") is False:
             return 1

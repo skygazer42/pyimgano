@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output

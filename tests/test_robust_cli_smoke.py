@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, get_type_hints
 
 import numpy as np
 import pytest
@@ -139,6 +140,17 @@ def test_robust_cli_jsonable_output_uses_cli_output_helper(monkeypatch) -> None:
     )
     assert rc == 19
     assert calls and calls[0][0]["model"] == "vision_ecod"
+
+
+def test_robust_cli_helper_annotations_are_resolvable() -> None:
+    import pyimgano.robust_cli as robust_cli
+
+    parse_hints = get_type_hints(robust_cli._parse_model_kwargs)
+    merge_hints = get_type_hints(robust_cli._merge_checkpoint_path)
+
+    assert parse_hints["return"] == dict[str, Any]
+    assert merge_hints["user_kwargs"] == dict[str, Any]
+    assert merge_hints["return"] == dict[str, Any]
 
 
 def test_robust_cli_smoke(tmp_path, capsys) -> None:

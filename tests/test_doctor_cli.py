@@ -84,7 +84,7 @@ def test_doctor_cli_json_uses_cli_output_helper(monkeypatch) -> None:
 
     rc = doctor_cli.main(["--json"])
     assert rc == 17
-    assert calls == [({"tool": "delegated-doctor"}, {})]
+    assert calls == [({"tool": "delegated-doctor"}, {"indent": None})]
 
 
 def test_doctor_cli_outputs_text(capsys) -> None:
