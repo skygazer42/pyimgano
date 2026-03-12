@@ -73,6 +73,7 @@ docs/
 
 If you’re updating docs, these pages form the "happy path" for most industrial users:
 
+- `docs/ZH_ZERO_TO_ONE_GUIDE.md` (中文从 0 到 1 落地操作指南)
 - `docs/QUICKSTART.md` (install + basic usage)
 - `docs/WORKBENCH.md` (train/eval/export loop; artifacts)
 - `docs/OPTIONAL_DEPENDENCIES.md` (extras map + recommended install combos)
