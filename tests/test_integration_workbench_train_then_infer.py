@@ -12,6 +12,35 @@ def _write_png(path: Path) -> None:
     Image.fromarray(img, mode="RGB").save(path)
 
 
+def test_builtin_recipe_delegates_to_workbench_service(monkeypatch) -> None:
+    from pyimgano.recipes.builtin.industrial_adapt import industrial_adapt
+    from pyimgano.workbench.config import WorkbenchConfig
+
+    import pyimgano.services.workbench_service as workbench_service
+
+    calls: list[dict[str, object]] = []
+
+    def _fake_run_workbench(*, config, recipe_name):  # noqa: ANN001 - service seam
+        calls.append({"config": config, "recipe_name": recipe_name})
+        return {"recipe": recipe_name, "ok": True}
+
+    monkeypatch.setattr(workbench_service, "run_workbench", _fake_run_workbench)
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "dataset": {"name": "custom", "root": "/tmp/data", "category": "custom"},
+            "model": {"name": "vision_ecod"},
+            "output": {"save_run": False},
+        }
+    )
+
+    assert industrial_adapt(cfg) == {"recipe": "industrial-adapt", "ok": True}
+    assert len(calls) == 1
+    assert calls[0]["config"] == cfg
+    assert calls[0]["recipe_name"] == "industrial-adapt"
+
+
 def test_integration_train_then_infer_from_run(tmp_path, capsys):
     import cv2
 
@@ -352,3 +381,75 @@ def test_integration_train_then_infer_infer_config_manifest(tmp_path, capsys):
     rec1 = json.loads(lines[1])
     assert rec0["label"] == 0
     assert rec1["label"] == 1
+
+
+def test_run_workbench_delegates_detector_creation_to_workbench_service(
+    tmp_path, monkeypatch
+):
+    import cv2
+
+    from pyimgano.workbench.config import WorkbenchConfig
+    from pyimgano.workbench.runner import run_workbench
+    import pyimgano.services.workbench_service as workbench_service
+
+    root = tmp_path / "custom"
+    for rel, value in [
+        ("train/normal/train_0.png", 120),
+        ("train/normal/train_1.png", 121),
+        ("test/normal/good_0.png", 120),
+        ("test/anomaly/bad_0.png", 240),
+    ]:
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        img = np.ones((16, 16, 3), dtype=np.uint8) * int(value)
+        cv2.imwrite(str(p), img)
+
+    class _DummyDetector:
+        def __init__(self):
+            self.threshold_ = None
+
+        def fit(self, X):  # noqa: ANN001 - test stub
+            self.fit_inputs = list(X)
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+    calls: list[WorkbenchConfig] = []
+
+    def _fake_create_detector(*, config):  # noqa: ANN001
+        calls.append(config)
+        return _DummyDetector()
+
+    monkeypatch.setattr(
+        workbench_service,
+        "create_workbench_detector",
+        _fake_create_detector,
+    )
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "dataset": {
+                "name": "custom",
+                "root": str(root),
+                "category": "custom",
+                "resize": [16, 16],
+                "input_mode": "paths",
+                "limit_train": 2,
+                "limit_test": 2,
+            },
+            "model": {
+                "name": "vision_ecod",
+                "device": "cpu",
+                "pretrained": False,
+                "contamination": 0.1,
+            },
+            "output": {"save_run": False, "per_image_jsonl": False},
+        }
+    )
+
+    payload = run_workbench(config=cfg, recipe_name="industrial-adapt")
+    assert len(calls) == 1
+    assert str(calls[0].model.name) == "vision_ecod"
+    assert payload["threshold"] >= 0.0

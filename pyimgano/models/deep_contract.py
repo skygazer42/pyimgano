@@ -17,6 +17,8 @@ from typing import Any, Optional, Protocol, runtime_checkable
 
 import numpy as np
 
+from pyimgano.models.protocols import normalize_anomaly_maps, normalize_scores
+
 
 @runtime_checkable
 class SupportsAnomalyMap(Protocol):
@@ -27,22 +29,14 @@ class SupportsAnomalyMap(Protocol):
 def ensure_scores_1d(scores: Any, *, n: int | None = None) -> np.ndarray:
     """Convert model scores to a 1D float64 numpy array and validate length."""
 
-    arr = np.asarray(scores, dtype=np.float64)
-    if arr.ndim == 0:
-        arr = arr.reshape(1)
-    if arr.ndim != 1:
-        arr = arr.reshape(-1)
-    if n is not None and int(arr.shape[0]) != int(n):
-        raise ValueError(f"Score length mismatch: expected n={n}, got {arr.shape[0]}")
-    return arr
+    arr = normalize_scores(scores, n_expected=None if n is None else int(n))
+    return np.asarray(arr, dtype=np.float64)
 
 
 def ensure_anomaly_map_2d(anomaly_map: Any, *, hw: Optional[tuple[int, int]] = None) -> np.ndarray:
     """Convert an anomaly map to float32 (H,W) and optionally validate size."""
 
-    m = np.asarray(anomaly_map, dtype=np.float32)
-    if m.ndim != 2:
-        raise ValueError(f"Expected 2D anomaly map (H,W), got shape {m.shape}")
+    m = normalize_anomaly_maps(anomaly_map, n_expected=1)[0]
     if hw is not None:
         h, w = map(int, hw)
         if m.shape != (h, w):

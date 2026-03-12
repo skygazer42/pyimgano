@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+import pyimgano.services.workbench_service as workbench_service
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.workbench.config import (
     DefectsConfig,
@@ -12,7 +13,6 @@ from pyimgano.workbench.config import (
     ShapeFiltersConfig,
     WorkbenchConfig,
 )
-from pyimgano.workbench.runner import run_workbench
 
 
 @register_recipe(
@@ -112,4 +112,4 @@ def industrial_adapt_fp40(config: WorkbenchConfig) -> dict[str, Any]:
     )
 
     cfg = replace(config, recipe=recipe_name, adaptation=adaptation, defects=defects)
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

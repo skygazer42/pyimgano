@@ -73,6 +73,68 @@ def test_infer_cli_onnx_session_options_shorthand_passes_to_model_kwargs(
     }
 
 
+def test_infer_cli_onnx_session_options_shorthand_delegates_to_model_options(
+    tmp_path: Path, monkeypatch
+) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    captured: dict[str, object] = {"kwargs": None}
+
+    class _OK:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+
+    monkeypatch.setattr(
+        infer_cli,
+        "create_model",
+        lambda name, **kwargs: captured.update(kwargs=dict(kwargs)) or _OK(),
+    )
+
+    import pyimgano.services.model_options as model_options
+
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        model_options,
+        "apply_onnx_session_options_shorthand",
+        lambda *, model_name, user_kwargs, session_options: (
+            calls.append(
+                {
+                    "model_name": model_name,
+                    "user_kwargs": dict(user_kwargs),
+                    "session_options": dict(session_options or {}),
+                }
+            )
+            or {**dict(user_kwargs), "session_options": {"delegated": True}}
+        ),
+    )
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_onnx_ecod",
+            "--checkpoint-path",
+            str(tmp_path / "model.onnx"),
+            "--onnx-session-options",
+            json.dumps({"intra_op_num_threads": 2}),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert len(calls) == 1
+    assert calls[0]["model_name"] == "vision_onnx_ecod"
+    assert captured["kwargs"]["session_options"] == {"delegated": True}
+
+
 def test_infer_cli_onnx_sweep_selects_best_session_options_and_applies_to_model(
     tmp_path: Path, monkeypatch
 ) -> None:

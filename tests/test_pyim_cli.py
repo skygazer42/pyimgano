@@ -3,6 +3,9 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 
 def test_pyim_list_defaults_to_all_sections(capsys):
@@ -25,6 +28,69 @@ def test_pyim_list_models_supports_family_filter(capsys):
     out = capsys.readouterr().out
     assert "vision_patchcore" in out
     assert "vision_abod" not in out
+
+
+def test_pyim_main_delegates_parsed_command_to_pyim_app(monkeypatch):
+    import pyimgano.pyim_cli as pyim_cli
+
+    calls = []
+
+    monkeypatch.setattr(
+        pyim_cli,
+        "pyim_app",
+        type(
+            "_StubPyimApp",
+            (),
+            {
+                "PyimCommand": staticmethod(lambda **kwargs: SimpleNamespace(**kwargs)),
+                "run_pyim_command": staticmethod(
+                    lambda command: calls.append(dict(command.__dict__)) or 37
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    code = pyim_cli.main(["--list", "models", "--json"])
+    assert code == 37
+    assert calls == [
+        {
+            "list_kind": "models",
+            "tags": None,
+            "family": None,
+            "algorithm_type": None,
+            "year": None,
+            "deployable_only": False,
+            "audit_metadata": False,
+            "json_output": True,
+        }
+    ]
+
+
+def test_pyim_main_routes_app_errors_through_parser(monkeypatch, capsys) -> None:
+    import pyimgano.pyim_cli as pyim_cli
+
+    monkeypatch.setattr(
+        pyim_cli,
+        "pyim_app",
+        type(
+            "_StubPyimApp",
+            (),
+            {
+                "PyimCommand": staticmethod(lambda **kwargs: SimpleNamespace(**kwargs)),
+                "run_pyim_command": staticmethod(
+                    lambda _command: (_ for _ in ()).throw(ValueError("invalid pyim command"))
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        pyim_cli.main(["--list", "models"])
+
+    assert excinfo.value.code == 2
+    assert "invalid pyim command" in capsys.readouterr().err
 
 
 def test_pyim_list_families_outputs_json(capsys):

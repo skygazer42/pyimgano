@@ -3,8 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pyimgano.models.introspection import get_constructor_signature_info
-from pyimgano.models.registry import MODEL_REGISTRY, materialize_model_constructor
+import pyimgano.models.model_kwargs as model_kwargs_support
 
 
 def parse_model_kwargs(text: str | None) -> dict[str, Any]:
@@ -27,42 +26,18 @@ def merge_checkpoint_path(
     *,
     checkpoint_path: str | None,
 ) -> dict[str, Any]:
-    if checkpoint_path is None:
-        return dict(model_kwargs)
-
-    out = dict(model_kwargs)
-    existing = out.get("checkpoint_path", None)
-    if existing is not None and str(existing) != str(checkpoint_path):
-        raise ValueError(
-            "checkpoint_path conflict: "
-            f"--checkpoint-path={checkpoint_path!r} but model-kwargs checkpoint_path={existing!r}"
-        )
-
-    out["checkpoint_path"] = str(checkpoint_path)
-    return out
+    return model_kwargs_support.merge_checkpoint_path(
+        model_kwargs,
+        checkpoint_path=checkpoint_path,
+    )
 
 
 def _get_model_signature_info(model_name: str) -> tuple[set[str], bool]:
-    """Return (accepted_kwarg_names, accepts_var_kwargs) for a registered model."""
-
-    MODEL_REGISTRY.info(model_name)
-    constructor = materialize_model_constructor(model_name)
-    _signature, accepted, accepts_var_kwargs = get_constructor_signature_info(constructor)
-    return accepted, accepts_var_kwargs
+    return model_kwargs_support.get_model_signature_info(model_name)
 
 
 def validate_user_model_kwargs(model_name: str, user_kwargs: dict[str, Any]) -> None:
-    accepted, accepts_var_kwargs = _get_model_signature_info(model_name)
-    if accepts_var_kwargs:
-        return
-
-    unknown = sorted(set(user_kwargs) - accepted)
-    if unknown:
-        allowed = ", ".join(sorted(accepted)) or "<none>"
-        raise TypeError(
-            f"Model {model_name!r} does not accept model-kwargs: {unknown}. "
-            f"Allowed keys: {allowed}"
-        )
+    model_kwargs_support.validate_user_model_kwargs(model_name, user_kwargs)
 
 
 def build_model_kwargs(
@@ -72,40 +47,9 @@ def build_model_kwargs(
     preset_kwargs: dict[str, Any] | None = None,
     auto_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
-    """Combine preset, user, and auto kwargs with stable precedence.
-
-    Precedence (highest wins):
-    - user kwargs (explicit --model-kwargs)
-    - preset kwargs (--preset)
-    - auto kwargs (device/contamination/pretrained inferred from CLI flags)
-
-    Preset/auto kwargs are filtered to only include keys accepted by the target
-    model constructor (unless it accepts **kwargs).
-    """
-
-    validate_user_model_kwargs(model_name, user_kwargs)
-    accepted, accepts_var_kwargs = _get_model_signature_info(model_name)
-
-    out: dict[str, Any] = {}
-    if preset_kwargs:
-        for key, value in preset_kwargs.items():
-            if accepts_var_kwargs or key in accepted:
-                out[key] = value
-    out.update(user_kwargs)
-    auto_passthrough = {"contamination", "random_state", "random_seed"}
-    for key, value in auto_kwargs.items():
-        if key in out:
-            continue
-        # Auto kwargs are CLI-provided defaults (device/contamination/pretrained/seed-ish).
-        # Even if a constructor accepts **kwargs, passing unknown auto keys can be unsafe:
-        # many classical wrappers forward **kwargs into sklearn backends that will error.
-        if key in accepted or (accepts_var_kwargs and key in auto_passthrough):
-            out[key] = value
-
-    # JSON-friendly feature extractor support:
-    # allow `feature_extractor` to be a name or {"name":..., "kwargs":...}.
-    if "feature_extractor" in out:
-        from pyimgano.features.registry import resolve_feature_extractor
-
-        out["feature_extractor"] = resolve_feature_extractor(out["feature_extractor"])
-    return out
+    return model_kwargs_support.build_model_kwargs(
+        model_name,
+        user_kwargs=user_kwargs,
+        preset_kwargs=preset_kwargs,
+        auto_kwargs=auto_kwargs,
+    )

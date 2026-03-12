@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import inspect
 import json
 import sys
 from dataclasses import asdict
@@ -10,14 +9,24 @@ from typing import Any
 
 import numpy as np
 
+import pyimgano.cli_discovery_options as cli_discovery_options
+import pyimgano.cli_discovery_rendering as cli_discovery_rendering
+import pyimgano.cli_listing as cli_listing
+import pyimgano.cli_output as cli_output
 from pyimgano.inference.api import (
     InferenceTiming,
     calibrate_threshold,
-    infer_iter,
-    result_to_jsonable,
 )
 from pyimgano.models.registry import create_model
-from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
+import pyimgano.services.infer_artifact_service as infer_artifact_service
+import pyimgano.services.infer_continue_service as infer_continue_service
+import pyimgano.services.discovery_service as discovery_service
+import pyimgano.services.infer_context_service as infer_context_service
+import pyimgano.services.infer_load_service as infer_load_service
+import pyimgano.services.infer_options_service as infer_options_service
+import pyimgano.services.infer_output_service as infer_output_service
+import pyimgano.services.infer_runtime_service as infer_runtime_service
+import pyimgano.services.infer_wrapper_service as infer_wrapper_service
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
@@ -53,105 +62,18 @@ def _parse_csv_strs_arg(text: str, *, arg_name: str) -> list[str]:
     raw = [t.strip() for t in str(text).split(",")]
     return [t for t in raw if t]
 
-
-def _looks_like_onnx_route(model_name: str, user_kwargs: dict[str, Any]) -> bool:
-    name = str(model_name)
-    if "onnx" in name:
-        return True
-    if str(user_kwargs.get("embedding_extractor", "")).strip() == "onnx_embed":
-        return True
-    fx = user_kwargs.get("feature_extractor", None)
-    if fx == "onnx_embed":
-        return True
-    if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
-        return True
-    return False
-
-
 def _apply_onnx_session_options_shorthand(
     *,
     model_name: str,
     user_kwargs: dict[str, Any],
     session_options: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Best-effort injection of session_options into model kwargs.
+    import pyimgano.services.model_options as model_options
 
-    Supported targets:
-    - `vision_onnx_*` wrappers: top-level `session_options`
-    - embedding wrappers that accept `embedding_kwargs`: nested `embedding_kwargs.session_options`
-    - feature-pipeline models that accept `feature_extractor`: nested `feature_extractor.kwargs.session_options`
-    """
-
-    if not session_options:
-        return dict(user_kwargs)
-
-    if not _looks_like_onnx_route(model_name, user_kwargs):
-        raise ValueError(
-            "--onnx-session-options is only supported for ONNX-based routes "
-            "(e.g. vision_onnx_* or embedding_extractor='onnx_embed')."
-        )
-
-    from pyimgano.models.registry import MODEL_REGISTRY
-
-    entry = MODEL_REGISTRY.info(str(model_name))
-    sig = inspect.signature(entry.constructor)
-    accepts_var_kwargs = any(
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
-    accepted = {
-        name
-        for name, p in sig.parameters.items()
-        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-    }
-
-    out = dict(user_kwargs)
-
-    # Preferred: first-class kwarg on industrial ONNX wrappers.
-    if accepts_var_kwargs or ("session_options" in accepted):
-        base = out.get("session_options", None)
-        merged = dict(base) if isinstance(base, dict) else {}
-        merged.update(dict(session_options))
-        out["session_options"] = merged
-        return out
-
-    # Next-best: embedding-core style models.
-    if "embedding_kwargs" in accepted:
-        embedder = out.get("embedding_extractor", None)
-        if embedder is not None and str(embedder) != "onnx_embed":
-            raise ValueError(
-                "--onnx-session-options requires embedding_extractor='onnx_embed' when targeting embedding_kwargs."
-            )
-        ek = out.get("embedding_kwargs", None)
-        ek_dict = dict(ek) if isinstance(ek, dict) else {}
-        base = ek_dict.get("session_options", None)
-        merged = dict(base) if isinstance(base, dict) else {}
-        merged.update(dict(session_options))
-        ek_dict["session_options"] = merged
-        out["embedding_kwargs"] = ek_dict
-        return out
-
-    # Feature-pipeline models may pass a JSON-friendly feature_extractor spec.
-    if "feature_extractor" in accepted:
-        fx = out.get("feature_extractor", None)
-        if fx == "onnx_embed":
-            out["feature_extractor"] = {
-                "name": "onnx_embed",
-                "kwargs": {"session_options": dict(session_options)},
-            }
-            return out
-        if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
-            fx_kwargs = fx.get("kwargs", None)
-            fx_kwargs_dict = dict(fx_kwargs) if isinstance(fx_kwargs, dict) else {}
-            base = fx_kwargs_dict.get("session_options", None)
-            merged = dict(base) if isinstance(base, dict) else {}
-            merged.update(dict(session_options))
-            fx_kwargs_dict["session_options"] = merged
-            out["feature_extractor"] = {"name": "onnx_embed", "kwargs": fx_kwargs_dict}
-            return out
-
-    raise ValueError(
-        "--onnx-session-options could not be applied to this model. "
-        "Use --model-kwargs to pass session_options directly."
+    return model_options.apply_onnx_session_options_shorthand(
+        model_name=model_name,
+        user_kwargs=user_kwargs,
+        session_options=session_options,
     )
 
 
@@ -415,314 +337,29 @@ def _maybe_apply_onnx_session_options_and_sweep(
     )
 
 
-def _require_numpy_model_for_preprocessing(model_name: str) -> None:
-    from pyimgano.models.capabilities import compute_model_capabilities
-    from pyimgano.models.registry import MODEL_REGISTRY
-
-    entry = MODEL_REGISTRY.info(str(model_name))
-    caps = compute_model_capabilities(entry)
-    supported_input_modes = tuple(str(m) for m in caps.input_modes)
-    if "numpy" in supported_input_modes:
-        return
-
-    raise ValueError(
-        "PREPROCESSING_REQUIRES_NUMPY_MODEL: preprocessing.illumination_contrast requires a model that supports numpy inputs. "
-        f"model={model_name!r} supported_input_modes={supported_input_modes!r}. "
-        "Choose a model with tag 'numpy' (e.g. vision_patchcore) or remove preprocessing from infer-config."
-    )
-
-
-def _enforce_checkpoint_requirement(
-    *,
-    model_name: str,
-    model_kwargs: dict[str, Any],
-    trained_checkpoint_path: str | None,
-) -> None:
-    """Fail fast when a model is marked as checkpoint-required.
-
-    This keeps CLI UX predictable and avoids confusing downstream ImportErrors
-    when optional backends are involved.
-    """
-
-    from pyimgano.models.registry import MODEL_REGISTRY
-
-    entry = MODEL_REGISTRY.info(str(model_name))
-    requires = bool(entry.metadata.get("requires_checkpoint", False))
-    if not requires:
-        return
-
-    has_kwarg = model_kwargs.get("checkpoint_path", None) is not None
-    has_trained = trained_checkpoint_path is not None
-    if has_kwarg or has_trained:
-        return
-
-    raise ValueError(
-        f"Model {model_name!r} requires a checkpoint. "
-        "Provide --checkpoint-path (or set checkpoint_path in --model-kwargs), "
-        "or load via --from-run/--infer-config that includes a checkpoint."
-    )
-
-
 def _apply_defects_defaults_from_payload(
     args: argparse.Namespace,
     defects_payload: dict[str, Any],
 ) -> None:
-    """Apply defaults from an infer-config/run 'defects' payload.
-
-    This keeps `infer_config.json` deploy-friendly: defects settings exported by
-    workbench can travel with the model and be picked up by `pyimgano-infer`,
-    while still allowing explicit CLI flags to override.
-    """
-
-    if not defects_payload:
-        return
-
-    def _coerce_roi(value: Any) -> list[float] | None:
-        if value is None:
-            return None
-        if not isinstance(value, (list, tuple)) or len(value) != 4:
-            raise ValueError(
-                "infer-config defects.roi_xyxy_norm must be a list of length 4 or null"
-            )
-        try:
-            return [float(v) for v in value]
-        except Exception as exc:  # noqa: BLE001 - CLI boundary
-            raise ValueError(
-                f"infer-config defects.roi_xyxy_norm must contain floats, got {value!r}"
-            ) from exc
-
-    def _coerce_bool(value: Any, *, name: str) -> bool | None:
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            return bool(value)
-        raise ValueError(f"infer-config defects.{name} must be a boolean, got {value!r}")
-
-    def _coerce_int(value: Any, *, name: str) -> int | None:
-        if value is None:
-            return None
-        try:
-            return int(value)
-        except Exception as exc:  # noqa: BLE001 - CLI boundary
-            raise ValueError(f"infer-config defects.{name} must be an int, got {value!r}") from exc
-
-    def _coerce_float(value: Any, *, name: str) -> float | None:
-        if value is None:
-            return None
-        try:
-            return float(value)
-        except Exception as exc:  # noqa: BLE001 - CLI boundary
-            raise ValueError(f"infer-config defects.{name} must be a float, got {value!r}") from exc
-
-    def _coerce_mask_format(value: Any) -> str | None:
-        if value is None:
-            return None
-        fmt = str(value)
-        if fmt not in ("png", "npy"):
-            raise ValueError("infer-config defects.mask_format must be 'png' or 'npy'")
-        return fmt
-
-    def _coerce_smoothing_method(value: Any) -> str | None:
-        if value is None:
-            return None
-        method = str(value).lower().strip()
-        if method in ("none", "median", "gaussian", "box"):
-            return method
-        raise ValueError(
-            "infer-config defects.map_smoothing.method must be one of: none|median|gaussian|box"
-        )
-
-    # Apply defaults only when the CLI did not explicitly set a value.
-    if args.roi_xyxy_norm is None:
-        roi = _coerce_roi(defects_payload.get("roi_xyxy_norm", None))
-        if roi is not None:
-            args.roi_xyxy_norm = roi
-
-    # Numeric knobs (only apply if still default).
-    if int(getattr(args, "defect_min_area", 0)) == 0:
-        v = _coerce_int(defects_payload.get("min_area", None), name="min_area")
-        if v is not None:
-            args.defect_min_area = int(v)
-
-    if int(getattr(args, "defect_border_ignore_px", 0)) == 0:
-        v = _coerce_int(defects_payload.get("border_ignore_px", None), name="border_ignore_px")
-        if v is not None:
-            args.defect_border_ignore_px = int(v)
-
-    # Optional map smoothing block.
-    ms_raw = defects_payload.get("map_smoothing", None)
-    if ms_raw is not None:
-        if not isinstance(ms_raw, dict):
-            raise ValueError("infer-config defects.map_smoothing must be a JSON object/dict.")
-        if str(getattr(args, "defect_map_smoothing", "none")) == "none":
-            v = _coerce_smoothing_method(ms_raw.get("method", None))
-            if v is not None:
-                args.defect_map_smoothing = str(v)
-        if int(getattr(args, "defect_map_smoothing_ksize", 0)) == 0:
-            v = _coerce_int(ms_raw.get("ksize", None), name="map_smoothing.ksize")
-            if v is not None:
-                args.defect_map_smoothing_ksize = int(v)
-        if float(getattr(args, "defect_map_smoothing_sigma", 0.0)) == 0.0:
-            v = _coerce_float(ms_raw.get("sigma", None), name="map_smoothing.sigma")
-            if v is not None:
-                args.defect_map_smoothing_sigma = float(v)
-
-    # Optional hysteresis thresholding block.
-    hyst_raw = defects_payload.get("hysteresis", None)
-    if hyst_raw is not None:
-        if not isinstance(hyst_raw, dict):
-            raise ValueError("infer-config defects.hysteresis must be a JSON object/dict.")
-
-        enabled = hyst_raw.get("enabled", None)
-        if enabled is True and not bool(getattr(args, "defect_hysteresis", False)):
-            args.defect_hysteresis = True
-
-        if getattr(args, "defect_hysteresis_low", None) is None:
-            v = _coerce_float(hyst_raw.get("low", None), name="hysteresis.low")
-            if v is not None:
-                args.defect_hysteresis_low = float(v)
-
-        if getattr(args, "defect_hysteresis_high", None) is None:
-            v = _coerce_float(hyst_raw.get("high", None), name="hysteresis.high")
-            if v is not None:
-                args.defect_hysteresis_high = float(v)
-
-    # Optional shape filters block.
-    shape_raw = defects_payload.get("shape_filters", None)
-    if shape_raw is not None:
-        if not isinstance(shape_raw, dict):
-            raise ValueError("infer-config defects.shape_filters must be a JSON object/dict.")
-
-        if getattr(args, "defect_min_fill_ratio", None) is None:
-            v = _coerce_float(
-                shape_raw.get("min_fill_ratio", None), name="shape_filters.min_fill_ratio"
-            )
-            if v is not None:
-                args.defect_min_fill_ratio = float(v)
-
-        if getattr(args, "defect_max_aspect_ratio", None) is None:
-            v = _coerce_float(
-                shape_raw.get("max_aspect_ratio", None), name="shape_filters.max_aspect_ratio"
-            )
-            if v is not None:
-                args.defect_max_aspect_ratio = float(v)
-
-        if getattr(args, "defect_min_solidity", None) is None:
-            v = _coerce_float(
-                shape_raw.get("min_solidity", None), name="shape_filters.min_solidity"
-            )
-            if v is not None:
-                args.defect_min_solidity = float(v)
-
-    # Optional merge-nearby block (regions output only; mask unchanged).
-    merge_raw = defects_payload.get("merge_nearby", None)
-    if merge_raw is not None:
-        if not isinstance(merge_raw, dict):
-            raise ValueError("infer-config defects.merge_nearby must be a JSON object/dict.")
-
-        enabled = merge_raw.get("enabled", None)
-        if enabled is True and not bool(getattr(args, "defect_merge_nearby", False)):
-            args.defect_merge_nearby = True
-
-        if int(getattr(args, "defect_merge_nearby_max_gap_px", 0)) == 0:
-            v = _coerce_int(merge_raw.get("max_gap_px", None), name="merge_nearby.max_gap_px")
-            if v is not None:
-                args.defect_merge_nearby_max_gap_px = int(v)
-
-    if getattr(args, "defect_min_score_max", None) is None:
-        v = _coerce_float(defects_payload.get("min_score_max", None), name="min_score_max")
-        if v is not None:
-            args.defect_min_score_max = float(v)
-
-    if getattr(args, "defect_min_score_mean", None) is None:
-        v = _coerce_float(defects_payload.get("min_score_mean", None), name="min_score_mean")
-        if v is not None:
-            args.defect_min_score_mean = float(v)
-
-    if int(getattr(args, "defect_open_ksize", 0)) == 0:
-        v = _coerce_int(defects_payload.get("open_ksize", None), name="open_ksize")
-        if v is not None:
-            args.defect_open_ksize = int(v)
-
-    if int(getattr(args, "defect_close_ksize", 0)) == 0:
-        v = _coerce_int(defects_payload.get("close_ksize", None), name="close_ksize")
-        if v is not None:
-            args.defect_close_ksize = int(v)
-
-    if getattr(args, "defect_max_regions", None) is None:
-        v = defects_payload.get("max_regions", None)
-        if v is not None:
-            args.defect_max_regions = int(v)
-
-    if str(getattr(args, "defect_max_regions_sort_by", "score_max")) == "score_max":
-        v = defects_payload.get("max_regions_sort_by", None)
-        if v is not None:
-            vv = str(v).lower().strip()
-            if vv not in ("score_max", "score_mean", "area"):
-                raise ValueError(
-                    "infer-config defects.max_regions_sort_by must be one of: score_max|score_mean|area"
-                )
-            args.defect_max_regions_sort_by = vv
-
-    if float(getattr(args, "pixel_normal_quantile", 0.999)) == 0.999:
-        v = _coerce_float(
-            defects_payload.get("pixel_normal_quantile", None), name="pixel_normal_quantile"
-        )
-        if v is not None:
-            args.pixel_normal_quantile = float(v)
-
-    if (
-        str(getattr(args, "pixel_threshold_strategy", "normal_pixel_quantile"))
-        == "normal_pixel_quantile"
-    ):
-        v = defects_payload.get("pixel_threshold_strategy", None)
-        if v is not None:
-            args.pixel_threshold_strategy = str(v)
-
-    if str(getattr(args, "mask_format", "png")) == "png":
-        v = _coerce_mask_format(defects_payload.get("mask_format", None))
-        if v is not None:
-            args.mask_format = str(v)
-
-    if not bool(getattr(args, "defect_fill_holes", False)):
-        v = _coerce_bool(defects_payload.get("fill_holes", None), name="fill_holes")
-        if v is True:
-            args.defect_fill_holes = True
+    infer_options_service.apply_defects_defaults(args, defects_payload)
 
 
 def _apply_defects_preset_if_requested(args: argparse.Namespace) -> None:
-    preset_name = getattr(args, "defects_preset", None)
-    if preset_name is None:
+    defects_payload = infer_options_service.resolve_defects_preset_payload(
+        getattr(args, "defects_preset", None)
+    )
+    if defects_payload is None:
         return
-
-    from pyimgano.cli_presets import resolve_defects_preset
-
-    preset = resolve_defects_preset(str(preset_name))
-    if preset is None:
-        raise ValueError(f"Unknown defects preset: {preset_name!r}")
 
     # Presets are intended to be a one-flag industrial on-ramp.
     args.defects = True
-    _apply_defects_defaults_from_payload(args, dict(preset.payload))
+    _apply_defects_defaults_from_payload(args, defects_payload)
 
 
 def _resolve_preprocessing_preset_knobs(args: argparse.Namespace):
-    preset_name = getattr(args, "preprocessing_preset", None)
-    if preset_name is None:
-        return None
-
-    from pyimgano.cli_presets import resolve_preprocessing_preset
-    from pyimgano.inference.preprocessing import parse_illumination_contrast_knobs
-
-    preset = resolve_preprocessing_preset(str(preset_name))
-    if preset is None:
-        raise ValueError(f"Unknown preprocessing preset: {preset_name!r}")
-    if str(getattr(preset, "config_key", "")) != "preprocessing.illumination_contrast":
-        raise ValueError(
-            "Only preprocessing.illumination_contrast presets are currently supported by pyimgano-infer."
-        )
-    payload = dict(getattr(preset, "payload", {}) or {})
-    return parse_illumination_contrast_knobs(payload)
+    return infer_options_service.resolve_preprocessing_preset_knobs(
+        getattr(args, "preprocessing_preset", None)
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -1272,161 +909,80 @@ def main(argv: list[str] | None = None) -> int:
         import time
 
         import pyimgano.models  # noqa: F401
-        from pyimgano.cli import _resolve_preset_kwargs
         from pyimgano.cli_common import (
-            build_model_kwargs,
             merge_checkpoint_path,
             parse_model_kwargs,
         )
-        from pyimgano.cli_presets import list_model_preset_infos, list_model_presets
-        from pyimgano.discovery import (
-            list_model_names,
-            resolve_family_tags,
-            resolve_type_tags,
-            resolve_year_filter,
-        )
-        from pyimgano.models.registry import MODEL_REGISTRY, materialize_model_constructor
+        from pyimgano.services.inference_service import iter_inference_records, run_inference
 
         preprocessing_preset_knobs = _resolve_preprocessing_preset_knobs(args)
 
-        discovery_flags = [
-            bool(getattr(args, "list_models", False)),
-            getattr(args, "model_info", None) is not None,
-            bool(getattr(args, "list_model_presets", False)),
-            getattr(args, "model_preset_info", None) is not None,
-        ]
-        if sum(1 for f in discovery_flags if f) > 1:
-            raise ValueError(
-                "--list-models, --model-info, --list-model-presets, and --model-preset-info are mutually exclusive."
-            )
-        if getattr(args, "algorithm_type", None) is not None and not bool(
-            getattr(args, "list_models", False)
-        ):
-            raise ValueError("--type is supported only with --list-models.")
-        if getattr(args, "year", None) is not None and not bool(getattr(args, "list_models", False)):
-            raise ValueError("--year is supported only with --list-models.")
-        if getattr(args, "algorithm_type", None) is not None:
-            resolve_type_tags(str(getattr(args, "algorithm_type")))
-        if getattr(args, "year", None) is not None:
-            resolve_year_filter(str(getattr(args, "year")))
+        list_models = bool(getattr(args, "list_models", False))
+        list_model_presets = bool(getattr(args, "list_model_presets", False))
+        cli_discovery_options.validate_mutually_exclusive_flags(
+            [
+                ("--list-models", list_models),
+                ("--model-info", getattr(args, "model_info", None) is not None),
+                ("--list-model-presets", list_model_presets),
+                ("--model-preset-info", getattr(args, "model_preset_info", None) is not None),
+            ]
+        )
+        model_list_options = cli_discovery_options.resolve_model_list_discovery_options(
+            list_models=list_models,
+            tags=getattr(args, "tags", None),
+            family=getattr(args, "family", None),
+            algorithm_type=getattr(args, "algorithm_type", None),
+            year=getattr(args, "year", None),
+            allow_family_without_list_models=list_model_presets,
+        )
 
-        if bool(getattr(args, "list_models", False)):
-            names = list_model_names(
-                tags=getattr(args, "tags", None),
-                family=getattr(args, "family", None),
-                algorithm_type=getattr(args, "algorithm_type", None),
-                year=getattr(args, "year", None),
+        if list_models:
+            names = discovery_service.list_discovery_model_names(
+                tags=model_list_options.tags,
+                family=model_list_options.family,
+                algorithm_type=model_list_options.algorithm_type,
+                year=model_list_options.year,
             )
-            if bool(getattr(args, "json", False)):
-                print(json.dumps(names, indent=2))
-            else:
-                for name in names:
-                    print(name)
-            return 0
+            return cli_listing.emit_listing(
+                names,
+                json_output=bool(getattr(args, "json", False)),
+                sort_keys=False,
+            )
 
         if getattr(args, "model_info", None) is not None:
-            from pyimgano.utils.jsonable import to_jsonable
-
             model_name = str(getattr(args, "model_info"))
-            try:
-                materialize_model_constructor(model_name)
-                entry = MODEL_REGISTRY.info(model_name)
-            except KeyError as exc:
-                raise ValueError(f"Unknown model: {model_name!r}") from exc
-
-            signature = inspect.signature(entry.constructor)
-            accepts_var_kwargs = any(
-                p.kind == inspect.Parameter.VAR_KEYWORD for p in signature.parameters.values()
+            payload = discovery_service.build_model_info_payload(model_name)
+            return cli_discovery_rendering.emit_signature_payload(
+                payload,
+                json_output=bool(getattr(args, "json", False)),
             )
-            accepted = {
-                name
-                for name, p in signature.parameters.items()
-                if p.kind
-                in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-            }
 
-            payload = {
-                "name": entry.name,
-                "tags": list(entry.tags),
-                "metadata": dict(entry.metadata),
-                "signature": str(signature),
-                "accepted_kwargs": sorted(accepted),
-                "accepts_var_kwargs": bool(accepts_var_kwargs),
-                "constructor": {
-                    "module": getattr(entry.constructor, "__module__", "<unknown>"),
-                    "qualname": getattr(entry.constructor, "__qualname__", "<unknown>"),
-                },
-            }
-
-            if bool(getattr(args, "json", False)):
-                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
-            else:
-                print(f"Name: {payload['name']}")
-                tags_out = payload["tags"]
-                print(f"Tags: {', '.join(tags_out) if tags_out else '<none>'}")
-                print("Metadata:")
-                metadata = payload["metadata"]
-                if metadata:
-                    for key in sorted(metadata):
-                        print(f"  {key}: {metadata[key]}")
-                else:
-                    print("  <none>")
-                print("Signature:")
-                print(f"  {payload['signature']}")
-                print(f"Accepts **kwargs: {'yes' if payload['accepts_var_kwargs'] else 'no'}")
-                print("Accepted kwargs:")
-                for key in payload["accepted_kwargs"]:
-                    print(f"  - {key}")
-            return 0
-
-        if bool(getattr(args, "list_model_presets", False)):
-            preset_tags: list[str] = []
-            tags_raw = getattr(args, "tags", None)
-            if tags_raw:
-                for item in tags_raw:
-                    for tag in str(item).split(","):
-                        tag = tag.strip()
-                        if tag:
-                            preset_tags.append(tag)
-            family = getattr(args, "family", None)
-            if family is not None:
-                preset_tags.extend(resolve_family_tags(str(family)))
-
-            names = list_model_presets(tags=preset_tags or None)
-            if bool(getattr(args, "json", False)):
-                print(json.dumps(list_model_preset_infos(tags=preset_tags or None), indent=2))
-            else:
-                for name in names:
-                    print(name)
-            return 0
+        if list_model_presets:
+            names = discovery_service.list_model_preset_names(
+                tags=model_list_options.tags,
+                family=model_list_options.family,
+            )
+            json_output = bool(getattr(args, "json", False))
+            json_payload = None
+            if json_output:
+                json_payload = discovery_service.list_model_preset_infos_payload(
+                    tags=model_list_options.tags,
+                    family=model_list_options.family,
+                )
+            return cli_listing.emit_listing(
+                names,
+                json_output=json_output,
+                json_payload=json_payload,
+                sort_keys=False,
+            )
 
         if getattr(args, "model_preset_info", None) is not None:
-            from pyimgano.cli_presets import model_preset_info, resolve_model_preset
-            from pyimgano.utils.jsonable import to_jsonable
-
             preset_name = str(getattr(args, "model_preset_info"))
-            preset = resolve_model_preset(preset_name)
-            if preset is None:
-                raise ValueError(f"Unknown model preset: {preset_name!r}")
-
-            payload = model_preset_info(preset_name)
-            if bool(getattr(args, "json", False)):
-                print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
-            else:
-                print(f"Name: {payload['name']}")
-                print(f"Model: {payload['model']}")
-                print("Kwargs:")
-                kwargs = payload["kwargs"]
-                if kwargs:
-                    for key in sorted(kwargs):
-                        print(f"  {key}: {kwargs[key]}")
-                else:
-                    print("  <none>")
-                print(f"Optional: {'yes' if payload['optional'] else 'no'}")
-                tags_out = payload.get("tags", [])
-                print(f"Tags: {', '.join(str(t) for t in tags_out) if tags_out else '<none>'}")
-                print(f"Description: {payload['description']}")
-            return 0
+            payload = discovery_service.build_model_preset_info_payload(preset_name)
+            return cli_discovery_rendering.emit_model_preset_payload(
+                payload,
+                json_output=bool(getattr(args, "json", False)),
+            )
 
         t_total_start = time.perf_counter()
         t_load_model = 0.0
@@ -1460,351 +1016,139 @@ def main(argv: list[str] | None = None) -> int:
 
         from_run = args.from_run is not None
         infer_config_mode = args.infer_config is not None
-        trained_checkpoint_path = None
         threshold_from_run = None
         infer_config_postprocess = None
         defects_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
+        include_maps_by_default = False
         illumination_contrast_knobs = None
         tiling_payload: dict[str, Any] | None = None
 
         t_load_start = time.perf_counter()
         if from_run:
-            from pyimgano.workbench.load_run import (
-                extract_threshold,
-                load_checkpoint_into_detector,
-                load_report_from_run,
-                load_workbench_config_from_run,
-                resolve_checkpoint_path,
-                select_category_report,
-            )
-
-            cfg = load_workbench_config_from_run(args.from_run)
-            report = load_report_from_run(args.from_run)
-            _cat_name, cat_report = select_category_report(
-                report,
-                category=(
-                    str(args.from_run_category) if args.from_run_category is not None else None
-                ),
-            )
-
-            threshold_from_run = extract_threshold(cat_report)
-            trained_checkpoint_path = resolve_checkpoint_path(args.from_run, cat_report)
-
-            model_name = str(cfg.model.name)
-            preset = cfg.model.preset
-            device = str(cfg.model.device)
-            contamination = float(cfg.model.contamination)
-            pretrained = bool(cfg.model.pretrained)
-
-            if args.preset is not None:
-                preset = str(args.preset)
-            if args.device is not None:
-                device = str(args.device)
-            if args.contamination is not None:
-                contamination = float(args.contamination)
-            if args.pretrained is not None:
-                pretrained = bool(args.pretrained)
-
-            base_user_kwargs = dict(cfg.model.model_kwargs)
-            if args.model_kwargs is not None:
-                base_user_kwargs.update(parse_model_kwargs(args.model_kwargs))
-
-            checkpoint_path: str | None = None
-            if args.checkpoint_path is not None:
-                checkpoint_path = str(args.checkpoint_path)
-            elif cfg.model.checkpoint_path is not None:
-                raw = str(cfg.model.checkpoint_path).strip()
-                if raw:
-                    p = Path(raw)
-                    if p.is_absolute():
-                        if not p.exists():
-                            raise FileNotFoundError(f"Model checkpoint_path not found: {p}")
-                        checkpoint_path = str(p)
-                    else:
-                        # Best-effort: interpret relative paths as relative to the run directory.
-                        run_dir = Path(str(args.from_run))
-                        candidates = [
-                            (run_dir / p).resolve(),
-                            (run_dir / "artifacts" / p).resolve(),
-                            (run_dir / "checkpoints" / p).resolve(),
-                        ]
-                        resolved: Path | None = None
-                        for cand in candidates:
-                            if cand.exists():
-                                resolved = cand
-                                break
-
-                        if resolved is None:
-                            # Backwards-compat fallback: allow relative to the current working dir.
-                            cwd_cand = p.resolve()
-                            if cwd_cand.exists():
-                                print(
-                                    "warning: model.checkpoint_path resolved relative to CWD; "
-                                    "consider making it relative to --from-run for portability.",
-                                    file=sys.stderr,
-                                )
-                                resolved = cwd_cand
-                            else:
-                                tried = "\n".join(f"- {c}" for c in (candidates + [cwd_cand]))
-                                raise FileNotFoundError(
-                                    "Model checkpoint_path not found for --from-run.\n"
-                                    f"model.checkpoint_path={raw!r}\n"
-                                    f"from_run={run_dir}\n"
-                                    "Tried:\n"
-                                    f"{tried}"
-                                )
-
-                        checkpoint_path = str(resolved)
-            user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
-
-            user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
-                args=args,
-                model_name=model_name,
-                device=str(device),
-                user_kwargs=dict(user_kwargs),
-                inputs=list(inputs),
-                onnx_session_options_cli=onnx_session_options_cli,
-            )
-
-            preset_kwargs = _resolve_preset_kwargs(preset, model_name)
-            model_kwargs = build_model_kwargs(
-                model_name,
-                user_kwargs=user_kwargs,
-                preset_kwargs=preset_kwargs,
-                auto_kwargs={
-                    "device": device,
-                    "contamination": contamination,
-                    "pretrained": pretrained,
-                    **(
-                        {"random_seed": int(seed), "random_state": int(seed)}
-                        if seed is not None
-                        else {}
+            context = infer_context_service.prepare_from_run_context(
+                infer_context_service.FromRunInferContextRequest(
+                    run_dir=str(args.from_run),
+                    from_run_category=(
+                        str(args.from_run_category) if args.from_run_category is not None else None
                     ),
-                },
-            )
-            _enforce_checkpoint_requirement(
-                model_name=model_name,
-                model_kwargs=dict(model_kwargs),
-                trained_checkpoint_path=trained_checkpoint_path,
-            )
-            detector = create_model(model_name, **model_kwargs)
-
-            if trained_checkpoint_path is not None:
-                load_checkpoint_into_detector(detector, trained_checkpoint_path)
-            if threshold_from_run is not None:
-                setattr(detector, "threshold_", float(threshold_from_run))
-
-            # Use workbench defects config as deploy defaults for `pyimgano-infer`.
-            defects_payload = asdict(cfg.defects)
-            defects_payload_source = "from_run"
-
-            # Optional preprocessing defaults from workbench runs.
-            try:
-                ic = cfg.preprocessing.illumination_contrast
-            except Exception:
-                ic = None
-            if ic is not None:
-                illumination_contrast_knobs = ic
-            try:
-                tiling = cfg.adaptation.tiling
-            except Exception:
-                tiling = None
-            if tiling is not None and getattr(tiling, "tile_size", None) is not None:
-                tiling_payload = {
-                    "tile_size": int(tiling.tile_size),
-                    "stride": (
-                        int(tiling.stride) if getattr(tiling, "stride", None) is not None else None
+                    preset=(str(args.preset) if args.preset is not None else None),
+                    device=(str(args.device) if args.device is not None else None),
+                    contamination=(
+                        float(args.contamination) if args.contamination is not None else None
                     ),
-                    "score_reduce": str(tiling.score_reduce),
-                    "score_topk": float(tiling.score_topk),
-                    "map_reduce": str(tiling.map_reduce),
-                }
-        elif infer_config_mode:
-            from pyimgano.inference.config import (
-                load_infer_config,
-                normalize_infer_config_schema,
-                resolve_infer_checkpoint_path,
-                resolve_infer_model_checkpoint_path,
-                select_infer_category,
+                    pretrained=(bool(args.pretrained) if args.pretrained is not None else None),
+                    model_kwargs=(
+                        parse_model_kwargs(args.model_kwargs)
+                        if args.model_kwargs is not None
+                        else None
+                    ),
+                    checkpoint_path=(
+                        str(args.checkpoint_path) if args.checkpoint_path is not None else None
+                    ),
+                )
             )
-            from pyimgano.workbench.load_run import extract_threshold, load_checkpoint_into_detector
-
-            cfg_path = Path(str(args.infer_config))
-            payload = load_infer_config(cfg_path)
-            payload, schema_warnings = normalize_infer_config_schema(payload)
-            for warning in schema_warnings:
+            for warning in context.warnings:
                 print(f"warning: {warning}", file=sys.stderr)
-            payload = select_infer_category(
-                payload,
-                category=(str(args.infer_category) if args.infer_category is not None else None),
+
+            threshold_from_run = context.threshold
+            model_name = str(context.model_name)
+            defects_payload = context.defects_payload
+            defects_payload_source = context.defects_payload_source
+            illumination_contrast_knobs = context.illumination_contrast_knobs
+            tiling_payload = context.tiling_payload
+
+            user_kwargs = merge_checkpoint_path(
+                dict(context.base_user_kwargs),
+                checkpoint_path=context.checkpoint_path,
             )
-            defects_map = payload.get("defects", None)
-            if defects_map is not None:
-                if not isinstance(defects_map, dict):
-                    raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
-                defects_payload = dict(defects_map)
-                defects_payload_source = "infer_config"
 
-            preprocessing_map = payload.get("preprocessing", None)
-            if preprocessing_map is not None:
-                if not isinstance(preprocessing_map, dict):
-                    raise ValueError("infer-config key 'preprocessing' must be a JSON object/dict.")
-                ic_map = preprocessing_map.get("illumination_contrast", None)
-                if ic_map is not None:
-                    if not isinstance(ic_map, dict):
-                        raise ValueError(
-                            "infer-config key 'preprocessing.illumination_contrast' must be a JSON object/dict."
-                        )
-                    from pyimgano.inference.preprocessing import parse_illumination_contrast_knobs
-
-                    illumination_contrast_knobs = parse_illumination_contrast_knobs(ic_map)
-
-            model_payload = payload.get("model", None)
-            if not isinstance(model_payload, dict):
-                raise ValueError("infer-config must contain a JSON object at key 'model'.")
-            model_name = model_payload.get("name", None)
-            if model_name is None:
-                raise ValueError("infer-config model.name is required.")
-            model_name = str(model_name)
-
-            adaptation_payload = payload.get("adaptation", None)
-            if adaptation_payload is None:
-                adaptation_payload = {}
-            if not isinstance(adaptation_payload, dict):
-                raise ValueError("infer-config key 'adaptation' must be a JSON object/dict.")
-            tiling_raw = adaptation_payload.get("tiling", None)
-            if isinstance(tiling_raw, dict):
-                tiling_payload = dict(tiling_raw)
-
-            threshold_from_run = extract_threshold(payload)
-            trained_checkpoint_path = resolve_infer_checkpoint_path(payload, config_path=cfg_path)
-
-            preset = model_payload.get("preset", None)
-            device = model_payload.get("device", "cpu")
-            contamination = model_payload.get("contamination", 0.1)
-            pretrained = model_payload.get("pretrained", True)
-
-            if args.preset is not None:
-                preset = str(args.preset)
-            if args.device is not None:
-                device = str(args.device)
-            if args.contamination is not None:
-                contamination = float(args.contamination)
-            if args.pretrained is not None:
-                pretrained = bool(args.pretrained)
-
-            base_user_kwargs = dict(model_payload.get("model_kwargs", {}) or {})
-            if args.model_kwargs is not None:
-                base_user_kwargs.update(parse_model_kwargs(args.model_kwargs))
-
-            checkpoint_path: str | None = None
-            if args.checkpoint_path is not None:
-                checkpoint_path = str(args.checkpoint_path)
-            elif model_payload.get("checkpoint_path", None) is not None:
-                resolved_model_ckpt = resolve_infer_model_checkpoint_path(
-                    payload, config_path=cfg_path
-                )
-                checkpoint_path = (
-                    str(resolved_model_ckpt) if resolved_model_ckpt is not None else None
-                )
-            user_kwargs = merge_checkpoint_path(base_user_kwargs, checkpoint_path=checkpoint_path)
             user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
                 args=args,
                 model_name=model_name,
-                device=str(device),
+                device=str(context.device),
                 user_kwargs=dict(user_kwargs),
                 inputs=list(inputs),
                 onnx_session_options_cli=onnx_session_options_cli,
             )
 
-            preset_kwargs = _resolve_preset_kwargs(preset, model_name)
-            model_kwargs = build_model_kwargs(
-                model_name,
-                user_kwargs=user_kwargs,
-                preset_kwargs=preset_kwargs,
-                auto_kwargs={
-                    "device": str(device),
-                    "contamination": float(contamination),
-                    "pretrained": bool(pretrained),
-                    **(
-                        {"random_seed": int(seed), "random_state": int(seed)}
-                        if seed is not None
-                        else {}
+            loaded = infer_load_service.load_config_backed_infer_detector(
+                infer_load_service.ConfigBackedInferLoadRequest(
+                    context=context,
+                    seed=seed,
+                    user_kwargs=user_kwargs,
+                ),
+                create_detector=create_model,
+            )
+            model_name = str(loaded.model_name)
+            detector = loaded.detector
+        elif infer_config_mode:
+            context = infer_context_service.prepare_infer_config_context(
+                infer_context_service.InferConfigContextRequest(
+                    config_path=str(args.infer_config),
+                    infer_category=(
+                        str(args.infer_category) if args.infer_category is not None else None
                     ),
-                },
+                    preset=(str(args.preset) if args.preset is not None else None),
+                    device=(str(args.device) if args.device is not None else None),
+                    contamination=(
+                        float(args.contamination) if args.contamination is not None else None
+                    ),
+                    pretrained=(bool(args.pretrained) if args.pretrained is not None else None),
+                    model_kwargs=(
+                        parse_model_kwargs(args.model_kwargs)
+                        if args.model_kwargs is not None
+                        else None
+                    ),
+                    checkpoint_path=(
+                        str(args.checkpoint_path) if args.checkpoint_path is not None else None
+                    ),
+                )
             )
-            _enforce_checkpoint_requirement(
+            for warning in context.warnings:
+                print(f"warning: {warning}", file=sys.stderr)
+
+            model_name = str(context.model_name)
+            threshold_from_run = context.threshold
+            defects_payload = context.defects_payload
+            defects_payload_source = context.defects_payload_source
+            illumination_contrast_knobs = context.illumination_contrast_knobs
+            tiling_payload = context.tiling_payload
+            infer_config_postprocess = context.infer_config_postprocess
+            include_maps_by_default = bool(context.enable_maps_by_default)
+
+            user_kwargs = merge_checkpoint_path(
+                dict(context.base_user_kwargs),
+                checkpoint_path=context.checkpoint_path,
+            )
+            user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
+                args=args,
                 model_name=model_name,
-                model_kwargs=dict(model_kwargs),
-                trained_checkpoint_path=trained_checkpoint_path,
+                device=str(context.device),
+                user_kwargs=dict(user_kwargs),
+                inputs=list(inputs),
+                onnx_session_options_cli=onnx_session_options_cli,
             )
-            detector = create_model(model_name, **model_kwargs)
 
-            if trained_checkpoint_path is not None:
-                load_checkpoint_into_detector(detector, trained_checkpoint_path)
-            if threshold_from_run is not None:
-                setattr(detector, "threshold_", float(threshold_from_run))
-
-            # Infer-config may request maps/postprocess by default.
-            post_cfg = adaptation_payload.get("postprocess", None)
-            if isinstance(post_cfg, dict):
-                infer_config_postprocess = dict(post_cfg)
-
-            if not bool(args.include_maps):
-                if (
-                    bool(adaptation_payload.get("save_maps", False))
-                    or infer_config_postprocess is not None
-                ):
-                    args.include_maps = True
+            loaded = infer_load_service.load_config_backed_infer_detector(
+                infer_load_service.ConfigBackedInferLoadRequest(
+                    context=context,
+                    seed=seed,
+                    user_kwargs=user_kwargs,
+                ),
+                create_detector=create_model,
+            )
+            model_name = str(loaded.model_name)
+            detector = loaded.detector
         else:
-            from pyimgano.cli_presets import resolve_model_preset
-
-            requested_model: str | None = None
-            preset_model_auto_kwargs: dict[str, Any] = {}
-
             if getattr(args, "model_preset", None) is not None:
                 requested_model = str(args.model_preset)
-                preset = resolve_model_preset(requested_model)
-                if preset is None:
-                    raise ValueError(f"Unknown model preset: {requested_model!r}")
-                model_name = str(preset.model)
-                preset_model_auto_kwargs = dict(preset.kwargs)
-                try:
-                    MODEL_REGISTRY.info(model_name)
-                except KeyError as exc:
-                    raise ValueError(
-                        f"Model preset {requested_model!r} refers to unknown model: {model_name!r}"
-                    ) from exc
             else:
                 if args.model is None:
                     raise ValueError(
                         "--model or --model-preset is required when --from-run/--infer-config are not provided"
                     )
-
                 requested_model = str(args.model)
-                model_name = requested_model
-                try:
-                    MODEL_REGISTRY.info(model_name)
-                except KeyError as exc:
-                    # Allow preset names (JSON-ready configs) for industrial workflows.
-                    preset = resolve_model_preset(model_name)
-                    if preset is None:
-                        raise ValueError(
-                            f"Unknown model or model preset: {requested_model!r}. "
-                            "Use --list-models/--list-model-presets for discovery."
-                        ) from exc
-
-                    model_name = str(preset.model)
-                    preset_model_auto_kwargs = dict(preset.kwargs)
-                    try:
-                        MODEL_REGISTRY.info(model_name)
-                    except KeyError as exc2:
-                        raise ValueError(
-                            f"Model preset {requested_model!r} refers to unknown model: {model_name!r}"
-                        ) from exc2
-
-            preset_kwargs = _resolve_preset_kwargs(args.preset, model_name)
 
             device = str(args.device) if args.device is not None else "cpu"
             contamination = float(args.contamination) if args.contamination is not None else 0.1
@@ -1812,6 +1156,8 @@ def main(argv: list[str] | None = None) -> int:
             # via `--pretrained` (may download weights).
             pretrained = bool(args.pretrained) if args.pretrained is not None else False
 
+            # ONNX session-options sweep still runs at the CLI layer before detector setup.
+            model_name = str(requested_model)
             user_kwargs = parse_model_kwargs(args.model_kwargs)
             user_kwargs = merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
             user_kwargs = _maybe_apply_onnx_session_options_and_sweep(
@@ -1823,32 +1169,20 @@ def main(argv: list[str] | None = None) -> int:
                 onnx_session_options_cli=onnx_session_options_cli,
             )
 
-            auto_kwargs: dict[str, Any] = dict(preset_model_auto_kwargs)
-            auto_kwargs.update(
-                {
-                    "device": device,
-                    "contamination": contamination,
-                    "pretrained": pretrained,
-                    **(
-                        {"random_seed": int(seed), "random_state": int(seed)}
-                        if seed is not None
-                        else {}
-                    ),
-                }
+            loaded = infer_load_service.load_direct_infer_detector(
+                infer_load_service.DirectInferLoadRequest(
+                    requested_model=str(requested_model),
+                    preset=(str(args.preset) if args.preset is not None else None),
+                    device=device,
+                    contamination=contamination,
+                    pretrained=pretrained,
+                    seed=seed,
+                    user_kwargs=user_kwargs,
+                ),
+                create_detector=create_model,
             )
-            model_kwargs = build_model_kwargs(
-                model_name,
-                user_kwargs=user_kwargs,
-                preset_kwargs=preset_kwargs,
-                auto_kwargs=auto_kwargs,
-            )
-
-            _enforce_checkpoint_requirement(
-                model_name=model_name,
-                model_kwargs=dict(model_kwargs),
-                trained_checkpoint_path=trained_checkpoint_path,
-            )
-            detector = create_model(model_name, **model_kwargs)
+            model_name = str(loaded.model_name)
+            detector = loaded.detector
 
         if defects_payload is not None:
             _apply_defects_defaults_from_payload(args, defects_payload)
@@ -1856,36 +1190,22 @@ def main(argv: list[str] | None = None) -> int:
         if preprocessing_preset_knobs is not None:
             illumination_contrast_knobs = preprocessing_preset_knobs
 
-        if (
-            args.tile_size is None
-            and isinstance(tiling_payload, dict)
-            and tiling_payload.get("tile_size", None) is not None
-        ):
-            args.tile_size = int(tiling_payload.get("tile_size"))
-            if tiling_payload.get("stride", None) is not None:
-                args.tile_stride = int(tiling_payload.get("stride"))
-            if tiling_payload.get("score_reduce", None) is not None:
-                args.tile_score_reduce = str(tiling_payload.get("score_reduce"))
-            if tiling_payload.get("map_reduce", None) is not None:
-                args.tile_map_reduce = str(tiling_payload.get("map_reduce"))
-            if tiling_payload.get("score_topk", None) is not None:
-                args.tile_score_topk = float(tiling_payload.get("score_topk"))
-
-        if args.tile_size is not None:
-            from pyimgano.inference.tiling import TiledDetector
-
-            detector = TiledDetector(
+        wrapped = infer_wrapper_service.apply_infer_detector_wrappers(
+            infer_wrapper_service.InferDetectorWrapperRequest(
                 detector=detector,
-                tile_size=int(args.tile_size),
-                stride=(int(args.tile_stride) if args.tile_stride is not None else None),
-                score_reduce=str(args.tile_score_reduce),
-                score_topk=float(args.tile_score_topk),
-                map_reduce=str(args.tile_map_reduce),
+                model_name=model_name,
+                threshold=threshold_from_run,
+                tiling_payload=tiling_payload,
+                tile_size=(int(args.tile_size) if args.tile_size is not None else None),
+                tile_stride=(int(args.tile_stride) if args.tile_stride is not None else None),
+                tile_score_reduce=str(args.tile_score_reduce),
+                tile_score_topk=float(args.tile_score_topk),
+                tile_map_reduce=str(args.tile_map_reduce),
+                illumination_contrast_knobs=illumination_contrast_knobs,
                 u16_max=(int(args.u16_max) if args.u16_max is not None else None),
             )
-            # Ensure a threshold loaded from --from-run/--infer-config remains visible after wrapping.
-            if threshold_from_run is not None:
-                setattr(detector, "threshold_", float(threshold_from_run))
+        )
+        detector = wrapped.detector
 
         if args.reference_dir is not None:
             setter = getattr(detector, "set_reference_dir", None)
@@ -1896,20 +1216,6 @@ def main(argv: list[str] | None = None) -> int:
                     "--reference-dir is only supported for reference-based detectors "
                     "(detectors implementing set_reference_dir())."
                 )
-
-        # Apply preprocessing outside tiling so illumination/contrast normalization happens
-        # on the full image before tiling.
-        if illumination_contrast_knobs is not None:
-            _require_numpy_model_for_preprocessing(model_name)
-            from pyimgano.inference.preprocessing import PreprocessingDetector
-
-            detector = PreprocessingDetector(
-                detector=detector,
-                illumination_contrast=illumination_contrast_knobs,
-                u16_max=(int(args.u16_max) if args.u16_max is not None else None),
-            )
-            if threshold_from_run is not None:
-                setattr(detector, "threshold_", float(threshold_from_run))
 
         t_load_model = time.perf_counter() - t_load_start
 
@@ -1951,87 +1257,50 @@ def main(argv: list[str] | None = None) -> int:
                     amp=bool(args.amp),
                 )
 
-        if bool(args.defects) and not bool(args.include_maps):
-            args.include_maps = True
+        batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
 
-        postprocess: AnomalyMapPostprocess | None = None
-        if bool(args.include_maps):
-            if bool(args.postprocess):
-                postprocess = AnomalyMapPostprocess()
-            elif infer_config_postprocess is not None:
-                postprocess = _build_postprocess_from_payload(infer_config_postprocess)
-
-        pixel_threshold_value: float | None = None
-        pixel_threshold_provenance: dict[str, Any] | None = None
-        if bool(args.defects):
-            from pyimgano.defects.pixel_threshold import resolve_pixel_threshold
-
-            infer_cfg_source = defects_payload_source or "infer_config"
-            strategy = str(args.pixel_threshold_strategy)
-
-            infer_cfg_thr = None
-            if defects_payload is not None:
-                raw_thr = defects_payload.get("pixel_threshold", None)
-                if raw_thr is not None:
-                    infer_cfg_thr = float(raw_thr)
-
-            calibration_maps = None
-            infer_cfg_thr_for_resolve = infer_cfg_thr
-
-            if args.pixel_threshold is None and strategy == "normal_pixel_quantile":
-                if not train_paths:
-                    if infer_cfg_thr is None:
-                        raise ValueError(
-                            "--defects requires a pixel threshold.\n"
-                            "Provide --pixel-threshold, set defects.pixel_threshold in infer_config.json, "
-                            "or provide --train-dir for normal-pixel quantile calibration."
-                        )
-                else:
-                    # Prefer re-calibration from normal pixels when train data is available,
-                    # even if the infer-config/run contains a pre-set pixel threshold.
-                    infer_cfg_thr_for_resolve = None
-
-                    batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
-                    calibration_maps = []
-                    for r in infer_iter(
-                        detector,
-                        train_paths,
-                        include_maps=True,
-                        postprocess=postprocess,
-                        batch_size=batch_size,
-                        amp=bool(args.amp),
-                    ):
-                        if r.anomaly_map is not None:
-                            calibration_maps.append(r.anomaly_map)
-
-            pixel_threshold_value, pixel_threshold_provenance = resolve_pixel_threshold(
+        runtime_plan = infer_runtime_service.prepare_infer_runtime_plan(
+            infer_runtime_service.InferRuntimePlanRequest(
+                detector=detector,
+                include_maps_requested=bool(args.include_maps),
+                include_maps_by_default=bool(include_maps_by_default),
+                postprocess_requested=bool(args.postprocess),
+                infer_config_postprocess=infer_config_postprocess,
+                defects_enabled=bool(args.defects),
+                defects_payload=defects_payload,
+                defects_payload_source=defects_payload_source,
                 pixel_threshold=(
                     float(args.pixel_threshold) if args.pixel_threshold is not None else None
                 ),
                 pixel_threshold_strategy=str(args.pixel_threshold_strategy),
-                infer_config_pixel_threshold=infer_cfg_thr_for_resolve,
-                calibration_maps=calibration_maps,
                 pixel_normal_quantile=float(args.pixel_normal_quantile),
-                infer_config_source=str(infer_cfg_source),
                 roi_xyxy_norm=(
                     list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None
                 ),
-            )
+                train_paths=list(train_paths),
+                batch_size=batch_size,
+                amp=bool(args.amp),
+            ),
+            run_inference_impl=run_inference,
+        )
+        include_maps = bool(runtime_plan.include_maps)
+        postprocess = runtime_plan.postprocess
+        pixel_threshold_value = runtime_plan.pixel_threshold_value
+        pixel_threshold_provenance = runtime_plan.pixel_threshold_provenance
 
         t_fit_calibrate = time.perf_counter() - t_fit_start
 
-        infer_timing = InferenceTiming()
-        batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
         continue_on_error = bool(getattr(args, "continue_on_error", False))
         max_errors = int(getattr(args, "max_errors", 0))
         flush_every = int(getattr(args, "flush_every", 0))
 
+        infer_timing = InferenceTiming()
         results_iter = None
         if not bool(continue_on_error):
-            results_iter = infer_iter(
-                detector,
-                inputs,
-                include_maps=bool(args.include_maps),
+            results_iter = iter_inference_records(
+                detector=detector,
+                inputs=inputs,
+                include_maps=bool(include_maps),
                 postprocess=postprocess,
                 batch_size=batch_size,
                 amp=bool(args.amp),
@@ -2040,7 +1309,7 @@ def main(argv: list[str] | None = None) -> int:
 
         maps_dir: Path | None = None
         if args.save_maps is not None:
-            if not bool(args.include_maps):
+            if not bool(include_maps):
                 raise ValueError("--save-maps requires --include-maps")
             maps_dir = Path(args.save_maps)
             maps_dir.mkdir(parents=True, exist_ok=True)
@@ -2055,19 +1324,17 @@ def main(argv: list[str] | None = None) -> int:
             overlays_dir = Path(args.save_overlays)
             overlays_dir.mkdir(parents=True, exist_ok=True)
 
-        out_f = None
-        if args.save_jsonl is not None:
-            out_path = Path(args.save_jsonl)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_f = out_path.open("w", encoding="utf-8")
-
-        regions_f = None
-        if args.defects_regions_jsonl is not None:
-            if not bool(args.defects):
-                raise ValueError("--defects-regions-jsonl requires --defects")
-            regions_path = Path(args.defects_regions_jsonl)
-            regions_path.parent.mkdir(parents=True, exist_ok=True)
-            regions_f = regions_path.open("w", encoding="utf-8")
+        output_targets = infer_output_service.open_infer_output_targets(
+            infer_output_service.InferOutputTargetsRequest(
+                save_jsonl=(str(args.save_jsonl) if args.save_jsonl is not None else None),
+                defects_enabled=bool(args.defects),
+                defects_regions_jsonl=(
+                    str(args.defects_regions_jsonl)
+                    if args.defects_regions_jsonl is not None
+                    else None
+                ),
+            )
+        )
 
         try:
             t_loop_start = time.perf_counter()
@@ -2075,316 +1342,103 @@ def main(argv: list[str] | None = None) -> int:
             regions_written = 0
             errors = 0
             processed = 0
-            stop_early = False
-
-            def _write_out_record(record: dict[str, Any]) -> None:
-                nonlocal out_written
-                line = json.dumps(record, sort_keys=True)
-                if out_f is not None:
-                    out_f.write(line)
-                    out_f.write("\n")
-                    out_written += 1
-                    if int(flush_every) > 0 and (out_written % int(flush_every) == 0):
-                        out_f.flush()
-                else:
-                    print(line)
-
-            def _write_regions_payload(payload: dict[str, Any]) -> None:
-                nonlocal regions_written
-                if regions_f is None:
-                    return
-                regions_f.write(json.dumps(payload, sort_keys=True))
-                regions_f.write("\n")
-                regions_written += 1
-                if int(flush_every) > 0 and (regions_written % int(flush_every) == 0):
-                    regions_f.flush()
-
-            def _make_error_record(
-                *, index: int, input_path: str, exc: Exception, stage: str
-            ) -> dict[str, Any]:
-                return {
-                    "status": "error",
-                    "index": int(index),
-                    "input": str(input_path),
-                    "error": {
-                        "type": str(type(exc).__name__),
-                        "message": str(exc),
-                        "stage": str(stage),
-                    },
-                }
 
             def _process_ok_result(
                 *, index: int, input_path: str, result: Any, include_status: bool
             ) -> None:
-                anomaly_map_path: str | None = None
-                if maps_dir is not None:
-                    if result.anomaly_map is None:
-                        anomaly_map_path = None
-                    else:
-                        stem = Path(input_path).stem
-                        out_path = maps_dir / f"{index:06d}_{stem}.npy"
-                        np.save(out_path, np.asarray(result.anomaly_map, dtype=np.float32))
-                        anomaly_map_path = str(out_path)
-
-                record = result_to_jsonable(
-                    result,
-                    anomaly_map_path=anomaly_map_path,
-                    include_anomaly_map_values=bool(args.include_anomaly_map_values),
+                nonlocal out_written, regions_written
+                artifact_request = infer_artifact_service.build_infer_result_artifact_request_from_cli(
+                    infer_artifact_service.InferResultArtifactCliRequest(
+                        index=int(index),
+                        input_path=str(input_path),
+                        result=result,
+                        cli_args=args,
+                        include_status=bool(include_status),
+                        maps_dir=(str(maps_dir) if maps_dir is not None else None),
+                        overlays_dir=(str(overlays_dir) if overlays_dir is not None else None),
+                        masks_dir=(str(masks_dir) if masks_dir is not None else None),
+                        pixel_threshold_value=(
+                            float(pixel_threshold_value)
+                            if pixel_threshold_value is not None
+                            else None
+                        ),
+                        pixel_threshold_provenance=(
+                            dict(pixel_threshold_provenance)
+                            if pixel_threshold_provenance is not None
+                            else None
+                        ),
+                    )
                 )
-                record["index"] = int(index)
-                record["input"] = str(input_path)
-                if include_status:
-                    record["status"] = "ok"
 
-                saved_defects_mask: np.ndarray | None = None
-                if bool(args.defects):
-                    if result.anomaly_map is None:
-                        raise ValueError(
-                            "Defects export requires anomaly maps, but no anomaly_map was returned.\n"
-                            "Try a detector that supports get_anomaly_map/predict_anomaly_map, and "
-                            "ensure --include-maps (or --defects) is enabled."
-                        )
-                    if pixel_threshold_value is None or pixel_threshold_provenance is None:
-                        raise RuntimeError(
-                            "Internal error: pixel threshold was not resolved for --defects."
-                        )
-
-                    from pyimgano.defects.extract import extract_defects_from_anomaly_map
-                    from pyimgano.defects.io import save_binary_mask
-
-                    defects = extract_defects_from_anomaly_map(
-                        np.asarray(result.anomaly_map, dtype=np.float32),
-                        pixel_threshold=float(pixel_threshold_value),
-                        roi_xyxy_norm=(
-                            list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None
-                        ),
-                        mask_space=str(args.defects_mask_space),
-                        border_ignore_px=int(args.defect_border_ignore_px),
-                        map_smoothing_method=str(args.defect_map_smoothing),
-                        map_smoothing_ksize=int(args.defect_map_smoothing_ksize),
-                        map_smoothing_sigma=float(args.defect_map_smoothing_sigma),
-                        hysteresis_enabled=bool(args.defect_hysteresis),
-                        hysteresis_low=(
-                            float(args.defect_hysteresis_low)
-                            if args.defect_hysteresis_low is not None
+                artifact = infer_artifact_service.materialize_infer_result_artifacts(
+                    artifact_request
+                )
+                write_result = infer_output_service.write_infer_output_payloads(
+                    infer_output_service.InferOutputWriteRequest(
+                        record=dict(artifact.record),
+                        regions_payload=(
+                            dict(artifact.regions_payload)
+                            if artifact.regions_payload is not None
                             else None
                         ),
-                        hysteresis_high=(
-                            float(args.defect_hysteresis_high)
-                            if args.defect_hysteresis_high is not None
-                            else None
-                        ),
-                        open_ksize=int(args.defect_open_ksize),
-                        close_ksize=int(args.defect_close_ksize),
-                        fill_holes=bool(args.defect_fill_holes),
-                        mask_dilate_ksize=int(args.defects_mask_dilate),
-                        min_area=int(args.defect_min_area),
-                        min_fill_ratio=(
-                            float(args.defect_min_fill_ratio)
-                            if args.defect_min_fill_ratio is not None
-                            else None
-                        ),
-                        max_aspect_ratio=(
-                            float(args.defect_max_aspect_ratio)
-                            if args.defect_max_aspect_ratio is not None
-                            else None
-                        ),
-                        min_solidity=(
-                            float(args.defect_min_solidity)
-                            if args.defect_min_solidity is not None
-                            else None
-                        ),
-                        min_score_max=(
-                            float(args.defect_min_score_max)
-                            if args.defect_min_score_max is not None
-                            else None
-                        ),
-                        min_score_mean=(
-                            float(args.defect_min_score_mean)
-                            if args.defect_min_score_mean is not None
-                            else None
-                        ),
-                        merge_nearby_enabled=bool(args.defect_merge_nearby),
-                        merge_nearby_max_gap_px=int(args.defect_merge_nearby_max_gap_px),
-                        max_regions_sort_by=str(args.defect_max_regions_sort_by),
-                        max_regions=(
-                            int(args.defect_max_regions)
-                            if args.defect_max_regions is not None
-                            else None
-                        ),
+                        output_file=output_targets.output_file,
+                        regions_file=output_targets.regions_file,
+                        flush_every=int(flush_every),
+                        output_written=int(out_written),
+                        regions_written=int(regions_written),
                     )
-                    saved_defects_mask = defects["mask"]
+                )
+                out_written = int(write_result.output_written)
+                regions_written = int(write_result.regions_written)
 
-                    mask_meta: dict[str, Any] = {
-                        "shape": [int(d) for d in defects["mask"].shape],
-                        "dtype": str(defects["mask"].dtype),
-                    }
-                    if masks_dir is not None:
-                        stem = Path(input_path).stem
-                        fmt = str(args.mask_format)
-                        if fmt == "png":
-                            ext = ".png"
-                        elif fmt == "npy":
-                            ext = ".npy"
-                        elif fmt == "npz":
-                            ext = ".npz"
-                        else:  # pragma: no cover - guarded by argparse choices
-                            raise ValueError(f"Unknown mask_format: {fmt!r}")
-                        out_path = masks_dir / f"{index:06d}_{stem}{ext}"
-                        written = save_binary_mask(
-                            defects["mask"], out_path, format=str(args.mask_format)
-                        )
-                        mask_meta.update(
-                            {
-                                "path": str(written),
-                                "encoding": str(args.mask_format),
-                            }
-                        )
-                    else:
-                        mask_meta["encoding"] = str(args.mask_format)
-
-                    record["defects"] = {
-                        "space": defects["space"],
-                        "pixel_threshold": float(pixel_threshold_value),
-                        "pixel_threshold_provenance": dict(pixel_threshold_provenance),
-                        "mask": mask_meta,
-                        "regions": defects["regions"],
-                        "map_stats_roi": defects.get("map_stats_roi", None),
-                    }
-
-                    _write_regions_payload(
-                        {
-                            "index": int(index),
-                            "input": str(input_path),
-                            "defects": {
-                                "space": defects["space"],
-                                "pixel_threshold": float(pixel_threshold_value),
-                                "pixel_threshold_provenance": dict(pixel_threshold_provenance),
-                                "regions": defects["regions"],
-                                "map_stats_roi": defects.get("map_stats_roi", None),
-                            },
-                        }
+            def _handle_continue_error(
+                *, index: int, input_path: str, exc: Exception, stage: str
+            ) -> None:
+                nonlocal out_written, regions_written
+                error_record = infer_output_service.build_infer_error_record(
+                    infer_output_service.InferErrorRecordRequest(
+                        index=int(index),
+                        input_path=str(input_path),
+                        exc=exc,
+                        stage=str(stage),
                     )
-
-                    if bool(args.defects_image_space):
-                        try:
-                            from PIL import Image
-
-                            with Image.open(input_path) as im:
-                                w_img, h_img = im.size
-
-                            from pyimgano.defects.space import scale_bbox_xyxy_inclusive
-
-                            src_hw = (int(defects["mask"].shape[0]), int(defects["mask"].shape[1]))
-                            dst_hw = (int(h_img), int(w_img))
-                            for region in record["defects"]["regions"]:
-                                bbox = region.get("bbox_xyxy", None)
-                                if bbox is None:
-                                    continue
-                                region["bbox_xyxy_image"] = scale_bbox_xyxy_inclusive(
-                                    bbox,
-                                    src_hw=src_hw,
-                                    dst_hw=dst_hw,
-                                )
-                        except Exception:
-                            # Best-effort: avoid failing the whole run for a debugging-only knob.
-                            pass
-
-                if overlays_dir is not None:
-                    from pyimgano.defects.overlays import save_overlay_image
-
-                    stem = Path(input_path).stem
-                    out_path = overlays_dir / f"{index:06d}_{stem}.png"
-                    save_overlay_image(
-                        input_path,
-                        anomaly_map=(
-                            result.anomaly_map if result.anomaly_map is not None else None
-                        ),
-                        defect_mask=saved_defects_mask,
-                        out_path=out_path,
+                )
+                write_result = infer_output_service.write_infer_output_payloads(
+                    infer_output_service.InferOutputWriteRequest(
+                        record=error_record,
+                        output_file=output_targets.output_file,
+                        regions_file=output_targets.regions_file,
+                        flush_every=int(flush_every),
+                        output_written=int(out_written),
+                        regions_written=int(regions_written),
                     )
-
-                _write_out_record(record)
+                )
+                out_written = int(write_result.output_written)
+                regions_written = int(write_result.regions_written)
 
             if bool(continue_on_error):
-                chunk_size = int(batch_size) if batch_size is not None else 1
-                for start in range(0, len(inputs), int(chunk_size)):
-                    chunk = inputs[start : start + int(chunk_size)]
-                    try:
-                        chunk_results = list(
-                            infer_iter(
-                                detector,
-                                chunk,
-                                include_maps=bool(args.include_maps),
-                                postprocess=postprocess,
-                                batch_size=None,
-                                amp=bool(args.amp),
-                                timing=infer_timing,
-                            )
-                        )
-                        for j, r in enumerate(chunk_results):
-                            idx = int(start + j)
-                            try:
-                                _process_ok_result(
-                                    index=idx,
-                                    input_path=str(chunk[j]),
-                                    result=r,
-                                    include_status=True,
-                                )
-                            except Exception as exc:  # noqa: BLE001 - best-effort mode
-                                errors += 1
-                                _write_out_record(
-                                    _make_error_record(
-                                        index=idx,
-                                        input_path=str(chunk[j]),
-                                        exc=exc,
-                                        stage="artifacts",
-                                    )
-                                )
-                            processed += 1
-                    except Exception:
-                        # Fallback: isolate per-input failures (batch failed).
-                        for j, p in enumerate(chunk):
-                            idx = int(start + j)
-                            try:
-                                one = list(
-                                    infer_iter(
-                                        detector,
-                                        [p],
-                                        include_maps=bool(args.include_maps),
-                                        postprocess=postprocess,
-                                        batch_size=None,
-                                        amp=bool(args.amp),
-                                        timing=infer_timing,
-                                    )
-                                )
-                                if len(one) != 1:
-                                    raise RuntimeError(
-                                        "Internal error: expected 1 result for 1 input"
-                                    )
-                                _process_ok_result(
-                                    index=idx,
-                                    input_path=str(p),
-                                    result=one[0],
-                                    include_status=True,
-                                )
-                            except Exception as exc:  # noqa: BLE001 - best-effort mode
-                                errors += 1
-                                _write_out_record(
-                                    _make_error_record(
-                                        index=idx,
-                                        input_path=str(p),
-                                        exc=exc,
-                                        stage="infer",
-                                    )
-                                )
-                            processed += 1
-
-                            if int(max_errors) > 0 and int(errors) >= int(max_errors):
-                                stop_early = True
-                                break
-                    if bool(stop_early):
-                        break
+                continue_result = infer_continue_service.run_continue_on_error_inference(
+                    infer_continue_service.ContinueOnErrorInferRequest(
+                        detector=detector,
+                        inputs=list(inputs),
+                        include_maps=bool(include_maps),
+                        postprocess=postprocess,
+                        batch_size=batch_size,
+                        amp=bool(args.amp),
+                        max_errors=int(max_errors),
+                    ),
+                    process_ok_result=lambda *, index, input_path, result: _process_ok_result(
+                        index=int(index),
+                        input_path=str(input_path),
+                        result=result,
+                        include_status=True,
+                    ),
+                    handle_error=_handle_continue_error,
+                    run_inference_impl=run_inference,
+                )
+                processed = int(continue_result.processed)
+                errors = int(continue_result.errors)
+                infer_timing.seconds += float(continue_result.timing_seconds)
             else:
                 if results_iter is None:  # pragma: no cover - defensive
                     raise RuntimeError("Internal error: results_iter was not initialized")
@@ -2409,10 +1463,10 @@ def main(argv: list[str] | None = None) -> int:
             t_infer = float(infer_timing.seconds)
             t_artifacts = max(0.0, float(t_loop) - float(t_infer))
         finally:
-            if out_f is not None:
-                out_f.close()
-            if regions_f is not None:
-                regions_f.close()
+            if output_targets.output_file is not None:
+                output_targets.output_file.close()
+            if output_targets.regions_file is not None:
+                output_targets.regions_file.close()
 
         if bool(args.profile):
             total = time.perf_counter() - t_total_start
@@ -2458,44 +1512,22 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI boundary
-        print(f"error: {exc}", file=sys.stderr)
+        context_lines: list[str] = []
         from_run = getattr(args, "from_run", None)
         if from_run:
-            print(f"context: from_run={from_run!r}", file=sys.stderr)
+            context_lines.append(f"context: from_run={from_run!r}")
             cat = getattr(args, "from_run_category", None)
             if cat:
-                print(f"context: from_run_category={cat!r}", file=sys.stderr)
+                context_lines.append(f"context: from_run_category={cat!r}")
         if isinstance(exc, ImportError):
             model_name = getattr(args, "model", None)
             if model_name:
-                print(f"context: model={model_name!r}", file=sys.stderr)
+                context_lines.append(f"context: model={model_name!r}")
             model_preset = getattr(args, "model_preset", None)
             if model_preset:
-                print(f"context: model_preset={model_preset!r}", file=sys.stderr)
+                context_lines.append(f"context: model_preset={model_preset!r}")
+        cli_output.print_cli_error(exc, context_lines=context_lines or None)
         return 2
-
-
-def _build_postprocess_from_payload(payload: dict[str, Any]) -> AnomalyMapPostprocess:
-    pr_raw = payload.get("percentile_range", (1.0, 99.0))
-    if isinstance(pr_raw, (list, tuple)) and len(pr_raw) == 2:
-        pr = (float(pr_raw[0]), float(pr_raw[1]))
-    else:
-        pr = (1.0, 99.0)
-
-    ct = payload.get("component_threshold", None)
-    component_threshold = float(ct) if ct is not None else None
-
-    return AnomalyMapPostprocess(
-        normalize=bool(payload.get("normalize", True)),
-        normalize_method=str(payload.get("normalize_method", "minmax")),
-        percentile_range=pr,
-        gaussian_sigma=float(payload.get("gaussian_sigma", 0.0)),
-        morph_open_ksize=int(payload.get("morph_open_ksize", 0)),
-        morph_close_ksize=int(payload.get("morph_close_ksize", 0)),
-        component_threshold=component_threshold,
-        min_component_area=int(payload.get("min_component_area", 0)),
-    )
-
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

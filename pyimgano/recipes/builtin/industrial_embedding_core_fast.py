@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+import pyimgano.services.workbench_service as workbench_service
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.workbench.config import ModelConfig, WorkbenchConfig
-from pyimgano.workbench.runner import run_workbench
 
 
 @register_recipe(
@@ -58,4 +58,4 @@ def industrial_embedding_core_fast(config: WorkbenchConfig) -> dict[str, Any]:
     )
 
     cfg = replace(config, recipe=recipe_name, model=new_model)
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

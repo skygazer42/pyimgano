@@ -4,6 +4,7 @@ from dataclasses import asdict
 from typing import Any, Sequence
 
 import numpy as np
+import pyimgano.services.workbench_service as workbench_service
 
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.reporting.environment import collect_environment
@@ -58,33 +59,7 @@ def _load_train_numpy(
 
 
 def _create_detector(config: WorkbenchConfig) -> Any:
-    import pyimgano.models  # noqa: F401
-    from pyimgano.cli import _resolve_preset_kwargs
-    from pyimgano.cli_common import build_model_kwargs
-    from pyimgano.models.registry import create_model
-
-    user_kwargs = dict(config.model.model_kwargs)
-    if config.model.checkpoint_path is not None:
-        user_kwargs.setdefault("checkpoint_path", str(config.model.checkpoint_path))
-
-    preset_kwargs = _resolve_preset_kwargs(config.model.preset, config.model.name)
-
-    auto_kwargs: dict[str, Any] = {
-        "device": config.model.device,
-        "contamination": float(config.model.contamination),
-        "pretrained": bool(config.model.pretrained),
-    }
-    if config.seed is not None:
-        auto_kwargs["random_seed"] = int(config.seed)
-        auto_kwargs["random_state"] = int(config.seed)
-
-    model_kwargs = build_model_kwargs(
-        config.model.name,
-        user_kwargs=user_kwargs,
-        preset_kwargs=preset_kwargs,
-        auto_kwargs=auto_kwargs,
-    )
-    return create_model(config.model.name, **model_kwargs)
+    return workbench_service.create_workbench_detector(config=config)
 
 
 @register_recipe(

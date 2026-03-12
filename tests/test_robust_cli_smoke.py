@@ -8,6 +8,139 @@ import pytest
 from pyimgano.robust_cli import main
 
 
+def test_robust_cli_list_models_delegates_to_discovery_service(monkeypatch, capsys) -> None:
+    import pyimgano.services.discovery_service as discovery_service
+
+    monkeypatch.setattr(
+        discovery_service,
+        "list_discovery_model_names",
+        lambda **_kwargs: ["delegated_robust_model"],
+    )
+
+    rc = main(["--list-models"])
+    assert rc == 0
+    assert "delegated_robust_model" in capsys.readouterr().out
+
+
+def test_robust_cli_list_models_uses_shared_listing_helper(monkeypatch) -> None:
+    import pyimgano.robust_cli as robust_cli
+    import pyimgano.services.discovery_service as discovery_service
+
+    monkeypatch.setattr(
+        discovery_service,
+        "list_discovery_model_names",
+        lambda **_kwargs: ["delegated_robust_model"],
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        robust_cli,
+        "cli_listing",
+        type(
+            "_StubCliListing",
+            (),
+            {
+                "emit_listing": staticmethod(
+                    lambda items, **kwargs: calls.append((list(items), kwargs)) or 71
+                )
+            },
+        ),
+        raising=False,
+    )
+
+    rc = robust_cli.main(["--list-models", "--json"])
+    assert rc == 71
+    assert calls == [
+        (
+            ["delegated_robust_model"],
+            {"json_output": True, "json_payload": {"models": ["delegated_robust_model"]}},
+        )
+    ]
+
+
+def test_robust_cli_delegates_run_mode_to_robustness_service(monkeypatch, capsys) -> None:
+    import pyimgano.services.robustness_service as robustness_service
+
+    calls = []
+
+    monkeypatch.setattr(
+        robustness_service,
+        "run_robustness_request",
+        lambda request: calls.append(request)
+        or {
+            "dataset": request.dataset,
+            "category": request.category,
+            "model": request.model,
+            "robustness": {"clean": {}, "corruptions": {}},
+        },
+    )
+
+    rc = main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_ecod",
+        ]
+    )
+    assert rc == 0
+    assert calls[0].model == "vision_ecod"
+    assert '"model": "vision_ecod"' in capsys.readouterr().out
+
+
+def test_robust_cli_jsonable_output_uses_cli_output_helper(monkeypatch) -> None:
+    import pyimgano.robust_cli as robust_cli
+    import pyimgano.services.robustness_service as robustness_service
+
+    monkeypatch.setattr(
+        robustness_service,
+        "run_robustness_request",
+        lambda request: {
+            "dataset": request.dataset,
+            "category": request.category,
+            "model": request.model,
+            "robustness": {"clean": {}, "corruptions": {}},
+        },
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        robust_cli,
+        "cli_output",
+        type(
+            "_StubCliOutput",
+            (),
+            {
+                "emit_json": staticmethod(lambda payload, **kwargs: 0),
+                "emit_jsonable": staticmethod(
+                    lambda payload, **kwargs: calls.append((payload, kwargs)) or 19
+                ),
+                "print_cli_error": staticmethod(lambda exc, **kwargs: None),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = robust_cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_ecod",
+        ]
+    )
+    assert rc == 19
+    assert calls and calls[0][0]["model"] == "vision_ecod"
+
+
 def test_robust_cli_smoke(tmp_path, capsys) -> None:
     pytest.importorskip("torch")
     pytest.importorskip("torchvision")

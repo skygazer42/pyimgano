@@ -14,6 +14,15 @@ def test_parse_model_kwargs_requires_json_object():
         _parse_model_kwargs("[1, 2, 3]")
 
 
+def test_cli_parse_model_kwargs_delegates_to_cli_common(monkeypatch):
+    import pyimgano.cli as cli
+    import pyimgano.cli_common as cli_common
+
+    monkeypatch.setattr(cli_common, "parse_model_kwargs", lambda text: {"raw": text})
+
+    assert cli._parse_model_kwargs('{"k": 1}') == {"raw": '{"k": 1}'}
+
+
 def test_merge_checkpoint_path_sets_checkpoint_path():
     from pyimgano.cli import _merge_checkpoint_path
 
@@ -26,6 +35,25 @@ def test_merge_checkpoint_path_detects_conflict():
 
     with pytest.raises(ValueError, match="conflict"):
         _merge_checkpoint_path({"checkpoint_path": "/a.ckpt"}, checkpoint_path="/b.ckpt")
+
+
+def test_cli_merge_checkpoint_path_delegates_to_cli_common(monkeypatch):
+    import pyimgano.cli as cli
+    import pyimgano.cli_common as cli_common
+
+    monkeypatch.setattr(
+        cli_common,
+        "merge_checkpoint_path",
+        lambda user_kwargs, *, checkpoint_path: {
+            "user_kwargs": dict(user_kwargs),
+            "checkpoint_path": checkpoint_path,
+        },
+    )
+
+    assert cli._merge_checkpoint_path({"a": 1}, checkpoint_path="/x.ckpt") == {
+        "user_kwargs": {"a": 1},
+        "checkpoint_path": "/x.ckpt",
+    }
 
 
 def test_cli_requires_checkpoint_for_checkpoint_backed_models(monkeypatch):
@@ -59,6 +87,21 @@ def test_validate_user_kwargs_rejects_unknown_keys_for_strict_models():
         _validate_user_model_kwargs("vision_abod", {"not_a_param": 1})
 
 
+def test_cli_validate_user_kwargs_delegates_to_cli_common(monkeypatch):
+    import pyimgano.cli as cli
+    import pyimgano.cli_common as cli_common
+
+    calls: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        cli_common,
+        "validate_user_model_kwargs",
+        lambda model_name, user_kwargs: calls.append((model_name, dict(user_kwargs))),
+    )
+
+    cli._validate_user_model_kwargs("vision_patchcore", {"device": "cpu"})
+    assert calls == [("vision_patchcore", {"device": "cpu"})]
+
+
 def test_build_model_kwargs_does_not_override_user_values():
     from pyimgano.cli import _build_model_kwargs
 
@@ -69,6 +112,36 @@ def test_build_model_kwargs_does_not_override_user_values():
     )
     assert out["device"] == "cpu"
     assert out["contamination"] == 0.1
+
+
+def test_cli_build_model_kwargs_delegates_to_cli_common(monkeypatch):
+    import pyimgano.cli as cli
+    import pyimgano.cli_common as cli_common
+
+    monkeypatch.setattr(
+        cli_common,
+        "build_model_kwargs",
+        lambda model_name, *, user_kwargs, preset_kwargs=None, auto_kwargs: {
+            "model_name": model_name,
+            "user_kwargs": dict(user_kwargs),
+            "preset_kwargs": None if preset_kwargs is None else dict(preset_kwargs),
+            "auto_kwargs": dict(auto_kwargs),
+        },
+    )
+
+    out = cli._build_model_kwargs(
+        "vision_patchcore",
+        user_kwargs={"device": "cpu"},
+        preset_kwargs={"backbone": "resnet50"},
+        auto_kwargs={"contamination": 0.1},
+    )
+
+    assert out == {
+        "model_name": "vision_patchcore",
+        "user_kwargs": {"device": "cpu"},
+        "preset_kwargs": {"backbone": "resnet50"},
+        "auto_kwargs": {"contamination": 0.1},
+    }
 
 
 def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):

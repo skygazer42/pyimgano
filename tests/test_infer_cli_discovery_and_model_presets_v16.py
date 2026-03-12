@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 from PIL import Image
@@ -28,6 +29,21 @@ def test_infer_cli_can_list_models(capsys) -> None:
 
     out = capsys.readouterr().out.strip().splitlines()
     assert "vision_ecod" in out
+
+
+def test_infer_cli_list_models_delegates_to_discovery_service(monkeypatch, capsys) -> None:
+    from pyimgano.infer_cli import main as infer_main
+    import pyimgano.services.discovery_service as discovery_service
+
+    monkeypatch.setattr(
+        discovery_service,
+        "list_discovery_model_names",
+        lambda **_kwargs: ["delegated-model"],
+    )
+
+    rc = infer_main(["--list-models"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip().splitlines() == ["delegated-model"]
 
 
 def test_infer_cli_can_list_models_by_year_and_type(capsys) -> None:
@@ -110,6 +126,189 @@ def test_infer_cli_can_list_model_presets_by_family_as_json(capsys) -> None:
     )
 
 
+def test_infer_cli_model_preset_listing_uses_shared_listing_helper(monkeypatch) -> None:
+    import pyimgano.infer_cli as infer_cli
+    import pyimgano.services.discovery_service as discovery_service
+
+    monkeypatch.setattr(
+        discovery_service,
+        "list_model_preset_names",
+        lambda **_kwargs: ["preset-a", "preset-b"],
+    )
+    monkeypatch.setattr(
+        discovery_service,
+        "list_model_preset_infos_payload",
+        lambda **_kwargs: [{"name": "preset-a", "tags": ["graph"]}],
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        infer_cli,
+        "cli_listing",
+        type(
+            "_StubCliListing",
+            (),
+            {
+                "emit_listing": staticmethod(
+                    lambda items, **kwargs: calls.append((list(items), kwargs)) or 67
+                )
+            },
+        ),
+        raising=False,
+    )
+
+    rc = infer_cli.main(["--list-model-presets", "--json"])
+    assert rc == 67
+    assert calls == [
+        (
+            ["preset-a", "preset-b"],
+            {
+                "json_output": True,
+                "json_payload": [{"name": "preset-a", "tags": ["graph"]}],
+                "sort_keys": False,
+            },
+        )
+    ]
+
+
+def test_infer_cli_model_preset_listing_delegates_raw_filters_to_service(monkeypatch) -> None:
+    import pyimgano.infer_cli as infer_cli
+    import pyimgano.services.discovery_service as discovery_service
+
+    service_calls: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        discovery_service,
+        "list_model_preset_names",
+        lambda **kwargs: service_calls.append(("names", dict(kwargs))) or ["preset-a"],
+    )
+    monkeypatch.setattr(
+        discovery_service,
+        "list_model_preset_infos_payload",
+        lambda **kwargs: service_calls.append(("infos", dict(kwargs))) or [{"name": "preset-a"}],
+    )
+    monkeypatch.setattr(
+        infer_cli,
+        "cli_listing",
+        type(
+            "_StubCliListing",
+            (),
+            {"emit_listing": staticmethod(lambda items, **kwargs: 89)},
+        ),
+        raising=False,
+    )
+
+    rc = infer_cli.main(
+        ["--list-model-presets", "--family", "graph", "--tags", "embeddings,gaussian", "--json"]
+    )
+    assert rc == 89
+    assert service_calls == [
+        ("names", {"tags": ["embeddings,gaussian"], "family": "graph"}),
+        ("infos", {"tags": ["embeddings,gaussian"], "family": "graph"}),
+    ]
+
+
+def test_infer_cli_model_info_uses_shared_discovery_renderer(monkeypatch) -> None:
+    import pyimgano.infer_cli as infer_cli
+    import pyimgano.services.discovery_service as discovery_service
+
+    monkeypatch.setattr(
+        discovery_service,
+        "build_model_info_payload",
+        lambda _name: {
+            "name": "delegated-model",
+            "tags": ["vision"],
+            "metadata": {},
+            "signature": "()",
+            "accepts_var_kwargs": False,
+            "accepted_kwargs": [],
+        },
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        infer_cli,
+        "cli_discovery_rendering",
+        type(
+            "_StubDiscoveryRendering",
+            (),
+            {
+                "emit_signature_payload": staticmethod(
+                    lambda payload, *, json_output: calls.append((payload, json_output)) or 47
+                ),
+                "emit_model_preset_payload": staticmethod(lambda payload, *, json_output: 0),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = infer_cli.main(["--model-info", "vision_patchcore"])
+    assert rc == 47
+    assert calls == [
+        (
+            {
+                "name": "delegated-model",
+                "tags": ["vision"],
+                "metadata": {},
+                "signature": "()",
+                "accepts_var_kwargs": False,
+                "accepted_kwargs": [],
+            },
+            False,
+        )
+    ]
+
+
+def test_infer_cli_model_preset_info_uses_shared_discovery_renderer(monkeypatch) -> None:
+    import pyimgano.infer_cli as infer_cli
+    import pyimgano.services.discovery_service as discovery_service
+
+    monkeypatch.setattr(
+        discovery_service,
+        "build_model_preset_info_payload",
+        lambda _name: {
+            "name": "delegated-preset",
+            "model": "vision_ecod",
+            "kwargs": {"device": "cpu"},
+            "optional": False,
+            "tags": ["graph"],
+            "description": "Delegated preset.",
+        },
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        infer_cli,
+        "cli_discovery_rendering",
+        type(
+            "_StubDiscoveryRendering",
+            (),
+            {
+                "emit_signature_payload": staticmethod(lambda payload, *, json_output: 0),
+                "emit_model_preset_payload": staticmethod(
+                    lambda payload, *, json_output: calls.append((payload, json_output)) or 53
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = infer_cli.main(["--model-preset-info", "industrial-structural-ecod"])
+    assert rc == 53
+    assert calls == [
+        (
+            {
+                "name": "delegated-preset",
+                "model": "vision_ecod",
+                "kwargs": {"device": "cpu"},
+                "optional": False,
+                "tags": ["graph"],
+                "description": "Delegated preset.",
+            },
+            False,
+        )
+    ]
+
+
 def test_infer_cli_accepts_model_preset_name_as_model(tmp_path: Path, monkeypatch) -> None:
     import pyimgano.infer_cli as infer_cli
     from pyimgano.infer_cli import main as infer_main
@@ -140,3 +339,74 @@ def test_infer_cli_accepts_model_preset_name_as_model(tmp_path: Path, monkeypatc
     )
     assert rc == 0
     assert created.get("name") == "vision_feature_pipeline"
+
+
+def test_infer_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) -> None:
+    import pyimgano.infer_cli as infer_cli
+    import pyimgano.services.discovery_service as discovery_service
+
+    helper_calls = []
+
+    monkeypatch.setattr(
+        infer_cli,
+        "cli_discovery_options",
+        type(
+            "_StubDiscoveryOptions",
+            (),
+            {
+                "validate_mutually_exclusive_flags": staticmethod(
+                    lambda flags: helper_calls.append(("flags", list(flags)))
+                ),
+                "resolve_model_list_discovery_options": staticmethod(
+                    lambda **kwargs: helper_calls.append(("resolve", dict(kwargs)))
+                    or SimpleNamespace(
+                        tags=["normalized-tag"],
+                        family="normalized-family",
+                        algorithm_type="normalized-type",
+                        year="2031",
+                    )
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    discovery_calls = []
+    monkeypatch.setattr(
+        discovery_service,
+        "list_discovery_model_names",
+        lambda **kwargs: discovery_calls.append(dict(kwargs)) or ["delegated-model"],
+    )
+    monkeypatch.setattr(
+        infer_cli,
+        "cli_listing",
+        type(
+            "_StubCliListing",
+            (),
+            {"emit_listing": staticmethod(lambda items, **kwargs: 83)},
+        ),
+        raising=False,
+    )
+
+    rc = infer_cli.main(["--list-models"])
+    assert rc == 83
+    assert helper_calls[0][0] == "flags"
+    assert helper_calls[1] == (
+        "resolve",
+        {
+            "list_models": True,
+            "tags": None,
+            "family": None,
+            "algorithm_type": None,
+            "year": None,
+            "allow_family_without_list_models": False,
+        },
+    )
+    assert discovery_calls == [
+        {
+            "tags": ["normalized-tag"],
+            "family": "normalized-family",
+            "algorithm_type": "normalized-type",
+            "year": "2031",
+        }
+    ]

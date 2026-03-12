@@ -169,6 +169,40 @@ def test_benchmark_cli_suite_discovery_flags_are_mutually_exclusive(capsys) -> N
     assert "mutually" in err or "exclusive" in err
 
 
+def test_benchmark_cli_suite_mode_delegates_to_benchmark_service(monkeypatch, capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+    import pyimgano.services.benchmark_service as benchmark_service
+    from pyimgano.services.benchmark_service import PixelPostprocessConfig
+
+    calls = []
+    monkeypatch.setattr(
+        benchmark_service,
+        "run_suite_request",
+        lambda request: calls.append(request) or {"suite": request.suite, "rows": []},
+    )
+
+    rc = benchmark_main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp/x",
+            "--category",
+            "bottle",
+            "--suite",
+            "industrial-v1",
+            "--pixel",
+            "--pixel-postprocess",
+            "--pixel-post-gaussian-sigma",
+            "1.25",
+        ]
+    )
+    assert rc == 0
+    assert isinstance(calls[0].pixel_postprocess, PixelPostprocessConfig)
+    assert calls[0].pixel_postprocess.gaussian_sigma == 1.25
+    assert '"suite": "industrial-v1"' in capsys.readouterr().out
+
+
 def test_benchmark_cli_can_run_suite_smoke(tmp_path: Path, capsys) -> None:
     from pyimgano.cli import main as benchmark_main
 

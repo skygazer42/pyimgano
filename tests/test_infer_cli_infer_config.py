@@ -102,6 +102,318 @@ def test_infer_cli_supports_infer_config(tmp_path: Path, monkeypatch) -> None:
     assert second["label"] == 1
 
 
+def test_infer_cli_infer_config_delegates_context_loading(tmp_path: Path, monkeypatch) -> None:
+    import pyimgano.services.infer_context_service as infer_context_service
+
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text("{}", encoding="utf-8")
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _Det:
+        threshold_ = 0.5
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+
+    calls: list[object] = []
+
+    monkeypatch.setattr(
+        infer_context_service,
+        "prepare_infer_config_context",
+        lambda _request: calls.append(_request)
+        or infer_context_service.ConfigBackedInferContext(
+            model_name="vision_ecod",
+            preset=None,
+            device="cpu",
+            contamination=0.1,
+            pretrained=False,
+            base_user_kwargs={},
+            checkpoint_path=None,
+            trained_checkpoint_path=None,
+            threshold=0.5,
+            defects_payload=None,
+            defects_payload_source=None,
+            illumination_contrast_knobs=None,
+            tiling_payload=None,
+            infer_config_postprocess=None,
+            enable_maps_by_default=False,
+            warnings=(),
+        ),
+    )
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: _Det())
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert len(calls) == 1
+
+
+def test_infer_cli_infer_config_delegates_detector_setup_to_service(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import pyimgano.services.infer_context_service as infer_context_service
+    import pyimgano.services.infer_load_service as infer_load_service
+
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text("{}", encoding="utf-8")
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _Det:
+        threshold_ = 0.5
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+
+    monkeypatch.setattr(
+        infer_context_service,
+        "prepare_infer_config_context",
+        lambda _request: infer_context_service.ConfigBackedInferContext(
+            model_name="vision_ecod",
+            preset=None,
+            device="cpu",
+            contamination=0.1,
+            pretrained=False,
+            base_user_kwargs={},
+            checkpoint_path=None,
+            trained_checkpoint_path=None,
+            threshold=0.5,
+            defects_payload=None,
+            defects_payload_source=None,
+            illumination_contrast_knobs=None,
+            tiling_payload=None,
+            infer_config_postprocess=None,
+            enable_maps_by_default=False,
+            warnings=(),
+        ),
+    )
+
+    calls: list[object] = []
+    monkeypatch.setattr(
+        infer_load_service,
+        "load_config_backed_infer_detector",
+        lambda request, *, create_detector=None, load_checkpoint=None: calls.append(request)
+        or infer_load_service.ConfigBackedInferLoadResult(
+            model_name="vision_ecod",
+            detector=_Det(),
+            model_kwargs={},
+        ),
+    )
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert len(calls) == 1
+
+
+def test_infer_cli_infer_config_delegates_wrapper_setup_to_service(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import pyimgano.services.infer_context_service as infer_context_service
+    import pyimgano.services.infer_load_service as infer_load_service
+    import pyimgano.services.infer_wrapper_service as infer_wrapper_service
+
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text("{}", encoding="utf-8")
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _Det:
+        threshold_ = 0.5
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+
+    monkeypatch.setattr(
+        infer_context_service,
+        "prepare_infer_config_context",
+        lambda _request: infer_context_service.ConfigBackedInferContext(
+            model_name="vision_patchcore",
+            preset=None,
+            device="cpu",
+            contamination=0.1,
+            pretrained=False,
+            base_user_kwargs={},
+            checkpoint_path=None,
+            trained_checkpoint_path=None,
+            threshold=0.5,
+            defects_payload=None,
+            defects_payload_source=None,
+            illumination_contrast_knobs={"white_balance": "gray_world"},
+            tiling_payload={
+                "tile_size": 4,
+                "stride": 3,
+                "score_reduce": "topk_mean",
+                "score_topk": 0.2,
+                "map_reduce": "hann",
+            },
+            infer_config_postprocess=None,
+            enable_maps_by_default=False,
+            warnings=(),
+        ),
+    )
+    monkeypatch.setattr(
+        infer_load_service,
+        "load_config_backed_infer_detector",
+        lambda request, *, create_detector=None, load_checkpoint=None: infer_load_service.ConfigBackedInferLoadResult(
+            model_name="vision_patchcore",
+            detector=_Det(),
+            model_kwargs={},
+        ),
+    )
+
+    calls: list[object] = []
+    monkeypatch.setattr(
+        infer_wrapper_service,
+        "apply_infer_detector_wrappers",
+        lambda request: calls.append(request)
+        or infer_wrapper_service.InferDetectorWrapperResult(detector=request.detector),
+    )
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert len(calls) == 1
+
+
+def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import pyimgano.services.infer_context_service as infer_context_service
+    import pyimgano.services.infer_load_service as infer_load_service
+    import pyimgano.services.infer_runtime_service as infer_runtime_service
+    import pyimgano.services.infer_wrapper_service as infer_wrapper_service
+
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text("{}", encoding="utf-8")
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _Det:
+        threshold_ = 0.5
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+
+    monkeypatch.setattr(
+        infer_context_service,
+        "prepare_infer_config_context",
+        lambda _request: infer_context_service.ConfigBackedInferContext(
+            model_name="vision_patchcore",
+            preset=None,
+            device="cpu",
+            contamination=0.1,
+            pretrained=False,
+            base_user_kwargs={},
+            checkpoint_path=None,
+            trained_checkpoint_path=None,
+            threshold=0.5,
+            defects_payload=None,
+            defects_payload_source=None,
+            illumination_contrast_knobs=None,
+            tiling_payload=None,
+            infer_config_postprocess=None,
+            enable_maps_by_default=False,
+            warnings=(),
+        ),
+    )
+    monkeypatch.setattr(
+        infer_load_service,
+        "load_config_backed_infer_detector",
+        lambda request, *, create_detector=None, load_checkpoint=None: infer_load_service.ConfigBackedInferLoadResult(
+            model_name="vision_patchcore",
+            detector=_Det(),
+            model_kwargs={},
+        ),
+    )
+    monkeypatch.setattr(
+        infer_wrapper_service,
+        "apply_infer_detector_wrappers",
+        lambda request: infer_wrapper_service.InferDetectorWrapperResult(
+            detector=request.detector
+        ),
+    )
+
+    calls: list[object] = []
+    monkeypatch.setattr(
+        infer_runtime_service,
+        "prepare_infer_runtime_plan",
+        lambda request, *, run_inference_impl=None: calls.append(request)
+        or infer_runtime_service.InferRuntimePlanResult(
+            include_maps=False,
+            postprocess=None,
+            pixel_threshold_value=None,
+            pixel_threshold_provenance=None,
+        ),
+    )
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert len(calls) == 1
+
+
 def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypatch) -> None:
     run_dir = tmp_path / "run"
     artifacts = run_dir / "artifacts"

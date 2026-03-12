@@ -4,9 +4,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import pyimgano.services.workbench_service as workbench_service
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.workbench.config import WorkbenchConfig
-from pyimgano.workbench.runner import run_workbench
 
 
 @register_recipe(
@@ -23,7 +23,7 @@ def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     cfg = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -40,7 +40,7 @@ def classical_structural_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     cfg = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -61,7 +61,7 @@ def classical_edge_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     cfg = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -86,7 +86,7 @@ def classical_patch_stats_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     cfg = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -104,7 +104,7 @@ def classical_fft_lowfreq_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     cfg = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -123,7 +123,7 @@ def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
     cfg = replace(
         config, model=replace(config.model, name="vision_loop", model_kwargs=model_kwargs)
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -143,7 +143,7 @@ def classical_colorhist_mahalanobis(config: WorkbenchConfig) -> dict[str, Any]:
         config,
         model=replace(config.model, name="vision_mahalanobis", model_kwargs=model_kwargs),
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
@@ -230,7 +230,7 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
                 ),
                 model=replace(config.model, name="vision_iforest", model_kwargs=model_kwargs),
             )
-            return run_workbench(config=cfg, recipe_name=recipe_name)
+            return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
@@ -248,4 +248,4 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
         ),
         model=replace(config.model, name="vision_iforest", model_kwargs=model_kwargs),
     )
-    return run_workbench(config=cfg, recipe_name=recipe_name)
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

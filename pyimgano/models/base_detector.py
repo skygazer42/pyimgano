@@ -31,6 +31,8 @@ class BaseDetector:
         from training scores.
     """
 
+    input_mode = "features"
+
     def __init__(self, contamination: float = 0.1) -> None:
         if isinstance(contamination, (float, int)):
             if not (0.0 < float(contamination) <= 0.5):

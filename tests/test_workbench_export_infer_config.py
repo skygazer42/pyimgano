@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -107,6 +108,129 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert defects["close_ksize"] == 0
     assert defects["fill_holes"] is False
     assert defects["max_regions"] is None
+
+
+def test_train_cli_export_infer_config_delegates_to_workbench_service(tmp_path, monkeypatch):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "threshold": 0.5}
+
+    RECIPE_REGISTRY.register(
+        "test_workbench_service_export_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    import pyimgano.services.workbench_service as workbench_service
+
+    calls: list[dict[str, object]] = []
+    expected_payload = {"sentinel": True, "threshold": 0.5}
+
+    def _fake_build_infer_config_payload(*, config, report):  # noqa: ANN001 - service seam
+        calls.append({"config": config, "report": dict(report)})
+        return dict(expected_payload)
+
+    monkeypatch.setattr(
+        workbench_service,
+        "build_infer_config_payload",
+        _fake_build_infer_config_payload,
+    )
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_workbench_service_export_recipe",
+        "dataset": {"name": "custom", "root": str(tmp_path), "category": "custom"},
+        "model": {"name": "vision_ecod"},
+        "output": {"output_dir": str(out_dir), "save_run": True},
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-infer-config"])
+    assert code == 0
+    assert len(calls) == 1
+    assert calls[0]["report"]["run_dir"] == str(out_dir)
+
+    infer_cfg_path = out_dir / "artifacts" / "infer_config.json"
+    assert infer_cfg_path.exists()
+    assert json.loads(infer_cfg_path.read_text(encoding="utf-8"))["sentinel"] is True
+
+
+def test_workbench_runner_does_not_import_cli_module(tmp_path, monkeypatch) -> None:
+    import builtins
+
+    from pyimgano.workbench.config import WorkbenchConfig
+
+    original_import = builtins.__import__
+    imported: list[str] = []
+
+    def _guard_import(name, *args, **kwargs):  # noqa: ANN001 - import hook
+        imported.append(str(name))
+        if str(name) == "pyimgano.cli" or str(name).startswith("pyimgano.cli."):
+            raise AssertionError("pyimgano.workbench.runner imported pyimgano.cli")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _guard_import)
+    sys.modules.pop("pyimgano.workbench.runner", None)
+
+    import pyimgano.services.workbench_service as workbench_service
+    import pyimgano.workbench.runner as runner
+
+    class _DummyDetector:
+        def __init__(self):
+            self.threshold_ = None
+
+        def fit(self, X):  # noqa: ANN001 - test stub
+            self.fit_inputs = list(X)
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+    monkeypatch.setattr(
+        workbench_service,
+        "create_workbench_detector",
+        lambda *, config: _DummyDetector(),
+    )
+
+    root = tmp_path / "custom"
+    for rel in [
+        "train/normal/train_0.png",
+        "train/normal/train_1.png",
+        "test/normal/good_0.png",
+        "test/anomaly/bad_0.png",
+    ]:
+        _write_png(root / rel)
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "dataset": {
+                "name": "custom",
+                "root": str(root),
+                "category": "custom",
+                "resize": [16, 16],
+                "input_mode": "paths",
+                "limit_train": 2,
+                "limit_test": 2,
+            },
+            "model": {
+                "name": "vision_ecod",
+                "device": "cpu",
+                "pretrained": False,
+                "contamination": 0.1,
+            },
+            "output": {"save_run": False, "per_image_jsonl": False},
+        }
+    )
+
+    payload = runner.run_workbench(config=cfg, recipe_name="industrial-adapt")
+    assert payload["threshold"] >= 0.0
+    assert "pyimgano.cli" not in imported
 
 
 def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_path):

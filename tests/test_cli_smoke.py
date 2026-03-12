@@ -7,6 +7,130 @@ def test_cli_importable():
     assert callable(main)
 
 
+def test_cli_single_benchmark_mode_delegates_to_benchmark_service(monkeypatch, capsys):
+    import pyimgano.services.benchmark_service as benchmark_service
+
+    calls = []
+
+    def fake_run_benchmark_request(request):
+        calls.append(request)
+        return {"ok": True, "model": request.model}
+
+    monkeypatch.setattr(benchmark_service, "run_benchmark_request", fake_run_benchmark_request)
+
+    code = main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_ecod",
+            "--device",
+            "cpu",
+        ]
+    )
+    assert code == 0
+    assert calls
+    assert calls[0].model == "vision_ecod"
+    assert '"ok": true' in capsys.readouterr().out.lower()
+
+
+def test_cli_single_pixel_benchmark_mode_delegates_to_benchmark_service(
+    monkeypatch, capsys
+):
+    import pyimgano.cli as cli
+    import pyimgano.services.benchmark_service as benchmark_service
+    from pyimgano.services.benchmark_service import PixelPostprocessConfig
+
+    calls = []
+
+    monkeypatch.setattr(
+        benchmark_service,
+        "run_benchmark_request",
+        lambda request: calls.append(request) or {"pixel": True, "model": request.model},
+    )
+
+    code = cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_pixel_mean_absdiff_map",
+            "--pixel",
+            "--pixel-postprocess",
+            "--pixel-post-norm",
+            "percentile",
+            "--pixel-post-percentiles",
+            "2",
+            "98",
+            "--pixel-post-gaussian-sigma",
+            "1.5",
+            "--resize",
+            "16",
+            "16",
+        ]
+    )
+    assert code == 0
+    assert calls
+    assert calls[0].pixel is True
+    assert isinstance(calls[0].pixel_postprocess, PixelPostprocessConfig)
+    assert calls[0].pixel_postprocess.gaussian_sigma == 1.5
+    assert '"pixel": true' in capsys.readouterr().out.lower()
+
+
+def test_cli_jsonable_output_uses_cli_output_helper(monkeypatch) -> None:
+    import pyimgano.cli as cli
+    import pyimgano.services.benchmark_service as benchmark_service
+
+    monkeypatch.setattr(
+        benchmark_service,
+        "run_benchmark_request",
+        lambda request: {"ok": True, "model": request.model},
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        cli,
+        "cli_output",
+        type(
+            "_StubCliOutput",
+            (),
+            {
+                "emit_json": staticmethod(lambda payload, **kwargs: 0),
+                "emit_jsonable": staticmethod(
+                    lambda payload, **kwargs: calls.append((payload, kwargs)) or 29
+                ),
+                "print_cli_error": staticmethod(lambda exc, **kwargs: None),
+            },
+        ),
+        raising=False,
+    )
+
+    code = cli.main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_ecod",
+            "--device",
+            "cpu",
+        ]
+    )
+    assert code == 29
+    assert calls == [({"ok": True, "model": "vision_ecod"}, {})]
+
+
 def test_cli_pixel_mode_uses_pipeline_alignment(tmp_path, capsys):
     pytest.importorskip("torch")
     pytest.importorskip("torchvision")

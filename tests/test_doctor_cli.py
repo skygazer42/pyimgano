@@ -35,6 +35,58 @@ def test_doctor_cli_outputs_json(capsys) -> None:
     assert "industrial-feature-small" in set(baselines.get("sweeps", []))
 
 
+def test_doctor_cli_json_delegates_to_doctor_service(monkeypatch, capsys) -> None:
+    from pyimgano.doctor_cli import main
+    import pyimgano.services.doctor_service as doctor_service
+
+    monkeypatch.setattr(
+        doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "delegated-doctor",
+            "python": {},
+            "platform": {},
+            "optional_modules": [],
+            "baselines": {},
+        },
+    )
+
+    rc = main(["--json"])
+    assert rc == 0
+    assert "delegated-doctor" in capsys.readouterr().out
+
+
+def test_doctor_cli_json_uses_cli_output_helper(monkeypatch) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {"tool": "delegated-doctor"},
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        doctor_cli,
+        "cli_output",
+        type(
+            "_StubCliOutput",
+            (),
+            {
+                "emit_json": staticmethod(
+                    lambda payload, **kwargs: calls.append((payload, kwargs)) or 17
+                ),
+                "print_cli_error": staticmethod(lambda exc, **kwargs: None),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = doctor_cli.main(["--json"])
+    assert rc == 17
+    assert calls == [({"tool": "delegated-doctor"}, {})]
+
+
 def test_doctor_cli_outputs_text(capsys) -> None:
     from pyimgano.doctor_cli import main as doctor_main
 
@@ -117,3 +169,33 @@ def test_doctor_cli_require_extras_import_error_exits_nonzero(tmp_path, capsys) 
     finally:
         # Avoid polluting other tests (order-independent).
         sys.path = [p for p in sys.path if str(p) != str(broken_root)]
+
+
+def test_doctor_cli_error_uses_cli_output_helper(monkeypatch) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    def _boom(**_kwargs):
+        raise RuntimeError("broken-doctor")
+
+    monkeypatch.setattr(doctor_cli.doctor_service, "collect_doctor_payload", _boom)
+
+    calls = []
+    monkeypatch.setattr(
+        doctor_cli,
+        "cli_output",
+        type(
+            "_StubCliOutput",
+            (),
+            {
+                "emit_json": staticmethod(lambda payload, **kwargs: 0),
+                "print_cli_error": staticmethod(
+                    lambda exc, **kwargs: calls.append((str(exc), kwargs))
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = doctor_cli.main([])
+    assert rc == 1
+    assert calls == [("broken-doctor", {})]

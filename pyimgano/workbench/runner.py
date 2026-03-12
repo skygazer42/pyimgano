@@ -8,8 +8,6 @@ import numpy as np
 
 from pyimgano.evaluation import evaluate_detector
 from pyimgano.inference.api import infer
-from pyimgano.inference.config import INFER_CONFIG_SCHEMA_VERSION
-from pyimgano.models.registry import create_model
 from pyimgano.reporting.environment import collect_environment
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import (
@@ -17,8 +15,8 @@ from pyimgano.reporting.runs import (
     build_workbench_run_paths,
     ensure_run_dir,
 )
+import pyimgano.services.workbench_service as workbench_service
 from pyimgano.workbench.adaptation import apply_tiling, build_postprocess
-from pyimgano.workbench.calibration import calibrate_detector_threshold, resolve_default_quantile
 from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.maps import save_anomaly_map_npy
 
@@ -175,49 +173,7 @@ def _maybe_resize_maps_to_masks(maps: Sequence[np.ndarray], masks: np.ndarray) -
 
 
 def _create_detector(config: WorkbenchConfig) -> Any:
-    import pyimgano.models  # noqa: F401
-    from pyimgano.cli import _resolve_preset_kwargs
-    from pyimgano.cli_common import build_model_kwargs
-
-    user_kwargs = dict(config.model.model_kwargs)
-    if config.model.checkpoint_path is not None:
-        user_kwargs.setdefault("checkpoint_path", str(config.model.checkpoint_path))
-
-    preset_kwargs = _resolve_preset_kwargs(config.model.preset, config.model.name)
-
-    auto_kwargs: dict[str, Any] = {
-        "device": config.model.device,
-        "contamination": float(config.model.contamination),
-        "pretrained": bool(config.model.pretrained),
-    }
-    if config.seed is not None:
-        auto_kwargs["random_seed"] = int(config.seed)
-        auto_kwargs["random_state"] = int(config.seed)
-
-    model_kwargs = build_model_kwargs(
-        config.model.name,
-        user_kwargs=user_kwargs,
-        preset_kwargs=preset_kwargs,
-        auto_kwargs=auto_kwargs,
-    )
-    detector = create_model(config.model.name, **model_kwargs)
-
-    # Many threshold calibration helpers assume a `detector.contamination` attribute
-    # is present. Ensure our WorkbenchConfig contamination is discoverable even for
-    # lightweight / custom detectors that accept `contamination` but don't persist
-    # it as a public attribute.
-    try:
-        existing = getattr(detector, "contamination", None)
-    except Exception:  # noqa: BLE001 - best-effort metadata
-        existing = None
-
-    if existing is None:
-        try:
-            setattr(detector, "contamination", float(config.model.contamination))
-        except Exception:  # noqa: BLE001 - best-effort metadata
-            pass
-
-    return detector
+    return workbench_service.create_workbench_detector(config=config)
 
 
 def _run_category(
@@ -291,7 +247,6 @@ def _run_category(
         dataset_summary["pixel_metrics"] = {"enabled": True, "reason": None}
 
     detector = _create_detector(config)
-    threshold_quantile, threshold_quantile_source = resolve_default_quantile(detector)
     detector = apply_tiling(detector, config.adaptation.tiling)
 
     # Optional preprocessing (e.g. illumination/contrast normalization) applied before scoring.
@@ -332,12 +287,12 @@ def _run_category(
                 checkpoint_meta = {"path": saved.as_posix()}
     else:
         detector.fit(train_inputs)
-    threshold = calibrate_detector_threshold(
-        detector,
-        calibration_inputs,
+    threshold_calibration = workbench_service.calibrate_workbench_threshold(
+        detector=detector,
+        calibration_inputs=list(calibration_inputs),
         input_format=input_format,
-        quantile=float(threshold_quantile),
     )
+    threshold = float(threshold_calibration.threshold)
 
     postprocess = build_postprocess(config.adaptation.postprocess)
     include_maps = bool(config.adaptation.save_maps or (postprocess is not None))
@@ -382,8 +337,8 @@ def _run_category(
         "threshold": threshold_used,
         "threshold_provenance": {
             "method": "quantile",
-            "quantile": float(threshold_quantile),
-            "source": str(threshold_quantile_source),
+            "quantile": float(threshold_calibration.quantile),
+            "source": str(threshold_calibration.quantile_source),
             "contamination": float(config.model.contamination),
             "calibration_count": int(len(calibration_inputs)),
         },
@@ -585,164 +540,4 @@ def run_workbench(
 def build_infer_config_payload(
     *, config: WorkbenchConfig, report: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Build a minimal, JSON-friendly payload describing how to run inference.
-
-    Intended for `pyimgano-train --export-infer-config`.
-    """
-
-    model_payload: dict[str, Any] = {
-        "name": str(config.model.name),
-        "preset": config.model.preset,
-        "device": str(config.model.device),
-        "pretrained": bool(config.model.pretrained),
-        "contamination": float(config.model.contamination),
-        "model_kwargs": dict(config.model.model_kwargs),
-        "checkpoint_path": (
-            str(config.model.checkpoint_path) if config.model.checkpoint_path is not None else None
-        ),
-    }
-
-    adaptation_payload: dict[str, Any] = {
-        "tiling": {
-            "tile_size": config.adaptation.tiling.tile_size,
-            "stride": config.adaptation.tiling.stride,
-            "score_reduce": config.adaptation.tiling.score_reduce,
-            "score_topk": float(config.adaptation.tiling.score_topk),
-            "map_reduce": config.adaptation.tiling.map_reduce,
-        },
-        "postprocess": (
-            config.adaptation.postprocess.__dict__
-            if config.adaptation.postprocess is not None
-            else None
-        ),
-        "save_maps": bool(config.adaptation.save_maps),
-    }
-
-    defects_payload: dict[str, Any] = {
-        "enabled": bool(config.defects.enabled),
-        "pixel_threshold": (
-            float(config.defects.pixel_threshold)
-            if config.defects.pixel_threshold is not None
-            else None
-        ),
-        "pixel_threshold_strategy": str(config.defects.pixel_threshold_strategy),
-        "pixel_normal_quantile": float(config.defects.pixel_normal_quantile),
-        "mask_format": str(config.defects.mask_format),
-        "roi_xyxy_norm": (
-            [float(v) for v in config.defects.roi_xyxy_norm]
-            if config.defects.roi_xyxy_norm is not None
-            else None
-        ),
-        "border_ignore_px": int(config.defects.border_ignore_px),
-        "map_smoothing": {
-            "method": str(config.defects.map_smoothing.method),
-            "ksize": int(config.defects.map_smoothing.ksize),
-            "sigma": float(config.defects.map_smoothing.sigma),
-        },
-        "hysteresis": {
-            "enabled": bool(config.defects.hysteresis.enabled),
-            "low": (
-                float(config.defects.hysteresis.low)
-                if config.defects.hysteresis.low is not None
-                else None
-            ),
-            "high": (
-                float(config.defects.hysteresis.high)
-                if config.defects.hysteresis.high is not None
-                else None
-            ),
-        },
-        "shape_filters": {
-            "min_fill_ratio": (
-                float(config.defects.shape_filters.min_fill_ratio)
-                if config.defects.shape_filters.min_fill_ratio is not None
-                else None
-            ),
-            "max_aspect_ratio": (
-                float(config.defects.shape_filters.max_aspect_ratio)
-                if config.defects.shape_filters.max_aspect_ratio is not None
-                else None
-            ),
-            "min_solidity": (
-                float(config.defects.shape_filters.min_solidity)
-                if config.defects.shape_filters.min_solidity is not None
-                else None
-            ),
-        },
-        "merge_nearby": {
-            "enabled": bool(config.defects.merge_nearby.enabled),
-            "max_gap_px": int(config.defects.merge_nearby.max_gap_px),
-        },
-        "min_area": int(config.defects.min_area),
-        "min_score_max": (
-            float(config.defects.min_score_max)
-            if config.defects.min_score_max is not None
-            else None
-        ),
-        "min_score_mean": (
-            float(config.defects.min_score_mean)
-            if config.defects.min_score_mean is not None
-            else None
-        ),
-        "open_ksize": int(config.defects.open_ksize),
-        "close_ksize": int(config.defects.close_ksize),
-        "fill_holes": bool(config.defects.fill_holes),
-        "max_regions": (
-            int(config.defects.max_regions) if config.defects.max_regions is not None else None
-        ),
-        "max_regions_sort_by": str(config.defects.max_regions_sort_by),
-    }
-
-    preprocessing_payload: dict[str, Any] | None = None
-    ic = config.preprocessing.illumination_contrast
-    if ic is not None:
-        preprocessing_payload = {
-            "illumination_contrast": {
-                "white_balance": str(ic.white_balance),
-                "homomorphic": bool(ic.homomorphic),
-                "homomorphic_cutoff": float(ic.homomorphic_cutoff),
-                "homomorphic_gamma_low": float(ic.homomorphic_gamma_low),
-                "homomorphic_gamma_high": float(ic.homomorphic_gamma_high),
-                "homomorphic_c": float(ic.homomorphic_c),
-                "homomorphic_per_channel": bool(ic.homomorphic_per_channel),
-                "clahe": bool(ic.clahe),
-                "clahe_clip_limit": float(ic.clahe_clip_limit),
-                "clahe_tile_grid_size": [
-                    int(ic.clahe_tile_grid_size[0]),
-                    int(ic.clahe_tile_grid_size[1]),
-                ],
-                "gamma": (float(ic.gamma) if ic.gamma is not None else None),
-                "contrast_stretch": bool(ic.contrast_stretch),
-                "contrast_lower_percentile": float(ic.contrast_lower_percentile),
-                "contrast_upper_percentile": float(ic.contrast_upper_percentile),
-            }
-        }
-
-    out: dict[str, Any] = {
-        "schema_version": int(INFER_CONFIG_SCHEMA_VERSION),
-        "model": model_payload,
-        "adaptation": adaptation_payload,
-        "defects": defects_payload,
-    }
-    if preprocessing_payload is not None:
-        out["preprocessing"] = preprocessing_payload
-
-    # Prefer the report's run_dir (if present) to keep the payload portable across
-    # output_dir overrides.
-    run_dir = report.get("run_dir", None)
-    if run_dir is not None:
-        out["from_run"] = str(run_dir)
-
-    # Preserve threshold/checkpoint when present (single-category or category-selected exports).
-    if "threshold" in report:
-        out["threshold"] = report.get("threshold")
-    if "threshold_provenance" in report:
-        out["threshold_provenance"] = report.get("threshold_provenance")
-    if "checkpoint" in report:
-        out["checkpoint"] = report.get("checkpoint")
-    if "category" in report:
-        out["category"] = report.get("category")
-    if "per_category" in report:
-        out["per_category"] = report.get("per_category")
-
-    return stamp_report_payload(out)
+    return workbench_service.build_infer_config_payload(config=config, report=report)
