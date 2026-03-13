@@ -9,6 +9,9 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
     helper_calls = []
     request_calls = []
 
+    def _forbidden_pyim_list_request(**_kwargs):  # noqa: ANN003, ANN202 - test stub
+        raise AssertionError("pyim_contracts should not be used")
+
     class _Request:
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
@@ -57,11 +60,7 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
             "_ForbiddenPyimContracts",
             (),
             {
-                "PyimListRequest": staticmethod(
-                    lambda **_kwargs: (_ for _ in ()).throw(
-                        AssertionError("pyim_contracts should not be used")
-                    )
-                )
+                "PyimListRequest": staticmethod(_forbidden_pyim_list_request)
             },
         ),
         raising=False,

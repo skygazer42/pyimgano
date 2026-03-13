@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from pyimgano.services.infer_runtime_service import (
     InferRuntimePlanRequest,
     prepare_infer_runtime_plan,
@@ -41,12 +43,12 @@ def test_prepare_infer_runtime_plan_builds_postprocess_and_infer_config_threshol
     assert result.postprocess.normalize is True
     assert result.postprocess.normalize_method == "percentile"
     assert result.postprocess.percentile_range == (2.0, 98.0)
-    assert result.postprocess.gaussian_sigma == 1.5
+    assert result.postprocess.gaussian_sigma == pytest.approx(1.5)
     assert result.postprocess.morph_open_ksize == 3
     assert result.postprocess.morph_close_ksize == 5
-    assert result.postprocess.component_threshold == 0.6
+    assert result.postprocess.component_threshold == pytest.approx(0.6)
     assert result.postprocess.min_component_area == 11
-    assert result.pixel_threshold_value == 0.5
+    assert result.pixel_threshold_value == pytest.approx(0.5)
     assert result.pixel_threshold_provenance is not None
     assert result.pixel_threshold_provenance["source"] == "infer_config"
 

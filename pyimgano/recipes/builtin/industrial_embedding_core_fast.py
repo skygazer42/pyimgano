@@ -57,5 +57,5 @@ def industrial_embedding_core_fast(config: WorkbenchConfig) -> dict[str, Any]:
         checkpoint_path=model.checkpoint_path,
     )
 
-    cfg = replace(config, recipe=recipe_name, model=new_model)
+    cfg: WorkbenchConfig = replace(config, recipe=recipe_name, model=new_model)
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

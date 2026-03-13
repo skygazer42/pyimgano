@@ -34,8 +34,8 @@ def test_calibrate_threshold_sets_detector_threshold():
     det = _Cal()
     imgs = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(2)]
     threshold = calibrate_threshold(det, imgs, input_format=ImageFormat.RGB_U8_HWC, quantile=0.5)
-    assert threshold == 0.5
-    assert det.threshold_ == 0.5
+    assert threshold == pytest.approx(0.5)
+    assert det.threshold_ == pytest.approx(0.5)
 
 
 def test_results_to_jsonable_uses_stable_python_types():
@@ -84,8 +84,8 @@ def test_infer_applies_postprocess_to_maps_only():
 
     out_map = results[0].anomaly_map
     assert out_map is not None
-    assert float(out_map.min()) == 0.0
-    assert float(out_map.max()) == 1.0
+    assert float(out_map.min()) == pytest.approx(0.0)
+    assert float(out_map.max()) == pytest.approx(1.0)
 
 
 def test_infer_supports_batch_only_detectors_for_numpy_inputs():
@@ -122,7 +122,7 @@ def test_infer_supports_batch_size_chunking_preserves_order() -> None:
         def decision_function(self, X):
             # score = max pixel intensity (per image)
             scores: list[float] = []
-            for item in list(X):
+            for item in X:
                 arr = np.asarray(item)
                 scores.append(float(arr.max()) / 255.0)
             return np.asarray(scores, dtype=np.float32)

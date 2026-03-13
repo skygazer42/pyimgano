@@ -81,7 +81,7 @@ def test_cli_single_pixel_benchmark_mode_delegates_to_benchmark_service(
     assert calls
     assert calls[0].pixel is True
     assert isinstance(calls[0].pixel_postprocess, PixelPostprocessConfig)
-    assert calls[0].pixel_postprocess.gaussian_sigma == 1.5
+    assert calls[0].pixel_postprocess.gaussian_sigma == pytest.approx(1.5)
     assert '"pixel": true' in capsys.readouterr().out.lower()
 
 
@@ -207,7 +207,7 @@ def test_cli_supports_numpy_input_mode_flag(tmp_path, capsys):
 
         def decision_function(self, X):  # noqa: ANN001
             scores: list[float] = []
-            for item in list(X):
+            for item in X:
                 arr = np.asarray(item)
                 scores.append(float(arr.mean()))
             return np.asarray(scores, dtype=np.float32)

@@ -16,6 +16,7 @@ from pyimgano.robustness.corruptions import (
     apply_lighting,
 )
 from pyimgano.services.benchmark_service import PixelPostprocessConfig, build_pixel_postprocess
+import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.services.model_options import (
     enforce_checkpoint_requirement,
     resolve_model_options,
@@ -69,12 +70,6 @@ def _run_robustness_benchmark(*args: Any, **kwargs: Any) -> dict[str, Any]:
     from pyimgano.robustness.benchmark import run_robustness_benchmark
 
     return run_robustness_benchmark(*args, **kwargs)
-
-
-def _load_benchmark_split(*args: Any, **kwargs: Any):
-    from pyimgano.pipelines.mvtec_visa import load_benchmark_split
-
-    return load_benchmark_split(*args, **kwargs)
 
 
 def _load_u8_rgb(path: str, *, resize: tuple[int, int]) -> NDArray:
@@ -158,13 +153,14 @@ def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
     import pyimgano.models  # noqa: F401
 
     resize_hw = (int(request.resize[0]), int(request.resize[1]))
-    split = _load_benchmark_split(
+    loaded_split = dataset_split_service.load_benchmark_style_split(
         dataset=str(request.dataset),
         root=str(request.root),
         category=str(request.category),
         resize=resize_hw,
         load_masks=True,
     )
+    split = loaded_split.split
 
     user_kwargs = dict(request.model_kwargs or {})
     model_name, preset_model_auto_kwargs, _entry = resolve_requested_model(str(request.model))

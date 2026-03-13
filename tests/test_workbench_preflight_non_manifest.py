@@ -81,3 +81,46 @@ def test_workbench_preflight_custom_dataset_structure_validation(tmp_path: Path)
     report = run_preflight(config=cfg)
     codes = {i.code for i in report.issues}
     assert "CUSTOM_DATASET_INVALID_STRUCTURE" in codes
+
+
+def test_workbench_preflight_non_manifest_uses_workbench_category_boundary(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import pyimgano.workbench.preflight as preflight_module
+    import pyimgano.workbench.non_manifest_category_listing as listing_module
+
+    root = tmp_path / "mvtec"
+    root.mkdir(parents=True, exist_ok=True)
+
+    calls: list[str] = []
+
+    def _fake_list_workbench_categories(*, config):  # noqa: ANN001 - test seam
+        calls.append(str(config.dataset.name))
+        return ["via_loader"]
+
+    monkeypatch.setattr(
+        listing_module,
+        "list_workbench_categories",
+        _fake_list_workbench_categories,
+    )
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "seed": 123,
+            "dataset": {
+                "name": "mvtec",
+                "root": str(root),
+                "category": "bottle",
+                "resize": [16, 16],
+                "input_mode": "paths",
+            },
+            "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False},
+            "output": {"save_run": False},
+        }
+    )
+
+    report = preflight_module.run_preflight(config=cfg)
+
+    assert report.summary["categories"] == ["via_loader"]
+    assert calls == ["mvtec"]

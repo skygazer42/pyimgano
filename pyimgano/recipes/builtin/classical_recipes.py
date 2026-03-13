@@ -20,7 +20,7 @@ def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     model_kwargs.setdefault(
         "feature_extractor", {"name": "hog", "kwargs": {"resize_hw": [128, 128]}}
     )
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
@@ -37,7 +37,7 @@ def classical_structural_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     model_kwargs.setdefault(
         "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
     )
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
@@ -58,7 +58,7 @@ def classical_edge_ecod(config: WorkbenchConfig) -> dict[str, Any]:
             "kwargs": {"canny_threshold1": 50, "canny_threshold2": 150, "sobel_ksize": 3},
         },
     )
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
@@ -83,7 +83,7 @@ def classical_patch_stats_ecod(config: WorkbenchConfig) -> dict[str, Any]:
             },
         },
     )
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
@@ -101,7 +101,7 @@ def classical_fft_lowfreq_ecod(config: WorkbenchConfig) -> dict[str, Any]:
         "feature_extractor",
         {"name": "fft_lowfreq", "kwargs": {"size_hw": [64, 64], "radii": [4, 8, 16]}},
     )
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
@@ -120,7 +120,7 @@ def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
         {"name": "lbp", "kwargs": {"n_points": 8, "radius": 1.0, "method": "uniform"}},
     )
     model_kwargs.setdefault("n_neighbors", 15)
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config, model=replace(config.model, name="vision_loop", model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
@@ -139,7 +139,7 @@ def classical_colorhist_mahalanobis(config: WorkbenchConfig) -> dict[str, Any]:
         {"name": "color_hist", "kwargs": {"colorspace": "hsv", "bins": [16, 16, 16]}},
     )
     model_kwargs.setdefault("reg", 1e-6)
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config,
         model=replace(config.model, name="vision_mahalanobis", model_kwargs=model_kwargs),
     )
@@ -218,7 +218,7 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
             model_kwargs.setdefault(
                 "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
             )
-            cfg = replace(
+            cfg: WorkbenchConfig = replace(
                 config,
                 dataset=replace(
                     config.dataset,
@@ -236,7 +236,7 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
     model_kwargs.setdefault(
         "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
     )
-    cfg = replace(
+    cfg: WorkbenchConfig = replace(
         config,
         dataset=replace(
             config.dataset,

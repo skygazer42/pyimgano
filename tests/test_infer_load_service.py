@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from pyimgano.services.infer_context_service import ConfigBackedInferContext
 from pyimgano.services.infer_load_service import (
     ConfigBackedInferLoadRequest,
@@ -69,6 +71,6 @@ def test_load_config_backed_infer_detector_restores_checkpoint_and_threshold() -
     assert result.detector is detector
     assert result.model_kwargs == created["kwargs"]
     assert created["name"] == "vision_ecod"
-    assert created["kwargs"]["contamination"] == 0.2
+    assert created["kwargs"]["contamination"] == pytest.approx(0.2)
     assert loaded == [f"{id(detector)}:/tmp/trained-model.pt"]
-    assert detector.threshold_ == 0.73
+    assert detector.threshold_ == pytest.approx(0.73)

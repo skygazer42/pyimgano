@@ -11,7 +11,7 @@ def emit_json(
     payload: Any,
     *,
     status_code: int = 0,
-    indent: int = 2,
+    indent: int | None = 2,
     sort_keys: bool = True,
 ) -> int:
     print(json.dumps(payload, indent=indent, sort_keys=sort_keys))
@@ -22,7 +22,7 @@ def emit_jsonable(
     payload: Any,
     *,
     status_code: int = 0,
-    indent: int = 2,
+    indent: int | None = 2,
     sort_keys: bool = True,
 ) -> int:
     return emit_json(

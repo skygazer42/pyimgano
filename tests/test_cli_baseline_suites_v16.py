@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 
 def _write_custom_dataset(root: Path) -> None:
     import cv2
@@ -198,8 +200,9 @@ def test_benchmark_cli_suite_mode_delegates_to_benchmark_service(monkeypatch, ca
         ]
     )
     assert rc == 0
+    assert len(calls) == 1
     assert isinstance(calls[0].pixel_postprocess, PixelPostprocessConfig)
-    assert calls[0].pixel_postprocess.gaussian_sigma == 1.25
+    assert calls[0].pixel_postprocess.gaussian_sigma == pytest.approx(1.25)
     assert '"suite": "industrial-v1"' in capsys.readouterr().out
 
 

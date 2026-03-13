@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from pyimgano.services.infer_wrapper_service import (
     InferDetectorWrapperRequest,
     apply_infer_detector_wrappers,
@@ -115,5 +117,5 @@ def test_apply_infer_detector_wrappers_applies_defaults_and_preserves_threshold(
             "u16_max": 4095,
         },
     ]
-    assert result.detector.threshold_ == 0.73
-    assert result.detector.detector.threshold_ == 0.73
+    assert result.detector.threshold_ == pytest.approx(0.73)
+    assert result.detector.detector.threshold_ == pytest.approx(0.73)

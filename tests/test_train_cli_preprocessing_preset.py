@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 
 def test_train_cli_dry_run_applies_preprocessing_preset(tmp_path, capsys) -> None:
     from pyimgano.train_cli import main
@@ -87,7 +89,7 @@ def test_train_cli_dry_run_delegates_overrides_to_workbench_service(
     pre = payload["config"]["preprocessing"]["illumination_contrast"]
     assert pre["white_balance"] == "max_rgb"
     assert pre["clahe"] is True
-    assert pre["clahe_clip_limit"] == 1.5
+    assert pre["clahe_clip_limit"] == pytest.approx(1.5)
 
 
 def test_train_cli_dry_run_delegates_preprocessing_preset_to_workbench_service(

@@ -256,6 +256,7 @@ def test_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) -> Non
 
     code = cli.main(["--list-models"])
     assert code == 79
+    assert len(helper_calls) == 2
     assert helper_calls[0][0] == "flags"
     assert helper_calls[1] == (
         "resolve",
@@ -268,6 +269,7 @@ def test_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) -> Non
             "allow_family_without_list_models": False,
         },
     )
+    assert len(discovery_calls) == 1
     assert discovery_calls == [
         {
             "tags": ["normalized-tag"],

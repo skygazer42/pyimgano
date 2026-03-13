@@ -62,6 +62,9 @@ docs/
 ├── build/                   # Generated documentation (not in git)
 ├── Makefile                 # Build script (Unix/Mac)
 ├── make.bat                 # Build script (Windows)
+├── ZH_ZERO_TO_ONE_GUIDE.md  # 中文从 0 到 1 落地操作指南
+├── ZH_INDUSTRY_SCENARIO_PLAYBOOK.md # 中文行业场景落地手册
+├── ZH_FAQ_TROUBLESHOOTING.md # 中文 FAQ / 排障文档
 ├── QUICKSTART.md            # Quick start guide
 ├── OPTIONAL_DEPENDENCIES.md # Extras map (optional dependencies)
 ├── PLUGINS.md               # Third-party extension mechanism (entry points)
@@ -74,6 +77,8 @@ docs/
 If you’re updating docs, these pages form the "happy path" for most industrial users:
 
 - `docs/ZH_ZERO_TO_ONE_GUIDE.md` (中文从 0 到 1 落地操作指南)
+- `docs/ZH_INDUSTRY_SCENARIO_PLAYBOOK.md` (中文行业场景落地手册)
+- `docs/ZH_FAQ_TROUBLESHOOTING.md` (中文 FAQ / Troubleshooting / 排障索引)
 - `docs/QUICKSTART.md` (install + basic usage)
 - `docs/WORKBENCH.md` (train/eval/export loop; artifacts)
 - `docs/OPTIONAL_DEPENDENCIES.md` (extras map + recommended install combos)

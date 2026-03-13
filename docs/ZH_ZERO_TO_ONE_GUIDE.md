@@ -376,6 +376,8 @@ pyimgano-benchmark \
 - `docs/ROBUSTNESS_BENCHMARK.md`
 - `docs/FALSE_POSITIVE_DEBUGGING.md`
 - `docs/ALGORITHM_SELECTION_GUIDE.md`
+- `docs/ZH_INDUSTRY_SCENARIO_PLAYBOOK.md`
+- `docs/ZH_FAQ_TROUBLESHOOTING.md`
 
 ## 15. 最常见的 8 类问题，先按这个顺序排查
 
@@ -636,3 +638,169 @@ pyimgano-benchmark \
 4. 最后再做 defects、robustness、suite 选型和更重的模型
 
 先把链路做稳，后面不管换模型、换阈值还是换部署形态，成本都会低很多。
+
+## 20. 一个最小 manifest 配置样例
+
+如果你现在就想照抄一份最小配置开始，下面这个版本最适合作为起点：
+
+```json
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "dataset": {
+    "name": "manifest",
+    "root": "/path/to/dataset_root",
+    "manifest_path": "/path/to/manifest.jsonl",
+    "category": "all",
+    "resize": [256, 256],
+    "input_mode": "paths",
+    "split_policy": {
+      "mode": "benchmark",
+      "scope": "category",
+      "seed": 123,
+      "test_normal_fraction": 0.2
+    }
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-balanced",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "adaptation": {
+    "save_maps": true
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}
+```
+
+这个配置适合：
+
+- 你已经有 manifest
+- 你需要 anomaly map
+- 你希望后续能直接导出 `infer_config.json`
+
+如果你还没有 GPU，把 `model.device` 改成 `cpu` 即可；只是速度会慢一些。
+
+## 21. 一个带 defects 的配置样例
+
+如果你的目标是直接落缺陷 mask / region，而不是只做图像级分数，可以从这个方向起步：
+
+```json
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-balanced",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "adaptation": {
+    "save_maps": true
+  },
+  "defects": {
+    "enabled": true,
+    "pixel_threshold_strategy": "normal_pixel_quantile",
+    "pixel_normal_quantile": 0.999,
+    "mask_format": "png",
+    "roi_xyxy_norm": [0.1, 0.1, 0.9, 0.9],
+    "border_ignore_px": 2,
+    "map_smoothing": {
+      "method": "median",
+      "ksize": 3,
+      "sigma": 0.0
+    },
+    "hysteresis": {
+      "enabled": true,
+      "low": null,
+      "high": null
+    },
+    "shape_filters": {
+      "min_fill_ratio": 0.15,
+      "max_aspect_ratio": 6.0,
+      "min_solidity": 0.8
+    },
+    "merge_nearby": {
+      "enabled": true,
+      "max_gap_px": 1
+    },
+    "min_area": 16,
+    "min_score_max": 0.6,
+    "min_score_mean": null,
+    "open_ksize": 0,
+    "close_ksize": 0,
+    "fill_holes": false,
+    "max_regions": 20,
+    "max_regions_sort_by": "score_max"
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}
+```
+
+这份配置不是“最好”的默认值，但它代表了一条比较典型的工业 FP 控制起点。  
+如果后面发现误报还是高，优先去看：
+
+- ROI 是否画对
+- `pixel_normal_quantile` 是否过低
+- `min_area` 是否过小
+- `shape_filters` 是否太宽松
+
+## 22. 推荐的团队分工方式
+
+如果这个项目不是你一个人做，建议把职责切清楚，不要所有人同时改数据、模型和部署。
+
+### 数据同学负责
+
+- manifest 生成与维护
+- `group_id` / `mask_path` / `label` 的正确性
+- 训练集、测试集和漏标问题确认
+
+### 算法同学负责
+
+- 模型选择
+- 配置调优
+- `preflight` / `benchmark` / `train` / `infer` 主流程
+- `report.json` 和 `per_image.jsonl` 解读
+
+### 部署同学负责
+
+- `deploy_bundle` 或 `infer_config.json` 的接入
+- 线上环境变量、缓存目录和 GPU 资源规划
+- 批量推理稳定性参数
+- 输出文件接入下游系统
+
+这么分的好处是：  
+数据问题不会被误判成模型问题，部署问题也不会被误判成训练问题。
+
+## 23. 上线前最后检查一次这 10 项
+
+在你准备把这套东西交出去之前，建议手工过一遍下面这份清单：
+
+1. `pyimgano-doctor --json` 是否没有明显环境缺口
+2. `pyimgano-train --preflight` 是否没有阻塞级错误
+3. 最终使用的配置文件是否已经固化保存
+4. `report.json` 是否已归档
+5. `environment.json` 是否已归档
+6. `infer_config.json` 是否已校验
+7. 是否保留了一小批样例输入和对应输出
+8. 是否明确了推理命令和输出目录
+9. 是否明确了是否需要 GPU / CUDA / 特定缓存目录
+10. 是否明确了下游究竟消费 `score`、`label`、`mask` 还是 `regions`
+
+如果这 10 项里有 3 项以上答不上来，通常说明现在更适合继续整理交付，而不是急着上线。

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from pyimgano.models.registry import create_model
+import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.services.model_options import (
     enforce_checkpoint_requirement,
     resolve_model_options,
@@ -189,54 +190,6 @@ def _resolve_model_run_options(
     return model_name, model_kwargs, entry
 
 
-def _load_manifest_pixel_split(request: BenchmarkRunRequest) -> tuple[Any, str | None]:
-    import numpy as np
-
-    from pyimgano.datasets.manifest import ManifestSplitPolicy, load_manifest_benchmark_split
-    from pyimgano.pipelines.mvtec_visa import BenchmarkSplit
-
-    manifest_path = (
-        str(request.root) if request.manifest_path is None else str(request.manifest_path)
-    )
-    root_fallback = None if request.manifest_path is None else str(request.root)
-    seed = (
-        int(request.manifest_split_seed)
-        if request.manifest_split_seed is not None
-        else (int(request.seed) if request.seed is not None else 0)
-    )
-    policy = ManifestSplitPolicy(
-        seed=seed,
-        test_normal_fraction=float(request.manifest_test_normal_fraction),
-    )
-    manifest_split = load_manifest_benchmark_split(
-        manifest_path=manifest_path,
-        root_fallback=root_fallback,
-        category=str(request.category),
-        resize=(int(request.resize[0]), int(request.resize[1])),
-        load_masks=True,
-        split_policy=policy,
-    )
-    split = BenchmarkSplit(
-        train_paths=list(manifest_split.train_paths),
-        test_paths=list(manifest_split.test_paths),
-        test_labels=np.asarray(manifest_split.test_labels),
-        test_masks=manifest_split.test_masks,
-    )
-    return split, manifest_split.pixel_skip_reason
-
-
-def _load_pixel_split(request: BenchmarkRunRequest) -> Any:
-    from pyimgano.pipelines.mvtec_visa import load_benchmark_split
-
-    return load_benchmark_split(
-        dataset=str(request.dataset),
-        root=str(request.root),
-        category=str(request.category),
-        resize=(int(request.resize[0]), int(request.resize[1])),
-        load_masks=True,
-    )
-
-
 def _evaluate_pixel_split(
     detector: Any,
     split: Any,
@@ -274,11 +227,21 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
     model_name, model_kwargs, _entry = _resolve_model_run_options(request)
     detector = create_model(model_name, **model_kwargs)
 
-    pixel_skip_reason = None
-    if str(request.dataset).lower() == "manifest":
-        split, pixel_skip_reason = _load_manifest_pixel_split(request)
-    else:
-        split = _load_pixel_split(request)
+    loaded_split = dataset_split_service.load_benchmark_style_split(
+        dataset=str(request.dataset),
+        root=str(request.root),
+        manifest_path=(str(request.manifest_path) if request.manifest_path is not None else None),
+        category=str(request.category),
+        resize=(int(request.resize[0]), int(request.resize[1])),
+        load_masks=True,
+        seed=(int(request.seed) if request.seed is not None else None),
+        manifest_split_seed=(
+            int(request.manifest_split_seed) if request.manifest_split_seed is not None else None
+        ),
+        manifest_test_normal_fraction=float(request.manifest_test_normal_fraction),
+    )
+    split = loaded_split.split
+    pixel_skip_reason = loaded_split.pixel_skip_reason
 
     results = _evaluate_pixel_split(detector, split, request)
     payload: dict[str, Any] = {

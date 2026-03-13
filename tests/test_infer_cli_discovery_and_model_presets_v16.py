@@ -390,6 +390,7 @@ def test_infer_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) 
 
     rc = infer_cli.main(["--list-models"])
     assert rc == 83
+    assert len(helper_calls) == 2
     assert helper_calls[0][0] == "flags"
     assert helper_calls[1] == (
         "resolve",
@@ -402,6 +403,7 @@ def test_infer_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) 
             "allow_family_without_list_models": False,
         },
     )
+    assert len(discovery_calls) == 1
     assert discovery_calls == [
         {
             "tags": ["normalized-tag"],

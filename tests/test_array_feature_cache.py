@@ -14,7 +14,7 @@ def test_array_feature_cache_reuses_disk_features(tmp_path) -> None:
         def extract(self, arrays):  # noqa: ANN001, ANN201 - test helper
             self.calls += 1
             feats: list[list[float]] = []
-            for a in list(arrays):
+            for a in arrays:
                 arr = np.asarray(a)
                 feats.append([float(arr.shape[0]), float(arr.shape[1]), float(np.mean(arr))])
             return np.asarray(feats, dtype=np.float32)

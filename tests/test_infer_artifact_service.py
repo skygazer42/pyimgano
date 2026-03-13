@@ -102,7 +102,7 @@ def test_materialize_infer_result_artifacts_saves_maps_masks_overlays_and_region
     assert record["anomaly_map"]["path"].endswith(".npy")
 
     defects = record["defects"]
-    assert defects["pixel_threshold"] == 0.5
+    assert defects["pixel_threshold"] == pytest.approx(0.5)
     assert defects["pixel_threshold_provenance"]["source"] == "explicit"
     assert defects["mask"]["path"].endswith(".png")
     assert defects["mask"]["encoding"] == "png"

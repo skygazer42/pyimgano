@@ -47,7 +47,7 @@ def test_oneclick_pipeline_supports_numpy_input_mode(tmp_path):
 
         def decision_function(self, X):  # noqa: ANN001
             scores: list[float] = []
-            for item in list(X):
+            for item in X:
                 arr = np.asarray(item)
                 scores.append(float(arr.mean()))
             return np.asarray(scores, dtype=np.float32)

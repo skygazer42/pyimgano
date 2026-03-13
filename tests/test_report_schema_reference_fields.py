@@ -27,7 +27,7 @@ def test_benchmark_report_includes_reference_context_when_present(tmp_path: Path
             return self
 
         def decision_function(self, X):  # noqa: ANN001
-            return [0.0 for _ in list(X)]
+            return [0.0 for _ in X]
 
     MODEL_REGISTRY.register(
         "test_reference_report_dummy",

@@ -13,7 +13,7 @@ def test_feature_cache_reuses_numpy_image_features(tmp_path) -> None:
         def extract(self, inputs):  # noqa: ANN001, ANN201 - test helper
             self.calls += 1
             feats: list[list[float]] = []
-            for img in list(inputs):
+            for img in inputs:
                 arr = np.asarray(img)
                 feats.append([float(arr.mean()), float(arr.std())])
             return np.asarray(feats, dtype=np.float32)

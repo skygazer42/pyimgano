@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from pyimgano.services.infer_context_service import (
     InferConfigContextRequest,
     prepare_infer_config_context,
@@ -44,6 +46,6 @@ def test_prepare_infer_config_context_returns_threshold_and_checkpoint(tmp_path)
     )
 
     assert context.model_name == "vision_ecod"
-    assert context.threshold == 0.7
+    assert context.threshold == pytest.approx(0.7)
     assert context.trained_checkpoint_path is not None
     assert context.trained_checkpoint_path.endswith("model.pt")

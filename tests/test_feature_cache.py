@@ -19,7 +19,7 @@ def test_feature_cache_reuses_disk_features(tmp_path) -> None:
         def extract(self, paths):  # noqa: ANN001, ANN201 - test helper
             self.calls += 1
             feats: list[list[float]] = []
-            for p in list(paths):
+            for p in paths:
                 s = str(p)
                 feats.append([float(len(s)), float(sum(ord(ch) for ch in s) % 1000)])
             return np.asarray(feats, dtype=np.float32)

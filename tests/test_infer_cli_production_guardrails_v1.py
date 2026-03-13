@@ -30,7 +30,7 @@ def test_infer_cli_continue_on_error_records_error_lines_and_returns_nonzero(
             self.threshold_ = 0.5
 
         def decision_function(self, X):
-            for item in list(X):
+            for item in X:
                 if "bad" in str(item):
                     raise ValueError("boom")
             return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
@@ -226,7 +226,7 @@ def test_infer_cli_profile_json_writes_payload(tmp_path, monkeypatch) -> None:
             self.threshold_ = 0.5
 
         def decision_function(self, X):
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     det = _OK()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)

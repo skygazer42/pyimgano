@@ -32,7 +32,7 @@ def test_infer_cli_onnx_session_options_shorthand_passes_to_model_kwargs(
             self.threshold_ = 0.5
 
         def decision_function(self, X):
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     def _create_model(name: str, **kwargs):  # noqa: ANN001, ANN201 - test stub
         _ = name
@@ -89,7 +89,7 @@ def test_infer_cli_onnx_session_options_shorthand_delegates_to_model_options(
             self.threshold_ = 0.5
 
         def decision_function(self, X):
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_cli,
@@ -222,7 +222,7 @@ def test_infer_cli_onnx_sweep_selects_best_session_options_and_applies_to_model(
             self.threshold_ = 0.5
 
         def decision_function(self, X):
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     def _create_model(name: str, **kwargs):  # noqa: ANN001, ANN201 - test stub
         _ = name

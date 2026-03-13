@@ -29,10 +29,13 @@ def test_patchcore_accepts_numpy_images(monkeypatch):
     scores = det.decision_function(imgs)
     assert scores.shape == (2,)
 
+    def _imread_should_not_be_called(*_a, **_k):  # noqa: ANN002, ANN003, ANN202 - test stub
+        raise AssertionError("cv2.imread called")
+
     monkeypatch.setattr(
         det._cv2,
         "imread",
-        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("cv2.imread called")),
+        _imread_should_not_be_called,
     )
     anomaly_map = det.get_anomaly_map(imgs[0])
     assert anomaly_map.shape == (10, 20)

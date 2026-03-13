@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 import pyimgano.infer_cli as infer_cli
@@ -74,7 +75,7 @@ def test_infer_cli_supports_infer_config(tmp_path: Path, monkeypatch) -> None:
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
     det = _DummyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -92,7 +93,7 @@ def test_infer_cli_supports_infer_config(tmp_path: Path, monkeypatch) -> None:
     assert rc == 0
 
     assert det.loaded == str(ckpt_path)
-    assert det.threshold_ == 0.7
+    assert det.threshold_ == pytest.approx(0.7)
 
     lines = out_jsonl.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
@@ -121,7 +122,7 @@ def test_infer_cli_infer_config_delegates_context_loading(tmp_path: Path, monkey
         threshold_ = 0.5
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     calls: list[object] = []
 
@@ -186,7 +187,7 @@ def test_infer_cli_infer_config_delegates_detector_setup_to_service(
         threshold_ = 0.5
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_context_service,
@@ -260,7 +261,7 @@ def test_infer_cli_infer_config_delegates_wrapper_setup_to_service(
         threshold_ = 0.5
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_context_service,
@@ -346,7 +347,7 @@ def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
         threshold_ = 0.5
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in list(X)], dtype=np.float32)
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_context_service,
@@ -478,7 +479,7 @@ def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypat
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            items = list(X)
+            items = tuple(X)
             assert items
             assert all(isinstance(x, np.ndarray) for x in items)
             assert all(x.dtype == np.uint8 for x in items)
@@ -501,7 +502,7 @@ def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypat
     assert rc == 0
 
     assert det.loaded == str(ckpt_path)
-    assert det.threshold_ == 0.7
+    assert det.threshold_ == pytest.approx(0.7)
 
 
 def test_infer_cli_errors_when_preprocessing_enabled_on_non_numpy_model(
@@ -570,7 +571,7 @@ def test_infer_cli_errors_when_preprocessing_enabled_on_non_numpy_model(
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            items = list(X)
+            items = tuple(X)
             assert items
             assert all(isinstance(x, np.ndarray) for x in items)
             assert all(x.dtype == np.uint8 for x in items)
@@ -656,7 +657,7 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -684,12 +685,12 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
     )
     assert rc == 0
     assert det.loaded == str(ckpt_path)
-    assert det.threshold_ == 0.7
+    assert det.threshold_ == pytest.approx(0.7)
 
     lines = out_jsonl.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
     first = json.loads(lines[0])
-    assert first["defects"]["pixel_threshold"] == 0.5
+    assert first["defects"]["pixel_threshold"] == pytest.approx(0.5)
     assert first["defects"]["pixel_threshold_provenance"]["source"] == "infer_config"
     assert len(first["defects"]["regions"]) == 1
 
@@ -750,7 +751,7 @@ def test_infer_cli_supports_infer_config_defects_border_ignore_px(
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -838,7 +839,7 @@ def test_infer_cli_supports_infer_config_defects_map_smoothing(
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -923,7 +924,7 @@ def test_infer_cli_supports_infer_config_defects_hysteresis(
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1008,7 +1009,7 @@ def test_infer_cli_supports_infer_config_defects_shape_filters(
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1093,7 +1094,7 @@ def test_infer_cli_supports_infer_config_defects_merge_nearby(
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1185,7 +1186,7 @@ def test_infer_cli_infer_config_recalibrates_pixel_threshold_when_train_dir_prov
             return self
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             s = str(item)
@@ -1217,7 +1218,7 @@ def test_infer_cli_infer_config_recalibrates_pixel_threshold_when_train_dir_prov
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
     defects = record["defects"]
-    assert defects["pixel_threshold"] == 0.5
+    assert defects["pixel_threshold"] == pytest.approx(0.5)
     assert defects["pixel_threshold_provenance"]["method"] == "normal_pixel_quantile"
     assert defects["pixel_threshold_provenance"]["source"] == "train_dir"
 
@@ -1276,7 +1277,7 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
             self.loaded = str(path)
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1305,7 +1306,7 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
     defects = record["defects"]
-    assert defects["pixel_threshold"] == 0.5
+    assert defects["pixel_threshold"] == pytest.approx(0.5)
     assert defects["pixel_threshold_provenance"]["source"] == "infer_config"
     assert defects["mask"]["encoding"] == "npy"
     assert len(defects["regions"]) == 1
@@ -1363,7 +1364,7 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
             self.threshold_ = None
 
         def decision_function(self, X):  # noqa: ANN001 - test stub
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
     det = _DummyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -1493,7 +1494,7 @@ def test_infer_cli_infer_config_resolves_model_checkpoint_path_relative_to_confi
             self.threshold_ = None
 
         def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
     def _create_model(name, **kwargs):  # noqa: ANN001 - test stub
         seen["name"] = str(name)

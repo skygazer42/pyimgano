@@ -111,5 +111,7 @@ def industrial_adapt_fp40(config: WorkbenchConfig) -> dict[str, Any]:
         max_regions_sort_by=str(defects.max_regions_sort_by),
     )
 
-    cfg = replace(config, recipe=recipe_name, adaptation=adaptation, defects=defects)
+    cfg: WorkbenchConfig = replace(
+        config, recipe=recipe_name, adaptation=adaptation, defects=defects
+    )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

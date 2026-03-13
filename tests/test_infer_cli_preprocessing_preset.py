@@ -53,7 +53,7 @@ def test_infer_cli_applies_preprocessing_preset_for_direct_model_mode(
 def test_infer_cli_preprocessing_preset_wrapper_delegates_to_infer_options_service(
     monkeypatch,
 ) -> None:
-    from types import SimpleNamespace
+    import argparse
 
     import pyimgano.infer_cli as infer_cli
     import pyimgano.services.infer_options_service as infer_options_service
@@ -66,7 +66,7 @@ def test_infer_cli_preprocessing_preset_wrapper_delegates_to_infer_options_servi
         lambda name: calls.append(str(name)) or expected,
     )
 
-    args = SimpleNamespace(preprocessing_preset="illumination-contrast-balanced")
+    args = argparse.Namespace(preprocessing_preset="illumination-contrast-balanced")
 
     assert infer_cli._resolve_preprocessing_preset_knobs(args) is expected
     assert calls == ["illumination-contrast-balanced"]

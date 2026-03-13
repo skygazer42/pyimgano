@@ -78,8 +78,8 @@ def test_apply_defects_defaults_populates_unset_cli_knobs() -> None:
     assert str(args.defect_map_smoothing) == "median"
     assert int(args.defect_map_smoothing_ksize) == 3
     assert bool(args.defect_hysteresis) is True
-    assert float(args.defect_hysteresis_low) == 0.1
-    assert float(args.defect_hysteresis_high) == 0.2
+    assert float(args.defect_hysteresis_low) == pytest.approx(0.1)
+    assert float(args.defect_hysteresis_high) == pytest.approx(0.2)
 
 
 def test_apply_defects_defaults_preserves_explicit_cli_values() -> None:

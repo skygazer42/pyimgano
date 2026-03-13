@@ -1,3 +1,5 @@
+import pytest
+
 from pyimgano.services.model_options import (
     apply_onnx_session_options_shorthand,
     enforce_checkpoint_requirement,
@@ -16,7 +18,7 @@ def test_resolve_model_options_merges_user_preset_and_auto_kwargs():
     )
 
     assert out["d_reduced"] == 16
-    assert out["contamination"] == 0.1
+    assert out["contamination"] == pytest.approx(0.1)
 
 
 def test_resolve_requested_model_accepts_model_preset_alias():

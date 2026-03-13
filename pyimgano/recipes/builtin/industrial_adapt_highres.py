@@ -52,5 +52,5 @@ def industrial_adapt_highres(config: WorkbenchConfig) -> dict[str, Any]:
         )
 
     adaptation = replace(config.adaptation, tiling=tiling, postprocess=post, save_maps=True)
-    cfg = replace(config, recipe=recipe_name, adaptation=adaptation)
+    cfg: WorkbenchConfig = replace(config, recipe=recipe_name, adaptation=adaptation)
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

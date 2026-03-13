@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 import pyimgano.infer_cli as infer_cli
@@ -182,7 +183,7 @@ def test_infer_cli_smoke_delegates_to_inference_service(tmp_path, monkeypatch):
     assert captured["inputs"] == [str(input_dir / "a.png")]
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip())
-    assert record["score"] == 0.25
+    assert record["score"] == pytest.approx(0.25)
 
 
 def test_infer_cli_smoke_delegates_artifact_materialization_to_service(tmp_path, monkeypatch):
@@ -538,7 +539,7 @@ def test_infer_cli_smoke_defects_export(tmp_path, monkeypatch):
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
     defects = record["defects"]
-    assert defects["pixel_threshold"] == 0.5
+    assert defects["pixel_threshold"] == pytest.approx(0.5)
     assert defects["pixel_threshold_provenance"]["source"] == "explicit"
     assert defects["mask"]["path"]
     assert len(defects["regions"]) == 1
@@ -660,7 +661,7 @@ def test_infer_cli_smoke_defects_roi_gates_defects_only(tmp_path, monkeypatch):
     assert rc == 0
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
-    assert record["score"] == 1.0
+    assert record["score"] == pytest.approx(1.0)
     assert record["label"] == 1
 
     defects = record["defects"]

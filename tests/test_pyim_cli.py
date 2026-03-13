@@ -70,6 +70,9 @@ def test_pyim_main_delegates_parsed_command_to_pyim_app(monkeypatch):
 def test_pyim_main_routes_app_errors_through_parser(monkeypatch, capsys) -> None:
     import pyimgano.pyim_cli as pyim_cli
 
+    def _raise_invalid_pyim_command(_command):  # noqa: ANN001, ANN202 - test stub
+        raise ValueError("invalid pyim command")
+
     monkeypatch.setattr(
         pyim_cli,
         "pyim_app",
@@ -78,9 +81,7 @@ def test_pyim_main_routes_app_errors_through_parser(monkeypatch, capsys) -> None
             (),
             {
                 "PyimCommand": staticmethod(lambda **kwargs: SimpleNamespace(**kwargs)),
-                "run_pyim_command": staticmethod(
-                    lambda _command: (_ for _ in ()).throw(ValueError("invalid pyim command"))
-                ),
+                "run_pyim_command": staticmethod(_raise_invalid_pyim_command),
             },
         ),
         raising=False,
