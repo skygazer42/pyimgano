@@ -10,6 +10,8 @@ from pyimgano.config import load_config
 from pyimgano.reporting.report import save_run_report
 from pyimgano.workbench.config import WorkbenchConfig
 
+_INFER_CONFIG_FILENAME = "infer_config.json"
+
 
 @dataclass(frozen=True)
 class TrainRunRequest:
@@ -83,9 +85,9 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         raise FileExistsError(f"deploy bundle already exists: {bundle_dir}")
     bundle_dir.mkdir(parents=True, exist_ok=False)
 
-    infer_src = run_dir / "artifacts" / "infer_config.json"
+    infer_src = run_dir / "artifacts" / _INFER_CONFIG_FILENAME
     if not infer_src.exists():
-        raise FileNotFoundError(f"infer_config.json not found: {infer_src}")
+        raise FileNotFoundError(f"{_INFER_CONFIG_FILENAME} not found: {infer_src}")
 
     for name in ("report.json", "config.json", "environment.json"):
         src = run_dir / name
@@ -191,7 +193,7 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-    save_run_report(bundle_dir / "infer_config.json", bundle_payload)
+    save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
     return bundle_dir
 
 
@@ -225,7 +227,7 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
                 "--export-infer-config/--export-deploy-bundle require recipe output to include run_dir."
             )
         run_dir = Path(str(run_dir_raw))
-        infer_config_path = run_dir / "artifacts" / "infer_config.json"
+        infer_config_path = run_dir / "artifacts" / _INFER_CONFIG_FILENAME
 
         infer_config_payload = workbench_service.build_infer_config_payload(
             config=cfg,

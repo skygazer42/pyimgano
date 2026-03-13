@@ -5,42 +5,48 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
+_WORKBENCH_CONFIG_MODULE = "pyimgano.workbench.config"
+_WORKBENCH_DATASET_LOADER_MODULE = "pyimgano.workbench.dataset_loader"
+_WORKBENCH_PREFLIGHT_MODULE = "pyimgano.workbench.preflight"
+_WORKBENCH_PREFLIGHT_TYPES_MODULE = "pyimgano.workbench.preflight_types"
+_WORKBENCH_RUNNER_MODULE = "pyimgano.workbench.runner"
+
 
 _WORKBENCH_EXPORT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "config",
         (
-            ("SplitPolicyConfig", "pyimgano.workbench.config"),
-            ("DatasetConfig", "pyimgano.workbench.config"),
-            ("ModelConfig", "pyimgano.workbench.config"),
-            ("OutputConfig", "pyimgano.workbench.config"),
-            ("TrainingConfig", "pyimgano.workbench.config"),
-            ("DefectsConfig", "pyimgano.workbench.config"),
-            ("PreprocessingConfig", "pyimgano.workbench.config"),
-            ("WorkbenchConfig", "pyimgano.workbench.config"),
+            ("SplitPolicyConfig", _WORKBENCH_CONFIG_MODULE),
+            ("DatasetConfig", _WORKBENCH_CONFIG_MODULE),
+            ("ModelConfig", _WORKBENCH_CONFIG_MODULE),
+            ("OutputConfig", _WORKBENCH_CONFIG_MODULE),
+            ("TrainingConfig", _WORKBENCH_CONFIG_MODULE),
+            ("DefectsConfig", _WORKBENCH_CONFIG_MODULE),
+            ("PreprocessingConfig", _WORKBENCH_CONFIG_MODULE),
+            ("WorkbenchConfig", _WORKBENCH_CONFIG_MODULE),
         ),
     ),
     (
         "dataset",
         (
-            ("WorkbenchSplit", "pyimgano.workbench.dataset_loader"),
-            ("list_workbench_categories", "pyimgano.workbench.dataset_loader"),
-            ("load_workbench_split", "pyimgano.workbench.dataset_loader"),
+            ("WorkbenchSplit", _WORKBENCH_DATASET_LOADER_MODULE),
+            ("list_workbench_categories", _WORKBENCH_DATASET_LOADER_MODULE),
+            ("load_workbench_split", _WORKBENCH_DATASET_LOADER_MODULE),
         ),
     ),
     (
         "preflight",
         (
-            ("PreflightIssue", "pyimgano.workbench.preflight_types"),
-            ("PreflightReport", "pyimgano.workbench.preflight_types"),
-            ("run_preflight", "pyimgano.workbench.preflight"),
+            ("PreflightIssue", _WORKBENCH_PREFLIGHT_TYPES_MODULE),
+            ("PreflightReport", _WORKBENCH_PREFLIGHT_TYPES_MODULE),
+            ("run_preflight", _WORKBENCH_PREFLIGHT_MODULE),
         ),
     ),
     (
         "execution",
         (
-            ("build_infer_config_payload", "pyimgano.workbench.runner"),
-            ("run_workbench", "pyimgano.workbench.runner"),
+            ("build_infer_config_payload", _WORKBENCH_RUNNER_MODULE),
+            ("run_workbench", _WORKBENCH_RUNNER_MODULE),
         ),
     ),
 )
