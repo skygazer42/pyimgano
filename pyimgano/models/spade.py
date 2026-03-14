@@ -217,7 +217,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
 
                 for level in self.feature_levels:
                     feat = feature_dict[level]
-                    _b, c, h, w = feat.shape
+                    _, c, _, _ = feat.shape
                     feat = feat.permute(0, 2, 3, 1).reshape(-1, c)
                     memory_bank[level].append(feat.cpu().numpy())
 

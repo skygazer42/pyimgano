@@ -253,7 +253,7 @@ class BGADDetector(BaseVisionDeepDetector):
         # Extract features
         features = self._extract_features(X)  # [N, C, H, W]
 
-        N, C, H, W = features.shape
+        N, C, _, _ = features.shape
 
         # Flatten spatial dimensions
         features_np = features.cpu().numpy()
@@ -289,7 +289,7 @@ class BGADDetector(BaseVisionDeepDetector):
         # Extract features
         features = self._extract_features(X)  # [N, C, H, W]
 
-        N, C, H, W = features.shape
+        N, C, _, _ = features.shape
 
         # Flatten
         features_np = features.cpu().numpy()

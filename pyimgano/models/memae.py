@@ -248,7 +248,7 @@ class MemAE(BaseVisionDeepDetector):
                 batch = batch.to(self.device)
 
                 # Forward pass
-                recon, z, z_mem, att_weight = self.network_(batch)
+                recon, _, _, att_weight = self.network_(batch)
 
                 # Reconstruction loss
                 recon_loss = F.mse_loss(recon, batch)

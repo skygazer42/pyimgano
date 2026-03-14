@@ -149,7 +149,7 @@ class CoreLSCP:
         assert self.X_train_ is not None
         assert self.train_scores_ is not None
 
-        n_train, n_features = map(int, self.X_train_.shape)
+        _, _ = map(int, self.X_train_.shape)
 
         # Compute local regions for each test sample (indices into training set).
         local_regions = self._get_local_regions(X_test)

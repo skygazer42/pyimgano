@@ -378,7 +378,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
                 # Bayesian inference with multiple samples
                 batch_scores = []
                 for _ in range(self.num_samples):
-                    prompts, mean, logvar = self.prompt_generator_(features)
+                    prompts, _, _ = self.prompt_generator_(features)
                     flow_scores = self.prompt_flow_(prompts)
                     batch_scores.append(flow_scores)
 

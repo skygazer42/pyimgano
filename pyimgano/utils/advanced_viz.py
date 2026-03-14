@@ -54,7 +54,7 @@ def plot_roc_curve(
         >>> auc_score, fig = plot_roc_curve(y_true, y_scores)
         >>> print(f"AUC-ROC: {auc_score:.4f}")
     """
-    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    fpr, tpr, _ = roc_curve(y_true, y_scores)
     roc_auc = auc(fpr, tpr)
 
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -106,7 +106,7 @@ def plot_pr_curve(
     Example:
         >>> ap_score, fig = plot_pr_curve(y_true, y_scores)
     """
-    precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
+    precision, recall, _ = precision_recall_curve(y_true, y_scores)
     ap_score = average_precision_score(y_true, y_scores)
 
     fig, ax = plt.subplots(figsize=(8, 6))

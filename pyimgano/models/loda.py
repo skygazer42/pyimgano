@@ -448,7 +448,7 @@ class VisionLODA(BaseVisionDetector):
             return
 
         n_show = min(n_projections, self.n_random_cuts)
-        fig, axes = plt.subplots(1, n_show, figsize=(4 * n_show, 4))
+        _, axes = plt.subplots(1, n_show, figsize=(4 * n_show, 4))
 
         if n_show == 1:
             axes = [axes]
@@ -483,7 +483,7 @@ class VisionLODA(BaseVisionDetector):
             return
 
         n_show = min(n_histograms, self.n_random_cuts)
-        fig, axes = plt.subplots(1, n_show, figsize=(4 * n_show, 4))
+        _, axes = plt.subplots(1, n_show, figsize=(4 * n_show, 4))
 
         if n_show == 1:
             axes = [axes]

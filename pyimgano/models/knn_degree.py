@@ -90,7 +90,7 @@ class CoreKNNGraphDegree(BaseDetector):
         if X_arr.shape[0] == 0:
             return np.zeros((0,), dtype=np.float64)
 
-        dists, idxs = nn.radius_neighbors(X_arr, radius=radius, return_distance=True)
+        dists, _ = nn.radius_neighbors(X_arr, radius=radius, return_distance=True)
         degrees = np.empty((X_arr.shape[0],), dtype=np.float64)
         for i in range(X_arr.shape[0]):
             # Exclude exact matches (distance ~ 0) to avoid counting self when present.

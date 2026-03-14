@@ -271,7 +271,7 @@ class RIADDetector(BaseVisionDeepDetector):
                 img = cv2.resize(img, (self.image_size[1], self.image_size[0]))
 
             # Create masked version
-            masked, mask, target = self.decomposer.decompose(img)
+            masked, _, target = self.decomposer.decompose(img)
 
             train_data.append((masked, target))
 

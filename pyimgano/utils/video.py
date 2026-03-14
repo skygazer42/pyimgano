@@ -566,7 +566,7 @@ def write_video(frames: NDArray, output_path: Union[str, Path], fps: float = 30.
     if len(frames) == 0:
         raise ValueError("No frames to write")
 
-    T, H, W, C = frames.shape
+    _, H, W, _ = frames.shape
 
     with VideoWriter(output_path, fps, (W, H)) as writer:
         for frame in frames:

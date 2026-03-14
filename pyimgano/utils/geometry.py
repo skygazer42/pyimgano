@@ -61,7 +61,7 @@ class CameraCalibration:
         if not HAS_OPENCV:
             raise NotImplementedError("Camera calibration requires OpenCV")
 
-        ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+        _, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
             object_points, image_points, image_size, None, None, flags=flags
         )
 
@@ -126,7 +126,7 @@ class DistortionCorrection:
 
         h, w = image.shape[:2]
         if new_camera_matrix is None:
-            new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(
+            new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
                 camera_matrix, dist_coeffs, (w, h), 1, (w, h)
             )
 

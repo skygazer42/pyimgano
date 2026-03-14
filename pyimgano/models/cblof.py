@@ -269,7 +269,7 @@ class CoreCBLOF(BaseDetector):
         """训练CBLOF模型"""
         X = check_array(X)
         self._set_n_classes(y)
-        n_samples, n_features = X.shape
+        n_samples, _ = X.shape
 
         # 参数验证
         check_parameter(
@@ -511,7 +511,7 @@ class VisionCBLOF(BaseVisionDetector):
         large_clusters = self.detector.large_cluster_labels_
 
         # 创建可视化
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        _, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         # 簇大小分布
         colors = ["green" if i in large_clusters else "orange" for i in range(n_clusters)]

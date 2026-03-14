@@ -148,7 +148,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
             dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches[:20]]).reshape(-1, 1, 2)
 
             # Find homography
-            M, mask = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
+            M, _ = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
 
             if M is None:
                 return image

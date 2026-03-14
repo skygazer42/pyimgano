@@ -56,7 +56,7 @@ class CoreMCD:
         if X.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
 
-        n_samples, n_features = map(int, X.shape)
+        _, n_features = map(int, X.shape)
         self.n_features_in_ = n_features
 
         # Robust covariance estimation is not meant for extremely high

@@ -357,7 +357,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
                 # Original patches
                 P = self.patch_size
-                B, C, H, W = images.shape
+                _, _, _, _ = images.shape
                 patches = F.unfold(images, kernel_size=P, stride=P)  # [B, C*P*P, N_patches]
                 patches = patches.transpose(1, 2)  # [B, N_patches, C*P*P]
 
@@ -418,7 +418,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Normalize features
         features_np = features.cpu().numpy()
-        B, N_patches, D = features_np.shape
+        _, _, _ = features_np.shape
 
         normalized = (features_np - self.normal_features_mean) / self.normal_features_std
 
@@ -452,7 +452,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Normalize features
         features_np = features.cpu().numpy()
-        B, N_patches, D = features_np.shape
+        B, N_patches, _ = features_np.shape
 
         normalized = (features_np - self.normal_features_mean) / self.normal_features_std
 

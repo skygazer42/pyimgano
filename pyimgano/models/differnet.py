@@ -259,7 +259,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         for layer in ["layer1", "layer2", "layer3"]:
             features = torch.cat(features_dict[layer], dim=0)
             # Flatten spatial dimensions
-            b, c, h, w = features.shape
+            b, c, _, _ = features.shape
             features = features.view(b, c, -1).permute(0, 2, 1)  # (B, H*W, C)
             features = features.reshape(-1, c)  # (B*H*W, C)
             self.memory_bank[layer] = features.numpy()
@@ -405,7 +405,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                 raise KeyError(f"Missing kNN index for layer {layer!r}")
 
             feat = features[layer]
-            _b, c, h, w = feat.shape
+            _b, c, _, _ = feat.shape
             feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W, C)
 
             distances, _ = self.kd_trees[layer].query(feat_flat, k=int(self.k_neighbors))

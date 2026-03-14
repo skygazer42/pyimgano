@@ -225,7 +225,7 @@ class MVTecDataset(BaseDataset):
     def get_info(self) -> DatasetInfo:
         """Get dataset information."""
         train_data = self.get_train_data()
-        test_data, test_labels, _ = self.get_test_data()
+        test_data, _, _ = self.get_test_data()
 
         return DatasetInfo(
             name="MVTec AD",
@@ -812,7 +812,7 @@ class BTADDataset(BaseDataset):
     def get_info(self) -> DatasetInfo:
         """Get dataset information."""
         train_data = self.get_train_data()
-        test_data, test_labels, _ = self.get_test_data()
+        test_data, _, _ = self.get_test_data()
 
         return DatasetInfo(
             name="BTAD",
@@ -1289,7 +1289,7 @@ class CustomDataset(BaseDataset):
     def get_info(self) -> DatasetInfo:
         """Get dataset information."""
         train_data = self.get_train_data()
-        test_data, test_labels, _ = self.get_test_data()
+        test_data, _, _ = self.get_test_data()
 
         return DatasetInfo(
             name="Custom Dataset",
@@ -1472,7 +1472,7 @@ class ManifestDataset(BaseDataset):
 
     def get_info(self) -> DatasetInfo:
         train_paths = self.get_train_paths()
-        test_paths, labels, _ = self.get_test_paths()
+        test_paths, _, _ = self.get_test_paths()
 
         size = self.resize or (256, 256)
         return DatasetInfo(

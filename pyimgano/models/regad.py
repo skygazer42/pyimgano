@@ -311,7 +311,7 @@ class VisionRegAD(BaseVisionDeepDetector):
                 batch_images = batch_images.to(self.device)
 
                 # Forward pass
-                features, registered = self.reg_network_(batch_images)
+                _, registered = self.reg_network_(batch_images)
 
                 # Expand reference to batch size
                 batch_ref = self.reference_features_.expand(len(batch_images), -1, -1, -1)
@@ -361,7 +361,7 @@ class VisionRegAD(BaseVisionDeepDetector):
                 batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register features
-                features, registered = self.reg_network_(batch)
+                _, registered = self.reg_network_(batch)
 
                 # Expand reference
                 batch_ref = self.reference_features_.expand(len(batch), -1, -1, -1)
@@ -413,7 +413,7 @@ class VisionRegAD(BaseVisionDeepDetector):
                 batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register
-                features, registered = self.reg_network_(batch)
+                _, registered = self.reg_network_(batch)
 
                 # Expand reference
                 batch_ref = self.reference_features_.expand(len(batch), -1, -1, -1)

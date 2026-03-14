@@ -205,7 +205,7 @@ def apply_gabor_filter(
 
     # Apply Gabor filter
     skfilters = require("skimage.filters", extra="skimage", purpose="Gabor filter")
-    real, imag = skfilters.gabor(
+    real, _ = skfilters.gabor(
         image,
         frequency=frequency,
         theta=theta,
