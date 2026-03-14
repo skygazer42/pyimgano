@@ -10,6 +10,8 @@ Features:
 - Batch inference utilities
 """
 
+from __future__ import annotations
+
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
