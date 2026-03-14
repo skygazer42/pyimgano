@@ -325,6 +325,29 @@ class VisionDRAEM(BaseVisionDeepDetector):
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
+    def _load_item_rgb(self, item: ImageInput) -> np.ndarray:  # pragma: no cover
+        """Load an input item as a contiguous RGB uint8 numpy array."""
+
+        if isinstance(item, np.ndarray):
+            if item.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
+            if item.ndim != 3 or item.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
+            return np.ascontiguousarray(item)
+
+        img = cv2.imread(str(item))
+        if img is None:
+            raise ValueError(f"Failed to load image: {item}")
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _score_item(self, item: ImageInput) -> float:  # pragma: no cover
+        img = self._load_item_rgb(item)
+        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
+
+        reconstructed = self.model(img_tensor)
+        error = F.mse_loss(reconstructed, img_tensor, reduction="none")
+        return float(error.mean().item())
+
     def decision_function(
         self, X: Iterable[ImageInput], batch_size: Optional[int] = None
     ) -> NDArray:
@@ -349,26 +372,9 @@ class VisionDRAEM(BaseVisionDeepDetector):
         with torch.no_grad():
             for idx, item in enumerate(X_list):
                 try:
-                    if isinstance(item, np.ndarray):
-                        if item.dtype != np.uint8:
-                            raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
-                        if item.ndim != 3 or item.shape[2] != 3:
-                            raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
-                        img = np.ascontiguousarray(item)
-                    else:
-                        img = cv2.imread(str(item))
-                        if img is None:
-                            raise ValueError(f"Failed to load image: {item}")
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-                    img_tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-                    reconstructed = self.model(img_tensor)
-                    error = F.mse_loss(reconstructed, img_tensor, reduction="none")
-                    scores[idx] = float(error.mean().item())
-
-                except Exception as e:
-                    logger.warning("Failed to score item %d: %s", idx, e)
+                    scores[idx] = self._score_item(item)
+                except Exception as exc:
+                    logger.warning("Failed to score item %d: %s", idx, exc)
                     scores[idx] = 0.0
 
         return scores
