@@ -126,17 +126,17 @@ class CoreRandomProjectionKNN(CoreFeatureDetector):
         n_jobs: int | None = None,
         eps: float = 1e-12,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_components=n_components,
-            random_state=random_state,
-            n_neighbors=int(n_neighbors),
-            method=str(method),
-            metric=str(metric),
-            p=int(p),
-            n_jobs=n_jobs,
-            eps=float(eps),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_components": n_components,
+            "random_state": random_state,
+            "n_neighbors": int(n_neighbors),
+            "method": str(method),
+            "metric": str(metric),
+            "p": int(p),
+            "n_jobs": n_jobs,
+            "eps": float(eps),
+        }
         super().__init__(contamination=contamination)
 
     def _build_detector(self):  # noqa: ANN201
@@ -163,17 +163,17 @@ class VisionRandomProjectionKNN(BaseVisionDetector):
         n_jobs: int | None = None,
         eps: float = 1e-12,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_components=n_components,
-            random_state=random_state,
-            n_neighbors=int(n_neighbors),
-            method=str(method),
-            metric=str(metric),
-            p=int(p),
-            n_jobs=n_jobs,
-            eps=float(eps),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_components": n_components,
+            "random_state": random_state,
+            "n_neighbors": int(n_neighbors),
+            "method": str(method),
+            "metric": str(metric),
+            "p": int(p),
+            "n_jobs": n_jobs,
+            "eps": float(eps),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

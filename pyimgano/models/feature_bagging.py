@@ -306,17 +306,17 @@ class CoreFeatureBaggingModel(CoreFeatureDetector):
         n_jobs: int = 1,
         n_neighbors: int = 20,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_estimators=int(n_estimators),
-            max_features=max_features,
-            bootstrap_features=bool(bootstrap_features),
-            random_state=random_state,
-            combination=str(combination),
-            base_estimator=str(base_estimator),
-            n_jobs=int(n_jobs),
-            n_neighbors=int(n_neighbors),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_estimators": int(n_estimators),
+            "max_features": max_features,
+            "bootstrap_features": bool(bootstrap_features),
+            "random_state": random_state,
+            "combination": str(combination),
+            "base_estimator": str(base_estimator),
+            "n_jobs": int(n_jobs),
+            "n_neighbors": int(n_neighbors),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -351,17 +351,17 @@ class VisionFeatureBagging(BaseVisionDetector):
         base_estimator: str = "lof",
         n_neighbors: int = 20,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_estimators=int(n_estimators),
-            max_features=max_features,
-            bootstrap_features=bool(bootstrap_features),
-            n_jobs=int(n_jobs),
-            random_state=random_state,
-            combination=str(combination),
-            base_estimator=str(base_estimator),
-            n_neighbors=int(n_neighbors),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_estimators": int(n_estimators),
+            "max_features": max_features,
+            "bootstrap_features": bool(bootstrap_features),
+            "n_jobs": int(n_jobs),
+            "random_state": random_state,
+            "combination": str(combination),
+            "base_estimator": str(base_estimator),
+            "n_neighbors": int(n_neighbors),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
@@ -405,18 +405,18 @@ class CoreFeatureBaggingSpecModel(CoreFeatureDetector):
         n_jobs: int = 1,
         n_neighbors: int = 20,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_estimators=int(n_estimators),
-            max_features=max_features,
-            bootstrap_features=bool(bootstrap_features),
-            random_state=random_state,
-            combination=str(combination),
-            base_estimator="spec",
-            base_estimator_spec=base_estimator_spec,
-            n_jobs=int(n_jobs),
-            n_neighbors=int(n_neighbors),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_estimators": int(n_estimators),
+            "max_features": max_features,
+            "bootstrap_features": bool(bootstrap_features),
+            "random_state": random_state,
+            "combination": str(combination),
+            "base_estimator": "spec",
+            "base_estimator_spec": base_estimator_spec,
+            "n_jobs": int(n_jobs),
+            "n_neighbors": int(n_neighbors),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -451,18 +451,18 @@ class VisionFeatureBaggingSpec(BaseVisionDetector):
         base_estimator_spec: Any = "core_lof",
         n_neighbors: int = 20,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_estimators=int(n_estimators),
-            max_features=max_features,
-            bootstrap_features=bool(bootstrap_features),
-            n_jobs=int(n_jobs),
-            random_state=random_state,
-            combination=str(combination),
-            base_estimator="spec",
-            base_estimator_spec=base_estimator_spec,
-            n_neighbors=int(n_neighbors),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_estimators": int(n_estimators),
+            "max_features": max_features,
+            "bootstrap_features": bool(bootstrap_features),
+            "n_jobs": int(n_jobs),
+            "random_state": random_state,
+            "combination": str(combination),
+            "base_estimator": "spec",
+            "base_estimator_spec": base_estimator_spec,
+            "n_neighbors": int(n_neighbors),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

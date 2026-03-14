@@ -118,13 +118,13 @@ class CoreMCDModel(CoreFeatureDetector):
         assume_centered: bool = False,
         max_features: int = 4096,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            support_fraction=support_fraction,
-            random_state=random_state,
-            assume_centered=bool(assume_centered),
-            max_features=int(max_features),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "support_fraction": support_fraction,
+            "random_state": random_state,
+            "assume_centered": bool(assume_centered),
+            "max_features": int(max_features),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -155,13 +155,13 @@ class VisionMCD(BaseVisionDetector):
         assume_centered: bool = False,
         max_features: int = 4096,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            support_fraction=support_fraction,
-            random_state=random_state,
-            assume_centered=bool(assume_centered),
-            max_features=int(max_features),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "support_fraction": support_fraction,
+            "random_state": random_state,
+            "assume_centered": bool(assume_centered),
+            "max_features": int(max_features),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

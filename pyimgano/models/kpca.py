@@ -248,26 +248,26 @@ class VisionKPCA(BaseVisionDetector):
         subset_size=20,
         random_state=None,
     ) -> None:
-        self.detector_params = dict(
-            contamination=contamination,
-            n_components=n_components,
-            n_selected_components=n_selected_components,
-            kernel=kernel,
-            gamma=gamma,
-            degree=degree,
-            coef0=coef0,
-            kernel_params=kernel_params,
-            alpha=alpha,
-            eigen_solver=eigen_solver,
-            tol=tol,
-            max_iter=max_iter,
-            remove_zero_eig=remove_zero_eig,
-            copy_X=copy_X,
-            n_jobs=n_jobs,
-            sampling=sampling,
-            subset_size=subset_size,
-            random_state=random_state,
-        )
+        self.detector_params = {
+            "contamination": contamination,
+            "n_components": n_components,
+            "n_selected_components": n_selected_components,
+            "kernel": kernel,
+            "gamma": gamma,
+            "degree": degree,
+            "coef0": coef0,
+            "kernel_params": kernel_params,
+            "alpha": alpha,
+            "eigen_solver": eigen_solver,
+            "tol": tol,
+            "max_iter": max_iter,
+            "remove_zero_eig": remove_zero_eig,
+            "copy_X": copy_X,
+            "n_jobs": n_jobs,
+            "sampling": sampling,
+            "subset_size": subset_size,
+            "random_state": random_state,
+        }
 
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 

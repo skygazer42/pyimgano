@@ -235,19 +235,19 @@ class CoreTorchAutoencoder(CoreFeatureDetector):
         preprocessing: bool = True,
         random_state: Optional[int] = None,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            hidden_dims=tuple(int(d) for d in list(hidden_dims)),
-            activation=str(activation),
-            dropout=float(dropout),
-            epochs=int(epochs),
-            batch_size=int(batch_size),
-            lr=float(lr),
-            weight_decay=float(weight_decay),
-            device=str(device),
-            preprocessing=bool(preprocessing),
-            random_state=random_state,
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "hidden_dims": tuple(int(d) for d in list(hidden_dims)),
+            "activation": str(activation),
+            "dropout": float(dropout),
+            "epochs": int(epochs),
+            "batch_size": int(batch_size),
+            "lr": float(lr),
+            "weight_decay": float(weight_decay),
+            "device": str(device),
+            "preprocessing": bool(preprocessing),
+            "random_state": random_state,
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -278,19 +278,19 @@ class VisionTorchAutoencoder(BaseVisionDetector):
         preprocessing: bool = True,
         random_state: Optional[int] = None,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            hidden_dims=tuple(int(d) for d in list(hidden_dims)),
-            activation=str(activation),
-            dropout=float(dropout),
-            epochs=int(epochs),
-            batch_size=int(batch_size),
-            lr=float(lr),
-            weight_decay=float(weight_decay),
-            device=str(device),
-            preprocessing=bool(preprocessing),
-            random_state=random_state,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "hidden_dims": tuple(int(d) for d in list(hidden_dims)),
+            "activation": str(activation),
+            "dropout": float(dropout),
+            "epochs": int(epochs),
+            "batch_size": int(batch_size),
+            "lr": float(lr),
+            "weight_decay": float(weight_decay),
+            "device": str(device),
+            "preprocessing": bool(preprocessing),
+            "random_state": random_state,
+        }
         super().__init__(contamination=float(contamination), feature_extractor=feature_extractor)
 
     def _build_detector(self):

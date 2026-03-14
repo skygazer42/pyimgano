@@ -146,11 +146,11 @@ class CoreABODModel(CoreFeatureDetector):
         n_neighbors: int = 10,
         method: str = "fast",
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-            method=str(method),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+            "method": str(method),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -173,11 +173,11 @@ class VisionABOD(BaseVisionDetector):
         n_neighbors: int = 10,
         method: str = "fast",
     ):
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-            method=str(method),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+            "method": str(method),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

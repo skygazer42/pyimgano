@@ -133,14 +133,14 @@ class CoreKNNCosineModel(CoreFeatureDetector):
         n_jobs: int = 1,
         random_state: Optional[int] = None,  # API compat (unused)
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-            method=str(method),
-            normalize=bool(normalize),
-            eps=float(eps),
-            n_jobs=int(n_jobs),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+            "method": str(method),
+            "normalize": bool(normalize),
+            "eps": float(eps),
+            "n_jobs": int(n_jobs),
+        }
         self.random_state = random_state
         super().__init__(contamination=float(contamination))
 

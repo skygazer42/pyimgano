@@ -116,11 +116,11 @@ class CoreMADModel(CoreFeatureDetector):
         eps: float = 1e-12,
         consistency_correction: bool = True,
     ) -> None:
-        self._backend_kwargs = dict(
-            aggregation=str(aggregation),
-            eps=float(eps),
-            consistency_correction=bool(consistency_correction),
-        )
+        self._backend_kwargs = {
+            "aggregation": str(aggregation),
+            "eps": float(eps),
+            "consistency_correction": bool(consistency_correction),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):

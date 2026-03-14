@@ -180,12 +180,12 @@ class CoreINNEModel(CoreFeatureDetector):
         max_samples: int | float | str = "auto",
         random_state=None,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_estimators=int(n_estimators),
-            max_samples=max_samples,
-            random_state=random_state,
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_estimators": int(n_estimators),
+            "max_samples": max_samples,
+            "random_state": random_state,
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -215,12 +215,12 @@ class VisionINNE(BaseVisionDetector):
         max_samples: int | float | str = "auto",
         random_state=None,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_estimators=int(n_estimators),
-            max_samples=max_samples,
-            random_state=random_state,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_estimators": int(n_estimators),
+            "max_samples": max_samples,
+            "random_state": random_state,
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

@@ -175,10 +175,10 @@ class CoreCOFModel(CoreFeatureDetector):
         contamination: float = 0.1,
         n_neighbors: int = 20,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
