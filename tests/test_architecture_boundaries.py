@@ -497,9 +497,18 @@ def test_workbench_package_routes_preflight_type_exports_through_type_boundary()
     package_path = SRC_DIR / "workbench" / "__init__.py"
     source = package_path.read_text(encoding="utf-8")
 
-    assert '("PreflightIssue", "pyimgano.workbench.preflight_types")' in source
-    assert '("PreflightReport", "pyimgano.workbench.preflight_types")' in source
-    assert '("run_preflight", "pyimgano.workbench.preflight")' in source
+    assert (
+        '("PreflightIssue", "pyimgano.workbench.preflight_types")' in source
+        or '("PreflightIssue", _WORKBENCH_PREFLIGHT_TYPES_MODULE)' in source
+    )
+    assert (
+        '("PreflightReport", "pyimgano.workbench.preflight_types")' in source
+        or '("PreflightReport", _WORKBENCH_PREFLIGHT_TYPES_MODULE)' in source
+    )
+    assert (
+        '("run_preflight", "pyimgano.workbench.preflight")' in source
+        or '("run_preflight", _WORKBENCH_PREFLIGHT_MODULE)' in source
+    )
 
 
 def test_config_module_uses_config_boundaries() -> None:

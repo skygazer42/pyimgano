@@ -447,7 +447,7 @@ def test_manifest_split_policy_prefers_explicit_split_policy_seed() -> None:
     assert policy.mode == "benchmark"
     assert policy.scope == "dataset"
     assert policy.seed == 77
-    assert policy.test_normal_fraction == 0.35
+    assert policy.test_normal_fraction == pytest.approx(0.35)
 
 
 def test_manifest_split_policy_falls_back_to_workbench_seed_then_zero() -> None:

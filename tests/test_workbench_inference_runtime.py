@@ -64,7 +64,7 @@ def test_workbench_inference_runtime_resizes_maps_for_pixel_evaluation(monkeypat
         "include_maps": True,
         "postprocess": calls["infer"]["postprocess"],
     }
-    assert calls["evaluate"]["threshold"] == 0.5
+    assert np.isclose(calls["evaluate"]["threshold"], 0.5)
     assert calls["evaluate"]["find_best_threshold"] is False
     assert calls["evaluate"]["pixel_scores"].shape == (1, 4, 4)
     assert np.allclose(np.asarray(outputs.scores), np.asarray([0.7], dtype=np.float32))

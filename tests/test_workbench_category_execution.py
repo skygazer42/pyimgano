@@ -216,7 +216,7 @@ def test_run_workbench_category_orchestrates_runtime_boundaries(
         "calibration_inputs": ["cal.png"],
         "input_format": "rgb_u8_hwc",
     }
-    assert calls["inference"]["threshold"] == 0.4
+    assert np.isclose(calls["inference"]["threshold"], 0.4)
     assert calls["report"] == {
         "category": "custom",
         "train_count": 1,

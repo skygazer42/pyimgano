@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import json
 from pathlib import Path
 
@@ -144,7 +145,7 @@ def test_run_manifest_preflight_uses_split_policy_boundary(monkeypatch, tmp_path
     summary = run_manifest_preflight(config=cfg, issues=issues, issue_builder=_issue_builder)
 
     assert summary["split_policy"]["seed"] == 777
-    assert summary["split_policy"]["test_normal_fraction"] == 0.45
+    assert math.isclose(summary["split_policy"]["test_normal_fraction"], 0.45)
     assert calls == [123]
 
 

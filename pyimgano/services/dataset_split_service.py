@@ -33,11 +33,12 @@ def load_benchmark_style_split(
 
         resolved_manifest_path = str(root) if manifest_path is None else str(manifest_path)
         root_fallback = None if manifest_path is None else str(root)
-        split_seed = (
-            int(manifest_split_seed)
-            if manifest_split_seed is not None
-            else (int(seed) if seed is not None else 0)
-        )
+        if manifest_split_seed is not None:
+            split_seed = int(manifest_split_seed)
+        elif seed is not None:
+            split_seed = int(seed)
+        else:
+            split_seed = 0
         policy = ManifestSplitPolicy(
             seed=split_seed,
             test_normal_fraction=float(manifest_test_normal_fraction),

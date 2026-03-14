@@ -46,7 +46,7 @@ def test_workbench_category_outputs_writes_report_maps_and_jsonl(tmp_path: Path)
     report_path = run_dir / "categories" / "custom" / "report.json"
     assert report_path.exists()
     saved_report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert saved_report["threshold"] == 0.5
+    assert np.isclose(saved_report["threshold"], 0.5)
 
     records_path = run_dir / "categories" / "custom" / "per_image.jsonl"
     assert records_path.exists()

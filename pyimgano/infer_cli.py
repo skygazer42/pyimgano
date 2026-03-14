@@ -741,7 +741,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pixel-normal-quantile",
         type=float,
-        default=0.999,
+        default=None,
         help="Quantile used for pixel threshold calibration on normal pixels (default: 0.999)",
     )
     parser.add_argument(
@@ -771,7 +771,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--defect-map-smoothing-sigma",
         type=float,
-        default=0.0,
+        default=None,
         help="Optional gaussian sigma for map smoothing (default: 0.0)",
     )
     parser.add_argument(
@@ -1273,7 +1273,11 @@ def main(argv: list[str] | None = None) -> int:
                     float(args.pixel_threshold) if args.pixel_threshold is not None else None
                 ),
                 pixel_threshold_strategy=str(args.pixel_threshold_strategy),
-                pixel_normal_quantile=float(args.pixel_normal_quantile),
+                pixel_normal_quantile=(
+                    float(args.pixel_normal_quantile)
+                    if args.pixel_normal_quantile is not None
+                    else 0.999
+                ),
                 roi_xyxy_norm=(
                     list(args.roi_xyxy_norm) if args.roi_xyxy_norm is not None else None
                 ),

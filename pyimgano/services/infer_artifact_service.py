@@ -312,6 +312,8 @@ def build_infer_result_artifact_build_request_from_cli(
     args = request.cli_args
     roi_xyxy_norm = getattr(args, "roi_xyxy_norm", None)
     max_regions = getattr(args, "defect_max_regions", None)
+    map_smoothing_sigma_raw = getattr(args, "defect_map_smoothing_sigma", None)
+    map_smoothing_sigma = 0.0 if map_smoothing_sigma_raw is None else float(map_smoothing_sigma_raw)
 
     return build_infer_result_artifact_request_from_options(
         InferResultArtifactAssemblyRequest(
@@ -343,7 +345,7 @@ def build_infer_result_artifact_build_request_from_cli(
                 border_ignore_px=int(getattr(args, "defect_border_ignore_px", 0)),
                 map_smoothing_method=str(getattr(args, "defect_map_smoothing", "none")),
                 map_smoothing_ksize=int(getattr(args, "defect_map_smoothing_ksize", 0)),
-                map_smoothing_sigma=float(getattr(args, "defect_map_smoothing_sigma", 0.0)),
+                map_smoothing_sigma=map_smoothing_sigma,
                 hysteresis_enabled=bool(getattr(args, "defect_hysteresis", False)),
                 hysteresis_low=(
                     float(getattr(args, "defect_hysteresis_low"))

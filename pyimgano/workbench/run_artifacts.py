@@ -75,7 +75,7 @@ def select_category_report(
             preview = ", ".join(categories[:8])
             suffix = "" if len(categories) <= 8 else ", ..."
             raise ValueError(
-                f"Category {chosen!r} not found in run report.\n" f"Available: {preview}{suffix}"
+                f"Category {chosen!r} not found in run report.\nAvailable: {preview}{suffix}"
             )
 
         payload = per_category[chosen]

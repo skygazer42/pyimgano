@@ -130,7 +130,7 @@ def _apply_map_smoothing_defaults(args: Any, defects_payload: dict[str, Any]) ->
         if ksize is not None:
             args.defect_map_smoothing_ksize = int(ksize)
 
-    if float(getattr(args, "defect_map_smoothing_sigma", 0.0)) == 0.0:
+    if getattr(args, "defect_map_smoothing_sigma", None) is None:
         sigma = _coerce_float(map_smoothing.get("sigma"), name="map_smoothing.sigma")
         if sigma is not None:
             args.defect_map_smoothing_sigma = float(sigma)
@@ -229,7 +229,7 @@ def _apply_score_and_limit_defaults(args: Any, defects_payload: dict[str, Any]) 
 
 
 def _apply_mask_and_threshold_strategy_defaults(args: Any, defects_payload: dict[str, Any]) -> None:
-    if float(getattr(args, "pixel_normal_quantile", 0.999)) == 0.999:
+    if getattr(args, "pixel_normal_quantile", None) is None:
         pixel_normal_quantile = _coerce_float(
             defects_payload.get("pixel_normal_quantile"), name="pixel_normal_quantile"
         )

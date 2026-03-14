@@ -9,6 +9,30 @@ from pyimgano.recipes.registry import register_recipe
 from pyimgano.workbench.config import WorkbenchConfig
 
 
+def _run_structural_iforest_synthetic_manifest(
+    *,
+    config: WorkbenchConfig,
+    recipe_name: str,
+    synth_root: Path,
+    manifest_path: Path,
+) -> dict[str, Any]:
+    model_kwargs = dict(config.model.model_kwargs)
+    model_kwargs.setdefault("feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}})
+    cfg: WorkbenchConfig = replace(
+        config,
+        dataset=replace(
+            config.dataset,
+            name="manifest",
+            root=str(synth_root),
+            manifest_path=str(manifest_path),
+            category="synthetic",
+            input_mode="paths",
+        ),
+        model=replace(config.model, name="vision_iforest", model_kwargs=model_kwargs),
+    )
+    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
+
+
 @register_recipe(
     "classical-hog-ecod",
     tags=("builtin", "classical"),
@@ -213,39 +237,16 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
                 absolute_paths=True,
             )
             manifest_path = synth_root / "manifest.jsonl"
-
-            model_kwargs = dict(config.model.model_kwargs)
-            model_kwargs.setdefault(
-                "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
+            return _run_structural_iforest_synthetic_manifest(
+                config=config,
+                recipe_name=recipe_name,
+                synth_root=synth_root,
+                manifest_path=manifest_path,
             )
-            cfg: WorkbenchConfig = replace(
-                config,
-                dataset=replace(
-                    config.dataset,
-                    name="manifest",
-                    root=str(synth_root),
-                    manifest_path=str(manifest_path),
-                    category="synthetic",
-                    input_mode="paths",
-                ),
-                model=replace(config.model, name="vision_iforest", model_kwargs=model_kwargs),
-            )
-            return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
-    model_kwargs = dict(config.model.model_kwargs)
-    model_kwargs.setdefault(
-        "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
+    return _run_structural_iforest_synthetic_manifest(
+        config=config,
+        recipe_name=recipe_name,
+        synth_root=synth_root,
+        manifest_path=manifest_path,
     )
-    cfg: WorkbenchConfig = replace(
-        config,
-        dataset=replace(
-            config.dataset,
-            name="manifest",
-            root=str(synth_root),
-            manifest_path=str(manifest_path),
-            category="synthetic",
-            input_mode="paths",
-        ),
-        model=replace(config.model, name="vision_iforest", model_kwargs=model_kwargs),
-    )
-    return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)

@@ -58,7 +58,7 @@ def test_workbench_category_report_builds_stamped_payload_with_dataset_summary()
     assert payload["dataset"] == "custom"
     assert payload["category"] == "custom"
     assert payload["recipe"] == "industrial-adapt"
-    assert payload["threshold"] == 0.42
+    assert np.isclose(payload["threshold"], 0.42)
     assert payload["threshold_provenance"] == {
         "method": "quantile",
         "quantile": 0.9,
