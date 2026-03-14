@@ -40,7 +40,9 @@ jobs:
 
       - name: Run tests (coverage.xml)
         run: |
-          pytest -q --cov=pyimgano --cov-report=xml --cov-report=term-missing
+          # Override repo-wide pytest addopts to generate a SonarCloud-friendly coverage.xml
+          # with paths relative to the repo root (e.g. pyimgano/foo.py).
+          pytest -q -o addopts="" --cov=. --cov-report=xml --cov-report=term-missing
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@383f7e52eae3ab0510c3cb0e7d9d150bbaeab838 # v3.1.0
