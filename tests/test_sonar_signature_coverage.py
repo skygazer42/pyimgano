@@ -60,3 +60,28 @@ def test_decision_function_accepts_positive_batch_size_on_empty_input():
     patchcore.nn_index = None
     with pytest.raises(RuntimeError):
         VisionPatchCore.decision_function(patchcore, X=[], batch_size=1)
+
+
+def test_workbench_lazy_exports_are_importable_and_actionable():
+    import pyimgano.workbench as wb
+
+    # Exercise module-level code paths (__dir__/__getattr__) for coverage on new code.
+    names = dir(wb)
+    assert "WorkbenchConfig" in names
+
+    assert wb.WorkbenchConfig is not None
+
+    with pytest.raises(AttributeError):
+        getattr(wb, "definitely_not_exported")
+
+
+def test_services_lazy_exports_are_importable_and_actionable():
+    import pyimgano.services as services
+
+    names = dir(services)
+    assert "check_module" in names
+
+    assert callable(services.check_module)
+
+    with pytest.raises(AttributeError):
+        getattr(services, "definitely_not_exported")
