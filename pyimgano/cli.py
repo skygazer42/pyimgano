@@ -617,9 +617,10 @@ def _primary_option_string(action: argparse.Action) -> str | None:
         if str(s).startswith("--") and not str(s).startswith("--no-"):
             return str(s)
     opts = list(getattr(action, "option_strings", ()) or ())
-    if not opts:
-        return None
-    return str(opts[0])
+    # Avoid index access: some static analyzers conservatively flag `opts[0]`
+    # even when guarded by `if opts`.
+    first = next(iter(opts), None)
+    return str(first) if first is not None else None
 
 
 def _argv_from_config_obj(parser: argparse.ArgumentParser, obj: Any) -> list[str]:
