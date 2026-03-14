@@ -176,8 +176,8 @@ def random_crop_and_resize(
     h, w = image.shape[:2]
     scale = random.uniform(*scale_range)
     crop_h, crop_w = int(h * scale), int(w * scale)
-    top = random.randint(0, h - crop_h)
-    left = random.randint(0, w - crop_w)
+    top = random.randint(0, h - crop_h)  # NOSONAR - non-crypto RNG (data augmentation)
+    left = random.randint(0, w - crop_w)  # NOSONAR - non-crypto RNG (data augmentation)
     crop = image[top : top + crop_h, left : left + crop_w]
     if output_size is not None:
         return cv2.resize(crop, output_size, interpolation=cv2.INTER_LINEAR)

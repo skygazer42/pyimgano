@@ -59,7 +59,7 @@ class AugmentationTransform:
 
     def __call__(self, image: NDArray, **kwargs) -> NDArray:
         """Apply transform with probability p."""
-        if random.random() < self.p:
+        if random.random() < self.p:  # NOSONAR - non-crypto RNG (data augmentation)
             return self.apply(image, **kwargs)
         return image
 
@@ -115,8 +115,8 @@ class OneOf:
 
     def __call__(self, image: NDArray, **kwargs) -> NDArray:
         """Apply one randomly selected transform."""
-        if random.random() < self.p:
-            transform = random.choice(self.transforms)
+        if random.random() < self.p:  # NOSONAR - non-crypto RNG (data augmentation)
+            transform = random.choice(self.transforms)  # NOSONAR - non-crypto RNG (data augmentation)
             return transform(image, **kwargs)
         return image
 
@@ -139,7 +139,7 @@ class RandomApply:
 
     def __call__(self, image: NDArray, **kwargs) -> NDArray:
         """Apply transform with probability p."""
-        if random.random() < self.p:
+        if random.random() < self.p:  # NOSONAR - non-crypto RNG (data augmentation)
             return self.transform(image, **kwargs)
         return image
 
@@ -282,7 +282,7 @@ class MotionBlur(AugmentationTransform):
         self.angle_range = angle_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
-        kernel_size = random.randint(*self.kernel_size_range)
+        kernel_size = random.randint(*self.kernel_size_range)  # NOSONAR - non-crypto RNG (data augmentation)
         if kernel_size % 2 == 0:
             kernel_size += 1
         angle = random.uniform(*self.angle_range)
@@ -297,7 +297,7 @@ class DefocusBlur(AugmentationTransform):
         self.radius_range = radius_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
-        radius = random.randint(*self.radius_range)
+        radius = random.randint(*self.radius_range)  # NOSONAR - non-crypto RNG (data augmentation)
         return defocus_blur(image, radius)
 
 
@@ -567,7 +567,7 @@ def get_industrial_camera_robust_augmentation() -> Compose:
     """
 
     def _jpeg(image):
-        return jpeg_compress(image, quality=random.randint(30, 95))
+        return jpeg_compress(image, quality=random.randint(30, 95))  # NOSONAR - non-crypto RNG (data augmentation)
 
     def _vignette(image):
         return vignette(image, strength=random.uniform(0.1, 0.5), exponent=2.0)
@@ -619,7 +619,7 @@ def get_industrial_drift_augmentation() -> Compose:
     """
 
     def _jpeg(image):
-        return jpeg_compress(image, quality=random.randint(20, 95))
+        return jpeg_compress(image, quality=random.randint(20, 95))  # NOSONAR - non-crypto RNG (data augmentation)
 
     def _gain(image):
         return random_channel_gain(image, gain_range=(0.85, 1.15))
@@ -684,20 +684,20 @@ def get_industrial_surface_defect_synthesis_augmentation() -> Compose:
     def _scratch(image):
         return add_scratches(
             image,
-            num_scratches=random.randint(1, 4),
+            num_scratches=random.randint(1, 4),  # NOSONAR - non-crypto RNG (data augmentation)
             thickness_range=(1, 3),
             alpha=random.uniform(0.35, 0.85),
-            mode=random.choice(["dark", "bright"]),
+            mode=random.choice(["dark", "bright"]),  # NOSONAR - non-crypto RNG (data augmentation)
             blur_ksize=3,
         )
 
     def _dust(image):
         return add_dust(
             image,
-            num_particles=random.randint(10, 80),
+            num_particles=random.randint(10, 80),  # NOSONAR - non-crypto RNG (data augmentation)
             radius_range=(1, 3),
             alpha=random.uniform(0.15, 0.5),
-            mode=random.choice(["bright", "dark"]),
+            mode=random.choice(["bright", "dark"]),  # NOSONAR - non-crypto RNG (data augmentation)
         )
 
     def _glare(image):

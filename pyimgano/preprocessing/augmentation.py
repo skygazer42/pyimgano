@@ -1095,13 +1095,13 @@ def add_scratches(
     for _ in range(n):
         length = random.uniform(min_len, max_len)
         angle = random.uniform(0.0, 2.0 * np.pi)
-        x0 = random.randint(0, w - 1)
-        y0 = random.randint(0, h - 1)
+        x0 = random.randint(0, w - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        y0 = random.randint(0, h - 1)  # NOSONAR - non-crypto RNG (data augmentation)
         x1 = int(round(x0 + length * np.cos(angle)))
         y1 = int(round(y0 + length * np.sin(angle)))
         x1 = int(np.clip(x1, 0, w - 1))
         y1 = int(np.clip(y1, 0, h - 1))
-        thickness = random.randint(t0, t1)
+        thickness = random.randint(t0, t1)  # NOSONAR - non-crypto RNG (data augmentation)
         cv2.line(mask, (x0, y0), (x1, y1), color=255, thickness=int(thickness))
 
     if blur_ksize:
@@ -1170,9 +1170,9 @@ def add_dust(
 
     mask = np.zeros((h, w), dtype=np.uint8)
     for _ in range(n):
-        x = random.randint(0, w - 1)
-        y = random.randint(0, h - 1)
-        radius = random.randint(r0, r1)
+        x = random.randint(0, w - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        y = random.randint(0, h - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        radius = random.randint(r0, r1)  # NOSONAR - non-crypto RNG (data augmentation)
         cv2.circle(mask, (x, y), int(radius), color=255, thickness=-1)
 
     mask_f = (mask.astype(np.float32) / 255.0) * a
@@ -1226,8 +1226,8 @@ def add_specular_highlight(
         raise ValueError(f"Invalid radius_frac_range: {radius_frac_range}")
 
     if center is None:
-        cx = random.randint(0, w - 1)
-        cy = random.randint(0, h - 1)
+        cx = random.randint(0, w - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        cy = random.randint(0, h - 1)  # NOSONAR - non-crypto RNG (data augmentation)
     else:
         cy, cx = int(center[0]), int(center[1])
         cx = int(np.clip(cx, 0, w - 1))
