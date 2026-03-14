@@ -77,12 +77,6 @@ class CoreLID(BaseDetector):
         if n <= k:
             # For training we need to exclude self; require at least k+1.
             k = n - 1
-            if k <= 0:
-                self._X_train = X_arr
-                self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(X_arr)
-                self.decision_scores_ = np.zeros((n,), dtype=np.float64)
-                self._process_decision_scores()
-                return self
 
         nn = NearestNeighbors(
             n_neighbors=k + 1,

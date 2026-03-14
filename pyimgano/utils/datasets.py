@@ -168,7 +168,10 @@ class MVTecDataset(BaseDataset):
 
         images = []
         labels = []
-        masks = [] if self.load_masks else None
+        # Keep the local container non-optional so callers/analysis can reason
+        # about its type. We convert to `None` at return time when masks are
+        # disabled.
+        masks = []
 
         # Load normal test images
         normal_path = test_path / "good"

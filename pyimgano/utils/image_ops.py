@@ -80,11 +80,14 @@ def normalize_array(array: np.ndarray, mean: Sequence[float], std: Sequence[floa
 def random_horizontal_flip(image: Image.Image, *, prob: float = 0.5) -> Image.Image:
     """Randomly flip image horizontally with probability prob."""
 
-    if prob <= 0:
-        return image
-    if prob >= 1:
-        return image.transpose(Image.FLIP_LEFT_RIGHT)
-    if np.random.rand() < prob:
+    p = float(prob)
+    if not np.isfinite(p):
+        raise ValueError(f"prob must be a finite float, got {prob!r}")
+
+    # Clamp to a valid probability range.
+    p = max(0.0, min(1.0, p))
+
+    if np.random.rand() < p:
         return image.transpose(Image.FLIP_LEFT_RIGHT)
     return image
 

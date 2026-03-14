@@ -245,12 +245,9 @@ class LBP(BaseVisionClassicalDetector):
         predictions = self.detector_.predict(lbp_features_scaled)
 
         # Convert to binary labels
-        if self.detector_type == "isolation_forest":
-            # Isolation Forest: -1 = anomaly, 1 = normal
-            labels = (predictions == -1).astype(int)
-        else:
-            # SVM: -1 = anomaly, 1 = normal
-            labels = (predictions == -1).astype(int)
+        # Most supported one-class detectors follow the convention:
+        # -1 = anomaly, 1 = normal
+        labels = (predictions == -1).astype(int)
 
         return labels
 
