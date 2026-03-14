@@ -4,16 +4,7 @@ from typing import Optional
 
 import numpy as np
 
-
-def _as_u8_image(image: np.ndarray) -> np.ndarray:
-    arr = np.asarray(image)
-    if arr.dtype != np.uint8:
-        raise ValueError(f"Expected uint8 image, got dtype={arr.dtype}")
-    if arr.ndim not in (2, 3):
-        raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
-    if arr.ndim == 3 and arr.shape[2] != 3:
-        raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
-    return arr
+from pyimgano.utils.image_u8 import as_u8_image
 
 
 def apply_defocus_blur(
@@ -33,7 +24,7 @@ def apply_defocus_blur(
 
     import cv2  # local import (opencv is a core dependency)
 
-    img = _as_u8_image(image_u8)
+    img = as_u8_image(image_u8)
     h, w = int(img.shape[0]), int(img.shape[1])
     if h <= 0 or w <= 0:
         empty = np.zeros((max(0, h), max(0, w)), dtype=np.uint8)
@@ -89,7 +80,7 @@ def apply_lens_distortion(
 
     import cv2  # local import (opencv is a core dependency)
 
-    img = _as_u8_image(image_u8)
+    img = as_u8_image(image_u8)
     h, w = int(img.shape[0]), int(img.shape[1])
     if h <= 0 or w <= 0:
         empty = np.zeros((max(0, h), max(0, w)), dtype=np.uint8)

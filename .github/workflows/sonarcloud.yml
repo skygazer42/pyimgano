@@ -43,7 +43,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -e .[dev]
+          # Include torch extras so we can import deep detector modules during
+          # the SonarCloud coverage run (new-code coverage gate).
+          pip install -e .[dev,torch]
 
       - name: Run tests (coverage.xml)
         run: |

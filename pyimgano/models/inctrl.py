@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._batch_size import call_with_temporary_attr, validate_batch_size
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -411,16 +412,12 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
     def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        if batch_size is None:
+        batch_size_int = validate_batch_size(batch_size)
+        if batch_size_int is None:
             return self.predict(X)
-
-        batch_size_int = int(batch_size)
-        if batch_size_int <= 0:
-            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
-
-        old_batch_size = self.batch_size
-        try:
-            self.batch_size = batch_size_int
-            return self.predict(X)
-        finally:
-            self.batch_size = old_batch_size
+        return call_with_temporary_attr(
+            self,
+            "batch_size",
+            batch_size_int,
+            lambda: self.predict(X),
+        )

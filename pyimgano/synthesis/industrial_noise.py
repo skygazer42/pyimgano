@@ -4,16 +4,7 @@ from typing import Literal
 
 import numpy as np
 
-
-def _as_u8_image(image: np.ndarray) -> np.ndarray:
-    arr = np.asarray(image)
-    if arr.dtype != np.uint8:
-        raise ValueError(f"Expected uint8 image, got dtype={arr.dtype}")
-    if arr.ndim not in (2, 3):
-        raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
-    if arr.ndim == 3 and arr.shape[2] != 3:
-        raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
-    return arr
+from pyimgano.utils.image_u8 import as_u8_image
 
 
 def _validate_severity(severity: int) -> int:
@@ -33,7 +24,7 @@ def vibration_blur(
 
     import cv2  # local import
 
-    img = _as_u8_image(image_u8)
+    img = as_u8_image(image_u8)
     s = _validate_severity(severity)
     k = int({1: 3, 2: 5, 3: 7, 4: 11, 5: 15}[s])
     k = max(3, k | 1)  # odd
@@ -66,7 +57,7 @@ def stripe_noise(
 ) -> np.ndarray:
     """Add banding/stripe noise (sensor/lighting artifacts)."""
 
-    img = _as_u8_image(image_u8)
+    img = as_u8_image(image_u8)
     s = _validate_severity(severity)
     strength = float(s) / 5.0
 
@@ -108,7 +99,7 @@ def dust_specks(
 
     import cv2  # local import
 
-    img = _as_u8_image(image_u8)
+    img = as_u8_image(image_u8)
     s = _validate_severity(severity)
     strength = float(s) / 5.0
 
