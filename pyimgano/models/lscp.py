@@ -106,6 +106,7 @@ class CoreLSCP:
         self.decision_scores_: NDArray[np.float64] | None = None
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y  # kept for sklearn-like API compatibility
         if self.n_clf < 2:
             raise ValueError("detector_list must contain at least 2 base detectors")
 
@@ -320,16 +321,16 @@ class CoreLSCPModel(CoreFeatureDetector):
             unknown = ", ".join(sorted(kwargs))
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
-        self._backend_kwargs = dict(
-            detector_list=list(detector_list),
-            contamination=float(contamination),
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-        )
+        self._backend_kwargs = {
+            "detector_list": list(detector_list),
+            "contamination": float(contamination),
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -379,15 +380,15 @@ class CoreLSCPSpecModel(CoreFeatureDetector):
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
         self._specs = list(detector_specs)
-        self._core_kwargs = dict(
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            contamination=float(contamination),
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-        )
+        self._core_kwargs = {
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "contamination": float(contamination),
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -432,16 +433,16 @@ class VisionLSCP(BaseVisionDetector):
             unknown = ", ".join(sorted(kwargs))
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
-        self._detector_kwargs = dict(
-            detector_list=list(detector_list),
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            contamination=float(contamination),
-        )
+        self._detector_kwargs = {
+            "detector_list": list(detector_list),
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "contamination": float(contamination),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
@@ -494,15 +495,15 @@ class VisionLSCPSpec(BaseVisionDetector):
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
         self._specs = list(detector_specs)
-        self._core_kwargs = dict(
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            contamination=float(contamination),
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-        )
+        self._core_kwargs = {
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "contamination": float(contamination),
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
