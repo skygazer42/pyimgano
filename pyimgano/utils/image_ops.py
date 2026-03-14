@@ -7,6 +7,8 @@ from typing import Callable, Iterable, List, Literal, Optional, Sequence, Tuple
 import numpy as np
 from PIL import Image
 
+_DEFAULT_RNG = np.random.default_rng()
+
 try:
     Resampling = Image.Resampling  # Pillow >= 9.1
 except AttributeError:  # pragma: no cover - for older Pillow
@@ -77,7 +79,12 @@ def normalize_array(array: np.ndarray, mean: Sequence[float], std: Sequence[floa
     raise ValueError("Array channel dimension does not match mean/std length")
 
 
-def random_horizontal_flip(image: Image.Image, *, prob: float = 0.5) -> Image.Image:
+def random_horizontal_flip(
+    image: Image.Image,
+    *,
+    prob: float = 0.5,
+    rng: Optional[np.random.Generator] = None,
+) -> Image.Image:
     """Randomly flip image horizontally with probability prob."""
 
     p = float(prob)
@@ -87,7 +94,9 @@ def random_horizontal_flip(image: Image.Image, *, prob: float = 0.5) -> Image.Im
     # Clamp to a valid probability range.
     p = max(0.0, min(1.0, p))
 
-    if np.random.rand() < p:
+    # Prefer Generator over legacy np.random.* APIs (Sonar rule python:S6711).
+    gen = _DEFAULT_RNG if rng is None else rng
+    if float(gen.random()) < p:
         return image.transpose(Image.FLIP_LEFT_RIGHT)
     return image
 

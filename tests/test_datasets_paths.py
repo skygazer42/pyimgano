@@ -84,3 +84,10 @@ def test_custom_path_accessors(tmp_path: Path) -> None:
     assert len(test_paths) == 2
     assert set(labels.tolist()).issubset({0, 1})
     assert masks is not None
+
+    test_arr, test_labels, test_masks = ds.get_test_data()
+    assert test_arr.ndim == 4
+    assert test_arr.shape[0] == 2
+    assert test_labels.shape == (2,)
+    assert test_masks is not None
+    assert test_masks.shape[0] == 2

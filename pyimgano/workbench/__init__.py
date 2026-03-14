@@ -68,7 +68,7 @@ def _build_workbench_export_sources() -> dict[str, str]:
 _WORKBENCH_EXPORT_SOURCES = _build_workbench_export_sources()
 
 
-__all__ = list(_WORKBENCH_EXPORT_SOURCES)
+__all__ = tuple(_WORKBENCH_EXPORT_SOURCES)
 
 
 def __getattr__(name: str) -> Any:

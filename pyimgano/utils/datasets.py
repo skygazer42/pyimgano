@@ -1226,54 +1226,65 @@ class CustomDataset(BaseDataset):
         if not test_path.exists():
             raise FileNotFoundError(f"Test data not found: {test_path}")
 
-        images = []
-        labels = []
-        masks = [] if self.load_masks else None
+        def _scan_images(directory: Path) -> List[Path]:
+            if not directory.exists():
+                return []
+            paths: List[Path] = []
+            for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+                paths.extend(sorted(directory.glob(ext)))
+            return paths
+
+        images: List[NDArray] = []
+        labels: List[int] = []
+        masks: List[NDArray] = []
 
         # Load normal test images
         normal_path = test_path / "normal"
         if normal_path.exists():
-            normal_imgs = self._load_images(normal_path)
-            images.extend(normal_imgs)
-            labels.extend([0] * len(normal_imgs))
+            for img_path in _scan_images(normal_path):
+                img = read_image(img_path, color="rgb")
+                if self.resize is not None:
+                    img = resize_image(img, self.resize)
+                images.append(img)
+                labels.append(0)
 
-            if self.load_masks:
-                for img in normal_imgs:
+                if self.load_masks:
                     masks.append(np.zeros(img.shape[:2], dtype=np.uint8))
 
         # Load anomaly test images
         anomaly_path = test_path / "anomaly"
         if anomaly_path.exists():
-            anomaly_imgs = self._load_images(anomaly_path)
-            images.extend(anomaly_imgs)
-            labels.extend([1] * len(anomaly_imgs))
+            gt_path = self.root / "ground_truth" / "anomaly"
+            has_gt = bool(gt_path.exists())
+            for img_path in _scan_images(anomaly_path):
+                img = read_image(img_path, color="rgb")
+                if self.resize is not None:
+                    img = resize_image(img, self.resize)
 
-            # Load masks if requested
-            if self.load_masks:
-                gt_path = self.root / "ground_truth" / "anomaly"
-                if gt_path.exists():
-                    for img_path in sorted(anomaly_path.glob("*.png")):
-                        mask_path = gt_path / f"{img_path.stem}_mask.png"
-                        if mask_path.exists():
-                            mask = read_image(mask_path, color="gray")
-                            if self.resize is not None:
-                                mask = resize_image(mask, self.resize, is_mask=True)
-                            mask = (mask > 127).astype(np.uint8)
-                            masks.append(mask)
-                        else:
-                            masks.append(
-                                np.zeros(self.resize or anomaly_imgs[0].shape[:2], dtype=np.uint8)
-                            )
-                else:
-                    # No masks available
-                    for img in anomaly_imgs:
+                images.append(img)
+                labels.append(1)
+
+                if not self.load_masks:
+                    continue
+
+                if has_gt:
+                    mask_path = gt_path / f"{img_path.stem}_mask.png"
+                    if mask_path.exists():
+                        mask = read_image(mask_path, color="gray")
+                        if self.resize is not None:
+                            mask = resize_image(mask, self.resize, is_mask=True)
+                        mask = (mask > 127).astype(np.uint8)
+                        masks.append(mask)
+                    else:
                         masks.append(np.zeros(img.shape[:2], dtype=np.uint8))
+                else:
+                    masks.append(np.zeros(img.shape[:2], dtype=np.uint8))
 
         images = np.array(images)
         labels = np.array(labels)
-        masks = np.array(masks) if self.load_masks else None
+        masks_arr = np.array(masks) if self.load_masks else None
 
-        return images, labels, masks
+        return images, labels, masks_arr
 
     def get_info(self) -> DatasetInfo:
         """Get dataset information."""

@@ -67,7 +67,7 @@ class ImageReader:
 
     # Security limits
     MAX_IMAGE_PIXELS = 178956970  # Default PIL limit
-    MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1GB
+    DEFAULT_MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1GB
 
     def __init__(
         self,
@@ -88,7 +88,7 @@ class ImageReader:
             Whether to preserve EXIF/XMP/IPTC metadata
         """
         self.max_pixels = max_pixels or self.MAX_IMAGE_PIXELS
-        self.max_file_size = max_file_size or self.MAX_FILE_SIZE
+        self.max_file_size = max_file_size or self.DEFAULT_MAX_FILE_SIZE
         self.preserve_metadata = preserve_metadata
 
     def detect_format(self, path_or_buffer: Union[str, Path, BinaryIO]) -> str:
