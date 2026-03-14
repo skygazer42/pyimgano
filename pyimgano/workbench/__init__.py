@@ -68,7 +68,8 @@ def _build_workbench_export_sources() -> dict[str, str]:
 _WORKBENCH_EXPORT_SOURCES = _build_workbench_export_sources()
 
 
-__all__ = tuple(_WORKBENCH_EXPORT_SOURCES)
+# Keep __all__ as an explicit iterable of public symbols.
+__all__ = _WORKBENCH_EXPORT_SOURCES.keys()
 
 
 def __getattr__(name: str) -> Any:

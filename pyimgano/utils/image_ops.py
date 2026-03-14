@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from typing import Callable, Iterable, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image
 
-_DEFAULT_RNG = np.random.default_rng()
+# Use a non-deterministic seed to keep default augmentation behavior random, while
+# still providing an explicit seed for static analysis tools.
+_DEFAULT_RNG = np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
 
 try:
     Resampling = Image.Resampling  # Pillow >= 9.1
