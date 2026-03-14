@@ -89,7 +89,7 @@ def _select_templates(
 
     templates: list[np.ndarray] = []
     for k in range(n_templates_eff):
-        idx = np.where(labels == k)[0]
+        idx = np.nonzero(labels == k)[0]
         if idx.size == 0:
             continue
         center = km.cluster_centers_[k].reshape(1, -1)

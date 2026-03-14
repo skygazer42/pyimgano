@@ -166,7 +166,7 @@ def _crop_to_mask(
         empty = np.zeros_like(alpha_mask_u8, dtype=np.uint8)
         return np.asarray(img_u8, dtype=np.uint8), empty, {"skipped": True, "reason": "empty_mask"}
 
-    ys, xs = np.where(m)
+    ys, xs = np.nonzero(m)
     y0 = int(np.min(ys))
     y1 = int(np.max(ys)) + 1
     x0 = int(np.min(xs))

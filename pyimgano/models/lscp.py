@@ -250,7 +250,7 @@ class CoreLSCP:
         max_bin = int(np.argmax(hist))
         lo = float(edges[max_bin])
         hi = float(edges[max_bin + 1])
-        candidates = np.where((scores >= lo) & (scores <= hi))[0]
+        candidates = np.nonzero((scores >= lo) & (scores <= hi))[0]
         if candidates.size == 0:
             candidates = np.asarray([int(np.argmax(scores))], dtype=np.int64)
         return candidates.astype(np.int64, copy=False)

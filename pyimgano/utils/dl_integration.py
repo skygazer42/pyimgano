@@ -213,7 +213,7 @@ class PostProcessing:
             iou = inter / (areas[i] + areas[order[1:]] - inter)
 
             # Keep boxes with IoU less than threshold
-            inds = np.where(iou <= iou_threshold)[0]
+            inds = np.nonzero(iou <= iou_threshold)[0]
             order = order[inds + 1]
 
         return np.array(keep, dtype=np.int32)
