@@ -219,7 +219,6 @@ source = ["pyimgano"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
-    "*/__init__.py",
 ]
 
 [tool.coverage.report]
