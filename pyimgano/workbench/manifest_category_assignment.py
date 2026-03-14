@@ -147,6 +147,35 @@ def _select_test_normal_groups(
     return selected
 
 
+def _record_split(
+    *,
+    gid: str,
+    fixed_val: set[str],
+    fixed_test: set[str],
+    selected_test_normal: set[str],
+) -> str:
+    if gid in fixed_val:
+        return "val"
+    if gid in fixed_test or gid in selected_test_normal:
+        return "test"
+    return "train"
+
+
+def _calibration_count(assigned_counts: Mapping[str, int]) -> int:
+    val = int(assigned_counts.get("val", 0))
+    if val > 0:
+        return val
+    return int(assigned_counts.get("train", 0))
+
+
+def _pixel_metrics(*, any_mask_path: bool, anomaly_test_total: int, anomaly_test_mask_exists: int):
+    if not any_mask_path:
+        return {"enabled": False, "reason": "No mask_path entries found."}
+    if anomaly_test_total and anomaly_test_mask_exists != anomaly_test_total:
+        return {"enabled": False, "reason": "Missing masks for anomaly test samples."}
+    return {"enabled": True, "reason": None}
+
+
 def _assignment_summary(
     *,
     records: Sequence[Any],
@@ -163,35 +192,28 @@ def _assignment_summary(
 
     for idx, record in enumerate(records):
         gid = _group_id_for_record(record, int(idx))
-
-        if gid in fixed_val:
-            assigned_counts["val"] += 1
+        split = _record_split(
+            gid=gid,
+            fixed_val=fixed_val,
+            fixed_test=fixed_test,
+            selected_test_normal=selected_test_normal,
+        )
+        assigned_counts[split] += 1
+        if split != "test":
             continue
 
-        in_test = gid in fixed_test or gid in selected_test_normal
-        if not in_test:
-            assigned_counts["train"] += 1
-            continue
-
-        assigned_counts["test"] += 1
         label = int(record.label) if record.label is not None else 0
         if label != 1:
             continue
 
         anomaly_test_total += 1
+        any_mask_path = True
         if record.mask_path is not None:
-            any_mask_path = True
             anomaly_test_with_mask_path += 1
             if bool(mask_exists_by_index.get(int(idx), False)):
                 anomaly_test_mask_exists += 1
-        else:
-            any_mask_path = True
 
-    assigned_counts["calibration"] = (
-        int(assigned_counts["val"])
-        if int(assigned_counts["val"]) > 0
-        else int(assigned_counts["train"])
-    )
+    assigned_counts["calibration"] = _calibration_count(assigned_counts)
 
     mask_coverage = {
         "anomaly_test_total": int(anomaly_test_total),
@@ -204,16 +226,11 @@ def _assignment_summary(
             float(anomaly_test_mask_exists / anomaly_test_total) if anomaly_test_total else None
         ),
     }
-
-    pixel_enabled = True
-    pixel_reason = None
-    if not any_mask_path:
-        pixel_enabled = False
-        pixel_reason = "No mask_path entries found."
-    elif anomaly_test_total and anomaly_test_mask_exists != anomaly_test_total:
-        pixel_enabled = False
-        pixel_reason = "Missing masks for anomaly test samples."
-    pixel_metrics = {"enabled": bool(pixel_enabled), "reason": pixel_reason}
+    pixel_metrics = _pixel_metrics(
+        any_mask_path=any_mask_path,
+        anomaly_test_total=int(anomaly_test_total),
+        anomaly_test_mask_exists=int(anomaly_test_mask_exists),
+    )
 
     return assigned_counts, mask_coverage, pixel_metrics
 
