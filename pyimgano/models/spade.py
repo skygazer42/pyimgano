@@ -233,7 +233,16 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         if self.memory_bank is None or self.kd_trees is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-    def decision_function(self, X: Union[Iterable[str], NDArray]) -> NDArray:
+    def decision_function(
+        self, X: Union[Iterable[str], NDArray], batch_size: Optional[int] = None
+    ) -> NDArray:
+        # SPADE scores one image at a time. Keep `batch_size` for interface
+        # compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
         self._check_fitted()
 
         scores: list[float] = []

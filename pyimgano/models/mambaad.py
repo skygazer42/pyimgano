@@ -327,7 +327,16 @@ class VisionMambaAD(BaseVisionDeepDetector):
             out = err.squeeze(0).detach().cpu().numpy().astype(np.float32, copy=False)
         return np.asarray(out, dtype=np.float32)
 
-    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
+    def decision_function(
+        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+    ) -> NDArray:
+        # This detector scores one image at a time. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
         items = list(X)
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
@@ -340,7 +349,12 @@ class VisionMambaAD(BaseVisionDeepDetector):
             )
         return scores
 
-    def predict(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         if getattr(self, "threshold_", None) is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = self.decision_function(X)

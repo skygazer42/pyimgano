@@ -15,7 +15,7 @@ Notes for this implementation:
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -28,6 +28,10 @@ from pyimgano.utils.optional_deps import require
 logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    import torch
 
 
 def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Module:
@@ -269,7 +273,16 @@ class VisionPaDiM(BaseVisionDeepDetector):
         q = np.maximum(q, 0.0)
         return np.sqrt(q, dtype=np.float32)
 
-    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
+    def decision_function(
+        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+    ) -> NDArray:
+        # This detector scores one image at a time. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
         self._check_fitted()
         X_list = list(X)
         scores = np.zeros(len(X_list), dtype=np.float32)
@@ -283,13 +296,19 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 scores[i] = 0.0
         return scores
 
-    def predict(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
     def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
+        cv2 = require("cv2", purpose="VisionPaDiM anomaly map upsampling")
         distances = self._compute_patch_distances(image_path)
         h, w = self.patch_shape or (0, 0)
         if h * w != distances.shape[0]:

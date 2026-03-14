@@ -300,7 +300,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -314,14 +314,28 @@ class VisionDRAEM(BaseVisionDeepDetector):
         labels : ndarray of shape (n_samples,)
             Binary labels (0 = normal, 1 = anomaly)
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         if not self._is_fitted or not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
+    def decision_function(
+        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+    ) -> NDArray:
         """Compute anomaly scores."""
+        # This detector scores one image at a time. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
         if not self._is_fitted:
             raise RuntimeError("Model not fitted. Call fit() first.")
 

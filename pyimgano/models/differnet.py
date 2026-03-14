@@ -461,8 +461,14 @@ class DifferNetDetector(BaseVisionDeepDetector):
         return total_diff / 3.0
 
     # ------------------------------------------------------------------
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for scoring (BaseDetector semantics: higher => more anomalous)."""
+        # DiffNet scores each input independently. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         return np.asarray(self.predict_proba(X), dtype=np.float64).reshape(-1)
 
