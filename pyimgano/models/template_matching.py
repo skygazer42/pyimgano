@@ -23,6 +23,7 @@ from numpy.typing import NDArray
 from skimage import color
 
 from ..base import BaseVisionClassicalDetector
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 
 
 class TemplateMatching(BaseVisionClassicalDetector):
@@ -88,6 +89,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
         color_space: Literal["GRAY", "RGB", "HSV"] = "GRAY",
         align_images: bool = False,
         resize_shape: Optional[Tuple[int, int]] = (128, 128),
+        random_state: Optional[int] = None,
     ):
         super().__init__()
         self.method = method
@@ -97,6 +99,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
         self.color_space = color_space
         self.align_images = align_images
         self.resize_shape = resize_shape
+        self.random_state = random_state
 
         self.templates_ = None
         self.template_mean_ = None
@@ -110,12 +113,10 @@ class TemplateMatching(BaseVisionClassicalDetector):
             image = resize(image, self.resize_shape, anti_aliasing=True)
 
         # Convert color space
-        if self.color_space == "GRAY":
-            if len(image.shape) == 3:
-                image = color.rgb2gray(image)
-        elif self.color_space == "HSV":
-            if len(image.shape) == 3:
-                image = color.rgb2hsv(image)
+        if len(image.shape) == 3 and self.color_space == "GRAY":
+            image = color.rgb2gray(image)
+        elif len(image.shape) == 3 and self.color_space == "HSV":
+            image = color.rgb2hsv(image)
         # RGB: keep as is
 
         return image
@@ -148,14 +149,14 @@ class TemplateMatching(BaseVisionClassicalDetector):
             dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches[:20]]).reshape(-1, 1, 2)
 
             # Find homography
-            M, _ = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
+            m, _ = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
 
-            if M is None:
+            if m is None:
                 return image
 
             # Warp image
             h, w = template.shape[:2]
-            aligned = cv2.warpPerspective(img_uint8, M, (w, h))
+            aligned = cv2.warpPerspective(img_uint8, m, (w, h))
             aligned = aligned.astype(np.float32) / 255.0
 
             return aligned
@@ -219,7 +220,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
         return 0.0
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "TemplateMatching":
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object) -> "TemplateMatching":
         """
         Fit template matching model.
 
@@ -235,11 +236,13 @@ class TemplateMatching(BaseVisionClassicalDetector):
         self : TemplateMatching
             Fitted estimator
         """
+        del y
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Preprocess all images
         print("Preprocessing templates...")
         preprocessed = []
-        for i in range(len(X)):
-            img = self._preprocess_image(X[i])
+        for i in range(len(x_value)):
+            img = self._preprocess_image(x_value[i])
             preprocessed.append(img)
 
         preprocessed = np.array(preprocessed)
@@ -250,7 +253,8 @@ class TemplateMatching(BaseVisionClassicalDetector):
                 self.templates_ = preprocessed
             else:
                 # Random sampling
-                indices = np.random.choice(len(preprocessed), self.max_templates, replace=False)
+                rng = np.random.default_rng(self.random_state)
+                indices = rng.choice(len(preprocessed), self.max_templates, replace=False)
                 self.templates_ = preprocessed[indices]
         else:
             # Use average template
@@ -260,7 +264,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -276,11 +280,13 @@ class TemplateMatching(BaseVisionClassicalDetector):
         """
         self._check_is_fitted()
 
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+
         scores = []
 
-        for i in range(len(X)):
+        for i in range(len(x_value)):
             # Preprocess test image
-            test_img = self._preprocess_image(X[i])
+            test_img = self._preprocess_image(x_value[i])
 
             # Compute maximum similarity with any template
             max_similarity = -float("inf")
@@ -294,7 +300,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
         return np.array(scores)
 
-    def predict_label(self, X: NDArray) -> NDArray:
+    def predict_label(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Predict anomaly labels.
 
@@ -308,7 +314,7 @@ class TemplateMatching(BaseVisionClassicalDetector):
         labels : ndarray of shape (n_samples,)
             Binary labels (1 = anomaly, 0 = normal)
         """
-        scores = self.predict(X)
+        scores = self.predict(resolve_legacy_x_keyword(x, kwargs, method_name="predict_label"))
 
         # For methods where higher similarity = normal:
         # scores represent dissimilarity, so threshold accordingly
@@ -344,8 +350,9 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
         return np.array(similarities)
 
-    def get_params(self) -> dict:
+    def get_params(self, deep: bool = True) -> dict:
         """Get model parameters."""
+        del deep
         return {
             "method": self.method,
             "threshold": self.threshold,

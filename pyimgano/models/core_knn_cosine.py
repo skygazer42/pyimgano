@@ -19,6 +19,8 @@ from .registry import register_model
 
 
 class _CosineKNNBackend:
+    _legacy_attr_aliases = {"_X_train": "_x_train"}
+
     def __init__(
         self,
         *,
@@ -38,15 +40,25 @@ class _CosineKNNBackend:
 
         self._nn: NearestNeighbors | None = None
         self._k_effective: int | None = None
-        self._X_train: np.ndarray | None = None
+        self._x_train: np.ndarray | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def _normalize_rows(self, X: np.ndarray) -> np.ndarray:
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
+
+    def _normalize_rows(self, x: np.ndarray) -> np.ndarray:
         if not self.normalize:
-            return np.asarray(X, dtype=np.float64)
-        norms = np.linalg.norm(X, axis=1, keepdims=True)
+            return np.asarray(x, dtype=np.float64)
+        norms = np.linalg.norm(x, axis=1, keepdims=True)
         norms = np.maximum(norms, float(self.eps))
-        return np.asarray(X / norms, dtype=np.float64)
+        return np.asarray(x / norms, dtype=np.float64)
 
     def _aggregate(self, distances: np.ndarray) -> np.ndarray:
         if self.method == "largest":
@@ -57,12 +69,13 @@ class _CosineKNNBackend:
             return np.median(distances, axis=1)
         raise ValueError("method must be one of {'largest', 'mean', 'median'}")
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        X = self._normalize_rows(X)
-        self._X_train = X
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        x = self._normalize_rows(x)
+        self._x_train = x
 
-        n_train = int(X.shape[0])
+        n_train = int(x.shape[0])
         if n_train <= 1:
             self._k_effective = 0
             self._nn = None
@@ -83,29 +96,29 @@ class _CosineKNNBackend:
             algorithm="brute",
             n_jobs=int(self.n_jobs),
         )
-        nn.fit(X)
+        nn.fit(x)
         self._nn = nn
 
-        distances, _ = nn.kneighbors(X, n_neighbors=k + 1, return_distance=True)
+        distances, _ = nn.kneighbors(x, n_neighbors=k + 1, return_distance=True)
         distances = np.asarray(distances, dtype=np.float64)[:, 1:]  # drop self
         self.decision_scores_ = self._aggregate(distances).astype(np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self._X_train is None:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        if self._x_train is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         if self._k_effective is None:
             raise RuntimeError("Internal error: missing k")
         if self._k_effective == 0:
-            X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-            return np.zeros(int(X_arr.shape[0]), dtype=np.float64)
+            x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+            return np.zeros(int(x_arr.shape[0]), dtype=np.float64)
         if self._nn is None:
             raise RuntimeError("Internal error: missing neighbor index")
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        X_arr = self._normalize_rows(X_arr)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+        x_arr = self._normalize_rows(x_arr)
         distances, _ = self._nn.kneighbors(
-            X_arr, n_neighbors=int(self._k_effective), return_distance=True
+            x_arr, n_neighbors=int(self._k_effective), return_distance=True
         )
         distances = np.asarray(distances, dtype=np.float64)
         return self._aggregate(distances).astype(np.float64).ravel()

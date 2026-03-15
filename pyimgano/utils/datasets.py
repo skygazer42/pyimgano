@@ -23,6 +23,12 @@ from numpy.typing import NDArray
 
 from pyimgano.io.image import read_image, resize_image
 
+_png_glob = "*.png"
+_jpg_glob = "*.jpg"
+_jpeg_glob = "*.jpeg"
+_bmp_glob = "*.bmp"
+_common_image_globs = (_png_glob, _jpg_glob, _jpeg_glob, _bmp_glob)
+
 
 @dataclass
 class DatasetInfo:
@@ -138,7 +144,7 @@ class MVTecDataset(BaseDataset):
         """Load all images from a directory."""
         images = []
 
-        for img_path in sorted(path.glob("*.png")):
+        for img_path in sorted(path.glob(_png_glob)):
             img = read_image(img_path, color="rgb")
 
             if self.resize is not None:
@@ -201,7 +207,7 @@ class MVTecDataset(BaseDataset):
             if self.load_masks and ground_truth_path.exists():
                 mask_dir = ground_truth_path / defect_dir.name
                 if mask_dir.exists():
-                    for img_path in sorted(defect_dir.glob("*.png")):
+                    for img_path in sorted(defect_dir.glob(_png_glob)):
                         mask_path = mask_dir / f"{img_path.stem}_mask.png"
                         if mask_path.exists():
                             mask = read_image(mask_path, color="gray")
@@ -241,7 +247,7 @@ class MVTecDataset(BaseDataset):
         train_path = self.category_path / "train" / "good"
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
-        paths = [str(p) for p in sorted(train_path.glob("*.png"))]
+        paths = [str(p) for p in sorted(train_path.glob(_png_glob))]
         if not paths:
             raise ValueError(f"No training images found in: {train_path}")
         return paths
@@ -260,7 +266,7 @@ class MVTecDataset(BaseDataset):
 
         # Normal test images
         normal_dir = test_path / "good"
-        normal_paths = sorted(normal_dir.glob("*.png")) if normal_dir.exists() else []
+        normal_paths = sorted(normal_dir.glob(_png_glob)) if normal_dir.exists() else []
         image_paths.extend([str(p) for p in normal_paths])
         labels.extend([0] * len(normal_paths))
 
@@ -280,7 +286,7 @@ class MVTecDataset(BaseDataset):
             if defect_dir.name == "good" or not defect_dir.is_dir():
                 continue
 
-            defect_paths = sorted(defect_dir.glob("*.png"))
+            defect_paths = sorted(defect_dir.glob(_png_glob))
             image_paths.extend([str(p) for p in defect_paths])
             labels.extend([1] * len(defect_paths))
 
@@ -377,7 +383,7 @@ class MVTecLOCODataset(BaseDataset):
         if not directory.exists():
             return []
         paths: List[Path] = []
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             paths.extend(sorted(directory.rglob(ext)))
         return paths
 
@@ -582,7 +588,7 @@ class MVTecAD2Dataset(BaseDataset):
         if not directory.exists():
             return []
         paths: List[Path] = []
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             paths.extend(sorted(directory.rglob(ext)))
         return paths
 
@@ -759,7 +765,7 @@ class BTADDataset(BaseDataset):
         """Load all images from a directory."""
         images = []
 
-        for ext in ["*.png", "*.jpg", "*.bmp"]:
+        for ext in _common_image_globs:
             for img_path in sorted(path.glob(ext)):
                 img = read_image(img_path, color="rgb")
 
@@ -828,7 +834,7 @@ class BTADDataset(BaseDataset):
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
         paths: List[str] = []
-        for ext in ["*.png", "*.jpg", "*.bmp"]:
+        for ext in _common_image_globs:
             paths.extend([str(p) for p in sorted(train_path.glob(ext))])
         if not paths:
             raise ValueError(f"No training images found in: {train_path}")
@@ -844,7 +850,7 @@ class BTADDataset(BaseDataset):
 
         ok_paths: List[str] = []
         ko_paths: List[str] = []
-        for ext in ["*.png", "*.jpg", "*.bmp"]:
+        for ext in _common_image_globs:
             if ok_dir.exists():
                 ok_paths.extend([str(p) for p in sorted(ok_dir.glob(ext))])
             if ko_dir.exists():
@@ -895,7 +901,7 @@ class VisADataset(BaseDataset):
     def _load_images(self, path: Path) -> List[NDArray]:
         images: List[NDArray] = []
 
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             for img_path in sorted(path.glob(ext)):
                 try:
                     img = read_image(img_path, color="rgb")
@@ -923,7 +929,7 @@ class VisADataset(BaseDataset):
     @staticmethod
     def _scan_images(directory: Path) -> List[Path]:
         paths: List[Path] = []
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             paths.extend(sorted(directory.glob(ext)))
         return paths
 
@@ -1143,7 +1149,7 @@ class CustomDataset(BaseDataset):
             if not directory.exists():
                 return []
             paths: List[Path] = []
-            for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+            for ext in _common_image_globs:
                 paths.extend(sorted(directory.glob(ext)))
             return paths
 
@@ -1198,7 +1204,7 @@ class CustomDataset(BaseDataset):
         """Load all images from a directory."""
         images = []
 
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             for img_path in sorted(path.glob(ext)):
                 img = read_image(img_path, color="rgb")
 
@@ -1230,7 +1236,7 @@ class CustomDataset(BaseDataset):
             if not directory.exists():
                 return []
             paths: List[Path] = []
-            for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+            for ext in _common_image_globs:
                 paths.extend(sorted(directory.glob(ext)))
             return paths
 
@@ -1305,7 +1311,7 @@ class CustomDataset(BaseDataset):
         if not train_path.exists():
             raise FileNotFoundError(f"Training data not found: {train_path}")
         paths: List[str] = []
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             paths.extend([str(p) for p in sorted(train_path.glob(ext))])
         if not paths:
             raise ValueError(f"No training images found in: {train_path}")
@@ -1321,7 +1327,7 @@ class CustomDataset(BaseDataset):
 
         normal_paths: List[Path] = []
         anomaly_paths: List[Path] = []
-        for ext in ["*.png", "*.jpg", "*.jpeg", "*.bmp"]:
+        for ext in _common_image_globs:
             if normal_dir.exists():
                 normal_paths.extend(sorted(normal_dir.glob(ext)))
             if anomaly_dir.exists():

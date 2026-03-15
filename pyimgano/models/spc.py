@@ -21,6 +21,8 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.decomposition import PCA
 
+from pyimgano.models._legacy_x import MISSING
+
 from ..base import BaseVisionClassicalDetector
 
 
@@ -91,18 +93,30 @@ class SPC(BaseVisionClassicalDetector):
         h: float = 5.0,
         k: float = 0.5,
         lambda_ewma: float = 0.2,
-        L: float = 3.0,
+        l_value: object = MISSING,
         feature_extraction: Literal["pca", "mean", "std", "mean_std"] = "pca",
         n_components: int = 10,
         resize_shape: Optional[Tuple[int, int]] = (64, 64),
+        **kwargs,
     ):
+        legacy_l_value = kwargs.pop("L", MISSING)
+        if kwargs:
+            unexpected = next(iter(kwargs))
+            raise TypeError(f"SPC() got an unexpected keyword argument {unexpected!r}")
+        if l_value is MISSING:
+            resolved_l_value = 3.0 if legacy_l_value is MISSING else float(legacy_l_value)
+        elif legacy_l_value is not MISSING:
+            raise TypeError("SPC() got multiple values for argument 'l_value'")
+        else:
+            resolved_l_value = float(l_value)
+
         super().__init__()
         self.chart_type = chart_type
         self.n_sigma = n_sigma
         self.h = h
         self.k = k
         self.lambda_ewma = lambda_ewma
-        self.L = L
+        self.L = resolved_l_value
         self.feature_extraction = feature_extraction
         self.n_components = n_components
         self.resize_shape = resize_shape
@@ -115,36 +129,36 @@ class SPC(BaseVisionClassicalDetector):
         self.cusum_pos_ = None
         self.cusum_neg_ = None
 
-    def _extract_features(self, X: NDArray) -> NDArray:
+    def _extract_features(self, x: NDArray) -> NDArray:
         """Extract statistical features from images."""
         # Resize if specified
         if self.resize_shape is not None:
             from skimage.transform import resize
 
-            X_resized = []
-            for i in range(len(X)):
-                img = resize(X[i], self.resize_shape, anti_aliasing=True)
-                X_resized.append(img)
-            X = np.array(X_resized)
+            x_resized = []
+            for i in range(len(x)):
+                img = resize(x[i], self.resize_shape, anti_aliasing=True)
+                x_resized.append(img)
+            x = np.array(x_resized)
 
         # Flatten images
-        n_samples = len(X)
-        X_flat = X.reshape(n_samples, -1)
+        n_samples = len(x)
+        x_flat = x.reshape(n_samples, -1)
 
         if self.feature_extraction == "pca":
-            return X_flat
+            return x_flat
         elif self.feature_extraction == "mean":
-            return np.mean(X_flat, axis=1, keepdims=True)
+            return np.mean(x_flat, axis=1, keepdims=True)
         elif self.feature_extraction == "std":
-            return np.std(X_flat, axis=1, keepdims=True)
+            return np.std(x_flat, axis=1, keepdims=True)
         elif self.feature_extraction == "mean_std":
-            means = np.mean(X_flat, axis=1, keepdims=True)
-            stds = np.std(X_flat, axis=1, keepdims=True)
+            means = np.mean(x_flat, axis=1, keepdims=True)
+            stds = np.std(x_flat, axis=1, keepdims=True)
             return np.hstack([means, stds])
 
-        return X_flat
+        return x_flat
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "SPC":
+    def fit(self, x: NDArray, y: Optional[NDArray] = None) -> "SPC":
         """
         Fit SPC model to establish control limits.
 
@@ -160,13 +174,14 @@ class SPC(BaseVisionClassicalDetector):
         self : SPC
             Fitted estimator
         """
+        del y
         # Extract features
         print("Extracting features...")
-        features = self._extract_features(X)
+        features = self._extract_features(x)
 
         # Apply PCA if specified
         if self.feature_extraction == "pca":
-            self.pca_ = PCA(n_components=min(self.n_components, features.shape[1]))
+            self.pca_ = PCA(n_components=min(self.n_components, features.shape[1]), random_state=0)
             features = self.pca_.fit_transform(features)
 
         # Compute process statistics
@@ -194,7 +209,7 @@ class SPC(BaseVisionClassicalDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -208,10 +223,12 @@ class SPC(BaseVisionClassicalDetector):
         scores : ndarray of shape (n_samples,)
             Anomaly scores
         """
+        if return_confidence:
+            raise NotImplementedError("return_confidence is not implemented for SPC")
         self._check_is_fitted()
 
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x)
 
         # Apply PCA if used in training
         if self.pca_ is not None:
@@ -278,7 +295,7 @@ class SPC(BaseVisionClassicalDetector):
 
         return np.array(scores)
 
-    def predict_label(self, X: NDArray) -> NDArray:
+    def predict_label(self, x: NDArray) -> NDArray:
         """
         Predict anomaly labels.
 
@@ -292,7 +309,7 @@ class SPC(BaseVisionClassicalDetector):
         labels : ndarray of shape (n_samples,)
             Binary labels (1 = out of control/anomaly, 0 = in control/normal)
         """
-        scores = self.predict(X)
+        scores = self.predict(x)
 
         # Threshold: any non-zero score indicates out-of-control
         if self.chart_type == "cusum":
@@ -322,8 +339,9 @@ class SPC(BaseVisionClassicalDetector):
             "sigma": self.sigma_,
         }
 
-    def get_params(self) -> dict:
+    def get_params(self, deep: bool = True) -> dict:
         """Get model parameters."""
+        del deep
         return {
             "chart_type": self.chart_type,
             "n_sigma": self.n_sigma,

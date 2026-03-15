@@ -36,11 +36,11 @@ def _weighted_cosine(curr: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a_curr, b_curr) / denom)
 
 
-def _abod_variance(curr: np.ndarray, X_train: np.ndarray, inds: np.ndarray) -> float:
+def _abod_variance(curr: np.ndarray, x_train: np.ndarray, inds: np.ndarray) -> float:
     wcos = []
     for a_idx, b_idx in combinations(list(map(int, inds)), 2):
-        a = X_train[a_idx]
-        b = X_train[b_idx]
+        a = x_train[a_idx]
+        b = x_train[b_idx]
         # Skip degenerate angles.
         if np.array_equal(a, curr) or np.array_equal(b, curr):
             continue
@@ -52,6 +52,8 @@ def _abod_variance(curr: np.ndarray, X_train: np.ndarray, inds: np.ndarray) -> f
 
 class CoreABOD:
     """Native ABOD core (fast approximation by kNN)."""
+
+    _legacy_attr_aliases = {"X_train_": "x_train_"}
 
     def __init__(
         self,
@@ -68,25 +70,36 @@ class CoreABOD:
         if self.method not in {"fast", "default"}:
             raise ValueError("method must be one of {'fast', 'default'}")
 
-        self.X_train_: np.ndarray | None = None
+        self.x_train_: np.ndarray | None = None
         self.nn_: NearestNeighbors | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        self.X_train_ = X
-        n_train = X.shape[0]
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
+
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self.x_train_ = x
+        n_train = x.shape[0]
         if n_train <= 2:
             self.decision_scores_ = np.zeros(n_train, dtype=np.float64)
             return self
 
         if self.method == "fast":
             k = min(self.n_neighbors, n_train - 1)
-            self.nn_ = NearestNeighbors(n_neighbors=k + 1).fit(X)
-            ind_arr = self.nn_.kneighbors(X, n_neighbors=k + 1, return_distance=False)[:, 1:]
+            self.nn_ = NearestNeighbors(n_neighbors=k + 1).fit(x)
+            ind_arr = self.nn_.kneighbors(x, n_neighbors=k + 1, return_distance=False)[:, 1:]
             scores = np.zeros(n_train, dtype=np.float64)
             for i in range(n_train):
-                scores[i] = -_abod_variance(X[i], X, ind_arr[i])
+                scores[i] = -_abod_variance(x[i], x, ind_arr[i])
             self.decision_scores_ = scores
             return self
 
@@ -95,34 +108,34 @@ class CoreABOD:
         scores = np.zeros(n_train, dtype=np.float64)
         for i in range(n_train):
             mask = all_inds != i
-            scores[i] = -_abod_variance(X[i], X, all_inds[mask])
+            scores[i] = -_abod_variance(x[i], x, all_inds[mask])
         self.decision_scores_ = scores
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.X_train_ is None or self.decision_scores_ is None:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        if self.x_train_ is None or self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_train = self.X_train_.shape[0]
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_train = self.x_train_.shape[0]
         if n_train <= 2:
-            return np.zeros(X.shape[0], dtype=np.float64)
+            return np.zeros(x.shape[0], dtype=np.float64)
 
         if self.method == "fast":
             if self.nn_ is None:
                 raise RuntimeError("Internal error: missing neighbor index")
             k = min(self.n_neighbors, n_train)
-            ind_arr = self.nn_.kneighbors(X, n_neighbors=k, return_distance=False)
-            scores = np.zeros(X.shape[0], dtype=np.float64)
-            for i in range(X.shape[0]):
-                scores[i] = -_abod_variance(X[i], self.X_train_, ind_arr[i])
+            ind_arr = self.nn_.kneighbors(x, n_neighbors=k, return_distance=False)
+            scores = np.zeros(x.shape[0], dtype=np.float64)
+            for i in range(x.shape[0]):
+                scores[i] = -_abod_variance(x[i], self.x_train_, ind_arr[i])
             return scores
 
         # Default ABOD: compare against all training points.
         all_inds = np.arange(n_train, dtype=int)
-        scores = np.zeros(X.shape[0], dtype=np.float64)
-        for i in range(X.shape[0]):
-            scores[i] = -_abod_variance(X[i], self.X_train_, all_inds)
+        scores = np.zeros(x.shape[0], dtype=np.float64)
+        for i in range(x.shape[0]):
+            scores[i] = -_abod_variance(x[i], self.x_train_, all_inds)
         return scores
 
 
@@ -183,8 +196,8 @@ class VisionABOD(BaseVisionDetector):
     def _build_detector(self):
         return CoreABOD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

@@ -168,7 +168,7 @@ def _build_service_export_sources() -> dict[str, str]:
 _SERVICE_EXPORT_SOURCES = _build_service_export_sources()
 
 
-__all__ = list(_SERVICE_EXPORT_SOURCES)
+__all__ = (*_SERVICE_EXPORT_SOURCES,)
 
 
 def __getattr__(name: str) -> Any:
@@ -187,4 +187,4 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals().keys()) | set(__all__))
+    return sorted(globals().keys() | set(__all__))

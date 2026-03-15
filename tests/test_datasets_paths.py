@@ -65,6 +65,28 @@ def test_btad_path_accessors(tmp_path: Path) -> None:
     assert labels.tolist() == [0, 1]
 
 
+def test_btad_path_accessors_support_jpeg(tmp_path: Path) -> None:
+    root = tmp_path / "btad_jpeg"
+    cat = "01"
+
+    (root / cat / "train" / "ok").mkdir(parents=True)
+    (root / cat / "test" / "ok").mkdir(parents=True)
+    (root / cat / "test" / "ko").mkdir(parents=True)
+
+    _write_rgb(root / cat / "train" / "ok" / "train_0.jpeg")
+    _write_rgb(root / cat / "test" / "ok" / "ok_0.jpeg")
+    _write_rgb(root / cat / "test" / "ko" / "ko_0.jpeg", value=200)
+
+    ds = BTADDataset(root=str(root), category=cat, resize=(32, 32))
+    train_paths = ds.get_train_paths()
+    assert len(train_paths) == 1
+
+    test_paths, labels, masks = ds.get_test_paths()
+    assert len(test_paths) == 2
+    assert masks is None
+    assert labels.tolist() == [0, 1]
+
+
 def test_custom_path_accessors(tmp_path: Path) -> None:
     root = tmp_path / "custom"
     (root / "train" / "normal").mkdir(parents=True)

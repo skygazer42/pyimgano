@@ -41,6 +41,7 @@ class CoreGMM:
         **kwargs: Any,
     ) -> None:
         self.contamination = float(contamination)
+        self._random_state = 0 if random_state is None else int(random_state)
         self.gmm_kwargs = dict(
             n_components=int(n_components),
             covariance_type=str(covariance_type),
@@ -52,7 +53,6 @@ class CoreGMM:
             weights_init=weights_init,
             means_init=means_init,
             precisions_init=precisions_init,
-            random_state=random_state,
             warm_start=bool(warm_start),
             **dict(kwargs),
         )
@@ -60,18 +60,19 @@ class CoreGMM:
         self.gmm_: GaussianMixture | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        self.gmm_ = GaussianMixture(**self.gmm_kwargs)
-        self.gmm_.fit(X)
-        self.decision_scores_ = self.decision_function(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self.gmm_ = GaussianMixture(random_state=self._random_state, **self.gmm_kwargs)
+        self.gmm_.fit(x)
+        self.decision_scores_ = self.decision_function(x)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.gmm_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        log_likelihood = self.gmm_.score_samples(X)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        log_likelihood = self.gmm_.score_samples(x)
         return (-log_likelihood).astype(np.float64).ravel()
 
 
@@ -178,8 +179,8 @@ class VisionGMM(BaseVisionDetector):
     def _build_detector(self):
         return CoreGMM(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

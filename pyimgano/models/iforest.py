@@ -38,13 +38,13 @@ class CoreIForest:
         **kwargs,
     ) -> None:
         self.contamination = float(contamination)
+        self._random_state = 0 if random_state is None else int(random_state)
         self._iforest_kwargs = dict(
             n_estimators=int(n_estimators),
             max_samples=max_samples,
             max_features=float(max_features),
             bootstrap=bool(bootstrap),
             n_jobs=int(n_jobs),
-            random_state=random_state,
             verbose=int(verbose),
             **dict(kwargs),
         )
@@ -52,21 +52,26 @@ class CoreIForest:
         self.iforest_: IsolationForest | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         # We compute thresholding ourselves via BaseDetector, so keep sklearn's
         # internal contamination handling out of the way.
-        self.iforest_ = IsolationForest(contamination="auto", **self._iforest_kwargs)
-        self.iforest_.fit(X)
-        self.decision_scores_ = self.decision_function(X)
+        self.iforest_ = IsolationForest(
+            contamination="auto",
+            random_state=self._random_state,
+            **self._iforest_kwargs,
+        )
+        self.iforest_.fit(x)
+        self.decision_scores_ = self.decision_function(x)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.iforest_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         # sklearn: lower score => more abnormal. Invert to match `pyimgano` convention.
-        return (-self.iforest_.score_samples(X)).astype(np.float64).ravel()
+        return (-self.iforest_.score_samples(x)).astype(np.float64).ravel()
 
 
 @register_model(

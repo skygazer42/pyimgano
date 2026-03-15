@@ -22,6 +22,7 @@ from numpy.typing import NDArray
 from skimage import color
 
 from ..base import BaseVisionClassicalDetector
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 
 
 class HistogramComparison(BaseVisionClassicalDetector):
@@ -216,7 +217,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
 
         return 0.0
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "HistogramComparison":
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object) -> "HistogramComparison":
         """
         Fit histogram comparison model.
 
@@ -232,11 +233,13 @@ class HistogramComparison(BaseVisionClassicalDetector):
         self : HistogramComparison
             Fitted estimator
         """
+        del y
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Compute histograms for all training samples
         print("Computing reference histograms...")
         self.reference_histograms_ = []
-        for i in range(len(X)):
-            hist = self._compute_histogram(X[i])
+        for i in range(len(x_value)):
+            hist = self._compute_histogram(x_value[i])
             self.reference_histograms_.append(hist)
 
         # Compute threshold based on pairwise distances
@@ -257,7 +260,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -273,10 +276,12 @@ class HistogramComparison(BaseVisionClassicalDetector):
         """
         self._check_is_fitted()
 
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+
         scores = []
-        for i in range(len(X)):
+        for i in range(len(x_value)):
             # Compute histogram
-            test_hist = self._compute_histogram(X[i])
+            test_hist = self._compute_histogram(x_value[i])
 
             # Compare with all reference histograms and take minimum distance
             min_dist = float("inf")
@@ -288,7 +293,7 @@ class HistogramComparison(BaseVisionClassicalDetector):
 
         return np.array(scores)
 
-    def predict_label(self, X: NDArray) -> NDArray:
+    def predict_label(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Predict anomaly labels.
 
@@ -302,11 +307,12 @@ class HistogramComparison(BaseVisionClassicalDetector):
         labels : ndarray of shape (n_samples,)
             Binary labels (1 = anomaly, 0 = normal)
         """
-        scores = self.predict(X)
+        scores = self.predict(resolve_legacy_x_keyword(x, kwargs, method_name="predict_label"))
         return (scores > self.threshold_).astype(int)
 
-    def get_params(self) -> dict:
+    def get_params(self, deep: bool = True) -> dict:
         """Get model parameters."""
+        del deep
         return {
             "n_bins": self.n_bins,
             "method": self.method,
