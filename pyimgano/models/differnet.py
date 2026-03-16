@@ -24,6 +24,7 @@ from numpy import ndarray as NDArray
 from scipy.spatial import cKDTree
 from torchvision import models
 
+from ..utils.random_state import check_random_state
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -154,9 +155,10 @@ class DifferNetDetector(BaseVisionDeepDetector):
         batch_size: int = 16,
         learning_rate: float = 0.001,
         device: Optional[str] = None,
+        random_state: int | np.random.Generator | None = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
 
         self.backbone_name = backbone
         self.pretrained = pretrained
@@ -166,6 +168,11 @@ class DifferNetDetector(BaseVisionDeepDetector):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.random_state = random_state
+        self.rng = check_random_state(random_state)
+
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -313,7 +320,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     )
 
                     # Get random neighbor
-                    nn_idx = np.random.randint(0, len(X))
+                    nn_idx = int(self.rng.integers(0, len(X)))
                     feat_nn = all_features[nn_idx // self.batch_size][layer_idx][
                         nn_idx % self.batch_size
                     ].to(self.device)

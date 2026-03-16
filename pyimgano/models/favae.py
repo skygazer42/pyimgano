@@ -237,7 +237,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.latent_dim = latent_dim
         self.adaptive_channels = adaptive_channels
@@ -248,9 +248,8 @@ class VisionFAVAE(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.feature_extractor_ = None
         self.encoder_ = None

@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ..utils.random_state import check_random_state
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -28,7 +29,12 @@ from .registry import register_model
 class ImageDecomposer:
     """Decomposes images into adjacent regions for RIAD training."""
 
-    def __init__(self, n_splits: int = 16, mask_ratio: float = 0.5):
+    def __init__(
+        self,
+        n_splits: int = 16,
+        mask_ratio: float = 0.5,
+        random_state: int | np.random.Generator | None = None,
+    ):
         """Initialize decomposer.
 
         Args:
@@ -38,6 +44,7 @@ class ImageDecomposer:
         self.n_splits = n_splits
         self.grid_size = int(np.sqrt(n_splits))
         self.mask_ratio = mask_ratio
+        self.rng = check_random_state(random_state)
 
         if self.grid_size**2 != n_splits:
             raise ValueError("n_splits must be a perfect square")
@@ -59,7 +66,7 @@ class ImageDecomposer:
 
         # Create mask
         n_mask = int(self.n_splits * self.mask_ratio)
-        mask_indices = np.random.choice(self.n_splits, n_mask, replace=False)
+        mask_indices = self.rng.choice(self.n_splits, n_mask, replace=False)
 
         # Create binary mask
         mask = np.zeros((self.grid_size, self.grid_size), dtype=np.float32)
@@ -222,9 +229,10 @@ class RIADDetector(BaseVisionDeepDetector):
         batch_size: int = 16,
         learning_rate: float = 0.0002,
         device: Optional[str] = None,
+        random_state: int | np.random.Generator | None = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
 
         self.n_splits = n_splits
         self.mask_ratio = mask_ratio
@@ -232,6 +240,10 @@ class RIADDetector(BaseVisionDeepDetector):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.random_state = random_state
+
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -242,7 +254,11 @@ class RIADDetector(BaseVisionDeepDetector):
         self._build_model()
 
         # Decomposer
-        self.decomposer = ImageDecomposer(n_splits, mask_ratio)
+        self.decomposer = ImageDecomposer(
+            n_splits,
+            mask_ratio,
+            random_state=random_state,
+        )
 
     def _build_model(self):
         """Build the RIAD model."""
@@ -276,14 +292,20 @@ class RIADDetector(BaseVisionDeepDetector):
             train_data.append((masked, target))
 
         # Create dataloader
-        X_masked = torch.stack([torch.from_numpy(m.transpose(2, 0, 1)) for m, _ in train_data])
-        X_target = torch.stack([torch.from_numpy(t.transpose(2, 0, 1)) for _, t in train_data])
+        masked_tensors = torch.stack([torch.from_numpy(m.transpose(2, 0, 1)) for m, _ in train_data])
+        target_tensors = torch.stack(
+            [torch.from_numpy(t.transpose(2, 0, 1)) for _, t in train_data]
+        )
 
-        dataset = TensorDataset(X_masked.float(), X_target.float())
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        dataset = TensorDataset(masked_tensors.float(), target_tensors.float())
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimizer and loss
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(
+            self.model.parameters(),
+            lr=self.learning_rate,
+            weight_decay=0.0,
+        )
         criterion = nn.MSELoss()
 
         # Training loop

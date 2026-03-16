@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from pyimgano.calibration.pixel_threshold import calibrate_normal_pixel_quantile_threshold
 from pyimgano.evaluation import (
@@ -26,8 +27,8 @@ def test_pixel_segf1_and_bg_fpr_single_threshold_perfect() -> None:
     pixel_scores = np.array([[[0.1, 0.9], [0.2, 0.8]]], dtype=np.float32)
     thr = 0.5
 
-    assert compute_pixel_segf1(pixel_labels, pixel_scores, threshold=thr) == 1.0
-    assert compute_bg_fpr(pixel_labels, pixel_scores, threshold=thr) == 0.0
+    assert compute_pixel_segf1(pixel_labels, pixel_scores, threshold=thr) == pytest.approx(1.0)
+    assert compute_bg_fpr(pixel_labels, pixel_scores, threshold=thr) == pytest.approx(0.0)
 
 
 def test_bg_fpr_counts_only_background_pixels() -> None:
@@ -35,7 +36,7 @@ def test_bg_fpr_counts_only_background_pixels() -> None:
     pixel_scores = np.array([[[0.7, 0.9], [0.2, 0.8]]], dtype=np.float32)
     thr = 0.5
 
-    assert compute_bg_fpr(pixel_labels, pixel_scores, threshold=thr) == 0.5
+    assert compute_bg_fpr(pixel_labels, pixel_scores, threshold=thr) == pytest.approx(0.5)
 
 
 def test_bg_fpr_uses_strict_threshold() -> None:
@@ -44,7 +45,7 @@ def test_bg_fpr_uses_strict_threshold() -> None:
 
     # If we calibrate a threshold at exactly the max normal score (common for quantiles),
     # strict `>` avoids flagging those pixels as false-positives.
-    assert compute_bg_fpr(labels, scores, threshold=0.0) == 0.0
+    assert compute_bg_fpr(labels, scores, threshold=0.0) == pytest.approx(0.0)
 
 
 def test_calibrate_normal_pixel_quantile_threshold_uses_background_pixels_only() -> None:

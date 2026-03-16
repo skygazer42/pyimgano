@@ -167,3 +167,67 @@ def test_torch_detectors_batch_size_validation_only_paths():
         if cls in (DifferNetDetector, VisionSPADEDetector):
             scores = cls.decision_function(inst, X=[], batch_size=None)
             assert isinstance(scores, np.ndarray)
+
+
+def test_realnet_init_random_state_does_not_reset_numpy_global_rng():
+    from pyimgano.models.realnet import VisionRealNet
+
+    np.random.seed(2024)
+    expected_first = np.random.rand()
+    expected_second = np.random.rand()
+
+    np.random.seed(2024)
+    actual_first = np.random.rand()
+    _ = VisionRealNet(random_state=123, epochs=1, device="cpu")
+    actual_second = np.random.rand()
+
+    assert actual_first == pytest.approx(expected_first)
+    assert actual_second == pytest.approx(expected_second)
+
+
+def test_ast_init_random_state_does_not_reset_numpy_global_rng():
+    from pyimgano.models.ast import VisionAST
+
+    np.random.seed(2025)
+    expected_first = np.random.rand()
+    expected_second = np.random.rand()
+
+    np.random.seed(2025)
+    actual_first = np.random.rand()
+    _ = VisionAST(random_state=123, epochs=1, device="cpu")
+    actual_second = np.random.rand()
+
+    assert actual_first == pytest.approx(expected_first)
+    assert actual_second == pytest.approx(expected_second)
+
+
+def test_ast_random_state_makes_synthetic_anomalies_repeatable():
+    import torch
+
+    from pyimgano.models.ast import VisionAST
+
+    images = torch.arange(2 * 3 * 16 * 16, dtype=torch.float32).reshape(2, 3, 16, 16)
+    model_a = VisionAST(random_state=123, epochs=1, device="cpu")
+    model_b = VisionAST(random_state=123, epochs=1, device="cpu")
+
+    anomalous_a, masks_a = model_a._generate_synthetic_anomalies(images)
+    anomalous_b, masks_b = model_b._generate_synthetic_anomalies(images)
+
+    assert torch.equal(masks_a, masks_b)
+    assert torch.allclose(anomalous_a, anomalous_b)
+
+
+def test_realnet_anomaly_generator_random_state_is_repeatable():
+    import torch
+
+    from pyimgano.models.realnet import AnomalyGenerator
+
+    image = torch.arange(3 * 16 * 16, dtype=torch.float32).reshape(3, 16, 16)
+    generator_a = AnomalyGenerator(random_state=123)
+    generator_b = AnomalyGenerator(random_state=123)
+
+    anomalous_a, mask_a = generator_a.generate_anomaly(image, anomaly_type="intensity")
+    anomalous_b, mask_b = generator_b.generate_anomaly(image, anomaly_type="intensity")
+
+    assert torch.equal(mask_a, mask_b)
+    assert torch.allclose(anomalous_a, anomalous_b)

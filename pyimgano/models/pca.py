@@ -57,12 +57,13 @@ class CorePCA:
         self.decision_scores_: np.ndarray | None = None
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
+        _ = y
         X = check_array(X, ensure_2d=True, dtype=np.float64)
 
-        X_proc = X
+        x_proc = X
         if self.standardization:
             self.scaler_ = StandardScaler()
-            X_proc = self.scaler_.fit_transform(X_proc)
+            x_proc = self.scaler_.fit_transform(x_proc)
 
         self.pca_ = PCA(
             n_components=self.n_components,
@@ -71,7 +72,7 @@ class CorePCA:
             random_state=self.random_state,
             **self._pca_kwargs,
         )
-        self.pca_.fit(X_proc)
+        self.pca_.fit(x_proc)
 
         self.decision_scores_ = self.decision_function(X)
         return self
@@ -81,27 +82,27 @@ class CorePCA:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         X = check_array(X, ensure_2d=True, dtype=np.float64)
-        X_proc = X
+        x_proc = X
         if self.standardization:
             if self.scaler_ is None:
                 raise RuntimeError("Internal error: missing scaler")
-            X_proc = self.scaler_.transform(X_proc)
+            x_proc = self.scaler_.transform(x_proc)
 
-        Z = self.pca_.transform(X_proc)
+        z_values = self.pca_.transform(x_proc)
 
         if self.n_selected_components is not None:
             k = int(self.n_selected_components)
             if k < 1:
                 raise ValueError("n_selected_components must be >= 1")
-            k = min(k, Z.shape[1])
-            Z_masked = np.zeros_like(Z)
-            Z_masked[:, :k] = Z[:, :k]
-            X_recon = self.pca_.inverse_transform(Z_masked)
+            k = min(k, z_values.shape[1])
+            z_masked = np.zeros_like(z_values)
+            z_masked[:, :k] = z_values[:, :k]
+            x_recon = self.pca_.inverse_transform(z_masked)
         else:
-            X_recon = self.pca_.inverse_transform(Z)
+            x_recon = self.pca_.inverse_transform(z_values)
 
         # Reconstruction error in the (optionally) standardized space.
-        err = np.sum((X_proc - X_recon) ** 2, axis=1)
+        err = np.sum((x_proc - x_recon) ** 2, axis=1)
         return err.astype(np.float64).ravel()
 
 

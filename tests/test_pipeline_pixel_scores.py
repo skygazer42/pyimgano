@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from pyimgano.pipelines.mvtec_visa import BenchmarkSplit, evaluate_split
 
@@ -99,6 +100,6 @@ def test_evaluate_split_pixel_segf1_with_normal_quantile_threshold():
     )
     assert "pixel_metrics" in results
     pixel_metrics = results["pixel_metrics"]
-    assert pixel_metrics["pixel_threshold"] == 0.0
-    assert pixel_metrics["pixel_segf1"] == 1.0
-    assert pixel_metrics["bg_fpr"] == 0.0
+    assert pixel_metrics["pixel_threshold"] == pytest.approx(0.0)
+    assert pixel_metrics["pixel_segf1"] == pytest.approx(1.0)
+    assert pixel_metrics["bg_fpr"] == pytest.approx(0.0)

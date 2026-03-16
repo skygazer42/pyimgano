@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 
 def test_defects_fp40_preset_is_json_friendly() -> None:
     from pyimgano.cli_presets import resolve_defects_preset
@@ -38,11 +40,11 @@ def test_infer_cli_applies_defects_fp40_preset_defaults() -> None:
     assert int(args.defect_map_smoothing_ksize) == 3
     assert bool(args.defect_hysteresis) is True
     assert bool(args.defect_merge_nearby) is True
-    assert float(args.defect_min_fill_ratio) == 0.15
-    assert float(args.defect_max_aspect_ratio) == 6.0
-    assert float(args.defect_min_solidity) == 0.8
+    assert float(args.defect_min_fill_ratio) == pytest.approx(0.15)
+    assert float(args.defect_max_aspect_ratio) == pytest.approx(6.0)
+    assert float(args.defect_min_solidity) == pytest.approx(0.8)
     assert int(args.defect_min_area) == 16
-    assert float(args.defect_min_score_max) == 0.6
+    assert float(args.defect_min_score_max) == pytest.approx(0.6)
     assert int(args.defect_max_regions) == 20
 
 

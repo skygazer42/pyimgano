@@ -82,7 +82,7 @@ class BaseDeepLearningDetector(BaseDetector):
         criterion=None,
         criterion_name: str = "mse",
         device: Optional[str] = None,
-        random_state: int = 42,
+        random_state: Optional[int] = 42,
         verbose: int = 1,
         **kwargs: Any,
     ) -> None:
@@ -94,7 +94,7 @@ class BaseDeepLearningDetector(BaseDetector):
         self.optimizer_name = str(optimizer_name)
         self.criterion_name = str(criterion_name)
         self.verbose = int(verbose)
-        self.random_state = int(random_state)
+        self.random_state = None if random_state is None else int(random_state)
         self._kwargs = dict(kwargs)
 
         torch = _require_torch()
@@ -122,8 +122,9 @@ class BaseDeepLearningDetector(BaseDetector):
         self.X_mean: Optional[np.ndarray] = None
         self.X_std: Optional[np.ndarray] = None
 
-        # Seed for reproducibility
-        self._set_seed(self.random_state)
+        # Seed for reproducibility when callers opt into global seeding.
+        if self.random_state is not None:
+            self._set_seed(self.random_state)
 
     # ------------------------------------------------------------------
     @staticmethod

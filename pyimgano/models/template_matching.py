@@ -22,11 +22,11 @@ import numpy as np
 from numpy.typing import NDArray
 from skimage import color
 
-from ..base import BaseVisionClassicalDetector
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+from .base_detector import BaseDetector
 
 
-class TemplateMatching(BaseVisionClassicalDetector):
+class TemplateMatching(BaseDetector):
     """
     Template matching for anomaly detection.
 
@@ -103,6 +103,11 @@ class TemplateMatching(BaseVisionClassicalDetector):
 
         self.templates_ = None
         self.template_mean_ = None
+        self.is_fitted_ = False
+
+    def _check_is_fitted(self) -> None:
+        if not self.is_fitted_:
+            raise RuntimeError("TemplateMatching must be fitted before prediction.")
 
     def _preprocess_image(self, image: NDArray) -> NDArray:
         """Preprocess image."""

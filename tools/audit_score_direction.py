@@ -26,12 +26,12 @@ class AuditResult:
 
 
 def _synthetic_data(seed: int = 0, *, n_normal: int = 200, n_outlier: int = 10, d: int = 8):
-    rng = np.random.RandomState(int(seed))
-    Xn = rng.normal(loc=0.0, scale=1.0, size=(int(n_normal), int(d)))
-    Xo = rng.normal(loc=8.0, scale=1.0, size=(int(n_outlier), int(d)))
-    X = np.concatenate([Xn, Xo], axis=0)
-    y = np.concatenate([np.zeros((Xn.shape[0],)), np.ones((Xo.shape[0],))], axis=0)
-    return X, y
+    rng = np.random.default_rng(int(seed))
+    x_normal = rng.normal(loc=0.0, scale=1.0, size=(int(n_normal), int(d)))
+    x_outlier = rng.normal(loc=8.0, scale=1.0, size=(int(n_outlier), int(d)))
+    x_all = np.concatenate([x_normal, x_outlier], axis=0)
+    y = np.concatenate([np.zeros((x_normal.shape[0],)), np.ones((x_outlier.shape[0],))], axis=0)
+    return x_all, y
 
 
 def _ensure_repo_root_on_sys_path() -> None:

@@ -60,7 +60,7 @@ def test_load_checkpoint_into_detector_restores_joblib_serialized_detector_state
     load_checkpoint_into_detector(det, ckpt)
 
     assert det.marker == "trained"
-    assert det.threshold_ == 0.42
+    assert det.threshold_ == pytest.approx(0.42)
     assert det.detector == {"fitted": True, "weights": [1, 2, 3]}
     assert det.decision_function([1, 2]) == [0.5, 0.5]
 
@@ -80,5 +80,5 @@ def test_load_checkpoint_into_detector_unwraps_runtime_tiling_wrapper_state(tmp_
     load_checkpoint_into_detector(det, ckpt)
 
     assert det.marker == "trained"
-    assert det.threshold_ == 0.24
+    assert det.threshold_ == pytest.approx(0.24)
     assert det.detector == {"fitted": True, "weights": [4, 5, 6]}

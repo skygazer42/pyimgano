@@ -19,6 +19,10 @@ from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 
+from .random_state import check_random_state
+
+IMAGE_BACKEND_IMPORT_ERROR = "Either OpenCV or PIL is required"
+
 try:
     from PIL import Image
 
@@ -36,9 +40,6 @@ except ImportError:
 
 class Dataset:
     """Base dataset class."""
-
-    def __init__(self):
-        pass
 
     def __len__(self) -> int:
         """Return dataset size."""
@@ -107,7 +108,7 @@ class ImageDataset(Dataset):
         elif HAS_PIL:
             img = np.array(Image.open(path))
         else:
-            raise ImportError("Either OpenCV or PIL is required")
+            raise ImportError(IMAGE_BACKEND_IMPORT_ERROR)
 
         return img
 
@@ -138,6 +139,7 @@ class DataLoader:
         prefetch_factor: int = 2,
         collate_fn: Optional[Callable] = None,
         drop_last: bool = False,
+        random_state: int | np.random.Generator | None = None,
     ):
         """
         Initialize data loader.
@@ -166,6 +168,8 @@ class DataLoader:
         self.prefetch_factor = prefetch_factor
         self.collate_fn = collate_fn or self._default_collate
         self.drop_last = drop_last
+        self.random_state = random_state
+        self.rng = check_random_state(random_state)
 
         self.indices = None
         self._reset_indices()
@@ -174,7 +178,7 @@ class DataLoader:
         """Reset and optionally shuffle indices."""
         self.indices = np.arange(len(self.dataset))
         if self.shuffle:
-            np.random.shuffle(self.indices)
+            self.rng.shuffle(self.indices)
 
     def _default_collate(self, batch: List[Any]) -> Any:
         """Default collation function."""
@@ -391,17 +395,18 @@ class Resize(Transform):
             img = img.resize(self.size)
             return np.array(img)
         else:
-            raise ImportError("Either OpenCV or PIL is required")
+            raise ImportError(IMAGE_BACKEND_IMPORT_ERROR)
 
 
 class RandomHorizontalFlip(Transform):
     """Random horizontal flip."""
 
-    def __init__(self, p: float = 0.5):
+    def __init__(self, p: float = 0.5, random_state: int | np.random.Generator | None = None):
         self.p = p
+        self.rng = check_random_state(random_state)
 
     def __call__(self, image: NDArray) -> NDArray:
-        if np.random.rand() < self.p:
+        if self.rng.random() < self.p:
             return np.fliplr(image)
         return image
 
@@ -530,7 +535,7 @@ def load_images_parallel(
         elif HAS_PIL:
             return np.array(Image.open(path))
         else:
-            raise ImportError("Either OpenCV or PIL is required")
+            raise ImportError(IMAGE_BACKEND_IMPORT_ERROR)
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         images = list(executor.map(load_image, image_paths))

@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-import joblib
 import numpy as np
 
 # 导入三个检测器类
@@ -83,7 +82,7 @@ class EnsembleVotingDetector:
             if not loaded_models:
                 raise ValueError("没有成功加载任何模型！")
 
-            print(f"\n=== 模型加载完成 ===")
+            print("\n=== 模型加载完成 ===")
             print(
                 f"成功加载 {len(loaded_models)}/{len(self.models)} 个模型: {', '.join(loaded_models)}"
             )
@@ -126,7 +125,6 @@ class EnsembleVotingDetector:
 
         # ============== 0) 先跑 SSIM（优先规则） ==============
         ssim_name = "ssim"
-        ssim_ok = False
         ssim_is_normal = None
         if self.models.get(ssim_name) is not None:
             try:
@@ -138,7 +136,6 @@ class EnsembleVotingDetector:
                     "raw_result": ssim_raw if return_details else None,
                 }
                 results["model_predictions"][ssim_name] = ssim_pred
-                ssim_ok = True
                 ssim_is_normal = ssim_raw["is_normal"]
 
                 if ssim_is_normal:
@@ -251,8 +248,6 @@ class EnsembleVotingDetector:
         return results
 
     def _convert_numpy_types(self, obj):
-        import numpy as np
-
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         elif isinstance(obj, (np.bool_, np.bool8)):
@@ -298,7 +293,7 @@ class EnsembleVotingDetector:
             print(f"在 {test_folder} 中没有找到jpg文件")
             return results
 
-        print(f"\n=== 开始批量检测 ===")
+        print("\n=== 开始批量检测 ===")
         print(f"测试目录: {test_folder}")
         print(f"图片数量: {len(jpg_files)}")
         print(
@@ -329,12 +324,12 @@ class EnsembleVotingDetector:
         n_normal = sum(1 for r in results if r["is_normal"])
         n_anomaly = n_total - n_normal
 
-        print(f"\n=== 检测结果统计 ===")
+        print("\n=== 检测结果统计 ===")
         print(f"总数: {n_total}")
         print(f"正常: {n_normal} ({(n_normal / n_total * 100) if n_total else 0:.1f}%)")
         print(f"异常: {n_anomaly} ({(n_anomaly / n_total * 100) if n_total else 0:.1f}%)")
 
-        print(f"\n=== 模型一致性统计（基于加权得分）===")
+        print("\n=== 模型一致性统计（基于加权得分）===")
         if n_total > 0:
             print(
                 f"完全一致: {model_agreement_stats['full']} ({model_agreement_stats['full'] / n_total * 100:.1f}%)"
@@ -360,7 +355,7 @@ class EnsembleVotingDetector:
                 elif pred.get("is_normal") is False:
                     model_stats[model_name]["anomaly"] += 1
 
-        print(f"\n=== 各模型检测统计（未加权，仅参考）===")
+        print("\n=== 各模型检测统计（未加权，仅参考）===")
         for model_name, stats in model_stats.items():
             total_pred = stats["normal"] + stats["anomaly"]
             if total_pred > 0 or stats["error"] > 0:
@@ -379,7 +374,7 @@ class EnsembleVotingDetector:
                 anomaly_type_count[atype] = anomaly_type_count.get(atype, 0) + 1
 
         if anomaly_type_count and n_anomaly > 0:
-            print(f"\n=== 异常类型分布 ===")
+            print("\n=== 异常类型分布 ===")
             for atype, count in sorted(
                 anomaly_type_count.items(), key=lambda x: x[1], reverse=True
             ):
@@ -479,12 +474,3 @@ if __name__ == "__main__":
                 print(f"\n异常类型: {', '.join(result['anomaly_types'])}")
     except Exception as e:
         print(f"测试单张图片出错: {e}")
-
-    # 批量测试按需开启
-    # try:
-    #     test_folder = "/data/temp10/select1"
-    #     if os.path.exists(test_folder):
-    #         print(f"\n=== 批量测试: {test_folder} ===")
-    #         _ = ensemble.batch_predict(test_folder, save_results=True)
-    # except Exception as e:
-    #     print(f"批量测试出错: {e}")
