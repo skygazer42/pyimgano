@@ -7,6 +7,8 @@ from numpy.typing import NDArray
 
 from .registry import register_model
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
 
 def _as_vector(value: Any) -> NDArray:
     arr = np.asarray(value, dtype=np.float32).reshape(-1)
@@ -96,7 +98,7 @@ class VisionAdaCLIP:
 
     def _build_hybrid_prompts(self) -> dict[str, NDArray]:
         if self.static_prompts_ is None or self.dynamic_prompts_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         weight = self.dynamic_prompt_weight
         prompts: dict[str, NDArray] = {}
         for key in ("normal", "anomaly"):
@@ -105,7 +107,7 @@ class VisionAdaCLIP:
             )
         return prompts
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one support sample.")
@@ -123,7 +125,7 @@ class VisionAdaCLIP:
 
     def _score_feature(self, feature: NDArray) -> float:
         if self.hybrid_prompts_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         anomaly_score = _cosine_similarity(feature, self.hybrid_prompts_["anomaly"])
         normal_score = _cosine_similarity(feature, self.hybrid_prompts_["normal"])
         return float(anomaly_score - normal_score)
@@ -137,6 +139,6 @@ class VisionAdaCLIP:
 
     def predict(self, X):
         if self.threshold_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = np.asarray(self.decision_function(X), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)

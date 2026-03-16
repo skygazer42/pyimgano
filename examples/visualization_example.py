@@ -10,6 +10,9 @@ import numpy as np
 
 from pyimgano import models, visualization
 
+JPG_GLOB = "*.jpg"
+PNG_GLOB = "*.png"
+
 
 def main():
     """Run visualization example."""
@@ -26,8 +29,8 @@ def main():
         return
 
     # Collect images
-    train_images = [str(p) for p in train_dir.glob("*.jpg")]
-    train_images += [str(p) for p in train_dir.glob("*.png")]
+    train_images = [str(p) for p in train_dir.glob(JPG_GLOB)]
+    train_images += [str(p) for p in train_dir.glob(PNG_GLOB)]
 
     if len(train_images) == 0:
         print("⚠️  No training images found!")
@@ -43,9 +46,9 @@ def main():
     print("✓ Training complete\n")
 
     # Find a test image
-    test_images = list((test_dir / "anomaly").glob("*.jpg"))
+    test_images = list((test_dir / "anomaly").glob(JPG_GLOB))
     if not test_images:
-        test_images = list((test_dir / "normal").glob("*.jpg"))
+        test_images = list((test_dir / "normal").glob(JPG_GLOB))
 
     if not test_images:
         print("⚠️  No test images found!")
@@ -99,8 +102,8 @@ def main():
                 det.fit(train_images[: min(20, len(train_images))])
 
         # Collect test images and labels
-        test_normal = list((test_dir / "normal").glob("*.jpg"))
-        test_anomaly = list((test_dir / "anomaly").glob("*.jpg"))
+        test_normal = list((test_dir / "normal").glob(JPG_GLOB))
+        test_anomaly = list((test_dir / "anomaly").glob(JPG_GLOB))
 
         if test_normal and test_anomaly:
             test_paths = [str(p) for p in test_normal + test_anomaly]

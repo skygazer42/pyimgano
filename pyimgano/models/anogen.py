@@ -7,6 +7,8 @@ from numpy.typing import NDArray
 
 from .registry import register_model
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
 
 def _as_float_array(image: Any) -> NDArray:
     arr = np.asarray(image, dtype=np.float32)
@@ -100,7 +102,7 @@ class VisionAnoGenAdapter:
             )
         return pairs
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one support image.")
@@ -125,7 +127,7 @@ class VisionAnoGenAdapter:
 
     def _default_score_map(self, image: NDArray) -> NDArray:
         if self.support_prototype_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         residual = np.abs(image - self.support_prototype_)
         if residual.ndim == 2:
             return residual.astype(np.float32, copy=False)
@@ -156,7 +158,7 @@ class VisionAnoGenAdapter:
 
     def decision_function(self, X):
         if self.support_prototype_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         items = list(X)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
@@ -175,6 +177,6 @@ class VisionAnoGenAdapter:
 
     def predict(self, X):
         if self.threshold_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = np.asarray(self.decision_function(X), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)

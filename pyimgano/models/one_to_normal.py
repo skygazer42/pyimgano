@@ -83,7 +83,7 @@ class VisionOneToNormal:
             scores[i] = float(np.mean(self.get_anomaly_map(item)))
         return scores
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one support image.")

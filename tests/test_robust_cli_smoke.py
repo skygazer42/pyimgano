@@ -89,7 +89,7 @@ def test_robust_cli_delegates_run_mode_to_robustness_service(monkeypatch, capsys
         ]
     )
     assert rc == 0
-    assert calls[0].model == "vision_ecod"
+    assert calls and calls[0].model == "vision_ecod"
     assert '"model": "vision_ecod"' in capsys.readouterr().out
 
 

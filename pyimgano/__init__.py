@@ -12,8 +12,7 @@ from typing import Any
 
 __version__ = "0.6.37"
 
-__all__ = [
-    # Modules
+_MODULE_EXPORTS = (
     "datasets",
     "detectors",
     "features",
@@ -26,53 +25,35 @@ __all__ = [
     "synthesis",
     "utils",
     "visualization",
-    # Evaluation
+)
+_BENCHMARK_MODULE = "benchmark"
+_BENCHMARK_EXPORTS = ("AlgorithmBenchmark", "quick_benchmark")
+_EVALUATION_MODULE = "evaluation"
+_EVALUATION_EXPORTS = (
     "evaluate_detector",
     "compute_auroc",
     "compute_average_precision",
     "compute_classification_metrics",
     "find_optimal_threshold",
     "print_evaluation_summary",
-    # Benchmark
-    "AlgorithmBenchmark",
-    "quick_benchmark",
-    # Synthesis
-    "AnomalySynthesizer",
-    "SynthSpec",
-    "SynthResult",
+)
+_SYNTHESIS_MODULE = "synthesis.synthesizer"
+_SYNTHESIS_EXPORTS = ("AnomalySynthesizer", "SynthSpec", "SynthResult")
+
+__all__ = [
+    *_MODULE_EXPORTS,
+    *_EVALUATION_EXPORTS,
+    *_BENCHMARK_EXPORTS,
+    *_SYNTHESIS_EXPORTS,
 ]
 
 
-_LAZY_SUBMODULES = {
-    "datasets",
-    "detectors",
-    "features",
-    "inputs",
-    "inference",
-    "models",
-    "plugins",
-    "pipelines",
-    "preprocessing",
-    "synthesis",
-    "utils",
-    "visualization",
-}
+_LAZY_SUBMODULES = set(_MODULE_EXPORTS)
 
 _LAZY_EXPORTS = {
-    # Benchmark
-    "AlgorithmBenchmark": ("benchmark", "AlgorithmBenchmark"),
-    "quick_benchmark": ("benchmark", "quick_benchmark"),
-    # Evaluation
-    "evaluate_detector": ("evaluation", "evaluate_detector"),
-    "compute_auroc": ("evaluation", "compute_auroc"),
-    "compute_average_precision": ("evaluation", "compute_average_precision"),
-    "compute_classification_metrics": ("evaluation", "compute_classification_metrics"),
-    "find_optimal_threshold": ("evaluation", "find_optimal_threshold"),
-    "print_evaluation_summary": ("evaluation", "print_evaluation_summary"),
-    # Synthesis
-    "AnomalySynthesizer": ("synthesis.synthesizer", "AnomalySynthesizer"),
-    "SynthSpec": ("synthesis.synthesizer", "SynthSpec"),
-    "SynthResult": ("synthesis.synthesizer", "SynthResult"),
+    **{name: (_BENCHMARK_MODULE, name) for name in _BENCHMARK_EXPORTS},
+    **{name: (_EVALUATION_MODULE, name) for name in _EVALUATION_EXPORTS},
+    **{name: (_SYNTHESIS_MODULE, name) for name in _SYNTHESIS_EXPORTS},
 }
 
 

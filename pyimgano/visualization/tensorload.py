@@ -7,7 +7,7 @@ class AnomalyDetectorEvaluator:
     def __init__(self, detector):
         self.detector = detector
 
-    def visualize_anomaly_scores(self, test_folder, true_labels=None):
+    def visualize_anomaly_scores(self, test_folder, _true_labels=None):
         """可视化异常分数分布"""
         results = self.detector.batch_predict(test_folder)
         scores = [r["anomaly_score"] for r in results]

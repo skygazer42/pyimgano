@@ -22,6 +22,8 @@ from .openclip_backend import OpenCLIPViTPatchEmbedder
 from .patchknn_core import aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
 
 def _require_open_clip(open_clip_module=None):
     if open_clip_module is not None:
@@ -108,7 +110,7 @@ class VisionOpenCLIPPatchMap:
             patches = _l2_normalize(patches, axis=1, eps=float(self.eps))
         return patches, grid_shape, original_size
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one training image.")
@@ -138,7 +140,7 @@ class VisionOpenCLIPPatchMap:
 
     def decision_function(self, X):
         if self.template_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         items = list(X)
         scores = np.zeros(len(items), dtype=np.float64)
@@ -158,13 +160,13 @@ class VisionOpenCLIPPatchMap:
 
     def predict(self, X):
         if self.threshold_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = self.decision_function(X)
         return (scores > float(self.threshold_)).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
         if self.template_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         tpl = np.asarray(self.template_, dtype=np.float32).reshape(-1)
         patches, grid_shape, original_size = self._embed(image)

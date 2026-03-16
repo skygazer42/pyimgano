@@ -15,6 +15,7 @@ import numpy as np
 from pyimgano.models import create_model
 
 PREDICTING_MESSAGE = "Predicting anomaly scores..."
+RESULTS_HEADER = "\nResults:"
 
 
 def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
@@ -99,7 +100,7 @@ def demo_cutpaste():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print("\nResults:")
+    print(RESULTS_HEADER)
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
     print(f"  Normal samples detected: {sum(predictions[:10] == 0)}/10")
@@ -150,7 +151,7 @@ def demo_winclip():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print("\nResults:")
+    print(RESULTS_HEADER)
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
 
@@ -202,7 +203,7 @@ def demo_differnet():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print("\nResults:")
+    print(RESULTS_HEADER)
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
     print(f"  Memory bank size: {len(detector.memory_bank['layer3'])} features")

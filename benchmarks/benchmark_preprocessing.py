@@ -36,6 +36,8 @@ from pyimgano.preprocessing import (
 
 warnings.filterwarnings("ignore")
 
+_PROCESSING_TIME_MS = "Processing Time (ms)"
+
 
 class BenchmarkResult:
     """Container for benchmark results."""
@@ -302,7 +304,7 @@ def plot_benchmark_results(
         names = [r.operation_name for r in basic_valid]
         times = [r.avg_time * 1000 for r in basic_valid]
         axes[0].barh(names, times, color="skyblue")
-        axes[0].set_xlabel("Processing Time (ms)")
+        axes[0].set_xlabel(_PROCESSING_TIME_MS)
         axes[0].set_title("Basic Preprocessing")
         axes[0].grid(axis="x", alpha=0.3)
 
@@ -311,7 +313,7 @@ def plot_benchmark_results(
         names = [r.operation_name for r in advanced_valid]
         times = [r.avg_time * 1000 for r in advanced_valid]
         axes[1].barh(names, times, color="lightgreen")
-        axes[1].set_xlabel("Processing Time (ms)")
+        axes[1].set_xlabel(_PROCESSING_TIME_MS)
         axes[1].set_title("Advanced Operations")
         axes[1].grid(axis="x", alpha=0.3)
 
@@ -320,7 +322,7 @@ def plot_benchmark_results(
         names = [r.operation_name for r in aug_valid]
         times = [r.avg_time * 1000 for r in aug_valid]
         axes[2].barh(names, times, color="lightcoral")
-        axes[2].set_xlabel("Processing Time (ms)")
+        axes[2].set_xlabel(_PROCESSING_TIME_MS)
         axes[2].set_title("Augmentation Pipelines")
         axes[2].grid(axis="x", alpha=0.3)
 

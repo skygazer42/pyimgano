@@ -10,6 +10,8 @@ from pyimgano.utils.optional_deps import require
 
 from .registry import register_model
 
+_PATCHCORE_INSPECTION_BACKEND_PURPOSE = "patchcore-inspection backend detectors"
+
 
 def _build_patchcore_inspection_model(
     *,
@@ -19,9 +21,9 @@ def _build_patchcore_inspection_model(
 ):
     # `patchcore-inspection` is an optional backend installed separately (VCS).
     # We still want missing dependency errors to be actionable.
-    require("torch", extra="torch", purpose="patchcore-inspection backend detectors")
-    require("faiss", extra="faiss", purpose="patchcore-inspection backend detectors")
-    require("patchcore", purpose="patchcore-inspection backend detectors")
+    require("torch", extra="torch", purpose=_PATCHCORE_INSPECTION_BACKEND_PURPOSE)
+    require("faiss", extra="faiss", purpose=_PATCHCORE_INSPECTION_BACKEND_PURPOSE)
+    require("patchcore", purpose=_PATCHCORE_INSPECTION_BACKEND_PURPOSE)
 
     import patchcore.common  # type: ignore[import-not-found]
     from patchcore.patchcore import PatchCore  # type: ignore[import-not-found]
@@ -167,7 +169,7 @@ class VisionPatchCoreInspectionCheckpoint:
 
         return _PredictResult(scores=scores, maps=maps)
 
-    def fit(self, X: Iterable[str], y=None):
+    def fit(self, X: Iterable[str], _y=None):
         paths = list(X)
         if not paths:
             raise ValueError("X must contain at least one training image path.")

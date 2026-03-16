@@ -10,6 +10,9 @@ import numpy as np
 
 from pyimgano import AlgorithmBenchmark
 
+JPG_GLOB = "*.jpg"
+PNG_GLOB = "*.png"
+
 
 def main():
     """Run benchmark example."""
@@ -28,9 +31,9 @@ def main():
         return
 
     # Collect images
-    train_images = list(train_dir.glob("*.jpg")) + list(train_dir.glob("*.png"))
-    test_normal = list(test_normal_dir.glob("*.jpg")) + list(test_normal_dir.glob("*.png"))
-    test_anomaly = list(test_anomaly_dir.glob("*.jpg")) + list(test_anomaly_dir.glob("*.png"))
+    train_images = list(train_dir.glob(JPG_GLOB)) + list(train_dir.glob(PNG_GLOB))
+    test_normal = list(test_normal_dir.glob(JPG_GLOB)) + list(test_normal_dir.glob(PNG_GLOB))
+    test_anomaly = list(test_anomaly_dir.glob(JPG_GLOB)) + list(test_anomaly_dir.glob(PNG_GLOB))
 
     train_images = [str(p) for p in train_images]
     test_images = [str(p) for p in test_normal + test_anomaly]
@@ -61,7 +64,7 @@ def main():
 
     # Create and run benchmark
     benchmark = AlgorithmBenchmark(algorithms)
-    results = benchmark.run(
+    _results = benchmark.run(
         train_images=train_images, test_images=test_images, test_labels=test_labels, verbose=True
     )
 

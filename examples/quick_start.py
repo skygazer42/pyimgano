@@ -4,12 +4,14 @@ Quick Start Example for PyImgAno.
 This script demonstrates basic usage of PyImgAno for anomaly detection.
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
 
 from pyimgano import evaluate_detector, models
+
+JPG_GLOB = "*.jpg"
+PNG_GLOB = "*.png"
 
 
 def main():
@@ -39,14 +41,14 @@ def main():
         return
 
     # Collect image paths
-    train_images = [str(p) for p in train_dir.glob("*.jpg")]
-    train_images += [str(p) for p in train_dir.glob("*.png")]
+    train_images = [str(p) for p in train_dir.glob(JPG_GLOB)]
+    train_images += [str(p) for p in train_dir.glob(PNG_GLOB)]
 
-    test_normal = [str(p) for p in test_normal_dir.glob("*.jpg")]
-    test_normal += [str(p) for p in test_normal_dir.glob("*.png")]
+    test_normal = [str(p) for p in test_normal_dir.glob(JPG_GLOB)]
+    test_normal += [str(p) for p in test_normal_dir.glob(PNG_GLOB)]
 
-    test_anomaly = [str(p) for p in test_anomaly_dir.glob("*.jpg")]
-    test_anomaly += [str(p) for p in test_anomaly_dir.glob("*.png")]
+    test_anomaly = [str(p) for p in test_anomaly_dir.glob(JPG_GLOB)]
+    test_anomaly += [str(p) for p in test_anomaly_dir.glob(PNG_GLOB)]
 
     test_images = test_normal + test_anomaly
     test_labels = np.array([0] * len(test_normal) + [1] * len(test_anomaly))

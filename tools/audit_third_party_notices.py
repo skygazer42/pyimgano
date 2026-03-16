@@ -4,8 +4,8 @@ from __future__ import annotations
 
 Policy:
 - If we copy code into `pyimgano/`, we must keep upstream attribution.
-- Copied files must contain an `UPSTREAM:` marker.
-- `third_party/NOTICE.md` must mention each upstream repo referenced by `UPSTREAM:`.
+- Copied files must contain the upstream marker.
+- `third_party/NOTICE.md` must mention each referenced upstream repo.
 
 This script is intentionally conservative and text-based.
 """
@@ -25,6 +25,7 @@ class UpstreamRef:
 
 _GITHUB_RE = re.compile(r"github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
 _ORG_REPO_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\b")
+_UPSTREAM_MARKER = "UPSTREAM:"
 
 
 def _iter_py_files(root: Path) -> list[Path]:
@@ -62,16 +63,16 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
             text = p.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
-        if "UPSTREAM:" not in text:
+        if _UPSTREAM_MARKER not in text:
             continue
 
         for lineno, line in enumerate(text.splitlines(), start=1):
-            if "UPSTREAM:" not in line:
+            if _UPSTREAM_MARKER not in line:
                 continue
             # Accept formats like:
             #   # UPSTREAM: org/repo @ <sha>
             #   # UPSTREAM: https://github.com/org/repo (commit ...)
-            marker = line.split("UPSTREAM:", 1)[1].strip()
+            marker = line.split(_UPSTREAM_MARKER, 1)[1].strip()
             if not marker:
                 continue
             key, _url = _normalize_upstream(marker)
@@ -83,7 +84,7 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
     return upstream_to_refs
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(_argv: list[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parents[1]
     src_root = repo_root / "pyimgano"
     notice_path = repo_root / "third_party" / "NOTICE.md"
@@ -104,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         print("error: UPSTREAM markers found but third_party/NOTICE.md is missing", file=sys.stderr)
         for key, refs in sorted(upstreams.items(), key=lambda kv: kv[0].lower()):
             _key, url = _normalize_upstream(key)
-            print(f"- UPSTREAM: {key}", file=sys.stderr)
+            print(f"- {_UPSTREAM_MARKER} {key}", file=sys.stderr)
             if url is not None:
                 print(f"  - url: {url}", file=sys.stderr)
             for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
@@ -142,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
                 rel = ref.path.relative_to(repo_root)
                 print(
-                    f"  - referenced by: {rel}:{ref.lineno}  (UPSTREAM: {ref.marker})",
+                    f"  - referenced by: {rel}:{ref.lineno}  ({_UPSTREAM_MARKER} {ref.marker})",
                     file=sys.stderr,
                 )
         print("", file=sys.stderr)

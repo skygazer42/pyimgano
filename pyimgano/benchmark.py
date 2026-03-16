@@ -172,7 +172,7 @@ class AlgorithmBenchmark:
 
     def _benchmark_single(
         self,
-        algo_name: str,
+        _algo_name: str,
         algo_config: Dict,
         train_images: List[str],
         test_images: List[str],

@@ -21,6 +21,7 @@ from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 try:  # pragma: no cover - typing-only dependency
     from numpy.typing import NDArray
@@ -470,7 +471,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             )
 
         if self.memory_bank is None or self.nn_index is None or not hasattr(self, "threshold_"):
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
@@ -500,7 +501,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         np = self._np
         if self.memory_bank is None or self.nn_index is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         x_list = list(X)
         scores = np.zeros(len(x_list))
@@ -547,7 +548,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         np = self._np
         cv2 = self._cv2
         if self.memory_bank is None or self.nn_index is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         # Extract patch features
         features, (h, w) = self._extract_patch_features(image_path)

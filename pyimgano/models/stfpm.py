@@ -29,6 +29,7 @@ from .registry import register_model
 logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
 class ImagePathDataset(Dataset):
@@ -425,7 +426,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
             )
 
         if self.mean_scores is None or not hasattr(self, "threshold_"):
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
@@ -454,7 +455,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         if self.mean_scores is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         self.student.eval()
 
@@ -493,7 +494,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
             Anomaly heatmap (higher values = more anomalous)
         """
         if self.mean_scores is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         # Load and preprocess image
         if isinstance(image_path, np.ndarray):

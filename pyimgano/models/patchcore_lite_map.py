@@ -31,6 +31,8 @@ from .knn_index import KNNIndex, build_knn_index
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
 
 @dataclass
 class _EmbeddedImage:
@@ -121,7 +123,7 @@ class VisionPatchCoreLiteMap:
     @property
     def memory_bank_size_(self) -> int:
         if self._memory_bank is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         return int(self._memory_bank.shape[0])
 
     def _embed(self, image: Union[str, np.ndarray]) -> _EmbeddedImage:
@@ -147,7 +149,7 @@ class VisionPatchCoreLiteMap:
             original_size=(original_h, original_w),
         )
 
-    def fit(self, X: Iterable[Union[str, np.ndarray]], y=None):
+    def fit(self, X: Iterable[Union[str, np.ndarray]], _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one training image.")
@@ -180,7 +182,7 @@ class VisionPatchCoreLiteMap:
 
     def _patch_scores(self, embedded: _EmbeddedImage) -> NDArray:
         if self._knn_index is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         if self._n_neighbors_fit is None:
             raise RuntimeError("Internal error: missing fitted neighbor count.")
 
@@ -210,7 +212,7 @@ class VisionPatchCoreLiteMap:
 
     def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
         if self.threshold_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = self.decision_function(X)
         return (scores > self.threshold_).astype(np.int64)
 

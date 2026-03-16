@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -13,20 +12,20 @@ import pyimgano.cli_discovery_options as cli_discovery_options
 import pyimgano.cli_discovery_rendering as cli_discovery_rendering
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
-from pyimgano.inference.api import (
-    InferenceTiming,
-    calibrate_threshold,
-)
-from pyimgano.models.registry import create_model
-import pyimgano.services.infer_artifact_service as infer_artifact_service
-import pyimgano.services.infer_continue_service as infer_continue_service
 import pyimgano.services.discovery_service as discovery_service
+import pyimgano.services.infer_artifact_service as infer_artifact_service
 import pyimgano.services.infer_context_service as infer_context_service
+import pyimgano.services.infer_continue_service as infer_continue_service
 import pyimgano.services.infer_load_service as infer_load_service
 import pyimgano.services.infer_options_service as infer_options_service
 import pyimgano.services.infer_output_service as infer_output_service
 import pyimgano.services.infer_runtime_service as infer_runtime_service
 import pyimgano.services.infer_wrapper_service as infer_wrapper_service
+from pyimgano.inference.api import (
+    InferenceTiming,
+    calibrate_threshold,
+)
+from pyimgano.models.registry import create_model
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
@@ -58,7 +57,7 @@ def _parse_csv_ints_arg(text: str, *, arg_name: str) -> list[int]:
     return out
 
 
-def _parse_csv_strs_arg(text: str, *, arg_name: str) -> list[str]:
+def _parse_csv_strs_arg(text: str) -> list[str]:
     raw = [t.strip() for t in str(text).split(",")]
     return [t for t in raw if t]
 
@@ -287,7 +286,7 @@ def _maybe_apply_onnx_session_options_and_sweep(
             else _default_onnx_sweep_intra_values()
         )
         opt_levels = (
-            _parse_csv_strs_arg(str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels")
+            _parse_csv_strs_arg(str(args.onnx_sweep_opt_levels))
             if getattr(args, "onnx_sweep_opt_levels", None)
             else ["all", "extended"]
         )

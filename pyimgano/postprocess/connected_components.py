@@ -48,7 +48,6 @@ def label_components(
 def components_from_labels(
     num_labels: int,
     *,
-    labels: np.ndarray,
     stats: np.ndarray,
     centroids: np.ndarray,
     scores: Sequence[float] | None = None,
@@ -157,7 +156,6 @@ def filter_small_components(
 
     comps = components_from_labels(
         int(num),
-        labels=labels,
         stats=stats,
         centroids=centroids,
         scores=scores,

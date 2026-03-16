@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -99,7 +99,7 @@ class VisionUniVAD:
         layers = _extract_layers(self.feature_extractor, image)
         return _fuse_layers(layers, self.layer_weights)
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one support sample.")

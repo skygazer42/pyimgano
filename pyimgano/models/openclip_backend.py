@@ -21,11 +21,13 @@ from .anomalydino import PatchEmbedder, VisionAnomalyDINO
 from .patchknn_core import aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
 
+_OPENCLIP_PURPOSE = "OpenCLIP detectors"
+
 
 def _require_open_clip(open_clip_module=None):
     if open_clip_module is not None:
         return open_clip_module
-    return require("open_clip", extra="clip", purpose="OpenCLIP detectors")
+    return require("open_clip", extra="clip", purpose=_OPENCLIP_PURPOSE)
 
 
 def _l2_normalize(x: NDArray, *, axis: int, eps: float = 1e-12) -> NDArray:
@@ -102,7 +104,7 @@ def _load_openclip_model_and_preprocess(
 
     from pyimgano.utils.optional_deps import require
 
-    torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
+    torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
 
     device_t = torch.device(str(device))
     kwargs: dict[str, Any] = {}
@@ -214,7 +216,7 @@ class OpenCLIPViTPatchEmbedder:
     def _extract_vit_patch_tokens(self, image_tensor):
         from pyimgano.utils.optional_deps import require
 
-        torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
+        torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
 
         if self._model is None:  # pragma: no cover - guarded by _ensure_loaded
             raise RuntimeError("OpenCLIP model not loaded")
@@ -306,7 +308,7 @@ class OpenCLIPViTPatchEmbedder:
 
         from pyimgano.utils.optional_deps import require
 
-        torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
+        torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
 
         if self._preprocess is None or self._device_t is None:  # pragma: no cover
             raise RuntimeError("OpenCLIP preprocess not loaded")
@@ -346,7 +348,7 @@ def _encode_openclip_text_features(
 
     from pyimgano.utils.optional_deps import require
 
-    torch = require("torch", extra="torch", purpose="OpenCLIP detectors")
+    torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
 
     tokens = open_clip.tokenize(prompts).to(device_t)
     with torch.no_grad():
@@ -547,7 +549,7 @@ class VisionOpenCLIPPromptScore:
 
         return patch_embeddings_np, (grid_h, grid_w), (original_h, original_w)
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one training image path.")

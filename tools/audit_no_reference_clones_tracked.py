@@ -28,7 +28,7 @@ def _git_ls_files(repo_root: Path) -> list[str]:
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
 
-def main(argv: list[str] | None = None) -> int:  # noqa: ARG001 - conventional signature
+def main(_argv: list[str] | None = None) -> int:  # noqa: ARG001 - conventional signature
     repo_root = Path(__file__).resolve().parents[1]
     tracked = _git_ls_files(repo_root)
 

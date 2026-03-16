@@ -20,6 +20,12 @@ from numpy.typing import NDArray
 
 from pyimgano.utils.optional_deps import require
 
+_SKIMAGE_EXTRA = "skimage"
+_SKIMAGE_FEATURE_MODULE = "skimage.feature"
+_SKIMAGE_FILTERS_MODULE = "skimage.filters"
+_SKIMAGE_MORPHOLOGY_MODULE = "skimage.morphology"
+_BLOCK_SIZE = "block_size"
+
 # Enums for type-safe operation selection
 
 
@@ -204,7 +210,7 @@ def apply_gabor_filter(
     image = image.astype(np.float32) / 255.0
 
     # Apply Gabor filter
-    skfilters = require("skimage.filters", extra="skimage", purpose="Gabor filter")
+    skfilters = require(_SKIMAGE_FILTERS_MODULE, extra=_SKIMAGE_EXTRA, purpose="Gabor filter")
     real, _ = skfilters.gabor(
         image,
         frequency=frequency,
@@ -239,7 +245,7 @@ def compute_lbp(
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Compute LBP
-    skfeature = require("skimage.feature", extra="skimage", purpose="LBP texture features")
+    skfeature = require(_SKIMAGE_FEATURE_MODULE, extra=_SKIMAGE_EXTRA, purpose="LBP texture features")
     lbp = skfeature.local_binary_pattern(image, n_points, radius, method=method)
 
     # Normalize to 0-255
@@ -270,7 +276,9 @@ def compute_glcm_features(
     distances = [1] if distances is None else list(distances)
     angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4] if angles is None else list(angles)
 
-    skfeature = require("skimage.feature", extra="skimage", purpose="GLCM texture features")
+    skfeature = require(
+        _SKIMAGE_FEATURE_MODULE, extra=_SKIMAGE_EXTRA, purpose="GLCM texture features"
+    )
     greycomatrix = getattr(skfeature, "graycomatrix", None) or getattr(
         skfeature, "greycomatrix", None
     )
@@ -565,7 +573,9 @@ def extract_hog_features(
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    skfeature = require("skimage.feature", extra="skimage", purpose="HOG feature extraction")
+    skfeature = require(
+        _SKIMAGE_FEATURE_MODULE, extra=_SKIMAGE_EXTRA, purpose="HOG feature extraction"
+    )
     hog = skfeature.hog
 
     if visualize:
@@ -613,7 +623,7 @@ def detect_corners(
         gray = image
 
     if method == CornerDetector.HARRIS:
-        block_size = kwargs.get("block_size", 2)
+        block_size = kwargs.get(_BLOCK_SIZE, 2)
         ksize = kwargs.get("ksize", 3)
         k = kwargs.get("k", 0.04)
         dst = cv2.cornerHarris(gray, block_size, ksize, k)
@@ -668,17 +678,19 @@ def apply_advanced_morphology(
     binary_bool = binary.astype(bool)
 
     if operation == MorphologicalAdvanced.SKELETON:
-        skmorph = require("skimage.morphology", extra="skimage", purpose="skeletonization")
+        skmorph = require(_SKIMAGE_MORPHOLOGY_MODULE, extra=_SKIMAGE_EXTRA, purpose="skeletonization")
         skeleton = skmorph.skeletonize(binary_bool)
         return (skeleton * 255).astype(np.uint8)
 
     elif operation == MorphologicalAdvanced.THIN:
-        skmorph = require("skimage.morphology", extra="skimage", purpose="thinning")
+        skmorph = require(_SKIMAGE_MORPHOLOGY_MODULE, extra=_SKIMAGE_EXTRA, purpose="thinning")
         thinned = skmorph.thin(binary_bool)
         return (thinned * 255).astype(np.uint8)
 
     elif operation == MorphologicalAdvanced.CONVEX_HULL:
-        skmorph = require("skimage.morphology", extra="skimage", purpose="convex hull morphology")
+        skmorph = require(
+            _SKIMAGE_MORPHOLOGY_MODULE, extra=_SKIMAGE_EXTRA, purpose="convex hull morphology"
+        )
         hull = skmorph.convex_hull_image(binary_bool)
         return (hull * 255).astype(np.uint8)
 
@@ -722,7 +734,7 @@ def apply_threshold(
         return binary
 
     elif method == ThresholdMethod.ADAPTIVE_MEAN:
-        block_size = kwargs.get("block_size", 11)
+        block_size = kwargs.get(_BLOCK_SIZE, 11)
         c = kwargs.get("c", 2)
         binary = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, block_size, c
@@ -730,7 +742,7 @@ def apply_threshold(
         return binary
 
     elif method == ThresholdMethod.ADAPTIVE_GAUSSIAN:
-        block_size = kwargs.get("block_size", 11)
+        block_size = kwargs.get(_BLOCK_SIZE, 11)
         c = kwargs.get("c", 2)
         binary = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, c
@@ -742,13 +754,15 @@ def apply_threshold(
         return binary
 
     elif method == ThresholdMethod.YEN:
-        skfilters = require("skimage.filters", extra="skimage", purpose="Yen threshold")
+        skfilters = require(_SKIMAGE_FILTERS_MODULE, extra=_SKIMAGE_EXTRA, purpose="Yen threshold")
         threshold_value = skfilters.threshold_yen(gray)
         binary = (gray > threshold_value).astype(np.uint8) * 255
         return binary
 
     elif method == ThresholdMethod.ISODATA:
-        skfilters = require("skimage.filters", extra="skimage", purpose="Isodata threshold")
+        skfilters = require(
+            _SKIMAGE_FILTERS_MODULE, extra=_SKIMAGE_EXTRA, purpose="Isodata threshold"
+        )
         threshold_value = skfilters.threshold_isodata(gray)
         binary = (gray > threshold_value).astype(np.uint8) * 255
         return binary

@@ -8,6 +8,22 @@ import pyimgano.services.workbench_service as workbench_service
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.workbench.config import WorkbenchConfig
 
+BUILTIN_TAG = "builtin"
+CLASSICAL_TAG = "classical"
+CPU_TAG = "cpu"
+SYNTHESIS_TAG = "synthesis"
+DESCRIPTION_KEY = "description"
+FEATURE_EXTRACTOR_KEY = "feature_extractor"
+KWARGS_KEY = "kwargs"
+MANIFEST_FILENAME = "manifest.jsonl"
+SCRATCH_PRESET = "scratch"
+SYNTHETIC_CATEGORY = "synthetic"
+VISION_ECOD_MODEL = "vision_ecod"
+
+
+def _feature_extractor_spec(name: str, kwargs: dict[str, Any]) -> dict[str, Any]:
+    return {"name": name, KWARGS_KEY: kwargs}
+
 
 def _run_structural_iforest_synthetic_manifest(
     *,
@@ -17,7 +33,10 @@ def _run_structural_iforest_synthetic_manifest(
     manifest_path: Path,
 ) -> dict[str, Any]:
     model_kwargs = dict(config.model.model_kwargs)
-    model_kwargs.setdefault("feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}})
+    model_kwargs.setdefault(
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec("structural", {"max_size": 512}),
+    )
     cfg: WorkbenchConfig = replace(
         config,
         dataset=replace(
@@ -25,7 +44,7 @@ def _run_structural_iforest_synthetic_manifest(
             name="manifest",
             root=str(synth_root),
             manifest_path=str(manifest_path),
-            category="synthetic",
+            category=SYNTHETIC_CATEGORY,
             input_mode="paths",
         ),
         model=replace(config.model, name="vision_iforest", model_kwargs=model_kwargs),
@@ -35,113 +54,115 @@ def _run_structural_iforest_synthetic_manifest(
 
 @register_recipe(
     "classical-hog-ecod",
-    tags=("builtin", "classical"),
-    metadata={"description": "Classical baseline: HOG features + ECOD"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG),
+    metadata={DESCRIPTION_KEY: "Classical baseline: HOG features + ECOD"},
 )
 def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-hog-ecod"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor", {"name": "hog", "kwargs": {"resize_hw": [128, 128]}}
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec("hog", {"resize_hw": [128, 128]}),
     )
     cfg: WorkbenchConfig = replace(
-        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+        config, model=replace(config.model, name=VISION_ECOD_MODEL, model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
     "classical-structural-ecod",
-    tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: structural features + ECOD"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG, CPU_TAG),
+    metadata={DESCRIPTION_KEY: "CPU-friendly baseline: structural features + ECOD"},
 )
 def classical_structural_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-structural-ecod"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec("structural", {"max_size": 512}),
     )
     cfg: WorkbenchConfig = replace(
-        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+        config, model=replace(config.model, name=VISION_ECOD_MODEL, model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
     "classical-edge-ecod",
-    tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: edge statistics features + ECOD"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG, CPU_TAG),
+    metadata={DESCRIPTION_KEY: "CPU-friendly baseline: edge statistics features + ECOD"},
 )
 def classical_edge_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-edge-ecod"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor",
-        {
-            "name": "edge_stats",
-            "kwargs": {"canny_threshold1": 50, "canny_threshold2": 150, "sobel_ksize": 3},
-        },
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec(
+            "edge_stats",
+            {"canny_threshold1": 50, "canny_threshold2": 150, "sobel_ksize": 3},
+        ),
     )
     cfg: WorkbenchConfig = replace(
-        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+        config, model=replace(config.model, name=VISION_ECOD_MODEL, model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
     "classical-patch-stats-ecod",
-    tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: patch-grid statistics features + ECOD"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG, CPU_TAG),
+    metadata={DESCRIPTION_KEY: "CPU-friendly baseline: patch-grid statistics features + ECOD"},
 )
 def classical_patch_stats_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-patch-stats-ecod"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor",
-        {
-            "name": "patch_stats",
-            "kwargs": {
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec(
+            "patch_stats",
+            {
                 "grid": [4, 4],
                 "stats": ["mean", "std", "skew", "kurt"],
                 "resize_hw": [128, 128],
             },
-        },
+        ),
     )
     cfg: WorkbenchConfig = replace(
-        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+        config, model=replace(config.model, name=VISION_ECOD_MODEL, model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
     "classical-fft-lowfreq-ecod",
-    tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: FFT low-frequency energy ratios + ECOD"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG, CPU_TAG),
+    metadata={DESCRIPTION_KEY: "CPU-friendly baseline: FFT low-frequency energy ratios + ECOD"},
 )
 def classical_fft_lowfreq_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-fft-lowfreq-ecod"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor",
-        {"name": "fft_lowfreq", "kwargs": {"size_hw": [64, 64], "radii": [4, 8, 16]}},
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec("fft_lowfreq", {"size_hw": [64, 64], "radii": [4, 8, 16]}),
     )
     cfg: WorkbenchConfig = replace(
-        config, model=replace(config.model, name="vision_ecod", model_kwargs=model_kwargs)
+        config, model=replace(config.model, name=VISION_ECOD_MODEL, model_kwargs=model_kwargs)
     )
     return workbench_service.run_workbench(config=cfg, recipe_name=recipe_name)
 
 
 @register_recipe(
     "classical-lbp-loop",
-    tags=("builtin", "classical"),
-    metadata={"description": "Classical baseline: LBP features + LoOP"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG),
+    metadata={DESCRIPTION_KEY: "Classical baseline: LBP features + LoOP"},
 )
 def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-lbp-loop"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor",
-        {"name": "lbp", "kwargs": {"n_points": 8, "radius": 1.0, "method": "uniform"}},
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec("lbp", {"n_points": 8, "radius": 1.0, "method": "uniform"}),
     )
     model_kwargs.setdefault("n_neighbors", 15)
     cfg: WorkbenchConfig = replace(
@@ -152,15 +173,15 @@ def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
 
 @register_recipe(
     "classical-colorhist-mahalanobis",
-    tags=("builtin", "classical"),
-    metadata={"description": "Classical baseline: HSV color hist + Mahalanobis"},
+    tags=(BUILTIN_TAG, CLASSICAL_TAG),
+    metadata={DESCRIPTION_KEY: "Classical baseline: HSV color hist + Mahalanobis"},
 )
 def classical_colorhist_mahalanobis(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-colorhist-mahalanobis"
     model_kwargs = dict(config.model.model_kwargs)
     model_kwargs.setdefault(
-        "feature_extractor",
-        {"name": "color_hist", "kwargs": {"colorspace": "hsv", "bins": [16, 16, 16]}},
+        FEATURE_EXTRACTOR_KEY,
+        _feature_extractor_spec("color_hist", {"colorspace": "hsv", "bins": [16, 16, 16]}),
     )
     model_kwargs.setdefault("reg", 1e-6)
     cfg: WorkbenchConfig = replace(
@@ -172,9 +193,9 @@ def classical_colorhist_mahalanobis(config: WorkbenchConfig) -> dict[str, Any]:
 
 @register_recipe(
     "classical-struct-iforest-synth",
-    tags=("builtin", "classical", "synthesis"),
+    tags=(BUILTIN_TAG, CLASSICAL_TAG, SYNTHESIS_TAG),
     metadata={
-        "description": (
+        DESCRIPTION_KEY: (
             "One-click demo: generate a tiny synthetic dataset from a flat folder of normal images "
             "and run a structural-features IForest baseline on the resulting manifest."
         )
@@ -208,18 +229,18 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
         synthesize_dataset(
             in_dir=in_dir,
             out_root=synth_root,
-            category="synthetic",
-            preset="scratch",
+            category=SYNTHETIC_CATEGORY,
+            preset=SCRATCH_PRESET,
             seed=seed,
             n_train=8 if config.dataset.limit_train is None else int(config.dataset.limit_train),
             n_test_normal=4,
             n_test_anomaly=(
                 4 if config.dataset.limit_test is None else int(config.dataset.limit_test)
             ),
-            manifest_path=synth_root / "manifest.jsonl",
+            manifest_path=synth_root / MANIFEST_FILENAME,
             absolute_paths=True,
         )
-        manifest_path = synth_root / "manifest.jsonl"
+        manifest_path = synth_root / MANIFEST_FILENAME
     else:
         # CI-/demo-friendly fallback when output_dir isn't set.
         with TemporaryDirectory(prefix="pyimgano_synth_") as td:
@@ -227,16 +248,16 @@ def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:
             synthesize_dataset(
                 in_dir=in_dir,
                 out_root=synth_root,
-                category="synthetic",
-                preset="scratch",
+                category=SYNTHETIC_CATEGORY,
+                preset=SCRATCH_PRESET,
                 seed=seed,
                 n_train=8,
                 n_test_normal=4,
                 n_test_anomaly=4,
-                manifest_path=synth_root / "manifest.jsonl",
+                manifest_path=synth_root / MANIFEST_FILENAME,
                 absolute_paths=True,
             )
-            manifest_path = synth_root / "manifest.jsonl"
+            manifest_path = synth_root / MANIFEST_FILENAME
             return _run_structural_iforest_synthetic_manifest(
                 config=config,
                 recipe_name=recipe_name,
