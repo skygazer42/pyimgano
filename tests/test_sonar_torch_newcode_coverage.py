@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-
 # These tests are only meaningful (and importable) when torch is installed.
 # The SonarCloud workflow installs `pyimgano[torch]` to cover new-code guards
 # added in torch-based detectors without forcing torch on all CI workflows.
@@ -99,9 +98,9 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
         inst = _make_instance_without_init(cls)
         inst.batch_size = 4
 
-        def _predict_stub(_X, return_confidence: bool = False):  # noqa: ANN001
+        def _predict_stub(_x, return_confidence: bool = False):  # noqa: ANN001
             assert return_confidence is False
-            return _stub_scores_predict(len(_X))
+            return _stub_scores_predict(len(_x))
 
         # Route decision_function -> predict without invoking heavy model code.
         inst.predict = _predict_stub  # type: ignore[assignment]
@@ -124,8 +123,8 @@ def test_torch_detectors_batch_size_validation_only_paths():
     # Some detectors keep `batch_size` for interface compatibility but score
     # one item at a time. We can cover the validation branch without fitting.
     from pyimgano.models.cflow import VisionCFlow
-    from pyimgano.models.differnet import DifferNetDetector
     from pyimgano.models.dfm import VisionDFM
+    from pyimgano.models.differnet import DifferNetDetector
     from pyimgano.models.draem import VisionDRAEM
     from pyimgano.models.simplenet import VisionSimpleNet
     from pyimgano.models.spade import VisionSPADEDetector

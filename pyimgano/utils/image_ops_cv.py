@@ -8,6 +8,8 @@ from typing import Callable, Iterable, Tuple
 import cv2
 import numpy as np
 
+from pyimgano.utils.random_state import check_random_state
+
 # ---------------------------------------------------------------------------
 # Basic conversions & filters
 # ---------------------------------------------------------------------------
@@ -58,10 +60,15 @@ def clahe_equalization(
     return cv2.merge(eq_channels)
 
 
-def add_gaussian_noise(image: np.ndarray, mean: float = 0.0, sigma: float = 10.0) -> np.ndarray:
+def add_gaussian_noise(
+    image: np.ndarray,
+    mean: float = 0.0,
+    sigma: float = 10.0,
+    random_state: int | np.random.Generator | None = None,
+) -> np.ndarray:
     """Add Gaussian noise to image."""
 
-    noise = np.random.normal(mean, sigma, image.shape).astype(np.float32)
+    noise = check_random_state(random_state).normal(mean, sigma, image.shape).astype(np.float32)
     noised = image.astype(np.float32) + noise
     return np.clip(noised, 0, 255).astype(image.dtype)
 

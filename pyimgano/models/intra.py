@@ -452,7 +452,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Normalize features
         features_np = features.cpu().numpy()
-        B, N_patches, _ = features_np.shape
+        B, n_patches, _ = features_np.shape
 
         normalized = (features_np - self.normal_features_mean) / self.normal_features_std
 
@@ -460,7 +460,7 @@ class InTraDetector(BaseVisionDeepDetector):
         patch_scores = np.linalg.norm(normalized, axis=2)  # [B, N_patches]
 
         # Reshape to spatial grid
-        n_patches_per_side = int(np.sqrt(N_patches))
+        n_patches_per_side = int(np.sqrt(n_patches))
         anomaly_maps = patch_scores.reshape(B, n_patches_per_side, n_patches_per_side)
 
         # Upsample to original size
