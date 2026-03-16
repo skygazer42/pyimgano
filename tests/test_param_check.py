@@ -40,3 +40,10 @@ def test_check_parameter_rejects_non_numeric_bounds() -> None:
 
     with pytest.raises(TypeError, match="high must be a number"):
         check_parameter(1, high="b", param_name="x")  # type: ignore[arg-type]
+
+
+def test_check_parameter_rejects_inverted_bounds() -> None:
+    from pyimgano.utils.param_check import check_parameter
+
+    with pytest.raises(ValueError, match="low=3 > high=1"):
+        check_parameter(2, low=3, high=1, param_name="x")

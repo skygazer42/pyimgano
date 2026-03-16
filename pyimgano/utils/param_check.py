@@ -47,8 +47,12 @@ def check_parameter(
     low_value = _validate_bound(low, bound_name="low")
     high_value = _validate_bound(high, bound_name="high")
 
-    if low_value is not None and high_value is not None and low_value > high_value:
-        raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
+    if low_value is not None:
+        if high_value is not None:
+            low_bound = cast(Number, low_value)
+            high_bound = cast(Number, high_value)
+            if low_bound > high_bound:
+                raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
 
     if low_value is not None:
         if include_left:
