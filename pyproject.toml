@@ -216,6 +216,7 @@ markers = [
 # Coverage configuration
 [tool.coverage.run]
 source = ["pyimgano"]
+relative_files = true
 omit = [
     "*/tests/*",
     "*/test_*.py",

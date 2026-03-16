@@ -100,20 +100,10 @@ def _resolve_from_run_model_checkpoint_path(
     )
 
 
-def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBackedInferContext:
-    cfg = workbench_run_service.load_workbench_config_from_run(request.run_dir)
-    report = workbench_run_service.load_report_from_run(request.run_dir)
-    _category_name, category_report = workbench_run_service.select_category_report(
-        report,
-        category=(str(request.from_run_category) if request.from_run_category is not None else None),
-    )
-
-    threshold = workbench_run_service.extract_threshold(category_report)
-    trained_checkpoint_path = workbench_run_service.resolve_checkpoint_path(
-        request.run_dir,
-        category_report,
-    )
-
+def _apply_from_run_overrides(
+    cfg: Any,
+    request: FromRunInferContextRequest,
+) -> tuple[str | None, str, float, bool, dict[str, Any]]:
     preset = cfg.model.preset
     if request.preset is not None:
         preset = str(request.preset)
@@ -134,17 +124,30 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
     if request.model_kwargs:
         base_user_kwargs.update(dict(request.model_kwargs))
 
-    warnings: tuple[str, ...] = ()
-    if request.checkpoint_path is not None:
-        checkpoint_path = str(request.checkpoint_path)
-    else:
-        checkpoint_path, warnings = _resolve_from_run_model_checkpoint_path(
-            run_dir=str(request.run_dir),
-            configured_checkpoint_path=(
-                str(cfg.model.checkpoint_path) if cfg.model.checkpoint_path is not None else None
-            ),
-        )
+    return (
+        (str(preset) if preset is not None else None),
+        str(device),
+        float(contamination),
+        bool(pretrained),
+        base_user_kwargs,
+    )
 
+
+def _resolve_from_run_checkpoint(
+    cfg: Any,
+    request: FromRunInferContextRequest,
+) -> tuple[str | None, tuple[str, ...]]:
+    if request.checkpoint_path is not None:
+        return str(request.checkpoint_path), ()
+    return _resolve_from_run_model_checkpoint_path(
+        run_dir=str(request.run_dir),
+        configured_checkpoint_path=(
+            str(cfg.model.checkpoint_path) if cfg.model.checkpoint_path is not None else None
+        ),
+    )
+
+
+def _extract_from_run_optional_payloads(cfg: Any) -> tuple[Any | None, dict[str, Any] | None]:
     illumination_contrast_knobs = None
     try:
         illumination_contrast_knobs = cfg.preprocessing.illumination_contrast
@@ -165,12 +168,79 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
             "map_reduce": str(tiling.map_reduce),
         }
 
+    return illumination_contrast_knobs, tiling_payload
+
+
+def _build_config_backed_context(
+    *,
+    model_name: str,
+    preset: str | None,
+    device: str,
+    contamination: float,
+    pretrained: bool,
+    base_user_kwargs: dict[str, Any],
+    checkpoint_path: str | None,
+    trained_checkpoint_path: str | None,
+    threshold: float | None,
+    defects_payload: dict[str, Any] | None,
+    defects_payload_source: str | None,
+    illumination_contrast_knobs: Any | None,
+    tiling_payload: dict[str, Any] | None,
+    infer_config_postprocess: dict[str, Any] | None,
+    enable_maps_by_default: bool,
+    warnings: tuple[str, ...],
+) -> ConfigBackedInferContext:
     return ConfigBackedInferContext(
-        model_name=str(cfg.model.name),
+        model_name=str(model_name),
         preset=(str(preset) if preset is not None else None),
         device=str(device),
         contamination=float(contamination),
         pretrained=bool(pretrained),
+        base_user_kwargs=base_user_kwargs,
+        checkpoint_path=checkpoint_path,
+        trained_checkpoint_path=(
+            str(trained_checkpoint_path) if trained_checkpoint_path is not None else None
+        ),
+        threshold=(float(threshold) if threshold is not None else None),
+        defects_payload=(dict(defects_payload) if defects_payload is not None else None),
+        defects_payload_source=(
+            str(defects_payload_source) if defects_payload_source is not None else None
+        ),
+        illumination_contrast_knobs=illumination_contrast_knobs,
+        tiling_payload=tiling_payload,
+        infer_config_postprocess=infer_config_postprocess,
+        enable_maps_by_default=bool(enable_maps_by_default),
+        warnings=tuple(str(warning) for warning in warnings),
+    )
+
+
+def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBackedInferContext:
+    cfg = workbench_run_service.load_workbench_config_from_run(request.run_dir)
+    report = workbench_run_service.load_report_from_run(request.run_dir)
+    _category_name, category_report = workbench_run_service.select_category_report(
+        report,
+        category=(str(request.from_run_category) if request.from_run_category is not None else None),
+    )
+
+    threshold = workbench_run_service.extract_threshold(category_report)
+    trained_checkpoint_path = workbench_run_service.resolve_checkpoint_path(
+        request.run_dir,
+        category_report,
+    )
+
+    preset, device, contamination, pretrained, base_user_kwargs = _apply_from_run_overrides(
+        cfg,
+        request,
+    )
+    checkpoint_path, warnings = _resolve_from_run_checkpoint(cfg, request)
+    illumination_contrast_knobs, tiling_payload = _extract_from_run_optional_payloads(cfg)
+
+    return _build_config_backed_context(
+        model_name=str(cfg.model.name),
+        preset=preset,
+        device=device,
+        contamination=contamination,
+        pretrained=pretrained,
         base_user_kwargs=base_user_kwargs,
         checkpoint_path=checkpoint_path,
         trained_checkpoint_path=(
@@ -187,50 +257,49 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
     )
 
 
-def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBackedInferContext:
-    from pyimgano.inference.config import (
-        load_infer_config,
-        normalize_infer_config_schema,
-        resolve_infer_checkpoint_path,
-        resolve_infer_model_checkpoint_path,
-        select_infer_category,
-    )
-    from pyimgano.inference.preprocessing import parse_illumination_contrast_knobs
-
-    config_path = Path(str(request.config_path))
-    payload = load_infer_config(config_path)
-    payload, schema_warnings = normalize_infer_config_schema(payload)
-    payload = select_infer_category(
-        payload,
-        category=(str(request.infer_category) if request.infer_category is not None else None),
-    )
-
+def _extract_defects_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     defects_payload = payload.get("defects", None)
-    if defects_payload is not None:
-        if not isinstance(defects_payload, dict):
-            raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
-        defects_payload = dict(defects_payload)
+    if defects_payload is None:
+        return None
+    if not isinstance(defects_payload, dict):
+        raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
+    return dict(defects_payload)
 
-    illumination_contrast_knobs = None
+
+def _extract_illumination_contrast_knobs(
+    payload: dict[str, Any],
+    *,
+    parse_knobs: Any,
+) -> Any | None:
     preprocessing_payload = payload.get("preprocessing", None)
-    if preprocessing_payload is not None:
-        if not isinstance(preprocessing_payload, dict):
-            raise ValueError("infer-config key 'preprocessing' must be a JSON object/dict.")
-        illumination_payload = preprocessing_payload.get("illumination_contrast", None)
-        if illumination_payload is not None:
-            if not isinstance(illumination_payload, dict):
-                raise ValueError(
-                    "infer-config key 'preprocessing.illumination_contrast' must be a JSON object/dict."
-                )
-            illumination_contrast_knobs = parse_illumination_contrast_knobs(illumination_payload)
+    if preprocessing_payload is None:
+        return None
+    if not isinstance(preprocessing_payload, dict):
+        raise ValueError("infer-config key 'preprocessing' must be a JSON object/dict.")
 
+    illumination_payload = preprocessing_payload.get("illumination_contrast", None)
+    if illumination_payload is None:
+        return None
+    if not isinstance(illumination_payload, dict):
+        raise ValueError(
+            "infer-config key 'preprocessing.illumination_contrast' must be a JSON object/dict."
+        )
+    return parse_knobs(illumination_payload)
+
+
+def _extract_model_payload(payload: dict[str, Any]) -> dict[str, Any]:
     model_payload = payload.get("model", None)
     if not isinstance(model_payload, dict):
         raise ValueError("infer-config must contain a JSON object at key 'model'.")
     model_name = model_payload.get("name", None)
     if model_name is None:
         raise ValueError("infer-config model.name is required.")
+    return model_payload
 
+
+def _extract_adaptation_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
     adaptation_payload = payload.get("adaptation", None)
     if adaptation_payload is None:
         adaptation_payload = {}
@@ -247,9 +316,17 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
     if isinstance(postprocess_payload, dict):
         infer_config_postprocess = dict(postprocess_payload)
 
-    threshold = workbench_run_service.extract_threshold(payload)
-    trained_checkpoint_path = resolve_infer_checkpoint_path(payload, config_path=config_path)
+    return adaptation_payload, tiling_payload, infer_config_postprocess
 
+
+def _apply_infer_config_overrides(
+    *,
+    payload: dict[str, Any],
+    model_payload: dict[str, Any],
+    request: InferConfigContextRequest,
+    config_path: Path,
+    resolve_infer_model_checkpoint_path: Any,
+) -> tuple[str | None, str, float, bool, dict[str, Any], str | None]:
     preset = model_payload.get("preset", None)
     if request.preset is not None:
         preset = str(request.preset)
@@ -278,19 +355,71 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
     else:
         checkpoint_path = None
 
-    return ConfigBackedInferContext(
+    return (
+        (str(preset) if preset is not None else None),
+        str(device),
+        float(contamination),
+        bool(pretrained),
+        base_user_kwargs,
+        checkpoint_path,
+    )
+
+
+def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBackedInferContext:
+    from pyimgano.inference.config import (
+        load_infer_config,
+        normalize_infer_config_schema,
+        resolve_infer_checkpoint_path,
+        resolve_infer_model_checkpoint_path,
+        select_infer_category,
+    )
+    from pyimgano.inference.preprocessing import parse_illumination_contrast_knobs
+
+    config_path = Path(str(request.config_path))
+    payload = load_infer_config(config_path)
+    payload, schema_warnings = normalize_infer_config_schema(payload)
+    payload = select_infer_category(
+        payload,
+        category=(str(request.infer_category) if request.infer_category is not None else None),
+    )
+
+    defects_payload = _extract_defects_payload(payload)
+    illumination_contrast_knobs = _extract_illumination_contrast_knobs(
+        payload,
+        parse_knobs=parse_illumination_contrast_knobs,
+    )
+    model_payload = _extract_model_payload(payload)
+    model_name = model_payload.get("name", None)
+    adaptation_payload, tiling_payload, infer_config_postprocess = _extract_adaptation_payload(
+        payload
+    )
+
+    threshold = workbench_run_service.extract_threshold(payload)
+    trained_checkpoint_path = resolve_infer_checkpoint_path(payload, config_path=config_path)
+
+    preset, device, contamination, pretrained, base_user_kwargs, checkpoint_path = (
+        _apply_infer_config_overrides(
+            payload=payload,
+            model_payload=model_payload,
+            request=request,
+            config_path=config_path,
+            resolve_infer_model_checkpoint_path=resolve_infer_model_checkpoint_path,
+        )
+    )
+
+    return _build_config_backed_context(
         model_name=str(model_name),
-        preset=(str(preset) if preset is not None else None),
-        device=str(device),
-        contamination=float(contamination),
-        pretrained=bool(pretrained),
+        preset=preset,
+        device=device,
+        contamination=contamination,
+        pretrained=pretrained,
         base_user_kwargs=base_user_kwargs,
         checkpoint_path=checkpoint_path,
         trained_checkpoint_path=(
             str(trained_checkpoint_path) if trained_checkpoint_path is not None else None
         ),
         threshold=(float(threshold) if threshold is not None else None),
-        defects_payload=(dict(defects_payload) if defects_payload is not None else None),
+        defects_payload=defects_payload,
         defects_payload_source=("infer_config" if defects_payload is not None else None),
         illumination_contrast_knobs=illumination_contrast_knobs,
         tiling_payload=tiling_payload,
