@@ -30,3 +30,13 @@ def test_core_imdd_rejects_invalid_n_iter() -> None:
 
     with pytest.raises(ValueError):
         CoreIMDD(n_iter=0)
+
+
+def test_check_parameter_rejects_non_numeric_bounds() -> None:
+    from pyimgano.utils.param_check import check_parameter
+
+    with pytest.raises(TypeError, match="low must be a number"):
+        check_parameter(1, low="a", param_name="x")  # type: ignore[arg-type]
+
+    with pytest.raises(TypeError, match="high must be a number"):
+        check_parameter(1, high="b", param_name="x")  # type: ignore[arg-type]

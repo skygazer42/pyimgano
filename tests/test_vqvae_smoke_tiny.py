@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import numpy as np
@@ -53,3 +54,10 @@ def test_vqvae_conv_tiny_smoke(tmp_path: Path) -> None:
     amap = np.asarray(det.get_anomaly_map(str(test_paths[0])), dtype=np.float32)
     assert amap.shape == (32, 32)
     assert np.isfinite(amap).all()
+
+
+def test_vqvae_get_anomaly_map_does_not_expose_unused_image_size_kwarg() -> None:
+    from pyimgano.models.vqvae import VQVAEAnomalyDetector
+
+    params = inspect.signature(VQVAEAnomalyDetector.get_anomaly_map).parameters
+    assert "image_size" not in params

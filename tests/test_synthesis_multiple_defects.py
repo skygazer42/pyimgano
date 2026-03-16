@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 
 def _mean_abs_diff(a: np.ndarray, b: np.ndarray) -> float:
@@ -60,3 +61,29 @@ def test_synthesis_severity_scales_effect_strength() -> None:
     d_low = _mean_abs_diff(r_low.image_u8, img)
     d_high = _mean_abs_diff(r_high.image_u8, img)
     assert d_low < d_high
+
+
+def test_synthesizer_no_seed_path_uses_explicit_seeded_rng_helper(monkeypatch: pytest.MonkeyPatch) -> None:
+    import pyimgano.utils.random_state as random_state_module
+    from pyimgano.synthesis.synthesizer import AnomalySynthesizer, SynthSpec
+
+    img = np.full((32, 32, 3), 120, dtype=np.uint8)
+    synth = AnomalySynthesizer(
+        SynthSpec(preset="scratch", probability=0.0, blend="alpha", alpha=1.0)
+    )
+
+    observed_seeds: list[int | None] = []
+    original_default_rng = random_state_module.np.random.default_rng
+
+    monkeypatch.setattr(random_state_module.os, "urandom", lambda n: b"\x07" * n)
+
+    def _tracking_default_rng(seed=None):
+        observed_seeds.append(seed)
+        return original_default_rng(seed)
+
+    monkeypatch.setattr(random_state_module.np.random, "default_rng", _tracking_default_rng)
+
+    synth.synthesize(img)
+
+    assert observed_seeds
+    assert observed_seeds[0] is not None
