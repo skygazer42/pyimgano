@@ -31,7 +31,9 @@ OUT_PATH = ROOT / "docs" / "TAG_HISTORY.md"
 SEMVER_TAG_RE = re.compile(r"^v(?P<ver>\d+\.\d+\.\d+)$")
 # Example: "## [0.6.33] - 2026-03-05"
 CHANGELOG_HEADER_RE = re.compile(
-    r"^## \[(?P<ver>\d+\.\d+\.\d+)\] - (?P<date>.+?)\s*$"
+    # Match the canonical CHANGELOG header format and keep the regex engine
+    # on a simple, non-overlapping path (avoid ReDoS-style backtracking).
+    r"^## \[(?P<ver>\d+\.\d+\.\d+)\] - (?P<date>\d{4}-\d{2}-\d{2})\s*$"
 )
 
 

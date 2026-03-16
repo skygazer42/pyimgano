@@ -33,17 +33,29 @@ def _acd_weights(k: int) -> np.ndarray:
 class CoreCOF:
     """Native COF implementation (fast, stores train pairwise distances)."""
 
+    _legacy_attr_aliases = {"X_train_": "x_train_"}
+
     def __init__(self, *, contamination: float = 0.1, n_neighbors: int = 20) -> None:
         self.contamination = float(contamination)
         self.n_neighbors = int(n_neighbors)
         check_parameter(self.n_neighbors, low=1, param_name="n_neighbors")
 
         self.n_neighbors_: int | None = None
-        self.X_train_: np.ndarray | None = None
+        self.x_train_: np.ndarray | None = None
         self._dist_train: np.ndarray | None = None
         self._neighbors_train: np.ndarray | None = None
         self._ac_dist_train: np.ndarray | None = None
         self.decision_scores_: np.ndarray | None = None
+
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
 
     def _ac_dist_for_point(
         self,
@@ -72,10 +84,11 @@ class CoreCOF:
 
         return float(np.sum(weights * cost_desc))
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_train = X.shape[0]
-        self.X_train_ = X
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_train = x.shape[0]
+        self.x_train_ = x
 
         if n_train <= 1:
             self.n_neighbors_ = 0
@@ -88,7 +101,7 @@ class CoreCOF:
         k = min(self.n_neighbors, n_train - 1)
         self.n_neighbors_ = int(k)
 
-        dist = np.asarray(distance_matrix(X, X), dtype=np.float64)
+        dist = np.asarray(distance_matrix(x, x), dtype=np.float64)
         self._dist_train = dist
 
         # Neighbor ordering (excluding self).
@@ -119,9 +132,9 @@ class CoreCOF:
         self.decision_scores_ = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if (
-            self.X_train_ is None
+            self.x_train_ is None
             or self.n_neighbors_ is None
             or self._ac_dist_train is None
             or self._neighbors_train is None
@@ -129,16 +142,16 @@ class CoreCOF:
         ):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self.n_neighbors_ == 0:
-            return np.zeros(X.shape[0], dtype=np.float64)
+            return np.zeros(x.shape[0], dtype=np.float64)
 
         k = int(self.n_neighbors_)
         # Distances from query to training points.
-        dist_q = np.asarray(distance_matrix(X, self.X_train_), dtype=np.float64)
+        dist_q = np.asarray(distance_matrix(x, self.x_train_), dtype=np.float64)
 
-        scores = np.zeros(X.shape[0], dtype=np.float64)
-        for i in range(X.shape[0]):
+        scores = np.zeros(x.shape[0], dtype=np.float64)
+        for i in range(x.shape[0]):
             order = np.argsort(dist_q[i])[:k]
             acd = self._ac_dist_for_point(
                 chain_order=order,
@@ -146,7 +159,7 @@ class CoreCOF:
                 dist_train=(
                     self._dist_train
                     if self._dist_train is not None
-                    else distance_matrix(self.X_train_, self.X_train_)
+                    else distance_matrix(self.x_train_, self.x_train_)
                 ),
                 k=k,
             )
@@ -175,10 +188,10 @@ class CoreCOFModel(CoreFeatureDetector):
         contamination: float = 0.1,
         n_neighbors: int = 20,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -214,8 +227,8 @@ class VisionCOF(BaseVisionDetector):
     def _build_detector(self):
         return CoreCOF(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

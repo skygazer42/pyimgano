@@ -117,13 +117,13 @@ class CoreSamplingModel(CoreFeatureDetector):
         metric_params: Optional[dict[str, Any]] = None,
         random_state: Optional[int] = None,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            subset_size=subset_size,
-            metric=str(metric),
-            metric_params=metric_params,
-            random_state=random_state,
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "subset_size": subset_size,
+            "metric": str(metric),
+            "metric_params": metric_params,
+            "random_state": random_state,
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -148,13 +148,13 @@ class VisionSampling(BaseVisionDetector):
         metric_params: Optional[dict[str, Any]] = None,
         random_state: Optional[int] = None,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            subset_size=subset_size,
-            metric=str(metric),
-            metric_params=metric_params,
-            random_state=random_state,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "subset_size": subset_size,
+            "metric": str(metric),
+            "metric_params": metric_params,
+            "random_state": random_state,
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from pyimgano.robustness.benchmark import run_robustness_benchmark
 
@@ -66,13 +67,13 @@ def test_run_robustness_benchmark_schema_and_metrics() -> None:
     assert "identity" in report["corruptions"]
 
     clean_metrics = report["clean"]["results"]["pixel_metrics"]
-    assert clean_metrics["pixel_segf1"] == 1.0
-    assert clean_metrics["bg_fpr"] == 0.0
+    assert clean_metrics["pixel_segf1"] == pytest.approx(1.0)
+    assert clean_metrics["bg_fpr"] == pytest.approx(0.0)
 
     sev1 = report["corruptions"]["identity"]["severity_1"]["results"]["pixel_metrics"]
     sev3 = report["corruptions"]["identity"]["severity_3"]["results"]["pixel_metrics"]
-    assert sev1["pixel_segf1"] == 1.0
-    assert sev3["pixel_segf1"] == 1.0
+    assert sev1["pixel_segf1"] == pytest.approx(1.0)
+    assert sev3["pixel_segf1"] == pytest.approx(1.0)
 
 
 def test_run_robustness_benchmark_can_load_paths_for_corruptions(tmp_path) -> None:

@@ -34,10 +34,10 @@ from .registry import register_model
 
 
 def _l2_normalize_rows(X: np.ndarray, *, eps: float = 1e-12) -> np.ndarray:
-    Xf = np.asarray(X, dtype=np.float64)
-    denom = np.linalg.norm(Xf, axis=1, keepdims=True)
+    x_float = np.asarray(X, dtype=np.float64)
+    denom = np.linalg.norm(x_float, axis=1, keepdims=True)
     denom = np.maximum(denom, float(eps))
-    return Xf / denom
+    return x_float / denom
 
 
 class CoreCrossMAD:
@@ -85,15 +85,16 @@ class CoreCrossMAD:
         self.decision_scores_: np.ndarray | None = None
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X_np = check_array(X, ensure_2d=True, dtype=np.float64)
-        n = int(X_np.shape[0])
+        _ = y
+        x_np = check_array(X, ensure_2d=True, dtype=np.float64)
+        n = int(x_np.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
 
         if self.normalize:
-            X_fit = _l2_normalize_rows(X_np)
+            x_fit = _l2_normalize_rows(x_np)
         else:
-            X_fit = X_np
+            x_fit = x_np
 
         k = int(self.num_prototypes)
         if k < 1:
@@ -109,10 +110,10 @@ class CoreCrossMAD:
             algorithm=str(self.algorithm),
             **self._kmeans_kwargs,
         )
-        km.fit(X_fit)
+        km.fit(x_fit)
 
         self.centers_ = np.asarray(km.cluster_centers_, dtype=np.float64)
-        self.decision_scores_ = np.asarray(self.decision_function(X_np), dtype=np.float64).reshape(
+        self.decision_scores_ = np.asarray(self.decision_function(x_np), dtype=np.float64).reshape(
             -1
         )
         return self
@@ -121,10 +122,10 @@ class CoreCrossMAD:
         if self.centers_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X_np = check_array(X, ensure_2d=True, dtype=np.float64)
-        X_eval = _l2_normalize_rows(X_np) if self.normalize else X_np
+        x_np = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_eval = _l2_normalize_rows(x_np) if self.normalize else x_np
 
-        d = pairwise_distances(X_eval, self.centers_, metric=str(self.metric))
+        d = pairwise_distances(x_eval, self.centers_, metric=str(self.metric))
         return np.min(d, axis=1).astype(np.float64, copy=False).reshape(-1)
 
 

@@ -132,12 +132,12 @@ class CoreHBOSModel(CoreFeatureDetector):
         alpha: float = 0.1,
         eps: float = 1e-12,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_bins=int(n_bins),
-            alpha=float(alpha),
-            eps=float(eps),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_bins": int(n_bins),
+            "alpha": float(alpha),
+            "eps": float(eps),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -167,12 +167,12 @@ class VisionHBOS(BaseVisionDetector):
         alpha: float = 0.1,
         eps: float = 1e-12,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_bins=int(n_bins),
-            alpha=float(alpha),
-            eps=float(eps),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_bins": int(n_bins),
+            "alpha": float(alpha),
+            "eps": float(eps),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

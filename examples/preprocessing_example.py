@@ -24,10 +24,11 @@ from pyimgano.preprocessing import ImageEnhancer, PreprocessingMixin, Preprocess
 def create_sample_images():
     """Create sample images for demonstration."""
     images = []
+    rng = np.random.default_rng()
 
     for i in range(10):
         # Create varied sample images
-        img = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+        img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
         # Add some structure
         if i % 2 == 0:
@@ -52,9 +53,10 @@ def example_basic_operations():
 
     # Create enhancer
     enhancer = ImageEnhancer()
+    rng = np.random.default_rng()
 
     # Create sample image
-    img = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+    img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
     cv2.rectangle(img, (30, 30), (70, 70), (255, 255, 255), -1)
 
     print("\nOriginal image shape:", img.shape)
@@ -91,9 +93,10 @@ def example_preprocessing_pipeline():
     print("\n" + "=" * 60)
     print("Example 2: Preprocessing Pipeline")
     print("=" * 60)
+    rng = np.random.default_rng()
 
     # Create sample image
-    img = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+    img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
     cv2.circle(img, (50, 50), 30, (255, 255, 255), -1)
 
     # Build pipeline
@@ -144,29 +147,29 @@ def example_detector_with_preprocessing():
         def fit(self, X, y=None):
             """Fit with preprocessing."""
             print(f"Preprocessing {len(X)} training images...")
-            X_processed = self.preprocess_images(X)
+            x_processed = self.preprocess_images(X)
 
             # Flatten for ECOD
-            X_flat = [img.flatten() for img in X_processed]
-            return super().fit(X_flat, y)
+            x_flat = [img.flatten() for img in x_processed]
+            return super().fit(x_flat, y)
 
         def predict(self, X):
             """Predict with preprocessing."""
             print(f"Preprocessing {len(X)} test images...")
-            X_processed = self.preprocess_images(X)
+            x_processed = self.preprocess_images(X)
 
             # Flatten for ECOD
-            X_flat = [img.flatten() for img in X_processed]
-            return super().predict(X_flat)
+            x_flat = [img.flatten() for img in x_processed]
+            return super().predict(x_flat)
 
         def decision_function(self, X):
             """Compute anomaly scores with preprocessing."""
             print(f"Preprocessing {len(X)} test images...")
-            X_processed = self.preprocess_images(X)
+            x_processed = self.preprocess_images(X)
 
             # Flatten for ECOD
-            X_flat = [img.flatten() for img in X_processed]
-            return super().decision_function(X_flat)
+            x_flat = [img.flatten() for img in x_processed]
+            return super().decision_function(x_flat)
 
     # Create sample data
     train_images = create_sample_images()[:8]
@@ -177,7 +180,7 @@ def example_detector_with_preprocessing():
 
     # Get preprocessing info
     info = detector.get_preprocessing_info()
-    print(f"\nPreprocessing configuration:")
+    print("\nPreprocessing configuration:")
     print(f"  Enabled: {info['enabled']}")
     print(f"  Pipeline mode: {info['pipeline_mode']}")
     print(f"  Pipeline steps: {info['pipeline_steps']}")
@@ -298,18 +301,18 @@ def example_morphological_operations():
 
     # Opening - removes small objects
     print("\n3. Opening (erosion → dilation):")
-    opened = enhancer.opening(img, kernel_size=(5, 5))
-    print(f"   Removes small noise while preserving shape")
+    enhancer.opening(img, kernel_size=(5, 5))
+    print("   Removes small noise while preserving shape")
 
     # Closing - fills small holes
     print("\n4. Closing (dilation → erosion):")
-    closed = enhancer.closing(img, kernel_size=(5, 5))
-    print(f"   Fills holes in objects")
+    enhancer.closing(img, kernel_size=(5, 5))
+    print("   Fills holes in objects")
 
     # Morphological gradient - edge detection
     print("\n5. Morphological Gradient:")
-    gradient = enhancer.morphological_gradient(img, kernel_size=(3, 3))
-    print(f"   Highlights object boundaries")
+    enhancer.morphological_gradient(img, kernel_size=(3, 3))
+    print("   Highlights object boundaries")
 
 
 def example_normalization_methods():
@@ -353,7 +356,7 @@ def example_normalization_methods():
     print("\n4. Robust Normalization:")
     norm4 = enhancer.normalize(img, method="robust")
     print(f"   Range: [{norm4.min():.3f}, {norm4.max():.3f}]")
-    print(f"   (Uses IQR, robust to outliers)")
+    print("   (Uses IQR, robust to outliers)")
 
 
 def main():

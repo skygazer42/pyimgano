@@ -202,12 +202,24 @@ def test_infer_cli_onnx_sweep_selects_best_session_options_and_applies_to_model(
             time.sleep(0.002 + (work * 0.02))
             return [np.zeros((batch, 8), dtype=np.float32)]
 
-    class _FakeORT:
+    class _FakeORTMeta(type):
+        def __getattr__(cls, name: str):  # noqa: ANN001
+            aliases = {
+                "SessionOptions": "session_options",
+                "InferenceSession": "inference_session",
+                "GraphOptimizationLevel": "graph_optimization_level",
+                "ExecutionMode": "execution_mode",
+            }
+            if name in aliases:
+                return getattr(cls, aliases[name])
+            raise AttributeError(name)
+
+    class _FakeORT(metaclass=_FakeORTMeta):
         __version__ = "0.0"
-        SessionOptions = _SessionOptions
-        InferenceSession = _InferenceSession
-        GraphOptimizationLevel = _GraphOptimizationLevel
-        ExecutionMode = _ExecutionMode
+        session_options = _SessionOptions
+        inference_session = _InferenceSession
+        graph_optimization_level = _GraphOptimizationLevel
+        execution_mode = _ExecutionMode
 
         @staticmethod
         def get_available_providers():

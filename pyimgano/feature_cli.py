@@ -197,132 +197,135 @@ def main(argv: list[str] | None = None) -> int:
             "This speeds up repeated runs with the same extractor config."
         ),
     )
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
 
-    if bool(getattr(args, "list_extractors", False)):
-        from pyimgano.features import list_feature_extractors
+        if bool(getattr(args, "list_extractors", False)):
+            from pyimgano.features import list_feature_extractors
 
-        tags = _normalize_tags(list(getattr(args, "tags", None) or [])) or None
-        payload = list_feature_extractors(tags=tags)
-        if bool(getattr(args, "json", False)):
-            print(json.dumps(payload, indent=2, sort_keys=True))
+            tags = _normalize_tags(list(getattr(args, "tags", None) or [])) or None
+            payload = list_feature_extractors(tags=tags)
+            if bool(getattr(args, "json", False)):
+                print(json.dumps(payload, indent=2, sort_keys=True))
+            else:
+                for name in payload:
+                    print(name)
+            return 0
+
+        if getattr(args, "extractor_info", None) is not None:
+            from pyimgano.features import feature_info
+
+            payload = feature_info(str(getattr(args, "extractor_info")))
+            if bool(getattr(args, "json", False)):
+                print(json.dumps(payload, indent=2, sort_keys=True))
+            else:
+                print(f"name: {payload.get('name')}")
+                tags = payload.get("tags", None)
+                if tags:
+                    print(f"tags: {', '.join(str(t) for t in tags)}")
+                meta = payload.get("metadata", None)
+                if isinstance(meta, dict) and meta:
+                    for k in sorted(meta):
+                        print(f"{k}: {meta[k]}")
+                if payload.get("signature", None) is not None:
+                    print(f"signature: {payload.get('signature')}")
+                accepted = payload.get("accepted_kwargs", None)
+                if accepted:
+                    print(f"accepted_kwargs: {', '.join(str(x) for x in accepted)}")
+            return 0
+
+        if args.output is None:
+            raise ValueError("--output is required unless using --list-extractors/--extractor-info.")
+
+        from pyimgano.features import create_feature_extractor
+
+        manifest_path = None if args.manifest is None else Path(str(args.manifest))
+        if manifest_path is None:
+            if args.root is None:
+                raise ValueError("Provide either --root or --manifest.")
+            root = Path(str(args.root))
+            if not root.is_dir():
+                raise ValueError(f"--root must be a directory, got {root}")
+            paths = _collect_paths(root, pattern=str(args.pattern))
+            if not paths:
+                raise ValueError("No files matched --pattern under --root")
         else:
-            for name in payload:
-                print(name)
-        return 0
+            if not manifest_path.exists():
+                raise FileNotFoundError(f"--manifest not found: {manifest_path}")
+            root_fb = (
+                None
+                if args.manifest_root_fallback is None
+                else Path(str(args.manifest_root_fallback))
+            )
+            label = None if args.manifest_label is None else int(args.manifest_label)
+            paths = _resolve_manifest_paths(
+                manifest_path=manifest_path,
+                category=args.manifest_category,
+                split=args.manifest_split,
+                label=label,
+                root_fallback=root_fb,
+            )
+            if not paths:
+                raise ValueError("No manifest records matched the provided filters.")
 
-    if getattr(args, "extractor_info", None) is not None:
-        from pyimgano.features import feature_info
-
-        payload = feature_info(str(getattr(args, "extractor_info")))
-        if bool(getattr(args, "json", False)):
-            print(json.dumps(payload, indent=2, sort_keys=True))
-        else:
-            print(f"name: {payload.get('name')}")
-            tags = payload.get("tags", None)
-            if tags:
-                print(f"tags: {', '.join(str(t) for t in tags)}")
-            meta = payload.get("metadata", None)
-            if isinstance(meta, dict) and meta:
-                for k in sorted(meta):
-                    print(f"{k}: {meta[k]}")
-            if payload.get("signature", None) is not None:
-                print(f"signature: {payload.get('signature')}")
-            accepted = payload.get("accepted_kwargs", None)
-            if accepted:
-                print(f"accepted_kwargs: {', '.join(str(x) for x in accepted)}")
-        return 0
-
-    if args.output is None:
-        raise ValueError("--output is required unless using --list-extractors/--extractor-info.")
-
-    from pyimgano.features import create_feature_extractor
-
-    manifest_path = None if args.manifest is None else Path(str(args.manifest))
-    if manifest_path is None:
-        if args.root is None:
-            raise ValueError("Provide either --root or --manifest.")
-        root = Path(str(args.root))
-        if not root.is_dir():
-            raise ValueError(f"--root must be a directory, got {root}")
-        paths = _collect_paths(root, pattern=str(args.pattern))
-        if not paths:
-            raise ValueError("No files matched --pattern under --root")
-    else:
-        if not manifest_path.exists():
-            raise FileNotFoundError(f"--manifest not found: {manifest_path}")
-        root_fb = (
-            None if args.manifest_root_fallback is None else Path(str(args.manifest_root_fallback))
-        )
-        label = None if args.manifest_label is None else int(args.manifest_label)
-        paths = _resolve_manifest_paths(
-            manifest_path=manifest_path,
-            category=args.manifest_category,
-            split=args.manifest_split,
-            label=label,
-            root_fallback=root_fb,
-        )
-        if not paths:
-            raise ValueError("No manifest records matched the provided filters.")
-
-    extractor = create_feature_extractor(
-        str(args.extractor), **_parse_kwargs(args.extractor_kwargs)
-    )
-
-    # Best-effort: allow setting a common `.device` attribute without forcing every
-    # extractor to implement a full config protocol.
-    if args.device is not None and hasattr(extractor, "device"):
-        try:
-            setattr(extractor, "device", str(args.device))
-        except Exception:
-            pass
-
-    if bool(args.fit):
-        fit = getattr(extractor, "fit", None)
-        if callable(fit):
-            fit(paths)
-
-    if args.cache_dir is not None:
-        from pyimgano.cache.features import (
-            CachedFeatureExtractor,
-            FeatureCache,
-            fingerprint_feature_extractor,
+        extractor = create_feature_extractor(
+            str(args.extractor), **_parse_kwargs(args.extractor_kwargs)
         )
 
-        cache_root = Path(str(args.cache_dir))
-        fp = fingerprint_feature_extractor(extractor)
-        cache = FeatureCache(cache_dir=cache_root, extractor_fingerprint=fp)
-        extractor = CachedFeatureExtractor(base_extractor=extractor, cache=cache)
+        # Best-effort: allow setting a common `.device` attribute without forcing every
+        # extractor to implement a full config protocol.
+        if args.device is not None and hasattr(extractor, "device"):
+            try:
+                setattr(extractor, "device", str(args.device))
+            except Exception:
+                pass
 
-    if args.batch_size is not None:
-        extract_batched = getattr(extractor, "extract_batched", None)
-        if callable(extract_batched):
-            feats = np.asarray(extract_batched(paths, batch_size=int(args.batch_size)))
+        if bool(args.fit):
+            fit = getattr(extractor, "fit", None)
+            if callable(fit):
+                fit(paths)
+
+        if args.cache_dir is not None:
+            from pyimgano.cache.features import (
+                CachedFeatureExtractor,
+                FeatureCache,
+                fingerprint_feature_extractor,
+            )
+
+            cache_root = Path(str(args.cache_dir))
+            fp = fingerprint_feature_extractor(extractor)
+            cache = FeatureCache(cache_dir=cache_root, extractor_fingerprint=fp)
+            extractor = CachedFeatureExtractor(base_extractor=extractor, cache=cache)
+
+        if args.batch_size is not None:
+            extract_batched = getattr(extractor, "extract_batched", None)
+            if callable(extract_batched):
+                feats = np.asarray(extract_batched(paths, batch_size=int(args.batch_size)))
+            else:
+                feats = np.asarray(extractor.extract(paths))
         else:
             feats = np.asarray(extractor.extract(paths))
-    else:
-        feats = np.asarray(extractor.extract(paths))
-    if feats.ndim == 1:
-        feats = feats.reshape(-1, 1)
-    if feats.shape[0] != len(paths):
-        raise ValueError("extractor.extract must return one row per input path")
+        if feats.ndim == 1:
+            feats = feats.reshape(-1, 1)
+        if feats.shape[0] != len(paths):
+            raise ValueError("extractor.extract must return one row per input path")
 
-    out_path = Path(str(args.output))
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(str(out_path), feats, allow_pickle=False)
+        out_path = Path(str(args.output))
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(str(out_path), feats, allow_pickle=False)
 
-    if args.paths_json is not None:
-        pj = Path(str(args.paths_json))
-        pj.parent.mkdir(parents=True, exist_ok=True)
-        pj.write_text(json.dumps(paths, indent=2), encoding="utf-8")
+        if args.paths_json is not None:
+            pj = Path(str(args.paths_json))
+            pj.parent.mkdir(parents=True, exist_ok=True)
+            pj.write_text(json.dumps(paths, indent=2), encoding="utf-8")
 
-    print(f"Wrote features: {out_path} shape={feats.shape}")
-    return 0
+        print(f"Wrote features: {out_path} shape={feats.shape}")
+        return 0
+    except (ValueError, FileNotFoundError) as exc:
+        # CLI-friendly error reporting: show message and return a non-zero exit code.
+        print(str(exc), file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":  # pragma: no cover
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print(str(exc), file=sys.stderr)
-        raise
+    raise SystemExit(main())

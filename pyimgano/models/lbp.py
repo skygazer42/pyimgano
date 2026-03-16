@@ -26,6 +26,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
 from ..base import BaseVisionClassicalDetector
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 
 
 class LBP(BaseVisionClassicalDetector):
@@ -134,7 +135,7 @@ class LBP(BaseVisionClassicalDetector):
 
         return np.array(features)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "LBP":
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object) -> "LBP":
         """
         Fit LBP model.
 
@@ -150,11 +151,13 @@ class LBP(BaseVisionClassicalDetector):
         self : LBP
             Fitted estimator
         """
+        del y
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Extract LBP features
         print("Extracting LBP features...")
         lbp_features = []
-        for i in range(len(X)):
-            features = self._extract_lbp_features(X[i])
+        for i in range(len(x_value)):
+            features = self._extract_lbp_features(x_value[i])
             lbp_features.append(features)
 
         lbp_features = np.array(lbp_features)
@@ -177,7 +180,7 @@ class LBP(BaseVisionClassicalDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -193,10 +196,12 @@ class LBP(BaseVisionClassicalDetector):
         """
         self._check_is_fitted()
 
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+
         # Extract LBP features
         lbp_features = []
-        for i in range(len(X)):
-            features = self._extract_lbp_features(X[i])
+        for i in range(len(x_value)):
+            features = self._extract_lbp_features(x_value[i])
             lbp_features.append(features)
 
         lbp_features = np.array(lbp_features)
@@ -214,7 +219,7 @@ class LBP(BaseVisionClassicalDetector):
 
         return scores
 
-    def predict_label(self, X: NDArray) -> NDArray:
+    def predict_label(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Predict anomaly labels.
 
@@ -230,10 +235,12 @@ class LBP(BaseVisionClassicalDetector):
         """
         self._check_is_fitted()
 
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict_label")
+
         # Extract features
         lbp_features = []
-        for i in range(len(X)):
-            features = self._extract_lbp_features(X[i])
+        for i in range(len(x_value)):
+            features = self._extract_lbp_features(x_value[i])
             lbp_features.append(features)
 
         lbp_features = np.array(lbp_features)
@@ -245,12 +252,9 @@ class LBP(BaseVisionClassicalDetector):
         predictions = self.detector_.predict(lbp_features_scaled)
 
         # Convert to binary labels
-        if self.detector_type == "isolation_forest":
-            # Isolation Forest: -1 = anomaly, 1 = normal
-            labels = (predictions == -1).astype(int)
-        else:
-            # SVM: -1 = anomaly, 1 = normal
-            labels = (predictions == -1).astype(int)
+        # Most supported one-class detectors follow the convention:
+        # -1 = anomaly, 1 = normal
+        labels = (predictions == -1).astype(int)
 
         return labels
 
@@ -313,8 +317,9 @@ class LBP(BaseVisionClassicalDetector):
 
         return anomaly_map
 
-    def get_params(self) -> dict:
+    def get_params(self, deep: bool = True) -> dict:
         """Get model parameters."""
+        del deep
         return {
             "n_points": self.n_points,
             "radius": self.radius,

@@ -44,7 +44,7 @@ def test_workbench_aggregate_report_builds_stamped_payload_and_metric_aggregates
     assert payload["dataset"] == "manifest"
     assert payload["category"] == "all"
     assert payload["categories"] == ["bottle", "cable", "capsule"]
-    assert payload["per_category"]["bottle"]["results"]["auroc"] == 0.5
+    assert math.isclose(payload["per_category"]["bottle"]["results"]["auroc"], 0.5)
     assert math.isclose(payload["mean_metrics"]["auroc"], 0.75)
     assert math.isclose(payload["std_metrics"]["auroc"], 0.25)
     assert math.isclose(payload["mean_metrics"]["average_precision"], 0.55)

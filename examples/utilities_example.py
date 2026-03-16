@@ -21,7 +21,6 @@ from pyimgano.utils import (  # Dataset utilities; Visualization utilities; Mode
     create_evaluation_report,
     load_dataset,
     load_model,
-    plot_anomaly_heatmap,
     plot_confusion_matrix,
     plot_roc_curve,
     plot_score_distribution,
@@ -70,7 +69,7 @@ def example_1_dataset_loading():
     return train_data, test_data, test_labels, test_masks
 
 
-def example_2_advanced_visualization(test_data, test_labels, scores, predictions):
+def example_2_advanced_visualization(_test_data, test_labels, scores, predictions):
     """Example 2: Advanced Visualization"""
     print("\n" + "=" * 80)
     print("EXAMPLE 2: Advanced Visualization")
@@ -108,11 +107,11 @@ def example_2_advanced_visualization(test_data, test_labels, scores, predictions
 
     # 2.4 Anomaly Heatmap (for first anomaly)
     print("\n2.4 Plotting anomaly heatmap...")
-    first_anomaly_idx = np.where(test_labels == 1)[0][0]
     # Assuming model has predict_anomaly_map method
-    # anomaly_map = model.predict_anomaly_map(test_data[[first_anomaly_idx]])[0]
+    # first_anomaly_idx = np.nonzero(test_labels == 1)[0][0]
+    # anomaly_map = model.predict_anomaly_map(_test_data[[first_anomaly_idx]])[0]
     # plot_anomaly_heatmap(
-    #     test_data[first_anomaly_idx],
+    #     _test_data[first_anomaly_idx],
     #     anomaly_map,
     #     save_path='./outputs/anomaly_heatmap.png',
     #     show=False
@@ -145,7 +144,7 @@ def example_3_model_management(model):
     )
 
     print("\n3.2 Loading model...")
-    loaded_model = load_model("./models/patchcore_bottle.pkl")
+    load_model("./models/patchcore_bottle.pkl")
 
     # 3.3 Model Registry
     print("\n3.3 Using Model Registry...")
@@ -166,7 +165,7 @@ def example_3_model_management(model):
     # 3.4 Model profiling
     print("\n3.4 Profiling model performance...")
     # Create dummy test data for profiling
-    dummy_data = np.random.rand(100, 256, 256, 3).astype(np.uint8)
+    dummy_data = np.random.default_rng(1).integers(0, 256, size=(100, 256, 256, 3), dtype=np.uint8)
     metrics = profile_model(model, dummy_data, n_runs=5)
 
     print(f"Average inference time: {metrics['avg_time_ms']:.2f} ms")
@@ -226,14 +225,12 @@ def example_4_experiment_tracking(model, train_data, test_data, test_labels):
     # 4.4 Generate report
     print("\n4.4 Generating experiment report...")
     if experiments:
-        report = tracker.generate_report(
-            experiments[0]["exp_id"], output_path="./outputs/experiment_report.md"
-        )
-        print(f"Report saved: ./outputs/experiment_report.md")
+        tracker.generate_report(experiments[0]["exp_id"], output_path="./outputs/experiment_report.md")
+        print("Report saved: ./outputs/experiment_report.md")
 
     # 4.5 Quick experiment tracking
     print("\n4.5 Using quick experiment tracking...")
-    exp2 = track_experiment(
+    track_experiment(
         "simplenet_bottle",
         model=model,
         train_data=train_data,
@@ -287,8 +284,9 @@ def main():
 
     # For demonstration, create dummy data
     print("\nCreating dummy data for demonstration...")
-    train_data = np.random.rand(50, 256, 256, 3).astype(np.uint8)
-    test_data = np.random.rand(30, 256, 256, 3).astype(np.uint8)
+    rng = np.random.default_rng(2)
+    train_data = rng.integers(0, 256, size=(50, 256, 256, 3), dtype=np.uint8)
+    test_data = rng.integers(0, 256, size=(30, 256, 256, 3), dtype=np.uint8)
     test_labels = np.array([0] * 20 + [1] * 10)  # 20 normal, 10 anomalies
 
     # Train a simple model

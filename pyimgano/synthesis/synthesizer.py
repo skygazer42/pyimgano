@@ -5,23 +5,13 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 
+from pyimgano.utils.image_u8 import as_u8_image
+
 from .blend import alpha_blend, poisson_blend
 from .masks import apply_roi_mask, ensure_u8_mask
 from .presets import PresetFn, make_preset
 
 _BlendMode = Literal["alpha", "poisson"]
-
-
-def _as_u8_image(image: np.ndarray) -> np.ndarray:
-    arr = np.asarray(image)
-    if arr.dtype != np.uint8:
-        raise ValueError(f"Expected uint8 image, got dtype={arr.dtype}")
-    if arr.ndim == 2:
-        return arr
-    if arr.ndim == 3 and arr.shape[2] == 3:
-        return arr
-    raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
-
 
 @dataclass(frozen=True)
 class SynthSpec:
@@ -89,7 +79,7 @@ class AnomalySynthesizer:
             Optional override for the global defect strength scalar in [0,1].
         """
 
-        img = _as_u8_image(image_u8)
+        img = as_u8_image(image_u8)
         if rng is None:
             if seed is None:
                 rng = np.random.default_rng()
@@ -136,7 +126,7 @@ class AnomalySynthesizer:
             applied = False
             for attempt_idx in range(tries):
                 pr = self._preset_fn(out_img, rng)
-                overlay = _as_u8_image(pr.overlay_u8)
+                overlay = as_u8_image(pr.overlay_u8)
                 mask = ensure_u8_mask(pr.mask_u8, shape_hw=out_img.shape[:2])
                 mask = apply_roi_mask(mask, roi_mask)
 

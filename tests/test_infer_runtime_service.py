@@ -96,3 +96,94 @@ def test_prepare_infer_runtime_plan_delegates_infer_config_postprocess_to_servic
         }
     ]
     assert result.postprocess == "POSTPROCESS"
+
+
+def test_prepare_infer_runtime_plan_builds_default_postprocess_when_requested() -> None:
+    result = prepare_infer_runtime_plan(
+        InferRuntimePlanRequest(
+            detector=object(),
+            include_maps_requested=True,
+            include_maps_by_default=False,
+            postprocess_requested=True,
+            infer_config_postprocess=None,
+            defects_enabled=False,
+        )
+    )
+
+    assert result.include_maps is True
+    assert type(result.postprocess).__name__ == "AnomalyMapPostprocess"
+
+
+def test_prepare_infer_runtime_plan_uses_explicit_pixel_threshold_without_infer_config_payload() -> None:
+    result = prepare_infer_runtime_plan(
+        InferRuntimePlanRequest(
+            detector=object(),
+            include_maps_requested=False,
+            include_maps_by_default=False,
+            postprocess_requested=False,
+            infer_config_postprocess=None,
+            defects_enabled=True,
+            defects_payload=None,
+            defects_payload_source=None,
+            pixel_threshold=0.4,
+            pixel_threshold_strategy="normal_pixel_quantile",
+            pixel_normal_quantile=0.999,
+            roi_xyxy_norm=None,
+            train_paths=[],
+            batch_size=None,
+            amp=False,
+        )
+    )
+
+    assert result.pixel_threshold_value == pytest.approx(0.4)
+    assert result.pixel_threshold_provenance is not None
+    assert result.pixel_threshold_provenance["source"] == "explicit"
+
+
+def test_prepare_infer_runtime_plan_keeps_infer_config_threshold_for_non_quantile_strategy() -> None:
+    result = prepare_infer_runtime_plan(
+        InferRuntimePlanRequest(
+            detector=object(),
+            include_maps_requested=False,
+            include_maps_by_default=False,
+            postprocess_requested=False,
+            infer_config_postprocess=None,
+            defects_enabled=True,
+            defects_payload={"pixel_threshold": 0.25},
+            defects_payload_source="infer_config",
+            pixel_threshold=None,
+            pixel_threshold_strategy="fixed",
+            pixel_normal_quantile=0.999,
+            roi_xyxy_norm=None,
+            train_paths=[],
+            batch_size=None,
+            amp=False,
+        )
+    )
+
+    assert result.pixel_threshold_value == pytest.approx(0.25)
+    assert result.pixel_threshold_provenance is not None
+    assert result.pixel_threshold_provenance["source"] == "infer_config"
+
+
+def test_prepare_infer_runtime_plan_requires_threshold_when_defects_enabled_without_sources() -> None:
+    with pytest.raises(ValueError, match="--defects requires a pixel threshold"):
+        prepare_infer_runtime_plan(
+            InferRuntimePlanRequest(
+                detector=object(),
+                include_maps_requested=False,
+                include_maps_by_default=False,
+                postprocess_requested=False,
+                infer_config_postprocess=None,
+                defects_enabled=True,
+                defects_payload={},
+                defects_payload_source=None,
+                pixel_threshold=None,
+                pixel_threshold_strategy="normal_pixel_quantile",
+                pixel_normal_quantile=0.999,
+                roi_xyxy_norm=None,
+                train_paths=[],
+                batch_size=None,
+                amp=False,
+            )
+        )

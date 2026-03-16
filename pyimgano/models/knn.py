@@ -27,6 +27,8 @@ from .registry import register_model
 class CoreKNN:
     """Pure sklearn implementation of a sklearn-style KNN outlier detector."""
 
+    _legacy_attr_aliases = {"_X_train": "_x_train"}
+
     def __init__(
         self,
         *,
@@ -72,8 +74,18 @@ class CoreKNN:
 
         self._nn: NearestNeighbors | None = None
         self._k_effective: int | None = None
-        self._X_train: np.ndarray | None = None
+        self._x_train: np.ndarray | None = None
         self.decision_scores_: np.ndarray | None = None
+
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
 
     def _aggregate(self, distances: np.ndarray) -> np.ndarray:
         if self.method == "largest":
@@ -84,11 +96,12 @@ class CoreKNN:
             return np.median(distances, axis=1)
         raise ValueError("method must be one of {'largest', 'mean', 'median'}")
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        self._X_train = X
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self._x_train = x
 
-        n_train = X.shape[0]
+        n_train = x.shape[0]
         if n_train <= 1:
             # Not enough points to define neighbors; treat everything as equally normal.
             self._k_effective = 0
@@ -112,26 +125,26 @@ class CoreKNN:
             n_jobs=self.n_jobs,
             **self._nn_kwargs,
         )
-        self._nn.fit(X)
+        self._nn.fit(x)
 
-        distances, _ = self._nn.kneighbors(X, n_neighbors=k + 1, return_distance=True)
+        distances, _ = self._nn.kneighbors(x, n_neighbors=k + 1, return_distance=True)
         distances = distances[:, 1:]  # drop self-distance
         self.decision_scores_ = self._aggregate(distances).astype(np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self._X_train is None:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        if self._x_train is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self._k_effective is None:
             raise RuntimeError("Internal error: missing k")
         if self._k_effective == 0:
-            return np.zeros(X.shape[0], dtype=np.float64)
+            return np.zeros(x.shape[0], dtype=np.float64)
         if self._nn is None:
             raise RuntimeError("Internal error: missing neighbor index")
 
-        distances, _ = self._nn.kneighbors(X, n_neighbors=self._k_effective, return_distance=True)
+        distances, _ = self._nn.kneighbors(x, n_neighbors=self._k_effective, return_distance=True)
         return self._aggregate(distances).astype(np.float64).ravel()
 
 
@@ -228,8 +241,8 @@ class VisionKNN(BaseVisionDetector):
     def _build_detector(self):
         return CoreKNN(**self.detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

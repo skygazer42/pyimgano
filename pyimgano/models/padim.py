@@ -15,25 +15,31 @@ Notes for this implementation:
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union
 
-import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
 from numpy.typing import NDArray
 from sklearn.random_projection import GaussianRandomProjection
-from torchvision import models, transforms
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+from pyimgano.utils.optional_deps import require
 
 logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
 
 
+if TYPE_CHECKING:  # pragma: no cover
+    import torch
+
+
 def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Module:
+    models = require(
+        "torchvision.models",
+        extra="torch",
+        purpose="VisionPaDiM torchvision backbone",
+    )
     if name == "resnet18":
         try:
             weights = models.ResNet18_Weights.DEFAULT if pretrained else None
@@ -83,6 +89,14 @@ class VisionPaDiM(BaseVisionDeepDetector):
         random_state: int = 42,
         **kwargs,
     ) -> None:
+        # Keep module import light: only require deep deps when instantiating.
+        require("torch", extra="torch", purpose="VisionPaDiM")
+        transforms = require(
+            "torchvision.transforms",
+            extra="torch",
+            purpose="VisionPaDiM torchvision transforms",
+        )
+
         super().__init__(contamination=contamination, **kwargs)
 
         if d_reduced < 1:
@@ -144,6 +158,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
             getattr(self.model, layer).register_forward_hook(get_activation(layer))
 
     def _load_image_rgb(self, image_path: ImageInput) -> NDArray:
+        cv2 = require("cv2", purpose="VisionPaDiM image loading")
         if isinstance(image_path, np.ndarray):
             if image_path.dtype != np.uint8:
                 raise ValueError(f"Expected uint8 RGB image, got dtype={image_path.dtype}")
@@ -157,6 +172,9 @@ class VisionPaDiM(BaseVisionDeepDetector):
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     def _extract_patch_features(self, image_path: ImageInput) -> NDArray:
+        torch = require("torch", extra="torch", purpose="VisionPaDiM feature extraction")
+        F = require("torch.nn.functional", extra="torch", purpose="VisionPaDiM feature extraction")
+
         img = self._load_image_rgb(image_path)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
@@ -255,7 +273,16 @@ class VisionPaDiM(BaseVisionDeepDetector):
         q = np.maximum(q, 0.0)
         return np.sqrt(q, dtype=np.float32)
 
-    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
+    def decision_function(
+        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+    ) -> NDArray:
+        # This detector scores one image at a time. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
         self._check_fitted()
         X_list = list(X)
         scores = np.zeros(len(X_list), dtype=np.float32)
@@ -269,13 +296,19 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 scores[i] = 0.0
         return scores
 
-    def predict(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
 
     def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
+        cv2 = require("cv2", purpose="VisionPaDiM anomaly map upsampling")
         distances = self._compute_patch_distances(image_path)
         h, w = self.patch_shape or (0, 0)
         if h * w != distances.shape[0]:

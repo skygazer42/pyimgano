@@ -153,15 +153,15 @@ class CoreDBSCANModel(CoreFeatureDetector):
         n_jobs: Optional[int] = None,
         preprocessing: bool = True,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            eps=float(eps),
-            min_samples=int(min_samples),
-            metric=str(metric),
-            p=int(p),
-            n_jobs=n_jobs,
-            preprocessing=bool(preprocessing),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "eps": float(eps),
+            "min_samples": int(min_samples),
+            "metric": str(metric),
+            "p": int(p),
+            "n_jobs": n_jobs,
+            "preprocessing": bool(preprocessing),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -190,15 +190,15 @@ class VisionDBSCAN(BaseVisionDetector):
         n_jobs: Optional[int] = None,
         preprocessing: bool = True,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            eps=float(eps),
-            min_samples=int(min_samples),
-            metric=str(metric),
-            p=int(p),
-            n_jobs=n_jobs,
-            preprocessing=bool(preprocessing),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "eps": float(eps),
+            "min_samples": int(min_samples),
+            "metric": str(metric),
+            "p": int(p),
+            "n_jobs": n_jobs,
+            "preprocessing": bool(preprocessing),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

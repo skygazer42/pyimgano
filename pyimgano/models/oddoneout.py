@@ -57,17 +57,17 @@ class VisionOddOneOut(BaseVisionDetector):
         n_jobs: int = 1,
         random_state: Optional[int] = 0,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-            metric=str(metric),
-            p=int(p),
-            method=str(method),
-            normalize=bool(normalize),
-            eps=float(eps),
-            n_jobs=int(n_jobs),
-            random_state=random_state,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+            "metric": str(metric),
+            "p": int(p),
+            "method": str(method),
+            "normalize": bool(normalize),
+            "eps": float(eps),
+            "n_jobs": int(n_jobs),
+            "random_state": random_state,
+        }
 
         if feature_extractor is None:
             # Default to a lightweight offline embedding extractor.

@@ -81,7 +81,7 @@ def fit_pot_threshold(
 
     try:
         # Fit exceedances with loc fixed at 0.
-        c, loc, scale = genpareto.fit(exceed, floc=0.0)
+        c, _, scale = genpareto.fit(exceed, floc=0.0)
         c = float(c)
         scale = float(scale)
         if not np.isfinite(c) or not np.isfinite(scale) or scale <= 0.0:

@@ -24,10 +24,10 @@ from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
-def _skew_sign(X: NDArray[np.floating]) -> NDArray[np.float64]:
-    X = np.asarray(X, dtype=np.float64)
-    mean = X.mean(axis=0)
-    centered = X - mean
+def _skew_sign(x: NDArray[np.floating]) -> NDArray[np.float64]:
+    x = np.asarray(x, dtype=np.float64)
+    mean = x.mean(axis=0)
+    centered = x - mean
     m2 = np.mean(centered**2, axis=0)
     m3 = np.mean(centered**3, axis=0)
     denom = np.power(m2, 1.5)
@@ -42,37 +42,50 @@ class CoreCOPOD:
     new samples against that fixed distribution.
     """
 
+    _legacy_attr_aliases = {"_X_sorted": "_x_sorted"}
+
     def __init__(self, *, contamination: float = 0.1, n_jobs: int = 1, eps: float = 1e-12):
         self.contamination = float(contamination)
         self.n_jobs = int(n_jobs)  # kept for API compatibility (currently unused)
         self.eps = float(eps)
 
-        self._X_sorted: NDArray[np.float64] | None = None
+        self._x_sorted: NDArray[np.float64] | None = None
         self._skew_sign: NDArray[np.float64] | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        self._X_sorted = np.sort(X, axis=0)
-        self._skew_sign = _skew_sign(X)
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
 
-        self.decision_scores_ = self.decision_function(X)
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
+
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self._x_sorted = np.sort(x, axis=0)
+        self._skew_sign = _skew_sign(x)
+
+        self.decision_scores_ = self.decision_function(x)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self._X_sorted is None or self._skew_sign is None:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        if self._x_sorted is None or self._skew_sign is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_train, n_features = self._X_sorted.shape
-        if X.shape[1] != n_features:
-            raise ValueError(f"Expected {n_features} features, got {X.shape[1]}")
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_train, n_features = self._x_sorted.shape
+        if x.shape[1] != n_features:
+            raise ValueError(f"Expected {n_features} features, got {x.shape[1]}")
 
-        scores_by_feature = np.empty((X.shape[0], n_features), dtype=np.float64)
+        scores_by_feature = np.empty((x.shape[0], n_features), dtype=np.float64)
 
         for j in range(n_features):
-            col_sorted = self._X_sorted[:, j]
-            x_col = X[:, j]
+            col_sorted = self._x_sorted[:, j]
+            x_col = x[:, j]
 
             # Left-tail: P(X_train <= x)
             cdf_l = np.searchsorted(col_sorted, x_col, side="right") / float(n_train)
@@ -163,8 +176,8 @@ class VisionCOPOD(BaseVisionDetector):
     def _build_detector(self):
         return CoreCOPOD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

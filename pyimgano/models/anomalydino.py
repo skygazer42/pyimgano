@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Protocol, Tuple, Union
+from typing import Any, Iterable, Optional, Protocol, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .knn_index import KNNIndex, build_knn_index
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
+
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
 
 
 class PatchEmbedder(Protocol):
@@ -86,7 +90,7 @@ class VisionAnomalyDINO:
         self.coreset_sampling_ratio = float(coreset_sampling_ratio)
         if not (0.0 < self.coreset_sampling_ratio <= 1.0):
             raise ValueError(
-                "coreset_sampling_ratio must be in (0, 1]. " f"Got {self.coreset_sampling_ratio}."
+                f"coreset_sampling_ratio must be in (0, 1]. Got {self.coreset_sampling_ratio}."
             )
         self.random_seed = int(random_seed)
         self.aggregation_method = aggregation_method
@@ -102,7 +106,7 @@ class VisionAnomalyDINO:
     @property
     def memory_bank_size_(self) -> int:
         if self._memory_bank is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         return int(self._memory_bank.shape[0])
 
     def _embed(self, image: Union[str, np.ndarray]) -> _EmbeddedImage:
@@ -128,8 +132,14 @@ class VisionAnomalyDINO:
             original_size=(original_h, original_w),
         )
 
-    def fit(self, X: Iterable[Union[str, np.ndarray]], y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            )
+        )
         if not items:
             raise ValueError("X must contain at least one training image.")
 
@@ -160,7 +170,7 @@ class VisionAnomalyDINO:
 
     def _patch_scores(self, embedded: _EmbeddedImage) -> NDArray:
         if self._knn_index is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         if self._n_neighbors_fit is None:
             raise RuntimeError("Internal error: missing fitted neighbor count.")
 
@@ -174,8 +184,13 @@ class VisionAnomalyDINO:
 
         return distances_np.min(axis=1)
 
-    def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             embedded = self._embed(item)
@@ -187,10 +202,15 @@ class VisionAnomalyDINO:
             )
         return scores
 
-    def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         if self.threshold_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+        scores = self.decision_function(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
+            )
+        )
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -219,8 +239,13 @@ class VisionAnomalyDINO:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)
 
@@ -242,6 +267,18 @@ class TorchHubDinoV2Embedder:
     _transform: Any = None
     _patch_size: Optional[int] = None
 
+    _legacy_attr_aliases = {"_Image": "_image_cls"}
+
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
+
     def _ensure_loaded(self) -> None:
         if self._model is not None:
             return
@@ -261,7 +298,7 @@ class TorchHubDinoV2Embedder:
 
         transforms = require("torchvision.transforms", extra="torch", purpose="DINOv2 embedder")
 
-        self._Image = Image  # type: ignore[attr-defined]
+        self._image_cls = Image  # type: ignore[attr-defined]
         self._torch = torch  # type: ignore[attr-defined]
 
         self._transform = transforms.Compose(
@@ -299,9 +336,9 @@ class TorchHubDinoV2Embedder:
                 raise ValueError(f"Expected uint8 RGB image, got dtype={image.dtype}")
             if image.ndim != 3 or image.shape[2] != 3:
                 raise ValueError(f"Expected shape (H,W,3), got {image.shape}")
-            image = self._Image.fromarray(np.ascontiguousarray(image), mode="RGB")
+            image = self._image_cls.fromarray(np.ascontiguousarray(image), mode="RGB")
         else:
-            image = self._Image.open(str(image)).convert("RGB")
+            image = self._image_cls.open(str(image)).convert("RGB")
         original_w, original_h = image.size
 
         x = self._transform(image).unsqueeze(0).to(self.device)

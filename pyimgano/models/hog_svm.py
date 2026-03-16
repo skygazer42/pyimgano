@@ -26,9 +26,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
 from ..base import BaseVisionClassicalDetector
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 
 
-class HOG_SVM(BaseVisionClassicalDetector):
+class HOG_SVM(BaseVisionClassicalDetector):  # NOSONAR - public API uses legacy underscore name
     """
     HOG (Histogram of Oriented Gradients) + One-Class SVM for anomaly detection.
 
@@ -118,7 +119,7 @@ class HOG_SVM(BaseVisionClassicalDetector):
 
         return features
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "HOG_SVM":
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object) -> "HOG_SVM":
         """
         Fit HOG + SVM model.
 
@@ -134,11 +135,13 @@ class HOG_SVM(BaseVisionClassicalDetector):
         self : HOG_SVM
             Fitted estimator
         """
+        del y
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Extract HOG features for all images
         print("Extracting HOG features...")
         hog_features = []
-        for i in range(len(X)):
-            features = self._extract_hog_features(X[i])
+        for i in range(len(x_value)):
+            features = self._extract_hog_features(x_value[i])
             hog_features.append(features)
 
         hog_features = np.array(hog_features)
@@ -155,7 +158,7 @@ class HOG_SVM(BaseVisionClassicalDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -171,10 +174,12 @@ class HOG_SVM(BaseVisionClassicalDetector):
         """
         self._check_is_fitted()
 
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+
         # Extract HOG features
         hog_features = []
-        for i in range(len(X)):
-            features = self._extract_hog_features(X[i])
+        for i in range(len(x_value)):
+            features = self._extract_hog_features(x_value[i])
             hog_features.append(features)
 
         hog_features = np.array(hog_features)
@@ -188,7 +193,7 @@ class HOG_SVM(BaseVisionClassicalDetector):
 
         return scores
 
-    def predict_label(self, X: NDArray) -> NDArray:
+    def predict_label(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Predict anomaly labels.
 
@@ -204,10 +209,12 @@ class HOG_SVM(BaseVisionClassicalDetector):
         """
         self._check_is_fitted()
 
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict_label")
+
         # Extract HOG features
         hog_features = []
-        for i in range(len(X)):
-            features = self._extract_hog_features(X[i])
+        for i in range(len(x_value)):
+            features = self._extract_hog_features(x_value[i])
             hog_features.append(features)
 
         hog_features = np.array(hog_features)
@@ -223,8 +230,9 @@ class HOG_SVM(BaseVisionClassicalDetector):
 
         return labels
 
-    def get_params(self) -> dict:
+    def get_params(self, deep: bool = True) -> dict:
         """Get model parameters."""
+        del deep
         return {
             "orientations": self.orientations,
             "pixels_per_cell": self.pixels_per_cell,

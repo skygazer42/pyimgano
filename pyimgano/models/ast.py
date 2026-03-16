@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ..utils.random_state import check_random_state
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -176,7 +177,7 @@ class VisionAST(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.hidden_channels = hidden_channels
         self.learning_rate = learning_rate
@@ -185,10 +186,14 @@ class VisionAST(BaseVisionDeepDetector):
         self.anomaly_ratio = anomaly_ratio
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
-
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        self.rng = check_random_state(random_state)
+        self._noise_generator = torch.Generator(device="cpu")
+        noise_seed = (
+            int(random_state)
+            if isinstance(random_state, (int, np.integer))
+            else int(self.rng.integers(0, 2**31 - 1))
+        )
+        self._noise_generator.manual_seed(noise_seed)
 
         self.teacher_ = None
         self.student_ = None
@@ -231,25 +236,32 @@ class VisionAST(BaseVisionDeepDetector):
 
         for i in range(B):
             # Random anomaly type
-            anomaly_type = np.random.choice(["cutpaste", "noise", "blur"])
+            anomaly_type = str(self.rng.choice(["cutpaste", "noise", "blur"]))
 
             # Random anomaly region
-            h_size = np.random.randint(H // 8, H // 3)
-            w_size = np.random.randint(W // 8, W // 3)
-            y = np.random.randint(0, H - h_size)
-            x = np.random.randint(0, W - w_size)
+            h_size = int(self.rng.integers(H // 8, H // 3))
+            w_size = int(self.rng.integers(W // 8, W // 3))
+            y = int(self.rng.integers(0, H - h_size))
+            x = int(self.rng.integers(0, W - w_size))
 
             if anomaly_type == "cutpaste":
                 # Paste from random location
-                src_y = np.random.randint(0, H - h_size)
-                src_x = np.random.randint(0, W - w_size)
+                src_y = int(self.rng.integers(0, H - h_size))
+                src_x = int(self.rng.integers(0, W - w_size))
                 anomalous_images[i, :, y : y + h_size, x : x + w_size] = images[
                     i, :, src_y : src_y + h_size, src_x : src_x + w_size
                 ]
 
             elif anomaly_type == "noise":
                 # Add Gaussian noise
-                noise = torch.randn(C, h_size, w_size, device=images.device) * 0.5
+                noise = (
+                    torch.randn(
+                        (C, h_size, w_size),
+                        generator=self._noise_generator,
+                        dtype=images.dtype,
+                    ).to(images.device)
+                    * 0.5
+                )
                 anomalous_images[i, :, y : y + h_size, x : x + w_size] += noise
 
             elif anomaly_type == "blur":
@@ -318,7 +330,7 @@ class VisionAST(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize teacher
         if self.teacher_ is None:
@@ -326,7 +338,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         # Get feature dimensions
         with torch.no_grad():
-            sample_features = self.teacher_(X_tensor[:1].to(self.device))
+            sample_features = self.teacher_(x_tensor[:1].to(self.device))
             in_channels = sample_features.shape[1]
 
         # Initialize student
@@ -336,10 +348,14 @@ class VisionAST(BaseVisionDeepDetector):
             ).to(self.device)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(self.student_.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(
+            self.student_.parameters(),
+            lr=self.learning_rate,
+            weight_decay=0.0,
+        )
 
         self.student_.train()
 
@@ -411,7 +427,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -425,14 +441,19 @@ class VisionAST(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.student_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract teacher features
                 teacher_features = self.teacher_(batch)
@@ -452,9 +473,21 @@ class VisionAST(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        if batch_size is None:
+            return self.predict(X)
+
+        batch_size_int = int(batch_size)
+        if batch_size_int <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
+        old_batch_size = self.batch_size
+        try:
+            self.batch_size = batch_size_int
+            return self.predict(X)
+        finally:
+            self.batch_size = old_batch_size
 
     def get_anomaly_map(self, X: NDArray) -> NDArray:
         """
@@ -472,13 +505,13 @@ class VisionAST(BaseVisionDeepDetector):
         """
         self.student_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         H, W = X.shape[1:3]
         anomaly_maps = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 teacher_features = self.teacher_(batch)

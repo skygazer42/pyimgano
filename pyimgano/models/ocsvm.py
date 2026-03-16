@@ -142,19 +142,19 @@ class CoreOCSVMModel(CoreFeatureDetector):
         max_iter: int = -1,
         preprocessing: bool = True,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            kernel=str(kernel),
-            nu=nu,
-            gamma=gamma,
-            degree=int(degree),
-            coef0=float(coef0),
-            tol=float(tol),
-            shrinking=bool(shrinking),
-            cache_size=float(cache_size),
-            max_iter=int(max_iter),
-            preprocessing=bool(preprocessing),
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "kernel": str(kernel),
+            "nu": nu,
+            "gamma": gamma,
+            "degree": int(degree),
+            "coef0": float(coef0),
+            "tol": float(tol),
+            "shrinking": bool(shrinking),
+            "cache_size": float(cache_size),
+            "max_iter": int(max_iter),
+            "preprocessing": bool(preprocessing),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -189,19 +189,19 @@ class VisionOCSVM(BaseVisionDetector):
         max_iter: int = -1,
         preprocessing: bool = True,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            kernel=str(kernel),
-            nu=nu,
-            gamma=gamma,
-            degree=int(degree),
-            coef0=float(coef0),
-            tol=float(tol),
-            shrinking=bool(shrinking),
-            cache_size=float(cache_size),
-            max_iter=int(max_iter),
-            preprocessing=bool(preprocessing),
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "kernel": str(kernel),
+            "nu": nu,
+            "gamma": gamma,
+            "degree": int(degree),
+            "coef0": float(coef0),
+            "tol": float(tol),
+            "shrinking": bool(shrinking),
+            "cache_size": float(cache_size),
+            "max_iter": int(max_iter),
+            "preprocessing": bool(preprocessing),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

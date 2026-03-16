@@ -17,7 +17,8 @@ def _segf1_from_counts(*, tp: int, fp: int, fn: int) -> float:
         return 1.0 if (tp_i + fp_i) == 0 else 0.0
 
     precision = tp_i / (tp_i + fp_i) if (tp_i + fp_i) > 0 else 0.0
-    recall = tp_i / (tp_i + fn_i) if (tp_i + fn_i) > 0 else 0.0
+    # (tp_i + fn_i) > 0 is guaranteed by the early return above.
+    recall = tp_i / (tp_i + fn_i)
     denom = precision + recall
     if denom <= 0.0:
         return 0.0

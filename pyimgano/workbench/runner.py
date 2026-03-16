@@ -22,7 +22,6 @@ def run_workbench(
     run_dir = None if run_context is None else run_context.run_dir
     paths = None if run_context is None else run_context.paths
 
-    dataset = str(config.dataset.name)
     category = str(config.dataset.category)
 
     if category.lower() != "all":

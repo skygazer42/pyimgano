@@ -1,5 +1,6 @@
 import hashlib
 import json
+from pathlib import Path
 
 
 def test_validate_weights_manifest_file_checks_files_and_hashes(tmp_path):
@@ -35,7 +36,8 @@ def test_validate_weights_manifest_file_checks_files_and_hashes(tmp_path):
     assert report.ok
     assert report.errors == ()
     assert len(report.entries) == 1
-    assert report.entries[0]["resolved_path"].endswith("checkpoints/model.pt")
+    resolved_posix = Path(report.entries[0]["resolved_path"]).as_posix()
+    assert resolved_posix.endswith("checkpoints/model.pt")
 
 
 def test_validate_weights_manifest_file_reports_sha_mismatch(tmp_path):

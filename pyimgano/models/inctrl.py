@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._batch_size import call_with_temporary_attr, validate_batch_size
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -111,15 +112,15 @@ class InContextAttention(nn.Module):
 
         # Project
         Q = self.q_proj(query).view(B, self.num_heads, self.head_dim)
-        K_ctx = self.k_proj(context).view(K, self.num_heads, self.head_dim)
-        V_ctx = self.v_proj(context).view(K, self.num_heads, self.head_dim)
+        k_context = self.k_proj(context).view(K, self.num_heads, self.head_dim)
+        v_context = self.v_proj(context).view(K, self.num_heads, self.head_dim)
 
         # Attention scores
-        scores = torch.einsum("bhd,khd->bhk", Q, K_ctx) / (self.head_dim**0.5)
+        scores = torch.einsum("bhd,khd->bhk", Q, k_context) / (self.head_dim**0.5)
         attn_weights = F.softmax(scores, dim=-1)  # (B, H, K)
 
         # Aggregate
-        attended = torch.einsum("bhk,khd->bhd", attn_weights, V_ctx)
+        attended = torch.einsum("bhk,khd->bhd", attn_weights, v_context)
         attended = attended.reshape(B, -1)
 
         # Output projection
@@ -240,7 +241,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.feature_dim = feature_dim
         self.num_heads = num_heads
@@ -251,9 +252,8 @@ class VisionInCTRL(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.encoder_ = None
         self.in_context_attn_ = None
@@ -272,10 +272,10 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return torch.from_numpy(X).float()
 
-    def _sample_context(self, X_tensor: torch.Tensor, k: int) -> torch.Tensor:
+    def _sample_context(self, x_tensor: torch.Tensor, k: int) -> torch.Tensor:
         """Sample k-shot context samples."""
-        indices = torch.randperm(len(X_tensor))[:k]
-        return X_tensor[indices]
+        indices = torch.randperm(len(x_tensor))[:k]
+        return x_tensor[indices]
 
     def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionInCTRL":
         """
@@ -294,7 +294,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize modules
         if self.encoder_ is None:
@@ -313,17 +313,18 @@ class VisionInCTRL(BaseVisionDeepDetector):
             )
 
         # Sample context samples
-        context_images = self._sample_context(X_tensor, self.k_shot)
+        context_images = self._sample_context(x_tensor, self.k_shot)
         with torch.no_grad():
             self.context_samples_ = self.encoder_(context_images.to(self.device))
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
             list(self.in_context_attn_.parameters()) + list(self.residual_predictor_.parameters()),
             lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         self.in_context_attn_.train()
@@ -365,7 +366,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -379,15 +380,20 @@ class VisionInCTRL(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores (residual magnitude)
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.in_context_attn_.eval()
         self.residual_predictor_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 query_features = self.encoder_(batch)
@@ -404,6 +410,14 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        batch_size_int = validate_batch_size(batch_size)
+        if batch_size_int is None:
+            return self.predict(X)
+        return call_with_temporary_attr(
+            self,
+            "batch_size",
+            batch_size_int,
+            lambda: self.predict(X),
+        )

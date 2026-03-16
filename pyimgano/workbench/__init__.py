@@ -68,23 +68,25 @@ def _build_workbench_export_sources() -> dict[str, str]:
 _WORKBENCH_EXPORT_SOURCES = _build_workbench_export_sources()
 
 
-__all__ = list(_WORKBENCH_EXPORT_SOURCES)
+# Keep __all__ as an explicit iterable of public symbols.
+__all__ = _WORKBENCH_EXPORT_SOURCES.keys()
 
 
 def __getattr__(name: str) -> Any:
-    try:
-        module_name = _WORKBENCH_EXPORT_SOURCES[name]
-    except KeyError:
+    module_name = _WORKBENCH_EXPORT_SOURCES.get(name)
+    if module_name is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
     module = import_module(module_name)
     try:
         value = getattr(module, name)
     except AttributeError as exc:
-        raise AttributeError(f"module {__name__!r} could not resolve export {name!r}") from exc
+        raise AttributeError(
+            f"module {__name__!r} could not resolve export {name!r} from {module_name!r}"
+        ) from exc
     globals()[name] = value
     return value
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals().keys()) | set(__all__))
+    return sorted(set(globals()) | set(__all__))

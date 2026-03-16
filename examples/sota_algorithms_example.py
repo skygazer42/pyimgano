@@ -7,10 +7,14 @@ This script demonstrates the latest SOTA algorithms added to PyImgAno:
 - DifferNet (WACV 2023): Learnable difference detection
 """
 
+import importlib.util
+
 import cv2
 import numpy as np
 
 from pyimgano.models import create_model
+
+PREDICTING_MESSAGE = "Predicting anomaly scores..."
 
 
 def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
@@ -25,11 +29,12 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
         Tuple of (X_train, X_test, y_test).
     """
     print(f"Generating {n_normal} normal + {n_anomaly} anomaly samples...")
+    rng = np.random.default_rng()
 
     # Normal images: simple patterns
     normal_images = []
     for _ in range(n_normal):
-        img = np.random.rand(*image_size, 3) * 50  # Dark background
+        img = rng.random((*image_size, 3)) * 50  # Dark background
         # Add structured patterns
         img[::8, :, :] = 200  # Horizontal lines
         img[:, ::8, :] = 200  # Vertical lines
@@ -38,7 +43,7 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
     # Test normal images
     test_normal = []
     for _ in range(n_anomaly):
-        img = np.random.rand(*image_size, 3) * 50
+        img = rng.random((*image_size, 3)) * 50
         img[::8, :, :] = 200
         img[:, ::8, :] = 200
         test_normal.append(img.astype(np.uint8))
@@ -46,9 +51,9 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
     # Anomalous images: broken patterns
     anomaly_images = []
     for _ in range(n_anomaly):
-        img = np.random.rand(*image_size, 3) * 100  # Different intensity
+        img = rng.random((*image_size, 3)) * 100  # Different intensity
         # Add random defects
-        cx, cy = np.random.randint(50, 200, 2)
+        cx, cy = rng.integers(50, 200, size=2)
         cv2.circle(img, (cx, cy), 30, (255, 0, 0), -1)
         anomaly_images.append(img.astype(np.uint8))
 
@@ -84,7 +89,7 @@ def demo_cutpaste():
     detector.fit(X_train)
 
     # Predict
-    print("Predicting anomaly scores...")
+    print(PREDICTING_MESSAGE)
     scores = detector.predict_proba(X_test)
     predictions = detector.predict(X_test)
 
@@ -94,7 +99,7 @@ def demo_cutpaste():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
     print(f"  Normal samples detected: {sum(predictions[:10] == 0)}/10")
@@ -109,9 +114,7 @@ def demo_winclip():
     print("WinCLIP: Zero-Shot CLIP-based Detection (CVPR 2023)")
     print("=" * 70)
 
-    try:
-        import clip
-    except ImportError:
+    if importlib.util.find_spec("clip") is None:
         print("\nSkipping WinCLIP demo - CLIP not installed")
         print("Install with: pip install git+https://github.com/openai/CLIP.git")
         return None, None, None
@@ -137,7 +140,7 @@ def demo_winclip():
     detector.fit(X_train)
 
     # Predict
-    print("Predicting anomaly scores...")
+    print(PREDICTING_MESSAGE)
     scores = detector.predict_proba(X_test)
     predictions = detector.predict(X_test)
 
@@ -147,7 +150,7 @@ def demo_winclip():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
 
@@ -189,7 +192,7 @@ def demo_differnet():
     detector.fit(X_train)
 
     # Predict
-    print("Predicting anomaly scores...")
+    print(PREDICTING_MESSAGE)
     scores = detector.predict_proba(X_test)
     predictions = detector.predict(X_test)
 
@@ -199,7 +202,7 @@ def demo_differnet():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
     print(f"  Memory bank size: {len(detector.memory_bank['layer3'])} features")
@@ -214,7 +217,7 @@ def compare_algorithms():
     print("=" * 70)
 
     # Generate shared test data
-    X_train, X_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
+    _, _, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
 
     results = {}
 

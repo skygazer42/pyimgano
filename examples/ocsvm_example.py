@@ -158,8 +158,7 @@ class StructureAnomalyDetector:
         gx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
         gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
 
-        # 计算梯度幅值和方向
-        magnitude = np.sqrt(gx**2 + gy**2)
+        # 计算梯度方向
         angle = np.arctan2(gy, gx)
 
         # 8个方向的直方图
@@ -200,7 +199,7 @@ class StructureAnomalyDetector:
 
     def train(self, data_folder):
         """训练模型"""
-        print(f"开始训练结构异常检测器...")
+        print("开始训练结构异常检测器...")
         print(f"参数: nu={self.nu}, kernel={self.kernel}")
         print("注意：只检测结构异常（弹窗、白屏、黑屏、遮挡），忽略颜色差异")
 
@@ -229,21 +228,21 @@ class StructureAnomalyDetector:
         print(f"\n成功提取 {len(features)} 个样本的特征，原始维度: {X.shape[1]}")
 
         # 标准化
-        X_scaled = self.scaler.fit_transform(X)
+        x_scaled = self.scaler.fit_transform(X)
 
         # PCA降维（动态设置维度）
         n_components = min(20, X.shape[1] - 1, X.shape[0] - 1)
-        self.pca = PCA(n_components=n_components)
-        X_reduced = self.pca.fit_transform(X_scaled)
-        print(f"PCA降维后维度: {X_reduced.shape[1]}")
+        self.pca = PCA(n_components=n_components, random_state=0)
+        x_reduced = self.pca.fit_transform(x_scaled)
+        print(f"PCA降维后维度: {x_reduced.shape[1]}")
         print(f"保留方差比例: {self.pca.explained_variance_ratio_.sum():.2%}")
 
         # 训练One-Class SVM
         print("训练One-Class SVM...")
-        self.ocsvm.fit(X_reduced)
+        self.ocsvm.fit(x_reduced)
 
         # 计算训练集上的决策边界
-        self.decision_scores = self.ocsvm.decision_function(X_reduced)
+        self.decision_scores = self.ocsvm.decision_function(x_reduced)
         self.threshold_normal = np.percentile(self.decision_scores, 99)
         self.threshold_anomaly = np.percentile(self.decision_scores, 1)
 
@@ -251,7 +250,7 @@ class StructureAnomalyDetector:
         print("训练完成！")
 
         # 输出训练统计
-        predictions = self.ocsvm.predict(X_reduced)
+        predictions = self.ocsvm.predict(x_reduced)
         n_outliers = np.sum(predictions == -1)
         print(
             f"训练集中检测到的结构异常样本: {n_outliers}/{len(predictions)} "
@@ -259,6 +258,30 @@ class StructureAnomalyDetector:
         )
 
         return self
+
+    def _infer_anomaly_type(self, feat, prediction):
+        if prediction != -1:
+            return "未知"
+        if feat[0] > 0.9:
+            return "白屏"
+        if feat[1] > 0.9:
+            return "黑屏"
+        if feat[4] > 0.5:
+            return "可能有弹窗"
+        if feat[2] > 0.5 or feat[3] > 0.5:
+            return "界面结构异常"
+        if np.std(feat[6:15]) > 0.3:
+            return "布局异常"
+        return "未知"
+
+    def _compute_confidence(self, prediction, decision_score):
+        if prediction == 1:
+            return min(
+                (decision_score - self.threshold_anomaly)
+                / (self.threshold_normal - self.threshold_anomaly),
+                1.0,
+            )
+        return min((self.threshold_anomaly - decision_score) / abs(self.threshold_anomaly), 1.0)
 
     def predict(self, image_path):
         """预测单张图片"""
@@ -274,35 +297,8 @@ class StructureAnomalyDetector:
         prediction = self.ocsvm.predict(feat_reduced)[0]
         decision_score = self.ocsvm.decision_function(feat_reduced)[0]
 
-        # 分析异常原因（基于结构特征）
-        anomaly_type = "未知"
-        if prediction == -1:
-            # 检查具体是哪种结构异常
-            if feat[0] > 0.9:  # 白屏
-                anomaly_type = "白屏"
-            elif feat[1] > 0.9:  # 黑屏
-                anomaly_type = "黑屏"
-            elif feat[4] > 0.5:  # 检测到多个矩形
-                anomaly_type = "可能有弹窗"
-            elif feat[2] > 0.5 or feat[3] > 0.5:  # 很多直线
-                anomaly_type = "界面结构异常"
-            else:
-                # 检查边缘分布
-                edge_features = feat[6:15]
-                if np.std(edge_features) > 0.3:
-                    anomaly_type = "布局异常"
-
-        # 计算置信度
-        if prediction == 1:
-            confidence = min(
-                (decision_score - self.threshold_anomaly)
-                / (self.threshold_normal - self.threshold_anomaly),
-                1.0,
-            )
-        else:
-            confidence = min(
-                (self.threshold_anomaly - decision_score) / abs(self.threshold_anomaly), 1.0
-            )
+        anomaly_type = self._infer_anomaly_type(feat, prediction)
+        confidence = self._compute_confidence(prediction, decision_score)
 
         confidence = np.clip(confidence, 0, 1)
 

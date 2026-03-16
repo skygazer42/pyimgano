@@ -11,7 +11,8 @@ Reference:
 """
 
 import logging
-from typing import Iterable, Optional, Union
+import os
+from typing import Dict, Iterable, Optional, Union, cast
 
 import cv2
 import numpy as np
@@ -26,9 +27,31 @@ from torchvision import transforms
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+_MISSING = object()
+
+
 logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
+
+
+def _resolve_legacy_x_keyword(
+    x: object, kwargs: Dict[str, object], *, method_name: str
+) -> Iterable[ImageInput]:
+    """Accept legacy `X=` inputs while keeping lowercase local naming."""
+
+    legacy_x = kwargs.pop("X", _MISSING)
+    if kwargs:
+        unexpected = next(iter(kwargs))
+        raise TypeError(f"{method_name}() got an unexpected keyword argument {unexpected!r}")
+    if x is _MISSING:
+        if legacy_x is _MISSING:
+            raise TypeError(f"{method_name}() missing 1 required positional argument: 'x'")
+        return cast(Iterable[ImageInput], legacy_x)
+    if legacy_x is not _MISSING:
+        raise TypeError(f"{method_name}() got multiple values for argument 'x'")
+    return cast(Iterable[ImageInput], x)
 
 
 class SimpleUNet(nn.Module):
@@ -96,9 +119,10 @@ class SimpleUNet(nn.Module):
 class ImagePathDataset(Dataset):
     """Dataset for loading images from paths or in-memory numpy arrays."""
 
-    def __init__(self, image_paths, transform=None):
+    def __init__(self, image_paths, transform=None, rng: Optional[np.random.Generator] = None):
         self.image_paths = image_paths
         self.transform = transform
+        self.rng = rng if rng is not None else np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
 
     def __len__(self):
         return len(self.image_paths)
@@ -130,19 +154,21 @@ class ImagePathDataset(Dataset):
         """Add synthetic anomaly to image."""
         # Simple implementation: add random noise patches
         augmented = img.clone()
+        rng = self.rng
 
         # Randomly add 1-3 anomalous regions
-        n_anomalies = np.random.randint(1, 4)
+        n_anomalies = int(rng.integers(1, 4))
 
         for _ in range(n_anomalies):
             # Random patch size
-            h, w = np.random.randint(10, 30), np.random.randint(10, 30)
+            h = int(rng.integers(10, 30))
+            w = int(rng.integers(10, 30))
             # Random position
-            y = np.random.randint(0, img.shape[1] - h)
-            x = np.random.randint(0, img.shape[2] - w)
+            y = int(rng.integers(0, img.shape[1] - h))
+            x = int(rng.integers(0, img.shape[2] - w))
 
             # Add random noise or texture
-            if np.random.rand() > 0.5:
+            if rng.random() > 0.5:
                 # Random noise
                 augmented[:, y : y + h, x : x + w] = torch.rand(3, h, w)
             else:
@@ -230,7 +256,12 @@ class VisionDRAEM(BaseVisionDeepDetector):
             device,
         )
 
-    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionDRAEM":
+    def fit(
+        self,
+        x: object = _MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionDRAEM":
         """
         Train DRAEM on normal images.
 
@@ -245,14 +276,16 @@ class VisionDRAEM(BaseVisionDeepDetector):
         -------
         self : VisionDRAEM
         """
+        del y
         logger.info("Training DRAEM detector")
 
-        X_list = list(X)
-        if not X_list:
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="fit")
+        x_list = list(x_iter)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Create dataset
-        dataset = ImagePathDataset(X_list, transform=self.transform)
+        dataset = ImagePathDataset(x_list, transform=self.transform)
         dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
@@ -262,7 +295,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
         )
 
         # Setup optimizer
-        optimizer = Adam(self.model.parameters(), lr=self.lr)
+        optimizer = Adam(self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
         # Training loop
         self.model.train()
@@ -295,12 +328,17 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
         # Mark as fitted and compute training scores to establish a threshold.
         self._is_fitted = True
-        self.decision_scores_ = self.decision_function(X_list)
+        self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
 
         return self
 
-    def predict(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict(
+        self,
+        x: object = _MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -314,47 +352,72 @@ class VisionDRAEM(BaseVisionDeepDetector):
         labels : ndarray of shape (n_samples,)
             Binary labels (0 = normal, 1 = anomaly)
         """
-        if not self._is_fitted or not hasattr(self, "threshold_"):
-            raise RuntimeError("Model not fitted. Call fit() first.")
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
 
-        scores = self.decision_function(X)
+        if not self._is_fitted or not hasattr(self, "threshold_"):
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+        scores = self.decision_function(x_iter)
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
+    def _load_item_rgb(self, item: ImageInput) -> np.ndarray:  # pragma: no cover
+        """Load an input item as a contiguous RGB uint8 numpy array."""
+
+        if isinstance(item, np.ndarray):
+            if item.dtype != np.uint8:
+                raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
+            if item.ndim != 3 or item.shape[2] != 3:
+                raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
+            return np.ascontiguousarray(item)
+
+        img = cv2.imread(str(item))
+        if img is None:
+            raise ValueError(f"Failed to load image: {item}")
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    def _score_item(self, item: ImageInput) -> float:  # pragma: no cover
+        img = self._load_item_rgb(item)
+        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
+
+        reconstructed = self.model(img_tensor)
+        error = F.mse_loss(reconstructed, img_tensor, reduction="none")
+        return float(error.mean().item())
+
+    def decision_function(
+        self,
+        x: object = _MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Compute anomaly scores."""
+        # This detector scores one image at a time. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
         if not self._is_fitted:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         self.model.eval()
 
-        X_list = list(X)
-        scores = np.zeros(len(X_list), dtype=np.float64)
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        x_list = list(x_iter)
+        scores = np.zeros(len(x_list), dtype=np.float64)
 
-        logger.info("Computing anomaly scores for %d images", len(X_list))
+        logger.info("Computing anomaly scores for %d images", len(x_list))
 
         with torch.no_grad():
-            for idx, item in enumerate(X_list):
+            for idx, item in enumerate(x_list):
                 try:
-                    if isinstance(item, np.ndarray):
-                        if item.dtype != np.uint8:
-                            raise ValueError(f"Expected uint8 RGB image, got dtype={item.dtype}")
-                        if item.ndim != 3 or item.shape[2] != 3:
-                            raise ValueError(f"Expected shape (H,W,3), got {item.shape}")
-                        img = np.ascontiguousarray(item)
-                    else:
-                        img = cv2.imread(str(item))
-                        if img is None:
-                            raise ValueError(f"Failed to load image: {item}")
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-                    img_tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-                    reconstructed = self.model(img_tensor)
-                    error = F.mse_loss(reconstructed, img_tensor, reduction="none")
-                    scores[idx] = float(error.mean().item())
-
-                except Exception as e:
-                    logger.warning("Failed to score item %d: %s", idx, e)
+                    scores[idx] = self._score_item(item)
+                except Exception as exc:
+                    logger.warning("Failed to score item %d: %s", idx, exc)
                     scores[idx] = 0.0
 
         return scores
@@ -362,7 +425,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
     def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
         """Generate pixel-level anomaly heatmap."""
         if not self._is_fitted:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         if isinstance(image_path, np.ndarray):
             if image_path.dtype != np.uint8:
@@ -390,7 +453,8 @@ class VisionDRAEM(BaseVisionDeepDetector):
         anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
         return anomaly_map
 
-    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict_anomaly_map(self, x: object = _MISSING, **kwargs: object) -> NDArray:
         """Generate pixel-level anomaly maps for a batch of images."""
-        maps = [self.get_anomaly_map(path) for path in X]
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        maps = [self.get_anomaly_map(path) for path in x_iter]
         return np.stack(maps)

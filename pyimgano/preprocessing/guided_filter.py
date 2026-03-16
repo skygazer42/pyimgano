@@ -126,16 +126,16 @@ def guided_filter(
         guidance_f = g.astype(np.float32)
         p = img.astype(np.float32)
 
-    mean_I = _box_mean(guidance_f, radius=r)
+    mean_guidance = _box_mean(guidance_f, radius=r)
     mean_p = _box_mean(p, radius=r)
-    corr_I = _box_mean(guidance_f * guidance_f, radius=r)
-    corr_Ip = _box_mean(guidance_f * p, radius=r)
+    corr_guidance = _box_mean(guidance_f * guidance_f, radius=r)
+    corr_guidance_p = _box_mean(guidance_f * p, radius=r)
 
-    var_I = corr_I - mean_I * mean_I
-    cov_Ip = corr_Ip - mean_I * mean_p
+    var_guidance = corr_guidance - mean_guidance * mean_guidance
+    cov_guidance_p = corr_guidance_p - mean_guidance * mean_p
 
-    a = cov_Ip / (var_I + e)
-    b = mean_p - a * mean_I
+    a = cov_guidance_p / (var_guidance + e)
+    b = mean_p - a * mean_guidance
 
     mean_a = _box_mean(a, radius=r)
     mean_b = _box_mean(b, radius=r)

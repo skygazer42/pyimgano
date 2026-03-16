@@ -14,6 +14,7 @@ Key Features:
 - Fast training and inference
 """
 
+import os
 from typing import Optional, Tuple
 
 import cv2
@@ -37,6 +38,7 @@ class CutPasteAugmentation:
         area_ratio: Tuple[float, float] = (0.02, 0.15),
         aspect_ratio: Tuple[float, float] = (0.3, 1 / 0.3),
         type: str = "normal",  # "normal", "scar", "3way"
+        rng: Optional[np.random.Generator] = None,
     ):
         """Initialize CutPaste augmentation.
 
@@ -48,6 +50,7 @@ class CutPasteAugmentation:
         self.area_ratio = area_ratio
         self.aspect_ratio = aspect_ratio
         self.type = type
+        self.rng = rng if rng is not None else np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
 
     def __call__(self, image: NDArray) -> NDArray:
         """Apply CutPaste augmentation.
@@ -64,7 +67,7 @@ class CutPasteAugmentation:
             return self.cutpaste_scar(image)
         elif self.type == "3way":
             # 3-way classification: normal, normal cutpaste, scar cutpaste
-            if np.random.rand() < 0.5:
+            if self.rng.random() < 0.5:
                 return self.cutpaste_normal(image)
             else:
                 return self.cutpaste_scar(image)
@@ -77,11 +80,12 @@ class CutPasteAugmentation:
         Cuts a rectangular patch and pastes it at a random location.
         """
         h, w = image.shape[:2]
+        rng = self.rng
 
         # Sample patch size
         area = h * w
-        target_area = np.random.uniform(*self.area_ratio) * area
-        aspect = np.random.uniform(*self.aspect_ratio)
+        target_area = rng.uniform(*self.area_ratio) * area
+        aspect = rng.uniform(*self.aspect_ratio)
 
         patch_h = int(np.sqrt(target_area * aspect))
         patch_w = int(np.sqrt(target_area / aspect))
@@ -91,21 +95,21 @@ class CutPasteAugmentation:
         patch_w = min(patch_w, w - 1)
 
         # Random source location
-        src_y = np.random.randint(0, h - patch_h)
-        src_x = np.random.randint(0, w - patch_w)
+        src_y = int(rng.integers(0, h - patch_h))
+        src_x = int(rng.integers(0, w - patch_w))
 
         # Random target location
-        dst_y = np.random.randint(0, h - patch_h)
-        dst_x = np.random.randint(0, w - patch_w)
+        dst_y = int(rng.integers(0, h - patch_h))
+        dst_x = int(rng.integers(0, w - patch_w))
 
         # Cut and paste
         patch = image[src_y : src_y + patch_h, src_x : src_x + patch_w].copy()
 
         # Optionally rotate patch
-        if np.random.rand() < 0.5:
-            angle = np.random.randint(0, 360)
-            M = cv2.getRotationMatrix2D((patch_w // 2, patch_h // 2), angle, 1.0)
-            patch = cv2.warpAffine(patch, M, (patch_w, patch_h))
+        if rng.random() < 0.5:
+            angle = int(rng.integers(0, 360))
+            m = cv2.getRotationMatrix2D((patch_w // 2, patch_h // 2), angle, 1.0)
+            patch = cv2.warpAffine(patch, m, (patch_w, patch_h))
 
         result = image.copy()
         result[dst_y : dst_y + patch_h, dst_x : dst_x + patch_w] = patch
@@ -118,11 +122,12 @@ class CutPasteAugmentation:
         Cuts a thin elongated patch and pastes it at a random location.
         """
         h, w = image.shape[:2]
+        rng = self.rng
 
         # Scar is very elongated
         area = h * w
-        target_area = np.random.uniform(0.01, 0.05) * area
-        aspect = np.random.uniform(2.0, 4.0)  # More elongated
+        target_area = rng.uniform(0.01, 0.05) * area
+        aspect = rng.uniform(2.0, 4.0)  # More elongated
 
         patch_h = int(np.sqrt(target_area * aspect))
         patch_w = int(np.sqrt(target_area / aspect))
@@ -132,18 +137,18 @@ class CutPasteAugmentation:
         patch_w = max(3, min(patch_w, w - 1))  # At least 3 pixels wide
 
         # Random source and target
-        src_y = np.random.randint(0, h - patch_h)
-        src_x = np.random.randint(0, w - patch_w)
-        dst_y = np.random.randint(0, h - patch_h)
-        dst_x = np.random.randint(0, w - patch_w)
+        src_y = int(rng.integers(0, h - patch_h))
+        src_x = int(rng.integers(0, w - patch_w))
+        dst_y = int(rng.integers(0, h - patch_h))
+        dst_x = int(rng.integers(0, w - patch_w))
 
         # Cut and paste
         patch = image[src_y : src_y + patch_h, src_x : src_x + patch_w].copy()
 
         # Always rotate scar
-        angle = np.random.randint(0, 360)
-        M = cv2.getRotationMatrix2D((patch_w // 2, patch_h // 2), angle, 1.0)
-        patch = cv2.warpAffine(patch, M, (patch_w, patch_h))
+        angle = int(rng.integers(0, 360))
+        m = cv2.getRotationMatrix2D((patch_w // 2, patch_h // 2), angle, 1.0)
+        patch = cv2.warpAffine(patch, m, (patch_w, patch_h))
 
         result = image.copy()
         result[dst_y : dst_y + patch_h, dst_x : dst_x + patch_w] = patch
@@ -317,20 +322,21 @@ class CutPasteDetector(BaseVisionDeepDetector):
         features = features.squeeze(-1).squeeze(-1)
         return features
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None, **kwargs):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None, **kwargs):
         """Train the CutPaste detector.
 
         Args:
             X: Training images (N, H, W, C) or (N, C, H, W).
             y: Not used (unsupervised).
         """
+        del y, kwargs
         # Normalize to [0, 1] if needed
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         # Create dataset
         dataset = CutPasteDataset(
-            X,
+            x,
             transform=self._get_transform(),
             augment_type=self.augment_type,
         )
@@ -397,9 +403,9 @@ class CutPasteDetector(BaseVisionDeepDetector):
         self.projection_head.eval()
 
         # Build reference statistics from training data
-        self._build_reference(X)
+        self._build_reference(x)
 
-    def _build_reference(self, X: NDArray):
+    def _build_reference(self, x: NDArray):
         """Build reference feature distribution.
 
         Args:
@@ -409,8 +415,8 @@ class CutPasteDetector(BaseVisionDeepDetector):
 
         features_list = []
         with torch.no_grad():
-            for i in range(0, len(X), self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, len(x), self.batch_size):
+                batch = x[i : i + self.batch_size]
                 batch_tensor = self._preprocess(batch).to(self.device)
                 features = self._extract_features(batch_tensor)
                 features_list.append(features.cpu().numpy())
@@ -421,7 +427,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
         self.reference_mean = features.mean(axis=0)
         self.reference_std = features.std(axis=0)
 
-    def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
+    def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -430,15 +436,16 @@ class CutPasteDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly scores for each sample.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        del kwargs
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         self.backbone.eval()
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X), self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, len(x), self.batch_size):
+                batch = x[i : i + self.batch_size]
                 batch_tensor = self._preprocess(batch).to(self.device)
 
                 # Extract features

@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+from numpy.typing import NDArray
+
 ColorMode = Literal["bgr", "rgb", "gray"]
 
 
-def read_image(path: str | Path, *, color: ColorMode = "bgr"):
+def read_image(path: str | Path, *, color: ColorMode = "bgr") -> NDArray:
     """Read an image from disk via OpenCV.
 
     Parameters
@@ -40,7 +42,7 @@ def read_image(path: str | Path, *, color: ColorMode = "bgr"):
     raise ValueError(f"Unknown color mode: {color!r}. Choose from: bgr, rgb, gray.")
 
 
-def convert_color(image, *, src: ColorMode, dst: ColorMode):
+def convert_color(image: NDArray, *, src: ColorMode, dst: ColorMode) -> NDArray:
     """Convert between common image color modes."""
 
     import cv2
@@ -65,11 +67,11 @@ def convert_color(image, *, src: ColorMode, dst: ColorMode):
 
 
 def resize_image(
-    image,
+    image: NDArray,
     size_hw: tuple[int, int],
     *,
     is_mask: bool = False,
-):
+) -> NDArray:
     """Resize an image/mask to (H,W) using OpenCV.
 
     Notes

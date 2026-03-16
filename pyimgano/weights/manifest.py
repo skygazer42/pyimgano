@@ -79,7 +79,7 @@ def validate_weights_manifest(
     if entries_list is None:
         errors.append("Missing or invalid top-level key: entries (expected list).")
         return WeightsManifestReport(
-            ok=False, errors=tuple(errors), warnings=tuple(warnings), entries=tuple()
+            ok=False, errors=tuple(errors), warnings=tuple(warnings), entries=()
         )
 
     seen_names: set[str] = set()

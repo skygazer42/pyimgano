@@ -23,8 +23,9 @@ from typing import Iterable, List, Optional, Sequence
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.neighbors import KDTree
-from sklearn.utils import check_array, check_random_state
+from sklearn.utils import check_array
 
+from ..utils.random_state import check_random_state
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
@@ -57,7 +58,7 @@ def _zscore_standardize(
 
 
 def _generate_feature_subspace(
-    rng: np.random.RandomState,
+    rng: np.random.Generator,
     *,
     n_features: int,
     min_features: int,
@@ -72,12 +73,14 @@ def _generate_feature_subspace(
     if max_features > n_features:
         raise ValueError("max_features must be <= n_features")
 
-    k = int(rng.randint(min_features, max_features + 1))
+    k = int(rng.integers(min_features, max_features + 1))
     return rng.choice(n_features, size=k, replace=False).astype(np.int64, copy=False)
 
 
 class CoreLSCP:
     """LSCP core operating on feature matrices."""
+
+    _legacy_attr_aliases = {"X_train_": "x_train_"}
 
     def __init__(
         self,
@@ -86,7 +89,7 @@ class CoreLSCP:
         local_region_size: int = 30,
         local_max_features: float = 1.0,
         n_bins: int = 10,
-        random_state: Optional[int] = None,
+        random_state: int | np.random.Generator | None = None,
         contamination: float = 0.1,
         local_region_iterations: int = 20,
         local_min_features: float = 0.5,
@@ -101,63 +104,74 @@ class CoreLSCP:
         self.local_region_iterations = int(local_region_iterations)
         self.local_min_features = float(local_min_features)
 
-        self.X_train_: NDArray[np.float64] | None = None
+        self.x_train_: NDArray[np.float64] | None = None
         self.train_scores_: NDArray[np.float64] | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
+
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y  # kept for sklearn-like API compatibility
         if self.n_clf < 2:
             raise ValueError("detector_list must contain at least 2 base detectors")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        self.X_train_ = X
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self.x_train_ = x
 
-        train_scores = np.zeros((X.shape[0], self.n_clf), dtype=np.float64)
+        train_scores = np.zeros((x.shape[0], self.n_clf), dtype=np.float64)
         for k, det in enumerate(self.detector_list):
             fit = getattr(det, "fit", None)
             decision = getattr(det, "decision_function", None)
             if not callable(fit) or not callable(decision):
                 raise TypeError("Each base detector must implement fit() and decision_function()")
 
-            det.fit(X)
+            det.fit(x)
             scores = getattr(det, "decision_scores_", None)
             if scores is None:
                 raise RuntimeError("Base detector did not set decision_scores_ during fit")
             scores_np = np.asarray(scores, dtype=np.float64).reshape(-1)
-            if scores_np.shape[0] != X.shape[0]:
+            if scores_np.shape[0] != x.shape[0]:
                 raise ValueError("Base detector returned unexpected decision_scores_ length")
             train_scores[:, k] = scores_np
 
         self.train_scores_ = train_scores
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.X_train_ is None or self.train_scores_ is None:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        if self.x_train_ is None or self.train_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[1] != self.X_train_.shape[1]:
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[1] != self.x_train_.shape[1]:
             raise ValueError(
                 f"Number of features must match training data. "
-                f"Model n_features={self.X_train_.shape[1]}, input n_features={X.shape[1]}."
+                f"Model n_features={self.x_train_.shape[1]}, input n_features={x.shape[1]}."
             )
 
-        return self._get_decision_scores(X)
+        return self._get_decision_scores(x)
 
-    def _get_decision_scores(self, X_test: NDArray[np.float64]) -> NDArray[np.float64]:
-        assert self.X_train_ is not None
+    def _get_decision_scores(self, x_test: NDArray[np.float64]) -> NDArray[np.float64]:
+        assert self.x_train_ is not None
         assert self.train_scores_ is not None
 
-        n_train, n_features = map(int, self.X_train_.shape)
+        _, _ = map(int, self.x_train_.shape)
 
         # Compute local regions for each test sample (indices into training set).
-        local_regions = self._get_local_regions(X_test)
+        local_regions = self._get_local_regions(x_test)
 
         # Collect test scores from all detectors.
-        test_scores = np.zeros((X_test.shape[0], self.n_clf), dtype=np.float64)
+        test_scores = np.zeros((x_test.shape[0], self.n_clf), dtype=np.float64)
         for k, det in enumerate(self.detector_list):
-            test_scores[:, k] = np.asarray(det.decision_function(X_test), dtype=np.float64).reshape(
+            test_scores[:, k] = np.asarray(det.decision_function(x_test), dtype=np.float64).reshape(
                 -1
             )
 
@@ -166,12 +180,12 @@ class CoreLSCP:
         # Global pseudo-labels for training: max of standardized detector scores.
         training_pseudo = np.max(train_scores_norm, axis=1).reshape(-1)
 
-        pred = np.zeros((X_test.shape[0],), dtype=np.float64)
+        pred = np.zeros((x_test.shape[0],), dtype=np.float64)
         for i, region in enumerate(local_regions):
             region_idx = np.asarray(region, dtype=np.int64)
             if region_idx.size < 2:
                 # Fallback: use global region.
-                region_idx = np.arange(n_train, dtype=np.int64)
+                region_idx = np.arange(self.x_train_.shape[0], dtype=np.int64)
 
             local_pseudo = training_pseudo[region_idx]
             local_train_scores = train_scores_norm[region_idx, :]
@@ -187,12 +201,12 @@ class CoreLSCP:
 
         return pred
 
-    def _get_local_regions(self, X_test: NDArray[np.float64]) -> List[List[int]]:
-        assert self.X_train_ is not None
+    def _get_local_regions(self, x_test: NDArray[np.float64]) -> List[List[int]]:
+        assert self.x_train_ is not None
 
         rng = check_random_state(self.random_state)
 
-        n_train, n_features = map(int, self.X_train_.shape)
+        n_train, n_features = map(int, self.x_train_.shape)
         if n_train == 0:
             raise ValueError("Empty training set")
 
@@ -203,21 +217,21 @@ class CoreLSCP:
         local_max = min(local_max, n_features)
 
         # Collect neighbor indices across randomized subspaces.
-        local_region_list: List[List[int]] = [[] for _ in range(X_test.shape[0])]
+        local_region_list: List[List[int]] = [[] for _ in range(x_test.shape[0])]
 
         for _ in range(self.local_region_iterations):
             feats = _generate_feature_subspace(
                 rng, n_features=n_features, min_features=local_min, max_features=local_max
             )
 
-            tree = KDTree(self.X_train_[:, feats], leaf_size=40)
-            _, inds = tree.query(X_test[:, feats], k=local_region_size, return_distance=True)
-            for j in range(X_test.shape[0]):
+            tree = KDTree(self.x_train_[:, feats], leaf_size=40)
+            _, inds = tree.query(x_test[:, feats], k=local_region_size, return_distance=True)
+            for j in range(x_test.shape[0]):
                 local_region_list[j].extend([int(x) for x in inds[j]])
 
         threshold = int(self.local_region_iterations / 2)
         final_regions: List[List[int]] = []
-        for j in range(X_test.shape[0]):
+        for j in range(x_test.shape[0]):
             counts = Counter(local_region_list[j])
             current = [idx for idx, c in counts.items() if c > threshold]
 
@@ -250,7 +264,7 @@ class CoreLSCP:
         max_bin = int(np.argmax(hist))
         lo = float(edges[max_bin])
         hi = float(edges[max_bin + 1])
-        candidates = np.where((scores >= lo) & (scores <= hi))[0]
+        candidates = np.nonzero((scores >= lo) & (scores <= hi))[0]
         if candidates.size == 0:
             candidates = np.asarray([int(np.argmax(scores))], dtype=np.int64)
         return candidates.astype(np.int64, copy=False)
@@ -320,16 +334,16 @@ class CoreLSCPModel(CoreFeatureDetector):
             unknown = ", ".join(sorted(kwargs))
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
-        self._backend_kwargs = dict(
-            detector_list=list(detector_list),
-            contamination=float(contamination),
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-        )
+        self._backend_kwargs = {
+            "detector_list": list(detector_list),
+            "contamination": float(contamination),
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -379,15 +393,15 @@ class CoreLSCPSpecModel(CoreFeatureDetector):
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
         self._specs = list(detector_specs)
-        self._core_kwargs = dict(
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            contamination=float(contamination),
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-        )
+        self._core_kwargs = {
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "contamination": float(contamination),
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -432,26 +446,26 @@ class VisionLSCP(BaseVisionDetector):
             unknown = ", ".join(sorted(kwargs))
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
-        self._detector_kwargs = dict(
-            detector_list=list(detector_list),
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            contamination=float(contamination),
-        )
+        self._detector_kwargs = {
+            "detector_list": list(detector_list),
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "contamination": float(contamination),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):
         return CoreLSCP(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)
 
 
 @register_model(
@@ -494,15 +508,15 @@ class VisionLSCPSpec(BaseVisionDetector):
             raise TypeError(f"Unknown LSCP parameters: {unknown}")
 
         self._specs = list(detector_specs)
-        self._core_kwargs = dict(
-            local_region_size=int(local_region_size),
-            local_max_features=float(local_max_features),
-            n_bins=int(n_bins),
-            random_state=random_state,
-            contamination=float(contamination),
-            local_region_iterations=int(local_region_iterations),
-            local_min_features=float(local_min_features),
-        )
+        self._core_kwargs = {
+            "local_region_size": int(local_region_size),
+            "local_max_features": float(local_max_features),
+            "n_bins": int(n_bins),
+            "random_state": random_state,
+            "contamination": float(contamination),
+            "local_region_iterations": int(local_region_iterations),
+            "local_min_features": float(local_min_features),
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

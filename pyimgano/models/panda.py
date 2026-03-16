@@ -145,7 +145,7 @@ class VisionPANDA(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.projection_dim = projection_dim
         self.n_prototypes = n_prototypes
@@ -156,9 +156,8 @@ class VisionPANDA(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.encoder_ = None
         self.prototypes_ = None
@@ -217,15 +216,15 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return loss
 
-    def _initialize_prototypes(self, X_tensor: torch.Tensor):
+    def _initialize_prototypes(self, x_tensor: torch.Tensor):
         """Initialize prototypes using K-means clustering."""
         # Extract embeddings for all training data
         self.encoder_.eval()
         all_embeddings = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
                 embeddings = self.encoder_(batch)
                 all_embeddings.append(embeddings.cpu().numpy())
 
@@ -257,7 +256,7 @@ class VisionPANDA(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize encoder
         if self.encoder_ is None:
@@ -266,15 +265,17 @@ class VisionPANDA(BaseVisionDeepDetector):
             ).to(self.device)
 
         # Initialize prototypes
-        self._initialize_prototypes(X_tensor)
+        self._initialize_prototypes(x_tensor)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimize both encoder and prototypes
         optimizer = torch.optim.Adam(
-            list(self.encoder_.parameters()) + [self.prototypes_], lr=self.learning_rate
+            list(self.encoder_.parameters()) + [self.prototypes_],
+            lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         self.encoder_.train()
@@ -308,7 +309,7 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -322,14 +323,19 @@ class VisionPANDA(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores (distance to nearest prototype)
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.encoder_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract embeddings
                 embeddings = self.encoder_(batch)
@@ -343,9 +349,21 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        if batch_size is None:
+            return self.predict(X)
+
+        batch_size_int = int(batch_size)
+        if batch_size_int <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
+        old_batch_size = self.batch_size
+        try:
+            self.batch_size = batch_size_int
+            return self.predict(X)
+        finally:
+            self.batch_size = old_batch_size
 
     def get_prototype_assignments(self, X: NDArray) -> NDArray:
         """
@@ -363,12 +381,12 @@ class VisionPANDA(BaseVisionDeepDetector):
         """
         self.encoder_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         assignments = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract embeddings
                 embeddings = self.encoder_(batch)

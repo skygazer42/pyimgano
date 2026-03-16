@@ -149,7 +149,6 @@ def resolve_infer_checkpoint_path(
     2) Relative to the infer-config file directory.
     3) Relative to the infer-config parent directory (common when the file lives in
        `<run_dir>/artifacts/` while checkpoints live in `<run_dir>/checkpoints/`).
-    4) Relative to `payload["from_run"]` when present.
     """
 
     ckpt = payload.get("checkpoint", None)
@@ -174,13 +173,6 @@ def resolve_infer_checkpoint_path(
         (base / p).resolve(),
         (base.parent / p).resolve(),
     ]
-
-    from_run = payload.get("from_run", None)
-    if from_run is not None:
-        try:
-            candidates.append((Path(str(from_run)) / p).resolve())
-        except Exception:
-            pass
 
     for cand in candidates:
         if cand.exists():
@@ -212,7 +204,6 @@ def resolve_infer_model_checkpoint_path(
     2) Relative to the infer-config file directory.
     3) Relative to the infer-config parent directory (common when the file lives in
        `<run_dir>/artifacts/` while artifacts live in `<run_dir>/...`).
-    4) Relative to `payload["from_run"]` when present.
     """
 
     model = payload.get("model", None)
@@ -238,13 +229,6 @@ def resolve_infer_model_checkpoint_path(
         (base / p).resolve(),
         (base.parent / p).resolve(),
     ]
-
-    from_run = payload.get("from_run", None)
-    if from_run is not None:
-        try:
-            candidates.append((Path(str(from_run)) / p).resolve())
-        except Exception:
-            pass
 
     for cand in candidates:
         if cand.exists():

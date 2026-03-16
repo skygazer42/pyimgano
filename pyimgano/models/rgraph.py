@@ -25,6 +25,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 
+from ._legacy_x import MISSING
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
@@ -32,6 +33,8 @@ from .registry import register_model
 
 class CoreRGraph:
     """Graph random-walk anomaly scoring core."""
+
+    _legacy_attr_aliases = {"_train_X": "_train_x"}
 
     def __init__(
         self,
@@ -61,20 +64,31 @@ class CoreRGraph:
 
         self.scaler_: StandardScaler | None = None
         self._nn: NearestNeighbors | None = None
-        self._train_X: NDArray[np.float64] | None = None
+        self._train_x: NDArray[np.float64] | None = None
         self._neighbors: NDArray[np.int64] | None = None
         self._trans_weights: NDArray[np.float64] | None = None
 
         self.pi_: NDArray[np.float64] | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
+
     def _affinity(self, distances: NDArray[np.float64]) -> NDArray[np.float64]:
         # Use an RBF-like kernel on squared distances.
         return np.exp(-self.gamma * np.square(distances, dtype=np.float64))
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_samples = int(x.shape[0])
         if n_samples == 0:
             raise ValueError("Training set cannot be empty")
 
@@ -87,10 +101,10 @@ class CoreRGraph:
 
         if self.preprocessing:
             self.scaler_ = StandardScaler()
-            self._train_X = self.scaler_.fit_transform(X)
+            self._train_x = self.scaler_.fit_transform(x)
         else:
             self.scaler_ = None
-            self._train_X = X
+            self._train_x = x
 
         k = min(self.n_nonzero + 1, n_samples)
         self._nn = NearestNeighbors(
@@ -99,9 +113,9 @@ class CoreRGraph:
             metric=self.metric,
             p=self.p,
         )
-        self._nn.fit(self._train_X)
+        self._nn.fit(self._train_x)
 
-        dists, inds = self._nn.kneighbors(self._train_X, n_neighbors=k, return_distance=True)
+        dists, inds = self._nn.kneighbors(self._train_x, n_neighbors=k, return_distance=True)
         if k > 1:
             dists = dists[:, 1:]
             inds = inds[:, 1:]
@@ -151,28 +165,28 @@ class CoreRGraph:
         pi_bar /= float(self.transition_steps)
         return pi_bar
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.pi_ is None or self._nn is None or self._train_X is None:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        if self.pi_ is None or self._nn is None or self._train_x is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self.preprocessing and self.scaler_ is not None:
-            Xn = self.scaler_.transform(X)
+            xn = self.scaler_.transform(x)
         else:
-            Xn = X
+            xn = x
 
-        n_train = int(self._train_X.shape[0])
+        n_train = int(self._train_x.shape[0])
         k = min(self.n_nonzero, n_train)
         if k <= 0:
-            return np.zeros((Xn.shape[0],), dtype=np.float64)
+            return np.zeros((xn.shape[0],), dtype=np.float64)
 
-        dists, inds = self._nn.kneighbors(Xn, n_neighbors=k, return_distance=True)
+        dists, inds = self._nn.kneighbors(xn, n_neighbors=k, return_distance=True)
         weights = self._affinity(dists)
 
         # Approximate the stationary probability of a new point by its affinity
         # to training nodes weighted by their stationary probabilities.
-        scores = np.zeros((Xn.shape[0],), dtype=np.float64)
-        for i in range(Xn.shape[0]):
+        scores = np.zeros((xn.shape[0],), dtype=np.float64)
+        for i in range(xn.shape[0]):
             w_row = weights[i].astype(np.float64, copy=False)
             s = float(np.sum(w_row))
             if s <= self.eps:
@@ -253,10 +267,18 @@ class VisionRGraph(BaseVisionDetector):
         maxiter: int = 40,  # unused
         support_size: int = 100,  # unused
         active_support: bool = True,  # unused
-        fit_intercept_LR: bool = False,  # unused
+        fit_intercept_lr: object = MISSING,  # unused
         verbose: bool = True,  # unused
         **kwargs,
     ) -> None:
+        legacy_fit_intercept_lr = kwargs.pop("fit_intercept_LR", MISSING)
+        if fit_intercept_lr is MISSING:
+            fit_intercept_lr_value = False if legacy_fit_intercept_lr is MISSING else bool(legacy_fit_intercept_lr)
+        elif legacy_fit_intercept_lr is not MISSING:
+            raise TypeError("VisionRGraph() got multiple values for argument 'fit_intercept_lr'")
+        else:
+            fit_intercept_lr_value = bool(fit_intercept_lr)
+
         # Store all args for compatibility; the simplified core only uses a subset.
         self._detector_kwargs = dict(
             contamination=float(contamination),
@@ -273,7 +295,7 @@ class VisionRGraph(BaseVisionDetector):
             maxiter=int(maxiter),
             support_size=int(support_size),
             active_support=bool(active_support),
-            fit_intercept_LR=bool(fit_intercept_LR),
+            fit_intercept_lr=fit_intercept_lr_value,
             verbose=bool(verbose),
             **dict(kwargs),
         )
@@ -282,8 +304,8 @@ class VisionRGraph(BaseVisionDetector):
     def _build_detector(self):
         return CoreRGraph(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

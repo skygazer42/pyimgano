@@ -12,6 +12,7 @@ This module provides comprehensive augmentation operations including:
 - Advanced augmentations (Mixup, CutMix)
 """
 
+import os
 import random
 from enum import Enum
 from typing import Optional, Tuple, Union
@@ -21,6 +22,16 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import ndimage
 from scipy.ndimage import map_coordinates
+
+_DEFAULT_RNG = np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
+
+
+def _make_rng(random_seed: Optional[int] = None) -> np.random.Generator:
+    """Return a reusable generator or a seeded generator for deterministic paths."""
+    if random_seed is not None:
+        return np.random.default_rng(random_seed)
+    return _DEFAULT_RNG
+
 
 # Enums for type-safe augmentation selection
 
@@ -98,10 +109,10 @@ def rotate_image(
         center = (w // 2, h // 2)
 
     # Get rotation matrix
-    M = cv2.getRotationMatrix2D(center, angle, scale)
+    m = cv2.getRotationMatrix2D(center, angle, scale)
 
     # Rotate image
-    rotated = cv2.warpAffine(image, M, (w, h), borderMode=border_mode, borderValue=border_value)
+    rotated = cv2.warpAffine(image, m, (w, h), borderMode=border_mode, borderValue=border_value)
 
     return rotated
 
@@ -182,9 +193,9 @@ def translate_image(
     Returns:
         Translated image
     """
-    M = np.float32([[1, 0, tx], [0, 1, ty]])
+    m = np.float32([[1, 0, tx], [0, 1, ty]])
     h, w = image.shape[:2]
-    translated = cv2.warpAffine(image, M, (w, h), borderMode=border_mode, borderValue=border_value)
+    translated = cv2.warpAffine(image, m, (w, h), borderMode=border_mode, borderValue=border_value)
 
     return translated
 
@@ -212,9 +223,9 @@ def shear_image(
     h, w = image.shape[:2]
 
     # Shear matrix
-    M = np.float32([[1, shear_x, 0], [shear_y, 1, 0]])
+    m = np.float32([[1, shear_x, 0], [shear_y, 1, 0]])
 
-    sheared = cv2.warpAffine(image, M, (w, h), borderMode=border_mode, borderValue=border_value)
+    sheared = cv2.warpAffine(image, m, (w, h), borderMode=border_mode, borderValue=border_value)
 
     return sheared
 
@@ -233,8 +244,7 @@ def perspective_transform(
     Returns:
         Perspective-transformed image
     """
-    if random_seed is not None:
-        np.random.seed(random_seed)
+    rng = _make_rng(random_seed)
 
     h, w = image.shape[:2]
 
@@ -243,15 +253,15 @@ def perspective_transform(
 
     # Destination points with random perturbation
     max_offset = int(min(w, h) * strength)
-    dst_points = src_points + np.random.randint(-max_offset, max_offset, src_points.shape).astype(
+    dst_points = src_points + rng.integers(-max_offset, max_offset, src_points.shape).astype(
         np.float32
     )
 
     # Get perspective transform matrix
-    M = cv2.getPerspectiveTransform(src_points, dst_points)
+    m = cv2.getPerspectiveTransform(src_points, dst_points)
 
     # Apply transformation
-    transformed = cv2.warpPerspective(image, M, (w, h))
+    transformed = cv2.warpPerspective(image, m, (w, h))
 
     return transformed
 
@@ -364,21 +374,23 @@ def color_jitter(
     Returns:
         Color-jittered image
     """
+    rng = _make_rng()
+
     # Random brightness
-    b_factor = np.random.uniform(brightness[0], brightness[1])
+    b_factor = rng.uniform(brightness[0], brightness[1])
     result = adjust_brightness(image, b_factor)
 
     # Random contrast
-    c_factor = np.random.uniform(contrast[0], contrast[1])
+    c_factor = rng.uniform(contrast[0], contrast[1])
     result = adjust_contrast(result, c_factor)
 
     # Random saturation (only for color images)
     if len(image.shape) == 3:
-        s_factor = np.random.uniform(saturation[0], saturation[1])
+        s_factor = rng.uniform(saturation[0], saturation[1])
         result = adjust_saturation(result, s_factor)
 
         # Random hue
-        h_delta = np.random.uniform(hue[0], hue[1])
+        h_delta = rng.uniform(hue[0], hue[1])
         result = adjust_hue(result, h_delta)
 
     return result
@@ -399,7 +411,8 @@ def add_gaussian_noise(image: NDArray, mean: float = 0, std: float = 25) -> NDAr
     Returns:
         Noisy image
     """
-    noise = np.random.normal(mean, std, image.shape).astype(np.float32)
+    rng = _make_rng()
+    noise = rng.normal(mean, std, image.shape).astype(np.float32)
     noisy = image.astype(np.float32) + noise
     noisy = np.clip(noisy, 0, 255).astype(np.uint8)
 
@@ -422,12 +435,14 @@ def add_salt_pepper_noise(
     """
     noisy = image.copy()
 
+    rng = _make_rng()
+
     # Salt noise (white)
-    salt_mask = np.random.random(image.shape[:2]) < salt_prob
+    salt_mask = rng.random(image.shape[:2]) < salt_prob
     noisy[salt_mask] = 255
 
     # Pepper noise (black)
-    pepper_mask = np.random.random(image.shape[:2]) < pepper_prob
+    pepper_mask = rng.random(image.shape[:2]) < pepper_prob
     noisy[pepper_mask] = 0
 
     return noisy
@@ -447,7 +462,8 @@ def add_poisson_noise(image: NDArray) -> NDArray:
     normalized = image.astype(np.float32) / 255.0
 
     # Add Poisson noise
-    noisy = np.random.poisson(normalized * 255) / 255.0
+    rng = _make_rng()
+    noisy = rng.poisson(normalized * 255) / 255.0
 
     # Convert back to uint8
     noisy = np.clip(noisy * 255, 0, 255).astype(np.uint8)
@@ -466,7 +482,8 @@ def add_speckle_noise(image: NDArray, std: float = 0.1) -> NDArray:
     Returns:
         Noisy image
     """
-    noise = np.random.randn(*image.shape) * std
+    rng = _make_rng()
+    noise = rng.standard_normal(image.shape) * std
     noisy = image.astype(np.float32) * (1 + noise)
     noisy = np.clip(noisy, 0, 255).astype(np.uint8)
 
@@ -496,8 +513,8 @@ def motion_blur(image: NDArray, kernel_size: int = 15, angle: float = 0) -> NDAr
     # Rotate kernel
     if angle != 0:
         center = (kernel_size // 2, kernel_size // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        kernel = cv2.warpAffine(kernel, M, (kernel_size, kernel_size))
+        m = cv2.getRotationMatrix2D(center, angle, 1.0)
+        kernel = cv2.warpAffine(kernel, m, (kernel_size, kernel_size))
 
     # Apply blur
     blurred = cv2.filter2D(image, -1, kernel)
@@ -545,11 +562,12 @@ def glass_blur(image: NDArray, iterations: int = 2, kernel_size: int = 5) -> NDA
     """
     h, w = image.shape[:2]
     result = image.copy()
+    rng = _make_rng()
 
     for _ in range(iterations):
         # Random offsets
-        dx = np.random.randint(-kernel_size, kernel_size, (h, w))
-        dy = np.random.randint(-kernel_size, kernel_size, (h, w))
+        dx = rng.integers(-kernel_size, kernel_size, (h, w))
+        dy = rng.integers(-kernel_size, kernel_size, (h, w))
 
         # Create coordinate arrays
         x = np.arange(w)
@@ -595,14 +613,15 @@ def add_rain(
     """
     h, w = image.shape[:2]
     result = image.copy().astype(np.float32)
+    rng = _make_rng()
 
     if num_drops is None:
         num_drops = int(h * w * intensity / 100)
 
     # Generate random rain drops
     for _ in range(num_drops):
-        x = np.random.randint(0, w)
-        y = np.random.randint(0, h)
+        x = int(rng.integers(0, w))
+        y = int(rng.integers(0, h))
 
         # Calculate end point based on angle and length
         end_x = int(x + length * np.cos(np.radians(angle)))
@@ -655,15 +674,16 @@ def add_snow(image: NDArray, intensity: float = 0.5, num_flakes: Optional[int] =
     """
     h, w = image.shape[:2]
     result = image.copy()
+    rng = _make_rng()
 
     if num_flakes is None:
         num_flakes = int(h * w * intensity / 50)
 
     # Add snowflakes
     for _ in range(num_flakes):
-        x = np.random.randint(0, w)
-        y = np.random.randint(0, h)
-        size = np.random.randint(1, 4)
+        x = int(rng.integers(0, w))
+        y = int(rng.integers(0, h))
+        size = int(rng.integers(1, 4))
 
         color = (255, 255, 255) if len(image.shape) == 3 else 255
         cv2.circle(result, (x, y), size, color, -1)
@@ -685,11 +705,12 @@ def add_shadow(image: NDArray, num_shadows: int = 1, intensity: float = 0.5) -> 
     """
     h, w = image.shape[:2]
     result = image.copy().astype(np.float32)
+    rng = _make_rng()
 
     for _ in range(num_shadows):
         # Random polygon for shadow
-        num_points = np.random.randint(3, 6)
-        points = np.random.randint(0, [w, h], (num_points, 2))
+        num_points = int(rng.integers(3, 6))
+        points = rng.integers(0, [w, h], (num_points, 2))
 
         # Create mask
         mask = np.zeros((h, w), dtype=np.uint8)
@@ -732,6 +753,7 @@ def random_cutout(
     """
     h, w = image.shape[:2]
     result = image.copy()
+    rng = _make_rng()
 
     if isinstance(hole_size, int):
         hole_h = hole_w = hole_size
@@ -739,8 +761,8 @@ def random_cutout(
         hole_h, hole_w = hole_size
 
     for _ in range(num_holes):
-        y = np.random.randint(0, h - hole_h + 1)
-        x = np.random.randint(0, w - hole_w + 1)
+        y = int(rng.integers(0, h - hole_h + 1))
+        x = int(rng.integers(0, w - hole_w + 1))
 
         result[y : y + hole_h, x : x + hole_w] = fill_value
 
@@ -764,12 +786,13 @@ def grid_mask(
     """
     h, w = image.shape[:2]
     result = image.copy()
+    rng = _make_rng()
 
     mask_size = int(grid_size * ratio)
 
     for y in range(0, h, grid_size):
         for x in range(0, w, grid_size):
-            if np.random.random() > 0.5:
+            if rng.random() > 0.5:
                 y_end = min(y + mask_size, h)
                 x_end = min(x + mask_size, w)
                 result[y:y_end, x:x_end] = fill_value
@@ -795,14 +818,13 @@ def elastic_transform(
     Returns:
         Elastically deformed image
     """
-    if random_seed is not None:
-        np.random.seed(random_seed)
+    rng = _make_rng(random_seed)
 
     h, w = image.shape[:2]
 
     # Random displacement fields
-    dx = np.random.randn(h, w) * alpha
-    dy = np.random.randn(h, w) * alpha
+    dx = rng.standard_normal((h, w)) * alpha
+    dy = rng.standard_normal((h, w)) * alpha
 
     # Smooth displacement fields
     dx = ndimage.gaussian_filter(dx, sigma)
@@ -852,11 +874,12 @@ def grid_distortion(image: NDArray, num_steps: int = 5, distort_limit: float = 0
     # Destination points (distorted grid)
     dst_points = src_points.copy()
     max_distort = int(min(x_step, y_step) * distort_limit)
+    rng = _make_rng()
 
     for i in range(len(dst_points)):
         if i % (num_steps + 1) != 0 and i % (num_steps + 1) != num_steps:  # Not on border
             if i // (num_steps + 1) != 0 and i // (num_steps + 1) != num_steps:
-                dst_points[i] += np.random.uniform(-max_distort, max_distort, 2)
+                dst_points[i] += rng.uniform(-max_distort, max_distort, 2)
 
     # Apply piecewise affine transformation
     result = image.copy()
@@ -910,13 +933,14 @@ def cutmix(image1: NDArray, image2: NDArray, alpha: float = 0.5) -> NDArray:
         image2 = cv2.resize(image2, (image1.shape[1], image1.shape[0]))
 
     h, w = image1.shape[:2]
+    rng = _make_rng()
 
     # Random box
     cut_h = int(h * alpha)
     cut_w = int(w * alpha)
 
-    cx = np.random.randint(0, w)
-    cy = np.random.randint(0, h)
+    cx = int(rng.integers(0, w))
+    cy = int(rng.integers(0, h))
 
     x1 = np.clip(cx - cut_w // 2, 0, w)
     y1 = np.clip(cy - cut_h // 2, 0, h)
@@ -1095,13 +1119,13 @@ def add_scratches(
     for _ in range(n):
         length = random.uniform(min_len, max_len)
         angle = random.uniform(0.0, 2.0 * np.pi)
-        x0 = random.randint(0, w - 1)
-        y0 = random.randint(0, h - 1)
+        x0 = random.randint(0, w - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        y0 = random.randint(0, h - 1)  # NOSONAR - non-crypto RNG (data augmentation)
         x1 = int(round(x0 + length * np.cos(angle)))
         y1 = int(round(y0 + length * np.sin(angle)))
         x1 = int(np.clip(x1, 0, w - 1))
         y1 = int(np.clip(y1, 0, h - 1))
-        thickness = random.randint(t0, t1)
+        thickness = random.randint(t0, t1)  # NOSONAR - non-crypto RNG (data augmentation)
         cv2.line(mask, (x0, y0), (x1, y1), color=255, thickness=int(thickness))
 
     if blur_ksize:
@@ -1170,9 +1194,9 @@ def add_dust(
 
     mask = np.zeros((h, w), dtype=np.uint8)
     for _ in range(n):
-        x = random.randint(0, w - 1)
-        y = random.randint(0, h - 1)
-        radius = random.randint(r0, r1)
+        x = random.randint(0, w - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        y = random.randint(0, h - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        radius = random.randint(r0, r1)  # NOSONAR - non-crypto RNG (data augmentation)
         cv2.circle(mask, (x, y), int(radius), color=255, thickness=-1)
 
     mask_f = (mask.astype(np.float32) / 255.0) * a
@@ -1226,8 +1250,8 @@ def add_specular_highlight(
         raise ValueError(f"Invalid radius_frac_range: {radius_frac_range}")
 
     if center is None:
-        cx = random.randint(0, w - 1)
-        cy = random.randint(0, h - 1)
+        cx = random.randint(0, w - 1)  # NOSONAR - non-crypto RNG (data augmentation)
+        cy = random.randint(0, h - 1)  # NOSONAR - non-crypto RNG (data augmentation)
     else:
         cy, cx = int(center[0]), int(center[1])
         cx = int(np.clip(cx, 0, w - 1))

@@ -201,7 +201,7 @@ class VisionRegAD(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -209,9 +209,8 @@ class VisionRegAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.reg_network_ = None
         self.reference_features_ = None
@@ -311,7 +310,7 @@ class VisionRegAD(BaseVisionDeepDetector):
                 batch_images = batch_images.to(self.device)
 
                 # Forward pass
-                features, registered = self.reg_network_(batch_images)
+                _, registered = self.reg_network_(batch_images)
 
                 # Expand reference to batch size
                 batch_ref = self.reference_features_.expand(len(batch_images), -1, -1, -1)
@@ -332,7 +331,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -346,6 +345,11 @@ class VisionRegAD(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores (registration error)
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.reg_network_.eval()
 
         X_tensor = self._preprocess(X)
@@ -356,7 +360,7 @@ class VisionRegAD(BaseVisionDeepDetector):
                 batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register features
-                features, registered = self.reg_network_(batch)
+                _, registered = self.reg_network_(batch)
 
                 # Expand reference
                 batch_ref = self.reference_features_.expand(len(batch), -1, -1, -1)
@@ -367,9 +371,21 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        if batch_size is None:
+            return self.predict(X)
+
+        batch_size_int = int(batch_size)
+        if batch_size_int <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
+        old_batch_size = self.batch_size
+        try:
+            self.batch_size = batch_size_int
+            return self.predict(X)
+        finally:
+            self.batch_size = old_batch_size
 
     def get_registration_map(self, X: NDArray) -> NDArray:
         """
@@ -396,7 +412,7 @@ class VisionRegAD(BaseVisionDeepDetector):
                 batch = X_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register
-                features, registered = self.reg_network_(batch)
+                _, registered = self.reg_network_(batch)
 
                 # Expand reference
                 batch_ref = self.reference_features_.expand(len(batch), -1, -1, -1)

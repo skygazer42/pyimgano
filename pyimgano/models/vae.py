@@ -224,7 +224,7 @@ class VAEAnomalyDetector(BaseVisionDeepDetector):
 
         with torch.no_grad():
             recon, mu, logvar = self.model(images)  # type: ignore[operator]
-            loss_vec, rec, kl = self.model.loss(recon, images, mu, logvar, beta=float(self.cfg.beta_kl))  # type: ignore[attr-defined]
+            _, rec, _ = self.model.loss(recon, images, mu, logvar, beta=float(self.cfg.beta_kl))  # type: ignore[attr-defined]
             # Use reconstruction error only as the anomaly score (more interpretable).
             score = rec
             return score.detach().cpu().numpy()

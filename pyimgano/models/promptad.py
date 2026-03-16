@@ -177,7 +177,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.num_prompts = num_prompts
         self.prompt_dim = prompt_dim
@@ -188,9 +188,8 @@ class VisionPromptAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.feature_extractor_ = None
         self.prompt_learner_ = None
@@ -360,7 +359,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         all_features = torch.cat(all_features, dim=0)
         self.normal_prototypes_ = all_features
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -374,6 +373,11 @@ class VisionPromptAD(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores (distance to normal prototypes)
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.prompt_learner_.eval()
         self.adapter_.eval()
 
@@ -399,6 +403,18 @@ class VisionPromptAD(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        if batch_size is None:
+            return self.predict(X)
+
+        batch_size_int = int(batch_size)
+        if batch_size_int <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
+        old_batch_size = self.batch_size
+        try:
+            self.batch_size = batch_size_int
+            return self.predict(X)
+        finally:
+            self.batch_size = old_batch_size

@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from torch.utils.data import DataLoader, TensorDataset
 
+from ..utils.random_state import check_random_state
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -100,11 +101,16 @@ class FeatureSelector(nn.Module):
 class AnomalyGenerator:
     """Generates realistic synthetic anomalies."""
 
-    def __init__(self, anomaly_types: list = None):
+    def __init__(
+        self,
+        anomaly_types: list | None = None,
+        random_state: int | np.random.Generator | None = None,
+    ):
         if anomaly_types is None:
             self.anomaly_types = ["perlin_noise", "cutpaste", "texture", "intensity", "blur"]
         else:
             self.anomaly_types = anomaly_types
+        self.rng = check_random_state(random_state)
 
     def generate_anomaly(
         self, image: torch.Tensor, anomaly_type: Optional[str] = None
@@ -127,17 +133,17 @@ class AnomalyGenerator:
             Binary mask of anomaly region
         """
         if anomaly_type is None:
-            anomaly_type = np.random.choice(self.anomaly_types)
+            anomaly_type = str(self.rng.choice(self.anomaly_types))
 
         C, H, W = image.shape
         anomalous_image = image.clone()
         mask = torch.zeros(1, H, W, device=image.device)
 
         # Random anomaly region
-        h_size = np.random.randint(H // 8, H // 3)
-        w_size = np.random.randint(W // 8, W // 3)
-        y = np.random.randint(0, H - h_size)
-        x = np.random.randint(0, W - w_size)
+        h_size = int(self.rng.integers(H // 8, H // 3))
+        w_size = int(self.rng.integers(W // 8, W // 3))
+        y = int(self.rng.integers(0, H - h_size))
+        x = int(self.rng.integers(0, W - w_size))
 
         if anomaly_type == "perlin_noise":
             # Perlin-like noise using multiple octaves
@@ -148,11 +154,11 @@ class AnomalyGenerator:
 
         elif anomaly_type == "cutpaste":
             # Cut and paste from different location
-            src_y = np.random.randint(0, H - h_size)
-            src_x = np.random.randint(0, W - w_size)
+            src_y = int(self.rng.integers(0, H - h_size))
+            src_x = int(self.rng.integers(0, W - w_size))
             patch = image[:, src_y : src_y + h_size, src_x : src_x + w_size].clone()
             # Apply random rotation
-            angle = np.random.uniform(-30, 30)
+            angle = float(self.rng.uniform(-30, 30))
             patch = self._rotate_patch(patch, angle)
             anomalous_image[:, y : y + h_size, x : x + w_size] = patch
 
@@ -163,7 +169,7 @@ class AnomalyGenerator:
 
         elif anomaly_type == "intensity":
             # Intensity change
-            factor = np.random.uniform(0.3, 2.0)
+            factor = float(self.rng.uniform(0.3, 2.0))
             anomalous_image[:, y : y + h_size, x : x + w_size] *= factor
 
         elif anomaly_type == "blur":
@@ -181,9 +187,9 @@ class AnomalyGenerator:
 
     def _generate_perlin_noise(self, shape: Tuple[int, int]) -> np.ndarray:
         """Generate Perlin-like noise."""
-        noise = np.random.randn(*shape)
+        noise = self.rng.standard_normal(shape)
         for sigma in [1, 2, 4]:
-            noise += gaussian_filter(np.random.randn(*shape), sigma)
+            noise += gaussian_filter(self.rng.standard_normal(shape), sigma)
         noise = (noise - noise.min()) / (noise.max() - noise.min() + 1e-8)
         return noise * 2 - 1
 
@@ -274,10 +280,10 @@ class VisionRealNet(BaseVisionDeepDetector):
         epochs: int = 40,
         anomaly_ratio: float = 0.5,
         device: str = "cuda",
-        random_state: Optional[int] = None,
+        random_state: Optional[int | np.random.Generator] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.reduction = reduction
         self.learning_rate = learning_rate
@@ -286,14 +292,14 @@ class VisionRealNet(BaseVisionDeepDetector):
         self.anomaly_ratio = anomaly_ratio
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
+        self.rng = check_random_state(random_state)
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.feature_extractor_ = None
         self.feature_selectors_ = None
-        self.anomaly_generator_ = AnomalyGenerator()
+        self.anomaly_generator_ = AnomalyGenerator(random_state=self.rng)
         self.normal_features_ = []
 
     def _preprocess(self, X: NDArray) -> torch.Tensor:
@@ -325,7 +331,7 @@ class VisionRealNet(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -333,7 +339,7 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         # Get feature dimensions
         with torch.no_grad():
-            f1, f2, f3 = self.feature_extractor_(X_tensor[:1].to(self.device))
+            f1, f2, f3 = self.feature_extractor_(x_tensor[:1].to(self.device))
             channels = [f1.shape[1], f2.shape[1], f3.shape[1]]
 
         # Initialize feature selectors
@@ -343,10 +349,14 @@ class VisionRealNet(BaseVisionDeepDetector):
             ).to(self.device)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(self.feature_selectors_.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(
+            self.feature_selectors_.parameters(),
+            lr=self.learning_rate,
+            weight_decay=0.0,
+        )
         criterion = nn.BCEWithLogitsLoss()
 
         self.feature_selectors_.train()
@@ -398,18 +408,18 @@ class VisionRealNet(BaseVisionDeepDetector):
                 print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {avg_loss:.4f}")
 
         # Build normal feature memory
-        self._build_normal_memory(X_tensor)
+        self._build_normal_memory(x_tensor)
 
         return self
 
-    def _build_normal_memory(self, X_tensor: torch.Tensor):
+    def _build_normal_memory(self, x_tensor: torch.Tensor):
         """Build memory of normal features."""
         self.feature_selectors_.eval()
         self.normal_features_ = [[], [], []]
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 f1, f2, f3 = self.feature_extractor_(batch)
                 s1 = self.feature_selectors_[0](f1)
@@ -423,7 +433,7 @@ class VisionRealNet(BaseVisionDeepDetector):
         for i in range(3):
             self.normal_features_[i] = torch.cat(self.normal_features_[i], dim=0)
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -437,14 +447,19 @@ class VisionRealNet(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.feature_selectors_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and select features
                 f1, f2, f3 = self.feature_extractor_(batch)
@@ -469,6 +484,18 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        if batch_size is None:
+            return self.predict(X)
+
+        batch_size_int = int(batch_size)
+        if batch_size_int <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+
+        old_batch_size = self.batch_size
+        try:
+            self.batch_size = batch_size_int
+            return self.predict(X)
+        finally:
+            self.batch_size = old_batch_size

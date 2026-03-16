@@ -115,14 +115,14 @@ class CoreLOFModel(CoreFeatureDetector):
         leaf_size: int = 30,
         n_jobs: Optional[int] = None,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-            metric=str(metric),
-            p=int(p),
-            leaf_size=int(leaf_size),
-            n_jobs=n_jobs,
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+            "metric": str(metric),
+            "p": int(p),
+            "leaf_size": int(leaf_size),
+            "n_jobs": n_jobs,
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):

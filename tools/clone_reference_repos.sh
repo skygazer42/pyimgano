@@ -24,6 +24,7 @@ Notes:
     base classes. Copying small code snippets is allowed only when the upstream
     license is compatible and we keep required notices.
 EOF
+  return 0
 }
 
 DIR=".cache/pyimgano_refs"

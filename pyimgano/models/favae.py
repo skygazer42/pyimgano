@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._batch_size import call_with_temporary_attr, validate_batch_size
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -236,7 +237,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
         self.backbone = backbone
         self.latent_dim = latent_dim
         self.adaptive_channels = adaptive_channels
@@ -247,9 +248,8 @@ class VisionFAVAE(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-            np.random.seed(random_state)
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         self.feature_extractor_ = None
         self.encoder_ = None
@@ -401,7 +401,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -415,6 +415,11 @@ class VisionFAVAE(BaseVisionDeepDetector):
         scores : NDArray of shape (n_samples,)
             Anomaly scores
         """
+        if return_confidence:
+            raise NotImplementedError(
+                f"return_confidence is not implemented for {self.__class__.__name__}"
+            )
+
         self.encoder_.eval()
         self.decoder_.eval()
 
@@ -450,6 +455,14 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for predict."""
-        return self.predict(X)
+        batch_size_int = validate_batch_size(batch_size)
+        if batch_size_int is None:
+            return self.predict(X)
+        return call_with_temporary_attr(
+            self,
+            "batch_size",
+            batch_size_int,
+            lambda: self.predict(X),
+        )

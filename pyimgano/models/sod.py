@@ -12,13 +12,12 @@ Reference:
 
 from __future__ import annotations
 
-from typing import Iterable
-
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import check_array
 
 from ..utils.param_check import check_parameter
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
@@ -52,6 +51,8 @@ def _top_ref_set_indices(
 class CoreSOD:
     """Pure sklearn + NumPy implementation of SOD."""
 
+    _legacy_attr_aliases = {"_X_train": "_x_train"}
+
     def __init__(
         self,
         *,
@@ -79,10 +80,20 @@ class CoreSOD:
         self.alpha = float(alpha)
 
         self._nn: NearestNeighbors | None = None
-        self._X_train: np.ndarray | None = None
+        self._x_train: np.ndarray | None = None
         self._neighbor_sets: list[set[int]] | None = None
         self._ref_inds_train: np.ndarray | None = None
         self.decision_scores_: np.ndarray | None = None
+
+    def __getattr__(self, name: str):
+        alias = type(self)._legacy_attr_aliases.get(name)
+        if alias is not None:
+            return getattr(self, alias)
+        raise AttributeError(f"{type(self).__name__!s} has no attribute {name!r}")
+
+    def __setattr__(self, name: str, value) -> None:
+        alias = type(self)._legacy_attr_aliases.get(name)
+        super().__setattr__(alias or name, value)
 
     def _score_one(self, obs: np.ndarray, ref: np.ndarray) -> float:
         means = np.mean(ref, axis=0)
@@ -95,67 +106,76 @@ class CoreSOD:
             return 0.0
         return float(np.sqrt(np.sum(np.square(obs - means)[var_mask]) / rel_dim))
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples = X.shape[0]
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        del y
+        x_arr = check_array(
+            resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            ensure_2d=True,
+            dtype=np.float64,
+        )
+        n_samples = x_arr.shape[0]
         if n_samples <= 1:
-            self._X_train = X
+            self._x_train = x_arr
             self.decision_scores_ = np.zeros(n_samples, dtype=np.float64)
             return self
 
         k = min(self.n_neighbors, n_samples - 1)
         r = min(self.ref_set, n_samples - 1)
         if r < 1:
-            self._X_train = X
+            self._x_train = x_arr
             self.decision_scores_ = np.zeros(n_samples, dtype=np.float64)
             return self
 
         # Build kNN structure on training set.
         self._nn = NearestNeighbors(n_neighbors=k + 1)
-        self._nn.fit(X)
-        ind = self._nn.kneighbors(X, n_neighbors=k + 1, return_distance=False)
+        self._nn.fit(x_arr)
+        ind = self._nn.kneighbors(x_arr, n_neighbors=k + 1, return_distance=False)
         ind = ind[:, 1:]  # drop self
 
-        self._X_train = X
+        self._x_train = x_arr
         self._neighbor_sets = [set(map(int, row)) for row in ind]
         self._ref_inds_train = _top_ref_set_indices(self._neighbor_sets, ref_set=r)
 
         scores = np.zeros(n_samples, dtype=np.float64)
         for i in range(n_samples):
-            ref = X[self._ref_inds_train[i]]
-            scores[i] = self._score_one(X[i], ref)
+            ref = x_arr[self._ref_inds_train[i]]
+            scores[i] = self._score_one(x_arr[i], ref)
         self.decision_scores_ = scores
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self._X_train is None or self._nn is None or self._neighbor_sets is None:
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
+        if self._x_train is None or self._nn is None or self._neighbor_sets is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[0] == 0:
+        x_arr = check_array(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            ensure_2d=True,
+            dtype=np.float64,
+        )
+        if x_arr.shape[0] == 0:
             return np.zeros(0, dtype=np.float64)
 
-        n_train = self._X_train.shape[0]
+        n_train = self._x_train.shape[0]
         if n_train <= 1:
-            return np.zeros(X.shape[0], dtype=np.float64)
+            return np.zeros(x_arr.shape[0], dtype=np.float64)
 
         k = min(self.n_neighbors, n_train)
         r = min(self.ref_set, n_train - 1)
         if r < 1:
-            return np.zeros(X.shape[0], dtype=np.float64)
+            return np.zeros(x_arr.shape[0], dtype=np.float64)
 
-        ind_x = self._nn.kneighbors(X, n_neighbors=k, return_distance=False)
+        ind_x = self._nn.kneighbors(x_arr, n_neighbors=k, return_distance=False)
 
-        scores = np.zeros(X.shape[0], dtype=np.float64)
-        for i in range(X.shape[0]):
+        scores = np.zeros(x_arr.shape[0], dtype=np.float64)
+        for i in range(x_arr.shape[0]):
             s_x = set(map(int, ind_x[i]))
             counts = np.empty(n_train, dtype=int)
             for j in range(n_train):
                 counts[j] = len(s_x.intersection(self._neighbor_sets[j]))
             top = np.argpartition(-counts, r)[:r]
             top = top[np.lexsort((top, -counts[top]))]
-            ref = self._X_train[top]
-            scores[i] = self._score_one(X[i], ref)
+            ref = self._x_train[top]
+            scores[i] = self._score_one(x_arr[i], ref)
         return scores
 
 
@@ -223,8 +243,11 @@ class VisionSOD(BaseVisionDetector):
     def _build_detector(self):
         return CoreSOD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
+        return super().fit(x_value, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object):
+        return super().decision_function(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )

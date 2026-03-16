@@ -61,7 +61,7 @@ class CameraCalibration:
         if not HAS_OPENCV:
             raise NotImplementedError("Camera calibration requires OpenCV")
 
-        ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+        _, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
             object_points, image_points, image_size, None, None, flags=flags
         )
 
@@ -126,7 +126,7 @@ class DistortionCorrection:
 
         h, w = image.shape[:2]
         if new_camera_matrix is None:
-            new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(
+            new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
                 camera_matrix, dist_coeffs, (w, h), 1, (w, h)
             )
 
@@ -237,15 +237,19 @@ class HomographyTransform:
             A[2 * i + 1] = [0, 0, 0, -x, -y, -1, v * x, v * y, v]
 
         # Solve Ah = 0 using SVD
-        _, _, Vt = np.linalg.svd(A)
-        H = Vt[-1].reshape(3, 3)
-        H = H / H[2, 2]  # Normalize
+        _, _, vt = np.linalg.svd(A)
+        homography = vt[-1].reshape(3, 3)
+        homography = homography / homography[2, 2]  # Normalize
 
-        return H
+        return homography
 
     @staticmethod
     def warp_perspective(
-        image: NDArray, H: NDArray, output_size: Tuple[int, int], interpolation: str = "linear"
+        image: NDArray,
+        homography: Optional[NDArray] = None,
+        output_size: Tuple[int, int] = (0, 0),
+        interpolation: str = "linear",
+        **legacy_kwargs,
     ) -> NDArray:
         """
         Apply perspective transformation.
@@ -254,7 +258,7 @@ class HomographyTransform:
         ----------
         image : ndarray
             Input image
-        H : ndarray
+        homography : ndarray
             Homography matrix (3x3)
         output_size : tuple
             Output image size (width, height)
@@ -269,6 +273,14 @@ class HomographyTransform:
         if not HAS_OPENCV:
             raise NotImplementedError("Perspective warp requires OpenCV")
 
+        if homography is None and "H" in legacy_kwargs:
+            homography = legacy_kwargs.pop("H")
+        if legacy_kwargs:
+            unexpected = ", ".join(sorted(legacy_kwargs))
+            raise TypeError(f"Unexpected keyword argument(s): {unexpected}")
+        if homography is None:
+            raise TypeError("homography is required")
+
         interp_map = {
             "nearest": cv2.INTER_NEAREST,
             "linear": cv2.INTER_LINEAR,
@@ -276,7 +288,10 @@ class HomographyTransform:
         }
 
         warped = cv2.warpPerspective(
-            image, H, output_size, flags=interp_map.get(interpolation, cv2.INTER_LINEAR)
+            image,
+            homography,
+            output_size,
+            flags=interp_map.get(interpolation, cv2.INTER_LINEAR),
         )
 
         return warped
@@ -302,25 +317,25 @@ class HomographyTransform:
         # Compute width and height of new image
         tl, tr, br, bl = pts
 
-        widthA = np.linalg.norm(br - bl)
-        widthB = np.linalg.norm(tr - tl)
-        maxWidth = max(int(widthA), int(widthB))
+        width_a = np.linalg.norm(br - bl)
+        width_b = np.linalg.norm(tr - tl)
+        max_width = max(int(width_a), int(width_b))
 
-        heightA = np.linalg.norm(tr - br)
-        heightB = np.linalg.norm(tl - bl)
-        maxHeight = max(int(heightA), int(heightB))
+        height_a = np.linalg.norm(tr - br)
+        height_b = np.linalg.norm(tl - bl)
+        max_height = max(int(height_a), int(height_b))
 
         # Destination points
         dst = np.array(
-            [[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]],
+            [[0, 0], [max_width - 1, 0], [max_width - 1, max_height - 1], [0, max_height - 1]],
             dtype=np.float32,
         )
 
         # Compute homography
-        H, _ = HomographyTransform.find_homography(pts, dst)
+        homography, _ = HomographyTransform.find_homography(pts, dst)
 
         # Warp
-        warped = HomographyTransform.warp_perspective(image, H, (maxWidth, maxHeight))
+        warped = HomographyTransform.warp_perspective(image, homography, (max_width, max_height))
 
         return warped
 

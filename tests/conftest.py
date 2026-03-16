@@ -23,7 +23,7 @@ def temp_dir() -> Generator[Path, None, None]:
 def sample_image() -> np.ndarray:
     """Create a sample image for testing."""
     # Create a simple 100x100 RGB image
-    image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+    image = np.random.default_rng(1).integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
     return image
 
 
@@ -40,8 +40,9 @@ def sample_image_path(temp_dir: Path, sample_image: np.ndarray) -> Path:
 def sample_image_paths(temp_dir: Path) -> list[Path]:
     """Create multiple sample images and return their paths."""
     paths = []
+    rng = np.random.default_rng(2)
     for i in range(5):
-        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        image = rng.integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
         image_path = temp_dir / f"test_image_{i}.jpg"
         pil_image = Image.fromarray(image)
         pil_image.save(image_path)
@@ -52,7 +53,7 @@ def sample_image_paths(temp_dir: Path) -> list[Path]:
 @pytest.fixture
 def sample_grayscale_image() -> np.ndarray:
     """Create a sample grayscale image for testing."""
-    image = np.random.randint(0, 255, (100, 100), dtype=np.uint8)
+    image = np.random.default_rng(3).integers(0, 255, size=(100, 100), dtype=np.uint8)
     return image
 
 
@@ -78,13 +79,14 @@ def mock_dataset_paths(temp_dir: Path) -> dict[str, list[Path]]:
     test_dir = temp_dir / "test"
     train_dir.mkdir()
     test_dir.mkdir()
+    rng = np.random.default_rng(4)
 
     train_paths = []
     test_paths = []
 
     # Create training images
     for i in range(10):
-        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        image = rng.integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
         image_path = train_dir / f"train_{i}.jpg"
         pil_image = Image.fromarray(image)
         pil_image.save(image_path)
@@ -92,7 +94,7 @@ def mock_dataset_paths(temp_dir: Path) -> dict[str, list[Path]]:
 
     # Create test images
     for i in range(5):
-        image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        image = rng.integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
         image_path = test_dir / f"test_{i}.jpg"
         pil_image = Image.fromarray(image)
         pil_image.save(image_path)

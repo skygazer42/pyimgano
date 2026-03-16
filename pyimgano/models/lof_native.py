@@ -33,14 +33,14 @@ class VisionLOF(BaseVisionDetector):
         leaf_size: int = 30,
         n_jobs: Optional[int] = None,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            n_neighbors=int(n_neighbors),
-            metric=str(metric),
-            p=int(p),
-            leaf_size=int(leaf_size),
-            n_jobs=n_jobs,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "n_neighbors": int(n_neighbors),
+            "metric": str(metric),
+            "p": int(p),
+            "leaf_size": int(leaf_size),
+            "n_jobs": n_jobs,
+        }
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import os
 import random
 from functools import partial
 from typing import Any, Callable, Mapping, MutableMapping, Sequence, Tuple
 
 import numpy as np
 from PIL import Image, ImageEnhance
+
+_DEFAULT_RNG = np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
+
+
+def _make_rng() -> np.random.Generator:
+    return _DEFAULT_RNG
+
 
 try:
     Resampling = Image.Resampling  # Pillow>=9.1
@@ -140,6 +148,7 @@ def _wrap_numpy_function(func: Callable[..., np.ndarray]) -> Callable[..., Augme
 def _wrap_torchvision_transform(
     transform_cls: Callable, *, to_pil: bool = True
 ) -> Callable[..., AugmentationFn]:
+    del to_pil
     if not _TORCHVISION_AVAILABLE:
         raise ImportError("torchvision is required for this augmentation")
 
@@ -167,15 +176,16 @@ def _wrap_torchvision_transform(
 def random_cutout(image: np.ndarray, max_frac: float = 0.4, fill: int = 0) -> np.ndarray:
     """Apply random cutout mask to image."""
 
+    rng = _make_rng()
     if image.ndim == 2:
         h, w = image.shape
         c = None
     else:
         h, w, c = image.shape
-    cut_h = int(h * np.random.uniform(0.05, max_frac))
-    cut_w = int(w * np.random.uniform(0.05, max_frac))
-    top = np.random.randint(0, max(1, h - cut_h + 1))
-    left = np.random.randint(0, max(1, w - cut_w + 1))
+    cut_h = int(h * rng.uniform(0.05, max_frac))
+    cut_w = int(w * rng.uniform(0.05, max_frac))
+    top = int(rng.integers(0, max(1, h - cut_h + 1)))
+    left = int(rng.integers(0, max(1, w - cut_w + 1)))
     out = image.copy()
     if c is None:
         out[top : top + cut_h, left : left + cut_w] = fill
@@ -191,8 +201,9 @@ def mixup_batch(
 
     if alpha <= 0:
         return images, labels, 1.0
-    lam = np.random.beta(alpha, alpha)
-    indices = np.random.permutation(images.shape[0])
+    rng = _make_rng()
+    lam = float(rng.beta(alpha, alpha))
+    indices = rng.permutation(images.shape[0])
     mixed_images = lam * images + (1 - lam) * images[indices]
     mixed_labels = lam * labels + (1 - lam) * labels[indices]
     return mixed_images, mixed_labels, lam
@@ -205,8 +216,9 @@ def cutmix_batch(
 
     if alpha <= 0:
         return images, labels, 1.0
-    lam = np.random.beta(alpha, alpha)
-    indices = np.random.permutation(images.shape[0])
+    rng = _make_rng()
+    lam = float(rng.beta(alpha, alpha))
+    indices = rng.permutation(images.shape[0])
     shuffled_images = images[indices]
     shuffled_labels = labels[indices]
 
@@ -223,8 +235,8 @@ def cutmix_batch(
     cut_h = int(h * cut_ratio)
     cut_w = int(w * cut_ratio)
 
-    cy = np.random.randint(0, h)
-    cx = np.random.randint(0, w)
+    cy = int(rng.integers(0, h))
+    cx = int(rng.integers(0, w))
 
     y1 = np.clip(cy - cut_h // 2, 0, h)
     y2 = np.clip(cy + cut_h // 2, 0, h)
@@ -257,20 +269,21 @@ def _enhance(image: Image.Image, op: str, magnitude: float) -> Image.Image:
 def trivial_augment(image: Image.Image, magnitude: float = 0.5) -> Image.Image:
     """Single-operation TrivialAugment."""
 
+    rng = _make_rng()
     ops = [
-        lambda img, mag: img.rotate(int(np.random.uniform(-30, 30)), resample=Image.BILINEAR),
+        lambda img, mag: img.rotate(int(rng.uniform(-30, 30)), resample=Image.BILINEAR),
         lambda img, mag: img.transform(
             img.size,
             Transform.AFFINE,
-            (1, mag * np.random.uniform(-0.3, 0.3), 0, 0, 1, 0),
+            (1, mag * rng.uniform(-0.3, 0.3), 0, 0, 1, 0),
             resample=Resampling.BILINEAR,
         ),
-        lambda img, mag: _enhance(img, "brightness", 1 + (np.random.uniform(-1, 1) * mag)),
-        lambda img, mag: _enhance(img, "contrast", 1 + (np.random.uniform(-1, 1) * mag)),
-        lambda img, mag: _enhance(img, "color", 1 + (np.random.uniform(-1, 1) * mag)),
-        lambda img, mag: _enhance(img, "sharpness", 1 + (np.random.uniform(-1, 1) * mag)),
+        lambda img, mag: _enhance(img, "brightness", 1 + (rng.uniform(-1, 1) * mag)),
+        lambda img, mag: _enhance(img, "contrast", 1 + (rng.uniform(-1, 1) * mag)),
+        lambda img, mag: _enhance(img, "color", 1 + (rng.uniform(-1, 1) * mag)),
+        lambda img, mag: _enhance(img, "sharpness", 1 + (rng.uniform(-1, 1) * mag)),
     ]
-    operation = random_horizontal_flip if np.random.rand() < 0.1 else random.choice(ops)
+    operation = random_horizontal_flip if rng.random() < 0.1 else random.choice(ops)  # NOSONAR - non-crypto RNG (data augmentation)
     if operation is random_horizontal_flip:
         return operation(image)
     return operation(image, magnitude)
@@ -294,11 +307,12 @@ def color_jitter(
 
     is_pil = isinstance(image, Image.Image)
     img = image if is_pil else Image.fromarray(image)
+    rng = _make_rng()
 
     def jitter(enhance_cls, magnitude):
         if magnitude <= 0:
             return img
-        factor = 1 + np.random.uniform(-magnitude, magnitude)
+        factor = 1 + rng.uniform(-magnitude, magnitude)
         enhancer = enhance_cls(img)
         return enhancer.enhance(max(0, factor))
 

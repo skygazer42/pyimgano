@@ -385,14 +385,19 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         all_scores = []
 
         for scale in scales:
+            import math
+
             # Resize images
-            if scale != 1.0:
+            scale_f = float(scale)
+            if not math.isclose(scale_f, 1.0, rel_tol=0.0, abs_tol=1e-12):
                 import cv2
 
                 X_scaled = []
                 for img in X:
                     h, w = img.shape[:2]
-                    new_h, new_w = int(h * scale), int(w * scale)
+                    # Be defensive: extremely small scales can truncate to 0, which OpenCV rejects.
+                    new_h = max(1, int(round(h * scale_f)))
+                    new_w = max(1, int(round(w * scale_f)))
                     img_scaled = cv2.resize(img, (new_w, new_h))
                     X_scaled.append(img_scaled)
                 X_scaled = np.array(X_scaled)

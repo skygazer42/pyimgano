@@ -120,6 +120,41 @@ def _parse_merge_nearby_config(d_map: Mapping[str, Any]) -> MergeNearbyConfig:
     return MergeNearbyConfig(enabled=merge_enabled, max_gap_px=merge_gap)
 
 
+def _validate_defects_config_values(
+    *,
+    border_ignore_px: int,
+    min_area: int,
+    open_ksize: int,
+    close_ksize: int,
+    max_regions: int | None,
+    max_regions_sort_by: str,
+    min_score_max: float | None,
+    min_score_mean: float | None,
+    pixel_normal_quantile: float,
+    mask_format: str,
+) -> None:
+    if border_ignore_px < 0:
+        raise ValueError("defects.border_ignore_px must be >= 0")
+    if min_area < 0:
+        raise ValueError("defects.min_area must be >= 0")
+    if open_ksize < 0:
+        raise ValueError("defects.open_ksize must be >= 0")
+    if close_ksize < 0:
+        raise ValueError("defects.close_ksize must be >= 0")
+    if max_regions is not None and max_regions <= 0:
+        raise ValueError("defects.max_regions must be positive or null")
+    if max_regions_sort_by not in ("score_max", "score_mean", "area"):
+        raise ValueError("defects.max_regions_sort_by must be one of: score_max|score_mean|area")
+    if min_score_max is not None and float(min_score_max) < 0.0:
+        raise ValueError("defects.min_score_max must be >= 0 or null")
+    if min_score_mean is not None and float(min_score_mean) < 0.0:
+        raise ValueError("defects.min_score_mean must be >= 0 or null")
+    if not (0.0 < float(pixel_normal_quantile) <= 1.0):
+        raise ValueError("defects.pixel_normal_quantile must be in (0,1]")
+    if mask_format not in ("png", "npy"):
+        raise ValueError("defects.mask_format must be 'png' or 'npy'")
+
+
 def _parse_defects_config(top: Mapping[str, Any]) -> DefectsConfig:
     defects_raw = top.get("defects", None)
     if defects_raw is None:
@@ -147,34 +182,24 @@ def _parse_defects_config(top: Mapping[str, Any]) -> DefectsConfig:
     open_ksize = int(_optional_int(d_map.get("open_ksize", 0), name="defects.open_ksize") or 0)
     close_ksize = int(_optional_int(d_map.get("close_ksize", 0), name="defects.close_ksize") or 0)
 
-    if border_ignore_px < 0:
-        raise ValueError("defects.border_ignore_px must be >= 0")
-    if min_area < 0:
-        raise ValueError("defects.min_area must be >= 0")
-    if open_ksize < 0:
-        raise ValueError("defects.open_ksize must be >= 0")
-    if close_ksize < 0:
-        raise ValueError("defects.close_ksize must be >= 0")
-    if max_regions is not None and max_regions <= 0:
-        raise ValueError("defects.max_regions must be positive or null")
-    if max_regions_sort_by not in ("score_max", "score_mean", "area"):
-        raise ValueError("defects.max_regions_sort_by must be one of: score_max|score_mean|area")
-    if min_score_max is not None and float(min_score_max) < 0.0:
-        raise ValueError("defects.min_score_max must be >= 0 or null")
-    if min_score_mean is not None and float(min_score_mean) < 0.0:
-        raise ValueError("defects.min_score_mean must be >= 0 or null")
-
     q = _optional_float(
         d_map.get("pixel_normal_quantile", 0.999),
         name="defects.pixel_normal_quantile",
     )
     qv = float(q if q is not None else 0.999)
-    if not (0.0 < qv <= 1.0):
-        raise ValueError("defects.pixel_normal_quantile must be in (0,1]")
-
     mask_format = str(d_map.get("mask_format", "png"))
-    if mask_format not in ("png", "npy"):
-        raise ValueError("defects.mask_format must be 'png' or 'npy'")
+    _validate_defects_config_values(
+        border_ignore_px=border_ignore_px,
+        min_area=min_area,
+        open_ksize=open_ksize,
+        close_ksize=close_ksize,
+        max_regions=max_regions,
+        max_regions_sort_by=max_regions_sort_by,
+        min_score_max=(float(min_score_max) if min_score_max is not None else None),
+        min_score_mean=(float(min_score_mean) if min_score_mean is not None else None),
+        pixel_normal_quantile=qv,
+        mask_format=mask_format,
+    )
 
     return DefectsConfig(
         enabled=bool(d_map.get("enabled", False)),

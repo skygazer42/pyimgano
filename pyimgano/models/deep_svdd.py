@@ -14,6 +14,7 @@ from sklearn.utils import check_array
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..utils.param_check import check_parameter
+from ..utils.random_state import check_random_state
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
@@ -181,13 +182,13 @@ class CoreDeepSVDD(BaseDetector):
         self.preprocessing = preprocessing
         self.verbose = verbose
         self.random_state = random_state
+        self.rng = check_random_state(random_state)
         self.scaler = None
         self.model = None
         self.best_model_state = None
 
         if self.random_state is not None:
             torch.manual_seed(self.random_state)
-            np.random.seed(self.random_state)
 
         check_parameter(
             dropout_rate,
@@ -220,8 +221,7 @@ class CoreDeepSVDD(BaseDetector):
         else:
             X_norm = X.copy()
 
-        indices = np.arange(X_norm.shape[0])
-        np.random.shuffle(indices)
+        indices = self.rng.permutation(X_norm.shape[0])
         X_norm = X_norm[indices]
 
         self.model = InnerDeepSVDD(

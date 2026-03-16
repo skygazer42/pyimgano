@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from typing import Callable, Iterable, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image
+
+# Use a non-deterministic seed to keep default augmentation behavior random, while
+# still providing an explicit seed for static analysis tools.
+_DEFAULT_RNG = np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
 
 try:
     Resampling = Image.Resampling  # Pillow >= 9.1
@@ -77,14 +82,24 @@ def normalize_array(array: np.ndarray, mean: Sequence[float], std: Sequence[floa
     raise ValueError("Array channel dimension does not match mean/std length")
 
 
-def random_horizontal_flip(image: Image.Image, *, prob: float = 0.5) -> Image.Image:
+def random_horizontal_flip(
+    image: Image.Image,
+    *,
+    prob: float = 0.5,
+    rng: Optional[np.random.Generator] = None,
+) -> Image.Image:
     """Randomly flip image horizontally with probability prob."""
 
-    if prob <= 0:
-        return image
-    if prob >= 1:
-        return image.transpose(Image.FLIP_LEFT_RIGHT)
-    if np.random.rand() < prob:
+    p = float(prob)
+    if not np.isfinite(p):
+        raise ValueError(f"prob must be a finite float, got {prob!r}")
+
+    # Clamp to a valid probability range.
+    p = max(0.0, min(1.0, p))
+
+    # Prefer Generator over legacy np.random.* APIs (Sonar rule python:S6711).
+    gen = _DEFAULT_RNG if rng is None else rng
+    if float(gen.random()) < p:
         return image.transpose(Image.FLIP_LEFT_RIGHT)
     return image
 

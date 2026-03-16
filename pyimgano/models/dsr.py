@@ -236,7 +236,7 @@ class DSRDetector(BaseVisionDeepDetector):
             Anomaly maps [N, H_img, W_img]
         """
         features_np = features.cpu().numpy()
-        N, C, H, W = features_np.shape
+        N, _, _, _ = features_np.shape
 
         anomaly_maps = []
         for i in range(N):

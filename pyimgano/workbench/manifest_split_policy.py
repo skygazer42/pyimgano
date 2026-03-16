@@ -7,11 +7,12 @@ def build_manifest_split_policy(*, config: WorkbenchConfig):
     from pyimgano.datasets.manifest import ManifestSplitPolicy
 
     sp = config.dataset.split_policy
-    seed = (
-        int(sp.seed)
-        if sp.seed is not None
-        else (int(config.seed) if config.seed is not None else 0)
-    )
+    if sp.seed is not None:
+        seed = int(sp.seed)
+    elif config.seed is not None:
+        seed = int(config.seed)
+    else:
+        seed = 0
     return ManifestSplitPolicy(
         mode=str(sp.mode),
         scope=str(sp.scope),

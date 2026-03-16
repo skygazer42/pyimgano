@@ -51,42 +51,45 @@ def load_report_from_run(run_dir: str | Path) -> dict[str, Any]:
     return _load_json_object(report_path, name="report.json")
 
 
+def _format_category_choices(categories: list[str]) -> str:
+    preview = ", ".join(categories[:8])
+    suffix = "" if len(categories) <= 8 else ", ..."
+    return f"{preview}{suffix}"
+
+
 def select_category_report(
     report: Mapping[str, Any],
     *,
     category: str | None,
 ) -> tuple[str | None, Mapping[str, Any]]:
     per_category = report.get("per_category", None)
-    if isinstance(per_category, Mapping):
-        categories = sorted(str(k) for k in per_category.keys())
-        chosen = category
-        if chosen is None:
-            if len(categories) == 1:
-                chosen = categories[0]
-            else:
-                preview = ", ".join(categories[:8])
-                suffix = "" if len(categories) <= 8 else ", ..."
-                raise ValueError(
-                    "Run report contains multiple categories; please specify --from-run-category.\n"
-                    f"Available: {preview}{suffix}"
-                )
+    if not isinstance(per_category, Mapping):
+        cat = report.get("category", None)
+        return (str(cat) if cat is not None else None), report
 
-        if chosen not in per_category:
-            preview = ", ".join(categories[:8])
-            suffix = "" if len(categories) <= 8 else ", ..."
+    categories = sorted(str(k) for k in per_category.keys())
+    chosen = category
+    if chosen is None:
+        if len(categories) == 1:
+            chosen = categories[0]
+        else:
             raise ValueError(
-                f"Category {chosen!r} not found in run report.\n" f"Available: {preview}{suffix}"
+                "Run report contains multiple categories; please specify --from-run-category.\n"
+                f"Available: {_format_category_choices(categories)}"
             )
 
-        payload = per_category[chosen]
-        if not isinstance(payload, Mapping):
-            raise ValueError(
-                f"per_category[{chosen!r}] must be a JSON object/dict, got {type(payload).__name__}"
-            )
-        return str(chosen), payload
+    if chosen not in per_category:
+        raise ValueError(
+            f"Category {chosen!r} not found in run report.\n"
+            f"Available: {_format_category_choices(categories)}"
+        )
 
-    cat = report.get("category", None)
-    return (str(cat) if cat is not None else None), report
+    payload = per_category[chosen]
+    if not isinstance(payload, Mapping):
+        raise ValueError(
+            f"per_category[{chosen!r}] must be a JSON object/dict, got {type(payload).__name__}"
+        )
+    return str(chosen), payload
 
 
 def extract_threshold(report_payload: Mapping[str, Any]) -> float | None:

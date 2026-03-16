@@ -736,10 +736,7 @@ class ImageEnhancer:
         # Sharpening kernel
         kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]) * amount / 9
 
-        if len(image.shape) == 2:
-            sharpened = cv2.filter2D(image, -1, kernel)
-        else:
-            sharpened = cv2.filter2D(image, -1, kernel)
+        sharpened = cv2.filter2D(image, -1, kernel)
 
         return np.clip(sharpened, 0, 255).astype(image.dtype)
 

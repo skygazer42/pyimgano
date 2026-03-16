@@ -40,8 +40,16 @@ class InferOutputWriteResult:
 class InferErrorRecordRequest:
     index: int
     input_path: str
-    exc: Exception
+    exc: object
     stage: str
+
+
+def _error_type_name(exc: object) -> str:
+    return type(exc).__name__
+
+
+def _error_message(exc: object) -> str:
+    return str(exc)
 
 
 def open_infer_output_targets(request: InferOutputTargetsRequest) -> InferOutputTargets:
@@ -104,8 +112,8 @@ def build_infer_error_record(request: InferErrorRecordRequest) -> dict[str, Any]
         "index": int(request.index),
         "input": str(request.input_path),
         "error": {
-            "type": str(type(request.exc).__name__),
-            "message": str(request.exc),
+            "type": _error_type_name(request.exc),
+            "message": _error_message(request.exc),
             "stage": str(request.stage),
         },
     }

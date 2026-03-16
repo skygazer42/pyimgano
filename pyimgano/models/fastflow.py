@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import models
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -46,13 +47,13 @@ class ActNorm2d(nn.Module):
         if logdet is None:
             logdet = x.new_zeros(x.size(0))
 
-        H, W = x.shape[2], x.shape[3]
+        h, w = x.shape[2], x.shape[3]
         if reverse:
             x = (x - self.bias) * torch.exp(-self.log_scale)
-            logdet = logdet - torch.sum(self.log_scale) * H * W
+            logdet = logdet - torch.sum(self.log_scale) * h * w
         else:
             x = (x + self.bias) * torch.exp(self.log_scale)
-            logdet = logdet + torch.sum(self.log_scale) * H * W
+            logdet = logdet + torch.sum(self.log_scale) * h * w
         return x, logdet
 
 
@@ -74,8 +75,8 @@ class InvConv2d(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if logdet is None:
             logdet = x.new_zeros(x.size(0))
-        H, W = x.shape[2], x.shape[3]
-        log_abs_det = self._log_det() * H * W
+        h, w = x.shape[2], x.shape[3]
+        log_abs_det = self._log_det() * h * w
         if reverse:
             weight = torch.inverse(self.weight.squeeze(-1).squeeze(-1))
             weight = weight.view_as(self.weight)
@@ -154,10 +155,7 @@ class FlowStage(nn.Module):
 
     @torch.no_grad()
     def forward_no_grad(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        logdet = x.new_zeros(x.size(0))
-        for step in self.steps:
-            x, logdet = step(x, logdet, reverse=False)
-        return x, logdet
+        return self.forward(x)
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +288,7 @@ class FastFlow(BaseVisionDeepDetector):
         self.flow_stages = nn.ModuleList(stage_list).to(self.device)
 
         params = list(self.adapters.parameters()) + list(self.flow_stages.parameters())
-        self.optimizer = torch.optim.Adam(params, lr=self.lr)
+        self.optimizer = torch.optim.Adam(params, lr=self.lr, weight_decay=0.0)
 
         return nn.ModuleList([self.adapters, self.flow_stages])
 
@@ -348,10 +346,10 @@ class FastFlow(BaseVisionDeepDetector):
         return total.cpu().numpy()
 
     # ------------------------------------------------------------------
-    def fit(self, X: Iterable[str], y: Iterable[int] | None = None):
+    def fit(self, x: object = MISSING, y: Iterable[int] | None = None, **kwargs: object):
         # Override to ensure feature extractor is on correct device before DataLoader loop
-        return super().fit(X, y)
+        return super().fit(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), y)
 
-    def build_model_loader(self, X: Sequence[str]) -> DataLoader:
+    def build_model_loader(self, x: Sequence[str]) -> DataLoader:
         # Not overriding base behaviour; placeholder for compatibility.
-        return super().build_model_loader(X)
+        return super().build_model_loader(x)

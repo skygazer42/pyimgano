@@ -5,21 +5,11 @@ from typing import Literal
 
 import numpy as np
 
+from pyimgano.utils.image_u8 import as_u8_image
+
 from .masks import ensure_u8_mask
 
 _Variant = Literal["normal", "scar", "3way"]
-
-
-def _as_u8_image(image: np.ndarray) -> np.ndarray:
-    arr = np.asarray(image)
-    if arr.dtype != np.uint8:
-        raise ValueError(f"Expected uint8 image, got dtype={arr.dtype}")
-    if arr.ndim == 2:
-        return arr
-    if arr.ndim == 3 and arr.shape[2] == 3:
-        return arr
-    raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
-
 
 @dataclass(frozen=True)
 class CutPasteConfig:
@@ -80,11 +70,11 @@ def cutpaste(
 
     Returns
     -------
-    out_image_u8, mask_u8
+        out_image_u8, mask_u8
         mask is uint8 (H,W) with {0,255}.
     """
 
-    img = _as_u8_image(image_u8)
+    img = as_u8_image(image_u8)
     cfg = CutPasteConfig() if config is None else config
     h, w = int(img.shape[0]), int(img.shape[1])
     if h < 2 or w < 2:

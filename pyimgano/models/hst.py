@@ -111,7 +111,7 @@ class CoreHST(BaseDetector):
         X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n, d = X_arr.shape
+        n, _ = X_arr.shape
         if n == 0:
             raise ValueError("X must be non-empty")
         if self.n_trees <= 0:

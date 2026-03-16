@@ -59,7 +59,7 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
     ) -> None:
         self.contamination = float(contamination)
         self.cfg = _AEConfig(
-            hidden_dims=tuple(int(d) for d in list(hidden_dims)),
+            hidden_dims=tuple(int(d) for d in hidden_dims),
             activation=str(activation),
             dropout=float(dropout),
         )
@@ -96,7 +96,6 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
             return
         torch = _require_torch()
         seed = int(self.random_state)
-        np.random.seed(seed)
         torch.manual_seed(seed)
 
     def _build_model(self, n_features: int):
@@ -136,17 +135,18 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
 
     # ------------------------------------------------------------------
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_np = check_array(X, ensure_2d=True, dtype=np.float64)
-        n, d = int(X_np.shape[0]), int(X_np.shape[1])
+        del y
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        n, d = int(x_array.shape[0]), int(x_array.shape[1])
         if n == 0:
             raise ValueError("Training set cannot be empty")
         self.n_features_in_ = int(d)
 
         if self.preprocessing:
             self.scaler_ = StandardScaler()
-            X_train = self.scaler_.fit_transform(X_np)
+            x_train = self.scaler_.fit_transform(x_array)
         else:
-            X_train = X_np
+            x_train = x_array
 
         self._set_seed()
         torch = _require_torch()
@@ -157,10 +157,10 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         model = self._build_model(d).to(dev)
         model.train()
 
-        x_t = torch.as_tensor(X_train, dtype=torch.float32)
+        x_t = torch.as_tensor(x_train, dtype=torch.float32)
         ds = TensorDataset(x_t)
         bs = max(1, int(self.batch_size))
-        loader = DataLoader(ds, batch_size=bs, shuffle=True)
+        loader = DataLoader(ds, batch_size=bs, shuffle=True, num_workers=0)
 
         opt = torch.optim.Adam(
             model.parameters(), lr=float(self.lr), weight_decay=float(self.weight_decay)
@@ -177,7 +177,7 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
                 opt.step()
 
         self.model_ = model.eval()
-        self.decision_scores_ = np.asarray(self.decision_function(X_np), dtype=np.float64).reshape(
+        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64).reshape(
             -1
         )
         return self
@@ -186,14 +186,14 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         if self.model_ is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X_np = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X_np.shape[1]) != int(self.n_features_in_):
-            raise ValueError(f"Expected {self.n_features_in_} features, got {X_np.shape[1]}")
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        if int(x_array.shape[1]) != int(self.n_features_in_):
+            raise ValueError(f"Expected {self.n_features_in_} features, got {x_array.shape[1]}")
 
         if self.preprocessing and self.scaler_ is not None:
-            X_eval = self.scaler_.transform(X_np)
+            x_eval = self.scaler_.transform(x_array)
         else:
-            X_eval = X_np
+            x_eval = x_array
 
         torch = _require_torch()
         import torch.nn.functional as F
@@ -203,7 +203,7 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         model.eval()
 
         with torch.no_grad():
-            x_t = torch.as_tensor(X_eval, dtype=torch.float32, device=dev)
+            x_t = torch.as_tensor(x_eval, dtype=torch.float32, device=dev)
             recon = model(x_t)
             # Per-sample mean squared error.
             err = F.mse_loss(recon, x_t, reduction="none")
@@ -235,19 +235,19 @@ class CoreTorchAutoencoder(CoreFeatureDetector):
         preprocessing: bool = True,
         random_state: Optional[int] = None,
     ) -> None:
-        self._backend_kwargs = dict(
-            contamination=float(contamination),
-            hidden_dims=tuple(int(d) for d in list(hidden_dims)),
-            activation=str(activation),
-            dropout=float(dropout),
-            epochs=int(epochs),
-            batch_size=int(batch_size),
-            lr=float(lr),
-            weight_decay=float(weight_decay),
-            device=str(device),
-            preprocessing=bool(preprocessing),
-            random_state=random_state,
-        )
+        self._backend_kwargs = {
+            "contamination": float(contamination),
+            "hidden_dims": tuple(int(d) for d in hidden_dims),
+            "activation": str(activation),
+            "dropout": float(dropout),
+            "epochs": int(epochs),
+            "batch_size": int(batch_size),
+            "lr": float(lr),
+            "weight_decay": float(weight_decay),
+            "device": str(device),
+            "preprocessing": bool(preprocessing),
+            "random_state": random_state,
+        }
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -278,19 +278,19 @@ class VisionTorchAutoencoder(BaseVisionDetector):
         preprocessing: bool = True,
         random_state: Optional[int] = None,
     ) -> None:
-        self._detector_kwargs = dict(
-            contamination=float(contamination),
-            hidden_dims=tuple(int(d) for d in list(hidden_dims)),
-            activation=str(activation),
-            dropout=float(dropout),
-            epochs=int(epochs),
-            batch_size=int(batch_size),
-            lr=float(lr),
-            weight_decay=float(weight_decay),
-            device=str(device),
-            preprocessing=bool(preprocessing),
-            random_state=random_state,
-        )
+        self._detector_kwargs = {
+            "contamination": float(contamination),
+            "hidden_dims": tuple(int(d) for d in hidden_dims),
+            "activation": str(activation),
+            "dropout": float(dropout),
+            "epochs": int(epochs),
+            "batch_size": int(batch_size),
+            "lr": float(lr),
+            "weight_decay": float(weight_decay),
+            "device": str(device),
+            "preprocessing": bool(preprocessing),
+            "random_state": random_state,
+        }
         super().__init__(contamination=float(contamination), feature_extractor=feature_extractor)
 
     def _build_detector(self):

@@ -329,21 +329,23 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Optimizer
         optimizer = torch.optim.Adam(
-            list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=self.learning_rate
+            list(self.encoder.parameters()) + list(self.decoder.parameters()),
+            lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         # Convert to tensor
         if not isinstance(X, torch.Tensor):
             X = torch.from_numpy(X).float()
 
-        N = X.shape[0]
+        num_samples = X.shape[0]
 
         # Training loop
         for epoch in range(self.epochs):
             epoch_loss = 0.0
             num_batches = 0
 
-            for i in range(0, N, self.batch_size):
+            for i in range(0, num_samples, self.batch_size):
                 batch = X[i : i + self.batch_size]
 
                 # Preprocess
@@ -356,9 +358,8 @@ class InTraDetector(BaseVisionDeepDetector):
                 reconstructed = self.decoder(features)  # [B, N_patches, P*P*3]
 
                 # Original patches
-                P = self.patch_size
-                B, C, H, W = images.shape
-                patches = F.unfold(images, kernel_size=P, stride=P)  # [B, C*P*P, N_patches]
+                patch_size = self.patch_size
+                patches = F.unfold(images, kernel_size=patch_size, stride=patch_size)
                 patches = patches.transpose(1, 2)  # [B, N_patches, C*P*P]
 
                 # Reconstruction loss
@@ -382,7 +383,7 @@ class InTraDetector(BaseVisionDeepDetector):
         # Compute normal statistics
         all_features = []
         with torch.no_grad():
-            for i in range(0, N, self.batch_size):
+            for i in range(0, num_samples, self.batch_size):
                 batch = X[i : i + self.batch_size]
                 images = self._preprocess(batch)
                 features, _ = self.encoder(images)
@@ -418,7 +419,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Normalize features
         features_np = features.cpu().numpy()
-        B, N_patches, D = features_np.shape
+        _, _, _ = features_np.shape
 
         normalized = (features_np - self.normal_features_mean) / self.normal_features_std
 
@@ -441,7 +442,7 @@ class InTraDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get original image size
-        H_img, W_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        image_height, image_width = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Preprocess
         images = self._preprocess(X)
@@ -452,7 +453,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Normalize features
         features_np = features.cpu().numpy()
-        B, N_patches, D = features_np.shape
+        batch_size, n_patches, _ = features_np.shape
 
         normalized = (features_np - self.normal_features_mean) / self.normal_features_std
 
@@ -460,16 +461,19 @@ class InTraDetector(BaseVisionDeepDetector):
         patch_scores = np.linalg.norm(normalized, axis=2)  # [B, N_patches]
 
         # Reshape to spatial grid
-        n_patches_per_side = int(np.sqrt(N_patches))
-        anomaly_maps = patch_scores.reshape(B, n_patches_per_side, n_patches_per_side)
+        n_patches_per_side = int(np.sqrt(n_patches))
+        anomaly_maps = patch_scores.reshape(batch_size, n_patches_per_side, n_patches_per_side)
 
         # Upsample to original size
         from scipy.ndimage import zoom
 
-        upsampled_maps = np.zeros((B, H_img, W_img))
+        upsampled_maps = np.zeros((batch_size, image_height, image_width))
 
-        for i in range(B):
-            zoom_factors = (H_img / n_patches_per_side, W_img / n_patches_per_side)
+        for i in range(batch_size):
+            zoom_factors = (
+                image_height / n_patches_per_side,
+                image_width / n_patches_per_side,
+            )
             upsampled_maps[i] = zoom(anomaly_maps[i], zoom_factors, order=1)
 
         return upsampled_maps

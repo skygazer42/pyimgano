@@ -36,17 +36,17 @@ def _zscore(X: np.ndarray, *, eps: float) -> tuple[np.ndarray, np.ndarray, np.nd
     mu = np.mean(X, axis=0)
     sd = np.std(X, axis=0)
     sd = np.where(sd > float(eps), sd, 1.0)
-    Z = (X - mu) / sd
-    return Z, mu, sd
+    z_values = (X - mu) / sd
+    return z_values, mu, sd
 
 
 def _leverage_diag(X: np.ndarray, *, ridge: float, eps: float) -> np.ndarray:
     # Hat matrix diag: diag(X (X^T X)^{-1} X^T)
     # Use ridge for stability on near-singular X^T X.
     d = int(X.shape[1])
-    XtX = X.T @ X
-    XtX = XtX + float(ridge) * np.eye(d, dtype=np.float64)
-    inv = np.linalg.pinv(XtX)
+    xtx = X.T @ X
+    xtx = xtx + float(ridge) * np.eye(d, dtype=np.float64)
+    inv = np.linalg.pinv(xtx)
     # diag(X @ inv @ X^T) computed without forming NxN:
     proj = X @ inv
     h = np.sum(proj * X, axis=1)
@@ -79,14 +79,14 @@ class CoreCookDistance(BaseDetector):
         self.random_state = random_state
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        Z, mu, sd = _zscore(X_arr, eps=float(self.eps))
+        z_values, mu, sd = _zscore(x_arr, eps=float(self.eps))
         pca = PCA(n_components=self.n_components, random_state=self.random_state)
-        pca.fit(Z)
+        pca.fit(z_values)
 
-        scores = self._score_from_z(Z, pca)
+        scores = self._score_from_z(z_values, pca)
         self._mu = mu
         self._sd = sd
         self._pca = pca
@@ -94,25 +94,25 @@ class CoreCookDistance(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def _score_from_z(self, Z: np.ndarray, pca: PCA) -> np.ndarray:
+    def _score_from_z(self, z_values: np.ndarray, pca: PCA) -> np.ndarray:
         # Reconstruction residual in standardized space.
-        T = pca.transform(Z)
-        Z_hat = pca.inverse_transform(T)
-        resid = np.linalg.norm(Z - Z_hat, axis=1)
+        transformed = pca.transform(z_values)
+        z_hat = pca.inverse_transform(transformed)
+        resid = np.linalg.norm(z_values - z_hat, axis=1)
 
-        h = _leverage_diag(Z, ridge=float(self.ridge), eps=float(self.eps))
+        h = _leverage_diag(z_values, ridge=float(self.ridge), eps=float(self.eps))
         denom = np.maximum(np.square(1.0 - h), float(self.eps))
         score = (np.square(resid) * (h / denom)).astype(np.float64)
         return np.asarray(score, dtype=np.float64).reshape(-1)
 
     def decision_function(self, X):  # noqa: ANN001, ANN201
         require_fitted(self, ["_mu", "_sd", "_pca"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         mu = np.asarray(self._mu, dtype=np.float64)  # type: ignore[attr-defined]
         sd = np.asarray(self._sd, dtype=np.float64)  # type: ignore[attr-defined]
         sd = np.where(sd > float(self.eps), sd, 1.0)
-        Z = (X_arr - mu) / sd
-        return self._score_from_z(Z, self._pca)  # type: ignore[arg-type]
+        z_values = (x_arr - mu) / sd
+        return self._score_from_z(z_values, self._pca)  # type: ignore[arg-type]
 
 
 @register_model(

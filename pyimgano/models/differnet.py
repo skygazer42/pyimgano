@@ -24,6 +24,7 @@ from numpy import ndarray as NDArray
 from scipy.spatial import cKDTree
 from torchvision import models
 
+from ..utils.random_state import check_random_state
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -154,9 +155,10 @@ class DifferNetDetector(BaseVisionDeepDetector):
         batch_size: int = 16,
         learning_rate: float = 0.001,
         device: Optional[str] = None,
+        random_state: int | np.random.Generator | None = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(random_state=None, **kwargs)
 
         self.backbone_name = backbone
         self.pretrained = pretrained
@@ -166,6 +168,11 @@ class DifferNetDetector(BaseVisionDeepDetector):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.random_state = random_state
+        self.rng = check_random_state(random_state)
+
+        if isinstance(random_state, (int, np.integer)):
+            torch.manual_seed(int(random_state))
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -259,7 +266,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         for layer in ["layer1", "layer2", "layer3"]:
             features = torch.cat(features_dict[layer], dim=0)
             # Flatten spatial dimensions
-            b, c, h, w = features.shape
+            b, c, _, _ = features.shape
             features = features.view(b, c, -1).permute(0, 2, 1)  # (B, H*W, C)
             features = features.reshape(-1, c)  # (B*H*W, C)
             self.memory_bank[layer] = features.numpy()
@@ -313,7 +320,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     )
 
                     # Get random neighbor
-                    nn_idx = np.random.randint(0, len(X))
+                    nn_idx = int(self.rng.integers(0, len(X)))
                     feat_nn = all_features[nn_idx // self.batch_size][layer_idx][
                         nn_idx % self.batch_size
                     ].to(self.device)
@@ -405,7 +412,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                 raise KeyError(f"Missing kNN index for layer {layer!r}")
 
             feat = features[layer]
-            _b, c, h, w = feat.shape
+            _b, c, _, _ = feat.shape
             feat_flat = feat.view(c, -1).permute(1, 0).cpu().numpy()  # (H*W, C)
 
             distances, _ = self.kd_trees[layer].query(feat_flat, k=int(self.k_neighbors))
@@ -461,8 +468,14 @@ class DifferNetDetector(BaseVisionDeepDetector):
         return total_diff / 3.0
 
     # ------------------------------------------------------------------
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
         """Alias for scoring (BaseDetector semantics: higher => more anomalous)."""
+        # DiffNet scores each input independently. Keep `batch_size` for
+        # interface compatibility with BaseDeepLearningDetector.
+        if batch_size is not None:
+            batch_size_int = int(batch_size)
+            if batch_size_int <= 0:
+                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         return np.asarray(self.predict_proba(X), dtype=np.float64).reshape(-1)
 
