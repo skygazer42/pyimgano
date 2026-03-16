@@ -44,19 +44,19 @@ class CorePCAMahalanobis(BaseDetector):
         self.random_state = random_state
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
-        if X_arr.shape[0] == 0:
+        if x_array.shape[0] == 0:
             raise ValueError("X must be non-empty")
 
         pca = PCA(
             n_components=self.n_components, whiten=self.whiten, random_state=self.random_state
         )
-        Z = pca.fit_transform(X_arr)
+        z = pca.fit_transform(x_array)
 
-        mu = np.mean(Z, axis=0)
-        diff = Z - mu
-        cov = (diff.T @ diff) / max(1, Z.shape[0] - 1)
+        mu = np.mean(z, axis=0)
+        diff = z - mu
+        cov = (diff.T @ diff) / max(1, z.shape[0] - 1)
         cov = cov + float(self.reg) * np.eye(cov.shape[0], dtype=np.float64)
         inv = np.linalg.pinv(cov)
 
@@ -64,7 +64,7 @@ class CorePCAMahalanobis(BaseDetector):
         self.mean_ = mu
         self.inv_cov_ = inv
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
         self._process_decision_scores()
         return self
 
@@ -74,9 +74,9 @@ class CorePCAMahalanobis(BaseDetector):
         mu = np.asarray(self.mean_, dtype=np.float64)  # type: ignore[arg-type]
         inv = np.asarray(self.inv_cov_, dtype=np.float64)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        Z = pca.transform(X_arr)
-        diff = Z - mu
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        z = pca.transform(x_array)
+        diff = z - mu
         md2 = np.einsum("ij,jk,ik->i", diff, inv, diff)
         return np.asarray(md2, dtype=np.float64).reshape(-1)
 

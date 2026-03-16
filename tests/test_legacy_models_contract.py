@@ -30,7 +30,7 @@ def test_legacy_models_follow_base_detector_contract(model_name: str) -> None:
     else:
         from pyimgano.features.identity import IdentityExtractor
 
-        rng = np.random.RandomState(0)
+        rng = np.random.default_rng(0)
         X = rng.normal(size=(80, 6))
         extra = {}
         if model_name == "kmeans_anomaly":

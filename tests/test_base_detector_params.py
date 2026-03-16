@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 
 def test_base_detector_get_set_params_roundtrip() -> None:
     from pyimgano.models.base_detector import BaseDetector
@@ -20,11 +22,11 @@ def test_base_detector_get_set_params_roundtrip() -> None:
 
     det = DummyDetector(contamination=0.2, alpha=3.0)
     params = det.get_params()
-    assert params["contamination"] == 0.2
-    assert params["alpha"] == 3.0
+    assert params["contamination"] == pytest.approx(0.2)
+    assert params["alpha"] == pytest.approx(3.0)
 
     det.set_params(alpha=5.0)
-    assert det.alpha == 5.0
+    assert det.alpha == pytest.approx(5.0)
 
 
 def test_base_detector_set_params_rejects_unknown() -> None:

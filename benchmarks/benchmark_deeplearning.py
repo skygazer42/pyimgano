@@ -64,12 +64,12 @@ def generate_image_data(
     random_state: int = 42,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Generate synthetic image data for benchmarking."""
-    np.random.seed(random_state)
+    rng = np.random.default_rng(random_state)
 
     # Normal images: Simple patterns
     normal_images = []
     for _ in range(n_normal):
-        img = np.random.randn(1, *image_size) * 0.1
+        img = rng.normal(loc=0.0, scale=0.1, size=(1, *image_size))
         # Add structured patterns
         img[:, ::4, :] += 0.5
         img[:, :, ::4] += 0.5
@@ -78,20 +78,20 @@ def generate_image_data(
     # Anomalous images: Different patterns
     anomaly_images = []
     for _ in range(n_anomaly):
-        img = np.random.randn(1, *image_size) * 0.3
+        img = rng.normal(loc=0.0, scale=0.3, size=(1, *image_size))
         # Add random structures
         img[:, ::3, :] += 1.0
         img[:, :, ::5] -= 1.0
         anomaly_images.append(img)
 
     # Prepare train/test splits
-    X_train = np.array(normal_images[: int(0.8 * n_normal)])
-    y_train = np.zeros(len(X_train))
+    x_train = np.array(normal_images[: int(0.8 * n_normal)])
+    y_train = np.zeros(len(x_train))
 
-    X_test = np.array(normal_images[int(0.8 * n_normal) :] + anomaly_images)
+    x_test = np.array(normal_images[int(0.8 * n_normal) :] + anomaly_images)
     y_test = np.hstack([np.zeros(n_normal - int(0.8 * n_normal)), np.ones(n_anomaly)])
 
-    return X_train, y_train, X_test, y_test
+    return x_train, y_train, x_test, y_test
 
 
 def get_model_size(model: torch.nn.Module) -> float:
@@ -105,7 +105,7 @@ def benchmark_algorithm(
     model_name: str,
     detector_params: dict,
     X_train: np.ndarray,
-    y_train: np.ndarray,
+    _y_train: np.ndarray,
     X_test: np.ndarray,
     y_test: np.ndarray,
     algorithm_name: str,
@@ -120,8 +120,8 @@ def benchmark_algorithm(
         if model_name.startswith("vision_"):
 
             class IdentityExtractor:
-                def extract(self, X):
-                    return np.asarray(X)
+                def extract(self, x):
+                    return np.asarray(x)
 
             detector = create_model(
                 model_name,
@@ -333,14 +333,14 @@ def main():
     print(f"Test set: {X_test.shape[0]} samples ({np.sum(y_test)} anomalies)")
 
     # Flatten images for detectors
-    X_train_flat = X_train.reshape(X_train.shape[0], -1)
-    X_test_flat = X_test.reshape(X_test.shape[0], -1)
+    x_train_flat = X_train.reshape(X_train.shape[0], -1)
+    x_test_flat = X_test.reshape(X_test.shape[0], -1)
 
     # Run benchmarks
     all_results = []
 
-    all_results.extend(benchmark_autoencoder(X_train_flat, y_train, X_test_flat, y_test))
-    all_results.extend(benchmark_deep_svdd(X_train_flat, y_train, X_test_flat, y_test))
+    all_results.extend(benchmark_autoencoder(x_train_flat, y_train, x_test_flat, y_test))
+    all_results.extend(benchmark_deep_svdd(x_train_flat, y_train, x_test_flat, y_test))
 
     # Print summary
     print("\n" + "=" * 60)

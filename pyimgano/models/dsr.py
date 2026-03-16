@@ -321,7 +321,7 @@ class DSRDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get original image size
-        H_img, W_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Extract features
         features = self._extract_features(X)
@@ -331,12 +331,12 @@ class DSRDetector(BaseVisionDeepDetector):
 
         # Upsample to original image size
         N = anomaly_maps.shape[0]
-        upsampled_maps = np.zeros((N, H_img, W_img))
+        upsampled_maps = np.zeros((N, height_img, width_img))
 
         for i in range(N):
             map_tensor = torch.from_numpy(anomaly_maps[i]).unsqueeze(0).unsqueeze(0).float()
             upsampled = F.interpolate(
-                map_tensor, size=(H_img, W_img), mode="bilinear", align_corners=False
+                map_tensor, size=(height_img, width_img), mode="bilinear", align_corners=False
             )
             upsampled_maps[i] = upsampled.squeeze().numpy()
 

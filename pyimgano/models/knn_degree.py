@@ -50,10 +50,10 @@ class CoreKNNGraphDegree(BaseDetector):
         self.zero_eps = float(zero_eps)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_arr.shape[0])
         k = int(self.n_neighbors)
         if k <= 0:
             raise ValueError("n_neighbors must be > 0")
@@ -69,15 +69,15 @@ class CoreKNNGraphDegree(BaseDetector):
             p=self.p,
             n_jobs=self.n_jobs,
         )
-        nn.fit(X_arr)
-        distances, _idx = nn.kneighbors(X_arr, n_neighbors=k + 1, return_distance=True)
+        nn.fit(x_arr)
+        distances, _idx = nn.kneighbors(x_arr, n_neighbors=k + 1, return_distance=True)
         kth = np.asarray(distances[:, -1], dtype=np.float64)
         radius = float(np.quantile(kth, q))
 
         self._nn = nn
         self.radius_ = radius
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
@@ -86,13 +86,13 @@ class CoreKNNGraphDegree(BaseDetector):
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
         radius = float(self.radius_)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X_arr.shape[0] == 0:
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        if x_arr.shape[0] == 0:
             return np.zeros((0,), dtype=np.float64)
 
-        dists, _ = nn.radius_neighbors(X_arr, radius=radius, return_distance=True)
-        degrees = np.empty((X_arr.shape[0],), dtype=np.float64)
-        for i in range(X_arr.shape[0]):
+        dists, _ = nn.radius_neighbors(x_arr, radius=radius, return_distance=True)
+        degrees = np.empty((x_arr.shape[0],), dtype=np.float64)
+        for i in range(x_arr.shape[0]):
             # Exclude exact matches (distance ~ 0) to avoid counting self when present.
             di = np.asarray(dists[i], dtype=np.float64)
             degrees[i] = float(np.sum(di > float(self.zero_eps)))

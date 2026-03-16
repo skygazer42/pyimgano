@@ -62,7 +62,7 @@ def test_build_model_kwargs_materializes_lazy_constructor_signature_for_auto_kwa
         },
     )
     assert out["device"] == "cpu"
-    assert out["contamination"] == 0.2
+    assert out["contamination"] == pytest.approx(0.2)
     assert out["random_state"] == 123
     assert "pretrained" not in out
     assert "random_seed" not in out

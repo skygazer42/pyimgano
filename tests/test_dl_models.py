@@ -62,7 +62,7 @@ class TestPatchCore:
 
         assert detector is not None
         assert detector.backbone_name == "wide_resnet50"
-        assert detector.coreset_sampling_ratio == 0.1
+        assert detector.coreset_sampling_ratio == pytest.approx(0.1)
         assert detector.n_neighbors == 9
 
     def test_invalid_parameters(self):
@@ -149,7 +149,7 @@ class TestSTFPM:
         assert detector.backbone_name == "resnet18"
         assert detector.epochs == 5
         assert detector.batch_size == 2
-        assert detector.lr == 0.4
+        assert detector.lr == pytest.approx(0.4)
 
     def test_invalid_parameters(self):
         """Test invalid parameter handling."""

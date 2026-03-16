@@ -61,7 +61,7 @@ class CoreOCSVM:
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if X.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
@@ -103,12 +103,12 @@ class CoreOCSVM:
             raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
 
         if self.preprocessing and self.scaler_ is not None:
-            X_eval = self.scaler_.transform(X)
+            x_eval = self.scaler_.transform(X)
         else:
-            X_eval = X
+            x_eval = X
 
         # sklearn: positive => inlier. We flip the sign.
-        scores = -np.asarray(self.estimator_.decision_function(X_eval), dtype=np.float64).reshape(
+        scores = -np.asarray(self.estimator_.decision_function(x_eval), dtype=np.float64).reshape(
             -1
         )
         return scores

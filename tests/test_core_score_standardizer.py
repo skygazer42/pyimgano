@@ -7,7 +7,7 @@ def test_core_score_standardizer_rank_smoke() -> None:
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(60, 6))
 
     det = create_model(

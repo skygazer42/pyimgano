@@ -30,7 +30,7 @@ def test_color_jitter_pipeline_numpy_output():
 def test_mixup_cutmix_helpers():
     from pyimgano.utils.augmentation import cutmix_batch, mixup_batch
 
-    images = np.random.rand(4, 3, 16, 16).astype(np.float32)
+    images = np.random.default_rng(0).random((4, 3, 16, 16)).astype(np.float32)
     labels = np.eye(4).astype(np.float32)
 
     mixed_images, mixed_labels, lam = mixup_batch(images, labels, alpha=0.4)

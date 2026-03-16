@@ -83,4 +83,5 @@ def test_registry_model_estimator_errors_are_clear() -> None:
         est.fit("train_0.png")
 
     with pytest.raises(ValueError, match="Unknown model name"):
-        RegistryModelEstimator(model="__does_not_exist__").fit(np.random.randn(4, 2))
+        bad_features = np.random.default_rng(0).standard_normal((4, 2))
+        RegistryModelEstimator(model="__does_not_exist__").fit(bad_features)

@@ -23,7 +23,7 @@ def test_extract_defects_includes_region_shape_stats_by_default() -> None:
     r = out["regions"][0]
 
     assert r["bbox_area"] == 12
-    assert r["fill_ratio"] == 1.0
+    assert np.isclose(r["fill_ratio"], 1.0)
     assert abs(float(r["aspect_ratio"]) - (4.0 / 3.0)) < 1e-6
     assert r["solidity"] is not None
     assert 0.9 <= float(r["solidity"]) <= 1.0

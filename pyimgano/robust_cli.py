@@ -6,6 +6,7 @@ from typing import Any, Sequence
 
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
+import pyimgano.services.robustness_service as robustness_service
 from pyimgano.cli_common import merge_checkpoint_path, parse_model_kwargs
 from pyimgano.reporting.report import save_run_report
 from pyimgano.services.benchmark_service import PixelPostprocessConfig
@@ -138,6 +139,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", default=None, help="Optional JSON output path")
     return parser
+
+
 def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
     return parse_model_kwargs(text)
 
@@ -169,14 +172,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError(
                 "--dataset/--root/--category are required unless --list-models is used."
             )
-        from pyimgano.services.robustness_service import RobustnessRunRequest, run_robustness_request
-
         postprocess = PixelPostprocessConfig() if bool(args.pixel_postprocess) else None
         user_kwargs = _parse_model_kwargs(args.model_kwargs)
         user_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
-        payload = run_robustness_request(
-            RobustnessRunRequest(
+        payload = robustness_service.run_robustness_request(
+            robustness_service.RobustnessRunRequest(
                 dataset=str(args.dataset),
                 root=str(args.root),
                 category=str(args.category),
@@ -195,7 +196,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pixel_calibration_seed=int(args.pixel_calibration_seed),
                 pixel_postprocess=postprocess,
                 corruptions=str(args.corruptions),
-                severities=[int(s) for s in list(args.severities)],
+                severities=[int(s) for s in args.severities],
                 seed=int(args.seed),
                 limit_train=(int(args.limit_train) if args.limit_train is not None else None),
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),

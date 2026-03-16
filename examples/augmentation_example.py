@@ -33,7 +33,6 @@ from pyimgano.preprocessing import (  # Pipeline classes; Transform classes; Pre
     GridMask,
     MotionBlur,
     OneOf,
-    RandomApply,
     RandomCutout,
     RandomFlip,
     RandomFog,
@@ -269,10 +268,8 @@ def example_one_of():
     )
 
     print("\nApplying OneOf 10 times:")
-    effects_applied = {"rain": 0, "fog": 0, "snow": 0, "none": 0}
-
     for i in range(10):
-        augmented = one_of_weather(img)
+        _ = one_of_weather(img)
         # Check which effect was applied (simplified)
         print(f"   Iteration {i+1}: Applied random weather effect")
 
@@ -389,7 +386,7 @@ def example_augmentation_statistics():
     pipeline = AugmentationPipeline(transforms)
 
     print("\nApplying pipeline to 100 images:")
-    for i in range(100):
+    for _ in range(100):
         _ = pipeline(img)
 
     print("\nAugmentation Statistics:")

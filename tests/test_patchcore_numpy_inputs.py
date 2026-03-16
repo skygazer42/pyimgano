@@ -79,7 +79,7 @@ def test_patchcore_memory_bank_dtype_float16(monkeypatch):
     )
 
     def fake_extract(_image):
-        features = np.random.randn(4, 2).astype(np.float32)
+        features = np.random.default_rng(0).standard_normal((4, 2)).astype(np.float32)
         return features, (2, 2)
 
     monkeypatch.setattr(det, "_extract_patch_features", fake_extract)

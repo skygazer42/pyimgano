@@ -7,7 +7,7 @@ def test_core_lscp_spec_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401 - registry population
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(120, 8)).astype(np.float64)
 
     det = create_model(

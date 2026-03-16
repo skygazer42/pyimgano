@@ -271,7 +271,7 @@ class VisionDST(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize teacher
         if self.teacher_ is None:
@@ -279,7 +279,7 @@ class VisionDST(BaseVisionDeepDetector):
 
         # Get feature dimensions
         with torch.no_grad():
-            sample_features = self.teacher_(X_tensor[:1].to(self.device))
+            sample_features = self.teacher_(x_tensor[:1].to(self.device))
             in_channels = [f.shape[1] for f in sample_features]
 
         # Initialize students
@@ -296,7 +296,7 @@ class VisionDST(BaseVisionDeepDetector):
             ).to(self.device)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimize both students
@@ -375,12 +375,12 @@ class VisionDST(BaseVisionDeepDetector):
         self.student1_.eval()
         self.student2_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract teacher features
                 teacher_features = self.teacher_(batch)

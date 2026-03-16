@@ -6,7 +6,7 @@ import numpy as np
 def test_core_cblof_fit_predict_smoke() -> None:
     from pyimgano.models.cblof import CoreCBLOF
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(50, 4)).astype(np.float32)
 
     det = CoreCBLOF(n_clusters=3, contamination=0.2, random_state=0)
@@ -34,7 +34,7 @@ def test_vision_cblof_with_identity_extractor() -> None:
         def extract(self, X):
             return np.asarray(X)
 
-    rng = np.random.RandomState(1)
+    rng = np.random.default_rng(1)
     X = rng.normal(size=(40, 3)).astype(np.float32)
 
     det = create_model(

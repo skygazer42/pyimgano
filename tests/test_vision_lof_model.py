@@ -6,7 +6,7 @@ def test_vision_lof_with_identity_extractor() -> None:
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(1)
+    rng = np.random.default_rng(1)
     X = rng.normal(size=(60, 5))
 
     det = create_model(

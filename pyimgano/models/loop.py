@@ -57,10 +57,10 @@ class CoreLoOP(BaseDetector):
         self.eps = float(eps)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_arr.shape[0])
         k = int(self.n_neighbors)
         if k <= 0:
             raise ValueError(f"n_neighbors must be > 0, got {self.n_neighbors}")
@@ -73,8 +73,8 @@ class CoreLoOP(BaseDetector):
             p=self.p,
             n_jobs=self.n_jobs,
         )
-        nn.fit(X_arr)
-        distances, indices = nn.kneighbors(X_arr, n_neighbors=k + 1, return_distance=True)
+        nn.fit(x_arr)
+        distances, indices = nn.kneighbors(x_arr, n_neighbors=k + 1, return_distance=True)
 
         # Discard self neighbor at position 0.
         d = np.asarray(distances[:, 1:], dtype=np.float64)
@@ -89,7 +89,7 @@ class CoreLoOP(BaseDetector):
         loop = np.clip(loop, 0.0, 1.0)
 
         self._nn = nn
-        self._X_train = X_arr
+        self._X_train = x_arr
         self._pdist_train = pdist
         self._nplof = float(nplof)
 
@@ -103,12 +103,12 @@ class CoreLoOP(BaseDetector):
         pdist_train = np.asarray(self._pdist_train, dtype=np.float64).reshape(-1)  # type: ignore[arg-type]
         nplof = float(self._nplof)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         k = int(self.n_neighbors)
         if k <= 0:
             raise ValueError(f"n_neighbors must be > 0, got {self.n_neighbors}")
 
-        distances, indices = nn.kneighbors(X_arr, n_neighbors=k, return_distance=True)
+        distances, indices = nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)
         d = np.asarray(distances, dtype=np.float64)
         nbr_idx = np.asarray(indices, dtype=np.int64)
 

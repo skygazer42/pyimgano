@@ -157,7 +157,7 @@ class VisionPatchEmbeddingCoreMap:
             )
         return np.asarray(scores, dtype=np.float32)
 
-    def fit(self, X: Iterable[Union[str, np.ndarray]], y=None):
+    def fit(self, X: Iterable[Union[str, np.ndarray]], _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one training image.")

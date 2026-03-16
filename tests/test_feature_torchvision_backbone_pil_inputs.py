@@ -10,10 +10,10 @@ def test_torchvision_backbone_extractor_pil_inputs_smoke() -> None:
 
     from pyimgano.features.torchvision_backbone import TorchvisionBackboneExtractor
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     imgs = [
-        Image.fromarray(rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8), mode="RGB"),
-        Image.fromarray(rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8), mode="RGB"),
+        Image.fromarray(rng.integers(0, 255, size=(64, 64, 3), dtype=np.uint8), mode="RGB"),
+        Image.fromarray(rng.integers(0, 255, size=(64, 64, 3), dtype=np.uint8), mode="RGB"),
     ]
 
     ext = TorchvisionBackboneExtractor(

@@ -4,7 +4,7 @@ import numpy as np
 
 
 def _toy_vectors(seed: int = 0, *, n: int = 80, d: int = 8) -> list[np.ndarray]:
-    rng = np.random.RandomState(int(seed))
+    rng = np.random.default_rng(int(seed))
     return [rng.normal(size=(int(d),)).astype(np.float32) for _ in range(int(n))]
 
 

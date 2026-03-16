@@ -16,7 +16,6 @@ import os
 import sys
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Add parent directory to path
@@ -28,13 +27,14 @@ from pyimgano.preprocessing import AdvancedImageEnhancer
 def create_test_image():
     """Create a test image with various features."""
     img = np.zeros((200, 200, 3), dtype=np.uint8)
+    rng = np.random.default_rng(0)
 
     # Add shapes
     cv2.rectangle(img, (50, 50), (150, 150), (255, 255, 255), -1)
     cv2.circle(img, (100, 100), 30, (128, 128, 128), -1)
 
     # Add texture
-    noise = np.random.randint(0, 50, (200, 200, 3), dtype=np.uint8)
+    noise = rng.integers(0, 50, (200, 200, 3), dtype=np.uint8)
     img = cv2.add(img, noise)
 
     return img
@@ -168,9 +168,10 @@ def example_denoising():
 
     enhancer = AdvancedImageEnhancer()
     img = create_test_image()
+    rng = np.random.default_rng(1)
 
     # Add noise
-    noise = np.random.randint(-50, 50, img.shape, dtype=np.int16)
+    noise = rng.integers(-50, 50, img.shape, dtype=np.int16)
     noisy = np.clip(img.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
     print(f"\nOriginal noise level: {np.std(noise):.2f}")

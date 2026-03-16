@@ -396,7 +396,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get image size
-        H_img, W_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Extract features
         features = self._extract_features(X)
@@ -413,7 +413,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
                 # Upsample to image size
                 upsampled = F.interpolate(
                     spatial_likelihood.unsqueeze(1),
-                    size=(H_img, W_img),
+                    size=(height_img, width_img),
                     mode="bilinear",
                     align_corners=False,
                 )

@@ -20,7 +20,7 @@ import os
 import sys
 import time
 import warnings
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,23 +62,23 @@ def generate_synthetic_data(
     n_normal: int = 1000, n_anomaly: int = 100, n_features: int = 100, random_state: int = 42
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Generate synthetic anomaly detection dataset."""
-    np.random.seed(random_state)
+    rng = np.random.default_rng(random_state)
 
     # Normal samples: multivariate Gaussian
-    normal_data = np.random.randn(n_normal, n_features) * 0.5
+    normal_data = rng.normal(size=(n_normal, n_features)) * 0.5
 
     # Anomalous samples: outliers with larger variance
-    anomaly_data = np.random.randn(n_anomaly, n_features) * 2.0
-    anomaly_data += np.random.uniform(-3, 3, size=(n_anomaly, n_features))
+    anomaly_data = rng.normal(size=(n_anomaly, n_features)) * 2.0
+    anomaly_data += rng.uniform(-3, 3, size=(n_anomaly, n_features))
 
     # Combine data
-    X_train = normal_data
+    x_train = normal_data
     y_train = np.zeros(n_normal)
 
-    X_test = np.vstack([normal_data[: n_normal // 5], anomaly_data])
+    x_test = np.vstack([normal_data[: n_normal // 5], anomaly_data])
     y_test = np.hstack([np.zeros(n_normal // 5), np.ones(n_anomaly)])
 
-    return X_train, y_train, X_test, y_test
+    return x_train, y_train, x_test, y_test
 
 
 def get_memory_usage() -> float:
@@ -91,7 +91,7 @@ def benchmark_algorithm(
     model_name: str,
     detector_params: dict,
     X_train: np.ndarray,
-    y_train: np.ndarray,
+    _y_train: np.ndarray,
     X_test: np.ndarray,
     y_test: np.ndarray,
     algorithm_name: str,
@@ -102,8 +102,8 @@ def benchmark_algorithm(
     try:
 
         class IdentityExtractor:
-            def extract(self, X):
-                return np.asarray(X)
+            def extract(self, x):
+                return np.asarray(x)
 
         # Initialize detector
         detector_kwargs = dict(detector_params)

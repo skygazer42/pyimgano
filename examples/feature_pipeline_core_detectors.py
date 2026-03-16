@@ -19,7 +19,7 @@ from pyimgano.models import create_model
 
 
 def main() -> None:
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = [rng.normal(size=(16,)).astype(np.float32) for _ in range(100)]
 
     pipe = create_model(

@@ -16,12 +16,13 @@ class DummyFeatureExtractor:
 
     def __init__(self, feature_dim: int = 32) -> None:
         self.feature_dim = feature_dim
+        self._rng = np.random.default_rng(0)
 
     def extract(self, inputs):
         inputs = list(inputs)
         if not inputs:
             return np.empty((0, self.feature_dim))
-        return np.random.rand(len(inputs), self.feature_dim)
+        return self._rng.random((len(inputs), self.feature_dim))
 
 
 # 针对需要额外参数的模型提供默认配置

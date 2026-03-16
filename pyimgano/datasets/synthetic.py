@@ -54,7 +54,7 @@ class SyntheticAnomalyDataset(Dataset):
         roi_mask: Optional[np.ndarray] = None,
         transform: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> None:
-        self.image_paths = [str(p) for p in list(image_paths)]
+        self.image_paths = [str(p) for p in image_paths]
         self.synthesizer = synthesizer
         self.p_anomaly = float(p_anomaly)
         self.seed = int(seed)

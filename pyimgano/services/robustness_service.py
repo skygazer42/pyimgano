@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
 
+import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.models.registry import create_model
 from pyimgano.robustness.corruptions import (
     apply_blur,
@@ -16,7 +16,6 @@ from pyimgano.robustness.corruptions import (
     apply_lighting,
 )
 from pyimgano.services.benchmark_service import PixelPostprocessConfig, build_pixel_postprocess
-import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.services.model_options import (
     enforce_checkpoint_requirement,
     resolve_model_options,
@@ -202,7 +201,7 @@ def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
     )
 
     requested_corruptions = str(request.corruptions)
-    requested_severities = [int(s) for s in list(request.severities)]
+    requested_severities = [int(s) for s in request.severities]
     input_mode = str(request.input_mode)
 
     if input_mode == "numpy":

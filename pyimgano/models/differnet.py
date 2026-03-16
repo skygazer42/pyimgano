@@ -294,13 +294,13 @@ class DifferNetDetector(BaseVisionDeepDetector):
         print("Training difference module...")
 
         # Create training data: pairs of (image, nn_image)
-        X_tensor = self._preprocess(X).to(self.device)
+        x_tensor = self._preprocess(X).to(self.device)
 
         # Extract all features
         with torch.no_grad():
             all_features = []
             for i in range(0, len(X), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size]
+                batch = x_tensor[i : i + self.batch_size]
                 features = self.feature_extractor(batch)
                 all_features.append([f.cpu() for f in features])
 

@@ -10,6 +10,8 @@ from tqdm import tqdm
 
 from .registry import register_model
 
+CNN_FEATURE_EXTRACTION_PURPOSE = "one_class_cnn CNN feature extraction"
+
 
 @register_model(
     "one_class_cnn",
@@ -17,7 +19,13 @@ from .registry import register_model
     metadata={"description": "基于多特征的一类 SVM 图像检测器"},
 )
 class ImageAnomalyDetector:
-    def __init__(self, feature_type="combined", nu=0.05, cnn_pretrained: bool = False):
+    def __init__(
+        self,
+        feature_type="combined",
+        nu=0.05,
+        cnn_pretrained: bool = False,
+        random_state: int = 42,
+    ):
         """
         初始化异常检测器
         feature_type: 'histogram', 'hog', 'combined', 'cnn'
@@ -25,9 +33,10 @@ class ImageAnomalyDetector:
         """
         self.feature_type = feature_type
         self.cnn_pretrained = bool(cnn_pretrained)
+        self.random_state = int(random_state)
         self.ocsvm = OneClassSVM(kernel="rbf", gamma="auto", nu=nu)
         self.scaler = StandardScaler()
-        self.pca = PCA(n_components=128)  # 降维到128维
+        self.pca = PCA(n_components=128, random_state=self.random_state)  # 降维到128维
         self.is_trained = False
 
     def extract_features(self, image_path):
@@ -110,12 +119,12 @@ class ImageAnomalyDetector:
         """使用预训练CNN提取特征（需要深度学习框架）"""
         from pyimgano.utils.optional_deps import require
 
-        torch = require("torch", extra="torch", purpose="one_class_cnn CNN feature extraction")
+        torch = require("torch", extra="torch", purpose=CNN_FEATURE_EXTRACTION_PURPOSE)
         transforms = require(
-            "torchvision.transforms", extra="torch", purpose="one_class_cnn CNN feature extraction"
+            "torchvision.transforms", extra="torch", purpose=CNN_FEATURE_EXTRACTION_PURPOSE
         )
         models = require(
-            "torchvision.models", extra="torch", purpose="one_class_cnn CNN feature extraction"
+            "torchvision.models", extra="torch", purpose=CNN_FEATURE_EXTRACTION_PURPOSE
         )
 
         # 加载预训练模型
@@ -179,24 +188,24 @@ class ImageAnomalyDetector:
 
         # 数据预处理
         print("标准化特征...")
-        X_scaled = self.scaler.fit_transform(X)
+        x_scaled = self.scaler.fit_transform(X)
 
         # PCA降维（可选，用于加速和去噪）
         if X.shape[1] > 128:
             print("PCA降维...")
-            X_reduced = self.pca.fit_transform(X_scaled)
+            x_reduced = self.pca.fit_transform(x_scaled)
         else:
-            X_reduced = X_scaled
+            x_reduced = x_scaled
 
         # 训练 One-Class SVM
         print("训练 One-Class SVM...")
-        self.ocsvm.fit(X_reduced)
+        self.ocsvm.fit(x_reduced)
 
         self.is_trained = True
         print("训练完成！")
 
         # 计算训练集上的阈值（用于自适应阈值）
-        train_scores = self.ocsvm.decision_function(X_reduced)
+        train_scores = self.ocsvm.decision_function(x_reduced)
         self.threshold_percentile_95 = np.percentile(train_scores, 5)  # 95%的正常样本的阈值
 
         return self

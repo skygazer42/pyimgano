@@ -17,7 +17,7 @@ def test_filter_small_components_removes_specks() -> None:
     assert filtered.dtype == np.float32
 
     # Speck removed, big component kept.
-    assert float(filtered[8, 8]) == 0.0
+    assert np.isclose(float(filtered[8, 8]), 0.0)
     assert float(filtered[1, 1]) > 0.0
     assert len(comps) == 1
     assert comps[0].area == 4

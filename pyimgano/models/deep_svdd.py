@@ -206,25 +206,26 @@ class CoreDeepSVDD(BaseDetector):
         )
 
     # ------------------------------------------------------------------
-    def fit(self, X, y=None):
-        X = check_array(X)
-        self._set_n_classes(y)
-
+    def _validate_feature_shape(self, x_array: np.ndarray) -> None:
         if self.n_features is None:
-            self.n_features = int(X.shape[1])
-        elif int(X.shape[1]) != int(self.n_features):
-            raise ValueError(f"Expected n_features={self.n_features}, got {X.shape[1]}")
+            self.n_features = int(x_array.shape[1])
+            return
 
+        if int(x_array.shape[1]) != int(self.n_features):
+            raise ValueError(f"Expected n_features={self.n_features}, got {x_array.shape[1]}")
+
+    def _normalize_training_inputs(self, x_array: np.ndarray) -> np.ndarray:
         if self.preprocessing:
             self.scaler = StandardScaler()
-            X_norm = self.scaler.fit_transform(X)
+            x_normalized = self.scaler.fit_transform(x_array)
         else:
-            X_norm = X.copy()
+            x_normalized = x_array.copy()
 
-        indices = self.rng.permutation(X_norm.shape[0])
-        X_norm = X_norm[indices]
+        indices = self.rng.permutation(x_normalized.shape[0])
+        return x_normalized[indices]
 
-        self.model = InnerDeepSVDD(
+    def _build_model(self) -> InnerDeepSVDD:
+        return InnerDeepSVDD(
             n_features=self.n_features,
             use_autoencoder=self.use_autoencoder,
             hidden_neurons=self.hidden_neurons,
@@ -233,46 +234,71 @@ class CoreDeepSVDD(BaseDetector):
             dropout_rate=self.dropout_rate,
         )
 
-        tensor_data = torch.tensor(X_norm, dtype=torch.float32)
+    def _prepare_center(self, tensor_data: torch.Tensor) -> None:
         if self.center is None:
             self.model.init_center(tensor_data)
             self.center = self.model.center
-        else:
-            center_arr = np.asarray(self.center, dtype=np.float32).reshape(-1)
-            rep_dim = int(self.hidden_neurons[-1])
-            if center_arr.shape[0] != rep_dim:
-                raise ValueError(f"Expected center shape ({rep_dim},), got {center_arr.shape}")
-            self.center = torch.tensor(center_arr, dtype=torch.float32)
+            return
 
+        center_arr = np.asarray(self.center, dtype=np.float32).reshape(-1)
+        rep_dim = int(self.hidden_neurons[-1])
+        if center_arr.shape[0] != rep_dim:
+            raise ValueError(f"Expected center shape ({rep_dim},), got {center_arr.shape}")
+        self.center = torch.tensor(center_arr, dtype=torch.float32)
+
+    def _build_train_loader(self, tensor_data: torch.Tensor) -> DataLoader:
         dataset = TensorDataset(tensor_data, tensor_data)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=True, num_workers=0
+        )
 
+    def _build_optimizer(self):
         optimizer_cls = OPTIMIZER_DICT.get(self.optimizer_name.lower())
         if optimizer_cls is None:
             raise ValueError(f"未知优化器: {self.optimizer_name}")
-        optimizer = optimizer_cls(self.model.parameters(), lr=self.lr, weight_decay=self.l2_weight)
+        return optimizer_cls(self.model.parameters(), lr=self.lr, weight_decay=self.l2_weight)
+
+    def _compute_batch_loss(self, batch_x: torch.Tensor) -> torch.Tensor:
+        rep = self.model.encode(batch_x)
+        dist = torch.sum((rep - self.center) ** 2, dim=-1)
+        if not self.use_autoencoder:
+            return dist.mean()
+
+        recon = self.model.reconstruct(rep)
+        return dist.mean() + torch.mean(torch.square(recon - batch_x))
+
+    def _train_epoch(self, dataloader: DataLoader, optimizer) -> float:  # noqa: ANN001
+        epoch_loss = 0.0
+        self.model.train()
+
+        for batch_x, _ in dataloader:
+            optimizer.zero_grad()
+            loss = self._compute_batch_loss(batch_x)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item() * batch_x.size(0)
+
+        return epoch_loss
+
+    def fit(self, X, y=None):
+        x_array = check_array(X)
+        self._set_n_classes(y)
+        self._validate_feature_shape(x_array)
+
+        x_normalized = self._normalize_training_inputs(x_array)
+        self.model = self._build_model()
+
+        tensor_data = torch.tensor(x_normalized, dtype=torch.float32)
+        self._prepare_center(tensor_data)
+
+        dataloader = self._build_train_loader(tensor_data)
+        optimizer = self._build_optimizer()
 
         best_loss = float("inf")
 
         for epoch in range(self.epochs):
-            epoch_loss = 0.0
-            self.model.train()
-
-            for batch_x, _ in dataloader:
-                optimizer.zero_grad()
-                rep = self.model.encode(batch_x)
-                dist = torch.sum((rep - self.center) ** 2, dim=-1)
-                if self.use_autoencoder:
-                    recon = self.model.reconstruct(rep)
-                    loss = dist.mean() + torch.mean(torch.square(recon - batch_x))
-                else:
-                    loss = dist.mean()
-
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.item() * batch_x.size(0)
-
-            epoch_loss /= X_norm.shape[0]
+            epoch_loss = self._train_epoch(dataloader, optimizer)
+            epoch_loss /= x_normalized.shape[0]
             if epoch_loss < best_loss:
                 best_loss = epoch_loss
                 self.best_model_state = self.model.state_dict()
@@ -291,11 +317,11 @@ class CoreDeepSVDD(BaseDetector):
         X = check_array(X)
 
         if self.preprocessing and self.scaler is not None:
-            X_norm = self.scaler.transform(X)
+            x_normalized = self.scaler.transform(X)
         else:
-            X_norm = X.copy()
+            x_normalized = X.copy()
 
-        tensor_data = torch.tensor(X_norm, dtype=torch.float32)
+        tensor_data = torch.tensor(x_normalized, dtype=torch.float32)
 
         self.model.eval()
         with torch.no_grad():

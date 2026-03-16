@@ -432,7 +432,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get image size
-        H_img, W_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Preprocess
         images = self._extract_features(X)
@@ -456,7 +456,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
 
             # Upsample to image size
             diff_upsampled = F.interpolate(
-                diff, size=(H_img, W_img), mode="bilinear", align_corners=False
+                diff, size=(height_img, width_img), mode="bilinear", align_corners=False
             )
 
             anomaly_maps.append(diff_upsampled)

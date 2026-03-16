@@ -112,10 +112,10 @@ class CoreRRCF(BaseDetector):
         self.random_state = random_state
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_array.shape[0])
         if n == 0:
             raise ValueError("X must be non-empty")
         if self.n_trees <= 0:
@@ -135,14 +135,14 @@ class CoreRRCF(BaseDetector):
             else:
                 idxs = np.arange(n, dtype=np.int64)
             root = _build_random_cut_tree(
-                X_arr, np.asarray(idxs, dtype=np.int64), max_depth=max_depth, rng=rng
+                x_array, np.asarray(idxs, dtype=np.int64), max_depth=max_depth, rng=rng
             )
             forest.append(root)
 
         self._forest = forest
-        self._X_train = X_arr
+        self._X_train = x_array
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
         self._process_decision_scores()
         return self
 
@@ -150,14 +150,14 @@ class CoreRRCF(BaseDetector):
         require_fitted(self, ["_forest"])
         forest: list[_RCTNode] = self._forest  # type: ignore[assignment]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X_arr.shape[0] == 0:
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        if x_array.shape[0] == 0:
             return np.zeros((0,), dtype=np.float64)
 
-        scores = np.zeros((X_arr.shape[0],), dtype=np.float64)
+        scores = np.zeros((x_array.shape[0],), dtype=np.float64)
         for t in forest:
             depths = np.asarray(
-                [_path_length(t, X_arr[i]) for i in range(X_arr.shape[0])], dtype=np.float64
+                [_path_length(t, x_array[i]) for i in range(x_array.shape[0])], dtype=np.float64
             )
             scores += 1.0 / (depths + 1.0)
         scores /= float(len(forest))

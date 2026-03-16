@@ -4,7 +4,7 @@ import numpy as np
 def test_standard_scaler_extractor_centers_features() -> None:
     from pyimgano.features.scaler import StandardScalerExtractor
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(loc=10.0, scale=3.0, size=(50, 4))
 
     ext = StandardScalerExtractor()

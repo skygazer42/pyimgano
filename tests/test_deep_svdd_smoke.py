@@ -9,7 +9,7 @@ pytest.importorskip("torch")
 def test_core_deep_svdd_smoke_can_fit_and_score() -> None:
     from pyimgano.models.deep_svdd import CoreDeepSVDD
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(20, 8)).astype(np.float32)
 
     det = CoreDeepSVDD(
@@ -41,7 +41,7 @@ def test_vision_deep_svdd_smoke_can_fit_with_dummy_features() -> None:
 
         def extract(self, inputs):
             inputs = list(inputs)
-            rng = np.random.RandomState(123)
+            rng = np.random.default_rng(123)
             return rng.normal(size=(len(inputs), self.feature_dim)).astype(np.float32)
 
     det = create_model(

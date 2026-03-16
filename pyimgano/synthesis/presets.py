@@ -700,7 +700,7 @@ def make_preset_mixture(
     type, each sample can draw from a *mixture* of defect generators.
     """
 
-    items = [str(n).strip().lower() for n in list(names)]
+    items = [str(n).strip().lower() for n in names]
     if not items:
         raise ValueError("names must be non-empty")
 

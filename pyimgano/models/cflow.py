@@ -28,6 +28,7 @@ from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
 class ConditionalFlow(nn.Module):
@@ -223,12 +224,12 @@ class VisionCFlow(BaseVisionDeepDetector):
         """
         logger.info("Training CFlow detector")
 
-        X_list = list(X)
-        if not X_list:
+        x_list = list(X)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Create dataset
-        dataset = ImagePathDataset(X_list, transform=self.transform)
+        dataset = ImagePathDataset(x_list, transform=self.transform)
         dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
@@ -238,7 +239,7 @@ class VisionCFlow(BaseVisionDeepDetector):
         )
 
         # Setup optimizer
-        optimizer = Adam(self.flow.parameters(), lr=self.lr)
+        optimizer = Adam(self.flow.parameters(), lr=self.lr, weight_decay=0.0)
 
         # Training loop
         self.flow.train()
@@ -291,7 +292,7 @@ class VisionCFlow(BaseVisionDeepDetector):
 
         # Mark as fitted and compute training scores to establish a threshold.
         self._is_fitted = True
-        self.decision_scores_ = self.decision_function(X_list)
+        self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
 
         return self
@@ -339,7 +340,7 @@ class VisionCFlow(BaseVisionDeepDetector):
             )
 
         if not self._is_fitted or not hasattr(self, "threshold_"):
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         scores = self.decision_function(X)
         return (scores >= self.threshold_).astype(int)
@@ -354,16 +355,16 @@ class VisionCFlow(BaseVisionDeepDetector):
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         if not self._is_fitted:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         self.flow.eval()
 
-        X_list = list(X)
-        scores = np.zeros(len(X_list), dtype=np.float64)
+        x_list = list(X)
+        scores = np.zeros(len(x_list), dtype=np.float64)
 
-        logger.info("Computing anomaly scores for %d images", len(X_list))
+        logger.info("Computing anomaly scores for %d images", len(x_list))
 
-        for idx, img_path in enumerate(X_list):
+        for idx, img_path in enumerate(x_list):
             try:
                 img = cv2.imread(img_path)
                 if img is None:
@@ -382,7 +383,7 @@ class VisionCFlow(BaseVisionDeepDetector):
     def get_anomaly_map(self, image_path: str) -> NDArray:
         """Generate pixel-level anomaly heatmap."""
         if not self._is_fitted:
-            raise RuntimeError("Model not fitted. Call fit() first.")
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         img = cv2.imread(image_path)
         if img is None:

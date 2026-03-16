@@ -328,7 +328,7 @@ class BGADDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get image size
-        H_img, W_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Extract features
         features = self._extract_features(X)  # [N, C, H, W]
@@ -363,10 +363,10 @@ class BGADDetector(BaseVisionDeepDetector):
         # Upsample to image size
         from scipy.ndimage import gaussian_filter, zoom
 
-        upsampled_maps = np.zeros((N, H_img, W_img))
+        upsampled_maps = np.zeros((N, height_img, width_img))
         for i in range(N):
             # Upsample
-            zoom_factors = (H_img / H, W_img / W)
+            zoom_factors = (height_img / H, width_img / W)
             upsampled = zoom(anomaly_maps[i], zoom_factors, order=1)
 
             # Smooth

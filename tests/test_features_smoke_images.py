@@ -7,8 +7,8 @@ import pytest
 def test_feature_extractors_smoke_on_synthetic_images() -> None:
     from pyimgano.features import create_feature_extractor
 
-    rng = np.random.RandomState(0)
-    imgs = [(rng.rand(32, 32, 3) * 255).astype(np.uint8) for _ in range(3)]
+    rng = np.random.default_rng(0)
+    imgs = [(rng.random((32, 32, 3)) * 255).astype(np.uint8) for _ in range(3)]
 
     has_skimage = importlib.util.find_spec("skimage") is not None
 
@@ -47,7 +47,7 @@ def test_feature_extractors_smoke_on_synthetic_images() -> None:
 def test_feature_extractors_smoke_on_vectors() -> None:
     from pyimgano.features import create_feature_extractor
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(50, 8))
 
     identity = create_feature_extractor("identity")

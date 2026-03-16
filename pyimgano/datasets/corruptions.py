@@ -110,7 +110,7 @@ class CorruptionsDataset(Dataset):
         synthesis_preset: str = "scratch",
         synthesis_blend: str = "alpha",
     ) -> None:
-        self.image_paths = [str(p) for p in list(image_paths)]
+        self.image_paths = [str(p) for p in image_paths]
         self.corruption = str(corruption)
         self.severity = int(severity)
         self.seed = int(seed)
@@ -121,7 +121,7 @@ class CorruptionsDataset(Dataset):
         if mask_paths is None:
             self.mask_paths = None
         else:
-            mp = [str(p) for p in list(mask_paths)]
+            mp = [str(p) for p in mask_paths]
             if len(mp) != len(self.image_paths):
                 raise ValueError("mask_paths length must match image_paths length")
             self.mask_paths = mp

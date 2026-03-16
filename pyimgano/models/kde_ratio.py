@@ -53,11 +53,11 @@ class CoreKDERatio(BaseDetector):
         self.standardize = bool(standardize)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         scaler = StandardScaler() if bool(self.standardize) else None
-        Z = scaler.fit_transform(X_arr) if scaler is not None else X_arr
+        Z = scaler.fit_transform(x_array) if scaler is not None else x_array
 
         kde_local = KernelDensity(bandwidth=float(self.bandwidth_local), kernel=str(self.kernel))
         kde_global = KernelDensity(bandwidth=float(self.bandwidth_global), kernel=str(self.kernel))
@@ -68,16 +68,16 @@ class CoreKDERatio(BaseDetector):
         self._kde_local = kde_local
         self._kde_global = kde_global
 
-        scores = self.decision_function(X_arr)
+        scores = self.decision_function(x_array)
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).reshape(-1)
         self._process_decision_scores()
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201
         require_fitted(self, ["_kde_local", "_kde_global"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         scaler = getattr(self, "_scaler", None)
-        Z = scaler.transform(X_arr) if scaler is not None else X_arr
+        Z = scaler.transform(x_array) if scaler is not None else x_array
 
         ll_local = np.asarray(self._kde_local.score_samples(Z), dtype=np.float64).reshape(-1)  # type: ignore[attr-defined]
         ll_global = np.asarray(self._kde_global.score_samples(Z), dtype=np.float64).reshape(-1)  # type: ignore[attr-defined]

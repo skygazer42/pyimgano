@@ -20,11 +20,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pyimgano.models import ECOD
 from pyimgano.preprocessing import ImageEnhancer, PreprocessingMixin, PreprocessingPipeline
 
+CREATE_SAMPLE_IMAGES_SEED = 7
+BASIC_OPERATIONS_SEED = 11
+PREPROCESSING_PIPELINE_SEED = 19
+
 
 def create_sample_images():
     """Create sample images for demonstration."""
     images = []
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(CREATE_SAMPLE_IMAGES_SEED)
 
     for i in range(10):
         # Create varied sample images
@@ -53,7 +57,7 @@ def example_basic_operations():
 
     # Create enhancer
     enhancer = ImageEnhancer()
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(BASIC_OPERATIONS_SEED)
 
     # Create sample image
     img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -93,7 +97,7 @@ def example_preprocessing_pipeline():
     print("\n" + "=" * 60)
     print("Example 2: Preprocessing Pipeline")
     print("=" * 60)
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(PREPROCESSING_PIPELINE_SEED)
 
     # Create sample image
     img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)

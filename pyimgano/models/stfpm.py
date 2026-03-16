@@ -253,12 +253,12 @@ class VisionSTFPM(BaseVisionDeepDetector):
         """
         logger.info("Training STFPM detector on normal images")
 
-        X_list = list(X)
-        if not X_list:
+        x_list = list(X)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Create dataset and dataloader
-        dataset = ImagePathDataset(X_list, transform=self.transform)
+        dataset = ImagePathDataset(x_list, transform=self.transform)
         dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
@@ -316,11 +316,11 @@ class VisionSTFPM(BaseVisionDeepDetector):
         logger.info("STFPM training completed")
 
         # Compute normalization statistics on training set
-        self._compute_normalization_stats(X_list)
+        self._compute_normalization_stats(x_list)
 
         # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
-        self.decision_scores_ = self.decision_function(X_list)
+        self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
 
         return self
@@ -458,12 +458,12 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         self.student.eval()
 
-        X_list = list(X)
-        scores = np.zeros(len(X_list), dtype=np.float64)
+        x_list = list(X)
+        scores = np.zeros(len(x_list), dtype=np.float64)
 
-        logger.info("Computing anomaly scores for %d images", len(X_list))
+        logger.info("Computing anomaly scores for %d images", len(x_list))
 
-        for idx, image in enumerate(X_list):
+        for idx, image in enumerate(x_list):
             try:
                 score = self._compute_anomaly_score(image)
 

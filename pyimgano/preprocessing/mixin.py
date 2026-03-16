@@ -16,6 +16,8 @@ from .enhancer import ImageEnhancer, PreprocessingPipeline
 
 logger = logging.getLogger(__name__)
 
+PREPROCESSING_DISABLED_ERROR = "Preprocessing not enabled"
+
 
 class PreprocessingMixin:
     """
@@ -293,7 +295,7 @@ class PreprocessingMixin:
             Edge-detected image
         """
         if not self.preprocessing_enabled:
-            raise RuntimeError("Preprocessing not enabled")
+            raise RuntimeError(PREPROCESSING_DISABLED_ERROR)
 
         if isinstance(image, str):
             image = cv2.imread(image)
@@ -321,7 +323,7 @@ class PreprocessingMixin:
             Blurred image
         """
         if not self.preprocessing_enabled:
-            raise RuntimeError("Preprocessing not enabled")
+            raise RuntimeError(PREPROCESSING_DISABLED_ERROR)
 
         if isinstance(image, str):
             image = cv2.imread(image)
@@ -356,7 +358,7 @@ class PreprocessingMixin:
             Processed image
         """
         if not self.preprocessing_enabled:
-            raise RuntimeError("Preprocessing not enabled")
+            raise RuntimeError(PREPROCESSING_DISABLED_ERROR)
 
         if isinstance(image, str):
             image = cv2.imread(image)
@@ -438,10 +440,10 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
         self
         """
         # Preprocess all training images
-        X_processed = self.preprocess_images(X)
+        x_processed = self.preprocess_images(X)
 
         # Your fitting logic here
-        logger.info("Fitting on %d preprocessed images", len(X_processed))
+        logger.info("Fitting on %d preprocessed images", len(x_processed))
 
         return self
 
@@ -460,9 +462,10 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
             Anomaly scores
         """
         # Preprocess all test images
-        X_processed = self.preprocess_images(X)
+        x_processed = self.preprocess_images(X)
 
         # Your prediction logic here
-        scores = np.random.rand(len(X_processed))  # Placeholder
+        rng = np.random.default_rng(0)
+        scores = rng.random(len(x_processed))  # Placeholder
 
         return scores

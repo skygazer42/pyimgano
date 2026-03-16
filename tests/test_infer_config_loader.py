@@ -64,8 +64,8 @@ def test_infer_config_category_selection_propagates_threshold_and_checkpoint(
     }
     out = select_infer_category(payload, category="cat")
     assert out["category"] == "cat"
-    assert out["threshold"] == 0.7
-    assert out["threshold_provenance"]["quantile"] == 0.7
+    assert out["threshold"] == pytest.approx(0.7)
+    assert out["threshold_provenance"]["quantile"] == pytest.approx(0.7)
     assert out["checkpoint"]["path"] == "checkpoints/cat/model.pt"
     assert "per_category" not in out
 

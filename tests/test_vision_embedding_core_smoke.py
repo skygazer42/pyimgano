@@ -7,7 +7,7 @@ def test_vision_embedding_core_smoke_on_vectors() -> None:
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = [rng.normal(size=(12,)).astype(np.float32) for _ in range(80)]
 
     det = create_model(

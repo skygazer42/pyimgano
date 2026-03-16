@@ -179,16 +179,16 @@ class VisionDFM(BaseVisionDeepDetector):
         """
         logger.info("Fitting DFM detector (training-free)")
 
-        X_list = list(X)
-        if not X_list:
+        x_list = list(X)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Extract features
         features = []
 
-        for idx, img_path in enumerate(X_list):
+        for idx, img_path in enumerate(x_list):
             if idx % 10 == 0:
-                logger.debug("Processing image %d/%d", idx + 1, len(X_list))
+                logger.debug("Processing image %d/%d", idx + 1, len(x_list))
 
             try:
                 feat = self._extract_features(img_path)
@@ -263,12 +263,12 @@ class VisionDFM(BaseVisionDeepDetector):
         if self.mean is None or self.inv_cov is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        X_list = list(X)
-        scores = np.zeros(len(X_list), dtype=np.float64)
+        x_list = list(X)
+        scores = np.zeros(len(x_list), dtype=np.float64)
 
-        logger.info("Computing anomaly scores for %d images", len(X_list))
+        logger.info("Computing anomaly scores for %d images", len(x_list))
 
-        for idx, img_path in enumerate(X_list):
+        for idx, img_path in enumerate(x_list):
             try:
                 # Extract features
                 feat = self._extract_features(img_path)

@@ -5,7 +5,7 @@ def test_core_odin_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(80, 5))
 
     det = create_model("core_odin", contamination=0.1, n_neighbors=10)
@@ -24,7 +24,7 @@ def test_vision_odin_with_identity_extractor() -> None:
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(1)
+    rng = np.random.default_rng(1)
     X = rng.normal(size=(60, 4))
     det = create_model(
         "vision_odin",

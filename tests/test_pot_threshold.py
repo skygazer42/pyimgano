@@ -4,7 +4,7 @@ import numpy as np
 def test_fit_pot_threshold_returns_finite_threshold_and_info() -> None:
     from pyimgano.calibration.pot_threshold import fit_pot_threshold
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     scores = rng.exponential(scale=1.0, size=500)
 
     thr, info = fit_pot_threshold(scores, alpha=0.1, tail_fraction=0.2, min_exceedances=20)

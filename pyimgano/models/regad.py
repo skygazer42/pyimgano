@@ -277,7 +277,7 @@ class VisionRegAD(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize network
         if self.reg_network_ is None:
@@ -286,8 +286,8 @@ class VisionRegAD(BaseVisionDeepDetector):
         # Build reference template from training data
         with torch.no_grad():
             all_features = []
-            for i in range(0, min(len(X_tensor), 100), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, min(len(x_tensor), 100), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
                 features, _ = self.reg_network_(batch)
                 all_features.append(features)
 
@@ -295,11 +295,13 @@ class VisionRegAD(BaseVisionDeepDetector):
             self.reference_features_ = torch.cat(all_features, dim=0).mean(dim=0, keepdim=True)
 
         # Training - learn to register to reference
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Only optimize STN parameters
-        optimizer = torch.optim.Adam(self.reg_network_.stn.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(
+            self.reg_network_.stn.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
 
         self.reg_network_.stn.train()
 
@@ -352,12 +354,12 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         self.reg_network_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register features
                 _, registered = self.reg_network_(batch)
@@ -403,13 +405,13 @@ class VisionRegAD(BaseVisionDeepDetector):
         """
         self.reg_network_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         H, W = X.shape[1:3]
         error_maps = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and register
                 _, registered = self.reg_network_(batch)

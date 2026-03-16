@@ -97,11 +97,11 @@ class CoreEllipticEnvelope(BaseDetector):
         self.random_state = random_state
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         cov = _fit_covariance(
-            X_arr,
+            x_arr,
             robust=bool(self.robust),
             support_fraction=self.support_fraction,
             random_state=self.random_state,
@@ -109,7 +109,7 @@ class CoreEllipticEnvelope(BaseDetector):
         )
 
         # sklearn returns squared Mahalanobis distances (>= 0).
-        scores = np.asarray(cov.mahalanobis(X_arr), dtype=np.float64).reshape(-1)
+        scores = np.asarray(cov.mahalanobis(x_arr), dtype=np.float64).reshape(-1)
 
         self.covariance_ = cov
         self.decision_scores_ = scores
@@ -118,9 +118,9 @@ class CoreEllipticEnvelope(BaseDetector):
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like
         require_fitted(self, ["covariance_"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         cov = getattr(self, "covariance_")
-        scores = np.asarray(cov.mahalanobis(X_arr), dtype=np.float64).reshape(-1)
+        scores = np.asarray(cov.mahalanobis(x_arr), dtype=np.float64).reshape(-1)
         return scores
 
 

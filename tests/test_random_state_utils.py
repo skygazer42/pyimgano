@@ -17,12 +17,12 @@ def test_check_random_state_int_is_deterministic() -> None:
 def test_check_random_state_pass_through() -> None:
     from pyimgano.utils.random_state import check_random_state
 
-    rs = np.random.RandomState(123)
+    rs = np.random.default_rng(123)
     assert check_random_state(rs) is rs
 
 
-def test_check_random_state_none_returns_randomstate() -> None:
+def test_check_random_state_none_returns_generator() -> None:
     from pyimgano.utils.random_state import check_random_state
 
     rs = check_random_state(None)
-    assert isinstance(rs, np.random.RandomState)
+    assert isinstance(rs, np.random.Generator)

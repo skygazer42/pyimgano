@@ -21,9 +21,10 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.random_projection import GaussianRandomProjection
 
+from pyimgano.utils.optional_deps import require
+
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
-from pyimgano.utils.optional_deps import require
 
 logger = logging.getLogger(__name__)
 
@@ -204,19 +205,19 @@ class VisionPaDiM(BaseVisionDeepDetector):
         return f"<ndarray:{idx} shape={tuple(item.shape)} dtype={item.dtype}>"
 
     def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPaDiM":
-        X_list = list(X)
-        if not X_list:
+        x_list = list(X)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Fit random projection on a small subset for speed/stability.
         proj_fit = []
-        for image in X_list[: min(self.projection_fit_samples, len(X_list))]:
+        for image in x_list[: min(self.projection_fit_samples, len(x_list))]:
             proj_fit.append(self._extract_patch_features(image))
         proj_fit_mat = np.vstack(proj_fit)
         self.random_projection.fit(proj_fit_mat)
 
         reduced_features: list[NDArray] = []
-        for idx, image in enumerate(X_list):
+        for idx, image in enumerate(x_list):
             try:
                 feat = self._extract_patch_features(image)
                 reduced = self.random_projection.transform(feat)
@@ -255,7 +256,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         self.inv_covs = inv_covs
 
         # Calibrate threshold for `predict()`.
-        self.decision_scores_ = self.decision_function(X_list)
+        self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
         return self
 
@@ -284,10 +285,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         self._check_fitted()
-        X_list = list(X)
-        scores = np.zeros(len(X_list), dtype=np.float32)
+        x_list = list(X)
+        scores = np.zeros(len(x_list), dtype=np.float32)
 
-        for i, image in enumerate(X_list):
+        for i, image in enumerate(x_list):
             try:
                 distances = self._compute_patch_distances(image)
                 scores[i] = float(np.max(distances))

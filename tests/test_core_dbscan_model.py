@@ -5,7 +5,7 @@ def test_core_dbscan_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     # Two tight clusters + some noise
     c1 = rng.normal(loc=0.0, scale=0.2, size=(40, 3))
     c2 = rng.normal(loc=3.0, scale=0.2, size=(40, 3))

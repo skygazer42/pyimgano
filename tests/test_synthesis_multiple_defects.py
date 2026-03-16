@@ -37,7 +37,7 @@ def test_synthesis_multiple_defects_union_mask_and_meta() -> None:
     assert a1 > 0
     assert a2 >= a1
 
-    assert r2.meta.get("severity") == 1.0
+    assert np.isclose(float(r2.meta.get("severity", 0.0)), 1.0)
     assert int(r2.meta.get("num_defects", 0)) == 2
     assert int(r2.meta.get("defects_applied", 0)) == 2
 

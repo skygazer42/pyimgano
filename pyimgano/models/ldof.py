@@ -72,10 +72,10 @@ class CoreLDOF(BaseDetector):
         self.eps = float(eps)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_arr.shape[0])
         k = int(self.n_neighbors)
         if k <= 1:
             raise ValueError(f"n_neighbors must be >= 2, got {self.n_neighbors}")
@@ -88,20 +88,20 @@ class CoreLDOF(BaseDetector):
             p=self.p,
             n_jobs=self.n_jobs,
         )
-        nn.fit(X_arr)
-        distances, indices = nn.kneighbors(X_arr, n_neighbors=k + 1, return_distance=True)
+        nn.fit(x_arr)
+        distances, indices = nn.kneighbors(x_arr, n_neighbors=k + 1, return_distance=True)
         d = np.asarray(distances[:, 1:], dtype=np.float64)
         nbr_idx = np.asarray(indices[:, 1:], dtype=np.int64)
 
         d_in = np.mean(d, axis=1)
         d_out = np.empty(n, dtype=np.float64)
         for i in range(n):
-            pts = X_arr[nbr_idx[i]]
+            pts = x_arr[nbr_idx[i]]
             d_out[i] = _mean_pairwise_distance(pts)
 
         scores = d_in / (d_out + float(self.eps))
         self._nn = nn
-        self._X_train = X_arr
+        self._X_train = x_arr
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).reshape(-1)
         self._process_decision_scores()
         return self
@@ -111,16 +111,16 @@ class CoreLDOF(BaseDetector):
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
         X_train = np.asarray(self._X_train, dtype=np.float64)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         k = int(self.n_neighbors)
 
-        distances, indices = nn.kneighbors(X_arr, n_neighbors=k, return_distance=True)
+        distances, indices = nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)
         d = np.asarray(distances, dtype=np.float64)
         nbr_idx = np.asarray(indices, dtype=np.int64)
 
         d_in = np.mean(d, axis=1)
-        d_out = np.empty(X_arr.shape[0], dtype=np.float64)
-        for i in range(X_arr.shape[0]):
+        d_out = np.empty(x_arr.shape[0], dtype=np.float64)
+        for i in range(x_arr.shape[0]):
             pts = X_train[nbr_idx[i]]
             d_out[i] = _mean_pairwise_distance(pts)
 

@@ -259,7 +259,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -267,7 +267,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
 
         # Get feature dimension
         with torch.no_grad():
-            sample_features = self.feature_extractor_(X_tensor[:1].to(self.device))
+            sample_features = self.feature_extractor_(x_tensor[:1].to(self.device))
             feature_dim = sample_features.shape[1]
 
         # Initialize modules
@@ -282,7 +282,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
             self.adapter_ = FeatureAdapter(feature_dim=feature_dim).to(self.device)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
@@ -334,11 +334,11 @@ class VisionPromptAD(BaseVisionDeepDetector):
                 print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {avg_loss:.4f}")
 
         # Build normal prototypes
-        self._build_prototypes(X_tensor)
+        self._build_prototypes(x_tensor)
 
         return self
 
-    def _build_prototypes(self, X_tensor: torch.Tensor):
+    def _build_prototypes(self, x_tensor: torch.Tensor):
         """Build prototypes from normal samples."""
         self.prompt_learner_.eval()
         self.adapter_.eval()
@@ -346,8 +346,8 @@ class VisionPromptAD(BaseVisionDeepDetector):
         all_features = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and process features
                 features = self.feature_extractor_(batch)
@@ -381,12 +381,12 @@ class VisionPromptAD(BaseVisionDeepDetector):
         self.prompt_learner_.eval()
         self.adapter_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract and process features
                 features = self.feature_extractor_(batch)

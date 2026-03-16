@@ -14,7 +14,7 @@ def test_base_detector_can_use_pot_thresholding() -> None:
         def decision_function(self, X):  # noqa: ANN001
             return np.asarray(X, dtype=np.float64)
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     train_scores = rng.exponential(scale=1.0, size=500)
 
     det = Dummy(contamination=0.1).use_pot_thresholding(tail_fraction=0.2, min_exceedances=20)

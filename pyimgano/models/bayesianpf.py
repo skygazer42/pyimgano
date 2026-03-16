@@ -279,7 +279,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -287,7 +287,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         # Get feature dimension
         with torch.no_grad():
-            sample_features = self.feature_extractor_(X_tensor[:1].to(self.device))
+            sample_features = self.feature_extractor_(x_tensor[:1].to(self.device))
             feature_dim = sample_features.shape[1]
 
         # Initialize Bayesian prompt generator
@@ -311,8 +311,8 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         with torch.no_grad():
             all_scores = []
-            for i in range(0, len(X_tensor), 32):
-                batch = X_tensor[i : i + 32].to(self.device)
+            for i in range(0, len(x_tensor), 32):
+                batch = x_tensor[i : i + 32].to(self.device)
                 features = self.feature_extractor_(batch)
 
                 # Sample multiple times for Bayesian inference
@@ -364,12 +364,12 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         self.prompt_generator_.eval()
         self.prompt_flow_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)
@@ -429,13 +429,13 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         self.prompt_generator_.eval()
         self.prompt_flow_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
         uncertainties = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), 32):
-                batch = X_tensor[i : i + 32].to(self.device)
+            for i in range(0, len(x_tensor), 32):
+                batch = x_tensor[i : i + 32].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)

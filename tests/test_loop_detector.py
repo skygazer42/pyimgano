@@ -5,7 +5,7 @@ def test_core_loop_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401 - registry population
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(64, 5))
 
     det = create_model("core_loop", contamination=0.1, n_neighbors=10, lambda_=3.0)
@@ -24,7 +24,7 @@ def test_vision_loop_with_identity_extractor() -> None:
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(1)
+    rng = np.random.default_rng(1)
     X = rng.normal(size=(50, 4))
     det = create_model(
         "vision_loop",

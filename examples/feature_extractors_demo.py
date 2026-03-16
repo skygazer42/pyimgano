@@ -17,7 +17,7 @@ def _parse_kwargs(text: str | None) -> dict[str, Any]:
     return dict(parsed)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="feature_extractors_demo")
     parser.add_argument(
         "--list", action="store_true", help="List available feature extractors and exit"
@@ -39,13 +39,14 @@ def main(argv: list[str] | None = None) -> int:
     if bool(args.list):
         for name in list_feature_extractors():
             print(name)
-        return 0
+        return
 
     ext = create_feature_extractor(str(args.name), **_parse_kwargs(args.kwargs))
 
-    rng = np.random.RandomState(int(args.seed))
+    rng = np.random.default_rng(int(args.seed))
     imgs = [
-        (rng.rand(int(args.h), int(args.w), 3) * 255).astype(np.uint8) for _ in range(int(args.n))
+        (rng.random((int(args.h), int(args.w), 3)) * 255).astype(np.uint8)
+        for _ in range(int(args.n))
     ]
 
     fit = getattr(ext, "fit", None)
@@ -61,8 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Features shape: {feats.shape}")
     print(f"Features dtype: {feats.dtype}")
     print(f"Finite: {bool(np.all(np.isfinite(feats)))}")
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

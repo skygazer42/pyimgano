@@ -248,13 +248,14 @@ def build_accelerator_checks() -> dict[str, Any]:
         devices_error = None
         try:
             try:
-                from openvino.runtime import Core  # type: ignore[import-not-found]
+                openvino_runtime = __import__("openvino.runtime", fromlist=["Core"])
+                openvino_core_cls = getattr(openvino_runtime, "Core", None)
             except Exception:
-                Core = getattr(getattr(ov_mod, "runtime", None), "Core", None)  # type: ignore[assignment]
-            if Core is None:
+                openvino_core_cls = getattr(getattr(ov_mod, "runtime", None), "Core", None)  # type: ignore[assignment]
+            if openvino_core_cls is None:
                 raise RuntimeError("openvino.runtime.Core not found")
 
-            core = Core()
+            core = openvino_core_cls()
             if hasattr(core, "available_devices"):
                 devices = list(core.available_devices)
             elif hasattr(core, "get_available_devices"):

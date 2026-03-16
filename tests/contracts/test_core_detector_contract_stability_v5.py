@@ -22,21 +22,21 @@ def test_core_detector_contract_torch_inputs_and_nan_handling(model_name: str) -
     from pyimgano.models.registry import create_model
 
     rng = np.random.default_rng(0)
-    X_np = rng.standard_normal(size=(96, 12)).astype(np.float32)
-    X_torch = torch.as_tensor(X_np, dtype=torch.float32)
+    x_np = rng.standard_normal(size=(96, 12)).astype(np.float32)
+    x_torch = torch.as_tensor(x_np, dtype=torch.float32)
 
     det = create_model(model_name, contamination=0.1)
-    det.fit(X_torch)
+    det.fit(x_torch)
 
-    scores = np.asarray(det.decision_function(X_torch[:11]), dtype=np.float64).reshape(-1)
+    scores = np.asarray(det.decision_function(x_torch[:11]), dtype=np.float64).reshape(-1)
     assert scores.shape == (11,)
     assert np.all(np.isfinite(scores))
 
-    X_bad = X_torch.clone()
-    X_bad[0, 0] = float("nan")
+    x_bad = x_torch.clone()
+    x_bad[0, 0] = float("nan")
 
     try:
-        out = det.decision_function(X_bad[:7])
+        out = det.decision_function(x_bad[:7])
     except ValueError:
         return
 

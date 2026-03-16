@@ -72,22 +72,22 @@ class _MambaReconstructor:
         mamba_ssm = _require_mamba_ssm()
 
         # Mamba class import path varies by version; support a couple of common ones.
-        Mamba = getattr(mamba_ssm, "Mamba", None)
-        if Mamba is None:  # pragma: no cover
+        mamba_cls = getattr(mamba_ssm, "Mamba", None)
+        if mamba_cls is None:  # pragma: no cover
             try:
-                from mamba_ssm.modules.mamba_simple import Mamba as _Mamba  # type: ignore
+                from mamba_ssm.modules.mamba_simple import Mamba as _mamba_cls  # type: ignore
             except Exception as exc:  # pragma: no cover
                 raise ImportError(
                     "Unable to import Mamba from mamba_ssm. "
                     "Your installed mamba-ssm version may be unsupported."
                 ) from exc
-            Mamba = _Mamba
+            mamba_cls = _mamba_cls
 
         class Block(torch.nn.Module):
             def __init__(self) -> None:
                 super().__init__()
                 self.norm = torch.nn.LayerNorm(d_model)
-                self.mamba = Mamba(
+                self.mamba = mamba_cls(
                     d_model=d_model,
                     d_state=int(d_state),
                     d_conv=int(d_conv),

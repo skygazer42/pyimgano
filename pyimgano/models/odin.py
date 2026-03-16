@@ -48,10 +48,10 @@ class CoreODIN(BaseDetector):
         self.eps = float(eps)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_arr.shape[0])
         k = int(self.n_neighbors)
         if k <= 0:
             raise ValueError(f"n_neighbors must be > 0, got {self.n_neighbors}")
@@ -64,8 +64,8 @@ class CoreODIN(BaseDetector):
             p=self.p,
             n_jobs=self.n_jobs,
         )
-        nn.fit(X_arr)
-        _d, indices = nn.kneighbors(X_arr, n_neighbors=k + 1, return_distance=True)
+        nn.fit(x_arr)
+        _d, indices = nn.kneighbors(x_arr, n_neighbors=k + 1, return_distance=True)
         nbr_idx = np.asarray(indices[:, 1:], dtype=np.int64)
 
         indegree = np.bincount(nbr_idx.ravel(), minlength=n).astype(np.float64)
@@ -76,7 +76,7 @@ class CoreODIN(BaseDetector):
         scores = 1.0 - (indegree / denom)
 
         self._nn = nn
-        self._X_train = X_arr
+        self._X_train = x_arr
         self.indegree_ = indegree
         self.indegree_max_ = indegree_max
 
@@ -90,10 +90,10 @@ class CoreODIN(BaseDetector):
         indegree = np.asarray(self.indegree_, dtype=np.float64).reshape(-1)  # type: ignore[arg-type]
         indegree_max = float(self.indegree_max_)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         k = int(self.n_neighbors)
 
-        _d, indices = nn.kneighbors(X_arr, n_neighbors=k, return_distance=True)
+        _d, indices = nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)
         nbr_idx = np.asarray(indices, dtype=np.int64)
 
         mean_indeg = np.mean(indegree[nbr_idx], axis=1)

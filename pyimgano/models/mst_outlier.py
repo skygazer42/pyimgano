@@ -24,17 +24,17 @@ from .baseml import BaseVisionDetector
 from .registry import register_model
 
 
-def _mst_node_scores_from_distance_matrix(D: np.ndarray) -> np.ndarray:
+def _mst_node_scores_from_distance_matrix(distance_matrix: np.ndarray) -> np.ndarray:
     """Compute per-node MST score = max incident edge length (undirected)."""
 
     # Local import: keep import surface lighter.
     from scipy.sparse.csgraph import minimum_spanning_tree
 
-    n = int(D.shape[0])
+    n = int(distance_matrix.shape[0])
     if n <= 1:
         return np.zeros((n,), dtype=np.float64)
 
-    mst = minimum_spanning_tree(np.asarray(D, dtype=np.float64))
+    mst = minimum_spanning_tree(np.asarray(distance_matrix, dtype=np.float64))
     coo = mst.tocoo()
 
     scores = np.zeros((n,), dtype=np.float64)
@@ -70,13 +70,13 @@ class CoreMSTOutlier(BaseDetector):
         self.score_mode = str(score_mode)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_array.shape[0])
         if n <= 1:
-            self._X_train = X_arr
-            self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(X_arr)
+            self._X_train = x_array
+            self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(x_array)
             self._node_scores = np.zeros((n,), dtype=np.float64)
             self.decision_scores_ = np.zeros((n,), dtype=np.float64)
             self._process_decision_scores()
@@ -85,15 +85,15 @@ class CoreMSTOutlier(BaseDetector):
         # Compute pairwise distances on train set.
         from sklearn.metrics import pairwise_distances
 
-        D = pairwise_distances(X_arr, metric=self.metric)
+        D = pairwise_distances(x_array, metric=self.metric)
         # Force a stable diagonal.
         np.fill_diagonal(D, 0.0)
 
         node_scores = _mst_node_scores_from_distance_matrix(D)
 
-        self._X_train = X_arr
+        self._X_train = x_array
         self._node_scores = np.asarray(node_scores, dtype=np.float64).reshape(-1)
-        self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(X_arr)
+        self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(x_array)
 
         # Training score definition: node MST score.
         self.decision_scores_ = np.asarray(self._node_scores, dtype=np.float64).reshape(-1)
@@ -102,10 +102,10 @@ class CoreMSTOutlier(BaseDetector):
 
     def decision_function(self, X):  # noqa: ANN001, ANN201
         require_fitted(self, ["_X_train", "_nn", "_node_scores"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
 
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
-        dist, ind = nn.kneighbors(X_arr, n_neighbors=1, return_distance=True)
+        dist, ind = nn.kneighbors(x_array, n_neighbors=1, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64).reshape(-1)
         ind = np.asarray(ind, dtype=np.int64).reshape(-1)
 

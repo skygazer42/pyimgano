@@ -74,7 +74,7 @@ class CoreHBOS:
         log_prob = -np.log(np.clip(probs, self.eps, 1.0))
         return edges.astype(np.float64, copy=False), log_prob.astype(np.float64, copy=False)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         if X.shape[0] == 0:
             raise ValueError("Training set cannot be empty")

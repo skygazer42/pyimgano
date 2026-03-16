@@ -6,7 +6,7 @@ def test_vision_feature_pipeline_glues_core_detector_and_extractor() -> None:
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.pipelines.feature_pipeline import VisionFeaturePipeline
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(80, 5))
 
     pipe = VisionFeaturePipeline(

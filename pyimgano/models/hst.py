@@ -41,13 +41,13 @@ def _build_hst(
     *,
     depth: int,
     max_depth: int,
-    rng: np.random.RandomState,
+    rng: np.random.Generator,
 ) -> _HSTNode:
     if depth >= max_depth:
         return _HSTNode()
 
     d = int(lo.shape[0])
-    dim = int(rng.randint(0, d))
+    dim = int(rng.integers(0, d))
     a = float(lo[dim])
     b = float(hi[dim])
     if b <= a:
@@ -100,7 +100,7 @@ class CoreHST(BaseDetector):
         contamination: float = 0.1,
         n_trees: int = 25,
         max_depth: int = 10,
-        random_state: int | np.random.RandomState | None = None,
+        random_state: int | np.random.Generator | None = None,
     ) -> None:
         super().__init__(contamination=float(contamination))
         self.n_trees = int(n_trees)
@@ -108,10 +108,10 @@ class CoreHST(BaseDetector):
         self.random_state = random_state
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n, _ = X_arr.shape
+        n, _ = x_arr.shape
         if n == 0:
             raise ValueError("X must be non-empty")
         if self.n_trees <= 0:
@@ -119,8 +119,8 @@ class CoreHST(BaseDetector):
         if self.max_depth <= 0:
             raise ValueError("max_depth must be > 0")
 
-        lo = np.min(X_arr, axis=0)
-        hi = np.max(X_arr, axis=0)
+        lo = np.min(x_arr, axis=0)
+        hi = np.max(x_arr, axis=0)
         # Avoid degenerate ranges that would prevent meaningful cuts.
         same = hi <= lo
         if np.any(same):
@@ -136,14 +136,14 @@ class CoreHST(BaseDetector):
         # Count leaf masses.
         for root in forest:
             for i in range(n):
-                leaf = _leaf(root, X_arr[i], max_depth=int(self.max_depth))
+                leaf = _leaf(root, x_arr[i], max_depth=int(self.max_depth))
                 leaf.count += 1
 
         self._forest = forest
         self._lo = lo
         self._hi = hi
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
@@ -151,16 +151,16 @@ class CoreHST(BaseDetector):
         require_fitted(self, ["_forest"])
         forest: list[_HSTNode] = self._forest  # type: ignore[assignment]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X_arr.shape[0] == 0:
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        if x_arr.shape[0] == 0:
             return np.zeros((0,), dtype=np.float64)
 
-        scores = np.zeros((X_arr.shape[0],), dtype=np.float64)
+        scores = np.zeros((x_arr.shape[0],), dtype=np.float64)
         for root in forest:
             counts = np.asarray(
                 [
-                    _leaf(root, X_arr[i], max_depth=int(self.max_depth)).count
-                    for i in range(X_arr.shape[0])
+                    _leaf(root, x_arr[i], max_depth=int(self.max_depth)).count
+                    for i in range(x_arr.shape[0])
                 ],
                 dtype=np.float64,
             )
@@ -182,7 +182,7 @@ class VisionHST(BaseVisionDetector):
         contamination: float = 0.1,
         n_trees: int = 25,
         max_depth: int = 10,
-        random_state: int | np.random.RandomState | None = None,
+        random_state: int | np.random.Generator | None = None,
     ) -> None:
         self._detector_kwargs = {
             "contamination": float(contamination),

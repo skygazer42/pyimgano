@@ -6,7 +6,7 @@ def test_legacy_kmeans_anomaly_is_still_registered_and_fittable() -> None:
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(4)
+    rng = np.random.default_rng(4)
     X = rng.normal(size=(70, 5))
 
     det = create_model(

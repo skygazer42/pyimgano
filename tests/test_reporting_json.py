@@ -21,7 +21,7 @@ def test_save_run_report(tmp_path):
     save_run_report(path, results)
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["auroc"] == 0.9
+    assert np.isclose(data["auroc"], 0.9)
     assert data["flag"] is False
     assert data["labels"] == [0, 1, 0]
     assert data["nested"]["x"] == 1
@@ -49,7 +49,7 @@ def test_save_jsonl_records(tmp_path):
 
     parsed0 = json.loads(lines[0])
     assert parsed0["i"] == 1
-    assert parsed0["score"] == 0.25
+    assert np.isclose(parsed0["score"], 0.25)
     assert parsed0["ok"] is True
     assert parsed0["path"].endswith("x.png")
 

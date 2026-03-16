@@ -86,6 +86,6 @@ def resolve_model_specs(
     if specs is None:
         raise ValueError("specs cannot be None")
     out: list[Any] = []
-    for s in list(specs):
+    for s in specs:
         out.append(resolve_model_spec(s, default_contamination=default_contamination))
     return out

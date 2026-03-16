@@ -382,14 +382,14 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.info("Fitting PatchCore detector on training images")
 
-        X_list = list(X)
-        if not X_list:
+        x_list = list(X)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Optional: fit a projection on a small subset of training patches.
         if self.feature_projection_dim is not None:
             fit_patches: list[NDArray] = []
-            for image in X_list[: min(int(self.projection_fit_samples), len(X_list))]:
+            for image in x_list[: min(int(self.projection_fit_samples), len(x_list))]:
                 feat, _ = self._extract_patch_features(image)
                 fit_patches.append(np.asarray(feat, dtype=np.float32))
             if fit_patches:
@@ -398,9 +398,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
         # Extract features from all training images.
         all_features: list[NDArray] = []
 
-        for idx, image in enumerate(X_list):
+        for idx, image in enumerate(x_list):
             if idx % 10 == 0:
-                logger.debug("Processing image %d/%d", idx + 1, len(X_list))
+                logger.debug("Processing image %d/%d", idx + 1, len(x_list))
 
             try:
                 features, _ = self._extract_patch_features(image)
@@ -444,7 +444,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
-        self.decision_scores_ = self.decision_function(X_list)
+        self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
 
         logger.info("PatchCore training completed")
@@ -502,12 +502,12 @@ class VisionPatchCore(BaseVisionDeepDetector):
         if self.memory_bank is None or self.nn_index is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        X_list = list(X)
-        scores = np.zeros(len(X_list))
+        x_list = list(X)
+        scores = np.zeros(len(x_list))
 
-        logger.info("Computing anomaly scores for %d images", len(X_list))
+        logger.info("Computing anomaly scores for %d images", len(x_list))
 
-        for idx, image in enumerate(X_list):
+        for idx, image in enumerate(x_list):
             try:
                 # Extract patch features
                 features, _ = self._extract_patch_features(image)

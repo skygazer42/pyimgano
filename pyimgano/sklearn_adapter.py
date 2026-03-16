@@ -90,7 +90,7 @@ class RegistryModelEstimator(BaseEstimator):
         import pyimgano.models  # noqa: F401 - registry population side effects
         from pyimgano.models.registry import create_model, list_models
 
-        X_norm = self._normalize_X(X, name="X")
+        x_norm = self._normalize_X(X, name="X")
 
         try:
             detector = create_model(self.model, **dict(self._model_kwargs))
@@ -98,13 +98,13 @@ class RegistryModelEstimator(BaseEstimator):
             available = ", ".join(list_models()[:25])
             suffix = "" if len(list_models()) <= 25 else ", ..."
             raise ValueError(
-                f"Unknown model name: {self.model!r}. " f"Available (partial): {available}{suffix}"
+                f"Unknown model name: {self.model!r}. Available (partial): {available}{suffix}"
             ) from exc
 
         try:
-            detector.fit(X_norm, y)
+            detector.fit(x_norm, y)
         except TypeError:
-            detector.fit(X_norm)
+            detector.fit(x_norm)
         self.detector_ = detector
         return self
 
@@ -113,9 +113,9 @@ class RegistryModelEstimator(BaseEstimator):
         if detector is None:
             raise NotFittedError("Estimator is not fitted. Call fit() before decision_function().")
 
-        X_norm = self._normalize_X(X, name="X")
-        expected = self._num_samples(X_norm)
-        scores = detector.decision_function(X_norm)
+        x_norm = self._normalize_X(X, name="X")
+        expected = self._num_samples(x_norm)
+        scores = detector.decision_function(x_norm)
         return self._ensure_1d_scores(scores, expected=expected)
 
     def predict(self, X):  # noqa: ANN001, ANN201 - sklearn signature
@@ -123,11 +123,11 @@ class RegistryModelEstimator(BaseEstimator):
         if detector is None:
             raise NotFittedError("Estimator is not fitted. Call fit() before predict().")
 
-        X_norm = self._normalize_X(X, name="X")
-        expected = self._num_samples(X_norm)
+        x_norm = self._normalize_X(X, name="X")
+        expected = self._num_samples(x_norm)
 
         if hasattr(detector, "predict"):
-            preds = detector.predict(X_norm)
+            preds = detector.predict(x_norm)
             arr = np.asarray(preds, dtype=int)
             if arr.ndim != 1:
                 arr = arr.reshape(-1)
@@ -147,7 +147,7 @@ class RegistryModelEstimator(BaseEstimator):
         threshold = getattr(detector, "threshold_", None)
         if threshold is None:
             raise AttributeError("Underlying detector does not expose predict() or threshold_.")
-        scores = self.decision_function(X_norm)
+        scores = self.decision_function(x_norm)
         return (scores >= float(threshold)).astype(int)
 
     def score_samples(self, X):  # noqa: ANN001, ANN201 - sklearn signature

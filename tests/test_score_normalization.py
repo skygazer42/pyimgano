@@ -21,8 +21,8 @@ def test_rank01_in_0_1_and_monotone() -> None:
     y = rank01(x)
     assert y.shape == (4,)
     assert np.isfinite(y).all()
-    assert float(y.min()) == 0.0
-    assert float(y.max()) == 1.0
+    assert np.isclose(float(y.min()), 0.0)
+    assert np.isclose(float(y.max()), 1.0)
     assert np.all(np.diff(y) >= 0)
 
 

@@ -79,6 +79,10 @@ class ContinualDiffusion(nn.Module):
             nn.SiLU(),
         )
 
+    @staticmethod
+    def _merge_skip_connection(current: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
+        return torch.cat([current, skip], dim=1)
+
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
         Predict noise at timestep t.
@@ -113,7 +117,7 @@ class ContinualDiffusion(nn.Module):
         # Decoder with skip connections
         for i, decoder in enumerate(self.decoder):
             h = F.interpolate(h, scale_factor=2, mode="nearest")
-            h = torch.cat([h, enc_features[-(i + 1)]], dim=1)
+            h = self._merge_skip_connection(h, enc_features[-(i + 1)])
             h = decoder(h)
 
         return h
@@ -333,7 +337,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -341,7 +345,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         # Get feature dimensions
         with torch.no_grad():
-            sample_features = self.feature_extractor_(X_tensor[:1].to(self.device))
+            sample_features = self.feature_extractor_(x_tensor[:1].to(self.device))
             in_channels = sample_features.shape[1]
 
         # Initialize diffusion model
@@ -357,10 +361,12 @@ class VisionOneForMore(BaseVisionDeepDetector):
             self.gradient_projection_ = GradientProjection(self.device)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(self.diffusion_model_.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(
+            self.diffusion_model_.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
 
         self.diffusion_model_.train()
 
@@ -429,12 +435,12 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         self.diffusion_model_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)

@@ -113,7 +113,7 @@ class VisionAAClip:
         self.decision_scores_: NDArray | None = None
         self.threshold_: float | None = None
 
-    def fit(self, X, y=None):
+    def fit(self, X, _y=None):
         items = list(X)
         if not items:
             raise ValueError("X must contain at least one support sample.")

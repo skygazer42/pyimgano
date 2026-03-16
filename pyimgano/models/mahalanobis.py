@@ -36,15 +36,15 @@ class CoreMahalanobis(BaseDetector):
         self.reg = float(reg)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        if X_arr.shape[0] == 0:
+        if x_arr.shape[0] == 0:
             raise ValueError("X must be non-empty")
 
-        mu = np.mean(X_arr, axis=0)
-        diff = X_arr - mu
-        cov = (diff.T @ diff) / max(1, X_arr.shape[0] - 1)
+        mu = np.mean(x_arr, axis=0)
+        diff = x_arr - mu
+        cov = (diff.T @ diff) / max(1, x_arr.shape[0] - 1)
         cov = np.asarray(cov, dtype=np.float64)
         cov = cov + float(self.reg) * np.eye(cov.shape[0], dtype=np.float64)
 
@@ -54,7 +54,7 @@ class CoreMahalanobis(BaseDetector):
         self.cov_ = cov
         self.inv_cov_ = inv
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
@@ -63,11 +63,11 @@ class CoreMahalanobis(BaseDetector):
         mu = np.asarray(self.mean_, dtype=np.float64)  # type: ignore[arg-type]
         inv = np.asarray(self.inv_cov_, dtype=np.float64)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X_arr.shape[1] != mu.shape[0]:
-            raise ValueError(f"Expected {mu.shape[0]} features, got {X_arr.shape[1]}")
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        if x_arr.shape[1] != mu.shape[0]:
+            raise ValueError(f"Expected {mu.shape[0]} features, got {x_arr.shape[1]}")
 
-        diff = X_arr - mu
+        diff = x_arr - mu
         md2 = np.einsum("ij,jk,ik->i", diff, inv, diff)
         return np.asarray(md2, dtype=np.float64).reshape(-1)
 

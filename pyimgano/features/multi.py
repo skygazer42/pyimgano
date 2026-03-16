@@ -21,7 +21,7 @@ class MultiExtractor(BaseFeatureExtractor):
         if not extractors:
             raise ValueError("extractors must be non-empty")
         resolved: list[FeatureExtractor] = []
-        for spec in list(extractors):
+        for spec in extractors:
             ext = resolve_feature_extractor(spec)
             if not isinstance(ext, FeatureExtractor):
                 raise TypeError("Each extractor must implement .extract(inputs) -> np.ndarray")

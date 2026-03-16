@@ -8,7 +8,7 @@ def test_core_model_joblib_roundtrip(tmp_path) -> None:  # noqa: ANN001 - pytest
     from pyimgano.models import create_model
     from pyimgano.models.serialization import load_model, save_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(80, 6))
 
     det = create_model("core_ecod", contamination=0.1)

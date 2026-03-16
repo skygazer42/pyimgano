@@ -190,7 +190,7 @@ def _make_synthesizer(
         )
 
     if presets:
-        preset_names = [str(p).strip().lower() for p in list(presets)]
+        preset_names = [str(p).strip().lower() for p in presets]
         preset_fn = make_preset_mixture(preset_names)
         spec_preset = preset_names[0]
         return AnomalySynthesizer(
@@ -690,13 +690,11 @@ def main(argv: list[str] | None = None) -> int:
                 in_dir=str(args.in_dir),
                 out_root=str(args.out_root),
                 preset=str(args.preset),
-                presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
+                presets=(None if args.presets is None else [str(x) for x in args.presets]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 num_defects=int(args.num_defects),
-                severity_range=(
-                    list(args.severity_range) if args.severity_range is not None else None
-                ),
+                severity_range=args.severity_range,
                 defect_bank_dir=(
                     None if args.defect_bank_dir is None else str(args.defect_bank_dir)
                 ),
@@ -714,13 +712,11 @@ def main(argv: list[str] | None = None) -> int:
                 out_root=str(args.out_root),
                 category=str(args.category),
                 preset=str(args.preset),
-                presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
+                presets=(None if args.presets is None else [str(x) for x in args.presets]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 num_defects=int(args.num_defects),
-                severity_range=(
-                    list(args.severity_range) if args.severity_range is not None else None
-                ),
+                severity_range=args.severity_range,
                 defect_bank_dir=(
                     None if args.defect_bank_dir is None else str(args.defect_bank_dir)
                 ),
@@ -751,13 +747,11 @@ def main(argv: list[str] | None = None) -> int:
                 out_root=str(args.out_root),
                 category=str(args.category),
                 preset=str(args.preset),
-                presets=(None if args.presets is None else [str(x) for x in list(args.presets)]),
+                presets=(None if args.presets is None else [str(x) for x in args.presets]),
                 blend=str(args.blend),
                 alpha=float(args.alpha),
                 num_defects=int(args.num_defects),
-                severity_range=(
-                    list(args.severity_range) if args.severity_range is not None else None
-                ),
+                severity_range=args.severity_range,
                 defect_bank_dir=(
                     None if args.defect_bank_dir is None else str(args.defect_bank_dir)
                 ),

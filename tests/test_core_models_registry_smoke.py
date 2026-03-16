@@ -25,7 +25,7 @@ def test_core_models_fit_predict_smoke(model_name: str) -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(80, 8))
 
     try:

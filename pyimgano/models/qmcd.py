@@ -64,14 +64,14 @@ class CoreQMCD:
 
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
 
         self._scaler = MinMaxScaler()
-        X_norm = self._scaler.fit_transform(X)
-        self._fitted_data = X_norm.copy()
+        x_norm = self._scaler.fit_transform(X)
+        self._fitted_data = x_norm.copy()
 
-        scores = _wrap_around_discrepancy(X_norm, X_norm)
+        scores = _wrap_around_discrepancy(x_norm, x_norm)
 
         # Flip scores so that "higher = more anomalous" (consistent scoring direction).
         self._is_flipped = False
@@ -89,8 +89,8 @@ class CoreQMCD:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         X = check_array(X, ensure_2d=True, dtype=np.float64)
-        X_norm = self._scaler.transform(X)
-        scores = _wrap_around_discrepancy(self._fitted_data, X_norm)
+        x_norm = self._scaler.transform(X)
+        scores = _wrap_around_discrepancy(self._fitted_data, x_norm)
         if self._is_flipped:
             scores = self.decision_scores_.max() + self.decision_scores_.min() - scores
         return np.asarray(scores, dtype=np.float64).ravel()

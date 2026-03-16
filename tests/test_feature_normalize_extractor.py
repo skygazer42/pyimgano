@@ -6,7 +6,7 @@ import numpy as np
 def test_normalize_extractor_l2_normalizes_rows() -> None:
     from pyimgano.features import create_feature_extractor
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = rng.normal(size=(20, 8)).astype(np.float32)
 
     ext = create_feature_extractor("normalize", l2=True)

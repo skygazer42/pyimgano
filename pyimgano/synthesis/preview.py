@@ -29,7 +29,7 @@ def make_preview_grid(
 ) -> np.ndarray:
     """Build a simple visualization grid (uint8 BGR-ish)."""
 
-    ims = [_as_u8_color(im) for im in list(images)]
+    ims = [_as_u8_color(im) for im in images]
     if not ims:
         return np.zeros((0, 0, 3), dtype=np.uint8)
 
@@ -40,7 +40,7 @@ def make_preview_grid(
 
     ms: list[np.ndarray] | None = None
     if masks is not None:
-        ms = [np.asarray(m) for m in list(masks)]
+        ms = [np.asarray(m) for m in masks]
         if len(ms) != len(ims):
             raise ValueError("masks length must match images length")
         for m in ms:

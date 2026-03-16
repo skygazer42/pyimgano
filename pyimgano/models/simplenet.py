@@ -352,12 +352,12 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         """
         logger.info("Training SimpleNet detector (fast training mode)")
 
-        X_list = list(X)
-        if not X_list:
+        x_list = list(X)
+        if not x_list:
             raise ValueError("Training set cannot be empty")
 
         # Create dataset and dataloader
-        dataset = ImagePathDataset(X_list, transform=self.transform)
+        dataset = ImagePathDataset(x_list, transform=self.transform)
         dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
@@ -367,7 +367,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         )
 
         # Setup optimizer (only for adapter!)
-        optimizer = Adam(self.adapter.parameters(), lr=self.lr)
+        optimizer = Adam(self.adapter.parameters(), lr=self.lr, weight_decay=0.0)
 
         # Training loop
         self.adapter.train()
@@ -403,11 +403,11 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         logger.info("SimpleNet training completed (ultra-fast!)")
 
         # Build reference features from training set
-        self._build_reference_features(X_list)
+        self._build_reference_features(x_list)
 
         # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
-        self.decision_scores_ = self.decision_function(X_list)
+        self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
 
         return self
@@ -451,7 +451,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
                 np.linalg.norm(self.reference_features, axis=1, keepdims=True) + 1e-8
             )
             n_refs = min(1000, len(ref_norm))
-            rng = np.random.RandomState(getattr(self, "random_state", 42))
+            rng = np.random.default_rng(getattr(self, "random_state", 42))
             if n_refs < len(ref_norm):
                 indices = rng.choice(len(ref_norm), n_refs, replace=False)
                 self.reference_features_subset_ = ref_norm[indices]
@@ -559,12 +559,12 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         self.adapter.eval()
 
-        X_list = list(X)
-        scores = np.zeros(len(X_list))
+        x_list = list(X)
+        scores = np.zeros(len(x_list))
 
-        logger.info("Computing anomaly scores for %d images", len(X_list))
+        logger.info("Computing anomaly scores for %d images", len(x_list))
 
-        for idx, image_path in enumerate(X_list):
+        for idx, image_path in enumerate(x_list):
             try:
                 score = self._compute_anomaly_score(image_path)
                 scores[idx] = score

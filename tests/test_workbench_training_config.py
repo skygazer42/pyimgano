@@ -33,7 +33,7 @@ def test_workbench_training_config_parses_section_and_normalizes_types():
 
     assert cfg.training.enabled is True
     assert cfg.training.epochs == 2
-    assert cfg.training.lr == 0.001
+    assert cfg.training.lr == pytest.approx(0.001)
     assert cfg.training.checkpoint_name == "ae.pt"
 
 

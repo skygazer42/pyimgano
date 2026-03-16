@@ -223,18 +223,18 @@ class BaseDeepLearningDetector(BaseDetector):
 
     def decision_function(self, X, batch_size: Optional[int] = None):  # noqa: ANN001, ANN201
         torch = self._torch
-        X_arr = np.asarray(X, dtype=np.float32)
-        if X_arr.ndim != 2:
-            raise ValueError(f"X must be 2D array-like. Got shape {X_arr.shape!r}.")
+        x_array = np.asarray(X, dtype=np.float32)
+        if x_array.ndim != 2:
+            raise ValueError(f"X must be 2D array-like. Got shape {x_array.shape!r}.")
 
         if self.preprocessing:
             if self.X_mean is None or self.X_std is None:
                 raise RuntimeError("Model is not fitted. Missing preprocessing statistics.")
-            X_arr = (X_arr - self.X_mean) / self.X_std
+            x_array = (x_array - self.X_mean) / self.X_std
 
-        tensor_X = torch.tensor(X_arr, dtype=torch.float32)
-        dummy_y = torch.zeros((tensor_X.shape[0],), dtype=torch.int64)
-        dataset = torch.utils.data.TensorDataset(tensor_X, dummy_y)
+        x_tensor = torch.tensor(x_array, dtype=torch.float32)
+        dummy_y = torch.zeros((x_tensor.shape[0],), dtype=torch.int64)
+        dataset = torch.utils.data.TensorDataset(x_tensor, dummy_y)
         loader = torch.utils.data.DataLoader(
             dataset=dataset,
             batch_size=int(batch_size) if batch_size is not None else int(self.batch_size),
@@ -249,29 +249,29 @@ class BaseDeepLearningDetector(BaseDetector):
         return anomaly_scores
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = np.asarray(X, dtype=np.float32)
-        if X_arr.ndim != 2:
-            raise ValueError(f"X must be 2D array-like. Got shape {X_arr.shape!r}.")
+        x_array = np.asarray(X, dtype=np.float32)
+        if x_array.ndim != 2:
+            raise ValueError(f"X must be 2D array-like. Got shape {x_array.shape!r}.")
 
         self._set_n_classes(y)
-        self.data_num = int(X_arr.shape[0])
-        self.feature_size = int(X_arr.shape[1])
+        self.data_num = int(x_array.shape[0])
+        self.feature_size = int(x_array.shape[1])
 
         # Optional feature standardization.
         if self.preprocessing:
-            self.X_mean = np.mean(X_arr, axis=0)
-            self.X_std = np.std(X_arr, axis=0)
+            self.X_mean = np.mean(x_array, axis=0)
+            self.X_std = np.std(x_array, axis=0)
             self.X_std = np.where(self.X_std <= 1e-12, 1.0, self.X_std)
-            X_arr = (X_arr - self.X_mean) / self.X_std
+            x_array = (x_array - self.X_mean) / self.X_std
 
         # Build + train
         self.model = self.build_model()
         self.training_prepare()
 
         torch = self._torch
-        tensor_X = torch.tensor(X_arr, dtype=torch.float32)
-        dummy_y = torch.zeros((tensor_X.shape[0],), dtype=torch.int64)
-        dataset = torch.utils.data.TensorDataset(tensor_X, dummy_y)
+        x_tensor = torch.tensor(x_array, dtype=torch.float32)
+        dummy_y = torch.zeros((x_tensor.shape[0],), dtype=torch.int64)
+        dataset = torch.utils.data.TensorDataset(x_tensor, dummy_y)
         loader = torch.utils.data.DataLoader(
             dataset=dataset,
             batch_size=int(self.batch_size),
@@ -281,6 +281,6 @@ class BaseDeepLearningDetector(BaseDetector):
 
         self.train(loader)
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
         self._process_decision_scores()
         return self

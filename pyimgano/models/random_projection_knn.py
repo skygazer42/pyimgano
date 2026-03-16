@@ -76,12 +76,12 @@ class _RPkNNBackend:
         W = np.asarray(self.proj_, dtype=np.float64)  # type: ignore[arg-type]
         return np.asarray(X @ W, dtype=np.float64)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        d = int(X_arr.shape[1])
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        d = int(x_arr.shape[1])
         self.proj_ = self._make_proj(d)
 
-        Z = X_arr @ self.proj_
+        Z = x_arr @ self.proj_
 
         knn = CoreKNN(
             contamination=float(self.contamination),
@@ -98,8 +98,8 @@ class _RPkNNBackend:
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like
         require_fitted(self, ["backend_", "proj_"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        Z = self._project(X_arr)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        Z = self._project(x_arr)
         knn: CoreKNN = self.backend_  # type: ignore[assignment]
         return np.asarray(knn.decision_function(Z), dtype=np.float64).reshape(-1)
 

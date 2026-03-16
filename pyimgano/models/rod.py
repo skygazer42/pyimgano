@@ -224,7 +224,76 @@ class CoreROD:
 
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    @staticmethod
+    def _ensure_three_dimensions(x: np.ndarray) -> np.ndarray:
+        if x.shape[1] >= 3:
+            return x
+
+        pad = np.zeros((x.shape[0], 3 - x.shape[1]), dtype=np.float64)
+        return np.hstack([x, pad])
+
+    def _score_3d(self, x_array: np.ndarray) -> np.ndarray:
+        if self.gm_ is None:
+            z_scores, gm, med, params1, params2 = _rod_3d(x_array)
+            self.gm_ = [gm]
+            self.mad_median_ = [med]
+            self.angle_params1_ = [params1]
+            self.angle_params2_ = [params2]
+        else:
+            z_scores, _, _, _, _ = _rod_3d(
+                x_array,
+                gm=self.gm_[0],
+                mad_median=self.mad_median_[0],
+                angle_params1=self.angle_params1_[0],
+                angle_params2=self.angle_params2_[0],
+            )
+        return z_scores.astype(np.float64).ravel()
+
+    def _prepare_scaled_subspaces(
+        self, x_array: np.ndarray, dim: int
+    ) -> tuple[np.ndarray, list[tuple[int, int, int]]]:
+        if self.data_scaler_ is None:
+            self.data_scaler_ = RobustScaler()
+            x_scaled = self.data_scaler_.fit_transform(x_array)
+            self.subspaces_ = _choose_subspaces(
+                dim, max_subspaces=self.max_subspaces, random_state=self.random_state
+            )
+            self.gm_, self.mad_median_, self.angle_params1_, self.angle_params2_ = [], [], [], []
+        else:
+            x_scaled = self.data_scaler_.transform(x_array)
+            if self.subspaces_ is None:
+                raise RuntimeError("Internal error: missing subspaces")
+            if (
+                self.gm_ is None
+                or self.mad_median_ is None
+                or self.angle_params1_ is None
+                or self.angle_params2_ is None
+            ):
+                raise RuntimeError("Internal error: missing fitted parameters")
+
+        assert self.subspaces_ is not None
+        return x_scaled, self.subspaces_
+
+    def _score_subspace(self, x_scaled: np.ndarray, idx: int, cols: tuple[int, int, int]) -> np.ndarray:
+        sub = x_scaled[:, cols]
+        if self.gm_ is not None and idx < len(self.gm_):
+            z_scores, _, _, _, _ = _rod_3d(
+                sub,
+                gm=self.gm_[idx],
+                mad_median=self.mad_median_[idx],
+                angle_params1=self.angle_params1_[idx],
+                angle_params2=self.angle_params2_[idx],
+            )
+        else:
+            z_scores, gm, med, params1, params2 = _rod_3d(sub)
+            self.gm_.append(gm)
+            self.mad_median_.append(med)
+            self.angle_params1_.append(params1)
+            self.angle_params2_.append(params2)
+
+        return _sigmoid(np.nan_to_num(z_scores, nan=0.0, posinf=0.0, neginf=0.0))
+
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         self._n_features_in = int(X.shape[1])
 
@@ -246,73 +315,19 @@ class CoreROD:
             raise ValueError(f"Expected {self._n_features_in} features, got {X.shape[1]}")
 
         # Ensure at least 3 dims by padding zeros (ROD is 3D-native).
-        if X.shape[1] < 3:
-            pad = np.zeros((X.shape[0], 3 - X.shape[1]), dtype=np.float64)
-            X_use = np.hstack([X, pad])
-        else:
-            X_use = X
+        x_use = self._ensure_three_dimensions(X)
 
-        dim = X_use.shape[1]
+        dim = x_use.shape[1]
         if dim == 3:
-            # 3D: fit params once and reuse.
-            if self.gm_ is None:
-                z, gm, med, p1, p2 = _rod_3d(X_use)
-                self.gm_ = [gm]
-                self.mad_median_ = [med]
-                self.angle_params1_ = [p1]
-                self.angle_params2_ = [p2]
-            else:
-                z, _, _, _, _ = _rod_3d(
-                    X_use,
-                    gm=self.gm_[0],
-                    mad_median=self.mad_median_[0],
-                    angle_params1=self.angle_params1_[0],
-                    angle_params2=self.angle_params2_[0],
-                )
-            return z.astype(np.float64).ravel()
+            return self._score_3d(x_use)
 
         # nD: scale once, then score across (sampled) 3D subspaces.
-        if self.data_scaler_ is None:
-            self.data_scaler_ = RobustScaler()
-            X_scaled = self.data_scaler_.fit_transform(X_use)
-            self.subspaces_ = _choose_subspaces(
-                dim, max_subspaces=self.max_subspaces, random_state=self.random_state
-            )
-            self.gm_, self.mad_median_, self.angle_params1_, self.angle_params2_ = [], [], [], []
-        else:
-            X_scaled = self.data_scaler_.transform(X_use)
-            if self.subspaces_ is None:
-                raise RuntimeError("Internal error: missing subspaces")
-            if (
-                self.gm_ is None
-                or self.mad_median_ is None
-                or self.angle_params1_ is None
-                or self.angle_params2_ is None
-            ):
-                raise RuntimeError("Internal error: missing fitted parameters")
-
-        assert self.subspaces_ is not None
+        x_scaled, subspaces = self._prepare_scaled_subspaces(x_use, dim)
         subspace_scores: list[np.ndarray] = []
 
         # Fit params per subspace during training; reuse on later calls.
-        for idx, cols in enumerate(self.subspaces_):
-            sub = X_scaled[:, cols]
-            if self.gm_ is not None and idx < len(self.gm_):
-                z, _, _, _, _ = _rod_3d(
-                    sub,
-                    gm=self.gm_[idx],
-                    mad_median=self.mad_median_[idx],
-                    angle_params1=self.angle_params1_[idx],
-                    angle_params2=self.angle_params2_[idx],
-                )
-            else:
-                z, gm, med, p1, p2 = _rod_3d(sub)
-                self.gm_.append(gm)
-                self.mad_median_.append(med)
-                self.angle_params1_.append(p1)
-                self.angle_params2_.append(p2)
-
-            subspace_scores.append(_sigmoid(np.nan_to_num(z, nan=0.0, posinf=0.0, neginf=0.0)))
+        for idx, cols in enumerate(subspaces):
+            subspace_scores.append(self._score_subspace(x_scaled, idx, cols))
 
         # Average "apples to apples" subspace scores.
         scores = np.mean(np.vstack(subspace_scores).T, axis=1)

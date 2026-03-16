@@ -46,9 +46,9 @@ class InnerAE1SVM(nn.Module):
         n_features,
         encoding_dim,
         rff_dim,
-        C,
-        H,
-        W,  # 新增图像尺寸参数
+        channels,
+        height,
+        width,  # 新增图像尺寸参数
         sigma=1.0,
         hidden_neurons=(128, 64),
         dropout_rate=0.2,
@@ -58,7 +58,7 @@ class InnerAE1SVM(nn.Module):
         super(InnerAE1SVM, self).__init__()
 
         self.flatten = Flatten()
-        self.unflatten = Unflatten(C, H, W)
+        self.unflatten = Unflatten(channels, height, width)
 
         self.encoder = nn.Sequential()
         self.decoder = nn.Sequential()
@@ -155,9 +155,9 @@ class VisionAE1SVM(BaseVisionDeepDetector):
             n_features=n_features,
             encoding_dim=self.encoding_dim,
             rff_dim=self.kernel_approx_features,
-            C=self.image_shape[0],
-            H=self.image_shape[1],
-            W=self.image_shape[2],
+            channels=self.image_shape[0],
+            height=self.image_shape[1],
+            width=self.image_shape[2],
             sigma=self.sigma,
             hidden_neurons=self.hidden_neurons,
             dropout_rate=0.2,

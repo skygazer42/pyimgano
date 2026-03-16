@@ -29,20 +29,20 @@ class CoreDTC(BaseDetector):
         super().__init__(contamination=float(contamination))
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
-        if X_arr.shape[0] == 0:
+        if x_arr.shape[0] == 0:
             raise ValueError("X must be non-empty")
-        self.mean_ = np.mean(X_arr, axis=0)
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.mean_ = np.mean(x_arr, axis=0)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201
         require_fitted(self, ["mean_"])
         mu = np.asarray(self.mean_, dtype=np.float64)  # type: ignore[arg-type]
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        diff = X_arr - mu
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        diff = x_arr - mu
         return np.linalg.norm(diff, axis=1)
 
 

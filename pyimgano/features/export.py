@@ -38,7 +38,7 @@ def extract_features_with_ids(
                 derived.append(str(i))
         ids_list = derived
     else:
-        ids_list = [str(x) for x in list(ids)]
+        ids_list = [str(x) for x in ids]
         if len(ids_list) != len(items):
             raise ValueError("ids length must match number of inputs")
 

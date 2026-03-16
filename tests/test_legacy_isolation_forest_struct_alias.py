@@ -6,7 +6,7 @@ def test_legacy_isolation_forest_struct_is_still_registered_and_fittable() -> No
     from pyimgano.features.identity import IdentityExtractor
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(3)
+    rng = np.random.default_rng(3)
     X = rng.normal(size=(60, 6))
 
     det = create_model(

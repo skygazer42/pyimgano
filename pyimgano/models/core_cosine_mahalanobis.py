@@ -41,12 +41,12 @@ class _CosineMahalanobisBackend:
         norms = np.maximum(norms, float(self.eps))
         return np.asarray(X / norms, dtype=np.float64)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X_arr.shape[0]) == 0:
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        if int(x_arr.shape[0]) == 0:
             raise ValueError("Training set cannot be empty")
 
-        Z = self._normalize_rows(X_arr)
+        Z = self._normalize_rows(x_arr)
         lw = LedoitWolf(assume_centered=bool(self.assume_centered))
         lw.fit(Z)
         self._lw = lw
@@ -56,8 +56,8 @@ class _CosineMahalanobisBackend:
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._lw is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        Z = self._normalize_rows(X_arr)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        Z = self._normalize_rows(x_arr)
         # sklearn returns squared Mahalanobis distances.
         scores = self._lw.mahalanobis(Z)
         return np.asarray(scores, dtype=np.float64).reshape(-1)

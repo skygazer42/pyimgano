@@ -198,6 +198,103 @@ def test_random_horizontal_flip_random_state_makes_augmentation_repeatable() -> 
     assert np.array_equal(out_a, out_b)
 
 
+def test_patchcore_online_bank_capping_avoids_legacy_random_state(monkeypatch) -> None:
+    import pyimgano.models.patchcore_online as patchcore_online
+
+    x_train = np.arange(20, dtype=np.float64).reshape(10, 2)
+    called: list[int] = []
+    original_default_rng = patchcore_online.np.random.default_rng
+
+    def _tracking_default_rng(seed=None):
+        called.append(0 if seed is None else int(seed))
+        return original_default_rng(seed)
+
+    monkeypatch.setattr(patchcore_online.np.random, "default_rng", _tracking_default_rng)
+
+    detector = patchcore_online.CorePatchCoreOnline(max_bank_size=4, random_state=7)
+    detector.fit(x_train)
+
+    assert called == [7]
+    assert detector.memory_bank_ is not None
+    assert detector.memory_bank_.shape == (4, 2)
+
+
+def test_simplenet_reference_sampling_uses_default_rng(tmp_path, monkeypatch) -> None:
+    import cv2
+
+    import pyimgano.models.simplenet as simplenet_module
+
+    image = np.full((8, 8, 3), 127, dtype=np.uint8)
+    image_path = tmp_path / "normal.png"
+    assert cv2.imwrite(str(image_path), image)
+
+    detector = simplenet_module.VisionSimpleNet.__new__(simplenet_module.VisionSimpleNet)
+    detector.adapter = torch.nn.Identity()
+    detector.device = "cpu"
+    detector.random_state = 11
+    detector.transform = lambda img: torch.from_numpy(img).permute(2, 0, 1).float()
+    detector._extract_features = lambda img_tensor: torch.ones((1, 4, 33, 33), dtype=torch.float32)  # type: ignore[method-assign]
+
+    called: list[int] = []
+    original_default_rng = simplenet_module.np.random.default_rng
+
+    def _tracking_default_rng(seed=None):
+        called.append(0 if seed is None else int(seed))
+        return original_default_rng(seed)
+
+    monkeypatch.setattr(simplenet_module.np.random, "default_rng", _tracking_default_rng)
+
+    detector._build_reference_features([str(image_path)])
+
+    assert called == [11]
+
+
+def test_patchcore_lite_coreset_sampling_uses_default_rng(monkeypatch) -> None:
+    import pyimgano.models.patchcore_lite as patchcore_lite_module
+
+    x_train = np.arange(40, dtype=np.float64).reshape(20, 2)
+    called: list[int] = []
+    original_default_rng = patchcore_lite_module.np.random.default_rng
+
+    def _tracking_default_rng(seed=None):
+        called.append(0 if seed is None else int(seed))
+        return original_default_rng(seed)
+
+    monkeypatch.setattr(patchcore_lite_module.np.random, "default_rng", _tracking_default_rng)
+
+    detector = patchcore_lite_module.CorePatchCoreLite(coreset_ratio=0.25, random_state=7)
+    detector.fit(x_train)
+
+    assert called == [7]
+    assert detector.memory_bank_ is not None
+    assert detector.memory_bank_.shape == (5, 2)
+
+
+def test_feature_bagging_subspace_sampling_uses_default_rng(monkeypatch) -> None:
+    import pyimgano.models.feature_bagging as feature_bagging_module
+
+    x_train = np.arange(96, dtype=np.float64).reshape(12, 8)
+    called: list[int] = []
+    original_default_rng = feature_bagging_module.np.random.default_rng
+
+    def _tracking_default_rng(seed=None):
+        called.append(0 if seed is None else int(seed))
+        return original_default_rng(seed)
+
+    monkeypatch.setattr(feature_bagging_module.np.random, "default_rng", _tracking_default_rng)
+
+    detector = feature_bagging_module.CoreFeatureBagging(
+        n_estimators=3,
+        max_features=0.75,
+        random_state=7,
+        n_neighbors=2,
+    )
+    detector.fit(x_train)
+
+    assert len(called) == 3
+    assert detector.estimators_features_
+
+
 def test_winclip_random_state_makes_few_shot_sampling_repeatable(monkeypatch) -> None:
     import pyimgano.models.winclip as winclip_module
 

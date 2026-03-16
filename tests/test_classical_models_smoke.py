@@ -17,8 +17,8 @@ class MockFeatureExtractor:
     def extract(self, X):
         """Return mock features."""
         n_samples = len(list(X)) if hasattr(X, "__len__") else 10
-        np.random.seed(42)
-        return np.random.rand(n_samples, self.n_features)
+        rng = np.random.default_rng(42)
+        return rng.random((n_samples, self.n_features))
 
 
 @pytest.fixture

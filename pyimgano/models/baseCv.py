@@ -134,20 +134,20 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
 
         from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
-        DataLoader = require("torch.utils.data", purpose="deep vision training").DataLoader
+        data_loader_cls = require("torch.utils.data", purpose="deep vision training").DataLoader
 
         # 1. 构建模型
         self.model = self.build_model()
 
-        X_list = list(X)
-        if X_list and isinstance(X_list[0], np.ndarray):
+        x_list = list(X)
+        if x_list and isinstance(x_list[0], np.ndarray):
             # Numpy-first industrial workflows: images already decoded in memory.
-            train_dataset = VisionArrayDataset(images=X_list, transform=self.train_transform)
+            train_dataset = VisionArrayDataset(images=x_list, transform=self.train_transform)
         else:
             # Default: list of file paths.
-            train_dataset = VisionImageDataset(image_paths=X_list, transform=self.train_transform)
+            train_dataset = VisionImageDataset(image_paths=x_list, transform=self.train_transform)
 
-        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        train_loader = data_loader_cls(train_dataset, batch_size=self.batch_size, shuffle=True)
 
         # 3. 准备训练 (来自父类的方法)
         self.training_prepare()
@@ -181,28 +181,28 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
 
         from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
-        DataLoader = require("torch.utils.data", purpose="deep vision evaluation").DataLoader
+        data_loader_cls = require("torch.utils.data", purpose="deep vision evaluation").DataLoader
 
         current_batch_size = batch_size if batch_size is not None else self.batch_size
 
-        X_list = list(X)
-        if X_list and isinstance(X_list[0], np.ndarray):
-            eval_dataset = VisionArrayDataset(images=X_list, transform=self.eval_transform)
+        x_list = list(X)
+        if x_list and isinstance(x_list[0], np.ndarray):
+            eval_dataset = VisionArrayDataset(images=x_list, transform=self.eval_transform)
         else:
             if getattr(self, "_eval_tensor_cache", None) is not None:
                 from pyimgano.cache.deep_embeddings import CachedVisionImageDataset
 
                 eval_dataset = CachedVisionImageDataset(
-                    image_paths=[str(p) for p in X_list],
+                    image_paths=[str(p) for p in x_list],
                     transform=self.eval_transform,
                     cache=self._eval_tensor_cache,  # type: ignore[arg-type]
                 )
             else:
                 eval_dataset = VisionImageDataset(
-                    image_paths=[str(p) for p in X_list],
+                    image_paths=[str(p) for p in x_list],
                     transform=self.eval_transform,
                 )
-        eval_loader = DataLoader(eval_dataset, batch_size=current_batch_size, shuffle=False)
+        eval_loader = data_loader_cls(eval_dataset, batch_size=current_batch_size, shuffle=False)
 
         # 调用父类的评估方法 evaluating_forward
         scores = self.evaluate(eval_loader)

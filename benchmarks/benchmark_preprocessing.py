@@ -17,7 +17,7 @@ import os
 import sys
 import time
 import warnings
-from typing import Dict, List
+from typing import List
 
 import cv2
 import matplotlib.pyplot as plt
@@ -28,7 +28,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pyimgano.preprocessing import (
     AdvancedImageEnhancer,
-    AugmentationPipeline,
     ImageEnhancer,
     get_heavy_augmentation,
     get_light_augmentation,
@@ -61,13 +60,14 @@ class BenchmarkResult:
 def create_test_image(size=(256, 256)):
     """Create a test image with various features."""
     img = np.zeros((*size, 3), dtype=np.uint8)
+    rng = np.random.default_rng(0)
 
     # Add shapes
     cv2.rectangle(img, (50, 50), (200, 200), (255, 255, 255), -1)
     cv2.circle(img, (128, 128), 40, (128, 128, 128), -1)
 
     # Add texture
-    noise = np.random.randint(0, 30, (*size, 3), dtype=np.uint8)
+    noise = rng.integers(0, 30, (*size, 3), dtype=np.uint8)
     img = cv2.add(img, noise)
 
     return img

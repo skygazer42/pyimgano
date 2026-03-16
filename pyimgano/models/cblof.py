@@ -594,19 +594,19 @@ if __name__ == "__main__":
 
     # 创建模拟特征提取器
     class MockExtractor:
-        def extract(self, X):
+        def extract(self, x):
             # 模拟正常数据和异常数据
-            np.random.seed(42)
-            n_samples = len(X) if isinstance(X, list) else X.shape[0]
+            rng = np.random.default_rng(42)
+            n_samples = len(x) if isinstance(x, list) else x.shape[0]
             n_features = 20
 
             # 90%正常数据（聚类分布）
             n_normal = int(n_samples * 0.9)
-            normal_data = np.random.randn(n_normal, n_features)
+            normal_data = rng.standard_normal((n_normal, n_features))
 
             # 10%异常数据（离群点）
             n_anomaly = n_samples - n_normal
-            anomaly_data = np.random.randn(n_anomaly, n_features) * 3 + 5
+            anomaly_data = rng.standard_normal((n_anomaly, n_features)) * 3 + 5
 
             data = np.vstack([normal_data, anomaly_data])
             return data

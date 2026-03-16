@@ -54,4 +54,4 @@ def test_ref_patch_distance_map_tiling_runs_and_preserves_shape(
     amap = np.asarray(det.get_anomaly_map(str(query_dir / "x.png")), dtype=np.float32)
     assert amap.shape == (64, 64)
     assert np.isfinite(amap).all()
-    assert float(np.max(amap)) == 0.0
+    assert float(np.max(amap)) == pytest.approx(0.0)

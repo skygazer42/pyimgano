@@ -37,7 +37,7 @@ _MAX_INT = int(np.iinfo(np.int32).max)
 
 
 def _generate_feature_indices(
-    rng: np.random.RandomState,
+    rng: np.random.Generator,
     *,
     bootstrap_features: bool,
     n_features: int,
@@ -59,10 +59,10 @@ def _generate_feature_indices(
     if max_features > n_features:
         raise ValueError("max_features must be <= n_features")
 
-    random_n_features = int(rng.randint(min_features, max_features + 1))
+    random_n_features = int(rng.integers(min_features, max_features + 1))
 
     if bootstrap_features:
-        return rng.randint(0, n_features, size=random_n_features, dtype=np.int64)
+        return rng.integers(0, n_features, size=random_n_features, dtype=np.int64)
 
     return rng.choice(n_features, size=random_n_features, replace=False).astype(
         np.int64, copy=False
@@ -81,7 +81,7 @@ class _CoreLOF:
         self.detector_: LocalOutlierFactor | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples < 2:
@@ -175,7 +175,7 @@ class CoreFeatureBagging:
             return _CoreLOF(n_neighbors=self.n_neighbors, n_jobs=self.n_jobs)
         raise ValueError(f"Unknown base_estimator: {self.base_estimator!r}. Supported: 'lof'")
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n_samples, n_features = map(int, X.shape)
         self.n_features_in_ = n_features
@@ -217,7 +217,7 @@ class CoreFeatureBagging:
         self.estimators_ = []
         self.estimators_features_ = []
         for i in range(self.n_estimators):
-            rnd = np.random.RandomState(int(seeds[i]))
+            rnd = np.random.default_rng(int(seeds[i]))
             features = _generate_feature_indices(
                 rnd,
                 bootstrap_features=self.bootstrap_features,

@@ -59,7 +59,7 @@ class CoreDBSCAN:
         self.decision_scores_: np.ndarray | None = None
         self._fitted: bool = False
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201
         X = check_array(X, ensure_2d=True, dtype=np.float64)
         n = int(X.shape[0])
         if n == 0:
@@ -69,10 +69,10 @@ class CoreDBSCAN:
         if self.min_samples < 1:
             raise ValueError("min_samples must be >= 1")
 
-        X_proc = X
+        x_proc = X
         if self.preprocessing:
             self.scaler_ = StandardScaler()
-            X_proc = self.scaler_.fit_transform(X_proc)
+            x_proc = self.scaler_.fit_transform(x_proc)
         else:
             self.scaler_ = None
 
@@ -84,7 +84,7 @@ class CoreDBSCAN:
             p=self.p,
             n_jobs=self.n_jobs,
         )
-        labels = db.fit_predict(X_proc)
+        labels = db.fit_predict(x_proc)
 
         core_idx = getattr(db, "core_sample_indices_", None)
         if core_idx is None or len(core_idx) == 0:
@@ -94,7 +94,7 @@ class CoreDBSCAN:
             self._fitted = True
             return self
 
-        self.core_samples_ = np.asarray(X_proc[np.asarray(core_idx, dtype=int)], dtype=np.float64)
+        self.core_samples_ = np.asarray(x_proc[np.asarray(core_idx, dtype=int)], dtype=np.float64)
 
         # Training scores: distance to nearest core sample.
         self._fitted = True
@@ -116,16 +116,16 @@ class CoreDBSCAN:
         if self.core_samples_ is None:
             return np.ones((X.shape[0],), dtype=np.float64)
 
-        X_proc = X
+        x_proc = X
         if self.preprocessing:
             if self.scaler_ is None:
                 raise RuntimeError("Internal error: missing scaler")
-            X_proc = self.scaler_.transform(X_proc)
+            x_proc = self.scaler_.transform(x_proc)
 
         kwargs = {"metric": self.metric, "n_jobs": self.n_jobs}
         if self.metric == "minkowski":
             kwargs["p"] = int(self.p)
-        dists = pairwise_distances(X_proc, self.core_samples_, **kwargs)
+        dists = pairwise_distances(x_proc, self.core_samples_, **kwargs)
         return np.min(dists, axis=1).astype(np.float64, copy=False).reshape(-1)
 
 

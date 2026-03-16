@@ -78,18 +78,18 @@ class CorePatchCoreOnline(BaseDetector):
         if n <= max_n:
             return
 
-        rng = np.random.RandomState(0 if self.random_state is None else int(self.random_state))
+        rng = np.random.default_rng(0 if self.random_state is None else int(self.random_state))
         idx = rng.choice(n, size=max_n, replace=False).astype(np.int64, copy=False)
         self.memory_bank_ = np.asarray(self.memory_bank_[idx], dtype=np.float64)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        if int(X_arr.shape[0]) == 0:
+        if int(x_array.shape[0]) == 0:
             raise ValueError("Training set cannot be empty")
 
-        self.memory_bank_ = np.asarray(X_arr, dtype=np.float64)
+        self.memory_bank_ = np.asarray(x_array, dtype=np.float64)
         self._maybe_cap_bank()
         self._rebuild_index()
 
@@ -97,7 +97,7 @@ class CorePatchCoreOnline(BaseDetector):
         nn = self.nn_
         assert nn is not None
         n = int(self.memory_bank_.shape[0])
-        dist, _ = nn.kneighbors(X_arr, n_neighbors=2 if n > 1 else 1, return_distance=True)
+        dist, _ = nn.kneighbors(x_array, n_neighbors=2 if n > 1 else 1, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)
         if n > 1 and dist.shape[1] >= 2:
             d0 = dist[:, 0]
@@ -111,15 +111,15 @@ class CorePatchCoreOnline(BaseDetector):
         return self
 
     def partial_fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X_arr.shape[0]) == 0:
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        if int(x_array.shape[0]) == 0:
             return self
 
         if self.memory_bank_ is None:
-            return self.fit(X_arr, y=y)
+            return self.fit(x_array, y=y)
 
         self.memory_bank_ = np.concatenate(
-            [np.asarray(self.memory_bank_, dtype=np.float64), X_arr], axis=0
+            [np.asarray(self.memory_bank_, dtype=np.float64), x_array], axis=0
         )
         self._maybe_cap_bank()
         self._rebuild_index()
@@ -127,9 +127,9 @@ class CorePatchCoreOnline(BaseDetector):
 
     def decision_function(self, X):  # noqa: ANN001, ANN201
         require_fitted(self, ["nn_"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self.nn_  # type: ignore[assignment]
-        dist, _ = nn.kneighbors(X_arr, n_neighbors=1, return_distance=True)
+        dist, _ = nn.kneighbors(x_array, n_neighbors=1, return_distance=True)
         return np.asarray(dist[:, 0], dtype=np.float64).reshape(-1)
 
 

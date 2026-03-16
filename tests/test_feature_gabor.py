@@ -7,8 +7,8 @@ pytest.importorskip("skimage")
 def test_gabor_bank_extractor_shapes_and_finite() -> None:
     from pyimgano.features.gabor import GaborBankExtractor
 
-    rng = np.random.RandomState(0)
-    img = (rng.rand(64, 64, 3) * 255).astype(np.uint8)
+    rng = np.random.default_rng(0)
+    img = (rng.random((64, 64, 3)) * 255).astype(np.uint8)
 
     ext = GaborBankExtractor(resize_hw=(64, 64), frequencies=(0.2,), thetas=(0.0, np.pi / 2))
     out = ext.extract([img, img])

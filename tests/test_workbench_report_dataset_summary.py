@@ -90,6 +90,6 @@ def test_workbench_report_includes_dataset_summary(tmp_path: Path) -> None:
     assert ds["calibration_count"] == 1
     assert ds["test_count"] == 2
     assert ds["test_anomaly_count"] == 1
-    assert ds["test_anomaly_ratio"] == 0.5
+    assert np.isclose(ds["test_anomaly_ratio"], 0.5)
     assert ds["pixel_metrics"]["enabled"] is False
     assert "mask_path" in str(ds["pixel_metrics"]["reason"]).lower()

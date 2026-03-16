@@ -599,7 +599,7 @@ def test_infer_cli_accepts_legacy_deploy_bundle_with_preprocessing_and_defects(
     assert det.loaded == str(ckpt_path)
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip())
-    assert record["defects"]["pixel_threshold"] == 0.5
+    assert record["defects"]["pixel_threshold"] == pytest.approx(0.5)
 
 
 def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_enabled(

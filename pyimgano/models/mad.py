@@ -50,35 +50,35 @@ class _RobustMADDetector:
         self.decision_scores_: Optional[NDArray] = None
 
     def fit(self, X: NDArray) -> "_RobustMADDetector":
-        X_arr = np.asarray(X, dtype=np.float64)
-        if X_arr.ndim != 2:
-            raise ValueError(f"Expected 2D feature matrix, got shape {X_arr.shape}")
-        if X_arr.shape[0] == 0:
+        x_arr = np.asarray(X, dtype=np.float64)
+        if x_arr.ndim != 2:
+            raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
+        if x_arr.shape[0] == 0:
             raise ValueError("X must contain at least one sample")
 
-        self.median_ = np.median(X_arr, axis=0)
-        abs_dev = np.abs(X_arr - self.median_)
+        self.median_ = np.median(x_arr, axis=0)
+        abs_dev = np.abs(x_arr - self.median_)
         mad = np.median(abs_dev, axis=0)
         mad = np.maximum(mad, self.eps)
         self.mad_ = mad
 
-        self.decision_scores_ = self.decision_function(X_arr)
+        self.decision_scores_ = self.decision_function(x_arr)
         return self
 
     def decision_function(self, X: NDArray) -> NDArray:
         if self.median_ is None or self.mad_ is None:
             raise RuntimeError("Detector not fitted. Call fit() first.")
 
-        X_arr = np.asarray(X, dtype=np.float64)
-        if X_arr.ndim != 2:
-            raise ValueError(f"Expected 2D feature matrix, got shape {X_arr.shape}")
-        if X_arr.shape[1] != self.median_.shape[0]:
+        x_arr = np.asarray(X, dtype=np.float64)
+        if x_arr.ndim != 2:
+            raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
+        if x_arr.shape[1] != self.median_.shape[0]:
             raise ValueError(
                 "Feature dimension mismatch. "
-                f"Expected {self.median_.shape[0]} features, got {X_arr.shape[1]}."
+                f"Expected {self.median_.shape[0]} features, got {x_arr.shape[1]}."
             )
 
-        abs_dev = np.abs(X_arr - self.median_)
+        abs_dev = np.abs(x_arr - self.median_)
         z = abs_dev / self.mad_
         if self.consistency_correction:
             # 0.6745 makes MAD comparable to std-dev for a normal distribution.

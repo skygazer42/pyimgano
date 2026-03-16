@@ -58,7 +58,7 @@ class CoreINNE:
         self.max_samples_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         X = check_array(X, accept_sparse=False, dtype=np.float64)
         n_samples = int(X.shape[0])
         if n_samples < 2:

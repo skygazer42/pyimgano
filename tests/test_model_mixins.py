@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 
 def test_ensure_int_validation() -> None:
     from pyimgano.models.mixins import ensure_int
@@ -16,7 +18,7 @@ def test_ensure_int_validation() -> None:
 def test_ensure_contamination_validation() -> None:
     from pyimgano.models.mixins import ensure_contamination
 
-    assert ensure_contamination(0.1) == 0.1
+    assert ensure_contamination(0.1) == pytest.approx(0.1)
     try:
         ensure_contamination(0.0)
     except ValueError:

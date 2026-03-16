@@ -6,6 +6,8 @@ import pytest
 # added in torch-based detectors without forcing torch on all CI workflows.
 pytest.importorskip("torch")
 
+_GLOBAL_NUMPY_RNG = np.random.mtrand._rand
+
 
 def _make_instance_without_init(cls):
     # Many detectors pull heavy deps / download weights in __init__.
@@ -15,6 +17,23 @@ def _make_instance_without_init(cls):
 
 def _stub_scores_predict(n: int):
     return np.zeros((int(n),), dtype=np.float64)
+
+
+def _global_numpy_state_after(action):
+    state = _GLOBAL_NUMPY_RNG.get_state()
+    try:
+        action()
+        return _GLOBAL_NUMPY_RNG.get_state()
+    finally:
+        _GLOBAL_NUMPY_RNG.set_state(state)
+
+
+def _numpy_states_equal(left, right) -> bool:
+    return (
+        left[0] == right[0]
+        and np.array_equal(left[1], right[1])
+        and left[2:] == right[2:]
+    )
 
 
 def test_torch_detectors_predict_return_confidence_raises():
@@ -172,33 +191,21 @@ def test_torch_detectors_batch_size_validation_only_paths():
 def test_realnet_init_random_state_does_not_reset_numpy_global_rng():
     from pyimgano.models.realnet import VisionRealNet
 
-    np.random.seed(2024)
-    expected_first = np.random.rand()
-    expected_second = np.random.rand()
+    expected = _global_numpy_state_after(lambda: None)
+    observed = _global_numpy_state_after(
+        lambda: VisionRealNet(random_state=123, epochs=1, device="cpu")
+    )
 
-    np.random.seed(2024)
-    actual_first = np.random.rand()
-    _ = VisionRealNet(random_state=123, epochs=1, device="cpu")
-    actual_second = np.random.rand()
-
-    assert actual_first == pytest.approx(expected_first)
-    assert actual_second == pytest.approx(expected_second)
+    assert _numpy_states_equal(observed, expected)
 
 
 def test_ast_init_random_state_does_not_reset_numpy_global_rng():
     from pyimgano.models.ast import VisionAST
 
-    np.random.seed(2025)
-    expected_first = np.random.rand()
-    expected_second = np.random.rand()
+    expected = _global_numpy_state_after(lambda: None)
+    observed = _global_numpy_state_after(lambda: VisionAST(random_state=123, epochs=1, device="cpu"))
 
-    np.random.seed(2025)
-    actual_first = np.random.rand()
-    _ = VisionAST(random_state=123, epochs=1, device="cpu")
-    actual_second = np.random.rand()
-
-    assert actual_first == pytest.approx(expected_first)
-    assert actual_second == pytest.approx(expected_second)
+    assert _numpy_states_equal(observed, expected)
 
 
 def test_ast_random_state_makes_synthetic_anomalies_repeatable():

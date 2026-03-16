@@ -60,20 +60,20 @@ class CoreFeatureDetector(BaseDetector):
         raise NotImplementedError
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X_np = _to_numpy_2d(X)
-        self.detector.fit(X_np)
+        x_array = _to_numpy_2d(X)
+        self.detector.fit(x_array)
 
         if hasattr(self.detector, "decision_scores_"):
             scores = np.asarray(
                 getattr(self.detector, "decision_scores_"), dtype=np.float64
             ).reshape(-1)
         else:
-            scores = np.asarray(self.detector.decision_function(X_np), dtype=np.float64).reshape(-1)
+            scores = np.asarray(self.detector.decision_function(x_array), dtype=np.float64).reshape(-1)
 
-        if scores.shape[0] != X_np.shape[0]:
+        if scores.shape[0] != x_array.shape[0]:
             raise ValueError(
                 "Detector decision_scores_ must have one score per training sample. "
-                f"Got {scores.shape[0]} for {X_np.shape[0]} samples."
+                f"Got {scores.shape[0]} for {x_array.shape[0]} samples."
             )
 
         self.decision_scores_ = scores
@@ -82,11 +82,11 @@ class CoreFeatureDetector(BaseDetector):
         return self
 
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        X_np = _to_numpy_2d(X)
-        scores = np.asarray(self.detector.decision_function(X_np), dtype=np.float64).reshape(-1)
-        if scores.shape[0] != X_np.shape[0]:
+        x_array = _to_numpy_2d(X)
+        scores = np.asarray(self.detector.decision_function(x_array), dtype=np.float64).reshape(-1)
+        if scores.shape[0] != x_array.shape[0]:
             raise ValueError(
                 "Detector decision_function must return one score per sample. "
-                f"Got {scores.shape[0]} for {X_np.shape[0]} samples."
+                f"Got {scores.shape[0]} for {x_array.shape[0]} samples."
             )
         return scores

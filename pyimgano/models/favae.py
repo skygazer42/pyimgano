@@ -313,7 +313,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
             Fitted detector
         """
         # Preprocess
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -321,7 +321,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         # Get feature dimensions
         with torch.no_grad():
-            sample_features = self.feature_extractor_(X_tensor[:1].to(self.device))
+            sample_features = self.feature_extractor_(x_tensor[:1].to(self.device))
             in_channels = sample_features.shape[1]
             self.feature_size_ = sample_features.shape[2]
 
@@ -341,7 +341,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
             ).to(self.device)
 
         # Training
-        dataset = TensorDataset(X_tensor)
+        dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         optimizer = torch.optim.Adam(
@@ -423,12 +423,12 @@ class VisionFAVAE(BaseVisionDeepDetector):
         self.encoder_.eval()
         self.decoder_.eval()
 
-        X_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(X)
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
 
                 # Extract features
                 features = self.feature_extractor_(batch)

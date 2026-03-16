@@ -42,7 +42,7 @@ def test_tiled_detector_loads_u16_paths_with_u16_max(tmp_path: Path) -> None:
     scores = tiled.decision_function([str(p)])
 
     assert scores.shape == (1,)
-    assert float(scores[0]) == 255.0
+    assert np.isclose(float(scores[0]), 255.0)
 
 
 def test_preprocessing_detector_loads_u16_paths_with_u16_max(tmp_path: Path) -> None:
@@ -60,4 +60,4 @@ def test_preprocessing_detector_loads_u16_paths_with_u16_max(tmp_path: Path) -> 
 
     out = np.asarray(scores, dtype=np.float32).reshape(-1)
     assert out.shape == (1,)
-    assert float(out[0]) == 255.0
+    assert np.isclose(float(out[0]), 255.0)

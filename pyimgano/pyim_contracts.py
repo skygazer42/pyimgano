@@ -9,7 +9,7 @@ from pyimgano.pyim_list_spec import ALL_PAYLOAD_FIELDS, CORE_PAYLOAD_FIELDS, get
 def _list_of_str(value: Any) -> list[str]:
     if value is None:
         return []
-    return [str(item) for item in list(value)]
+    return [str(item) for item in value]
 
 
 @dataclass(frozen=True)

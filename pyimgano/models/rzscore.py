@@ -44,18 +44,18 @@ class CoreRZScore(BaseDetector):
         self.consistency_correction = bool(consistency_correction)
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
-        if X_arr.shape[0] == 0:
+        if x_array.shape[0] == 0:
             raise ValueError("X must be non-empty")
 
-        self.median_ = np.median(X_arr, axis=0)
-        abs_dev = np.abs(X_arr - self.median_)
+        self.median_ = np.median(x_array, axis=0)
+        abs_dev = np.abs(x_array - self.median_)
         mad = np.median(abs_dev, axis=0)
         mad = np.maximum(mad, float(self.eps))
         self.mad_ = mad
 
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
         self._process_decision_scores()
         return self
 
@@ -64,8 +64,8 @@ class CoreRZScore(BaseDetector):
         median = np.asarray(self.median_, dtype=np.float64)  # type: ignore[arg-type]
         mad = np.asarray(self.mad_, dtype=np.float64)  # type: ignore[arg-type]
 
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        z = np.abs(X_arr - median) / mad
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        z = np.abs(x_array - median) / mad
         if self.consistency_correction:
             z = 0.6745 * z
 

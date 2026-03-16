@@ -60,12 +60,12 @@ class _OddOneOutBackend:
         self._train_local_mean: np.ndarray | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def _normalize_rows(self, X: np.ndarray) -> np.ndarray:
+    def _normalize_rows(self, x: np.ndarray) -> np.ndarray:
         if not self.normalize:
-            return np.asarray(X, dtype=np.float64)
-        norms = np.linalg.norm(X, axis=1, keepdims=True)
+            return np.asarray(x, dtype=np.float64)
+        norms = np.linalg.norm(x, axis=1, keepdims=True)
         norms = np.maximum(norms, float(self.eps))
-        return np.asarray(X / norms, dtype=np.float64)
+        return np.asarray(x / norms, dtype=np.float64)
 
     def _aggregate(self, distances: np.ndarray) -> np.ndarray:
         if self.method == "mean":
@@ -76,11 +76,11 @@ class _OddOneOutBackend:
             return distances.max(axis=1)
         raise ValueError("method must be one of {'mean', 'median', 'largest'}")
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        X = self._normalize_rows(X)
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        x = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = self._normalize_rows(x)
 
-        n_train = int(X.shape[0])
+        n_train = int(x.shape[0])
         if n_train <= 1:
             self._k_effective = 0
             self._nn = None
@@ -102,10 +102,10 @@ class _OddOneOutBackend:
             algorithm=algo,
             n_jobs=int(self.n_jobs),
         )
-        nn.fit(X)
+        nn.fit(x)
         self._nn = nn
 
-        dist, idx = nn.kneighbors(X, n_neighbors=k + 1, return_distance=True)
+        dist, idx = nn.kneighbors(x, n_neighbors=k + 1, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)[:, 1:]  # drop self
         idx = np.asarray(idx, dtype=np.int64)[:, 1:]
 
@@ -123,14 +123,14 @@ class _OddOneOutBackend:
         if self._k_effective is None or self._train_local_mean is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         k = int(self._k_effective)
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         if k <= 0:
-            return np.zeros(int(X_arr.shape[0]), dtype=np.float64)
+            return np.zeros(int(x_array.shape[0]), dtype=np.float64)
         if self._nn is None:
             raise RuntimeError("Internal error: missing neighbor index")
 
-        X_arr = self._normalize_rows(X_arr)
-        dist, idx = self._nn.kneighbors(X_arr, n_neighbors=k, return_distance=True)
+        x_array = self._normalize_rows(x_array)
+        dist, idx = self._nn.kneighbors(x_array, n_neighbors=k, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)
         idx = np.asarray(idx, dtype=np.int64)
 

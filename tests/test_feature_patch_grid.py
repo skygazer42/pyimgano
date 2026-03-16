@@ -8,10 +8,10 @@ pytest.importorskip("torchvision")
 def test_patch_grid_extractor_numpy_inputs_smoke() -> None:
     from pyimgano.features.patch_grid import PatchGridExtractor
 
-    rng = np.random.RandomState(2)
+    rng = np.random.default_rng(2)
     imgs = [
-        rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8),
-        rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8),
+        rng.integers(0, 255, size=(64, 64, 3), dtype=np.uint8),
+        rng.integers(0, 255, size=(64, 64, 3), dtype=np.uint8),
     ]
 
     ext = PatchGridExtractor(

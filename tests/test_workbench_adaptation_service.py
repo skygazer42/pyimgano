@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 
 def test_workbench_adaptation_service_exports_expected_boundary() -> None:
     import pyimgano.services.workbench_adaptation_service as workbench_adaptation_service
@@ -39,8 +41,8 @@ def test_workbench_adaptation_service_delegates_to_workbench_adaptation(monkeypa
     assert config.normalize is True
     assert config.normalize_method == "percentile"
     assert config.percentile_range == (2.0, 98.0)
-    assert config.gaussian_sigma == 1.5
+    assert config.gaussian_sigma == pytest.approx(1.5)
     assert config.morph_open_ksize == 3
     assert config.morph_close_ksize == 5
-    assert config.component_threshold == 0.6
+    assert config.component_threshold == pytest.approx(0.6)
     assert config.min_component_area == 11

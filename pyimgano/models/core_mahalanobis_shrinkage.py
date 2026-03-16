@@ -24,15 +24,15 @@ class _MahalanobisShrinkageBackend:
         self._lw: LedoitWolf | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X_arr.shape[0]) == 0:
+    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        if int(x_arr.shape[0]) == 0:
             raise ValueError("Training set cannot be empty")
 
         lw = LedoitWolf(assume_centered=bool(self.assume_centered))
-        lw.fit(X_arr)
+        lw.fit(x_arr)
         self._lw = lw
-        self.decision_scores_ = np.asarray(self.decision_function(X_arr), dtype=np.float64).reshape(
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64).reshape(
             -1
         )
         return self
@@ -40,9 +40,9 @@ class _MahalanobisShrinkageBackend:
     def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._lw is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
         # sklearn returns squared Mahalanobis distances.
-        scores = self._lw.mahalanobis(X_arr)
+        scores = self._lw.mahalanobis(x_arr)
         return np.asarray(scores, dtype=np.float64).reshape(-1)
 
 

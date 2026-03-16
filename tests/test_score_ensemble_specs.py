@@ -7,7 +7,7 @@ def test_vision_score_ensemble_accepts_detector_specs() -> None:
     import pyimgano.models  # noqa: F401 - registry population
     from pyimgano.models import create_model
 
-    rng = np.random.RandomState(0)
+    rng = np.random.default_rng(0)
     X = [rng.normal(size=(8,)).astype(np.float32) for _ in range(80)]
 
     ens = create_model(

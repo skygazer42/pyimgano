@@ -8,10 +8,10 @@ pytest.importorskip("torchvision")
 def test_torchvision_multilayer_extractor_numpy_inputs_smoke() -> None:
     from pyimgano.features.torchvision_multilayer import TorchvisionMultiLayerExtractor
 
-    rng = np.random.RandomState(1)
+    rng = np.random.default_rng(1)
     imgs = [
-        rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8),
-        rng.randint(0, 255, size=(64, 64, 3), dtype=np.uint8),
+        rng.integers(0, 255, size=(64, 64, 3), dtype=np.uint8),
+        rng.integers(0, 255, size=(64, 64, 3), dtype=np.uint8),
     ]
 
     ext = TorchvisionMultiLayerExtractor(

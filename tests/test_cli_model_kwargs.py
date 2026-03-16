@@ -327,7 +327,7 @@ def test_build_model_kwargs_user_overrides_preset_values():
         preset_kwargs={"coreset_sampling_ratio": 0.05, "n_neighbors": 5},
         auto_kwargs={"device": "cpu"},
     )
-    assert out["coreset_sampling_ratio"] == 0.2
+    assert out["coreset_sampling_ratio"] == pytest.approx(0.2)
     assert out["n_neighbors"] == 5
     assert out["device"] == "cpu"
 
@@ -368,7 +368,7 @@ def test_cli_applies_preset_for_patchcore(monkeypatch):
     assert captured["model"] == "vision_patchcore"
     model_kwargs = captured["model_kwargs"]
     assert model_kwargs["backbone"] == "resnet50"
-    assert model_kwargs["coreset_sampling_ratio"] == 0.05
+    assert model_kwargs["coreset_sampling_ratio"] == pytest.approx(0.05)
     assert model_kwargs["knn_backend"] == "sklearn"
 
 

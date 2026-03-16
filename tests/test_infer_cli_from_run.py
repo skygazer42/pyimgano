@@ -103,7 +103,7 @@ def test_infer_cli_supports_from_run(tmp_path, monkeypatch):
     assert rc == 0
 
     assert det.loaded == str(ckpt_path)
-    assert det.threshold_ == 0.7
+    assert np.isclose(det.threshold_, 0.7)
 
     lines = out_jsonl.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2

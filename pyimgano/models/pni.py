@@ -326,7 +326,7 @@ class PNIDetector(BaseVisionDeepDetector):
         flattened_features, spatial_features = self._extract_features(X)
 
         N = X.shape[0] if isinstance(X, np.ndarray) else X.size(0)
-        H_img, W_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Compute anomaly maps at each level
         anomaly_maps = []
@@ -344,7 +344,7 @@ class PNIDetector(BaseVisionDeepDetector):
             # Upsample to image size
             scores_tensor = torch.from_numpy(scores).unsqueeze(1).float()  # [N, 1, H, W]
             upsampled = F.interpolate(
-                scores_tensor, size=(H_img, W_img), mode="bilinear", align_corners=False
+                scores_tensor, size=(height_img, width_img), mode="bilinear", align_corners=False
             )
             upsampled = upsampled.squeeze(1).numpy()  # [N, H, W]
 

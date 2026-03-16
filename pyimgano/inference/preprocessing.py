@@ -194,7 +194,7 @@ class PreprocessingDetector:
         return arr
 
     def _preprocess_batch(self, X: Iterable[ImageInput]) -> list[NDArray[np.uint8]]:
-        return [self._preprocess_item(item) for item in list(X)]
+        return [self._preprocess_item(item) for item in X]
 
     def fit(self, X, y=None, **kwargs):  # noqa: ANN001 - sklearn-style boundary
         batch = self._preprocess_batch(X)

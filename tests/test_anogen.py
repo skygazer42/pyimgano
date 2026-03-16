@@ -30,7 +30,7 @@ def test_anogen_adapter_generates_pairs_and_scores_anomaly_higher() -> None:
     assert np.allclose(pairs[0]["normal"], normal)
     assert pairs[0]["anomalous"].shape == normal.shape
     assert pairs[0]["mask"].shape == normal.shape
-    assert float(np.sum(pairs[0]["mask"])) == 4.0
+    assert np.isclose(float(np.sum(pairs[0]["mask"])), 4.0)
     assert pairs[0]["meta"]["kind"] == "square"
 
     detector.fit([normal])

@@ -52,10 +52,10 @@ class CorePatchCoreLite(BaseDetector):
         self.random_state = random_state
 
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(X_arr.shape[0])
+        n = int(x_array.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
 
@@ -64,15 +64,15 @@ class CorePatchCoreLite(BaseDetector):
             raise ValueError(f"coreset_ratio must be in (0,1], got {self.coreset_ratio}")
 
         m = max(1, int(np.ceil(r * n)))
-        rng = np.random.RandomState(0 if self.random_state is None else int(self.random_state))
+        rng = np.random.default_rng(0 if self.random_state is None else int(self.random_state))
         idx = rng.choice(n, size=m, replace=False).astype(np.int64, copy=False)
-        bank = np.asarray(X_arr[idx], dtype=np.float64)
+        bank = np.asarray(x_array[idx], dtype=np.float64)
 
         nn = NearestNeighbors(n_neighbors=2 if m > 1 else 1, metric=self.metric, p=self.p)
         nn.fit(bank)
 
         # Training scores: distance to nearest bank item, using 2-NN to avoid self==0
-        dist, _ = nn.kneighbors(X_arr, n_neighbors=2 if m > 1 else 1, return_distance=True)
+        dist, _ = nn.kneighbors(x_array, n_neighbors=2 if m > 1 else 1, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)
         if m > 1:
             # If a point is in the bank, 1-NN distance can be 0; use the 2nd NN.
@@ -90,9 +90,9 @@ class CorePatchCoreLite(BaseDetector):
 
     def decision_function(self, X):  # noqa: ANN001, ANN201
         require_fitted(self, ["nn_"])
-        X_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self.nn_  # type: ignore[assignment]
-        dist, _ = nn.kneighbors(X_arr, n_neighbors=1, return_distance=True)
+        dist, _ = nn.kneighbors(x_array, n_neighbors=1, return_distance=True)
         return np.asarray(dist[:, 0], dtype=np.float64).reshape(-1)
 
 

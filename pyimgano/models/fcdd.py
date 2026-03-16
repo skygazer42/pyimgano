@@ -174,14 +174,16 @@ class FCDD(BaseVisionDeepDetector):
             X = np.expand_dims(X, axis=-1)
 
         X = np.transpose(X, (0, 3, 1, 2))
-        X_tensor = torch.from_numpy(X).float() / 255.0
+        x_tensor = torch.from_numpy(X).float() / 255.0
 
         # Initialize network
         self.network_ = FCDDNetwork(in_channels=X.shape[1]).to(self.device)
 
         # Setup data loader
-        dataset = TensorDataset(X_tensor)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        dataset = TensorDataset(x_tensor)
+        dataloader = DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=True, num_workers=0
+        )
 
         # Initialize center (for HSC objective)
         if self.objective == "hsc":
@@ -249,15 +251,15 @@ class FCDD(BaseVisionDeepDetector):
             X = np.expand_dims(X, axis=-1)
 
         X = np.transpose(X, (0, 3, 1, 2))
-        X_tensor = torch.from_numpy(X).float() / 255.0
+        x_tensor = torch.from_numpy(X).float() / 255.0
 
         # Compute scores
         self.network_.eval()
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
                 _, score_map = self.network_(batch)
 
                 # Average score map to get image-level score
@@ -290,7 +292,7 @@ class FCDD(BaseVisionDeepDetector):
 
         original_h, original_w = X.shape[1], X.shape[2]
         X = np.transpose(X, (0, 3, 1, 2))
-        X_tensor = torch.from_numpy(X).float() / 255.0
+        x_tensor = torch.from_numpy(X).float() / 255.0
 
         # Compute scores and maps
         self.network_.eval()
@@ -298,8 +300,8 @@ class FCDD(BaseVisionDeepDetector):
         maps = []
 
         with torch.no_grad():
-            for i in range(0, len(X_tensor), self.batch_size):
-                batch = X_tensor[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x_tensor), self.batch_size):
+                batch = x_tensor[i : i + self.batch_size].to(self.device)
                 _, score_map = self.network_(batch)
 
                 # Upsample score map to original size

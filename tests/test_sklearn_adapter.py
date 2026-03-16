@@ -42,4 +42,4 @@ def test_sklearn_adapter_supports_clone() -> None:
     cloned = clone(est)
     assert isinstance(cloned, RegistryModelEstimator)
     assert cloned.get_params()["model"] == "vision_ecod"
-    assert float(cloned.get_params()["contamination"]) == 0.1
+    assert np.isclose(float(cloned.get_params()["contamination"]), 0.1)

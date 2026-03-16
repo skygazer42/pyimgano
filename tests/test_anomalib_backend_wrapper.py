@@ -89,7 +89,7 @@ def test_anomalib_checkpoint_wrapper_returns_anomaly_maps():
     m1 = model.get_anomaly_map("a.png")
     assert isinstance(m1, np.ndarray)
     assert m1.shape == (3, 5)
-    assert float(m1.mean()) == 1.0
+    assert np.isclose(float(m1.mean()), 1.0)
 
     stacked = model.predict_anomaly_map(paths)
     assert isinstance(stacked, np.ndarray)
