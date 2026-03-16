@@ -59,7 +59,7 @@ def _constructor_supports_pixel_map(constructor: Any) -> bool:
 
 
 def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
-    tags = set(str(t) for t in entry.tags)
+    tags = {str(t) for t in entry.tags}
 
     is_core = bool(entry.name.startswith("core_") or ("core" in tags))
 

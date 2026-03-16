@@ -654,7 +654,8 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help=(
-            "Stop early after N errors when --continue-on-error is set. " "Default: 0 (no limit)."
+            "Stop early after N errors when --continue-on-error is set. "
+            "Default: 0 (no limit)."
         ),
     )
     parser.add_argument(

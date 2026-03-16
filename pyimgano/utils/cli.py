@@ -267,42 +267,42 @@ class Logger:
         format : str
             Log message format
         """
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(getattr(logging, level.upper()))
+        self._logger = logging.getLogger(name)
+        self._logger.setLevel(getattr(logging, level.upper()))
 
         # Remove existing handlers
-        self.logger.handlers = []
+        self._logger.handlers = []
 
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(logging.Formatter(format))
-        self.logger.addHandler(console_handler)
+        self._logger.addHandler(console_handler)
 
         # File handler
         if log_file:
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(format))
-            self.logger.addHandler(file_handler)
+            self._logger.addHandler(file_handler)
 
     def debug(self, message: str):
         """Log debug message."""
-        self.logger.debug(message)
+        self._logger.debug(message)
 
     def info(self, message: str):
         """Log info message."""
-        self.logger.info(message)
+        self._logger.info(message)
 
     def warning(self, message: str):
         """Log warning message."""
-        self.logger.warning(message)
+        self._logger.warning(message)
 
     def error(self, message: str):
         """Log error message."""
-        self.logger.error(message)
+        self._logger.error(message)
 
     def critical(self, message: str):
         """Log critical message."""
-        self.logger.critical(message)
+        self._logger.critical(message)
 
 
 class ProgressBar:

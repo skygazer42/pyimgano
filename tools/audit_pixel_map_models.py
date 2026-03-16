@@ -33,7 +33,7 @@ def audit_pixel_map_models() -> list[str]:
 
     for name in sorted(list_models()):
         entry = MODEL_REGISTRY.info(name)
-        tags = set(str(t) for t in entry.tags)
+        tags = {str(t) for t in entry.tags}
         ctor = entry.constructor
 
         # Lazy registry entries are placeholders. For pixel-map contract auditing,
@@ -66,7 +66,7 @@ def audit_pixel_map_models() -> list[str]:
                 imported_modules.add(module_name)
 
             entry = MODEL_REGISTRY.info(name)
-            tags = set(str(t) for t in entry.tags)
+            tags = {str(t) for t in entry.tags}
             ctor = entry.constructor
 
         has_map_method = bool(

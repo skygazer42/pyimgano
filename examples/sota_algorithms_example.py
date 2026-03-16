@@ -30,7 +30,7 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
         Tuple of (X_train, X_test, y_test).
     """
     print(f"Generating {n_normal} normal + {n_anomaly} anomaly samples...")
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(42)
 
     # Normal images: simple patterns
     normal_images = []

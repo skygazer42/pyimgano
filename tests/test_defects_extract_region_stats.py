@@ -7,7 +7,7 @@ from pyimgano.defects.extract import extract_defects_from_anomaly_map
 
 def test_extract_defects_includes_region_shape_stats_by_default() -> None:
     amap = np.zeros((10, 10), dtype=np.float32)
-    amap[2:5, 3:7] = 1.0  # width=4, height=3, area=12
+    amap[2:5, 3:7] = 1.0  # Rectangular region with 12 foreground pixels.
 
     out = extract_defects_from_anomaly_map(
         amap,

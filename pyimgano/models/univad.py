@@ -35,7 +35,7 @@ def _extract_layers(feature_extractor: Any, image: Any) -> Mapping[str, NDArray]
 
 def _resolve_weights(layer_names: Sequence[str], layer_weights: Any) -> dict[str, float]:
     if layer_weights is None:
-        return {name: 1.0 for name in layer_names}
+        return dict.fromkeys(layer_names, 1.0)
     if isinstance(layer_weights, Mapping):
         return {str(name): float(layer_weights.get(name, 0.0)) for name in layer_names}
     if isinstance(layer_weights, Sequence) and not isinstance(layer_weights, (str, bytes)):

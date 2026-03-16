@@ -239,13 +239,11 @@ def apply_illumination_contrast(
 
     out = _require_u8(image)
 
-    if wb in ("none", ""):
-        pass
-    elif wb in ("gray_world", "gray-world", "grayworld"):
+    if wb in ("gray_world", "gray-world", "grayworld"):
         out = gray_world_white_balance(out)
     elif wb in ("max_rgb", "max-rgb", "maxrgb"):
         out = max_rgb_white_balance(out)
-    else:
+    elif wb not in ("none", ""):
         raise ValueError(
             "white_balance must be one of: none, gray_world, max_rgb. " f"Got: {wb!r}."
         )

@@ -48,7 +48,7 @@ def test_defect_bank_preset_exposes_alpha_mask_when_available(tmp_path: Path) ->
 
     # Binary mask is still expected for label / manifest semantics.
     mask_u8 = np.asarray(out.mask_u8, dtype=np.uint8)
-    uniq = set(int(v) for v in np.unique(mask_u8).tolist())
+    uniq = {int(v) for v in np.unique(mask_u8).tolist()}
     assert uniq.issubset({0, 255})
 
     # But alpha blending can use a continuous alpha mask when provided (e.g. PNG alpha).

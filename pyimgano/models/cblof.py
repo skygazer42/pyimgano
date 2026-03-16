@@ -51,12 +51,15 @@ class ImageFeatureExtractor:
         PCA降维后的维度
     """
 
-    def __init__(self, method="combined", reduce_dim=True, n_components=50):
+    def __init__(self, method="combined", reduce_dim=True, n_components=50, random_state=0):
         self.method = method
         self.reduce_dim = reduce_dim
         self.n_components = n_components
+        self.random_state = random_state
         self.scaler = StandardScaler()
-        self.pca = PCA(n_components=n_components) if reduce_dim else None
+        self.pca = (
+            PCA(n_components=n_components, random_state=self.random_state) if reduce_dim else None
+        )
         self.is_fitted = False
 
     def extract(self, X):
@@ -468,7 +471,10 @@ class VisionCBLOF(BaseVisionDetector):
         # 如果未提供特征提取器，创建默认的
         if feature_extractor is None:
             feature_extractor = ImageFeatureExtractor(
-                method=feature_method, reduce_dim=reduce_dim, n_components=n_components
+                method=feature_method,
+                reduce_dim=reduce_dim,
+                n_components=n_components,
+                random_state=self.random_state,
             )
             logger.info(
                 "CBLOF: using default feature extractor (method=%s, pca=%s)",

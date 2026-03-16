@@ -26,16 +26,21 @@ from .base_detector import BaseDetector
 from .registry import register_model
 
 
-def _ridge_solve(S: np.ndarray, T: np.ndarray, *, ridge: float) -> np.ndarray:
+def _ridge_solve(
+    student_embeddings: np.ndarray,
+    teacher_embeddings: np.ndarray,
+    *,
+    ridge: float,
+) -> np.ndarray:
     """Solve W = argmin ||S W - T||^2 + ridge ||W||^2."""
 
-    S = np.asarray(S, dtype=np.float64)
-    T = np.asarray(T, dtype=np.float64)
-    d = int(S.shape[1])
-    A = S.T @ S + float(ridge) * np.eye(d, dtype=np.float64)
-    B = S.T @ T
-    W = np.linalg.solve(A, B)
-    return np.asarray(W, dtype=np.float64)
+    student = np.asarray(student_embeddings, dtype=np.float64)
+    teacher = np.asarray(teacher_embeddings, dtype=np.float64)
+    d = int(student.shape[1])
+    a_mat = student.T @ student + float(ridge) * np.eye(d, dtype=np.float64)
+    b_mat = student.T @ teacher
+    weights = np.linalg.solve(a_mat, b_mat)
+    return np.asarray(weights, dtype=np.float64)
 
 
 @register_model(

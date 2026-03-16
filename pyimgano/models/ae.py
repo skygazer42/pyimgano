@@ -213,7 +213,7 @@ class OptimizedAEDetector(BaseVisionDeepDetector):
             ds = VisionArrayDataset([item], transform=self.eval_transform)
         else:
             ds = VisionImageDataset([str(item)], transform=self.eval_transform)
-        loader = DataLoader(ds, batch_size=1, shuffle=False)
+        loader = DataLoader(ds, batch_size=1, shuffle=False, num_workers=0)
 
         self.evaluating_prepare()
         for images, targets in loader:

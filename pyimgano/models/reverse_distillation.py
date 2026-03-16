@@ -104,7 +104,7 @@ class ReverseDistillation(BaseVisionDeepDetector):
             param.requires_grad = False
         self.teacher.eval()
 
-        self.optimizer = torch.optim.Adam(self.student.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.student.parameters(), lr=self.lr, weight_decay=0.0)
         return nn.ModuleList([self.student])
 
     def _forward_features(self, images: torch.Tensor):

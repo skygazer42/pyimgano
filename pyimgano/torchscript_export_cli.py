@@ -41,7 +41,10 @@ def main(argv: list[str] | None = None) -> int:
         "--optimize",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help=("Apply TorchScript inference optimizations (freeze; best-effort). " "Default: true"),
+        help=(
+            "Apply TorchScript inference optimizations (freeze; best-effort). "
+            "Default: true"
+        ),
     )
     parser.add_argument(
         "--out",

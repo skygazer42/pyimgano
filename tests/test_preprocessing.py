@@ -662,8 +662,8 @@ class TestIntegration:
                 self.add_preprocessing_step("normalize", method="minmax")
 
             def fit(self, X):
-                X_processed = self.preprocess_images(X)
-                return X_processed
+                x_processed = self.preprocess_images(X)
+                return x_processed
 
         detector = MockDetector()
         images = [temp_image_path, temp_image_path]

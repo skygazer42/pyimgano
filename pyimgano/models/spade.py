@@ -126,9 +126,12 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         self.align_features = bool(align_features)
         self.gaussian_sigma = float(gaussian_sigma)
 
-        device_str = (
-            device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
-        )
+        if device is not None:
+            device_str = device
+        elif torch.cuda.is_available():
+            device_str = "cuda"
+        else:
+            device_str = "cpu"
         self.device = torch.device(device_str)
 
         self.feature_extractor = DeepPyramidExtractor(

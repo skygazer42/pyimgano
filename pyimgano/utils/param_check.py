@@ -35,21 +35,24 @@ def check_parameter(
     if not isinstance(param, Number) or isinstance(param, bool):
         raise TypeError(f"{param_name} must be a number, got {type(param).__name__}")
 
-    if low is not None and high is not None and low > high:
+    low_value = low
+    high_value = high
+
+    if low_value is not None and high_value is not None and low_value > high_value:
         raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
 
-    if low is not None:
+    if low_value is not None:
         if include_left:
-            if param < low:
-                raise ValueError(f"{param_name} must be >= {low}, got {param}")
+            if param < low_value:
+                raise ValueError(f"{param_name} must be >= {low_value}, got {param}")
         else:
-            if param <= low:
-                raise ValueError(f"{param_name} must be > {low}, got {param}")
+            if param <= low_value:
+                raise ValueError(f"{param_name} must be > {low_value}, got {param}")
 
-    if high is not None:
+    if high_value is not None:
         if include_right:
-            if param > high:
-                raise ValueError(f"{param_name} must be <= {high}, got {param}")
+            if param > high_value:
+                raise ValueError(f"{param_name} must be <= {high_value}, got {param}")
         else:
-            if param >= high:
-                raise ValueError(f"{param_name} must be < {high}, got {param}")
+            if param >= high_value:
+                raise ValueError(f"{param_name} must be < {high_value}, got {param}")

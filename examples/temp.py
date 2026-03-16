@@ -45,40 +45,61 @@ class EnsembleVotingDetector:
         self.is_loaded = False
         self._load_all_models()
 
+    def _loaded_model_names(self) -> List[str]:
+        return [name for name, model in self.models.items() if model is not None]
+
+    def _load_named_model(self, model_name: str, banner: str, detector_cls, success_label: str) -> None:
+        print(f"\n{banner}")
+        model_path = self.model_paths[model_name]
+        if not os.path.exists(model_path):
+            print(f"   ✗ {success_label}文件不存在: {model_path}")
+            self.models[model_name] = None
+            return
+
+        detector = detector_cls()
+        detector.load(model_path)
+        self.models[model_name] = detector
+        print(f"   ✓ {success_label}加载成功: {model_path}")
+
+    def _normalize_loaded_model_weights(self, loaded_models: List[str]) -> None:
+        if len(loaded_models) >= len(self.models):
+            return
+
+        print("\n调整模型权重（仅对已加载模型归一）...")
+        total_weight = sum(self.weights.get(name, 1.0) for name in loaded_models)
+        for name, model in self.models.items():
+            if model is None:
+                self.weights[name] = 0.0
+                print(f"   {name} 权重设为 0")
+        if total_weight <= 0:
+            return
+        for name in loaded_models:
+            self.weights[name] = self.weights.get(name, 1.0) / total_weight
+            print(f"   {name} 权重调整为 {self.weights[name]:.3f}")
+
     def _load_all_models(self):
         print("=== 开始加载集成投票模型 ===")
         try:
-            # IsolationForest
-            print("\n1. 加载IsolationForest模型...")
-            if os.path.exists(self.model_paths["iforest"]):
-                self.models["iforest"] = IsolationForestStructureDetector()
-                self.models["iforest"].load(self.model_paths["iforest"])
-                print(f"   ✓ IsolationForest模型加载成功: {self.model_paths['iforest']}")
-            else:
-                print(f"   ✗ IsolationForest模型文件不存在: {self.model_paths['iforest']}")
-                self.models["iforest"] = None
+            self._load_named_model(
+                "iforest",
+                "1. 加载IsolationForest模型...",
+                IsolationForestStructureDetector,
+                "IsolationForest模型",
+            )
+            self._load_named_model(
+                "ssim",
+                "2. 加载SSIM模板检测模型...",
+                MultiTemplatePopupStructDetector,
+                "SSIM模型",
+            )
+            self._load_named_model(
+                "lof",
+                "3. 加载LOF模型...",
+                LOFStructureAnomalyDetector,
+                "LOF模型",
+            )
 
-            # SSIM
-            print("\n2. 加载SSIM模板检测模型...")
-            if os.path.exists(self.model_paths["ssim"]):
-                self.models["ssim"] = MultiTemplatePopupStructDetector()
-                self.models["ssim"].load(self.model_paths["ssim"])
-                print(f"   ✓ SSIM模型加载成功: {self.model_paths['ssim']}")
-            else:
-                print(f"   ✗ SSIM模型文件不存在: {self.model_paths['ssim']}")
-                self.models["ssim"] = None
-
-            # LOF
-            print("\n3. 加载LOF模型...")
-            if os.path.exists(self.model_paths["lof"]):
-                self.models["lof"] = LOFStructureAnomalyDetector()
-                self.models["lof"].load(self.model_paths["lof"])
-                print(f"   ✓ LOF模型加载成功: {self.model_paths['lof']}")
-            else:
-                print(f"   ✗ LOF模型文件不存在: {self.model_paths['lof']}")
-                self.models["lof"] = None
-
-            loaded_models = [n for n, m in self.models.items() if m is not None]
+            loaded_models = self._loaded_model_names()
             if not loaded_models:
                 raise ValueError("没有成功加载任何模型！")
 
@@ -87,24 +108,146 @@ class EnsembleVotingDetector:
                 f"成功加载 {len(loaded_models)}/{len(self.models)} 个模型: {', '.join(loaded_models)}"
             )
 
-            # 若有模型缺失，对“已加载模型”做一次权重归一
-            if len(loaded_models) < len(self.models):
-                print("\n调整模型权重（仅对已加载模型归一）...")
-                total_weight = sum(self.weights.get(name, 1.0) for name in loaded_models)
-                for name in self.models:
-                    if self.models[name] is None:
-                        self.weights[name] = 0.0
-                        print(f"   {name} 权重设为 0")
-                if total_weight > 0:
-                    for name in loaded_models:
-                        self.weights[name] = self.weights.get(name, 1.0) / total_weight
-                        print(f"   {name} 权重调整为 {self.weights[name]:.3f}")
-
+            self._normalize_loaded_model_weights(loaded_models)
             self.is_loaded = True
 
         except Exception as e:
             print(f"\n加载模型时出错: {e}")
             raise
+
+    def _init_prediction_result(self, image_path: str) -> Dict:
+        return {
+            "image": os.path.basename(image_path),
+            "model_predictions": {},
+            "votes": {"normal": 0, "anomaly": 0},
+            "weighted_score": 0.0,
+            "is_normal": None,
+            "prediction": None,
+            "confidence": 0.0,
+            "anomaly_types": [],
+        }
+
+    def _build_prediction_entry(self, pred_raw: Dict, return_details: bool) -> Dict:
+        return {
+            "is_normal": pred_raw["is_normal"],
+            "prediction": pred_raw["prediction"],
+            "confidence": float(pred_raw.get("confidence", 0.5)),
+            "raw_result": pred_raw if return_details else None,
+        }
+
+    def _append_anomaly_type(self, results: Dict, model_name: str, pred_raw: Dict) -> None:
+        if model_name == "ssim":
+            if pred_raw.get("has_popup"):
+                results["anomaly_types"].append(f"检测到{pred_raw.get('popup_count', 0)}个弹窗")
+            else:
+                results["anomaly_types"].append("界面结构异常")
+            return
+
+        if model_name == "iforest":
+            results["anomaly_types"].append(f"结构异常({pred_raw.get('anomaly_level', '未知')})")
+            return
+
+        if model_name == "lof":
+            results["anomaly_types"].append(f"局部异常({pred_raw.get('anomaly_level', '未知')})")
+
+    def _record_prediction(self, results: Dict, model_name: str, pred_raw: Dict, return_details: bool) -> Dict:
+        pred_std = self._build_prediction_entry(pred_raw, return_details)
+        results["model_predictions"][model_name] = pred_std
+        vote_key = "normal" if pred_raw["is_normal"] else "anomaly"
+        results["votes"][vote_key] += 1
+        if not pred_raw["is_normal"]:
+            self._append_anomaly_type(results, model_name, pred_raw)
+        return pred_std
+
+    def _record_prediction_error(self, results: Dict, model_name: str, error: Exception) -> None:
+        print(f"模型 {model_name} 预测出错: {error}")
+        results["model_predictions"][model_name] = {"error": str(error), "is_normal": None}
+
+    def _loaded_model_count(self) -> int:
+        return len(self._loaded_model_names())
+
+    def _apply_ssim_short_circuit(self, results: Dict, ssim_pred: Dict) -> Dict:
+        results["weighted_score"] = 1.0
+        results["is_normal"] = True
+        results["prediction"] = "正常"
+        results["confidence"] = ssim_pred["confidence"]
+        results["summary"] = {
+            "total_models_loaded": self._loaded_model_count(),
+            "total_models_valid": 1,
+            "votes_normal": results["votes"]["normal"],
+            "votes_anomaly": results["votes"]["anomaly"],
+            "weighted_score": results["weighted_score"],
+            "decision_rule": "SSIM优先：SSIM判正常直接返回",
+        }
+        return results
+
+    def _run_ssim_priority_prediction(self, results: Dict, image_path: str, return_details: bool) -> Dict | None:
+        ssim_model = self.models.get("ssim")
+        if ssim_model is None:
+            return None
+
+        try:
+            ssim_raw = ssim_model.predict(image_path)
+            ssim_pred = self._record_prediction(results, "ssim", ssim_raw, return_details)
+            if ssim_raw["is_normal"]:
+                return self._apply_ssim_short_circuit(results, ssim_pred)
+        except Exception as error:
+            self._record_prediction_error(results, "ssim", error)
+
+        return None
+
+    def _run_secondary_predictions(self, results: Dict, image_path: str, return_details: bool) -> None:
+        for model_name in ("iforest", "lof"):
+            model = self.models.get(model_name)
+            if model is None:
+                continue
+            try:
+                pred_raw = model.predict(image_path)
+                self._record_prediction(results, model_name, pred_raw, return_details)
+            except Exception as error:
+                self._record_prediction_error(results, model_name, error)
+
+    def _valid_predictions(self, results: Dict) -> List:
+        return [
+            (name, pred)
+            for name, pred in results["model_predictions"].items()
+            if pred.get("is_normal") is not None and "error" not in pred
+        ]
+
+    def _effective_weights(self, valid: List) -> Dict[str, float]:
+        total_weight = sum(self.weights.get(name, 1.0) for name, _ in valid)
+        if total_weight <= 0:
+            return {name: 1.0 / len(valid) for name, _ in valid}
+        return {name: self.weights.get(name, 1.0) / total_weight for name, _ in valid}
+
+    def _finalize_weighted_prediction(self, results: Dict) -> Dict:
+        valid = self._valid_predictions(results)
+        if not valid:
+            raise ValueError("没有模型成功预测！")
+
+        eff_w = self._effective_weights(valid)
+        normal_w = sum(eff_w[name] for name, pred in valid if pred["is_normal"])
+        results["weighted_score"] = float(normal_w)
+        results["is_normal"] = normal_w >= 0.5
+        results["prediction"] = "正常" if results["is_normal"] else "异常"
+
+        consistency = abs(normal_w - 0.5) * 2
+        avg_conf = 0.0
+        for name, pred in valid:
+            confidence = float(pred.get("confidence", 0.5))
+            agrees_with_result = pred["is_normal"] == results["is_normal"]
+            avg_conf += eff_w[name] * (confidence if agrees_with_result else (1 - confidence))
+        results["confidence"] = float(0.6 * consistency + 0.4 * avg_conf)
+        results["summary"] = {
+            "total_models_loaded": self._loaded_model_count(),
+            "total_models_valid": len(valid),
+            "votes_normal": results["votes"]["normal"],
+            "votes_anomaly": results["votes"]["anomaly"],
+            "weighted_score": results["weighted_score"],
+            "decision_rule": "SSIM优先；若SSIM异常或不可用→加权多数(>=50%)",
+        }
+        results["anomaly_types"] = list(set(results["anomaly_types"]))
+        return results
 
     def predict(self, image_path: str, return_details: bool = True) -> Dict:
         if not self.is_loaded:
@@ -112,140 +255,13 @@ class EnsembleVotingDetector:
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"图像文件不存在: {image_path}")
 
-        results = {
-            "image": os.path.basename(image_path),
-            "model_predictions": {},
-            "votes": {"normal": 0, "anomaly": 0},  # 仅用于展示
-            "weighted_score": 0.0,  # 支持“正常”的权重占比 [0,1]
-            "is_normal": None,
-            "prediction": None,
-            "confidence": 0.0,
-            "anomaly_types": [],
-        }
+        results = self._init_prediction_result(image_path)
+        ssim_result = self._run_ssim_priority_prediction(results, image_path, return_details)
+        if ssim_result is not None:
+            return ssim_result
 
-        # ============== 0) 先跑 SSIM（优先规则） ==============
-        ssim_name = "ssim"
-        ssim_is_normal = None
-        if self.models.get(ssim_name) is not None:
-            try:
-                ssim_raw = self.models[ssim_name].predict(image_path)
-                ssim_pred = {
-                    "is_normal": ssim_raw["is_normal"],
-                    "prediction": ssim_raw["prediction"],
-                    "confidence": float(ssim_raw.get("confidence", 0.5)),
-                    "raw_result": ssim_raw if return_details else None,
-                }
-                results["model_predictions"][ssim_name] = ssim_pred
-                ssim_is_normal = ssim_raw["is_normal"]
-
-                if ssim_is_normal:
-                    # SSIM 判正常 → 直接返回正常
-                    results["votes"]["normal"] = 1
-                    results["weighted_score"] = 1.0
-                    results["is_normal"] = True
-                    results["prediction"] = "正常"
-                    results["confidence"] = ssim_pred["confidence"]  # 直接用 SSIM 的置信度
-                    results["summary"] = {
-                        "total_models_loaded": len(
-                            [m for m in self.models.values() if m is not None]
-                        ),
-                        "total_models_valid": 1,
-                        "votes_normal": results["votes"]["normal"],
-                        "votes_anomaly": results["votes"]["anomaly"],
-                        "weighted_score": results["weighted_score"],
-                        "decision_rule": "SSIM优先：SSIM判正常直接返回",
-                    }
-                    return results
-                else:
-                    # SSIM 判异常，记录异常类型（用于后续展示）
-                    results["votes"]["anomaly"] += 1
-                    if ssim_raw.get("has_popup"):
-                        results["anomaly_types"].append(
-                            f"检测到{ssim_raw.get('popup_count', 0)}个弹窗"
-                        )
-                    else:
-                        results["anomaly_types"].append("界面结构异常")
-
-            except Exception as e:
-                print(f"模型 SSIM 预测出错: {e}")
-                results["model_predictions"][ssim_name] = {"error": str(e), "is_normal": None}
-
-        # ============== 1) 跑其余模型（以及可能的 SSIM 异常结果）===============
-        # 把需要参与加权投票的模型列出来（如果 SSIM 成功且为异常，它也会参与投票）
-        order = ["iforest", "lof"]  # 其余模型；SSIM 的异常结果已在results中
-        for model_name in order:
-            model = self.models.get(model_name)
-            if model is None:
-                continue
-            try:
-                pred_raw = model.predict(image_path)
-                pred_std = {
-                    "is_normal": pred_raw["is_normal"],
-                    "prediction": pred_raw["prediction"],
-                    "confidence": float(pred_raw.get("confidence", 0.5)),
-                    "raw_result": pred_raw if return_details else None,
-                }
-                results["model_predictions"][model_name] = pred_std
-
-                if pred_raw["is_normal"]:
-                    results["votes"]["normal"] += 1
-                else:
-                    results["votes"]["anomaly"] += 1
-                    # 收集异常类型
-                    if model_name == "iforest":
-                        results["anomaly_types"].append(
-                            f"结构异常({pred_raw.get('anomaly_level', '未知')})"
-                        )
-                    elif model_name == "lof":
-                        results["anomaly_types"].append(
-                            f"局部异常({pred_raw.get('anomaly_level', '未知')})"
-                        )
-
-            except Exception as e:
-                print(f"模型 {model_name} 预测出错: {e}")
-                results["model_predictions"][model_name] = {"error": str(e), "is_normal": None}
-
-        # ============== 2) 有效模型 + 权重 做加权多数决策 ==============
-        valid = [
-            (name, pred)
-            for name, pred in results["model_predictions"].items()
-            if pred.get("is_normal") is not None and "error" not in pred
-        ]
-        if not valid:
-            raise ValueError("没有模型成功预测！")
-
-        total_w = sum(self.weights.get(name, 1.0) for name, _ in valid)
-        if total_w <= 0:
-            eff_w = {name: 1.0 / len(valid) for name, _ in valid}
-        else:
-            eff_w = {name: self.weights.get(name, 1.0) / total_w for name, _ in valid}
-
-        normal_w = sum(eff_w[name] for name, pred in valid if pred["is_normal"])
-        results["weighted_score"] = float(normal_w)
-        results["is_normal"] = normal_w >= 0.5
-        results["prediction"] = "正常" if results["is_normal"] else "异常"
-
-        # 综合置信度：0.6*一致性 + 0.4*（按权重的置信度一致度）
-        consistency = abs(normal_w - 0.5) * 2  # 0~1
-        avg_conf = 0.0
-        for name, pred in valid:
-            c = float(pred.get("confidence", 0.5))
-            agree = pred["is_normal"] == results["is_normal"]
-            avg_conf += eff_w[name] * (c if agree else (1 - c))
-        results["confidence"] = float(0.6 * consistency + 0.4 * avg_conf)
-
-        results["summary"] = {
-            "total_models_loaded": len([m for m in self.models.values() if m is not None]),
-            "total_models_valid": len(valid),
-            "votes_normal": results["votes"]["normal"],
-            "votes_anomaly": results["votes"]["anomaly"],
-            "weighted_score": results["weighted_score"],
-            "decision_rule": "SSIM优先；若SSIM异常或不可用→加权多数(>=50%)",
-        }
-
-        # 去重异常类型
-        results["anomaly_types"] = list(set(results["anomaly_types"]))
-        return results
+        self._run_secondary_predictions(results, image_path, return_details)
+        return self._finalize_weighted_prediction(results)
 
     def _convert_numpy_types(self, obj):
         if isinstance(obj, np.ndarray):
@@ -280,67 +296,71 @@ class EnsembleVotingDetector:
         else:
             return obj
 
-    def batch_predict(self, test_folder: str, save_results: bool = True) -> List[Dict]:
-        if not os.path.exists(test_folder):
-            raise FileNotFoundError(f"测试目录不存在: {test_folder}")
+    def _list_jpg_files(self, test_folder: str) -> List[str]:
+        return [filename for filename in os.listdir(test_folder) if filename.lower().endswith(".jpg")]
 
-        results = []
-        anomalies = []
-        model_agreement_stats = {"full": 0, "majority": 0, "split": 0}
-
-        jpg_files = [f for f in os.listdir(test_folder) if f.lower().endswith(".jpg")]
-        if not jpg_files:
-            print(f"在 {test_folder} 中没有找到jpg文件")
-            return results
-
+    def _print_batch_header(self, test_folder: str, jpg_files: List[str]) -> None:
         print("\n=== 开始批量检测 ===")
         print(f"测试目录: {test_folder}")
         print(f"图片数量: {len(jpg_files)}")
-        print(
-            f"使用模型: {', '.join([name for name, model in self.models.items() if model is not None])}"
-        )
+        print(f"使用模型: {', '.join(self._loaded_model_names())}")
 
-        for filename in tqdm(jpg_files, desc="检测进度"):
-            try:
-                img_path = os.path.join(test_folder, filename)
-                result = self.predict(img_path, return_details=False)
-                results.append(result)
+    def _update_model_agreement_stats(self, stats: Dict[str, int], weighted_score: float) -> None:
+        if weighted_score >= 0.999 or weighted_score <= 0.001:
+            stats["full"] += 1
+            return
+        if weighted_score > 0.5:
+            stats["majority"] += 1
+            return
+        stats["split"] += 1
 
-                if not result["is_normal"]:
-                    anomalies.append(result)
+    def _process_batch_image(
+        self,
+        test_folder: str,
+        filename: str,
+        results: List[Dict],
+        anomalies: List[Dict],
+        model_agreement_stats: Dict[str, int],
+    ) -> None:
+        try:
+            img_path = os.path.join(test_folder, filename)
+            result = self.predict(img_path, return_details=False)
+            results.append(result)
+            if not result["is_normal"]:
+                anomalies.append(result)
+            self._update_model_agreement_stats(
+                model_agreement_stats,
+                result.get("weighted_score", 0.0),
+            )
+        except Exception as error:
+            print(f"\n检测 {filename} 出错: {error}")
 
-                nw = result.get("weighted_score", 0.0)
-                if nw >= 0.999 or nw <= 0.001:
-                    model_agreement_stats["full"] += 1
-                elif nw > 0.5:
-                    model_agreement_stats["majority"] += 1
-                else:
-                    model_agreement_stats["split"] += 1
+    def _summarize_results(self, results: List[Dict]) -> tuple[int, int, int]:
+        total = len(results)
+        normal = sum(1 for result in results if result["is_normal"])
+        anomaly = total - normal
+        return total, normal, anomaly
 
-            except Exception as e:
-                print(f"\n检测 {filename} 出错: {e}")
-
-        n_total = len(results)
-        n_normal = sum(1 for r in results if r["is_normal"])
-        n_anomaly = n_total - n_normal
-
+    def _print_batch_summary(
+        self,
+        total: int,
+        normal: int,
+        anomaly: int,
+        model_agreement_stats: Dict[str, int],
+    ) -> None:
         print("\n=== 检测结果统计 ===")
-        print(f"总数: {n_total}")
-        print(f"正常: {n_normal} ({(n_normal / n_total * 100) if n_total else 0:.1f}%)")
-        print(f"异常: {n_anomaly} ({(n_anomaly / n_total * 100) if n_total else 0:.1f}%)")
+        print(f"总数: {total}")
+        print(f"正常: {normal} ({(normal / total * 100) if total else 0:.1f}%)")
+        print(f"异常: {anomaly} ({(anomaly / total * 100) if total else 0:.1f}%)")
 
         print("\n=== 模型一致性统计（基于加权得分）===")
-        if n_total > 0:
-            print(
-                f"完全一致: {model_agreement_stats['full']} ({model_agreement_stats['full'] / n_total * 100:.1f}%)"
-            )
-            print(
-                f"多数一致: {model_agreement_stats['majority']} ({model_agreement_stats['majority'] / n_total * 100:.1f}%)"
-            )
-            print(
-                f"意见分歧: {model_agreement_stats['split']} ({model_agreement_stats['split'] / n_total * 100:.1f}%)"
-            )
+        if total <= 0:
+            return
+        print(f"完全一致: {model_agreement_stats['full']} ({model_agreement_stats['full'] / total * 100:.1f}%)")
+        print(f"多数一致: {model_agreement_stats['majority']} ({model_agreement_stats['majority'] / total * 100:.1f}%)")
+        print(f"意见分歧: {model_agreement_stats['split']} ({model_agreement_stats['split'] / total * 100:.1f}%)")
 
+    def _collect_model_stats(self, results: List[Dict]) -> Dict:
         model_stats = {
             name: {"normal": 0, "anomaly": 0, "error": 0}
             for name in self.models
@@ -354,57 +374,120 @@ class EnsembleVotingDetector:
                     model_stats[model_name]["normal"] += 1
                 elif pred.get("is_normal") is False:
                     model_stats[model_name]["anomaly"] += 1
+        return model_stats
 
+    def _print_model_stats(self, model_stats: Dict) -> None:
         print("\n=== 各模型检测统计（未加权，仅参考）===")
         for model_name, stats in model_stats.items():
             total_pred = stats["normal"] + stats["anomaly"]
-            if total_pred > 0 or stats["error"] > 0:
-                print(f"\n{model_name}:")
-                if total_pred > 0:
-                    print(f"  正常: {stats['normal']} ({stats['normal'] / total_pred * 100:.1f}%)")
-                    print(
-                        f"  异常: {stats['anomaly']} ({stats['anomaly'] / total_pred * 100:.1f}%)"
-                    )
-                if stats["error"] > 0:
-                    print(f"  错误: {stats['error']}")
+            if total_pred <= 0 and stats["error"] <= 0:
+                continue
+            print(f"\n{model_name}:")
+            if total_pred > 0:
+                print(f"  正常: {stats['normal']} ({stats['normal'] / total_pred * 100:.1f}%)")
+                print(f"  异常: {stats['anomaly']} ({stats['anomaly'] / total_pred * 100:.1f}%)")
+            if stats["error"] > 0:
+                print(f"  错误: {stats['error']}")
 
-        anomaly_type_count = {}
+    def _count_anomaly_types(self, anomalies: List[Dict]) -> Dict[str, int]:
+        anomaly_type_count: Dict[str, int] = {}
         for anomaly in anomalies:
-            for atype in anomaly.get("anomaly_types", []):
-                anomaly_type_count[atype] = anomaly_type_count.get(atype, 0) + 1
+            for anomaly_type in anomaly.get("anomaly_types", []):
+                anomaly_type_count[anomaly_type] = anomaly_type_count.get(anomaly_type, 0) + 1
+        return anomaly_type_count
 
-        if anomaly_type_count and n_anomaly > 0:
-            print("\n=== 异常类型分布 ===")
-            for atype, count in sorted(
-                anomaly_type_count.items(), key=lambda x: x[1], reverse=True
-            ):
-                print(f"{atype}: {count} ({count / n_anomaly * 100:.1f}%)")
+    def _print_anomaly_distribution(self, anomaly_type_count: Dict[str, int], anomaly_total: int) -> None:
+        if not anomaly_type_count or anomaly_total <= 0:
+            return
+
+        print("\n=== 异常类型分布 ===")
+        for anomaly_type, count in sorted(
+            anomaly_type_count.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        ):
+            print(f"{anomaly_type}: {count} ({count / anomaly_total * 100:.1f}%)")
+
+    def _save_batch_results(
+        self,
+        test_folder: str,
+        results: List[Dict],
+        total: int,
+        normal: int,
+        anomaly: int,
+        model_agreement_stats: Dict[str, int],
+        model_stats: Dict,
+        anomaly_type_count: Dict[str, int],
+    ) -> None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        result_file = f"ensemble_results_{timestamp}.json"
+        save_data = {
+            "test_folder": test_folder,
+            "timestamp": timestamp,
+            "statistics": {
+                "total": total,
+                "normal": normal,
+                "anomaly": anomaly,
+                "model_agreement": model_agreement_stats,
+                "model_stats": model_stats,
+                "anomaly_types": anomaly_type_count,
+            },
+            "model_config": {
+                "models": list(self.models.keys()),
+                "weights": self.weights,
+                "model_paths": self.model_paths,
+            },
+            "results": results,
+        }
+        save_data = self._convert_numpy_types(save_data)
+        with open(result_file, "w", encoding="utf-8") as file_obj:
+            json.dump(save_data, file_obj, ensure_ascii=False, indent=2)
+        print(f"\n结果已保存到: {result_file}")
+
+    def batch_predict(self, test_folder: str, save_results: bool = True) -> List[Dict]:
+        if not os.path.exists(test_folder):
+            raise FileNotFoundError(f"测试目录不存在: {test_folder}")
+
+        results = []
+        anomalies = []
+        model_agreement_stats = {"full": 0, "majority": 0, "split": 0}
+
+        jpg_files = self._list_jpg_files(test_folder)
+        if not jpg_files:
+            print(f"在 {test_folder} 中没有找到jpg文件")
+            return results
+
+        self._print_batch_header(test_folder, jpg_files)
+
+        for filename in tqdm(jpg_files, desc="检测进度"):
+            self._process_batch_image(
+                test_folder,
+                filename,
+                results,
+                anomalies,
+                model_agreement_stats,
+            )
+
+        n_total, n_normal, n_anomaly = self._summarize_results(results)
+        self._print_batch_summary(n_total, n_normal, n_anomaly, model_agreement_stats)
+
+        model_stats = self._collect_model_stats(results)
+        self._print_model_stats(model_stats)
+
+        anomaly_type_count = self._count_anomaly_types(anomalies)
+        self._print_anomaly_distribution(anomaly_type_count, n_anomaly)
 
         if save_results:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            result_file = f"ensemble_results_{timestamp}.json"
-            save_data = {
-                "test_folder": test_folder,
-                "timestamp": timestamp,
-                "statistics": {
-                    "total": n_total,
-                    "normal": n_normal,
-                    "anomaly": n_anomaly,
-                    "model_agreement": model_agreement_stats,
-                    "model_stats": model_stats,
-                    "anomaly_types": anomaly_type_count,
-                },
-                "model_config": {
-                    "models": list(self.models.keys()),
-                    "weights": self.weights,
-                    "model_paths": self.model_paths,
-                },
-                "results": results,
-            }
-            save_data = self._convert_numpy_types(save_data)
-            with open(result_file, "w", encoding="utf-8") as f:
-                json.dump(save_data, f, ensure_ascii=False, indent=2)
-            print(f"\n结果已保存到: {result_file}")
+            self._save_batch_results(
+                test_folder,
+                results,
+                n_total,
+                n_normal,
+                n_anomaly,
+                model_agreement_stats,
+                model_stats,
+                anomaly_type_count,
+            )
 
         return results
 

@@ -56,12 +56,12 @@ def main(argv: list[str] | None = None) -> int:
         load_masks=True,
     )
 
-    model_kwargs = dict(
-        contamination=args.contamination,
-        device=args.device,
-        openclip_model_name=args.openclip_model,
-        openclip_pretrained=args.openclip_pretrained,
-    )
+    model_kwargs = {
+        "contamination": args.contamination,
+        "device": args.device,
+        "openclip_model_name": args.openclip_model,
+        "openclip_pretrained": args.openclip_pretrained,
+    }
 
     if args.model == "vision_openclip_promptscore":
         model_kwargs["class_name"] = args.class_name or args.category

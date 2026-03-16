@@ -192,8 +192,8 @@ def main():
 
     print(f"\n📊 Results: {successful}/{total} benchmarks successful")
     print(f"⏱️  Total time: {total_time:.1f}s ({total_time/60:.1f} minutes)")
-    print(f"\n📄 Check benchmark_report.md for detailed results")
-    print(f"📈 Check individual CSV and PNG files for detailed metrics\n")
+    print("\n📄 Check benchmark_report.md for detailed results")
+    print("📈 Check individual CSV and PNG files for detailed metrics\n")
 
 
 if __name__ == "__main__":

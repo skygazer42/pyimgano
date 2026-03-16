@@ -234,11 +234,11 @@ def run_benchmark_category(
             mp = str(config.manifest_path) if config.manifest_path is not None else str(config.root)
             root_fallback = str(config.root) if config.manifest_path is not None else None
 
-            seed = (
-                int(config.manifest_split_seed)
-                if config.manifest_split_seed is not None
-                else (int(config.seed) if config.seed is not None else 0)
-            )
+            seed = 0
+            if config.manifest_split_seed is not None:
+                seed = int(config.manifest_split_seed)
+            elif config.seed is not None:
+                seed = int(config.seed)
             policy = ManifestSplitPolicy(
                 seed=seed,
                 test_normal_fraction=float(config.manifest_test_normal_fraction),

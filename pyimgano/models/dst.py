@@ -303,6 +303,7 @@ class VisionDST(BaseVisionDeepDetector):
         optimizer = torch.optim.Adam(
             list(self.student1_.parameters()) + list(self.student2_.parameters()),
             lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         self.student1_.train()

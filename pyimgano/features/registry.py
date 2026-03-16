@@ -59,7 +59,7 @@ class FeatureRegistry:
     def available(self, *, tags: Optional[Iterable[str]] = None) -> List[str]:
         if tags is None:
             return sorted(self._registry)
-        tag_set = set(str(t) for t in tags)
+        tag_set = {str(t) for t in tags}
         return sorted(
             entry.name for entry in self._registry.values() if tag_set.issubset(entry.tags)
         )

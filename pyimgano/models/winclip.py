@@ -231,7 +231,8 @@ class WinCLIPDetector(BaseVisionDeepDetector):
             # Few-shot learning: store features from normal samples
             if len(X) > self.k_shot:
                 # Sample k_shot examples
-                indices = np.random.choice(len(X), self.k_shot, replace=False)
+                rng = np.random.default_rng(self.random_state)
+                indices = rng.choice(len(X), self.k_shot, replace=False)
                 X = X[indices]
 
             # Extract features
@@ -244,9 +245,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
                     self.few_shot_features.append(features)
 
             self.few_shot_features = torch.cat(self.few_shot_features, dim=0)
-        else:
-            # Zero-shot: no training needed
-            pass
+        # Zero-shot mode does not need training-time state updates.
 
     def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.

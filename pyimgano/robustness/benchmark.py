@@ -216,9 +216,7 @@ def run_robustness_benchmark(
             raise ValueError("test_images must be non-empty when corruptions are enabled.")
 
         first = test_images[0]
-        if isinstance(first, np.ndarray):
-            pass
-        elif isinstance(first, (str, Path)):
+        if isinstance(first, (str, Path)):
             # Convenience: allow passing paths; materialize them as uint8 numpy arrays
             # so corruption functions (and many numpy-first detectors) can run.
             from pyimgano.io.image import read_image
@@ -232,7 +230,7 @@ def run_robustness_benchmark(
                     )
                 loaded.append(np.asarray(read_image(p, color="bgr"), dtype=np.uint8))
             test_images = loaded
-        else:
+        elif not isinstance(first, np.ndarray):
             raise ValueError(
                 "Corruptions require numpy image inputs (or image paths). "
                 f"Got test_images[0]={type(first).__name__}. "

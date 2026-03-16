@@ -110,7 +110,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "track_experiment": ("experiment_tracker", "track_experiment"),
 }
 
-__all__ = sorted(_LAZY_EXPORTS)
+__all__ = _LAZY_EXPORTS.keys()
 
 
 def __getattr__(name: str) -> Any:  # pragma: no cover - thin delegation

@@ -49,7 +49,8 @@ def load_detector(path: str | Path) -> Any:
 
     if not is_pickle_safe_detector(detector):
         raise TypeError(
-            "Loaded detector is not in the supported pickle-safe set. " "Refuse to return it."
+            "Loaded detector is not in the supported pickle-safe set. "
+            "Refuse to return it."
         )
 
     return detector

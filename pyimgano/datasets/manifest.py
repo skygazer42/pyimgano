@@ -55,12 +55,11 @@ class ManifestRecord:
 
         split_raw = raw.get("split", None)
         split = None if split_raw is None else str(split_raw).strip().lower()
-        if split is not None:
-            if split not in ("train", "val", "test"):
-                raise ValueError(
-                    f"Manifest line {lineno}: invalid split {split!r}. "
-                    "Supported: train, val, test."
-                )
+        if split is not None and split not in ("train", "val", "test"):
+            raise ValueError(
+                f"Manifest line {lineno}: invalid split {split!r}. "
+                "Supported: train, val, test."
+            )
 
         label_raw = raw.get("label", None)
         label = None
@@ -468,11 +467,10 @@ def load_manifest_benchmark_split(
     if should_load_masks:
         has_any_masks = any(p is not None for p in test_mask_paths)
 
-        if has_any_masks:
-            if any(
-                lab == 1 for lab, p in zip(test_labels, test_mask_paths) if p is None and lab == 1
-            ):
-                missing_anomaly_mask = True
+        if has_any_masks and any(
+            lab == 1 for lab, p in zip(test_labels, test_mask_paths) if p is None and lab == 1
+        ):
+            missing_anomaly_mask = True
 
         if missing_anomaly_mask:
             msg = "Missing mask_path (or missing mask files) for anomaly test samples."

@@ -7,13 +7,17 @@ import numpy as np
 from pyimgano.models.protocols import normalize_anomaly_maps, normalize_scores
 
 
+def _stack_numpy_inputs(inputs: Sequence[Any]) -> np.ndarray:
+    return np.stack([np.asarray(x) for x in inputs], axis=0)
+
+
 def _call_decision_function_best_effort(detector: Any, inputs: Sequence[Any]) -> Any:
     try:
         return detector.decision_function(inputs)
     except Exception as exc:
         if inputs and isinstance(inputs[0], np.ndarray):
             try:
-                batch = np.stack([np.asarray(x) for x in inputs], axis=0)
+                batch = _stack_numpy_inputs(inputs)
             except Exception:
                 raise exc
             try:
@@ -23,36 +27,59 @@ def _call_decision_function_best_effort(detector: Any, inputs: Sequence[Any]) ->
         raise
 
 
+def _predict_maps_best_effort(detector: Any, inputs: Sequence[Any]) -> Any | None:
+    try:
+        return detector.predict_anomaly_map(inputs)
+    except Exception:
+        if inputs and isinstance(inputs[0], np.ndarray):
+            try:
+                batch = _stack_numpy_inputs(inputs)
+            except Exception:
+                return None
+            try:
+                return detector.predict_anomaly_map(batch)
+            except Exception:
+                return None
+        return None
+
+
+def _coerce_map_batch(
+    maps: Any,
+    *,
+    n_expected: int,
+) -> list[np.ndarray | None] | None:
+    if maps is None:
+        return None
+    arr = np.asarray(maps)
+    if arr.ndim == 3 and arr.shape[0] == n_expected:
+        return [np.asarray(arr[i], dtype=np.float32) for i in range(arr.shape[0])]
+    return None
+
+
+def _extract_maps_with_single_item_api(
+    detector: Any,
+    inputs: Sequence[Any],
+) -> list[np.ndarray | None] | None:
+    out: list[np.ndarray | None] = []
+    for item in inputs:
+        try:
+            out.append(np.asarray(detector.get_anomaly_map(item), dtype=np.float32))
+        except Exception:
+            out.append(None)
+    if any(m is not None for m in out):
+        return out
+    return None
+
+
 def extract_maps_best_effort(detector: Any, inputs: Sequence[Any]) -> list[np.ndarray | None] | None:
     if hasattr(detector, "predict_anomaly_map"):
-        maps = None
-        try:
-            maps = detector.predict_anomaly_map(inputs)
-        except Exception:
-            if inputs and isinstance(inputs[0], np.ndarray):
-                try:
-                    batch = np.stack([np.asarray(x) for x in inputs], axis=0)
-                except Exception:
-                    maps = None
-                else:
-                    try:
-                        maps = detector.predict_anomaly_map(batch)
-                    except Exception:
-                        maps = None
-        if maps is not None:
-            arr = np.asarray(maps)
-            if arr.ndim == 3 and arr.shape[0] == len(inputs):
-                return [np.asarray(arr[i], dtype=np.float32) for i in range(arr.shape[0])]
+        maps = _predict_maps_best_effort(detector, inputs)
+        coerced = _coerce_map_batch(maps, n_expected=len(inputs))
+        if coerced is not None:
+            return coerced
 
     if hasattr(detector, "get_anomaly_map"):
-        out: list[np.ndarray | None] = []
-        for item in inputs:
-            try:
-                out.append(np.asarray(detector.get_anomaly_map(item), dtype=np.float32))
-            except Exception:
-                out.append(None)
-        if any(m is not None for m in out):
-            return out
+        return _extract_maps_with_single_item_api(detector, inputs)
 
     return None
 

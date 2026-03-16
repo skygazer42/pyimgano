@@ -351,7 +351,7 @@
             });
 
             // Calculate reconstruction and score
-            const dist = Math.sqrt((testPoint.x - clusterCenter.x)**2 + (testPoint.y - clusterCenter.y)**2);
+            const dist = Math.hypot(testPoint.x - clusterCenter.x, testPoint.y - clusterCenter.y);
             const maxDist = Math.min(detectionCanvas.width, detectionCanvas.height) / 2;
             const anomalyScore = Math.min((dist / maxDist)**2 * 5, 10); // Scaled score
             
@@ -409,7 +409,7 @@
 
         detectionCanvas.addEventListener('mousedown', (e) => {
             const pos = getMousePos(detectionCanvas, e);
-            const dist = Math.sqrt((pos.x - testPoint.x)**2 + (pos.y - testPoint.y)**2);
+            const dist = Math.hypot(pos.x - testPoint.x, pos.y - testPoint.y);
             if (dist < 15) {
                 isDragging = true;
             }

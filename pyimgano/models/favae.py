@@ -347,6 +347,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
         optimizer = torch.optim.Adam(
             list(self.encoder_.parameters()) + list(self.decoder_.parameters()),
             lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         self.encoder_.train()

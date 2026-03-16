@@ -95,15 +95,14 @@ class AnomalySynthesizer:
                 label=0,
                 meta={"skipped": True},
             )
-        if p < 1.0:
-            if float(rng.uniform(0.0, 1.0)) > p:
-                empty = np.zeros(img.shape[:2], dtype=np.uint8)
-                return SynthResult(
-                    image_u8=np.asarray(img, dtype=np.uint8),
-                    mask_u8=empty,
-                    label=0,
-                    meta={"skipped": True, "reason": "probability"},
-                )
+        if p < 1.0 and float(rng.uniform(0.0, 1.0)) > p:
+            empty = np.zeros(img.shape[:2], dtype=np.uint8)
+            return SynthResult(
+                image_u8=np.asarray(img, dtype=np.uint8),
+                mask_u8=empty,
+                label=0,
+                meta={"skipped": True, "reason": "probability"},
+            )
 
         tries = max(1, int(self.spec.max_tries))
         target_defects = int(self.spec.num_defects if num_defects is None else num_defects)

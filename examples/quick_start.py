@@ -73,7 +73,7 @@ def main():
     # Predict
     print("Running inference on test images...")
     scores = detector.decision_function(test_images)
-    predictions = detector.predict(test_images)  # 0=normal, 1=anomaly
+    predictions = detector.predict(test_images)
     print("✓ Inference complete\n")
 
     # Evaluate

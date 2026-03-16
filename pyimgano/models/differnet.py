@@ -306,7 +306,11 @@ class DifferNetDetector(BaseVisionDeepDetector):
 
         # Training loop for each layer
         for layer_name, diff_module in self.diff_modules.items():
-            optimizer = torch.optim.Adam(diff_module.parameters(), lr=self.learning_rate)
+            optimizer = torch.optim.Adam(
+                diff_module.parameters(),
+                lr=self.learning_rate,
+                weight_decay=0.0,
+            )
             diff_module.train()
 
             for epoch in range(self.epochs):

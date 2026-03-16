@@ -52,7 +52,7 @@ def _as_2d_embedding(arr: np.ndarray) -> np.ndarray:
 
 def _default_providers_for_device(ort, device: str) -> list[str]:  # noqa: ANN001 - ort is dynamic
     dev = str(device).strip().lower()
-    available = set(str(p) for p in ort.get_available_providers())
+    available = {str(p) for p in ort.get_available_providers()}
     if dev == "cuda":
         if "CUDAExecutionProvider" not in available:
             raise RuntimeError(

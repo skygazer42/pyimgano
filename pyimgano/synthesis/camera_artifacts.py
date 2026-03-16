@@ -90,7 +90,7 @@ def apply_lens_distortion(
     s = float(np.clip(s, 0.0, 1.0))
 
     k1_lo, k1_hi = float(k1_range[0]), float(k1_range[1])
-    if not (k1_lo <= k1_hi):
+    if k1_lo > k1_hi:
         raise ValueError(f"k1_range must satisfy lo <= hi, got {k1_range}")
     k1 = float(rng.uniform(k1_lo, k1_hi)) * float(s)
 

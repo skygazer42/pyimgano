@@ -171,46 +171,44 @@ def _extract_from_run_optional_payloads(cfg: Any) -> tuple[Any | None, dict[str,
     return illumination_contrast_knobs, tiling_payload
 
 
-def _build_config_backed_context(
-    *,
-    model_name: str,
-    preset: str | None,
-    device: str,
-    contamination: float,
-    pretrained: bool,
-    base_user_kwargs: dict[str, Any],
-    checkpoint_path: str | None,
-    trained_checkpoint_path: str | None,
-    threshold: float | None,
-    defects_payload: dict[str, Any] | None,
-    defects_payload_source: str | None,
-    illumination_contrast_knobs: Any | None,
-    tiling_payload: dict[str, Any] | None,
-    infer_config_postprocess: dict[str, Any] | None,
-    enable_maps_by_default: bool,
-    warnings: tuple[str, ...],
-) -> ConfigBackedInferContext:
+def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBackedInferContext:
     return ConfigBackedInferContext(
-        model_name=str(model_name),
-        preset=(str(preset) if preset is not None else None),
-        device=str(device),
-        contamination=float(contamination),
-        pretrained=bool(pretrained),
-        base_user_kwargs=base_user_kwargs,
-        checkpoint_path=checkpoint_path,
+        model_name=str(context_payload["model_name"]),
+        preset=(
+            str(context_payload["preset"])
+            if context_payload.get("preset") is not None
+            else None
+        ),
+        device=str(context_payload["device"]),
+        contamination=float(context_payload["contamination"]),
+        pretrained=bool(context_payload["pretrained"]),
+        base_user_kwargs=context_payload["base_user_kwargs"],
+        checkpoint_path=context_payload.get("checkpoint_path"),
         trained_checkpoint_path=(
-            str(trained_checkpoint_path) if trained_checkpoint_path is not None else None
+            str(context_payload["trained_checkpoint_path"])
+            if context_payload.get("trained_checkpoint_path") is not None
+            else None
         ),
-        threshold=(float(threshold) if threshold is not None else None),
-        defects_payload=(dict(defects_payload) if defects_payload is not None else None),
+        threshold=(
+            float(context_payload["threshold"])
+            if context_payload.get("threshold") is not None
+            else None
+        ),
+        defects_payload=(
+            dict(context_payload["defects_payload"])
+            if context_payload.get("defects_payload") is not None
+            else None
+        ),
         defects_payload_source=(
-            str(defects_payload_source) if defects_payload_source is not None else None
+            str(context_payload["defects_payload_source"])
+            if context_payload.get("defects_payload_source") is not None
+            else None
         ),
-        illumination_contrast_knobs=illumination_contrast_knobs,
-        tiling_payload=tiling_payload,
-        infer_config_postprocess=infer_config_postprocess,
-        enable_maps_by_default=bool(enable_maps_by_default),
-        warnings=tuple(str(warning) for warning in warnings),
+        illumination_contrast_knobs=context_payload.get("illumination_contrast_knobs"),
+        tiling_payload=context_payload.get("tiling_payload"),
+        infer_config_postprocess=context_payload.get("infer_config_postprocess"),
+        enable_maps_by_default=bool(context_payload.get("enable_maps_by_default", False)),
+        warnings=tuple(str(warning) for warning in context_payload.get("warnings", ())),
     )
 
 
@@ -236,24 +234,24 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
     illumination_contrast_knobs, tiling_payload = _extract_from_run_optional_payloads(cfg)
 
     return _build_config_backed_context(
-        model_name=str(cfg.model.name),
-        preset=preset,
-        device=device,
-        contamination=contamination,
-        pretrained=pretrained,
-        base_user_kwargs=base_user_kwargs,
-        checkpoint_path=checkpoint_path,
-        trained_checkpoint_path=(
-            str(trained_checkpoint_path) if trained_checkpoint_path is not None else None
-        ),
-        threshold=(float(threshold) if threshold is not None else None),
-        defects_payload=asdict(cfg.defects),
-        defects_payload_source="from_run",
-        illumination_contrast_knobs=illumination_contrast_knobs,
-        tiling_payload=tiling_payload,
-        infer_config_postprocess=None,
-        enable_maps_by_default=False,
-        warnings=warnings,
+        {
+            "model_name": str(cfg.model.name),
+            "preset": preset,
+            "device": device,
+            "contamination": contamination,
+            "pretrained": pretrained,
+            "base_user_kwargs": base_user_kwargs,
+            "checkpoint_path": checkpoint_path,
+            "trained_checkpoint_path": trained_checkpoint_path,
+            "threshold": threshold,
+            "defects_payload": asdict(cfg.defects),
+            "defects_payload_source": "from_run",
+            "illumination_contrast_knobs": illumination_contrast_knobs,
+            "tiling_payload": tiling_payload,
+            "infer_config_postprocess": None,
+            "enable_maps_by_default": False,
+            "warnings": warnings,
+        }
     )
 
 
@@ -408,26 +406,28 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
     )
 
     return _build_config_backed_context(
-        model_name=str(model_name),
-        preset=preset,
-        device=device,
-        contamination=contamination,
-        pretrained=pretrained,
-        base_user_kwargs=base_user_kwargs,
-        checkpoint_path=checkpoint_path,
-        trained_checkpoint_path=(
-            str(trained_checkpoint_path) if trained_checkpoint_path is not None else None
-        ),
-        threshold=(float(threshold) if threshold is not None else None),
-        defects_payload=defects_payload,
-        defects_payload_source=("infer_config" if defects_payload is not None else None),
-        illumination_contrast_knobs=illumination_contrast_knobs,
-        tiling_payload=tiling_payload,
-        infer_config_postprocess=infer_config_postprocess,
-        enable_maps_by_default=bool(
-            adaptation_payload.get("save_maps", False) or infer_config_postprocess is not None
-        ),
-        warnings=tuple(str(warning) for warning in schema_warnings),
+        {
+            "model_name": str(model_name),
+            "preset": preset,
+            "device": device,
+            "contamination": contamination,
+            "pretrained": pretrained,
+            "base_user_kwargs": base_user_kwargs,
+            "checkpoint_path": checkpoint_path,
+            "trained_checkpoint_path": trained_checkpoint_path,
+            "threshold": threshold,
+            "defects_payload": defects_payload,
+            "defects_payload_source": (
+                "infer_config" if defects_payload is not None else None
+            ),
+            "illumination_contrast_knobs": illumination_contrast_knobs,
+            "tiling_payload": tiling_payload,
+            "infer_config_postprocess": infer_config_postprocess,
+            "enable_maps_by_default": bool(
+                adaptation_payload.get("save_maps", False) or infer_config_postprocess is not None
+            ),
+            "warnings": tuple(str(warning) for warning in schema_warnings),
+        }
     )
 
 

@@ -315,8 +315,18 @@ class ALAD(BaseVisionDeepDetector):
         )
         gen_params = list(self.enc.parameters()) + list(self.dec.parameters())
 
-        self.opt_disc = optim.Adam(disc_params, lr=self.learning_rate_disc, betas=(0.5, 0.999))
-        self.opt_gen = optim.Adam(gen_params, lr=self.learning_rate_gen, betas=(0.5, 0.999))
+        self.opt_disc = optim.Adam(
+            disc_params,
+            lr=self.learning_rate_disc,
+            betas=(0.5, 0.999),
+            weight_decay=0.0,
+        )
+        self.opt_gen = optim.Adam(
+            gen_params,
+            lr=self.learning_rate_gen,
+            betas=(0.5, 0.999),
+            weight_decay=0.0,
+        )
 
         return nn.Module()
 

@@ -173,7 +173,10 @@ def test_apply_onnx_session_options_shorthand_rejects_onnx_route_with_no_support
 
 
 def test_resolve_requested_model_rejects_unknown_model_or_preset(monkeypatch):
-    monkeypatch.setattr(model_options_service.MODEL_REGISTRY, "info", lambda _name: (_ for _ in ()).throw(KeyError))
+    def raise_missing_model(_name):
+        raise KeyError
+
+    monkeypatch.setattr(model_options_service.MODEL_REGISTRY, "info", raise_missing_model)
     monkeypatch.setattr(model_options_service, "resolve_model_preset", lambda _name: None)
 
     with pytest.raises(ValueError, match="Unknown model or model preset"):

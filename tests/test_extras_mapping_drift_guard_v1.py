@@ -31,7 +31,7 @@ def _parse_optional_dependency_extras(pyproject_text: str) -> set[str]:
         if line.startswith("[") and line.endswith("]"):
             break
 
-        m = re.match(r"^([A-Za-z0-9_]+)\s*=\s*\[", line)
+        m = re.match(r"^(\w+)\s*=\s*\[", line)
         if m:
             keys.add(m.group(1))
 

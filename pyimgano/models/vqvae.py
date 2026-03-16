@@ -234,16 +234,13 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
 
         from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
-        if image_size is None:
-            image_size = self.cfg.image_size
-
         item = x[0] if isinstance(x, (list, tuple)) and x else x
         if isinstance(item, np.ndarray):
             ds = VisionArrayDataset([item], transform=self.eval_transform)
         else:
             ds = VisionImageDataset([str(item)], transform=self.eval_transform)
 
-        loader = DataLoader(ds, batch_size=1, shuffle=False)
+        loader = DataLoader(ds, batch_size=1, shuffle=False, num_workers=0)
         self.evaluating_prepare()
 
         for batch in loader:

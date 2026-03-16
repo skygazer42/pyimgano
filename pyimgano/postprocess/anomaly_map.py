@@ -41,9 +41,7 @@ class AnomalyMapPostprocess:
         elif method == "percentile":
             low, high = float(self.percentile_range[0]), float(self.percentile_range[1])
             processed = _normalize_percentile(processed, low=low, high=high)
-        elif method == "none":
-            pass
-        else:  # pragma: no cover - guarded by Literal type
+        elif method != "none":  # pragma: no cover - guarded by Literal type
             raise ValueError(f"Unknown normalize_method: {method}")
 
         if self.gaussian_sigma and self.gaussian_sigma > 0:

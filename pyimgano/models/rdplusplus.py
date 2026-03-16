@@ -332,7 +332,11 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         self.teacher.eval()
 
         # Optimizer
-        optimizer = torch.optim.Adam(self.student.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(
+            self.student.parameters(),
+            lr=self.learning_rate,
+            weight_decay=0.0,
+        )
 
         # Convert to tensor dataset
         if not isinstance(X, torch.Tensor):

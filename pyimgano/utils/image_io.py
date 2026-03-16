@@ -10,7 +10,7 @@ Features:
 """
 
 from pathlib import Path
-from typing import BinaryIO, Dict, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -271,9 +271,10 @@ class ImageWriter:
         self,
         image: NDArray,
         path: Union[str, Path],
-        format: Optional[str] = None,
+        image_format: Optional[str] = None,
         quality: Optional[int] = None,
         metadata: Optional[Dict] = None,
+        **kwargs: Any,
     ) -> None:
         """
         Write image to file.
@@ -284,7 +285,7 @@ class ImageWriter:
             Image array
         path : str or Path
             Output path
-        format : str, optional
+        image_format : str, optional
             Output format (auto-detected from extension if None)
         quality : int, optional
             Compression quality (format-specific)
@@ -292,28 +293,32 @@ class ImageWriter:
             Metadata to write
         """
         path = Path(path)
+        if image_format is None and "format" in kwargs:
+            image_format = kwargs.pop("format")
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs))
+            raise TypeError(f"Unexpected keyword arguments: {unexpected}")
 
         # Auto-detect format from extension
-        if format is None:
-            format = path.suffix.lower().lstrip(".")
+        if image_format is None:
+            image_format = path.suffix.lower().lstrip(".")
 
         # Get quality setting
         if quality is None:
-            quality = self.QUALITY_PRESETS[self.quality_preset].get(format, 95)
+            quality = self.QUALITY_PRESETS[self.quality_preset].get(image_format, 95)
 
         # Ensure RGB for color images
-        if len(image.shape) == 3 and image.shape[2] == 3:
-            if HAS_OPENCV:
-                # Convert RGB to BGR for OpenCV
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        if HAS_OPENCV and len(image.shape) == 3 and image.shape[2] == 3:
+            # Convert RGB to BGR for OpenCV
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         # Write with appropriate backend
         if HAS_OPENCV:
-            if format == "jpeg" or format == "jpg":
+            if image_format == "jpeg" or image_format == "jpg":
                 params = [cv2.IMWRITE_JPEG_QUALITY, quality]
-            elif format == "png":
+            elif image_format == "png":
                 params = [cv2.IMWRITE_PNG_COMPRESSION, quality]
-            elif format == "webp":
+            elif image_format == "webp":
                 params = [cv2.IMWRITE_WEBP_QUALITY, quality]
             else:
                 params = []
@@ -326,21 +331,20 @@ class ImageWriter:
             pil_image = Image.fromarray(image)
 
             save_kwargs = {}
-            if format in ("jpeg", "jpg"):
+            if image_format in ("jpeg", "jpg"):
                 save_kwargs["quality"] = quality
                 save_kwargs["optimize"] = True
-            elif format == "png":
+            elif image_format == "png":
                 save_kwargs["compress_level"] = quality
-            elif format == "webp":
+            elif image_format == "webp":
                 save_kwargs["quality"] = quality
 
             # Add metadata
-            if self.preserve_metadata and metadata:
-                if "exif" in metadata:
-                    # Convert EXIF dict back to bytes
-                    pass  # Full implementation needed
+            if self.preserve_metadata and metadata and "exif" in metadata:
+                # Convert EXIF dict back to bytes
+                pass  # Full implementation needed
 
-            pil_image.save(path, format=format.upper(), **save_kwargs)
+            pil_image.save(path, format=image_format.upper(), **save_kwargs)
 
         else:
             raise ImportError("Neither OpenCV nor PIL is available")

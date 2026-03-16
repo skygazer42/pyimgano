@@ -29,10 +29,10 @@ def gem_pool2d(x, *, p: float = 3.0, eps: float = 1e-6):  # noqa: ANN001, ANN201
     torch = require("torch", extra="torch", purpose="gem_pool2d")
 
     p_f = float(p)
-    if not (p_f > 0.0):
+    if p_f <= 0.0:
         raise ValueError(f"p must be > 0, got {p}")
     eps_f = float(eps)
-    if not (eps_f > 0.0):
+    if eps_f <= 0.0:
         raise ValueError(f"eps must be > 0, got {eps}")
 
     xt = torch.as_tensor(x)

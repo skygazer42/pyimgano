@@ -31,7 +31,7 @@ class _PyODKernelPCA(KernelPCA):
         tol=0,
         max_iter=None,
         remove_zero_eig=False,
-        copy_X=True,
+        copy_x=True,
         n_jobs=None,
         random_state=None,
     ) -> None:
@@ -48,7 +48,7 @@ class _PyODKernelPCA(KernelPCA):
             tol=tol,
             max_iter=max_iter,
             remove_zero_eig=remove_zero_eig,
-            copy_X=copy_X,
+            copy_X=copy_x,
             n_jobs=n_jobs,
             random_state=check_random_state(random_state),
         )
@@ -86,7 +86,7 @@ class CoreKPCA(BaseDetector):
         tol=0,
         max_iter=None,
         remove_zero_eig=False,
-        copy_X=True,
+        copy_x=True,
         n_jobs=None,
         sampling=False,
         subset_size=20,
@@ -105,7 +105,7 @@ class CoreKPCA(BaseDetector):
         self.tol = tol
         self.max_iter = max_iter
         self.remove_zero_eig = remove_zero_eig
-        self.copy_X = copy_X
+        self.copy_x = copy_x
         self.n_jobs = n_jobs
         self.sampling = sampling
         self.subset_size = subset_size
@@ -130,7 +130,7 @@ class CoreKPCA(BaseDetector):
         raise TypeError("subset_size 仅支持 int 或 float")
 
     def fit(self, X, y=None):
-        X = check_array(X, copy=self.copy_X)
+        X = check_array(X, copy=self.copy_x)
         self._set_n_classes(y)
 
         if self.sampling:
@@ -172,7 +172,7 @@ class CoreKPCA(BaseDetector):
             tol=self.tol,
             max_iter=self.max_iter,
             remove_zero_eig=self.remove_zero_eig,
-            copy_X=self.copy_X,
+            copy_x=self.copy_x,
             n_jobs=self.n_jobs,
             random_state=self.random_state,
         )
@@ -242,7 +242,7 @@ class VisionKPCA(BaseVisionDetector):
         tol=0,
         max_iter=None,
         remove_zero_eig=False,
-        copy_X=True,
+        copy_x=True,
         n_jobs=None,
         sampling=False,
         subset_size=20,
@@ -262,7 +262,7 @@ class VisionKPCA(BaseVisionDetector):
             "tol": tol,
             "max_iter": max_iter,
             "remove_zero_eig": remove_zero_eig,
-            "copy_X": copy_X,
+            "copy_x": copy_x,
             "n_jobs": n_jobs,
             "sampling": sampling,
             "subset_size": subset_size,

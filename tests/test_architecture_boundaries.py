@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 SERVICE_DIR = Path(__file__).resolve().parents[1] / "pyimgano" / "services"
 SRC_DIR = Path(__file__).resolve().parents[1] / "pyimgano"
 FORBIDDEN_MODULES = {"pyimgano.cli_common", "pyimgano.cli_presets"}
@@ -35,15 +34,15 @@ def _extract_dunder_all(path: Path) -> list[str]:
     for node in tree.body:
         if not isinstance(node, ast.Assign):
             continue
-        for target in node.targets:
-            if isinstance(target, ast.Name) and target.id == "__all__":
-                value = ast.literal_eval(node.value)
-                if not isinstance(value, (list, tuple)):
-                    raise AssertionError(f"{path.name}: __all__ must be a list or tuple literal")
-                items = list(value)
-                if not all(isinstance(item, str) for item in items):
-                    raise AssertionError(f"{path.name}: __all__ must contain only strings")
-                return items
+        if not any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
+            continue
+        value = ast.literal_eval(node.value)
+        if not isinstance(value, (list, tuple)):
+            raise AssertionError(f"{path.name}: __all__ must be a list or tuple literal")
+        items = list(value)
+        if not all(isinstance(item, str) for item in items):
+            raise AssertionError(f"{path.name}: __all__ must contain only strings")
+        return items
 
     raise AssertionError(f"{path.name}: missing __all__ declaration")
 

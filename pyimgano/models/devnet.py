@@ -299,7 +299,9 @@ class DevNetDetector(BaseVisionDeepDetector):
 
         # Create dataset
         dataset = TensorDataset(features, labels)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        dataloader = DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=True, num_workers=0
+        )
 
         # Optimizer and loss
         optimizer = torch.optim.Adam(

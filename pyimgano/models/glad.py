@@ -322,6 +322,7 @@ class VisionGLAD(BaseVisionDeepDetector):
             + list(self.local_diffusion_.parameters())
             + list(self.fusion_.parameters()),
             lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         self.global_diffusion_.train()

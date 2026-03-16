@@ -204,7 +204,9 @@ class PNIDetector(BaseVisionDeepDetector):
 
         self.fitted_ = False
 
-    def _extract_features(self, images: NDArray) -> dict:
+    def _extract_features(
+        self, images: NDArray
+    ) -> tuple[dict[str, NDArray], dict[str, torch.Tensor]]:
         """Extract multi-scale features from images.
 
         Args:
