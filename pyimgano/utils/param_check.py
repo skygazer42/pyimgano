@@ -7,15 +7,14 @@ used across multiple detectors.
 from __future__ import annotations
 
 from numbers import Number
-from typing import cast
 
 
-def _validate_bound(value: Number | None, *, bound_name: str) -> Number | None:
+def _validate_bound(value: Number | None, *, bound_name: str) -> tuple[bool, Number]:
     if value is None:
-        return None
+        return False, 0
     if not isinstance(value, Number) or isinstance(value, bool):
         raise TypeError(f"{bound_name} must be a number, got {type(value).__name__}")
-    return cast(Number, value)
+    return True, value
 
 
 def check_parameter(
@@ -44,17 +43,13 @@ def check_parameter(
     if not isinstance(param, Number) or isinstance(param, bool):
         raise TypeError(f"{param_name} must be a number, got {type(param).__name__}")
 
-    low_value = _validate_bound(low, bound_name="low")
-    high_value = _validate_bound(high, bound_name="high")
+    has_low, low_value = _validate_bound(low, bound_name="low")
+    has_high, high_value = _validate_bound(high, bound_name="high")
 
-    if low_value is not None:
-        if high_value is not None:
-            low_bound = cast(Number, low_value)
-            high_bound = cast(Number, high_value)
-            if low_bound > high_bound:
-                raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
+    if has_low and has_high and low_value > high_value:
+        raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
 
-    if low_value is not None:
+    if has_low:
         if include_left:
             if param < low_value:
                 raise ValueError(f"{param_name} must be >= {low_value}, got {param}")
@@ -62,7 +57,7 @@ def check_parameter(
             if param <= low_value:
                 raise ValueError(f"{param_name} must be > {low_value}, got {param}")
 
-    if high_value is not None:
+    if has_high:
         if include_right:
             if param > high_value:
                 raise ValueError(f"{param_name} must be <= {high_value}, got {param}")
