@@ -213,6 +213,45 @@ def _format_profile_policy_line(
         f"review_on={review_on_text}"
     )
 
+
+def _build_output_contract_summary(
+    *,
+    args: Any,
+    include_maps: bool,
+) -> dict[str, Any]:
+    save_jsonl = bool(getattr(args, "save_jsonl", None) is not None)
+    save_maps = bool(getattr(args, "save_maps", None) is not None)
+    save_masks = bool(getattr(args, "save_masks", None) is not None)
+    save_overlays = bool(getattr(args, "save_overlays", None) is not None)
+    defects_regions_jsonl = bool(getattr(args, "defects_regions_jsonl", None) is not None)
+    defects_enabled = bool(getattr(args, "defects", False))
+    return {
+        "record_sink": ("jsonl" if save_jsonl else "stdout"),
+        "save_jsonl": bool(save_jsonl),
+        "save_maps": bool(save_maps),
+        "save_masks": bool(save_masks),
+        "save_overlays": bool(save_overlays),
+        "defects_regions_jsonl": bool(defects_regions_jsonl),
+        "profile_json": bool(getattr(args, "profile_json", None) is not None),
+        "maps_materialized": bool(include_maps and save_maps),
+        "masks_materialized": bool(defects_enabled and save_masks),
+        "overlays_materialized": bool(defects_enabled and save_overlays),
+        "regions_materialized": bool(defects_enabled and defects_regions_jsonl),
+    }
+
+
+def _format_profile_outputs_line(*, output_contract: dict[str, Any]) -> str:
+    return (
+        "profile_outputs: "
+        f"record_sink={str(output_contract.get('record_sink', 'stdout'))} "
+        f"save_jsonl={str(bool(output_contract.get('save_jsonl', False))).lower()} "
+        f"save_maps={str(bool(output_contract.get('save_maps', False))).lower()} "
+        f"save_masks={str(bool(output_contract.get('save_masks', False))).lower()} "
+        f"save_overlays={str(bool(output_contract.get('save_overlays', False))).lower()} "
+        f"defects_regions_jsonl={str(bool(output_contract.get('defects_regions_jsonl', False))).lower()} "
+        f"profile_json={str(bool(output_contract.get('profile_json', False))).lower()}"
+    )
+
 def _apply_onnx_session_options_shorthand(
     *,
     model_name: str,
@@ -1506,6 +1545,10 @@ def main(argv: list[str] | None = None) -> int:
             flush_every=int(flush_every),
         )
         review_policy = _build_review_policy_summary(args=args)
+        output_contract = _build_output_contract_summary(
+            args=args,
+            include_maps=bool(include_maps),
+        )
 
         infer_timing = InferenceTiming()
         results_iter = None
@@ -1768,6 +1811,10 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 file=sys.stderr,
             )
+            print(
+                _format_profile_outputs_line(output_contract=output_contract),
+                file=sys.stderr,
+            )
 
         if args.profile_json is not None:
             profile_path = Path(str(args.profile_json))
@@ -1790,6 +1837,7 @@ def main(argv: list[str] | None = None) -> int:
                 "inference_summary": {
                     "continue_on_error": bool(continue_on_error),
                     "execution_policy": dict(execution_policy),
+                    "output_contract": dict(output_contract),
                     "review_policy": dict(review_policy),
                     "triage_summary": (
                         dict(profile_triage_summary) if profile_triage_summary is not None else None

@@ -271,6 +271,19 @@ def test_infer_cli_profile_json_writes_payload(tmp_path, monkeypatch) -> None:
             "fatal_cli_error": 2,
         },
     }
+    assert summary.get("output_contract") == {
+        "record_sink": "jsonl",
+        "save_jsonl": True,
+        "save_maps": False,
+        "save_masks": False,
+        "save_overlays": False,
+        "defects_regions_jsonl": False,
+        "profile_json": True,
+        "maps_materialized": False,
+        "masks_materialized": False,
+        "overlays_materialized": False,
+        "regions_materialized": False,
+    }
     assert summary.get("review_policy") == {
         "review_on": ["anomalous", "rejected_low_confidence"],
         "confidence_gate_enabled": False,
@@ -389,6 +402,19 @@ def test_infer_cli_continue_on_error_profile_json_writes_triage_summary(
             "fatal_cli_error": 2,
         },
     }
+    assert summary.get("output_contract") == {
+        "record_sink": "jsonl",
+        "save_jsonl": True,
+        "save_maps": False,
+        "save_masks": False,
+        "save_overlays": False,
+        "defects_regions_jsonl": False,
+        "profile_json": True,
+        "maps_materialized": False,
+        "masks_materialized": False,
+        "overlays_materialized": False,
+        "regions_materialized": False,
+    }
     assert summary.get("review_policy") == {
         "review_on": ["anomalous", "rejected_low_confidence"],
         "confidence_gate_enabled": True,
@@ -437,12 +463,15 @@ def test_infer_cli_profile_prints_inference_summary_to_stderr(
     assert "profile:" in err
     assert "profile_summary:" in err
     assert "profile_policy:" in err
+    assert "profile_outputs:" in err
     assert "continue_on_error=false" in err
     assert "ok=1" in err
     assert "errors=0" in err
     assert "review_required=0" in err
     assert "decisions=normal:1" in err
     assert "confidence_gate_enabled=false" in err
+    assert "record_sink=jsonl" in err
+    assert "save_jsonl=true" in err
 
 
 def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
@@ -516,6 +545,7 @@ def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
     assert "profile:" in err
     assert "profile_summary:" in err
     assert "profile_policy:" in err
+    assert "profile_outputs:" in err
     assert "continue_on_error=true" in err
     assert "ok=1" in err
     assert "errors=1" in err
@@ -527,3 +557,5 @@ def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
     assert "confidence_gate_enabled=true" in err
     assert "reject_confidence_below=0.75" in err
     assert "reject_label=-9" in err
+    assert "record_sink=jsonl" in err
+    assert "save_jsonl=true" in err
