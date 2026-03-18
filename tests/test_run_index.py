@@ -1505,6 +1505,7 @@ def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract
         "incompatible_gates": ["bundle_operator_contract:missing"],
         "blocking_reasons": ["operator_contract_bundle:missing"],
     }
+    assert summary["bundle_operator_contract_digests_valid"] is True
     assert summary["bundle_operator_contract_gate"] == "incompatible"
     assert summary["comparability_gates"]["bundle_operator_contract"] == "incompatible"
     assert "--require-same-bundle-operator-contract" in summary["blocking_flags"]

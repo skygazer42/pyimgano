@@ -139,6 +139,8 @@ def _build_trust_comparison(
 
     artifact_quality = dict(baseline_summary.get("artifact_quality", {}))
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
+    trust_signals = trust_summary.get("trust_signals", None)
+    signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
     operator_contract_status, operator_contract_consistent = (
         _operator_contract_status_from_trust_summary(trust_summary)
     )
@@ -183,6 +185,9 @@ def _build_trust_comparison(
         "operator_contract_consistent": bool(operator_contract_consistent),
         "bundle_operator_contract_status": str(bundle_operator_contract_status),
         "bundle_operator_contract_consistent": bool(bundle_operator_contract_consistent),
+        "bundle_operator_contract_digests_valid": bool(
+            signal_map.get("has_bundle_operator_contract_digests_valid", False)
+        ),
         "audit_refs": {
             str(key): str(value)
             for key, value in audit_refs.items()
@@ -1694,6 +1699,9 @@ def compare_run_summaries(
     )
     summary["bundle_operator_contract_consistent"] = bool(
         trust_comparison.get("bundle_operator_contract_consistent", False)
+    )
+    summary["bundle_operator_contract_digests_valid"] = bool(
+        trust_comparison.get("bundle_operator_contract_digests_valid", False)
     )
     summary["candidate_verdicts"] = dict(candidate_blocking_summary["candidate_verdicts"])
     summary["candidate_blocking_reasons"] = dict(

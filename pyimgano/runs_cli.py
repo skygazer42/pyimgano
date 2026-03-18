@@ -664,6 +664,10 @@ def main(argv: list[str] | None = None) -> int:
                     "comparison_bundle_operator_contract_consistent="
                     f"{str(bool(summary_payload.get('bundle_operator_contract_consistent', False))).lower()}"
                 )
+                print(
+                    "comparison_bundle_operator_contract_digests_valid="
+                    f"{str(bool(summary_payload.get('bundle_operator_contract_digests_valid', False))).lower()}"
+                )
                 if baseline_degraded_by:
                     print(
                         "comparison_trust_degraded_by="

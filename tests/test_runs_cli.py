@@ -2247,6 +2247,7 @@ def test_runs_cli_compare_plain_output_prints_bundle_operator_contract_incompati
         "robustness_protocol=unchecked operator_contract=compatible "
         "bundle_operator_contract=incompatible"
     ) in out
+    assert "comparison_bundle_operator_contract_digests_valid=true" in out
     assert "bundle_operator_contract: checked=true matched=0 mismatched=0 missing=1" in out
     assert "bundle_operator_contract_incompat.candidate=missing" in out
     assert "--require-same-bundle-operator-contract" in out
