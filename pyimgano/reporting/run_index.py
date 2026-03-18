@@ -275,6 +275,38 @@ def _run_trust_degraded_by(run: Mapping[str, Any]) -> set[str]:
     return {str(item) for item in degraded_by_raw if str(item)}
 
 
+def _run_trust_signals(run: Mapping[str, Any]) -> dict[str, Any]:
+    artifact_quality = run.get("artifact_quality", None)
+    if not isinstance(artifact_quality, Mapping):
+        return {}
+    trust_summary = artifact_quality.get("trust_summary", None)
+    if not isinstance(trust_summary, Mapping):
+        return {}
+    signals_raw = trust_summary.get("trust_signals", None)
+    return dict(signals_raw) if isinstance(signals_raw, Mapping) else {}
+
+
+def _run_bundle_operator_contract_digest_status(run: Mapping[str, Any]) -> str:
+    degraded_by = _run_trust_degraded_by(run)
+    if "operator_contract_bundle_digest_mismatch" in degraded_by:
+        return "invalid"
+
+    bundle_status = str(run.get("bundle_operator_contract_status", "") or "").strip().lower()
+    if bundle_status == "missing":
+        return "missing"
+
+    trust_signals = _run_trust_signals(run)
+    if not bool(trust_signals.get("has_bundle_operator_contract", False)):
+        return "missing"
+    if "has_bundle_operator_contract_digests_valid" in trust_signals:
+        return (
+            "valid"
+            if bool(trust_signals.get("has_bundle_operator_contract_digests_valid"))
+            else "invalid"
+        )
+    return "unknown"
+
+
 _CANDIDATE_COMPARABILITY_GATE_ORDER = (
     "split",
     "environment",
@@ -369,6 +401,7 @@ def _build_candidate_blocking_summary(
             "candidate_verdicts": {},
             "candidate_blocking_reasons": {},
             "candidate_comparability_gates": {},
+            "candidate_bundle_operator_contract_digest_statuses": {},
         }
 
     candidate_names = _candidate_run_dir_names(runs, baseline_path_str=baseline_path_str)
@@ -385,6 +418,9 @@ def _build_candidate_blocking_summary(
             "bundle_operator_contract": "unchecked",
         }
         for name in candidate_names
+    }
+    candidate_bundle_digest_statuses: dict[str, str] = {
+        name: "unavailable" for name in candidate_names
     }
     baseline_operator_contract_payload = (
         _load_operator_contract_payload(baseline_path_str, bundle=False)
@@ -535,6 +571,9 @@ def _build_candidate_blocking_summary(
             status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
             if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
                 candidate_gates[run_dir_name]["bundle_operator_contract"] = status
+                candidate_bundle_digest_statuses[run_dir_name] = (
+                    _run_bundle_operator_contract_digest_status(run)
+                )
             if status in {"missing", "mismatched"}:
                 _append_candidate_reason(
                     reasons_by_name,
@@ -575,6 +614,7 @@ def _build_candidate_blocking_summary(
         "candidate_verdicts": candidate_verdicts,
         "candidate_blocking_reasons": reasons_by_name,
         "candidate_comparability_gates": candidate_gates,
+        "candidate_bundle_operator_contract_digest_statuses": candidate_bundle_digest_statuses,
     }
 
 
@@ -1709,6 +1749,9 @@ def compare_run_summaries(
     )
     summary["candidate_comparability_gates"] = dict(
         candidate_blocking_summary["candidate_comparability_gates"]
+    )
+    summary["candidate_bundle_operator_contract_digest_statuses"] = dict(
+        candidate_blocking_summary["candidate_bundle_operator_contract_digest_statuses"]
     )
     summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
         candidate_verdicts=summary["candidate_verdicts"],

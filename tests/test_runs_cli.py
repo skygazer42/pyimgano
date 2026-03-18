@@ -2248,6 +2248,7 @@ def test_runs_cli_compare_plain_output_prints_bundle_operator_contract_incompati
         "bundle_operator_contract=incompatible"
     ) in out
     assert "comparison_bundle_operator_contract_digests_valid=true" in out
+    assert "candidate_bundle_operator_contract_digest_status.candidate=missing" in out
     assert "bundle_operator_contract: checked=true matched=0 mismatched=0 missing=1" in out
     assert "bundle_operator_contract_incompat.candidate=missing" in out
     assert "--require-same-bundle-operator-contract" in out
@@ -2807,6 +2808,7 @@ def test_runs_cli_compare_json_blocks_candidate_missing_bundle_operator_contract
         "incompatible_gates": ["bundle_operator_contract:missing"],
         "blocking_reasons": ["operator_contract_bundle:missing"],
     }
+    assert out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "missing"
 
 
 def test_runs_cli_compare_json_blocks_candidate_bundle_operator_contract_baseline_mismatch(
@@ -2966,6 +2968,7 @@ def test_runs_cli_compare_json_blocks_candidate_bundle_operator_contract_baselin
     assert out["summary"]["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:baseline_mismatch"
     ]
+    assert out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "valid"
 
 
 def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_mismatch(
@@ -3121,6 +3124,7 @@ def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_m
     assert out["summary"]["candidate_incompatibility_digest"]["candidate"]["incompatible_gates"] == [
         "bundle_operator_contract:mismatched"
     ]
+    assert out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "invalid"
 
     rc_plain = main(
         [
@@ -3133,6 +3137,7 @@ def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_m
     )
     plain_out = capsys.readouterr().out.lower()
     assert rc_plain == 0
+    assert "candidate_bundle_operator_contract_digest_status.candidate=invalid" in plain_out
     assert "bundle_operator_contract_integrity.candidate=digest_mismatch" in plain_out
 
 

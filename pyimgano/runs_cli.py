@@ -738,6 +738,9 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_comparability_gates = dict(
                     summary.get("candidate_comparability_gates", {})
                 )
+                candidate_bundle_digest_statuses = dict(
+                    summary.get("candidate_bundle_operator_contract_digest_statuses", {})
+                )
                 candidate_incompatibility_digest = dict(
                     summary.get("candidate_incompatibility_digest", {})
                 )
@@ -786,6 +789,12 @@ def main(argv: list[str] | None = None) -> int:
                         "candidate_incompatibility_digest."
                         f"{run_name}={_format_candidate_incompatibility_digest(digest_entry)}"
                     )
+                    bundle_digest_status = candidate_bundle_digest_statuses.get(run_name, None)
+                    if isinstance(bundle_digest_status, str) and bundle_digest_status:
+                        print(
+                            "candidate_bundle_operator_contract_digest_status."
+                            f"{run_name}={bundle_digest_status}"
+                        )
                     if "operator_contract_bundle:digest_mismatch" in reason_tokens:
                         print(
                             "bundle_operator_contract_integrity."
