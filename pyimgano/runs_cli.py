@@ -249,6 +249,41 @@ def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     )
 
 
+def _emit_contract_incompat_details(
+    *,
+    label: str,
+    comparison_payload: dict[str, object],
+    summary_payload: dict[str, object],
+) -> None:
+    print(
+        f"{label}: "
+        f"checked={summary_payload.get('checked')} "
+        f"matched={summary_payload.get('matched_runs', 0)} "
+        f"mismatched={summary_payload.get('mismatched_runs', 0)} "
+        f"missing={summary_payload.get('missing_runs', 0)}"
+    )
+    baseline_sha256 = comparison_payload.get("baseline_contract_sha256", None)
+    if isinstance(baseline_sha256, str) and baseline_sha256:
+        print(f"{label}_baseline.sha256={baseline_sha256}")
+    for row in comparison_payload.get("comparisons", []):
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("status"))
+        if status not in {"mismatched", "missing"}:
+            continue
+        run_dir_name = row.get("run_dir_name", None)
+        if not isinstance(run_dir_name, str) or not run_dir_name:
+            continue
+        mismatch_reason = row.get("mismatch_reason", None)
+        if isinstance(mismatch_reason, str) and mismatch_reason:
+            print(f"{label}_incompat.{run_dir_name}={status}:{mismatch_reason}")
+        else:
+            print(f"{label}_incompat.{run_dir_name}={status}")
+        candidate_sha256 = row.get("contract_sha256", None)
+        if isinstance(candidate_sha256, str) and candidate_sha256:
+            print(f"{label}_sha256.{run_dir_name}={candidate_sha256}")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyimgano-runs",
@@ -924,81 +959,16 @@ def main(argv: list[str] | None = None) -> int:
                             "robustness_protocol_mismatch."
                             f"{run_dir_name}={','.join(str(item) for item in mismatch_fields)}"
                         )
-                print(
-                    "operator_contract: "
-                    f"checked={operator_contract_summary.get('checked')} "
-                    f"matched={operator_contract_summary.get('matched_runs', 0)} "
-                    f"mismatched={operator_contract_summary.get('mismatched_runs', 0)} "
-                    f"missing={operator_contract_summary.get('missing_runs', 0)}"
+                _emit_contract_incompat_details(
+                    label="operator_contract",
+                    comparison_payload=dict(payload.get("operator_contract_comparison", {})),
+                    summary_payload=operator_contract_summary,
                 )
-                operator_contract_baseline_sha256 = payload.get("operator_contract_comparison", {}).get(
-                    "baseline_contract_sha256",
-                    None,
+                _emit_contract_incompat_details(
+                    label="bundle_operator_contract",
+                    comparison_payload=dict(payload.get("bundle_operator_contract_comparison", {})),
+                    summary_payload=bundle_operator_contract_summary,
                 )
-                if (
-                    isinstance(operator_contract_baseline_sha256, str)
-                    and operator_contract_baseline_sha256
-                ):
-                    print(f"operator_contract_baseline.sha256={operator_contract_baseline_sha256}")
-                for row in payload.get("operator_contract_comparison", {}).get("comparisons", []):
-                    if not isinstance(row, dict):
-                        continue
-                    status = str(row.get("status"))
-                    if status not in {"mismatched", "missing"}:
-                        continue
-                    run_dir_name = row.get("run_dir_name", None)
-                    if not isinstance(run_dir_name, str) or not run_dir_name:
-                        continue
-                    mismatch_reason = row.get("mismatch_reason", None)
-                    if isinstance(mismatch_reason, str) and mismatch_reason:
-                        print(
-                            "operator_contract_incompat."
-                            f"{run_dir_name}={status}:{mismatch_reason}"
-                        )
-                    else:
-                        print(f"operator_contract_incompat.{run_dir_name}={status}")
-                    candidate_sha256 = row.get("contract_sha256", None)
-                    if isinstance(candidate_sha256, str) and candidate_sha256:
-                        print(f"operator_contract_sha256.{run_dir_name}={candidate_sha256}")
-                print(
-                    "bundle_operator_contract: "
-                    f"checked={bundle_operator_contract_summary.get('checked')} "
-                    f"matched={bundle_operator_contract_summary.get('matched_runs', 0)} "
-                    f"mismatched={bundle_operator_contract_summary.get('mismatched_runs', 0)} "
-                    f"missing={bundle_operator_contract_summary.get('missing_runs', 0)}"
-                )
-                bundle_operator_contract_baseline_sha256 = payload.get(
-                    "bundle_operator_contract_comparison",
-                    {},
-                ).get("baseline_contract_sha256", None)
-                if (
-                    isinstance(bundle_operator_contract_baseline_sha256, str)
-                    and bundle_operator_contract_baseline_sha256
-                ):
-                    print(
-                        "bundle_operator_contract_baseline.sha256="
-                        f"{bundle_operator_contract_baseline_sha256}"
-                    )
-                for row in payload.get("bundle_operator_contract_comparison", {}).get("comparisons", []):
-                    if not isinstance(row, dict):
-                        continue
-                    status = str(row.get("status"))
-                    if status not in {"mismatched", "missing"}:
-                        continue
-                    run_dir_name = row.get("run_dir_name", None)
-                    if not isinstance(run_dir_name, str) or not run_dir_name:
-                        continue
-                    mismatch_reason = row.get("mismatch_reason", None)
-                    if isinstance(mismatch_reason, str) and mismatch_reason:
-                        print(
-                            "bundle_operator_contract_incompat."
-                            f"{run_dir_name}={status}:{mismatch_reason}"
-                        )
-                    else:
-                        print(f"bundle_operator_contract_incompat.{run_dir_name}={status}")
-                    candidate_sha256 = row.get("contract_sha256", None)
-                    if isinstance(candidate_sha256, str) and candidate_sha256:
-                        print(f"bundle_operator_contract_sha256.{run_dir_name}={candidate_sha256}")
             if bool(args.require_same_split):
                 split_summary = dict(payload.get("split_comparison", {}).get("summary", {}))
                 if not bool(split_summary.get("checked")) or int(
