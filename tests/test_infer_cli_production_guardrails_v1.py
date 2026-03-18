@@ -251,3 +251,97 @@ def test_infer_cli_profile_json_writes_payload(tmp_path, monkeypatch) -> None:
     assert isinstance(counts, dict)
     assert counts.get("inputs") == 1
     assert counts.get("processed") == 1
+    assert counts.get("errors") == 0
+    summary = payload.get("inference_summary")
+    assert isinstance(summary, dict)
+    assert summary.get("continue_on_error") is False
+    assert summary.get("postprocess_summary") is None
+    assert summary.get("triage_summary") == {
+        "ok": 1,
+        "remaining": 0,
+        "error_stages": {
+            "artifacts": 0,
+            "infer": 0,
+        },
+        "decision_counts": {
+            "normal": 1,
+        },
+        "fallback_used": False,
+        "review_required": 0,
+        "rejected_low_confidence": 0,
+        "stop_reason": "completed",
+    }
+
+
+def test_infer_cli_continue_on_error_profile_json_writes_triage_summary(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+    profile_path = tmp_path / "profile.json"
+
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: object())
+
+    import pyimgano.services.infer_continue_service as infer_continue_service
+
+    triage_summary = {
+        "ok": 1,
+        "remaining": 0,
+        "error_stages": {
+            "artifacts": 0,
+            "infer": 1,
+        },
+        "decision_counts": {
+            "normal": 1,
+            "rejected_low_confidence": 1,
+        },
+        "fallback_used": True,
+        "review_required": 1,
+        "rejected_low_confidence": 1,
+        "stop_reason": "completed",
+    }
+
+    monkeypatch.setattr(
+        infer_continue_service,
+        "run_continue_on_error_inference",
+        lambda request, *, process_ok_result=None, handle_error=None, run_inference_impl=None: (
+            infer_continue_service.ContinueOnErrorInferResult(
+                processed=2,
+                errors=1,
+                timing_seconds=0.0,
+                stop_early=False,
+                triage_summary=triage_summary,
+            )
+        ),
+    )
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+            "--profile-json",
+            str(profile_path),
+            "--continue-on-error",
+        ]
+    )
+    assert rc == 1
+
+    payload = json.loads(profile_path.read_text(encoding="utf-8"))
+    counts = payload.get("counts")
+    assert isinstance(counts, dict)
+    assert counts.get("inputs") == 2
+    assert counts.get("processed") == 2
+    assert counts.get("errors") == 1
+    summary = payload.get("inference_summary")
+    assert isinstance(summary, dict)
+    assert summary.get("continue_on_error") is True
+    assert summary.get("triage_summary") == triage_summary

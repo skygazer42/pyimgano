@@ -61,6 +61,61 @@ def _parse_csv_strs_arg(text: str) -> list[str]:
     raw = [t.strip() for t in str(text).split(",")]
     return [t for t in raw if t]
 
+
+def _extract_result_triage(result: Any) -> tuple[str, bool]:
+    summary = getattr(result, "decision_summary", None)
+    if isinstance(summary, dict):
+        decision = summary.get("decision", None)
+        if isinstance(decision, str) and decision.strip():
+            return str(decision), bool(summary.get("requires_review", False))
+
+    rejected = getattr(result, "rejected", None)
+    label = getattr(result, "label", None)
+    if bool(rejected):
+        return "rejected_low_confidence", True
+    if label is None:
+        return "score_only", False
+    if int(label) == 0:
+        return "normal", False
+    return "anomalous", True
+
+
+def _observe_result_triage(
+    result: Any,
+    *,
+    decision_counts: dict[str, int],
+) -> tuple[int, int]:
+    decision, requires_review = _extract_result_triage(result)
+    decision_counts[decision] = int(decision_counts.get(decision, 0)) + 1
+    return (1 if bool(requires_review) else 0, 1 if decision == "rejected_low_confidence" else 0)
+
+
+def _build_profile_triage_summary(
+    *,
+    processed: int,
+    errors: int,
+    inputs_total: int,
+    error_stages: dict[str, int] | None,
+    decision_counts: dict[str, int],
+    fallback_used: bool,
+    review_required: int,
+    rejected_low_confidence: int,
+    stop_reason: str,
+) -> dict[str, Any]:
+    stages = {"artifacts": 0, "infer": 0}
+    if isinstance(error_stages, dict):
+        stages.update({str(k): int(v) for k, v in error_stages.items()})
+    return {
+        "ok": max(0, int(processed) - int(errors)),
+        "remaining": max(0, int(inputs_total) - int(processed)),
+        "error_stages": {str(k): int(v) for k, v in sorted(stages.items())},
+        "decision_counts": {str(k): int(v) for k, v in sorted(decision_counts.items())},
+        "fallback_used": bool(fallback_used),
+        "review_required": int(review_required),
+        "rejected_low_confidence": int(rejected_low_confidence),
+        "stop_reason": str(stop_reason),
+    }
+
 def _apply_onnx_session_options_shorthand(
     *,
     model_name: str,
@@ -1403,6 +1458,10 @@ def main(argv: list[str] | None = None) -> int:
             regions_written = 0
             errors = 0
             processed = 0
+            decision_counts: dict[str, int] = {}
+            review_required = 0
+            rejected_low_confidence = 0
+            profile_triage_summary: dict[str, Any] | None = None
 
             def _process_ok_result(
                 *, index: int, input_path: str, result: Any, include_status: bool
@@ -1512,12 +1571,33 @@ def main(argv: list[str] | None = None) -> int:
                 processed = int(continue_result.processed)
                 errors = int(continue_result.errors)
                 infer_timing.seconds += float(continue_result.timing_seconds)
+                profile_triage_summary = (
+                    dict(continue_result.triage_summary)
+                    if continue_result.triage_summary is not None
+                    else _build_profile_triage_summary(
+                        processed=int(processed),
+                        errors=int(errors),
+                        inputs_total=int(len(inputs)),
+                        error_stages=None,
+                        decision_counts={},
+                        fallback_used=False,
+                        review_required=0,
+                        rejected_low_confidence=0,
+                        stop_reason=("max_errors" if bool(continue_result.stop_early) else "completed"),
+                    )
+                )
             else:
                 if results_iter is None:  # pragma: no cover - defensive
                     raise RuntimeError("Internal error: results_iter was not initialized")
 
                 count = 0
                 for i, (input_path, result) in enumerate(zip(inputs, results_iter)):
+                    review_delta, rejected_delta = _observe_result_triage(
+                        result,
+                        decision_counts=decision_counts,
+                    )
+                    review_required += int(review_delta)
+                    rejected_low_confidence += int(rejected_delta)
                     _process_ok_result(
                         index=int(i),
                         input_path=str(input_path),
@@ -1531,6 +1611,18 @@ def main(argv: list[str] | None = None) -> int:
                         "Internal error: inference iterator produced fewer results than inputs "
                         f"({count} vs {len(inputs)})."
                     )
+                processed = int(count)
+                profile_triage_summary = _build_profile_triage_summary(
+                    processed=int(processed),
+                    errors=0,
+                    inputs_total=int(len(inputs)),
+                    error_stages={"artifacts": 0, "infer": 0},
+                    decision_counts=decision_counts,
+                    fallback_used=False,
+                    review_required=int(review_required),
+                    rejected_low_confidence=int(rejected_low_confidence),
+                    stop_reason="completed",
+                )
 
             t_loop = time.perf_counter() - t_loop_start
             t_infer = float(infer_timing.seconds)
@@ -1565,7 +1657,7 @@ def main(argv: list[str] | None = None) -> int:
                 "tool": "pyimgano-infer",
                 "counts": {
                     "inputs": int(len(inputs)),
-                    "processed": int(len(inputs) if not bool(continue_on_error) else processed),
+                    "processed": int(processed),
                     "errors": int(errors),
                 },
                 "timing_seconds": {
@@ -1574,6 +1666,17 @@ def main(argv: list[str] | None = None) -> int:
                     "infer": float(t_infer),
                     "artifacts": float(t_artifacts),
                     "total": float(total),
+                },
+                "inference_summary": {
+                    "continue_on_error": bool(continue_on_error),
+                    "triage_summary": (
+                        dict(profile_triage_summary) if profile_triage_summary is not None else None
+                    ),
+                    "postprocess_summary": (
+                        dict(runtime_plan.postprocess_summary)
+                        if runtime_plan.postprocess_summary is not None
+                        else None
+                    ),
                 },
             }
             profile_path.write_text(
