@@ -24,6 +24,11 @@ _ARTIFACT_SPECS = (
     _ArtifactSpec(name="environment", rel_path="environment.json", required=True),
     _ArtifactSpec(name="infer_config", rel_path="artifacts/infer_config.json", required=False),
     _ArtifactSpec(
+        name="operator_contract",
+        rel_path="artifacts/operator_contract.json",
+        required=False,
+    ),
+    _ArtifactSpec(
         name="calibration_card",
         rel_path="artifacts/calibration_card.json",
         required=False,
@@ -222,6 +227,71 @@ def _evaluate_bundle_weights_audit(
     return payload
 
 
+def _evaluate_operator_contract_audit(
+    *,
+    root: Path,
+    infer_config_present: bool,
+    operator_contract_present: bool,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "present": bool(operator_contract_present),
+        "has_infer_contract": False,
+        "matching_payload": None,
+        "warnings": [],
+    }
+    warnings: list[str] = []
+
+    if not bool(operator_contract_present):
+        return payload
+
+    operator_contract_payload: dict[str, Any] | None = None
+    operator_contract_path = root / "artifacts" / "operator_contract.json"
+    try:
+        operator_contract_payload = _load_json_dict(operator_contract_path)
+    except Exception as exc:  # noqa: BLE001 - reporting boundary
+        warnings.append(f"Failed to inspect operator_contract.json for audit: {exc}")
+        payload["matching_payload"] = False
+        payload["warnings"] = warnings
+        return payload
+
+    if not bool(infer_config_present):
+        warnings.append(
+            "Operator contract audit warning: infer_config.json is missing while operator_contract.json exists."
+        )
+        payload["matching_payload"] = False
+        payload["warnings"] = warnings
+        return payload
+
+    infer_payload: dict[str, Any] | None = None
+    infer_path = root / "artifacts" / "infer_config.json"
+    try:
+        infer_payload = _load_json_dict(infer_path)
+    except Exception as exc:  # noqa: BLE001 - reporting boundary
+        warnings.append(f"Failed to inspect infer_config.json for operator contract audit: {exc}")
+        payload["matching_payload"] = False
+        payload["warnings"] = warnings
+        return payload
+
+    infer_contract = infer_payload.get("operator_contract", None) if infer_payload else None
+    if not isinstance(infer_contract, Mapping):
+        warnings.append(
+            "Operator contract audit warning: infer_config.json is missing operator_contract metadata."
+        )
+        payload["matching_payload"] = False
+        payload["warnings"] = warnings
+        return payload
+
+    payload["has_infer_contract"] = True
+    matches = dict(infer_contract) == dict(operator_contract_payload)
+    payload["matching_payload"] = bool(matches)
+    if not bool(matches):
+        warnings.append(
+            "Operator contract audit warning: operator_contract mismatch between infer_config.json and operator_contract.json."
+        )
+    payload["warnings"] = warnings
+    return payload
+
+
 def _build_audit_refs(
     *,
     artifacts: Mapping[str, Mapping[str, Any]],
@@ -233,6 +303,7 @@ def _build_audit_refs(
         "config": "config_json",
         "environment": "environment_json",
         "infer_config": "infer_config_json",
+        "operator_contract": "operator_contract_json",
         "calibration_card": "calibration_card_json",
         "deploy_bundle_manifest": "deploy_bundle_manifest_json",
     }
@@ -261,6 +332,7 @@ def _build_trust_summary(
     deployable_complete: bool,
     warnings: list[str],
     calibration_audit: Mapping[str, Any],
+    operator_contract_audit: Mapping[str, Any],
     bundle_manifest: Mapping[str, Any],
     weights_audit: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -269,6 +341,10 @@ def _build_trust_summary(
     trust_signals = {
         "has_core_artifacts": bool(core_complete),
         "has_infer_config": bool(artifacts.get("infer_config", {}).get("present")),
+        "has_operator_contract": bool(artifacts.get("operator_contract", {}).get("present")),
+        "has_operator_contract_consistent": bool(
+            operator_contract_audit.get("matching_payload") is True
+        ),
         "has_calibration_card": bool(artifacts.get("calibration_card", {}).get("present")),
         "has_threshold_context": bool(calibration_audit.get("has_threshold_context")),
         "has_split_fingerprint": bool(calibration_audit.get("has_split_fingerprint")),
@@ -287,6 +363,11 @@ def _build_trust_summary(
         artifacts.get("calibration_card", {}).get("present")
     ):
         status_reasons.append("calibration_audit_incomplete")
+    if bool(artifacts.get("operator_contract", {}).get("present")):
+        if operator_contract_audit.get("matching_payload") is True:
+            status_reasons.append("operator_contract_consistent")
+        else:
+            status_reasons.append("operator_contract_incomplete")
     if bool(deployable_complete):
         status_reasons.append("deploy_bundle_audited")
     elif bool(artifacts.get("deploy_bundle_manifest", {}).get("present")) or bool(
@@ -308,11 +389,19 @@ def _build_trust_summary(
             degraded_by.append("missing_prediction_policy")
         if "threshold mismatch" in text and "threshold_mismatch" not in degraded_by:
             degraded_by.append("threshold_mismatch")
+        if "operator contract" in text and "operator_contract_mismatch" not in degraded_by:
+            degraded_by.append("operator_contract_mismatch")
 
     if bundle_manifest.get("present") and bundle_manifest.get("valid") is False:
         degraded_by.append("invalid_bundle_manifest")
     if weights_audit.get("present") and weights_audit.get("valid") is False:
         degraded_by.append("invalid_bundle_weights_audit")
+    if (
+        bool(operator_contract_audit.get("present"))
+        and operator_contract_audit.get("matching_payload") is False
+        and "operator_contract_mismatch" not in degraded_by
+    ):
+        degraded_by.append("operator_contract_mismatch")
 
     report_present = bool(artifacts.get("report", {}).get("present"))
     if not report_present:
@@ -382,6 +471,11 @@ def evaluate_run_quality(
         calibration_present=bool(artifacts["calibration_card"]["present"]),
         calibration_valid=calibration_valid,
     )
+    operator_contract_audit = _evaluate_operator_contract_audit(
+        root=root,
+        infer_config_present=bool(artifacts["infer_config"]["present"]),
+        operator_contract_present=bool(artifacts["operator_contract"]["present"]),
+    )
 
     bundle_manifest_payload = {
         "present": bool(artifacts["deploy_bundle_manifest"]["present"]),
@@ -419,6 +513,7 @@ def evaluate_run_quality(
         and calibration_valid is True
         and calibration_audit["matching_threshold"] is not False
         and calibration_audit["matching_split_fingerprint"] is not False
+        and operator_contract_audit["matching_payload"] is not False
     )
     deployable_complete = (
         audited_complete
@@ -444,6 +539,7 @@ def evaluate_run_quality(
         score = 0.0
 
     warnings = list(calibration_audit["warnings"])
+    warnings.extend(str(item) for item in operator_contract_audit["warnings"])
     trust_summary = _build_trust_summary(
         artifacts=artifacts,
         missing_required=missing_required,
@@ -452,6 +548,7 @@ def evaluate_run_quality(
         deployable_complete=bool(deployable_complete),
         warnings=warnings,
         calibration_audit=calibration_audit,
+        operator_contract_audit=operator_contract_audit,
         bundle_manifest=bundle_manifest_payload,
         weights_audit=weights_audit,
     )
@@ -468,6 +565,7 @@ def evaluate_run_quality(
         "warnings": warnings,
         "artifacts": artifacts,
         "calibration_audit": calibration_audit,
+        "operator_contract_audit": operator_contract_audit,
         "bundle_manifest": bundle_manifest_payload,
         "weights_audit": weights_audit,
         "trust_summary": trust_summary,

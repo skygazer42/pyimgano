@@ -274,6 +274,141 @@ def test_validate_infer_config_cli_rejects_missing_operator_contract_ref(
     assert "artifact_quality.audit_refs.operator_contract" in err
 
 
+def test_validate_infer_config_cli_rejects_missing_operator_contract_payload(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_operator_contract": True,
+                    "audit_refs": {
+                        "calibration_card": "calibration_card.json",
+                        "operator_contract": "operator_contract.json",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--no-check-files"])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "has_operator_contract=true requires operator_contract object" in err
+
+
+def test_validate_infer_config_cli_rejects_operator_contract_prediction_mismatch(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "prediction": {
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+                "operator_contract": {
+                    "schema_version": 1,
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.6,
+                        "reject_label": -9,
+                    },
+                },
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": True,
+                    "has_operator_contract": True,
+                    "audit_refs": {
+                        "calibration_card": "calibration_card.json",
+                        "operator_contract": "operator_contract.json",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--no-check-files"])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "operator_contract.review_policy.reject_confidence_below" in err
+
+
+def test_validate_infer_config_cli_accepts_consistent_operator_contract(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "defects": {"enabled": True, "mask_format": "png"},
+                "prediction": {
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+                "operator_contract": {
+                    "schema_version": 1,
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.75,
+                        "reject_label": -9,
+                    },
+                    "runtime_policy": {
+                        "defects_enabled": True,
+                    },
+                    "output_contract": {
+                        "requires_image_score": True,
+                        "supports_pixel_outputs": True,
+                        "supports_reject_label": True,
+                    },
+                },
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": True,
+                    "has_operator_contract": True,
+                    "audit_refs": {
+                        "calibration_card": "calibration_card.json",
+                        "operator_contract": "operator_contract.json",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--no-check-files"])
+    assert rc == 0
+    out = capsys.readouterr().out.lower()
+    assert "trust_signal.has_operator_contract=true" in out
+    assert "trust_signal.has_operator_contract_ref=true" in out
+
+
 def test_validate_infer_config_cli_plain_output_shows_artifact_quality(
     tmp_path: Path, capsys
 ) -> None:

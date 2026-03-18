@@ -590,6 +590,179 @@ def validate_infer_config_payload(
 
         normalized["prediction"] = prediction
 
+    operator_contract_raw = normalized.get("operator_contract", None)
+    operator_contract_map = _optional_mapping(operator_contract_raw, name="operator_contract")
+    if operator_contract_map is not None:
+        operator_contract: dict[str, Any] = dict(operator_contract_map)
+
+        if "schema_version" in operator_contract and operator_contract["schema_version"] is not None:
+            schema_version = _coerce_int(
+                operator_contract["schema_version"],
+                name="operator_contract.schema_version",
+            )
+            if int(schema_version) != 1:
+                raise ValueError("infer-config operator_contract.schema_version must be 1.")
+            operator_contract["schema_version"] = int(schema_version)
+
+        review_policy_raw = operator_contract.get("review_policy", None)
+        review_policy_map = _optional_mapping(
+            review_policy_raw,
+            name="operator_contract.review_policy",
+        )
+        if review_policy_map is not None:
+            review_policy: dict[str, Any] = dict(review_policy_map)
+            if "review_on" in review_policy and review_policy["review_on"] is not None:
+                review_on = review_policy["review_on"]
+                if not isinstance(review_on, list):
+                    raise ValueError(
+                        "infer-config operator_contract.review_policy.review_on must be a list of strings."
+                    )
+                items: list[str] = []
+                for index, value in enumerate(review_on):
+                    text = _coerce_str(
+                        value,
+                        name=f"operator_contract.review_policy.review_on[{index}]",
+                    ).strip()
+                    if not text:
+                        raise ValueError(
+                            "infer-config operator_contract.review_policy.review_on"
+                            f"[{index}] must be non-empty."
+                        )
+                    items.append(text)
+                review_policy["review_on"] = items
+
+            if (
+                "confidence_gate_enabled" in review_policy
+                and review_policy["confidence_gate_enabled"] is not None
+            ):
+                review_policy["confidence_gate_enabled"] = _coerce_bool(
+                    review_policy["confidence_gate_enabled"],
+                    name="operator_contract.review_policy.confidence_gate_enabled",
+                )
+
+            if (
+                "reject_confidence_below" in review_policy
+                and review_policy["reject_confidence_below"] is not None
+            ):
+                reject_confidence_below = _coerce_float(
+                    review_policy["reject_confidence_below"],
+                    name="operator_contract.review_policy.reject_confidence_below",
+                )
+                if not (0.0 < float(reject_confidence_below) <= 1.0):
+                    raise ValueError(
+                        "infer-config operator_contract.review_policy.reject_confidence_below "
+                        "must be in (0,1]."
+                    )
+                review_policy["reject_confidence_below"] = float(reject_confidence_below)
+
+            if "reject_label" in review_policy and review_policy["reject_label"] is not None:
+                review_policy["reject_label"] = _coerce_int(
+                    review_policy["reject_label"],
+                    name="operator_contract.review_policy.reject_label",
+                )
+
+            if bool(review_policy.get("confidence_gate_enabled", False)) and (
+                review_policy.get("reject_confidence_below", None) is None
+            ):
+                raise ValueError(
+                    "infer-config operator_contract.review_policy.confidence_gate_enabled=true "
+                    "requires operator_contract.review_policy.reject_confidence_below."
+                )
+
+            prediction = normalized.get("prediction", None)
+            if isinstance(prediction, Mapping):
+                pred_threshold = prediction.get("reject_confidence_below", None)
+                review_threshold = review_policy.get("reject_confidence_below", None)
+                if (
+                    pred_threshold is not None
+                    and review_threshold is not None
+                    and abs(float(pred_threshold) - float(review_threshold)) > 1e-12
+                ):
+                    raise ValueError(
+                        "infer-config operator_contract.review_policy.reject_confidence_below "
+                        "must match prediction.reject_confidence_below when both are set."
+                    )
+
+                pred_label = prediction.get("reject_label", None)
+                review_label = review_policy.get("reject_label", None)
+                if (
+                    pred_label is not None
+                    and review_label is not None
+                    and int(pred_label) != int(review_label)
+                ):
+                    raise ValueError(
+                        "infer-config operator_contract.review_policy.reject_label must match "
+                        "prediction.reject_label when both are set."
+                    )
+
+            operator_contract["review_policy"] = review_policy
+
+        runtime_policy_raw = operator_contract.get("runtime_policy", None)
+        runtime_policy_map = _optional_mapping(
+            runtime_policy_raw,
+            name="operator_contract.runtime_policy",
+        )
+        if runtime_policy_map is not None:
+            runtime_policy: dict[str, Any] = dict(runtime_policy_map)
+            if "defects_enabled" in runtime_policy and runtime_policy["defects_enabled"] is not None:
+                runtime_policy["defects_enabled"] = _coerce_bool(
+                    runtime_policy["defects_enabled"],
+                    name="operator_contract.runtime_policy.defects_enabled",
+                )
+
+            defects = normalized.get("defects", None)
+            if (
+                isinstance(defects, Mapping)
+                and "defects_enabled" in runtime_policy
+                and defects.get("enabled", None) is not None
+                and bool(runtime_policy["defects_enabled"]) != bool(defects.get("enabled"))
+            ):
+                raise ValueError(
+                    "infer-config operator_contract.runtime_policy.defects_enabled must match "
+                    "defects.enabled when both are set."
+                )
+
+            operator_contract["runtime_policy"] = runtime_policy
+
+        output_contract_raw = operator_contract.get("output_contract", None)
+        output_contract_map = _optional_mapping(
+            output_contract_raw,
+            name="operator_contract.output_contract",
+        )
+        if output_contract_map is not None:
+            output_contract: dict[str, Any] = dict(output_contract_map)
+            for key in ("requires_image_score", "supports_pixel_outputs", "supports_reject_label"):
+                if key in output_contract and output_contract[key] is not None:
+                    output_contract[key] = _coerce_bool(
+                        output_contract[key],
+                        name=f"operator_contract.output_contract.{key}",
+                    )
+
+            defects = normalized.get("defects", None)
+            if (
+                isinstance(defects, Mapping)
+                and "supports_pixel_outputs" in output_contract
+                and defects.get("enabled", None) is not None
+                and bool(output_contract["supports_pixel_outputs"]) != bool(defects.get("enabled"))
+            ):
+                raise ValueError(
+                    "infer-config operator_contract.output_contract.supports_pixel_outputs must "
+                    "match defects.enabled when both are set."
+                )
+
+            prediction = normalized.get("prediction", None)
+            if isinstance(prediction, Mapping) and "supports_reject_label" in output_contract:
+                has_reject_label = prediction.get("reject_label", None) is not None
+                if bool(output_contract["supports_reject_label"]) != bool(has_reject_label):
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.supports_reject_label "
+                        "must match whether prediction.reject_label is set."
+                    )
+
+            operator_contract["output_contract"] = output_contract
+
+        normalized["operator_contract"] = operator_contract
+
     # Optional thresholds/checkpoint metadata. Validate types when present.
     if "threshold" in normalized and normalized["threshold"] is not None:
         normalized["threshold"] = _coerce_float(normalized["threshold"], name="threshold")
@@ -718,6 +891,11 @@ def validate_infer_config_payload(
                 raise ValueError(
                     "infer-config artifact_quality.has_operator_contract=true requires "
                     "artifact_quality.audit_refs.operator_contract."
+                )
+            if not isinstance(normalized.get("operator_contract", None), Mapping):
+                raise ValueError(
+                    "infer-config artifact_quality.has_operator_contract=true requires "
+                    "operator_contract object."
                 )
 
         normalized["artifact_quality"] = artifact_quality

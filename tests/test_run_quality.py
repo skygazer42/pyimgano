@@ -198,6 +198,112 @@ def test_evaluate_run_quality_emits_trust_signals(tmp_path: Path) -> None:
     assert trust["trust_signals"]["has_prediction_policy"] is False
 
 
+def test_evaluate_run_quality_emits_operator_contract_trust_signals(tmp_path: Path) -> None:
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "operator_contract": operator_contract,
+        },
+    )
+    _write_json(run_dir / "artifacts" / "operator_contract.json", operator_contract)
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    quality = evaluate_run_quality(run_dir)
+
+    trust = quality["trust_summary"]
+    assert trust["status"] == "trust-signaled"
+    assert trust["trust_signals"]["has_operator_contract"] is True
+    assert trust["trust_signals"]["has_operator_contract_consistent"] is True
+    assert trust["audit_refs"]["operator_contract_json"] == "artifacts/operator_contract.json"
+
+
+def test_evaluate_run_quality_downgrades_mismatched_operator_contract(tmp_path: Path) -> None:
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "operator_contract": {
+                "schema_version": 1,
+                "review_policy": {
+                    "review_on": ["anomalous", "rejected_low_confidence"],
+                    "confidence_gate_enabled": True,
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+            },
+        },
+    )
+    _write_json(
+        run_dir / "artifacts" / "operator_contract.json",
+        {
+            "schema_version": 1,
+            "review_policy": {
+                "review_on": ["anomalous"],
+                "confidence_gate_enabled": True,
+                "reject_confidence_below": 0.6,
+                "reject_label": -9,
+            },
+        },
+    )
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    quality = evaluate_run_quality(run_dir)
+
+    assert quality["status"] == "reproducible"
+    trust = quality["trust_summary"]
+    assert trust["status"] == "partial"
+    assert trust["trust_signals"]["has_operator_contract"] is True
+    assert trust["trust_signals"]["has_operator_contract_consistent"] is False
+    assert "operator_contract_incomplete" in trust["status_reasons"]
+    assert "operator_contract_mismatch" in trust["degraded_by"]
+
+
 def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) -> None:
     from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
     from pyimgano.reporting.run_quality import evaluate_run_quality
