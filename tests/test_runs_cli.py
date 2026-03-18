@@ -824,6 +824,48 @@ def test_runs_cli_quality_plain_output_prints_warnings(tmp_path, capsys):
     assert "prediction_policy" in out
     assert "reason=calibration_audit_consistent" in out
     assert "degraded_by=missing_threshold_context" in out
+
+
+def test_runs_cli_quality_plain_output_prints_trust_signals(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "run_a"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts").mkdir()
+    (run_dir / "artifacts" / "infer_config.json").write_text(
+        json.dumps({"threshold": 0.5, "split_fingerprint": {"sha256": "f" * 64}}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "split_fingerprint": {"sha256": "f" * 64},
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["quality", str(run_dir)])
+
+    assert rc == 0
+    out = capsys.readouterr().out.lower()
+    assert "trust_signal.has_threshold_context=true" in out
+    assert "trust_signal.has_split_fingerprint=true" in out
     assert "ref=calibration_card_json:artifacts/calibration_card.json" in out
 
 

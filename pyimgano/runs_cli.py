@@ -786,6 +786,9 @@ def main(argv: list[str] | None = None) -> int:
             for item in warnings:
                 print(f"warning={item}")
             trust_summary = dict(quality.get("trust_summary", {}))
+            trust_signals = dict(trust_summary.get("trust_signals", {}))
+            for key, value in trust_signals.items():
+                print(f"trust_signal.{key}={value}")
             for item in trust_summary.get("status_reasons", []):
                 print(f"reason={item}")
             for item in trust_summary.get("degraded_by", []):

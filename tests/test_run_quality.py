@@ -163,6 +163,41 @@ def test_evaluate_run_quality_reports_calibration_audit_warnings(tmp_path: Path)
     }
 
 
+def test_evaluate_run_quality_emits_trust_signals(tmp_path: Path) -> None:
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {"threshold": 0.5, "split_fingerprint": {"sha256": "f" * 64}},
+    )
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    quality = evaluate_run_quality(run_dir)
+
+    trust = quality["trust_summary"]
+    assert trust["trust_signals"]["has_core_artifacts"] is True
+    assert trust["trust_signals"]["has_infer_config"] is True
+    assert trust["trust_signals"]["has_calibration_card"] is True
+    assert trust["trust_signals"]["has_threshold_context"] is True
+    assert trust["trust_signals"]["has_split_fingerprint"] is True
+    assert trust["trust_signals"]["has_prediction_policy"] is False
+
+
 def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) -> None:
     from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
     from pyimgano.reporting.run_quality import evaluate_run_quality

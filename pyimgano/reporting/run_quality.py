@@ -266,6 +266,18 @@ def _build_trust_summary(
 ) -> dict[str, Any]:
     status_reasons: list[str] = []
     degraded_by: list[str] = []
+    trust_signals = {
+        "has_core_artifacts": bool(core_complete),
+        "has_infer_config": bool(artifacts.get("infer_config", {}).get("present")),
+        "has_calibration_card": bool(artifacts.get("calibration_card", {}).get("present")),
+        "has_threshold_context": bool(calibration_audit.get("has_threshold_context")),
+        "has_split_fingerprint": bool(calibration_audit.get("has_split_fingerprint")),
+        "has_prediction_policy": bool(calibration_audit.get("has_prediction_policy")),
+        "has_deploy_bundle_manifest": bool(bundle_manifest.get("present")),
+        "has_valid_deploy_bundle_manifest": bool(bundle_manifest.get("valid") is True),
+        "has_bundle_weights_audit": bool(weights_audit.get("present")),
+        "has_valid_bundle_weights_audit": bool(weights_audit.get("valid") is True),
+    }
 
     if bool(core_complete):
         status_reasons.append("core_artifacts_present")
@@ -314,6 +326,7 @@ def _build_trust_summary(
 
     return {
         "status": status,
+        "trust_signals": trust_signals,
         "status_reasons": list(dict.fromkeys(str(item) for item in status_reasons)),
         "degraded_by": list(dict.fromkeys(str(item) for item in degraded_by)),
         "audit_refs": _build_audit_refs(artifacts=artifacts, weights_audit=weights_audit),
