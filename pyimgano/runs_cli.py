@@ -673,7 +673,11 @@ def main(argv: list[str] | None = None) -> int:
                     f"environment={_comparability_gate_status(environment_summary)} "
                     f"target={_comparability_gate_status(target_summary)} "
                     "robustness_protocol="
-                    f"{_comparability_gate_status(robustness_protocol_summary)}"
+                    f"{_comparability_gate_status(robustness_protocol_summary)} "
+                    "operator_contract="
+                    f"{_comparability_gate_status(operator_contract_summary)} "
+                    "bundle_operator_contract="
+                    f"{_comparability_gate_status(bundle_operator_contract_summary)}"
                 )
                 total_regressions = int(payload.get("summary", {}).get("total_regressions", 0) or 0)
                 regression_gate = "clean" if total_regressions == 0 else "regressed"

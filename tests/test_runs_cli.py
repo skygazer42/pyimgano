@@ -2078,6 +2078,11 @@ def test_runs_cli_compare_plain_output_prints_operator_contract_incompatibility_
     )
     out = capsys.readouterr().out.lower()
     assert rc == 0
+    assert (
+        "comparability_gates: split=compatible environment=compatible target=compatible "
+        "robustness_protocol=unchecked operator_contract=incompatible "
+        "bundle_operator_contract=unchecked"
+    ) in out
     assert "operator_contract: checked=true matched=0 mismatched=0 missing=1" in out
     assert "operator_contract_incompat.candidate=missing" in out
     assert "--require-same-operator-contract" in out
@@ -2213,6 +2218,11 @@ def test_runs_cli_compare_plain_output_prints_bundle_operator_contract_incompati
     )
     out = capsys.readouterr().out.lower()
     assert rc == 0
+    assert (
+        "comparability_gates: split=compatible environment=compatible target=compatible "
+        "robustness_protocol=unchecked operator_contract=compatible "
+        "bundle_operator_contract=incompatible"
+    ) in out
     assert "bundle_operator_contract: checked=true matched=0 mismatched=0 missing=1" in out
     assert "bundle_operator_contract_incompat.candidate=missing" in out
     assert "--require-same-bundle-operator-contract" in out
@@ -2333,7 +2343,8 @@ def test_runs_cli_compare_plain_output_prints_comparability_gate_summary(
     assert rc == 0
     assert (
         "comparability_gates: split=incompatible environment=incompatible "
-        "target=incompatible robustness_protocol=unchecked"
+        "target=incompatible robustness_protocol=unchecked "
+        "operator_contract=unchecked bundle_operator_contract=unchecked"
     ) in out
 
 
