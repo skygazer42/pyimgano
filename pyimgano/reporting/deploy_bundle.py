@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -41,6 +42,58 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"Expected JSON object in: {path}")
     return payload
+
+
+def _canonical_json_sha256(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _load_json_mapping_if_present(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        payload = _load_json_dict(path)
+    except Exception:  # noqa: BLE001 - manifest enrichment is best-effort
+        return None
+    return dict(payload)
+
+
+def _build_operator_contract_digests(
+    *,
+    source_root: Path,
+    bundle_root: Path,
+) -> dict[str, Any]:
+    source_contract = _load_json_mapping_if_present(source_root / "artifacts" / "operator_contract.json")
+    bundle_contract = _load_json_mapping_if_present(bundle_root / "operator_contract.json")
+    bundle_infer = _load_json_mapping_if_present(bundle_root / "infer_config.json")
+    infer_contract = (
+        dict(bundle_infer.get("operator_contract"))
+        if isinstance(bundle_infer, Mapping) and isinstance(bundle_infer.get("operator_contract"), Mapping)
+        else None
+    )
+
+    source_sha = _canonical_json_sha256(source_contract) if isinstance(source_contract, Mapping) else None
+    bundle_sha = _canonical_json_sha256(bundle_contract) if isinstance(bundle_contract, Mapping) else None
+    infer_sha = _canonical_json_sha256(infer_contract) if isinstance(infer_contract, Mapping) else None
+    bundle_consistent = (
+        bool(bundle_sha is not None and infer_sha is not None and dict(infer_contract) == dict(bundle_contract))
+        if (bundle_sha is not None or infer_sha is not None)
+        else None
+    )
+    source_matches_bundle = (
+        bool(source_sha is not None and bundle_sha is not None and dict(source_contract) == dict(bundle_contract))
+        if (source_sha is not None or bundle_sha is not None)
+        else None
+    )
+
+    return {
+        "source_run_operator_contract_sha256": source_sha,
+        "bundle_operator_contract_sha256": bundle_sha,
+        "bundle_infer_operator_contract_sha256": infer_sha,
+        "bundle_operator_contract_consistent": bundle_consistent,
+        "source_run_matches_bundle_operator_contract": source_matches_bundle,
+    }
 
 
 def _classify_entry(rel_path: str) -> str:
@@ -169,6 +222,51 @@ def _validate_required_presence_flag(
     if bool(value) != bool(actual):
         return [f"{field_name} does not match manifest artifact refs."]
     return []
+
+
+def _validate_operator_contract_digests(
+    value: Any,
+    *,
+    bundle_root: Path,
+    source_run_dir: str | None,
+) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, Mapping):
+        return ["operator_contract_digests must be a JSON object/dict."]
+
+    source_root = Path(source_run_dir) if isinstance(source_run_dir, str) and source_run_dir.strip() else None
+    source_available = bool(source_root is not None and source_root.exists())
+    actual = _build_operator_contract_digests(
+        source_root=(source_root if source_root is not None else bundle_root),
+        bundle_root=bundle_root,
+    )
+    errors: list[str] = []
+    key_types: dict[str, tuple[type, ...]] = {
+        "source_run_operator_contract_sha256": (str, type(None)),
+        "bundle_operator_contract_sha256": (str, type(None)),
+        "bundle_infer_operator_contract_sha256": (str, type(None)),
+        "bundle_operator_contract_consistent": (bool, type(None)),
+        "source_run_matches_bundle_operator_contract": (bool, type(None)),
+    }
+    for key, expected_types in key_types.items():
+        if key not in value:
+            continue
+        expected_value = value.get(key, None)
+        if not isinstance(expected_value, expected_types):
+            errors.append(f"operator_contract_digests.{key} has invalid type.")
+            continue
+        if (
+            key.startswith("source_run_")
+            and not bool(source_available)
+            and expected_value is not None
+        ):
+            continue
+        if expected_value != actual.get(key, None):
+            errors.append(
+                f"operator_contract_digests.{key} does not match computed bundle/source contract digest."
+            )
+    return errors
 
 
 def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> list[str]:
@@ -329,6 +427,10 @@ def build_deploy_bundle_manifest(*, bundle_dir: str | Path, source_run_dir: str 
             bundle_artifact_refs,
             required_names=_REQUIRED_BUNDLE_ARTIFACTS,
         ),
+        "operator_contract_digests": _build_operator_contract_digests(
+            source_root=source_root,
+            bundle_root=bundle_root,
+        ),
         "entries": entries,
     }
 
@@ -380,12 +482,15 @@ def validate_deploy_bundle_manifest(
 
     source_run = manifest.get("source_run", None)
     source_artifact_refs: Mapping[str, Any] = {}
+    source_run_dir: str | None = None
     if isinstance(source_run, Mapping):
-        source_run_dir = source_run.get("run_dir", None)
+        source_run_dir_value = source_run.get("run_dir", None)
+        if isinstance(source_run_dir_value, str) and source_run_dir_value.strip():
+            source_run_dir = str(source_run_dir_value)
         artifact_refs = source_run.get("artifact_refs", None)
         if isinstance(artifact_refs, Mapping):
             source_artifact_refs = artifact_refs
-        if isinstance(source_run_dir, str) and source_run_dir.strip():
+        if isinstance(source_run_dir, str) and source_run_dir:
             errors.extend(
                 _validate_artifact_refs(
                     artifact_refs,
@@ -428,6 +533,13 @@ def validate_deploy_bundle_manifest(
                 (bundle_artifact_refs if isinstance(bundle_artifact_refs, Mapping) else {}),
                 required_names=_REQUIRED_BUNDLE_ARTIFACTS,
             ),
+        )
+    )
+    errors.extend(
+        _validate_operator_contract_digests(
+            manifest.get("operator_contract_digests", None),
+            bundle_root=bundle_root,
+            source_run_dir=source_run_dir,
         )
     )
     errors.extend(_validate_operator_contract_consistency(bundle_root))
