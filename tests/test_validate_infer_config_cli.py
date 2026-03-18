@@ -243,6 +243,37 @@ def test_validate_infer_config_cli_rejects_missing_deploy_ref_file(
     assert "artifact_quality.deploy_refs.bundle_manifest" in err
 
 
+def test_validate_infer_config_cli_rejects_missing_operator_contract_ref(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_operator_contract": True,
+                    "audit_refs": {"calibration_card": "calibration_card.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "calibration_card.json").write_text("{}", encoding="utf-8")
+
+    rc = main([str(cfg), "--no-check-files"])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "artifact_quality.audit_refs.operator_contract" in err
+
+
 def test_validate_infer_config_cli_plain_output_shows_artifact_quality(
     tmp_path: Path, capsys
 ) -> None:

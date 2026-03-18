@@ -153,6 +153,7 @@ def _build_infer_config_trust_summary(
         "has_threshold_provenance": bool(artifact_quality.get("has_threshold_provenance")),
         "has_split_fingerprint": bool(artifact_quality.get("has_split_fingerprint")),
         "has_prediction_policy": bool(artifact_quality.get("has_prediction_policy")),
+        "has_operator_contract": bool(artifact_quality.get("has_operator_contract")),
         "has_deploy_bundle": bool(artifact_quality.get("has_deploy_bundle")),
         "has_bundle_manifest": bool(artifact_quality.get("has_bundle_manifest")),
         "has_required_bundle_artifacts": bool(
@@ -165,6 +166,10 @@ def _build_infer_config_trust_summary(
         "has_calibration_card_ref": bool(
             isinstance(audit_ref_map.get("calibration_card", None), str)
             and str(audit_ref_map.get("calibration_card")).strip()
+        ),
+        "has_operator_contract_ref": bool(
+            isinstance(audit_ref_map.get("operator_contract", None), str)
+            and str(audit_ref_map.get("operator_contract")).strip()
         ),
         "has_bundle_manifest_ref": bool(
             isinstance(deploy_ref_map.get("bundle_manifest", None), str)
@@ -179,6 +184,11 @@ def _build_infer_config_trust_summary(
             degraded_by.append("missing_split_fingerprint")
         if not trust_signals["has_calibration_card_ref"]:
             degraded_by.append("missing_calibration_card_ref")
+        if (
+            trust_signals["has_operator_contract"]
+            and not trust_signals["has_operator_contract_ref"]
+        ):
+            degraded_by.append("missing_operator_contract_ref")
     if audit_status == "deployable":
         if not trust_signals["has_deploy_bundle"]:
             degraded_by.append("missing_deploy_bundle")
@@ -616,6 +626,7 @@ def validate_infer_config_payload(
             "has_threshold_provenance",
             "has_split_fingerprint",
             "has_prediction_policy",
+            "has_operator_contract",
             "has_deploy_bundle",
             "has_bundle_manifest",
             "required_bundle_artifacts_present",
@@ -697,6 +708,16 @@ def validate_infer_config_payload(
                 raise ValueError(
                     "infer-config artifact_quality.has_bundle_manifest=true requires "
                     "artifact_quality.deploy_refs.bundle_manifest."
+                )
+
+        if bool(artifact_quality.get("has_operator_contract", False)):
+            audit_refs = artifact_quality.get("audit_refs", None)
+            if not isinstance(audit_refs, Mapping) or not str(
+                audit_refs.get("operator_contract", "")
+            ).strip():
+                raise ValueError(
+                    "infer-config artifact_quality.has_operator_contract=true requires "
+                    "artifact_quality.audit_refs.operator_contract."
                 )
 
         normalized["artifact_quality"] = artifact_quality

@@ -18,6 +18,7 @@ _SOURCE_RUN_ARTIFACT_PATHS = {
     "environment": "environment.json",
     "infer_config": "artifacts/infer_config.json",
     "calibration_card": "artifacts/calibration_card.json",
+    "operator_contract": "artifacts/operator_contract.json",
 }
 
 _BUNDLE_ARTIFACT_PATHS = {
@@ -26,6 +27,7 @@ _BUNDLE_ARTIFACT_PATHS = {
     "environment": "environment.json",
     "infer_config": "infer_config.json",
     "calibration_card": "calibration_card.json",
+    "operator_contract": "operator_contract.json",
     "model_card": "model_card.json",
     "weights_manifest": "weights_manifest.json",
 }
@@ -46,6 +48,8 @@ def _classify_entry(rel_path: str) -> str:
         return "infer_config"
     if rel_path == "calibration_card.json":
         return "calibration_card"
+    if rel_path == "operator_contract.json":
+        return "operator_contract"
     if rel_path == "model_card.json":
         return "model_card"
     if rel_path == "weights_manifest.json":

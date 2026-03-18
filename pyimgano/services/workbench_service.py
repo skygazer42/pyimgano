@@ -296,11 +296,45 @@ def build_infer_config_payload(
             }
         }
 
+    operator_contract_payload: dict[str, Any] = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": (config.prediction.reject_confidence_below is not None),
+            "reject_confidence_below": (
+                float(config.prediction.reject_confidence_below)
+                if config.prediction.reject_confidence_below is not None
+                else None
+            ),
+            "reject_label": (
+                int(config.prediction.reject_label)
+                if config.prediction.reject_label is not None
+                else None
+            ),
+        },
+        "runtime_policy": {
+            "defects_enabled": bool(config.defects.enabled),
+            "mask_format": str(config.defects.mask_format),
+            "max_regions": (
+                int(config.defects.max_regions)
+                if config.defects.max_regions is not None
+                else None
+            ),
+            "max_regions_sort_by": str(config.defects.max_regions_sort_by),
+        },
+        "output_contract": {
+            "requires_image_score": True,
+            "supports_pixel_outputs": bool(config.defects.enabled),
+            "supports_reject_label": (config.prediction.reject_label is not None),
+        },
+    }
+
     out: dict[str, Any] = {
         "schema_version": int(INFER_CONFIG_SCHEMA_VERSION),
         "model": model_payload,
         "adaptation": adaptation_payload,
         "defects": defects_payload,
+        "operator_contract": operator_contract_payload,
     }
     if preprocessing_payload is not None:
         out["preprocessing"] = preprocessing_payload
@@ -315,12 +349,14 @@ def build_infer_config_payload(
         "has_threshold_provenance": bool(has_threshold_provenance),
         "has_split_fingerprint": isinstance(report.get("split_fingerprint", None), Mapping),
         "has_prediction_policy": prediction_payload is not None,
+        "has_operator_contract": True,
         "has_deploy_bundle": False,
         "has_bundle_manifest": False,
         "required_bundle_artifacts_present": False,
         "bundle_artifact_roles": {},
         "audit_refs": {
             "calibration_card": "artifacts/calibration_card.json",
+            "operator_contract": "artifacts/operator_contract.json",
         },
         "deploy_refs": {},
     }

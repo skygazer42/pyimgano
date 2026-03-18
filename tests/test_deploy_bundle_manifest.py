@@ -97,15 +97,22 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
     assert manifest["source_run"]["environment_fingerprint_sha256"]
     assert manifest["source_run"]["artifact_refs"]["infer_config"] == "artifacts/infer_config.json"
     assert manifest["source_run"]["artifact_refs"]["calibration_card"] == "artifacts/calibration_card.json"
+    assert (
+        manifest["source_run"]["artifact_refs"]["operator_contract"]
+        == "artifacts/operator_contract.json"
+    )
     assert manifest["bundle_artifact_refs"]["infer_config"] == "infer_config.json"
     assert manifest["bundle_artifact_refs"]["calibration_card"] == "calibration_card.json"
+    assert manifest["bundle_artifact_refs"]["operator_contract"] == "operator_contract.json"
     assert manifest["required_source_artifacts_present"] is True
     assert manifest["required_bundle_artifacts_present"] is True
     assert manifest["artifact_roles"]["infer_config"] == ["infer_config.json"]
     assert manifest["artifact_roles"]["calibration_card"] == ["calibration_card.json"]
+    assert manifest["artifact_roles"]["operator_contract"] == ["operator_contract.json"]
     assert any(path.endswith("model.pt") for path in manifest["artifact_roles"]["checkpoint"])
     assert "infer_config.json" in rel_paths
     assert "calibration_card.json" in rel_paths
+    assert "operator_contract.json" in rel_paths
     assert "report.json" in rel_paths
     assert "config.json" in rel_paths
     assert "environment.json" in rel_paths

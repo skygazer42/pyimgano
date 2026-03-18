@@ -100,6 +100,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
     if calibration_card_src.exists():
         shutil.copy2(calibration_card_src, bundle_dir / "calibration_card.json")
 
+    operator_contract_src = run_dir / "artifacts" / "operator_contract.json"
+    if operator_contract_src.exists():
+        shutil.copy2(operator_contract_src, bundle_dir / "operator_contract.json")
+
     def _resolve_path(raw: str) -> Path:
         path = Path(raw)
         if path.is_absolute():
@@ -163,10 +167,18 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
     artifact_quality = bundle_payload.get("artifact_quality", None)
     if isinstance(artifact_quality, dict):
         audit_refs = artifact_quality.get("audit_refs", None)
-        if isinstance(audit_refs, dict) and (bundle_dir / "calibration_card.json").is_file():
+        if isinstance(audit_refs, dict):
             rewritten_audit_refs = dict(audit_refs)
-            if "calibration_card" in rewritten_audit_refs:
+            if (
+                "calibration_card" in rewritten_audit_refs
+                and (bundle_dir / "calibration_card.json").is_file()
+            ):
                 rewritten_audit_refs["calibration_card"] = "calibration_card.json"
+            if (
+                "operator_contract" in rewritten_audit_refs
+                and (bundle_dir / "operator_contract.json").is_file()
+            ):
+                rewritten_audit_refs["operator_contract"] = "operator_contract.json"
             artifact_quality["audit_refs"] = rewritten_audit_refs
         deploy_refs = artifact_quality.get("deploy_refs", None)
         rewritten_deploy_refs = dict(deploy_refs) if isinstance(deploy_refs, dict) else {}
@@ -276,6 +288,12 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
             report=report,
         )
         save_run_report(infer_config_path, infer_config_payload)
+        operator_contract_payload = infer_config_payload.get("operator_contract", None)
+        if isinstance(operator_contract_payload, dict):
+            save_run_report(
+                run_dir / "artifacts" / "operator_contract.json",
+                operator_contract_payload,
+            )
         calibration_card_source = dict(report)
         prediction_payload = infer_config_payload.get("prediction", None)
         if isinstance(prediction_payload, dict):

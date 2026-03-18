@@ -107,10 +107,24 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert artifact_quality["has_threshold_provenance"] is True
     assert artifact_quality["has_split_fingerprint"] is True
     assert artifact_quality["has_prediction_policy"] is True
+    assert artifact_quality["has_operator_contract"] is True
     assert artifact_quality["has_deploy_bundle"] is False
     assert artifact_quality["has_bundle_manifest"] is False
     assert artifact_quality["deploy_refs"] == {}
     assert artifact_quality["audit_refs"]["calibration_card"] == "artifacts/calibration_card.json"
+    assert artifact_quality["audit_refs"]["operator_contract"] == "artifacts/operator_contract.json"
+
+    operator_contract_path = out_dir / "artifacts" / "operator_contract.json"
+    assert operator_contract_path.exists()
+    operator_contract = json.loads(operator_contract_path.read_text(encoding="utf-8"))
+    assert operator_contract["schema_version"] == 1
+    assert operator_contract["review_policy"]["review_on"] == [
+        "anomalous",
+        "rejected_low_confidence",
+    ]
+    assert operator_contract["review_policy"]["confidence_gate_enabled"] is True
+    assert operator_contract["review_policy"]["reject_confidence_below"] == pytest.approx(0.75)
+    assert operator_contract["review_policy"]["reject_label"] == -9
 
     calibration_card_path = out_dir / "artifacts" / "calibration_card.json"
     assert calibration_card_path.exists()
@@ -330,6 +344,7 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
     bundle_manifest = json.loads((bundle_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
     assert bundle_payload["artifact_quality"]["audit_refs"]["calibration_card"] == "calibration_card.json"
+    assert bundle_payload["artifact_quality"]["audit_refs"]["operator_contract"] == "operator_contract.json"
     assert bundle_payload["artifact_quality"]["has_deploy_bundle"] is True
     assert bundle_payload["artifact_quality"]["has_bundle_manifest"] is True
     assert (
@@ -341,6 +356,12 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
         == bundle_manifest["artifact_roles"]
     )
     assert bundle_payload["artifact_quality"]["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
+    assert bundle_manifest["source_run"]["artifact_refs"]["operator_contract"] == (
+        "artifacts/operator_contract.json"
+    )
+    assert bundle_manifest["bundle_artifact_refs"]["operator_contract"] == "operator_contract.json"
+    assert bundle_manifest["artifact_roles"]["operator_contract"] == ["operator_contract.json"]
+    assert (bundle_dir / "operator_contract.json").exists()
 
     copied_ckpt = bundle_dir / "checkpoints" / "custom" / "model.pt"
     assert copied_ckpt.exists()
@@ -587,8 +608,14 @@ def test_train_cli_export_deploy_bundle_writes_bundle_manifest(tmp_path):
     assert bundle_manifest["required_source_artifacts_present"] is False
     assert bundle_manifest["required_bundle_artifacts_present"] is False
     assert bundle_manifest["artifact_roles"]["infer_config"] == ["infer_config.json"]
+    assert bundle_manifest["artifact_roles"]["operator_contract"] == ["operator_contract.json"]
+    assert bundle_manifest["source_run"]["artifact_refs"]["operator_contract"] == (
+        "artifacts/operator_contract.json"
+    )
+    assert bundle_manifest["bundle_artifact_refs"]["operator_contract"] == "operator_contract.json"
     paths = {entry["path"] for entry in bundle_manifest["entries"]}
     assert "infer_config.json" in paths
+    assert "operator_contract.json" in paths
 
 
 def test_validate_cli_accepts_legacy_deploy_bundle_without_schema_version(tmp_path, capsys):
