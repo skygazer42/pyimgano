@@ -257,6 +257,19 @@ def _append_candidate_reason(
         reasons_by_name[run_dir_name].append(reason)
 
 
+def _run_trust_degraded_by(run: Mapping[str, Any]) -> set[str]:
+    artifact_quality = run.get("artifact_quality", None)
+    if not isinstance(artifact_quality, Mapping):
+        return set()
+    trust_summary = artifact_quality.get("trust_summary", None)
+    if not isinstance(trust_summary, Mapping):
+        return set()
+    degraded_by_raw = trust_summary.get("degraded_by", None)
+    if not isinstance(degraded_by_raw, list):
+        return set()
+    return {str(item) for item in degraded_by_raw if str(item)}
+
+
 _CANDIDATE_COMPARABILITY_GATE_ORDER = (
     "split",
     "environment",
@@ -523,6 +536,14 @@ def _build_candidate_blocking_summary(
                     run_dir_name=run_dir_name,
                     reason=f"operator_contract_bundle:{status}",
                 )
+                if status == "mismatched":
+                    degraded_by = _run_trust_degraded_by(run)
+                    if "operator_contract_bundle_digest_mismatch" in degraded_by:
+                        _append_candidate_reason(
+                            reasons_by_name,
+                            run_dir_name=run_dir_name,
+                            reason="operator_contract_bundle:digest_mismatch",
+                        )
             elif status == "consistent" and isinstance(
                 baseline_bundle_operator_contract_payload,
                 Mapping,

@@ -1665,6 +1665,153 @@ def test_compare_run_summaries_blocks_candidate_bundle_operator_contract_baselin
     assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "mismatched"
 
 
+def test_compare_run_summaries_flags_candidate_bundle_operator_contract_digest_mismatch(
+    tmp_path,
+):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.reporting.run_index import compare_run_summaries
+
+    baseline = tmp_path / "baseline"
+    candidate = tmp_path / "candidate"
+    baseline.mkdir()
+    candidate.mkdir()
+    shared_report = {
+        "dataset": "mvtec",
+        "category": "bottle",
+        "split_fingerprint": {"sha256": "f" * 64},
+    }
+    for run_dir, model_name, metric_value in (
+        (baseline, "baseline", 0.91),
+        (candidate, "candidate", 0.92),
+    ):
+        (run_dir / "report.json").write_text(
+            json.dumps(
+                {
+                    **shared_report,
+                    "model": model_name,
+                    "results": {"auroc": metric_value},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+        (run_dir / "environment.json").write_text(
+            json.dumps({"fingerprint_sha256": "e" * 64}),
+            encoding="utf-8",
+        )
+
+    run_operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    for run_dir in (baseline, candidate):
+        (run_dir / "artifacts").mkdir()
+        (run_dir / "artifacts" / "infer_config.json").write_text(
+            json.dumps(
+                {
+                    "threshold": 0.5,
+                    "split_fingerprint": {"sha256": "f" * 64},
+                    "operator_contract": run_operator_contract,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "artifacts" / "operator_contract.json").write_text(
+            json.dumps(run_operator_contract),
+            encoding="utf-8",
+        )
+        (run_dir / "artifacts" / "calibration_card.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "split_fingerprint": {"sha256": "f" * 64},
+                    "threshold_context": {"scope": "image", "category_count": 1},
+                    "image_threshold": {
+                        "threshold": 0.5,
+                        "provenance": {"method": "fixed", "source": "test"},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    bundle_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    for run_dir in (baseline, candidate):
+        bundle_dir = run_dir / "deploy_bundle"
+        bundle_dir.mkdir()
+        (bundle_dir / "infer_config.json").write_text(
+            json.dumps(
+                {
+                    "threshold": 0.5,
+                    "operator_contract": bundle_contract,
+                    "artifact_quality": {
+                        "has_operator_contract": True,
+                        "audit_refs": {"operator_contract": "operator_contract.json"},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (bundle_dir / "operator_contract.json").write_text(
+            json.dumps(bundle_contract),
+            encoding="utf-8",
+        )
+        (bundle_dir / "report.json").write_text(
+            json.dumps({"dataset": "mvtec"}),
+            encoding="utf-8",
+        )
+        (bundle_dir / "config.json").write_text(
+            json.dumps({"config": {}}),
+            encoding="utf-8",
+        )
+        (bundle_dir / "environment.json").write_text(
+            json.dumps({"fingerprint_sha256": "e" * 64}),
+            encoding="utf-8",
+        )
+        (bundle_dir / "calibration_card.json").write_text(
+            json.dumps({"schema_version": 1}),
+            encoding="utf-8",
+        )
+        manifest = build_deploy_bundle_manifest(
+            bundle_dir=bundle_dir,
+            source_run_dir=run_dir,
+        )
+        if run_dir == candidate:
+            manifest["operator_contract_digests"]["bundle_operator_contract_sha256"] = "0" * 64
+        (bundle_dir / "bundle_manifest.json").write_text(
+            json.dumps(manifest),
+            encoding="utf-8",
+        )
+
+    payload = compare_run_summaries([baseline, candidate], baseline_run_dir=baseline)
+    summary = payload["summary"]
+
+    assert summary["candidate_verdicts"]["candidate"] == "blocked"
+    assert "operator_contract_bundle:mismatched" in summary["candidate_blocking_reasons"]["candidate"]
+    assert "operator_contract_bundle:digest_mismatch" in summary["candidate_blocking_reasons"][
+        "candidate"
+    ]
+    assert summary["candidate_incompatibility_digest"]["candidate"]["incompatible_gates"] == [
+        "bundle_operator_contract:mismatched"
+    ]
+    assert summary["bundle_operator_contract_gate"] == "incompatible"
+    assert payload["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
+    assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "mismatched"
+
+
 def test_compare_run_summaries_reports_environment_compatibility_vs_baseline(tmp_path):
     from pyimgano.reporting.run_index import compare_run_summaries
 
