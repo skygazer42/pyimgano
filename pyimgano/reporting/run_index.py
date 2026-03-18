@@ -76,6 +76,16 @@ def _comparison_trust_gate(trust_status: object) -> str | None:
     return "trusted" if status_text == "trust-signaled" else "limited"
 
 
+def _operator_contract_status_from_trust_summary(trust_summary: Mapping[str, Any]) -> tuple[str, bool]:
+    trust_signals = trust_summary.get("trust_signals", None)
+    signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
+    has_contract = bool(signal_map.get("has_operator_contract"))
+    is_consistent = bool(signal_map.get("has_operator_contract_consistent"))
+    if not has_contract:
+        return "missing", False
+    return ("consistent" if is_consistent else "mismatched"), bool(is_consistent)
+
+
 def _comparison_trust_reason(
     *,
     trust_status: object,
@@ -117,6 +127,13 @@ def _build_trust_comparison(
 
     artifact_quality = dict(baseline_summary.get("artifact_quality", {}))
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
+    operator_contract_status, operator_contract_consistent = (
+        _operator_contract_status_from_trust_summary(trust_summary)
+    )
+    baseline_operator_contract_status = baseline_summary.get("operator_contract_status", None)
+    if isinstance(baseline_operator_contract_status, str) and baseline_operator_contract_status:
+        operator_contract_status = str(baseline_operator_contract_status)
+        operator_contract_consistent = operator_contract_status == "consistent"
     quality_status = artifact_quality.get("status", None)
     trust_status = trust_summary.get("status", None)
     status_reasons = list(trust_summary.get("status_reasons", []))
@@ -137,6 +154,8 @@ def _build_trust_comparison(
         ),
         "status_reasons": [str(item) for item in status_reasons if str(item)],
         "degraded_by": [str(item) for item in degraded_by if str(item)],
+        "operator_contract_status": str(operator_contract_status),
+        "operator_contract_consistent": bool(operator_contract_consistent),
         "audit_refs": {
             str(key): str(value)
             for key, value in audit_refs.items()
@@ -600,6 +619,13 @@ def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
     robustness_protocol = _extract_robustness_protocol(report)
     robustness_trust = _extract_robustness_trust(report)
 
+    artifact_quality = evaluate_run_quality(root)
+    operator_contract_status, _ = _operator_contract_status_from_trust_summary(
+        dict(artifact_quality.get("trust_summary", {}))
+        if isinstance(artifact_quality, Mapping)
+        else {}
+    )
+
     payload = {
         "run_dir": str(root),
         "run_dir_name": root.name,
@@ -612,7 +638,8 @@ def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
         "resize": report.get("resize", None),
         "environment_fingerprint_sha256": env.get("fingerprint_sha256", None),
         "split_fingerprint_sha256": _extract_split_fingerprint_sha256(report),
-        "artifact_quality": evaluate_run_quality(root),
+        "artifact_quality": artifact_quality,
+        "operator_contract_status": str(operator_contract_status),
         "metrics": metrics,
         "evaluation_contract": _extract_evaluation_contract(report, metrics=metrics),
     }
@@ -1328,6 +1355,10 @@ def compare_run_summaries(
     summary["trust_gate"] = trust_comparison.get("gate", None)
     summary["trust_status"] = trust_comparison.get("status", None)
     summary["trust_reason"] = trust_comparison.get("reason", None)
+    summary["operator_contract_status"] = trust_comparison.get("operator_contract_status", None)
+    summary["operator_contract_consistent"] = bool(
+        trust_comparison.get("operator_contract_consistent", False)
+    )
     summary["candidate_verdicts"] = dict(candidate_blocking_summary["candidate_verdicts"])
     summary["candidate_blocking_reasons"] = dict(
         candidate_blocking_summary["candidate_blocking_reasons"]

@@ -86,15 +86,37 @@ def _comparison_trust_reason(
     return status_text if status_text else None
 
 
+def _resolve_operator_contract_status(
+    *,
+    run: dict[str, object],
+    trust_summary: dict[str, object],
+) -> str:
+    run_level = run.get("operator_contract_status", None)
+    if isinstance(run_level, str) and run_level:
+        return str(run_level)
+
+    trust_signals = trust_summary.get("trust_signals", {})
+    signal_map = dict(trust_signals) if isinstance(trust_signals, dict) else {}
+    has_contract = bool(signal_map.get("has_operator_contract"))
+    if not has_contract:
+        return "missing"
+    return "consistent" if bool(signal_map.get("has_operator_contract_consistent")) else "mismatched"
+
+
 def _format_run_brief(run: dict[str, object]) -> str:
     artifact_quality = dict(run.get("artifact_quality", {}))
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
+    operator_contract_status = _resolve_operator_contract_status(
+        run=run,
+        trust_summary=trust_summary,
+    )
     parts = [
         f"{run['run_dir_name']}: {run.get('kind')} "
         f"{run.get('dataset')}/{run.get('category')} "
         f"{run.get('model_or_suite')}",
         f"quality={artifact_quality.get('status')}",
         f"trust={trust_summary.get('status')}",
+        f"operator_contract={operator_contract_status}",
     ]
 
     evaluation_contract = dict(run.get("evaluation_contract", {}))
@@ -122,10 +144,15 @@ def _format_compare_run_brief(
 ) -> str:
     artifact_quality = dict(run.get("artifact_quality", {}))
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
+    operator_contract_status = _resolve_operator_contract_status(
+        run=run,
+        trust_summary=trust_summary,
+    )
     parts = [
         f"{run['run_dir_name']}: {run.get('model_or_suite')}",
         f"quality={artifact_quality.get('status')}",
         f"trust={trust_summary.get('status')}",
+        f"operator_contract={operator_contract_status}",
     ]
 
     metrics = dict(run.get("metrics", {}))
@@ -526,6 +553,14 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     if isinstance(trust_reason, str) and trust_reason:
                         print(f"comparison_trust_reason={trust_reason}")
+                summary_payload = dict(payload.get("summary", {}))
+                operator_contract_status = summary_payload.get("operator_contract_status", None)
+                if isinstance(operator_contract_status, str) and operator_contract_status:
+                    print(f"comparison_operator_contract_status={operator_contract_status}")
+                print(
+                    "comparison_operator_contract_consistent="
+                    f"{str(bool(summary_payload.get('operator_contract_consistent', False))).lower()}"
+                )
                 if baseline_degraded_by:
                     print(
                         "comparison_trust_degraded_by="

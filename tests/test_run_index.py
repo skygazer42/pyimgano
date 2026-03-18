@@ -266,6 +266,8 @@ def test_compare_run_summaries_emits_trust_comparison_summary(tmp_path):
     assert trust["gate"] == "limited"
     assert trust["status"] == "partial"
     assert trust["reason"] == "missing_split_fingerprint"
+    assert trust["operator_contract_status"] == "missing"
+    assert trust["operator_contract_consistent"] is False
     assert trust["status_reasons"] == [
         "core_artifacts_present",
         "calibration_audit_consistent",
@@ -1139,6 +1141,8 @@ def test_compare_run_summaries_emits_machine_readable_metric_and_trust_summary(t
     assert summary["trust_gate"] == "limited"
     assert summary["trust_status"] == "partial"
     assert summary["trust_reason"] == "missing_split_fingerprint"
+    assert summary["operator_contract_status"] == "missing"
+    assert summary["operator_contract_consistent"] is False
 
 
 def test_compare_run_summaries_emits_informational_summary_without_baseline(tmp_path):

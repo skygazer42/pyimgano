@@ -210,6 +210,7 @@ def test_runs_cli_list_plain_output_prints_quality_and_trust(tmp_path, capsys):
     out = capsys.readouterr().out.lower()
     assert "quality=reproducible" in out
     assert "trust=partial" in out
+    assert "operator_contract=missing" in out
     assert "primary_metric=auroc:0.95" in out
     assert "reason=core_artifacts_present" in out
 
@@ -300,6 +301,7 @@ def test_runs_cli_latest_plain_output_prints_quality_and_trust(tmp_path, capsys)
     out = capsys.readouterr().out.lower()
     assert "quality=reproducible" in out
     assert "trust=partial" in out
+    assert "operator_contract=missing" in out
     assert "primary_metric=auroc:0.95" in out
     assert "reason=core_artifacts_present" in out
 
@@ -1030,6 +1032,8 @@ def test_runs_cli_compare_json_emits_trust_comparison_summary(tmp_path, capsys):
     assert out["trust_comparison"]["gate"] == "limited"
     assert out["trust_comparison"]["status"] == "partial"
     assert out["trust_comparison"]["reason"] == "missing_split_fingerprint"
+    assert out["trust_comparison"]["operator_contract_status"] == "missing"
+    assert out["trust_comparison"]["operator_contract_consistent"] is False
     assert out["trust_comparison"]["audit_refs"]["calibration_card_json"] == (
         "artifacts/calibration_card.json"
     )
@@ -1228,6 +1232,8 @@ def test_runs_cli_compare_json_emits_machine_readable_metric_and_trust_summary(
     assert out["summary"]["trust_gate"] == "limited"
     assert out["summary"]["trust_status"] == "partial"
     assert out["summary"]["trust_reason"] == "missing_split_fingerprint"
+    assert out["summary"]["operator_contract_status"] == "missing"
+    assert out["summary"]["operator_contract_consistent"] is False
 
 
 def test_runs_cli_compare_can_fail_on_robustness_latency_regression(tmp_path, capsys):
@@ -1751,6 +1757,8 @@ def test_runs_cli_compare_plain_output_prints_primary_metric_and_baseline_trust_
     assert "comparison_primary_metric_total_regressions=0" in out
     assert "baseline_quality=reproducible" in out
     assert "baseline_trust=partial" in out
+    assert "comparison_operator_contract_status=missing" in out
+    assert "comparison_operator_contract_consistent=false" in out
     assert "baseline_reason=core_artifacts_present" in out
     assert "primary_metric_status.candidate=improved" in out
     assert "primary_metric_delta.candidate=0.01" in out
@@ -1806,11 +1814,11 @@ def test_runs_cli_compare_plain_output_prints_structured_run_briefs(
     out = capsys.readouterr().out.lower()
     assert rc == 0
     assert (
-        "baseline: baseline quality=reproducible trust=partial "
+        "baseline: baseline quality=reproducible trust=partial operator_contract=missing "
         "primary_metric=auroc:0.91 primary_metric_status=baseline"
     ) in out
     assert (
-        "candidate: candidate quality=reproducible trust=partial "
+        "candidate: candidate quality=reproducible trust=partial operator_contract=missing "
         "primary_metric=auroc:0.92 primary_metric_status=improved primary_metric_delta=0.01"
     ) in out
 
