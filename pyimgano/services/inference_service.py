@@ -110,6 +110,101 @@ def _torch_inference_context(*, amp: bool) -> ExitStack:
     return stack
 
 
+def _best_effort_label_confidence(
+    detector: Any,
+    inputs: Sequence[Any],
+    *,
+    scores: np.ndarray,
+    labels: np.ndarray | None,
+) -> np.ndarray | None:
+    helper = getattr(detector, "_label_confidence_from_scores", None)
+    if callable(helper):
+        try:
+            conf = helper(scores, labels=labels)
+            arr = np.asarray(conf, dtype=np.float64).reshape(-1)
+            if arr.shape[0] == int(scores.shape[0]):
+                return np.clip(arr, 0.0, 1.0)
+        except Exception:
+            pass
+
+    predictor = getattr(detector, "predict_confidence", None)
+    if callable(predictor):
+        try:
+            conf = predictor(inputs)
+            arr = np.asarray(conf, dtype=np.float64).reshape(-1)
+            if arr.shape[0] == int(scores.shape[0]):
+                return np.clip(arr, 0.0, 1.0)
+        except Exception:
+            return None
+
+    return None
+
+
+def _resolve_rejection_threshold(value: float | None) -> float | None:
+    if value is None:
+        return None
+    thr = float(value)
+    if not 0.0 < thr <= 1.0:
+        raise ValueError(f"reject_confidence_below must be in (0, 1], got {value!r}")
+    return thr
+
+
+def _apply_rejection_policy(
+    *,
+    detector: Any,
+    labels: np.ndarray | None,
+    confidences: np.ndarray | None,
+    reject_confidence_below: float | None,
+    reject_label: int | None,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    thr = _resolve_rejection_threshold(reject_confidence_below)
+    if thr is None:
+        return labels, None
+    if labels is None:
+        raise RuntimeError("Confidence rejection requires threshold-based label predictions.")
+    if confidences is None:
+        raise RuntimeError("Confidence rejection requires detector confidence support.")
+
+    labels_arr = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
+    conf_arr = np.asarray(confidences, dtype=np.float64).reshape(-1)
+    rejected = conf_arr < float(thr)
+    marker = int(getattr(detector, "reject_label", -2) if reject_label is None else reject_label)
+    labels_arr[rejected] = marker
+    return labels_arr, rejected.astype(bool)
+
+
+def _build_decision_summary(
+    *,
+    label: int | None,
+    label_confidence: float | None,
+    rejected: bool | None,
+) -> dict[str, Any]:
+    rejected_flag = bool(rejected)
+    threshold_applied = label is not None
+    has_confidence = label_confidence is not None
+
+    if rejected_flag:
+        decision = "rejected_low_confidence"
+        requires_review = True
+    elif label is None:
+        decision = "score_only"
+        requires_review = False
+    elif int(label) == 0:
+        decision = "normal"
+        requires_review = False
+    else:
+        decision = "anomalous"
+        requires_review = True
+
+    return {
+        "decision": str(decision),
+        "threshold_applied": bool(threshold_applied),
+        "has_confidence": bool(has_confidence),
+        "rejected": bool(rejected_flag),
+        "requires_review": bool(requires_review),
+    }
+
+
 def iter_inference_records(
     *,
     detector: Any,
@@ -117,6 +212,9 @@ def iter_inference_records(
     input_format: str | ImageFormat | None = None,
     u16_max: int | None = None,
     include_maps: bool = False,
+    include_confidence: bool = False,
+    reject_confidence_below: float | None = None,
+    reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
     batch_size: int | None = None,
     amp: bool = False,
@@ -124,6 +222,7 @@ def iter_inference_records(
 ):
     normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)
+    rejection_threshold = _resolve_rejection_threshold(reject_confidence_below)
 
     bs: int | None
     if batch_size is None:
@@ -142,6 +241,26 @@ def iter_inference_records(
                 labels = (scores >= float(threshold)).astype(int)
             else:
                 labels = None
+
+            confidences: np.ndarray | None = None
+            if bool(include_confidence) or rejection_threshold is not None:
+                confidences = _best_effort_label_confidence(
+                    detector,
+                    chunk,
+                    scores=np.asarray(scores, dtype=np.float64).reshape(-1),
+                    labels=(
+                        None
+                        if labels is None
+                        else np.asarray(labels, dtype=np.int64).reshape(-1)
+                    ),
+                )
+            labels, rejected = _apply_rejection_policy(
+                detector=detector,
+                labels=labels,
+                confidences=confidences,
+                reject_confidence_below=rejection_threshold,
+                reject_label=reject_label,
+            )
 
             maps: list[np.ndarray | None] | None = None
             if include_maps:
@@ -170,8 +289,21 @@ def iter_inference_records(
 
         for i in range(int(scores.shape[0])):
             label = int(labels[i]) if labels is not None else None
+            label_confidence = None if confidences is None else float(confidences[i])
+            rejected_flag = None if rejected is None else bool(rejected[i])
             anomaly_map = maps[i] if maps is not None else None
-            yield InferenceResult(score=float(scores[i]), label=label, anomaly_map=anomaly_map)
+            yield InferenceResult(
+                score=float(scores[i]),
+                label=label,
+                label_confidence=label_confidence,
+                rejected=rejected_flag,
+                anomaly_map=anomaly_map,
+                decision_summary=_build_decision_summary(
+                    label=label,
+                    label_confidence=label_confidence,
+                    rejected=rejected_flag,
+                ),
+            )
 
     if bs is None or bs >= len(normalized):
         yield from _yield_chunk(normalized)
@@ -189,6 +321,9 @@ def run_inference(
     input_format: str | ImageFormat | None = None,
     u16_max: int | None = None,
     include_maps: bool = False,
+    include_confidence: bool = False,
+    reject_confidence_below: float | None = None,
+    reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
     batch_size: int | None = None,
     amp: bool = False,
@@ -203,6 +338,9 @@ def run_inference(
             input_format=input_format,
             u16_max=u16_max,
             include_maps=include_maps,
+            include_confidence=include_confidence,
+            reject_confidence_below=reject_confidence_below,
+            reject_label=reject_label,
             postprocess=postprocess,
             batch_size=batch_size,
             amp=amp,

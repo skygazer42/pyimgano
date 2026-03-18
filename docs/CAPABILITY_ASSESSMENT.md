@@ -1,6 +1,6 @@
 # PyImgAno 能力与差距评估（面向开发者）
 
-> Last updated: **2026-03-07**（对应仓库版本：`v0.6.37`）
+> Last updated: **2026-03-17**（对应仓库版本：`v0.6.38`）
 
 这份文档回答两个问题：
 
@@ -191,3 +191,13 @@ pyimgano-benchmark \
 2) **基准可复现**：为主流数据集维护“官方 suite 配置集合 + 结果导出模板”
 3) **权重/模型卡**：把深度模型的 checkpoint 资产化（来源、哈希、许可、适用范围）
 4) **更多工业 baselines**：继续补齐“对齐/模板/纹理/颜色/频域”方向的强 baseline，并配套 sweep
+
+补充：
+
+- 现在还需要把“外部信任信号”持续固化到工程里，而不是只靠文档提醒。
+- 重点包括：旧仓库链接审计、benchmark reproducibility issue 模板、贡献/发布文档同步、以及对 `docs/FIRST_TIER_ROADMAP.md` 的持续维护。
+- 近期已经补上的方向包括：
+  - suite / benchmark 导出的 `evaluation_contract`
+  - run 级别的 `trust_summary`
+  - publication 级别的 `trust_signals`
+  这些信号的意义是让 CI、脚本、发布检查都能直接消费“信任状态”，而不是靠人工猜测 JSON 里的零散字段。

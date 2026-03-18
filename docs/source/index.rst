@@ -242,7 +242,7 @@ See :doc:`comparison` for a detailed comparison.
 Community
 ---------
 
-* 📖 **Documentation**: https://github.com/skygazer42/pyimgano
+* 📖 **Documentation**: https://skygazer42.github.io/pyimgano/
 * 🐛 **Issue Tracker**: https://github.com/skygazer42/pyimgano/issues
 * 💬 **Discussions**: https://github.com/skygazer42/pyimgano/discussions
 * ⭐ **Star on GitHub**: https://github.com/skygazer42/pyimgano
@@ -268,7 +268,7 @@ If you use PyImgAno in your research, please cite:
      title={PyImgAno: Enterprise-Grade Visual Anomaly Detection Toolkit},
      author={PyImgAno Contributors},
      year={2024},
-     url={https://github.com/jhlu2019/pyimgano}
+     url={https://github.com/skygazer42/pyimgano}
    }
 
 Indices and Tables

@@ -120,6 +120,15 @@ def validate_weights_manifest(
         if sha == "":
             sha = None
 
+        if _nonempty_str(entry.get("source", None)) is None:
+            warnings.append(f"Entry {name!r} is missing recommended metadata: source")
+        if _nonempty_str(entry.get("license", None)) is None:
+            warnings.append(f"Entry {name!r} is missing recommended metadata: license")
+        runtime = _nonempty_str(entry.get("runtime", None))
+        runtimes = entry.get("runtimes", None)
+        if runtime is None and not _has_nonempty_string_list(runtimes):
+            warnings.append(f"Entry {name!r} is missing recommended metadata: runtime")
+
         if check_files and not abs_path.exists():
             errors.append(f"Missing weights file for {name!r}: {abs_path}")
         if check_hashes and sha is not None and abs_path.exists():
@@ -146,6 +155,20 @@ def validate_weights_manifest(
         warnings=tuple(warnings),
         entries=tuple(normalized),
     )
+
+
+def _nonempty_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text if text else None
+
+
+def _has_nonempty_string_list(value: Any) -> bool:
+    items = _as_list(value)
+    if items is None:
+        return False
+    return any(_nonempty_str(item) is not None for item in items)
 
 
 def load_weights_manifest_file(path: str | Path) -> dict[str, Any]:

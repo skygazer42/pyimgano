@@ -2,8 +2,10 @@
 
 PyImgAno provides the following CLIs:
 
+- `pyimgano` — top-level umbrella CLI (`pyimgano --list`, `pyimgano list models`, `pyimgano train --help`)
 - `pyim` — unified discovery shortcut for models, families, presets, and preprocessing schemes
 - `pyimgano-benchmark` — one-click industrial benchmarking + run artifacts
+- `pyimgano-runs` — inspect and compare saved benchmark/workbench runs
 - `pyimgano-demo` — minimal offline demo (creates a tiny custom dataset + runs a suite/sweep)
 - `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
@@ -20,6 +22,32 @@ PyImgAno provides the following CLIs:
 - `pyimgano-export-onnx` — export a torchvision backbone to ONNX (offline-safe by default)
 
 ---
+
+## `pyimgano`
+
+`pyimgano` is the new top-level convenience entrypoint. It keeps the old
+specialized CLIs intact, but gives users one command for discovery and command
+navigation.
+
+Common usage:
+
+```bash
+pyimgano --help
+pyimgano --list
+pyimgano list models
+pyimgano -- list models --json
+pyimgano --list models --family patchcore
+pyimgano train --help
+pyimgano runs quality /path/to/run_dir --json
+```
+
+Notes:
+
+- Top-level `--list ...` forwards to the same discovery surface as `pyim --list ...`.
+- `pyimgano list ...` and `pyimgano -- list ...` are equivalent discovery aliases when you want a more shell-like command form.
+- `pyimgano help COMMAND` is a shortcut for `pyimgano COMMAND --help`.
+- Existing `pyimgano-*` entry points are still supported and remain the stable low-level interface.
+- `pyim` is still available as the shorter discovery-only alias.
 
 ## `pyimgano-doctor`
 
@@ -62,6 +90,9 @@ pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/in
 `pyim` is a lightweight discovery-first shortcut for the most common "what can I run?" questions.
 It complements the heavier CLIs by exposing models, curated families, model presets, defects presets,
 feature extractors, and named preprocessing schemes through one entrypoint.
+
+If you want one top-level command for both discovery and execution, use `pyimgano`.
+If you want the shortest discovery alias, keep using `pyim`.
 
 Common usage:
 
@@ -118,11 +149,18 @@ For reproducible benchmark runs, you can load flags from a JSON config:
 
 ```bash
 pyimgano-benchmark --config benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json
+pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json
 ```
 
 Rules:
 - Config values are applied first.
 - Explicit CLI flags override config values.
+- Official configs can be discovered with `--list-official-configs` and inspected with
+  `--official-config-info NAME --json`.
+- When the config name matches a built-in official preset, `--config` accepts the bare
+  filename (for example `official_mvtec_industrial_v4_cpu_offline.json`) in addition to a full path.
+- When `--config` is used, saved benchmark reports are stamped with a `benchmark_config`
+  metadata block describing the source config and whether it matches an `official_*.json` preset.
 - Config JSON can be:
   - a JSON object: keys are argparse dest names (example: `suite_sweep_max_variants`)
   - a JSON list of argv tokens: exact flags (example: `["--dataset","mvtec", ...]`)
@@ -140,6 +178,8 @@ Rules:
 - Suite contents (resolved baselines): `pyimgano-benchmark --suite-info industrial-v1`
 - List curated suite sweep profiles (small grid searches): `pyimgano-benchmark --list-sweeps`
 - Sweep contents (variants + overrides): `pyimgano-benchmark --sweep-info industrial-small`
+- List official benchmark config presets: `pyimgano-benchmark --list-official-configs`
+- Show official config metadata: `pyimgano-benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json`
 
 ### Baseline Suites (Industrial)
 
@@ -176,6 +216,8 @@ Suite artifacts (when `--save-run` is enabled):
 
 - `<suite_dir>/report.json` — aggregated suite report (ranking + skipped baselines)
 - `<suite_dir>/config.json`, `<suite_dir>/environment.json`
+- `<suite_dir>/leaderboard_metadata.json` — compact benchmark metadata payload (suite, dataset, config provenance, environment fingerprint)
+  - official benchmark presets also stamp a small `citation` payload for publication workflows
 - `<suite_dir>/leaderboard.csv`, `<suite_dir>/skipped.csv` (when `--suite-export csv|both`)
 - `<suite_dir>/best_by_baseline.csv` (when `--suite-export csv|both`, best variant per baseline by AUROC; most useful with `--suite-sweep`)
 - `<suite_dir>/leaderboard.md`, `<suite_dir>/skipped.md` (when `--suite-export md|both`)
@@ -216,6 +258,94 @@ pyimgano-benchmark \
   --suite-sweep ./my_sweep.json \
   --no-pretrained
 ```
+
+## `pyimgano-runs`
+
+Inspect and compare saved benchmark/workbench runs:
+
+```bash
+pyimgano-runs list --root runs
+pyimgano-runs list --root runs --kind suite --dataset mvtec
+pyimgano-runs list --root runs --min-quality reproducible --json
+pyimgano-runs list --root runs --same-environment-as runs/run_a --json
+pyimgano-runs list --root runs --same-target-as runs/run_a --json
+pyimgano-runs list --root runs --kind robustness --same-robustness-protocol-as runs/run_a --json
+pyimgano-runs latest --root runs --json
+pyimgano-runs latest --root runs --min-quality audited --json
+pyimgano-runs latest --root runs --same-environment-as runs/run_a --json
+pyimgano-runs latest --root runs --same-target-as runs/run_a --json
+pyimgano-runs latest --root runs --kind robustness --same-robustness-protocol-as runs/run_a --json
+pyimgano-runs compare runs/run_a runs/run_b --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --metric auroc --fail-on-regression --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-split --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-target --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-environment --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-robustness-protocol --json
+pyimgano-runs publication /path/to/suite_export --json
+```
+
+See also: `docs/RUN_COMPARISON.md`
+
+Notes:
+
+- JSON output includes `split_comparison` metadata when comparing runs.
+- JSON output includes `target_comparison` metadata when comparing runs.
+- JSON output includes `environment_comparison` metadata when comparing runs.
+- JSON output includes `robustness_protocol_comparison` when comparing robustness runs against a baseline.
+- JSON output includes `trust_comparison` when a baseline is present so automation can
+  read the normalized baseline trust gate/status/reason/degraded-by/audit refs
+  without reconstructing them from `baseline_run.artifact_quality.trust_summary`.
+- JSON `summary` for `compare` now also includes machine-readable
+  `regression_gate`, `comparability_gates`, `blocking_flags`, `verdict`,
+  `primary_metric*`, `primary_metric_statuses`, `primary_metric_deltas`, and
+  `trust_*`, `candidate_verdicts`, `candidate_blocking_reasons`, and
+  `candidate_comparability_gates` fields so CI can consume the same gate
+  decision and baseline trust posture the plain-text output prints.
+  When no `--baseline` is provided, `summary.baseline_checked=false`,
+  `summary.regression_gate=unchecked`, and `summary.verdict=informational`.
+- Plain-text `list` / `latest` output now also includes `quality=...`, `trust=...`,
+  `primary_metric=...`, and the first `reason=...` so operators can spot reproducible
+  vs audited runs and the main comparison metric without opening JSON.
+- Plain-text `compare` output also includes `comparison_primary_metric=...`,
+  baseline `quality` / `trust`, and per-candidate primary-metric status / delta
+  plus a single `comparability_gates: ...` line before the deeper split, target,
+  environment, and robustness compatibility blocks.
+- The leading per-run lines in plain-text `compare` are also structured briefs now:
+  each run shows `quality=...`, `trust=...`, `primary_metric=...`, and
+  `primary_metric_status=...` instead of dumping the raw metric dict.
+- Plain-text `compare` also prints `comparison_regression_gate=...`,
+  `comparison_blocking_flags=...`, and `comparison_verdict=pass|blocked` so the
+  operator can see which strict CLI flags would fail before reading the details.
+- Plain-text `compare` also prints per-candidate `candidate_verdict.<run>=...`,
+  `candidate_blocking_reasons.<run>=...`, and
+  `candidate_comparability_gates.<run>=...` lines so shell logs can show
+  exactly which run is blocked and whether it drifted on split, environment,
+  target, or robustness protocol.
+- Plain-text `compare` also prints `comparison_trust_gate=trusted|limited`,
+  `comparison_trust_status=...`, `comparison_trust_reason=...`,
+  `comparison_trust_degraded_by=...`, and `comparison_trust_ref.*=...` to
+  separate “the gates pass” from “the baseline run is trusted enough for this
+  comparison result to carry weight”.
+- `--min-quality LEVEL` filters `list` and `latest` to runs whose `artifact_quality.status`
+  is at least `reproducible`, `audited`, or `deployable`.
+- `--same-environment-as RUN` filters `list` and `latest` to runs whose `environment.json`
+  fingerprint matches the reference run.
+- `--same-target-as RUN` filters `list` and `latest` to runs whose checked `dataset` /
+  `category` target matches the reference run.
+- `--same-robustness-protocol-as RUN` filters `list` and `latest` to robustness runs whose corruption mode, condition set, severity schedule, input mode, and resize match the reference run.
+- `pyimgano-runs quality` validates the top-level `artifacts/calibration_card.json` when present, so an invalid threshold-audit card keeps a run at `reproducible` instead of `audited`.
+- `pyimgano-runs quality` also inspects optional `deploy_bundle/model_card.json` and `deploy_bundle/weights_manifest.json`;
+  if either file is present but invalid, the run does not qualify as `deployable`.
+- `pyimgano-runs quality --require-status reproducible|audited|deployable` returns exit code `1`
+  unless the run reaches at least the requested artifact quality level.
+- `pyimgano-runs publication` inspects `leaderboard_metadata.json` and returns exit code `1`
+  unless the export is publication-ready; declared `model_card_json` / `weights_manifest_json`
+  exports also have to validate cleanly.
+- `--require-same-split` returns exit code `1` when the baseline split fingerprint is missing or any non-baseline run does not match it.
+- `--require-same-target` returns exit code `1` when the baseline dataset/category is unavailable for checking or any non-baseline run does not match it.
+- `--require-same-environment` returns exit code `1` when the baseline environment fingerprint is unavailable for checking or any non-baseline run does not match it.
+- `--require-same-robustness-protocol` returns exit code `1` when the baseline robustness protocol is unavailable for checking or any non-baseline run changes corruption mode, conditions, severities, input mode, or resize.
+- For robustness runs, the comparison contract defaults to the worst-condition metric surface (`worst_corruption_auroc`, then related robustness metrics) instead of the plain clean `auroc` view, so regression gates line up with drift robustness instead of only clean accuracy.
 
 ### Manifest dataset
 
@@ -390,9 +520,19 @@ Optional:
 - `--profile` — print stage timing summary to stderr (load model, fit/calibrate, infer, artifacts)
 - `--profile-json PATH` — write a JSON profile payload (stable, machine-friendly)
 - `--amp` — best-effort AMP/autocast for torch-backed models (requires torch + CUDA; otherwise runs without AMP)
+- `--include-confidence` — include `label_confidence` in output records when the detector exposes confidence helpers
+  - `label_confidence` is the confidence of the predicted binary label on `[0, 1]`, not an anomaly probability
+  - best-effort: unsupported detectors simply omit the field
+- `--reject-confidence-below FLOAT` — rewrite low-confidence predictions to a reject label
+  - requires detector confidence support and threshold-based labels
+  - rejection also emits `label_confidence`, `rejected`, and a stable `decision_summary` block
+- `--reject-label INT` — label value used for rejected samples (default: `-2`; requires `--reject-confidence-below`)
+- When running with `--infer-config` or `--from-run`, exported `prediction.reject_confidence_below`
+  and `prediction.reject_label` are used as defaults when present. Explicit CLI flags override them.
 - `--continue-on-error` — best-effort production mode: record per-input errors and keep going (exit code 1 if any errors)
 - `--max-errors N` — stop early after N errors (only with `--continue-on-error`)
 - `--flush-every N` — flush JSONL outputs every N records (stability vs performance)
+  - Python service integrations also receive a `triage_summary` aggregate from `run_continue_on_error_inference(...)`
 - `--include-anomaly-map-values` — embed raw anomaly-map values in JSONL (debug only; very large output)
 - `--defects` — export industrial defect structures (binary mask + connected-component regions)
   - `--defects-preset industrial-defects-fp40` — FP reduction defaults (ROI/border/smoothing/hysteresis/shape filters)
@@ -476,6 +616,39 @@ Each JSONL record includes a `defects` block when `--defects` is enabled:
 }
 ```
 
+When `--include-confidence` is enabled and the detector supports confidence semantics,
+records also include:
+
+```json
+{
+  "label_confidence": 0.93,
+  "decision_summary": {
+    "decision": "normal",
+    "threshold_applied": true,
+    "has_confidence": true,
+    "rejected": false,
+    "requires_review": false
+  }
+}
+```
+
+When `--reject-confidence-below` is enabled, records also include explicit rejection status:
+
+```json
+{
+  "label": -2,
+  "label_confidence": 0.61,
+  "rejected": true,
+  "decision_summary": {
+    "decision": "rejected_low_confidence",
+    "threshold_applied": true,
+    "has_confidence": true,
+    "rejected": true,
+    "requires_review": true
+  }
+}
+```
+
 ---
 
 ## `pyimgano-validate-infer-config`
@@ -494,6 +667,37 @@ Notes:
 - Exported infer-configs use `schema_version=1`.
 - Legacy infer-configs without `schema_version` are accepted and normalized to `1` with a warning.
 - Future infer-config schema versions are rejected with a clear compatibility error.
+- The validator also normalizes and checks deploy-time `prediction.*` defaults
+  (`reject_confidence_below` in `(0,1]`, `reject_label` as int).
+
+---
+
+## `pyimgano-weights`
+
+Utilities for local checkpoint inventory and lightweight artifact validation.
+This CLI never downloads weights.
+
+Common usage:
+
+```bash
+pyimgano-weights hash ./checkpoints/model.pt
+pyimgano-weights validate ./weights_manifest.json --check-files --check-hashes --json
+pyimgano-weights validate-model-card ./model_card.json --json
+pyimgano-weights validate-model-card ./model_card.json --check-files --check-hashes --json
+pyimgano-weights validate-model-card ./model_card.json --manifest ./weights_manifest.json --check-files --check-hashes --json
+pyimgano-weights template manifest
+pyimgano-weights template model-card
+```
+
+Notes:
+
+- `validate-model-card` performs schema validation by default.
+- Add `--check-files` to verify that `weights.path` exists on disk.
+- Add `--check-hashes` to verify `weights.sha256` when present.
+- Add `--manifest FILE` to cross-check the model card against a weights manifest.
+- Relative `weights.path` values are resolved against the model card parent directory by default.
+- Override the resolution root with `--base-dir DIR`.
+- When possible, set `weights.manifest_entry` in the model card for an explicit manifest link.
 
 ---
 
@@ -521,8 +725,11 @@ pyimgano-train --config cfg.json
 Common outputs:
 
 - `--export-infer-config` — write `artifacts/infer_config.json` into the run directory
+- `--export-infer-config` also writes `artifacts/calibration_card.json` when threshold provenance is available
 - `--export-deploy-bundle` — write `deploy_bundle/` (includes `infer_config.json` + referenced checkpoints)
+  - deploy bundles also include `calibration_card.json` when it exists in the run artifacts
   - Validate the bundle with: `pyimgano-validate-infer-config deploy_bundle/infer_config.json`
+- See `docs/CALIBRATION_AUDIT.md` for how to review threshold provenance, score summaries, and split context.
 
 ### Artifact layout
 
@@ -589,6 +796,15 @@ pyimgano-robust-benchmark \
   --pretrained \
   --device cuda
 ```
+
+Notes:
+
+- `--save-run` persists a run directory with `report.json`, `config.json`, and `environment.json`.
+- `--output-dir /path/to/run_dir` selects that persisted run directory explicitly.
+- Saved runs also include `artifacts/robustness_conditions.csv` and `artifacts/robustness_summary.json`.
+- `robustness_conditions.csv` includes per-condition `drop_*` deltas relative to the clean baseline.
+- `robustness_summary.json` includes aggregate clean/corruption accuracy retention plus latency drift ratios for run comparison.
+- Saved robustness runs can be inspected with `pyimgano-runs list --kind robustness`.
 
 ---
 

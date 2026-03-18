@@ -1,0 +1,66 @@
+name: Benchmark Reproducibility Report
+description: Report a benchmark result that cannot be reproduced or appears to regress
+title: "[Benchmark]: "
+labels: ["benchmark", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when an official preset, published result, or reproducibility claim
+        does not match what you observed. Include the exact config, environment, and artifacts
+        needed to reproduce the discrepancy.
+
+  - type: input
+    id: preset
+    attributes:
+      label: Benchmark preset or command
+      description: The exact preset path or CLI invocation you ran
+      placeholder: benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment summary
+      description: Paste the relevant `environment.json` fields, package versions, OS, and hardware
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Reproduction artifacts
+      description: Link or paste `report.json`, `leaderboard.*`, and any config overrides
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What result or ranking did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What result did you observe instead?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I used an official preset or attached the full custom config
+          required: true
+        - label: I included enough environment and artifact data for maintainers to reproduce the issue
+          required: true
+        - label: I checked existing benchmark issues first
+          required: true

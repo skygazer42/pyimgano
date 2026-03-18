@@ -51,6 +51,16 @@ def test_run_continue_on_error_inference_falls_back_to_per_input_when_batch_fail
     assert result.errors == 1
     assert result.stop_early is False
     assert result.timing_seconds == pytest.approx(0.2)
+    assert result.triage_summary == {
+        "ok": 1,
+        "remaining": 0,
+        "error_stages": {
+            "artifacts": 0,
+            "infer": 1,
+        },
+        "fallback_used": True,
+        "stop_reason": "completed",
+    }
 
 
 def test_run_continue_on_error_inference_records_artifact_stage_errors() -> None:
@@ -95,6 +105,16 @@ def test_run_continue_on_error_inference_records_artifact_stage_errors() -> None
     assert result.errors == 1
     assert result.stop_early is False
     assert result.timing_seconds == pytest.approx(0.4)
+    assert result.triage_summary == {
+        "ok": 1,
+        "remaining": 0,
+        "error_stages": {
+            "artifacts": 1,
+            "infer": 0,
+        },
+        "fallback_used": False,
+        "stop_reason": "completed",
+    }
 
 
 def test_run_continue_on_error_inference_stops_early_after_max_errors() -> None:
@@ -128,3 +148,54 @@ def test_run_continue_on_error_inference_stops_early_after_max_errors() -> None:
     assert result.errors == 2
     assert result.stop_early is True
     assert result.timing_seconds == pytest.approx(0.0)
+    assert result.triage_summary == {
+        "ok": 0,
+        "remaining": 1,
+        "error_stages": {
+            "artifacts": 0,
+            "infer": 2,
+        },
+        "fallback_used": True,
+        "stop_reason": "max_errors",
+    }
+
+
+def test_run_continue_on_error_inference_passes_rejection_controls() -> None:
+    seen: dict[str, Any] = {}
+
+    def fake_run_inference(**kwargs):
+        seen.update(kwargs)
+        return inference_service.InferenceRunResult(records=[], timing_seconds=0.0)
+
+    result = infer_continue_service.run_continue_on_error_inference(
+        infer_continue_service.ContinueOnErrorInferRequest(
+            detector=object(),
+            inputs=["a.png"],
+            include_maps=False,
+            include_confidence=False,
+            reject_confidence_below=0.75,
+            reject_label=-9,
+            batch_size=None,
+            amp=False,
+            max_errors=0,
+        ),
+        process_ok_result=lambda *, index, input_path, result: None,
+        handle_error=lambda *, index, input_path, exc, stage: None,
+        run_inference_impl=fake_run_inference,
+    )
+
+    assert seen["include_confidence"] is True
+    assert seen["reject_confidence_below"] == pytest.approx(0.75)
+    assert seen["reject_label"] == -9
+    assert result.processed == 0
+    assert result.errors == 0
+    assert result.triage_summary == {
+        "ok": 0,
+        "remaining": 1,
+        "error_stages": {
+            "artifacts": 0,
+            "infer": 0,
+        },
+        "fallback_used": False,
+        "stop_reason": "completed",
+    }

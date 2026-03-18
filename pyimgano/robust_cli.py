@@ -137,6 +137,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional max number of test images evaluated (for quick runs)",
     )
+    parser.add_argument(
+        "--save-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Persist a robustness run directory with report/config/environment artifacts. Default: false",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Optional robustness run directory when --save-run is enabled, or to force persisted artifacts.",
+    )
     parser.add_argument("--output", default=None, help="Optional JSON output path")
     return parser
 
@@ -200,6 +211,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed=int(args.seed),
                 limit_train=(int(args.limit_train) if args.limit_train is not None else None),
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
+                save_run=bool(args.save_run),
+                output_dir=(str(args.output_dir) if args.output_dir is not None else None),
             )
         )
 

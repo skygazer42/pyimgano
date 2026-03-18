@@ -52,7 +52,23 @@ def _resolve_criterion(*, torch, criterion=None, criterion_name: str = "mse"):
     return spec.factory()
 
 
-def _resolve_optimizer(*, torch, name: str, params, lr: float):
+def _resolve_optimizer(
+    *,
+    torch,
+    name: str,
+    params,
+    lr: float,
+    weight_decay: float,
+    momentum: float | None = None,
+    nesterov: bool = False,
+    dampening: float | None = None,
+    beta1: float | None = None,
+    beta2: float | None = None,
+    amsgrad: bool = False,
+    eps: float | None = None,
+    alpha: float | None = None,
+    centered: bool = False,
+):
     key = str(name).lower()
     if key in {"adam", "adamw", "sgd", "rmsprop"}:
         opt_cls = {
@@ -62,9 +78,102 @@ def _resolve_optimizer(*, torch, name: str, params, lr: float):
             "rmsprop": torch.optim.RMSprop,
         }[key]
         if key == "sgd":
-            return opt_cls(params, lr=float(lr), momentum=0.9)
-        return opt_cls(params, lr=float(lr))
+            return opt_cls(
+                params,
+                lr=float(lr),
+                momentum=float(0.9 if momentum is None else momentum),
+                weight_decay=float(weight_decay),
+                nesterov=bool(nesterov),
+                dampening=float(0.0 if dampening is None else dampening),
+            )
+        if key == "rmsprop":
+            return opt_cls(
+                params,
+                lr=float(lr),
+                weight_decay=float(weight_decay),
+                momentum=float(0.0 if momentum is None else momentum),
+                alpha=float(0.99 if alpha is None else alpha),
+                eps=float(1e-8 if eps is None else eps),
+                centered=bool(centered),
+            )
+        return opt_cls(
+            params,
+            lr=float(lr),
+            betas=(
+                float(0.9 if beta1 is None else beta1),
+                float(0.999 if beta2 is None else beta2),
+            ),
+            amsgrad=bool(amsgrad),
+            eps=float(1e-8 if eps is None else eps),
+            weight_decay=float(weight_decay),
+        )
     raise ValueError(f"Unknown optimizer_name: {name!r}")
+
+
+def _resolve_scheduler(
+    *,
+    torch,
+    name: str | None,
+    optimizer,
+    epoch_num: int,
+    milestones,
+    step_size: int | None,
+    gamma: float | None,
+    t_max: int | None,
+    eta_min: float | None,
+    patience: int | None,
+    factor: float | None,
+    min_lr: float | None,
+    cooldown: int | None,
+    threshold: float | None,
+    threshold_mode: str | None,
+    eps: float | None,
+):
+    if name is None:
+        return None
+
+    key = str(name).lower().strip()
+    if not key or key == "none":
+        return None
+
+    if key == "step":
+        return torch.optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=int(step_size or 1),
+            gamma=float(gamma if gamma is not None else 0.1),
+        )
+    if key == "multistep":
+        if milestones is None:
+            raise ValueError("scheduler_milestones is required when scheduler_name='multistep'")
+        return torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=[int(v) for v in milestones],
+            gamma=float(gamma if gamma is not None else 0.1),
+        )
+    if key == "cosine":
+        return torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=int(t_max or max(1, epoch_num)),
+            eta_min=float(eta_min if eta_min is not None else 0.0),
+        )
+    if key == "exponential":
+        return torch.optim.lr_scheduler.ExponentialLR(
+            optimizer,
+            gamma=float(gamma if gamma is not None else 0.95),
+        )
+    if key == "plateau":
+        return torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            patience=int(10 if patience is None else patience),
+            factor=float(0.1 if factor is None else factor),
+            min_lr=float(0.0 if min_lr is None else min_lr),
+            cooldown=int(0 if cooldown is None else cooldown),
+            threshold=float(1e-4 if threshold is None else threshold),
+            threshold_mode=str("rel" if threshold_mode is None else threshold_mode),
+            eps=float(1e-8 if eps is None else eps),
+        )
+    raise ValueError(f"Unknown scheduler_name: {name!r}")
 
 
 class BaseDeepLearningDetector(BaseDetector):
@@ -91,11 +200,57 @@ class BaseDeepLearningDetector(BaseDetector):
         self.lr = float(lr)
         self.epoch_num = int(epoch_num)
         self.batch_size = int(batch_size)
+        self.num_workers = 0
+        self.shuffle_train = True
+        self.drop_last = False
+        self.pin_memory = False
+        self.persistent_workers = False
         self.optimizer_name = str(optimizer_name)
+        self.optimizer_momentum: float | None = None
+        self.optimizer_nesterov = False
+        self.optimizer_dampening: float | None = None
+        self.adam_beta1: float | None = None
+        self.adam_beta2: float | None = None
+        self.adam_amsgrad: bool | None = None
+        self.optimizer_eps: float | None = None
+        self.rmsprop_alpha: float | None = None
+        self.rmsprop_centered: bool | None = None
+        self.weight_decay = 0.0
+        self.scheduler_name: str | None = None
+        self.scheduler_milestones: list[int] | None = None
+        self.scheduler_step_size: int | None = None
+        self.scheduler_gamma: float | None = None
+        self.scheduler_t_max: int | None = None
+        self.scheduler_eta_min: float | None = None
+        self.scheduler_patience: int | None = None
+        self.scheduler_factor: float | None = None
+        self.scheduler_min_lr: float | None = None
+        self.scheduler_cooldown: int | None = None
+        self.scheduler_threshold: float | None = None
+        self.scheduler_threshold_mode: str | None = None
+        self.scheduler_eps: float | None = None
         self.criterion_name = str(criterion_name)
+        self._custom_criterion = criterion
+        self._criterion_name_resolved = str(self.criterion_name).lower()
         self.verbose = int(verbose)
         self.random_state = None if random_state is None else int(random_state)
         self._kwargs = dict(kwargs)
+        self.max_steps: int | None = None
+        self.early_stopping_patience: int | None = None
+        self.early_stopping_min_delta: float = 0.0
+        self.warmup_epochs: int | None = None
+        self.warmup_start_factor: float = 0.1
+        self.ema_enabled = False
+        self.ema_decay = 0.999
+        self.ema_start_epoch = 1
+        self.training_epochs_completed_: int = 0
+        self.training_steps_completed_: int = 0
+        self.training_stop_reason_: str | None = None
+        self.training_best_loss_: float | None = None
+        self.training_loss_history_: list[float] = []
+        self.training_ema_updates_: int = 0
+        self.training_ema_applied_ = False
+        self._ema_state: dict[str, Any] | None = None
 
         torch = _require_torch()
         self._torch = torch
@@ -113,6 +268,7 @@ class BaseDeepLearningDetector(BaseDetector):
 
         # Optimizer is initialized in `training_prepare` once `self.model` exists.
         self.optimizer = None
+        self.scheduler = None
 
         # Training-time metadata
         self.data_num: Optional[int] = None
@@ -121,6 +277,9 @@ class BaseDeepLearningDetector(BaseDetector):
         # Fit-time normalization (optional)
         self.X_mean: Optional[np.ndarray] = None
         self.X_std: Optional[np.ndarray] = None
+        self.training_lr_history_: list[float] = []
+        self.training_last_lr_: float | None = None
+        self._optimizer_base_lrs: list[float] = []
 
         # Seed for reproducibility when callers opt into global seeding.
         if self.random_state is not None:
@@ -153,6 +312,16 @@ class BaseDeepLearningDetector(BaseDetector):
     def training_prepare(self) -> None:
         torch = self._torch
 
+        if self._custom_criterion is None:
+            resolved_name = str(self.criterion_name).lower()
+            if self._criterion_name_resolved != resolved_name:
+                self.criterion = _resolve_criterion(
+                    torch=torch,
+                    criterion=None,
+                    criterion_name=self.criterion_name,
+                )
+                self._criterion_name_resolved = resolved_name
+
         model = getattr(self, "model", None)
         if model is None:
             raise RuntimeError("Model is not built. Call build_model() before training_prepare().")
@@ -169,24 +338,201 @@ class BaseDeepLearningDetector(BaseDetector):
                 name=self.optimizer_name,
                 params=self.model.parameters(),
                 lr=self.lr,
+                weight_decay=self.weight_decay,
+                momentum=self.optimizer_momentum,
+                nesterov=self.optimizer_nesterov,
+                dampening=self.optimizer_dampening,
+                beta1=self.adam_beta1,
+                beta2=self.adam_beta2,
+                amsgrad=bool(False if self.adam_amsgrad is None else self.adam_amsgrad),
+                eps=self.optimizer_eps,
+                alpha=self.rmsprop_alpha,
+                centered=bool(False if self.rmsprop_centered is None else self.rmsprop_centered),
+            )
+        self._optimizer_base_lrs = [
+            float(group["lr"]) for group in getattr(self.optimizer, "param_groups", [])
+        ]
+        if self.scheduler is None:
+            self.scheduler = _resolve_scheduler(
+                torch=torch,
+                name=self.scheduler_name,
+                optimizer=self.optimizer,
+                epoch_num=self.epoch_num,
+                milestones=self.scheduler_milestones,
+                step_size=self.scheduler_step_size,
+                gamma=self.scheduler_gamma,
+                t_max=self.scheduler_t_max,
+                eta_min=self.scheduler_eta_min,
+                patience=self.scheduler_patience,
+                factor=self.scheduler_factor,
+                min_lr=self.scheduler_min_lr,
+                cooldown=self.scheduler_cooldown,
+                threshold=self.scheduler_threshold,
+                threshold_mode=self.scheduler_threshold_mode,
+                eps=self.scheduler_eps,
             )
 
         if hasattr(self.model, "train"):
             self.model.train()
 
+    def _apply_warmup_lr(self, epoch_index: int) -> None:
+        if self.optimizer is None or not self._optimizer_base_lrs:
+            return
+        if self.warmup_epochs is None:
+            return
+
+        warmup_epochs = max(1, int(self.warmup_epochs))
+        if epoch_index >= warmup_epochs:
+            return
+
+        start_factor = float(self.warmup_start_factor)
+        if warmup_epochs == 1:
+            factor = 1.0
+        else:
+            factor = start_factor + (1.0 - start_factor) * (
+                float(epoch_index) / float(warmup_epochs - 1)
+            )
+        for group, base_lr in zip(self.optimizer.param_groups, self._optimizer_base_lrs):
+            group["lr"] = float(base_lr) * float(factor)
+
+    def _should_step_scheduler(self, epoch_index: int) -> bool:
+        if self.scheduler is None:
+            return False
+        if self.warmup_epochs is None:
+            return True
+        return (epoch_index + 1) > max(1, int(self.warmup_epochs))
+
+    def _step_scheduler(self, *, epoch_index: int, mean_loss: float | None) -> None:
+        if not self._should_step_scheduler(epoch_index):
+            return
+        if self.scheduler is None:
+            return
+        if str(self.scheduler_name).lower() == "plateau":
+            if mean_loss is None:
+                return
+            self.scheduler.step(float(mean_loss))
+            return
+        self.scheduler.step()
+
+    def _should_update_ema(self, *, epoch_index: int) -> bool:
+        if not bool(self.ema_enabled):
+            return False
+        return (epoch_index + 1) >= max(1, int(self.ema_start_epoch))
+
+    def _update_ema_state(self) -> None:
+        model = getattr(self, "model", None)
+        if model is None or not hasattr(model, "state_dict"):
+            return
+
+        state_dict = model.state_dict()
+        if self._ema_state is None:
+            self._ema_state = {}
+            for key, value in state_dict.items():
+                detach = getattr(value, "detach", None)
+                if callable(detach):
+                    self._ema_state[str(key)] = value.detach().clone()
+                else:
+                    self._ema_state[str(key)] = value
+            return
+
+        decay = float(self.ema_decay)
+        for key, value in state_dict.items():
+            shadow = self._ema_state.get(str(key), None)
+            detach = getattr(value, "detach", None)
+            if not callable(detach):
+                self._ema_state[str(key)] = value
+                continue
+
+            current = value.detach()
+            if shadow is None:
+                self._ema_state[str(key)] = current.clone()
+                continue
+
+            is_floating_point = getattr(current, "is_floating_point", None)
+            if callable(is_floating_point) and current.is_floating_point():
+                shadow.mul_(decay).add_(current, alpha=1.0 - decay)
+            else:
+                shadow.copy_(current)
+
+    def _apply_ema_state(self) -> bool:
+        model = getattr(self, "model", None)
+        if not bool(self.ema_enabled) or model is None or self._ema_state is None:
+            return False
+
+        load_state_dict = getattr(model, "load_state_dict", None)
+        if not callable(load_state_dict):
+            return False
+
+        load_state_dict(self._ema_state, strict=False)
+        return True
+
     def train(self, train_loader) -> None:  # noqa: ANN001
+        self.training_epochs_completed_ = 0
+        self.training_steps_completed_ = 0
+        self.training_stop_reason_ = None
+        self.training_best_loss_ = None
+        self.training_loss_history_ = []
+        self.training_lr_history_ = []
+        self.training_last_lr_ = None
+        self.training_ema_updates_ = 0
+        self.training_ema_applied_ = False
+        self._ema_state = None
+
+        max_steps = None if self.max_steps is None else max(1, int(self.max_steps))
+        patience = (
+            None
+            if self.early_stopping_patience is None
+            else max(1, int(self.early_stopping_patience))
+        )
+        min_delta = float(self.early_stopping_min_delta)
+        stale_epochs = 0
+
         for _epoch in range(self.epoch_num):
+            self._apply_warmup_lr(_epoch)
+            if self.optimizer is not None and getattr(self.optimizer, "param_groups", None):
+                self.training_lr_history_.append(float(self.optimizer.param_groups[0]["lr"]))
             losses: list[float] = []
             for batch_data in train_loader:
                 loss = self.training_forward(batch_data)
                 # training_forward may return floats or tuples; only require float for now.
                 losses.append(float(loss))
+                if self._should_update_ema(epoch_index=_epoch):
+                    self._update_ema_state()
+                    self.training_ema_updates_ += 1
+                self.training_steps_completed_ += 1
+                if max_steps is not None and self.training_steps_completed_ >= max_steps:
+                    self.training_stop_reason_ = "max_steps"
+                    break
 
             if self.verbose >= 2:
                 mean_loss = float(np.mean(losses)) if losses else float("nan")
                 print(f"Epoch {_epoch + 1}/{self.epoch_num} - loss={mean_loss:.6f}")
 
+            mean_loss_epoch: float | None = None
+            if losses:
+                mean_loss = float(np.mean(losses))
+                mean_loss_epoch = mean_loss
+                self.training_loss_history_.append(mean_loss)
+                best_loss = self.training_best_loss_
+                if best_loss is None or mean_loss < (best_loss - min_delta):
+                    self.training_best_loss_ = mean_loss
+                    stale_epochs = 0
+                elif patience is not None:
+                    stale_epochs += 1
+                    if stale_epochs >= patience:
+                        self.training_stop_reason_ = "early_stopping"
+
+            self.training_epochs_completed_ = _epoch + 1
             self.epoch_update()
+            self._step_scheduler(epoch_index=_epoch, mean_loss=mean_loss_epoch)
+            if self.training_stop_reason_ is not None:
+                break
+
+        if self.optimizer is not None and getattr(self.optimizer, "param_groups", None):
+            self.training_last_lr_ = float(self.optimizer.param_groups[0]["lr"])
+        self.training_ema_applied_ = self._apply_ema_state()
+        if self.training_stop_reason_ is None:
+            self.training_stop_reason_ = "completed"
 
     def epoch_update(self) -> None:
         return None
@@ -275,8 +621,11 @@ class BaseDeepLearningDetector(BaseDetector):
         loader = torch.utils.data.DataLoader(
             dataset=dataset,
             batch_size=int(self.batch_size),
-            shuffle=True,
-            drop_last=False,
+            shuffle=bool(self.shuffle_train),
+            num_workers=int(self.num_workers),
+            drop_last=bool(self.drop_last),
+            pin_memory=bool(self.pin_memory),
+            persistent_workers=bool(self.persistent_workers) and int(self.num_workers) > 0,
         )
 
         self.train(loader)

@@ -150,6 +150,82 @@ class RegistryModelEstimator(BaseEstimator):
         scores = self.decision_function(x_norm)
         return (scores >= float(threshold)).astype(int)
 
+    def predict_confidence(self, X):  # noqa: ANN001, ANN201 - sklearn signature
+        detector = getattr(self, "detector_", None)
+        if detector is None:
+            raise NotFittedError("Estimator is not fitted. Call fit() before predict_confidence().")
+
+        if not hasattr(detector, "predict_confidence"):
+            raise AttributeError("Underlying detector does not expose predict_confidence().")
+
+        x_norm = self._normalize_X(X, name="X")
+        expected = self._num_samples(x_norm)
+        conf = detector.predict_confidence(x_norm)
+        arr = np.asarray(conf, dtype=np.float32)
+        if arr.ndim != 1:
+            arr = arr.reshape(-1)
+        if expected is not None and arr.shape[0] != expected:
+            raise ValueError(
+                "Underlying detector returned an unexpected number of confidence scores: "
+                f"expected {expected}, got {arr.shape[0]}."
+            )
+        return arr
+
+    def predict_with_rejection(
+        self,
+        X,
+        *,
+        confidence_threshold: float = 0.5,
+        reject_label: int = -2,
+        return_confidence: bool = False,
+    ):  # noqa: ANN001, ANN201 - sklearn signature
+        detector = getattr(self, "detector_", None)
+        if detector is None:
+            raise NotFittedError(
+                "Estimator is not fitted. Call fit() before predict_with_rejection()."
+            )
+
+        if not hasattr(detector, "predict_with_rejection"):
+            raise AttributeError("Underlying detector does not expose predict_with_rejection().")
+
+        x_norm = self._normalize_X(X, name="X")
+        expected = self._num_samples(x_norm)
+        out = detector.predict_with_rejection(
+            x_norm,
+            confidence_threshold=float(confidence_threshold),
+            reject_label=int(reject_label),
+            return_confidence=bool(return_confidence),
+        )
+        if bool(return_confidence):
+            labels, conf = out
+            labels_arr = np.asarray(labels, dtype=np.int64)
+            conf_arr = np.asarray(conf, dtype=np.float32)
+            if labels_arr.ndim != 1:
+                labels_arr = labels_arr.reshape(-1)
+            if conf_arr.ndim != 1:
+                conf_arr = conf_arr.reshape(-1)
+            if expected is not None and labels_arr.shape[0] != expected:
+                raise ValueError(
+                    "Underlying detector returned an unexpected number of predictions: "
+                    f"expected {expected}, got {labels_arr.shape[0]}."
+                )
+            if expected is not None and conf_arr.shape[0] != expected:
+                raise ValueError(
+                    "Underlying detector returned an unexpected number of confidence scores: "
+                    f"expected {expected}, got {conf_arr.shape[0]}."
+                )
+            return labels_arr, conf_arr
+
+        arr = np.asarray(out, dtype=np.int64)
+        if arr.ndim != 1:
+            arr = arr.reshape(-1)
+        if expected is not None and arr.shape[0] != expected:
+            raise ValueError(
+                "Underlying detector returned an unexpected number of predictions: "
+                f"expected {expected}, got {arr.shape[0]}."
+            )
+        return arr
+
     def score_samples(self, X):  # noqa: ANN001, ANN201 - sklearn signature
         """Alias for `decision_function` (sklearn convention)."""
 

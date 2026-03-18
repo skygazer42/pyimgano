@@ -74,6 +74,75 @@ def test_benchmark_cli_can_list_sweeps_json(capsys) -> None:
     assert "industrial-feature-small" in payload
 
 
+def test_benchmark_cli_can_list_official_configs_text(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--list-official-configs"])
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "official_manifest_industrial_v4_cpu_offline.json" in out
+    assert "official_mvtec_industrial_v4_cpu_offline.json" in out
+    assert "official_visa_industrial_v4_cpu_offline.json" in out
+
+
+def test_benchmark_cli_can_list_official_configs_json(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--list-official-configs", "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert isinstance(payload, list)
+    by_name = {str(item["name"]): item for item in payload}
+    mvtec = by_name["official_mvtec_industrial_v4_cpu_offline.json"]
+    assert mvtec["official"] is True
+    assert mvtec["dataset"] == "mvtec"
+    assert mvtec["suite"] == "industrial-v4"
+    assert mvtec["errors"] == []
+    assert isinstance(mvtec["sha256"], str)
+    assert mvtec["sha256"]
+
+
+def test_benchmark_cli_official_config_info_outputs_json(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(
+        [
+            "--official-config-info",
+            "official_mvtec_industrial_v4_cpu_offline.json",
+            "--json",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["name"] == "official_mvtec_industrial_v4_cpu_offline.json"
+    assert payload["official"] is True
+    assert payload["dataset"] == "mvtec"
+    assert payload["suite"] == "industrial-v4"
+    assert payload["kind"] == "file"
+    assert payload["errors"] == []
+    assert payload["source"].endswith("official_mvtec_industrial_v4_cpu_offline.json")
+    assert payload["payload"]["dataset"] == "mvtec"
+
+
+def test_benchmark_cli_config_can_resolve_official_name_without_full_path(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(
+        [
+            "--config",
+            "official_mvtec_industrial_v4_cpu_offline.json",
+            "--list-suites",
+        ]
+    )
+    assert rc == 0
+
+    out = capsys.readouterr().out.strip().splitlines()
+    assert "industrial-v4" in out
+
+
 def test_benchmark_cli_sweep_info_outputs_json(capsys) -> None:
     from pyimgano.cli import main as benchmark_main
 
@@ -165,6 +234,16 @@ def test_benchmark_cli_suite_discovery_flags_are_mutually_exclusive(capsys) -> N
     from pyimgano.cli import main as benchmark_main
 
     rc = benchmark_main(["--list-suites", "--list-models"])
+    assert rc != 0
+
+    err = capsys.readouterr().err.lower()
+    assert "mutually" in err or "exclusive" in err
+
+
+def test_benchmark_cli_official_config_discovery_flags_are_mutually_exclusive(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--list-official-configs", "--list-models"])
     assert rc != 0
 
     err = capsys.readouterr().err.lower()
@@ -358,6 +437,7 @@ def test_benchmark_cli_suite_include_unknown_baseline_errors(tmp_path: Path, cap
 
 def test_benchmark_cli_suite_export_csv_writes_leaderboard(tmp_path: Path, capsys) -> None:
     from pyimgano.cli import main as benchmark_main
+    import json
 
     root = tmp_path / "custom"
     _write_custom_dataset(root)
@@ -393,6 +473,8 @@ def test_benchmark_cli_suite_export_csv_writes_leaderboard(tmp_path: Path, capsy
     assert (out_dir / "leaderboard.csv").exists()
     assert (out_dir / "best_by_baseline.csv").exists()
     assert (out_dir / "skipped.csv").exists()
+    metadata = json.loads((out_dir / "leaderboard_metadata.json").read_text(encoding="utf-8"))
+    assert len(str(metadata["split_fingerprint"]["sha256"])) == 64
 
 
 def test_benchmark_cli_suite_export_best_metric_requires_pixel(tmp_path: Path, capsys) -> None:

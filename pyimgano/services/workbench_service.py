@@ -7,7 +7,10 @@ from pyimgano.inference.config import INFER_CONFIG_SCHEMA_VERSION
 from pyimgano.models.registry import create_model
 from pyimgano.reporting.report import stamp_report_payload
 from pyimgano.services.model_options import resolve_model_options
-from pyimgano.workbench.calibration import calibrate_detector_threshold, resolve_default_quantile
+from pyimgano.workbench.calibration import (
+    calibrate_detector_threshold_with_summary,
+    resolve_default_quantile,
+)
 from pyimgano.workbench.config import WorkbenchConfig
 
 
@@ -16,6 +19,7 @@ class WorkbenchThresholdCalibration:
     threshold: float
     quantile: float
     quantile_source: str
+    score_summary: dict[str, Any] | None = None
 
 
 def resolve_preprocessing_preset_payload(name: str) -> dict[str, Any]:
@@ -129,7 +133,7 @@ def calibrate_workbench_threshold(
     input_format: str | None,
 ) -> WorkbenchThresholdCalibration:
     quantile, quantile_source = resolve_default_quantile(detector)
-    threshold = calibrate_detector_threshold(
+    threshold, score_summary = calibrate_detector_threshold_with_summary(
         detector,
         calibration_inputs,
         input_format=input_format,
@@ -139,6 +143,7 @@ def calibrate_workbench_threshold(
         threshold=float(threshold),
         quantile=float(quantile),
         quantile_source=str(quantile_source),
+        score_summary=dict(score_summary),
     )
 
 
@@ -248,6 +253,24 @@ def build_infer_config_payload(
         "max_regions_sort_by": str(config.defects.max_regions_sort_by),
     }
 
+    prediction_payload: dict[str, Any] | None = None
+    if (
+        config.prediction.reject_confidence_below is not None
+        or config.prediction.reject_label is not None
+    ):
+        prediction_payload = {
+            "reject_confidence_below": (
+                float(config.prediction.reject_confidence_below)
+                if config.prediction.reject_confidence_below is not None
+                else None
+            ),
+            "reject_label": (
+                int(config.prediction.reject_label)
+                if config.prediction.reject_label is not None
+                else None
+            ),
+        }
+
     preprocessing_payload: dict[str, Any] | None = None
     ic = config.preprocessing.illumination_contrast
     if ic is not None:
@@ -281,6 +304,24 @@ def build_infer_config_payload(
     }
     if preprocessing_payload is not None:
         out["preprocessing"] = preprocessing_payload
+    if prediction_payload is not None:
+        out["prediction"] = prediction_payload
+
+    has_threshold_provenance = "threshold_provenance" in report
+    threshold_scope = "per_category" if "per_category" in report else "image"
+    out["artifact_quality"] = {
+        "status": ("audited" if has_threshold_provenance else "reproducible"),
+        "threshold_scope": threshold_scope,
+        "has_threshold_provenance": bool(has_threshold_provenance),
+        "has_split_fingerprint": isinstance(report.get("split_fingerprint", None), Mapping),
+        "has_prediction_policy": prediction_payload is not None,
+        "has_deploy_bundle": False,
+        "has_bundle_manifest": False,
+        "audit_refs": {
+            "calibration_card": "artifacts/calibration_card.json",
+        },
+        "deploy_refs": {},
+    }
 
     run_dir = report.get("run_dir", None)
     if run_dir is not None:
@@ -292,6 +333,8 @@ def build_infer_config_payload(
         out["threshold_provenance"] = report.get("threshold_provenance")
     if "checkpoint" in report:
         out["checkpoint"] = report.get("checkpoint")
+    if "split_fingerprint" in report:
+        out["split_fingerprint"] = report.get("split_fingerprint")
     if "category" in report:
         out["category"] = report.get("category")
     if "per_category" in report:

@@ -19,11 +19,13 @@ class ConfigBackedInferContext:
     trained_checkpoint_path: str | None
     threshold: float | None
     defects_payload: dict[str, Any] | None
+    prediction_payload: dict[str, Any] | None
     defects_payload_source: str | None
     illumination_contrast_knobs: Any | None
     tiling_payload: dict[str, Any] | None
     infer_config_postprocess: dict[str, Any] | None
     enable_maps_by_default: bool = False
+    postprocess_summary: dict[str, Any] | None = None
     warnings: tuple[str, ...] = ()
 
 
@@ -199,6 +201,11 @@ def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBacke
             if context_payload.get("defects_payload") is not None
             else None
         ),
+        prediction_payload=(
+            dict(context_payload["prediction_payload"])
+            if context_payload.get("prediction_payload") is not None
+            else None
+        ),
         defects_payload_source=(
             str(context_payload["defects_payload_source"])
             if context_payload.get("defects_payload_source") is not None
@@ -208,8 +215,42 @@ def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBacke
         tiling_payload=context_payload.get("tiling_payload"),
         infer_config_postprocess=context_payload.get("infer_config_postprocess"),
         enable_maps_by_default=bool(context_payload.get("enable_maps_by_default", False)),
+        postprocess_summary=(
+            dict(context_payload["postprocess_summary"])
+            if context_payload.get("postprocess_summary") is not None
+            else None
+        ),
         warnings=tuple(str(warning) for warning in context_payload.get("warnings", ())),
     )
+
+
+def _build_postprocess_summary(
+    *,
+    defects_payload: dict[str, Any] | None,
+    defects_payload_source: str | None,
+    prediction_payload: dict[str, Any] | None,
+    tiling_payload: dict[str, Any] | None,
+    infer_config_postprocess: dict[str, Any] | None,
+    enable_maps_by_default: bool,
+) -> dict[str, Any]:
+    pixel_threshold_strategy = None
+    pixel_threshold_in_payload = False
+    if isinstance(defects_payload, dict):
+        pixel_threshold_strategy = defects_payload.get("pixel_threshold_strategy", None)
+        pixel_threshold_in_payload = defects_payload.get("pixel_threshold", None) is not None
+
+    return {
+        "has_defects_payload": defects_payload is not None,
+        "defects_payload_source": defects_payload_source,
+        "pixel_threshold_in_payload": bool(pixel_threshold_in_payload),
+        "pixel_threshold_strategy": (
+            str(pixel_threshold_strategy) if pixel_threshold_strategy is not None else None
+        ),
+        "has_prediction_policy": prediction_payload is not None,
+        "has_tiling": tiling_payload is not None,
+        "has_map_postprocess": infer_config_postprocess is not None,
+        "maps_enabled_by_default": bool(enable_maps_by_default),
+    }
 
 
 def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBackedInferContext:
@@ -232,6 +273,11 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
     )
     checkpoint_path, warnings = _resolve_from_run_checkpoint(cfg, request)
     illumination_contrast_knobs, tiling_payload = _extract_from_run_optional_payloads(cfg)
+    prediction_payload = None
+    try:
+        prediction_payload = _normalize_prediction_payload(asdict(cfg.prediction))
+    except Exception:
+        prediction_payload = None
 
     return _build_config_backed_context(
         {
@@ -245,11 +291,20 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
             "trained_checkpoint_path": trained_checkpoint_path,
             "threshold": threshold,
             "defects_payload": asdict(cfg.defects),
+            "prediction_payload": prediction_payload,
             "defects_payload_source": "from_run",
             "illumination_contrast_knobs": illumination_contrast_knobs,
             "tiling_payload": tiling_payload,
             "infer_config_postprocess": None,
             "enable_maps_by_default": False,
+            "postprocess_summary": _build_postprocess_summary(
+                defects_payload=asdict(cfg.defects),
+                defects_payload_source="from_run",
+                prediction_payload=prediction_payload,
+                tiling_payload=tiling_payload,
+                infer_config_postprocess=None,
+                enable_maps_by_default=False,
+            ),
             "warnings": warnings,
         }
     )
@@ -262,6 +317,34 @@ def _extract_defects_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(defects_payload, dict):
         raise ValueError("infer-config key 'defects' must be a JSON object/dict.")
     return dict(defects_payload)
+
+
+def _normalize_prediction_payload(
+    prediction_payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if prediction_payload is None:
+        return None
+
+    reject_confidence_below = prediction_payload.get("reject_confidence_below", None)
+    reject_label = prediction_payload.get("reject_label", None)
+    if reject_confidence_below is None and reject_label is None:
+        return None
+
+    return {
+        "reject_confidence_below": (
+            float(reject_confidence_below) if reject_confidence_below is not None else None
+        ),
+        "reject_label": (int(reject_label) if reject_label is not None else None),
+    }
+
+
+def _extract_prediction_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    prediction_payload = payload.get("prediction", None)
+    if prediction_payload is None:
+        return None
+    if not isinstance(prediction_payload, dict):
+        raise ValueError("infer-config key 'prediction' must be a JSON object/dict.")
+    return _normalize_prediction_payload(dict(prediction_payload))
 
 
 def _extract_illumination_contrast_knobs(
@@ -382,6 +465,7 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
     )
 
     defects_payload = _extract_defects_payload(payload)
+    prediction_payload = _extract_prediction_payload(payload)
     illumination_contrast_knobs = _extract_illumination_contrast_knobs(
         payload,
         parse_knobs=parse_illumination_contrast_knobs,
@@ -417,6 +501,7 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
             "trained_checkpoint_path": trained_checkpoint_path,
             "threshold": threshold,
             "defects_payload": defects_payload,
+            "prediction_payload": prediction_payload,
             "defects_payload_source": (
                 "infer_config" if defects_payload is not None else None
             ),
@@ -425,6 +510,17 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
             "infer_config_postprocess": infer_config_postprocess,
             "enable_maps_by_default": bool(
                 adaptation_payload.get("save_maps", False) or infer_config_postprocess is not None
+            ),
+            "postprocess_summary": _build_postprocess_summary(
+                defects_payload=defects_payload,
+                defects_payload_source=("infer_config" if defects_payload is not None else None),
+                prediction_payload=prediction_payload,
+                tiling_payload=tiling_payload,
+                infer_config_postprocess=infer_config_postprocess,
+                enable_maps_by_default=bool(
+                    adaptation_payload.get("save_maps", False)
+                    or infer_config_postprocess is not None
+                ),
             ),
             "warnings": tuple(str(warning) for warning in schema_warnings),
         }

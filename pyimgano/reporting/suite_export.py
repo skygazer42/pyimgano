@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+
+from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 
 
 def _format_cell(value: Any) -> str:
@@ -83,6 +86,59 @@ _LEADERBOARD_COLUMNS = [
     "pixel_segf1",
     "run_dir",
 ]
+
+
+def _collect_metric_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    names: set[str] = set()
+    for row in rows:
+        for key in (
+            "auroc",
+            "average_precision",
+            "pixel_auroc",
+            "pixel_average_precision",
+            "aupro",
+            "pixel_segf1",
+        ):
+            if _safe_float(row.get(key)) is not None:
+                names.add(str(key))
+    return sorted(names)
+
+
+def _build_publication_artifact_quality(
+    *,
+    written: Mapping[str, str],
+    benchmark_config: Mapping[str, Any] | None,
+    environment_fingerprint_sha256: Any,
+    split_fingerprint: Any,
+) -> dict[str, Any]:
+    missing_required: list[str] = []
+    if "leaderboard_metadata_json" not in written:
+        missing_required.append("leaderboard_metadata_json")
+    if not any(key.startswith("leaderboard_") and key != "leaderboard_metadata_json" for key in written):
+        missing_required.append("leaderboard_table")
+    if not isinstance(benchmark_config, Mapping):
+        missing_required.append("benchmark_config")
+    if not isinstance(environment_fingerprint_sha256, str) or not environment_fingerprint_sha256:
+        missing_required.append("environment_fingerprint_sha256")
+    split_sha256 = None
+    if isinstance(split_fingerprint, Mapping):
+        raw_sha256 = split_fingerprint.get("sha256", None)
+        if isinstance(raw_sha256, str) and raw_sha256:
+            split_sha256 = raw_sha256
+    if split_sha256 is None:
+        missing_required.append("split_fingerprint.sha256")
+
+    return {
+        "required_files_present": len(missing_required) == 0,
+        "missing_required": missing_required,
+        "has_official_benchmark_config": bool(
+            isinstance(benchmark_config, Mapping) and benchmark_config.get("official")
+        ),
+        "has_environment_fingerprint": bool(
+            isinstance(environment_fingerprint_sha256, str) and environment_fingerprint_sha256
+        ),
+        "has_split_fingerprint": bool(split_sha256),
+    }
 
 
 def _write_csv(path: Path, *, rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> None:
@@ -169,6 +225,72 @@ def export_suite_tables(
         written["leaderboard_md"] = str(leaderboard_md)
         written["best_by_baseline_md"] = str(best_md)
         written["skipped_md"] = str(skipped_md)
+
+    benchmark_config = payload.get("benchmark_config")
+    citation = None
+    if isinstance(benchmark_config, Mapping) and bool(benchmark_config.get("official")):
+        citation = {
+            "project": "pyimgano",
+            "benchmark_config_source": benchmark_config.get("source"),
+            "benchmark_config_sha256": benchmark_config.get("sha256"),
+            "publication_guide": "docs/BENCHMARK_PUBLICATION.md",
+        }
+
+    artifact_quality = _build_publication_artifact_quality(
+        written=written,
+        benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
+        environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
+        split_fingerprint=payload.get("split_fingerprint"),
+    )
+    evaluation_contract = build_evaluation_contract(
+        metric_names=_collect_metric_names(rows_norm),
+        primary_metric="auroc",
+        ranking_metric=str(best_metric),
+        pixel_metrics_enabled=(
+            any(_safe_float(row.get("pixel_auroc")) is not None for row in rows_norm)
+            or any(_safe_float(row.get("aupro")) is not None for row in rows_norm)
+            or any(_safe_float(row.get("pixel_segf1")) is not None for row in rows_norm)
+        ),
+        comparability_hints=(
+            dict(payload.get("evaluation_contract", {}).get("comparability_hints", {}))
+            if isinstance(payload.get("evaluation_contract"), Mapping)
+            and isinstance(payload.get("evaluation_contract", {}).get("comparability_hints"), Mapping)
+            else None
+        ),
+    )
+
+    metadata = {
+        "suite": payload.get("suite"),
+        "dataset": payload.get("dataset"),
+        "category": payload.get("category"),
+        "row_count": len(rows_norm),
+        "benchmark_config": benchmark_config,
+        "evaluation_contract": evaluation_contract,
+        "environment_fingerprint_sha256": payload.get("environment_fingerprint_sha256"),
+        "split_fingerprint": payload.get("split_fingerprint"),
+        "citation": citation,
+        "artifact_quality": artifact_quality,
+        "publication_ready": bool(
+            artifact_quality["required_files_present"]
+            and artifact_quality["has_official_benchmark_config"]
+        ),
+        "exported_files": dict(written),
+    }
+    metadata_path = out_dir / "leaderboard_metadata.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
+    written["leaderboard_metadata_json"] = str(metadata_path)
+    metadata["exported_files"] = dict(written)
+    metadata["artifact_quality"] = _build_publication_artifact_quality(
+        written=written,
+        benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
+        environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
+        split_fingerprint=payload.get("split_fingerprint"),
+    )
+    metadata["publication_ready"] = bool(
+        metadata["artifact_quality"]["required_files_present"]
+        and metadata["artifact_quality"]["has_official_benchmark_config"]
+    )
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
 
     return written
 

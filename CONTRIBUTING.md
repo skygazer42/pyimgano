@@ -55,18 +55,25 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 5. **Run tests and checks**:
    ```bash
-   # Run tests
+   # Run the focused tests for your change first
+   pytest tests/test_<your_area>.py -v
+
+   # Then run the full suite
    pytest
 
    # Check code formatting
-   black pyimgano tests
-   isort pyimgano tests
+   black --check pyimgano tests
+   isort --check-only pyimgano tests
 
    # Run linters
-   flake8 pyimgano tests
+   flake8 --config .flake8 pyimgano tests
+   ruff check pyimgano tests tools
 
-   # Type checking
+   # Type checking and repository audits
    mypy pyimgano
+   python tools/audit_public_api.py
+   python tools/audit_registry.py
+   python tools/audit_repo_links.py
    ```
 
 6. **Commit your changes**:
@@ -123,8 +130,10 @@ pytest tests/test_augmentation_registry.py
 # Run tests matching a pattern
 pytest -k "test_augmentation"
 
-# Run tests in parallel
-pytest -n auto
+# Run repository audit tooling
+python tools/audit_public_api.py
+python tools/audit_registry.py
+python tools/audit_repo_links.py
 ```
 
 ### Code Style
@@ -155,6 +164,7 @@ To add a new anomaly detection model:
    ```
 5. Add tests in `tests/`
 6. Update documentation
+7. If benchmark behavior changes, update the relevant reproducibility preset or benchmark docs
 
 ### Documentation
 
@@ -214,9 +224,12 @@ pyimgano/
 Releases are handled by maintainers:
 
 1. Update version in `pyproject.toml`
-2. Update `CHANGELOG.md`
-3. Create a new GitHub release
-4. CI/CD automatically publishes to PyPI
+2. Update `pyimgano/__init__.py`
+3. Update `CHANGELOG.md` or release notes
+4. Run `python -m build`, `twine check dist/*`, and `python tools/audit_repo_links.py`
+5. Create and push the release tag
+6. Create a new GitHub release
+7. CI/CD automatically publishes to PyPI
 
 ## Questions?
 

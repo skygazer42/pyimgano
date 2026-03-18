@@ -1,6 +1,7 @@
 # PyImgAno Benchmarks
 
-Comprehensive benchmark suite for PyImgAno's anomaly detection algorithms and preprocessing operations.
+Comprehensive benchmark tooling for PyImgAno's anomaly detection algorithms,
+preprocessing operations, and reproducibility-oriented official presets.
 
 ## Overview
 
@@ -43,6 +44,21 @@ python benchmark_industrial_ci_micro.py
 # Template-style synthetic dataset (stable pattern + patch inversion; includes NCC baseline)
 python benchmark_industrial_ci_micro.py --dataset-kind template_patch
 ```
+
+### Run official reproducibility presets
+
+```bash
+pyimgano-benchmark --config benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json
+pyimgano-benchmark --config benchmarks/configs/official_visa_industrial_v4_cpu_offline.json
+pyimgano-benchmark --config benchmarks/configs/official_manifest_industrial_v4_cpu_offline.json
+```
+
+Expected artifacts for any run you want to publish or compare later:
+
+- `report.json`
+- `environment.json`
+- `leaderboard.csv` and/or `leaderboard.md`
+- the exact preset or full CLI used for the run
 
 ## Requirements
 
@@ -375,13 +391,14 @@ PyImgAno focuses on **visual anomaly detection** with:
 
 ## Contributing
 
-To add new benchmarks:
+To add new benchmarks or official presets:
 
 1. Create a new benchmark script following the existing structure
 2. Use the `BenchmarkResult` class for consistent output
 3. Generate both CSV and visualization
-4. Update this README
-5. Submit a pull request
+4. Add or update the reproducibility preset/config when appropriate
+5. Update this README
+6. Submit a pull request
 
 ## References
 
@@ -398,7 +415,7 @@ If you use these benchmarks in your research, please cite:
   title={PyImgAno: Enterprise-Grade Visual Anomaly Detection Toolkit},
   author={PyImgAno Contributors},
   year={2024},
-  url={https://github.com/jhlu2019/pyimgano}
+  url={https://github.com/skygazer42/pyimgano}
 }
 ```
 

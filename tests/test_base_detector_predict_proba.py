@@ -42,3 +42,28 @@ def test_predict_proba_rejects_unknown_method() -> None:
 
     with pytest.raises(ValueError, match="method"):
         det.predict_proba([0, 4], method="__nope__")
+
+
+def test_predict_proba_can_return_confidence() -> None:
+    from pyimgano.models.base_detector import BaseDetector
+
+    class Dummy(BaseDetector):
+        def fit(self, X, y=None):  # noqa: ANN001
+            self._set_n_classes(y)
+            self.decision_scores_ = np.asarray(X, dtype=np.float64)
+            self._process_decision_scores()
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray(X, dtype=np.float64)
+
+    det = Dummy(contamination=0.2).fit([0, 1, 2, 3, 4])
+
+    proba, conf = det.predict_proba([0, 4], method="linear", return_confidence=True)
+
+    proba_arr = np.asarray(proba, dtype=np.float64)
+    conf_arr = np.asarray(conf, dtype=np.float64)
+    assert proba_arr.shape == (2, 2)
+    assert conf_arr.shape == (2,)
+    assert np.all(conf_arr >= 0.0)
+    assert np.all(conf_arr <= 1.0)

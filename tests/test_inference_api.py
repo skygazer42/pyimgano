@@ -64,6 +64,86 @@ def test_results_to_jsonable_uses_stable_python_types():
     json.dumps(payload)
 
 
+def test_infer_can_include_label_confidence() -> None:
+    class _ScoreWithConfidence:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            assert len(X) == 2
+            return np.asarray([0.1, 0.9], dtype=np.float32)
+
+        def predict_confidence(self, X):
+            assert len(X) == 2
+            return np.asarray([0.8, 0.9], dtype=np.float32)
+
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(2)]
+    out = infer(
+        _ScoreWithConfidence(),
+        imgs,
+        input_format=ImageFormat.RGB_U8_HWC,
+        include_confidence=True,
+    )
+
+    assert [r.label for r in out] == [0, 1]
+    assert [r.label_confidence for r in out] == pytest.approx([0.8, 0.9])
+
+    payload = results_to_jsonable(out)
+    assert payload[0]["label_confidence"] == pytest.approx(0.8)
+    assert payload[1]["label_confidence"] == pytest.approx(0.9)
+
+
+def test_infer_can_reject_low_confidence_samples() -> None:
+    class _ScoreWithConfidence:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            assert len(X) == 3
+            return np.asarray([0.1, 0.4, 0.9], dtype=np.float32)
+
+        def predict_confidence(self, X):
+            assert len(X) == 3
+            return np.asarray([0.8, 0.6, 0.9], dtype=np.float32)
+
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(3)]
+    out = infer(
+        _ScoreWithConfidence(),
+        imgs,
+        input_format=ImageFormat.RGB_U8_HWC,
+        reject_confidence_below=0.75,
+    )
+
+    assert [r.label for r in out] == [0, -2, 1]
+    assert [r.rejected for r in out] == [False, True, False]
+    assert [r.label_confidence for r in out] == pytest.approx([0.8, 0.6, 0.9])
+
+    payload = results_to_jsonable(out)
+    assert payload[0]["rejected"] is False
+    assert payload[1]["rejected"] is True
+    assert payload[1]["label"] == -2
+
+
+def test_infer_rejection_requires_confidence_support() -> None:
+    class _ScoreOnly:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            assert len(X) == 1
+            return np.asarray([0.1], dtype=np.float32)
+
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8)]
+
+    with pytest.raises(RuntimeError, match="confidence"):
+        infer(
+            _ScoreOnly(),
+            imgs,
+            input_format=ImageFormat.RGB_U8_HWC,
+            reject_confidence_below=0.75,
+        )
+
+
 def test_infer_applies_postprocess_to_maps_only():
     class _Map:
         def __init__(self):

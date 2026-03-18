@@ -137,6 +137,7 @@ Repository = "https://github.com/skygazer42/pyimgano"
 Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
 
 [project.scripts]
+pyimgano = "pyimgano.root_cli:main"
 pyimgano-benchmark = "pyimgano.cli:main"
 pyim = "pyimgano.pyim_cli:main"
 pyimgano-demo = "pyimgano.demo_cli:main"
@@ -153,6 +154,7 @@ pyimgano-features = "pyimgano.feature_cli:main"
 pyimgano-datasets = "pyimgano.datasets_cli:main"
 pyimgano-doctor = "pyimgano.doctor_cli:main"
 pyimgano-weights = "pyimgano.weights_cli:main"
+pyimgano-runs = "pyimgano.runs_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["pyimgano*"]

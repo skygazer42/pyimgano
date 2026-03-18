@@ -45,6 +45,28 @@ Update both:
 - `pyproject.toml` → `[project].version`
 - `pyimgano/__init__.py` → `__version__`
 
+## Release checklist
+
+Before tagging a release, verify:
+
+```bash
+python -m build
+twine check dist/*
+python tools/audit_repo_links.py
+python tools/audit_public_api.py
+python tools/audit_registry.py
+```
+
+If the release includes benchmark-facing changes, also keep the benchmark docs
+and official preset references aligned.
+
+For benchmark-facing releases, also verify the trust contract surfaces are present:
+
+- `leaderboard_metadata.json` carries `evaluation_contract`
+- `leaderboard_metadata.json` carries benchmark `citation` when an official config is used
+- `pyimgano-runs quality` exposes `trust_summary`
+- `pyimgano-runs publication` exposes `trust_signals`
+
 ## 2) Install build tools
 
 If you're working from a clean environment:
@@ -129,7 +151,7 @@ radius if a token is ever leaked.
 
 ### Publish to PyPI (official)
 
-1) Tag and push a release (for example `v0.6.8`).
+1) Tag and push a release (for example `v0.6.38`).
 2) Create a GitHub Release for that tag and click **Publish release**.
 
 That triggers the workflow and uploads to PyPI automatically.

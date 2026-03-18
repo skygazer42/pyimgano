@@ -9,6 +9,9 @@ class ContinueOnErrorInferRequest:
     detector: Any
     inputs: Sequence[str]
     include_maps: bool = False
+    include_confidence: bool = False
+    reject_confidence_below: float | None = None
+    reject_label: int | None = None
     postprocess: Any | None = None
     batch_size: int | None = None
     amp: bool = False
@@ -21,6 +24,25 @@ class ContinueOnErrorInferResult:
     errors: int
     timing_seconds: float
     stop_early: bool
+    triage_summary: dict[str, Any] | None = None
+
+
+def _build_triage_summary(
+    *,
+    processed: int,
+    errors: int,
+    stop_early: bool,
+    inputs_total: int,
+    error_stages: dict[str, int],
+    fallback_used: bool,
+) -> dict[str, Any]:
+    return {
+        "ok": max(0, int(processed) - int(errors)),
+        "remaining": max(0, int(inputs_total) - int(processed)),
+        "error_stages": {str(k): int(v) for k, v in sorted(error_stages.items())},
+        "fallback_used": bool(fallback_used),
+        "stop_reason": ("max_errors" if bool(stop_early) else "completed"),
+    }
 
 
 def _run_inference_chunk(
@@ -33,6 +55,15 @@ def _run_inference_chunk(
         detector=request.detector,
         inputs=inputs,
         include_maps=bool(request.include_maps),
+        include_confidence=bool(
+            request.include_confidence or request.reject_confidence_below is not None
+        ),
+        reject_confidence_below=(
+            float(request.reject_confidence_below)
+            if request.reject_confidence_below is not None
+            else None
+        ),
+        reject_label=(int(request.reject_label) if request.reject_label is not None else None),
         postprocess=request.postprocess,
         batch_size=None,
         amp=bool(request.amp),
@@ -132,6 +163,24 @@ def run_continue_on_error_inference(
     timing_seconds = 0.0
     stop_early = False
     inputs = [str(item) for item in request.inputs]
+    error_stages: dict[str, int] = {"artifacts": 0, "infer": 0}
+    fallback_used = False
+
+    def _handle_error_with_summary(
+        *,
+        index: int,
+        input_path: str,
+        exc: Exception,
+        stage: str,
+    ) -> None:
+        stage_key = str(stage)
+        error_stages[stage_key] = int(error_stages.get(stage_key, 0)) + 1
+        handle_error(
+            index=int(index),
+            input_path=str(input_path),
+            exc=exc,
+            stage=stage_key,
+        )
 
     for start in range(0, len(inputs), int(chunk_size)):
         chunk = inputs[start : start + int(chunk_size)]
@@ -148,19 +197,20 @@ def run_continue_on_error_inference(
                 chunk=chunk,
                 chunk_records=chunk_results,
                 process_ok_result=process_ok_result,
-                handle_error=handle_error,
+                handle_error=_handle_error_with_summary,
             )
             processed += int(chunk_processed)
             errors += int(chunk_errors)
         except Exception:
             # Fallback: isolate per-input failures when a chunk run fails.
+            fallback_used = True
             timing_seconds, processed, errors, stop_early = _run_chunk_with_fallback(
                 start=start,
                 chunk=chunk,
                 request=request,
                 run_inference_fn=run_inference_fn,
                 process_ok_result=process_ok_result,
-                handle_error=handle_error,
+                handle_error=_handle_error_with_summary,
                 timing_seconds=timing_seconds,
                 processed=processed,
                 errors=errors,
@@ -173,6 +223,14 @@ def run_continue_on_error_inference(
         errors=int(errors),
         timing_seconds=float(timing_seconds),
         stop_early=bool(stop_early),
+        triage_summary=_build_triage_summary(
+            processed=int(processed),
+            errors=int(errors),
+            stop_early=bool(stop_early),
+            inputs_total=int(len(inputs)),
+            error_stages=error_stages,
+            fallback_used=bool(fallback_used),
+        ),
     )
 
 

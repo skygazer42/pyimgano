@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 
 import pyimgano.services.workbench_service as workbench_service
+from pyimgano.reporting.split_fingerprint import build_split_fingerprint
 from pyimgano.workbench.adaptation_runtime import build_postprocess
 from pyimgano.workbench.category_outputs import (
     WorkbenchCategoryOutputs,
@@ -82,6 +83,14 @@ def run_workbench_category(
     eval_results = inference_result.eval_results
 
     threshold_used = float(eval_results["threshold"])
+    split_fingerprint = build_split_fingerprint(
+        train_inputs=train_inputs,
+        calibration_inputs=calibration_inputs,
+        test_inputs=test_inputs,
+        test_labels=np.asarray(test_labels),
+        input_format=input_format,
+        test_meta=test_meta,
+    )
 
     payload = build_workbench_category_report(
         inputs=WorkbenchCategoryReportInputs(
@@ -90,6 +99,7 @@ def run_workbench_category(
             category=str(category),
             train_count=int(len(train_inputs)),
             calibration_count=int(len(calibration_inputs)),
+            split_fingerprint=split_fingerprint,
             test_labels=np.asarray(test_labels),
             test_masks=(np.asarray(test_masks) if test_masks is not None else None),
             pixel_skip_reason=pixel_skip_reason,

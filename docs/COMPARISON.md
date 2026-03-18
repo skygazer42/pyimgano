@@ -12,6 +12,7 @@ A practical comparison to help you choose the right tool for anomaly detection i
 | **Pixel maps** | First-class (`pixel_map` models + defects export) | Not a focus | First-class |
 | **Workflows** | CLI runs + artifacts + deploy config export | sklearn-style estimator workflows | Training configs + datamodules + checkpoints |
 | **Integration** | “Workbench → deploy bundle → infer JSONL” | “Fit → score/predict” | “Train → checkpoint → infer/eval” |
+| **Prediction semantics** | Binary labels + `predict_proba` + confidence/rejection for native classical routes | Binary labels + probability/confidence/rejection flows | Model/inferencer specific |
 
 ## When to Use PyImgAno
 
@@ -113,7 +114,9 @@ pyimgano-benchmark --list-models --tags pixel_map
 **PyOD advantage:** More algorithms, especially for tabular data
 
 **PyImgAno advantage:** Visual-specific algorithms, pixel-map outputs, and a cleaner bridge from
-image embeddings to `core_*` classical detectors.
+image embeddings to `core_*` classical detectors. Native `BaseDetector` routes
+also expose label confidence and rejection-aware prediction now, which makes
+registry models easier to slot into production decision policies.
 
 ### Preprocessing
 

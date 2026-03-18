@@ -93,6 +93,43 @@ def test_robust_cli_delegates_run_mode_to_robustness_service(monkeypatch, capsys
     assert '"model": "vision_ecod"' in capsys.readouterr().out
 
 
+def test_robust_cli_passes_output_dir_to_service(monkeypatch, tmp_path, capsys) -> None:
+    import pyimgano.services.robustness_service as robustness_service
+
+    calls = []
+
+    monkeypatch.setattr(
+        robustness_service,
+        "run_robustness_request",
+        lambda request: calls.append(request)
+        or {
+            "dataset": request.dataset,
+            "category": request.category,
+            "model": request.model,
+            "run_dir": str(tmp_path / "robust_run"),
+            "robustness": {"clean": {}, "corruptions": {}},
+        },
+    )
+
+    rc = main(
+        [
+            "--dataset",
+            "mvtec",
+            "--root",
+            "/tmp",
+            "--category",
+            "bottle",
+            "--model",
+            "vision_ecod",
+            "--output-dir",
+            str(tmp_path / "robust_run"),
+        ]
+    )
+    assert rc == 0
+    assert calls and calls[0].output_dir == str(tmp_path / "robust_run")
+    assert '"run_dir":' in capsys.readouterr().out
+
+
 def test_robust_cli_jsonable_output_uses_cli_output_helper(monkeypatch) -> None:
     import pyimgano.robust_cli as robust_cli
     import pyimgano.services.robustness_service as robustness_service
@@ -210,6 +247,18 @@ def test_robust_cli_smoke(tmp_path, capsys) -> None:
     assert payload["dataset"] == "mvtec"
     assert payload["category"] == cat
     assert payload["model"] == "vision_patchcore"
+    assert payload["robustness_protocol"]["corruption_mode"] == "full"
+    assert payload["robustness_protocol"]["condition_count"] == 2
+    assert payload["robustness_protocol"]["corruption_count"] == 1
+    assert payload["robustness_protocol"]["severities"] == [1]
+    assert payload["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"] is True
+    assert payload["robustness_protocol"]["comparability_hints"]["requires_same_input_mode"] is True
+    trust = payload["robustness_trust"]
+    assert trust["status"] == "trust-signaled"
+    assert trust["trust_signals"]["full_corruption_mode"] is True
+    assert trust["trust_signals"]["has_clean_baseline"] is True
+    assert trust["trust_signals"]["has_corruption_conditions"] is True
+    assert trust["trust_signals"]["has_summary_metrics"] is True
 
     report = payload["robustness"]
     assert "clean" in report

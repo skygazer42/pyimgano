@@ -13,6 +13,7 @@ from pyimgano.workbench.config_types import (
     MergeNearbyConfig,
     ModelConfig,
     OutputConfig,
+    PredictionConfig,
     PreprocessingConfig,
     ShapeFiltersConfig,
     SplitPolicyConfig,
@@ -45,6 +46,7 @@ __all__ = [
     "ShapeFiltersConfig",
     "MergeNearbyConfig",
     "DefectsConfig",
+    "PredictionConfig",
     "PreprocessingConfig",
     "WorkbenchConfig",
 ]

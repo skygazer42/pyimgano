@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.reporting.report import stamp_report_payload
 from pyimgano.services.workbench_service import WorkbenchThresholdCalibration
 from pyimgano.workbench.config import WorkbenchConfig
@@ -25,6 +26,7 @@ class WorkbenchCategoryReportInputs:
     eval_results: Mapping[str, Any]
     training_report: dict[str, Any] | None = None
     checkpoint_meta: dict[str, Any] | None = None
+    split_fingerprint: dict[str, Any] | None = None
 
 
 def _build_dataset_summary(inputs: WorkbenchCategoryReportInputs) -> dict[str, Any]:
@@ -51,10 +53,33 @@ def _build_dataset_summary(inputs: WorkbenchCategoryReportInputs) -> dict[str, A
     return dataset_summary
 
 
+def _evaluation_metric_names(eval_results: Mapping[str, Any]) -> list[str]:
+    names = [
+        "auroc",
+        "average_precision",
+        "pixel_auroc",
+        "pixel_average_precision",
+        "aupro",
+        "pixel_segf1",
+    ]
+    for key in ("auroc", "average_precision"):
+        if isinstance(eval_results.get(key), (int, float)):
+            names.append(str(key))
+
+    pixel_metrics = eval_results.get("pixel_metrics", None)
+    if isinstance(pixel_metrics, Mapping):
+        for key in ("pixel_auroc", "pixel_average_precision", "aupro", "pixel_segf1"):
+            if isinstance(pixel_metrics.get(key), (int, float)):
+                names.append(str(key))
+
+    return sorted({str(name) for name in names})
+
+
 def build_workbench_category_report(
     *,
     inputs: WorkbenchCategoryReportInputs,
 ) -> dict[str, Any]:
+    dataset_summary = _build_dataset_summary(inputs)
     payload: dict[str, Any] = {
         "dataset": str(inputs.config.dataset.name),
         "category": str(inputs.category),
@@ -76,9 +101,21 @@ def build_workbench_category_report(
             "contamination": float(inputs.config.model.contamination),
             "calibration_count": int(inputs.calibration_count),
         },
-        "dataset_summary": _build_dataset_summary(inputs),
+        "dataset_summary": dataset_summary,
+        "evaluation_contract": build_evaluation_contract(
+            metric_names=_evaluation_metric_names(inputs.eval_results),
+            primary_metric="auroc",
+            ranking_metric="auroc",
+            pixel_metrics_enabled=bool(dataset_summary["pixel_metrics"]["enabled"]),
+        ),
         "results": dict(inputs.eval_results),
     }
+    if inputs.threshold_calibration.score_summary is not None:
+        payload["threshold_provenance"]["score_summary"] = dict(
+            inputs.threshold_calibration.score_summary
+        )
+    if inputs.split_fingerprint is not None:
+        payload["split_fingerprint"] = dict(inputs.split_fingerprint)
     if inputs.pixel_skip_reason is not None:
         payload["pixel_metrics_status"] = {
             "enabled": False,

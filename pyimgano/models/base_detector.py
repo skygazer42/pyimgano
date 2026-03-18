@@ -32,6 +32,7 @@ class BaseDetector:
     """
 
     input_mode = "features"
+    reject_label = -2
 
     def __init__(self, contamination: float = 0.1) -> None:
         if isinstance(contamination, (float, int)):
@@ -108,6 +109,36 @@ class BaseDetector:
         self.labels_ = labels
         return self
 
+    def _decision_scores_1d(self, X) -> np.ndarray:  # noqa: ANN001, ANN201 - sklearn-like helper
+        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        if scores.ndim != 1:
+            scores = scores.reshape(-1)
+        return scores
+
+    def _normalized_outlier_confidence(self, scores: np.ndarray) -> np.ndarray:
+        if not hasattr(self, "decision_scores_"):
+            raise RuntimeError("Model must be fitted before calling confidence APIs.")
+        train_scores = np.asarray(self.decision_scores_, dtype=np.float64).reshape(-1)
+        if train_scores.size == 0:
+            raise RuntimeError("decision_scores_ must be non-empty for confidence APIs.")
+        ranks = np.searchsorted(np.sort(train_scores), scores, side="right")
+        return np.clip(ranks.astype(np.float64) / float(train_scores.size), 0.0, 1.0)
+
+    def _label_confidence_from_scores(
+        self,
+        scores: np.ndarray,
+        *,
+        labels: np.ndarray | None = None,
+    ) -> np.ndarray:
+        if not hasattr(self, "threshold_"):
+            raise RuntimeError("Model must be fitted before calling confidence APIs.")
+        outlier_conf = self._normalized_outlier_confidence(scores)
+        if labels is None:
+            labels = (scores > float(self.threshold_)).astype(int).ravel()
+        labels_arr = np.asarray(labels, dtype=np.int64).reshape(-1)
+        conf = np.where(labels_arr == 1, outlier_conf, 1.0 - outlier_conf)
+        return np.clip(conf.astype(np.float64), 0.0, 1.0)
+
     def use_pot_thresholding(
         self,
         *,
@@ -170,16 +201,43 @@ class BaseDetector:
         Returns 0 for inliers and 1 for outliers.
         """
 
-        if return_confidence:
-            raise NotImplementedError("return_confidence is not implemented in native BaseDetector")
-
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model must be fitted before calling predict().")
 
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
-        if scores.ndim != 1:
-            scores = scores.reshape(-1)
-        return (scores > float(self.threshold_)).astype(int).ravel()
+        scores = self._decision_scores_1d(X)
+        labels = (scores > float(self.threshold_)).astype(int).ravel()
+        if not return_confidence:
+            return labels
+        return labels, self._label_confidence_from_scores(scores, labels=labels)
+
+    def predict_confidence(self, X):  # noqa: ANN001, ANN201 - sklearn-style boundary
+        """Return confidence of the predicted binary label on [0, 1]."""
+
+        scores = self._decision_scores_1d(X)
+        return self._label_confidence_from_scores(scores)
+
+    def predict_with_rejection(
+        self,
+        X,
+        *,
+        confidence_threshold: float = 0.5,
+        reject_label: int | None = None,
+        return_confidence: bool = False,
+    ):  # noqa: ANN001, ANN201 - sklearn-style boundary
+        """Predict labels and reject low-confidence samples with `reject_label`."""
+
+        thr = float(confidence_threshold)
+        if not 0.0 < thr <= 1.0:
+            raise ValueError(
+                f"confidence_threshold must be in (0, 1], got {confidence_threshold!r}"
+            )
+        labels, confidence = self.predict(X, return_confidence=True)
+        rejected = np.asarray(labels, dtype=np.int64).reshape(-1)
+        marker = int(self.reject_label if reject_label is None else reject_label)
+        rejected[np.asarray(confidence, dtype=np.float64).reshape(-1) < thr] = marker
+        if not return_confidence:
+            return rejected
+        return rejected, np.asarray(confidence, dtype=np.float64).reshape(-1)
 
     def fit_predict(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like helper
         """Fit detector then return labels for X."""
@@ -202,9 +260,6 @@ class BaseDetector:
 
         This keeps compatibility with common 2-class `predict_proba` tooling.
         """
-
-        if return_confidence:
-            raise NotImplementedError("return_confidence is not implemented in native BaseDetector")
 
         if not hasattr(self, "decision_scores_"):
             raise RuntimeError("Model must be fitted before calling predict_proba().")
@@ -229,7 +284,9 @@ class BaseDetector:
                 outlier = np.clip(outlier, 0.0, 1.0)
             probs[:, 1] = outlier
             probs[:, 0] = 1.0 - outlier
-            return probs
+            if not return_confidence:
+                return probs
+            return probs, self.predict_confidence(X)
 
         if method == "unify":
             # Unification via erf, then clamp to [0,1].
@@ -249,6 +306,8 @@ class BaseDetector:
             outlier = np.clip(erf(pre), 0.0, 1.0)
             probs[:, 1] = outlier
             probs[:, 0] = 1.0 - outlier
-            return probs
+            if not return_confidence:
+                return probs
+            return probs, self.predict_confidence(X)
 
         raise ValueError(f"method {method!r} is not a valid probability conversion method")

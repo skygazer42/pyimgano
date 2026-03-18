@@ -93,3 +93,16 @@ def test_workbench_report_includes_dataset_summary(tmp_path: Path) -> None:
     assert np.isclose(ds["test_anomaly_ratio"], 0.5)
     assert ds["pixel_metrics"]["enabled"] is False
     assert "mask_path" in str(ds["pixel_metrics"]["reason"]).lower()
+    assert len(str(cat_level["split_fingerprint"]["sha256"])) == 64
+    assert cat_level["split_fingerprint"]["test_count"] == 2
+    contract = cat_level["evaluation_contract"]
+    assert contract["primary_metric"] == "auroc"
+    assert contract["metric_directions"]["auroc"] == "higher_is_better"
+    assert contract["metric_directions"]["pixel_auroc"] == "higher_is_better"
+    assert contract["pixel_metrics_enabled"] is False
+    assert contract["comparability_hints"] == {
+        "requires_same_dataset": True,
+        "requires_same_category": True,
+        "requires_same_split": True,
+        "recommends_same_environment": True,
+    }

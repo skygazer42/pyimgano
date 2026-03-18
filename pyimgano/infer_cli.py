@@ -343,6 +343,23 @@ def _apply_defects_defaults_from_payload(
     infer_options_service.apply_defects_defaults(args, defects_payload)
 
 
+def _apply_prediction_defaults_from_payload(
+    args: argparse.Namespace,
+    prediction_payload: dict[str, Any],
+) -> None:
+    reject_confidence_below = prediction_payload.get("reject_confidence_below", None)
+    if args.reject_confidence_below is None and reject_confidence_below is not None:
+        args.reject_confidence_below = float(reject_confidence_below)
+
+    reject_label = prediction_payload.get("reject_label", None)
+    if (
+        reject_label is not None
+        and int(args.reject_label) == -2
+        and args.reject_confidence_below is not None
+    ):
+        args.reject_label = int(reject_label)
+
+
 def _apply_defects_preset_if_requested(args: argparse.Namespace) -> None:
     defects_payload = infer_options_service.resolve_defects_preset_payload(
         getattr(args, "defects_preset", None)
@@ -568,6 +585,26 @@ def _build_parser() -> argparse.ArgumentParser:
         "--include-maps",
         action="store_true",
         help="Request anomaly maps if detector supports them",
+    )
+    parser.add_argument(
+        "--include-confidence",
+        action="store_true",
+        help="Include best-effort predicted-label confidence in JSONL/stdout records when supported",
+    )
+    parser.add_argument(
+        "--reject-confidence-below",
+        type=float,
+        default=None,
+        help=(
+            "Optional confidence threshold in (0,1]. Samples below it are emitted with a reject label. "
+            "Requires detector confidence support."
+        ),
+    )
+    parser.add_argument(
+        "--reject-label",
+        type=int,
+        default=-2,
+        help="Label value used for low-confidence rejected samples (default: -2)",
     )
     parser.add_argument(
         "--tile-size",
@@ -1019,10 +1056,12 @@ def main(argv: list[str] | None = None) -> int:
         threshold_from_run = None
         infer_config_postprocess = None
         defects_payload: dict[str, Any] | None = None
+        prediction_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
         include_maps_by_default = False
         illumination_contrast_knobs = None
         tiling_payload: dict[str, Any] | None = None
+        postprocess_summary: dict[str, Any] | None = None
 
         t_load_start = time.perf_counter()
         if from_run:
@@ -1054,9 +1093,11 @@ def main(argv: list[str] | None = None) -> int:
             threshold_from_run = context.threshold
             model_name = str(context.model_name)
             defects_payload = context.defects_payload
+            prediction_payload = context.prediction_payload
             defects_payload_source = context.defects_payload_source
             illumination_contrast_knobs = context.illumination_contrast_knobs
             tiling_payload = context.tiling_payload
+            postprocess_summary = context.postprocess_summary
 
             user_kwargs = merge_checkpoint_path(
                 dict(context.base_user_kwargs),
@@ -1111,11 +1152,13 @@ def main(argv: list[str] | None = None) -> int:
             model_name = str(context.model_name)
             threshold_from_run = context.threshold
             defects_payload = context.defects_payload
+            prediction_payload = context.prediction_payload
             defects_payload_source = context.defects_payload_source
             illumination_contrast_knobs = context.illumination_contrast_knobs
             tiling_payload = context.tiling_payload
             infer_config_postprocess = context.infer_config_postprocess
             include_maps_by_default = bool(context.enable_maps_by_default)
+            postprocess_summary = context.postprocess_summary
 
             user_kwargs = merge_checkpoint_path(
                 dict(context.base_user_kwargs),
@@ -1186,6 +1229,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if defects_payload is not None:
             _apply_defects_defaults_from_payload(args, defects_payload)
+        if prediction_payload is not None:
+            _apply_prediction_defaults_from_payload(args, prediction_payload)
 
         if preprocessing_preset_knobs is not None:
             illumination_contrast_knobs = preprocessing_preset_knobs
@@ -1218,6 +1263,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         t_load_model = time.perf_counter() - t_load_start
+
+        if args.reject_confidence_below is None and int(args.reject_label) != -2:
+            raise ValueError("--reject-label requires --reject-confidence-below.")
 
         t_fit_start = time.perf_counter()
         train_paths: list[str] = []
@@ -1266,6 +1314,7 @@ def main(argv: list[str] | None = None) -> int:
                 include_maps_by_default=bool(include_maps_by_default),
                 postprocess_requested=bool(args.postprocess),
                 infer_config_postprocess=infer_config_postprocess,
+                postprocess_summary=postprocess_summary,
                 defects_enabled=bool(args.defects),
                 defects_payload=defects_payload,
                 defects_payload_source=defects_payload_source,
@@ -1305,6 +1354,13 @@ def main(argv: list[str] | None = None) -> int:
                 detector=detector,
                 inputs=inputs,
                 include_maps=bool(include_maps),
+                include_confidence=bool(args.include_confidence),
+                reject_confidence_below=(
+                    float(args.reject_confidence_below)
+                    if args.reject_confidence_below is not None
+                    else None
+                ),
+                reject_label=(int(args.reject_label) if args.reject_confidence_below is not None else None),
                 postprocess=postprocess,
                 batch_size=batch_size,
                 amp=bool(args.amp),
@@ -1426,6 +1482,17 @@ def main(argv: list[str] | None = None) -> int:
                         detector=detector,
                         inputs=list(inputs),
                         include_maps=bool(include_maps),
+                        include_confidence=bool(args.include_confidence),
+                        reject_confidence_below=(
+                            float(args.reject_confidence_below)
+                            if args.reject_confidence_below is not None
+                            else None
+                        ),
+                        reject_label=(
+                            int(args.reject_label)
+                            if args.reject_confidence_below is not None
+                            else None
+                        ),
                         postprocess=postprocess,
                         batch_size=batch_size,
                         amp=bool(args.amp),

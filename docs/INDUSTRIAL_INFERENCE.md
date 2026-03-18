@@ -206,8 +206,20 @@ Each JSONL line includes:
 
 - `score` (float)
 - `label` (0/1 if `threshold_` is available)
+- `label_confidence` (optional; only when `--include-confidence` is enabled and the detector supports confidence APIs)
+- `rejected` (optional; emitted when `--reject-confidence-below` is enabled)
+- `decision_summary` (stable triage metadata: `decision`, `threshold_applied`, `has_confidence`, `rejected`, `requires_review`)
 - `input` (path)
 - `anomaly_map.path` + `shape` + `dtype` (if map exported)
+
+`label_confidence` is the confidence of the predicted binary label on `[0, 1]`. It is
+not an anomaly probability, and unsupported detectors simply omit it.
+When `--reject-confidence-below` is enabled, low-confidence predictions are rewritten
+to the configured reject label (default `-2`) and the record carries `rejected=true`.
+When you run with `--infer-config` or `--from-run`, the exported `prediction` block can
+provide deploy defaults for this policy; explicit CLI flags still win.
+`decision_summary` gives downstream systems a stable triage view without having to
+re-derive business logic from `label`, `label_confidence`, and `rejected`.
 
 ### Production guardrails (recommended)
 
@@ -218,6 +230,10 @@ For long-running production batch runs (shift-long folders, nightly jobs, etc.),
 - `--max-errors N` — stop early after N errors (only with `--continue-on-error`).
 - `--flush-every N` — flush JSONL outputs every N records (stability vs performance).
 - `--profile-json PATH` — write a machine-friendly timing payload (useful for monitoring/alerting).
+
+If you integrate through the Python service layer, `run_continue_on_error_inference(...)`
+also returns a `triage_summary` payload with `ok`, `remaining`, `error_stages`,
+`fallback_used`, and `stop_reason` for batch monitoring and alert routing.
 
 ## 5) High-resolution tiling (2K/4K inspection images)
 
@@ -308,6 +324,10 @@ If the infer-config contains `defects.pixel_threshold`, you can omit `--pixel-th
 
 If the infer-config contains other `defects.*` settings (ROI, morphology, min-area, mask format, etc.),
 `pyimgano-infer` uses them as defaults when `--defects` is enabled (CLI flags override).
+
+If the infer-config contains `prediction.reject_confidence_below` and/or `prediction.reject_label`,
+`pyimgano-infer` uses them as the default rejection policy for image-level labels
+(again, CLI flags override).
 
 If the infer-config contains `preprocessing.illumination_contrast`, `pyimgano-infer` applies it automatically
 before scoring / anomaly-map extraction (for numpy-capable detectors). This helps keep deploy inference more

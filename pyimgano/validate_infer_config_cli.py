@@ -63,12 +63,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"warning: {w}", file=sys.stderr)
 
     if bool(args.json):
-        print(json.dumps(validation.payload, indent=2, sort_keys=True))
+        payload = dict(validation.payload)
+        payload["validation_trust"] = dict(validation.trust_summary)
+        print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
     model = validation.payload.get("model", {}) or {}
     model_name = model.get("name", None)
     category = validation.payload.get("category", None)
+    artifact_quality = validation.payload.get("artifact_quality", {}) or {}
+    trust_summary = dict(validation.trust_summary)
     ckpt = validation.resolved_checkpoint_path
     model_ckpt = validation.resolved_model_checkpoint_path
     msg = "ok"
@@ -76,9 +80,31 @@ def main(argv: list[str] | None = None) -> int:
         msg += f": model={model_name}"
     if category is not None:
         msg += f" category={category}"
+    if artifact_quality:
+        status = artifact_quality.get("status", None)
+        threshold_scope = artifact_quality.get("threshold_scope", None)
+        if status is not None:
+            msg += f" audit_status={status}"
+        if threshold_scope is not None:
+            msg += f" threshold_scope={threshold_scope}"
+        if "has_deploy_bundle" in artifact_quality:
+            msg += f" deploy_bundle={str(bool(artifact_quality['has_deploy_bundle'])).lower()}"
+        if "has_bundle_manifest" in artifact_quality:
+            msg += (
+                f" bundle_manifest={str(bool(artifact_quality['has_bundle_manifest'])).lower()}"
+            )
+    trust_status = trust_summary.get("status", None)
+    if trust_status is not None:
+        msg += f" trust_status={trust_status}"
     if ckpt is not None:
         msg += f" checkpoint={ckpt}"
     if model_ckpt is not None:
         msg += f" model_checkpoint={model_ckpt}"
     print(msg)
+    for item in trust_summary.get("degraded_by", []):
+        print(f"degraded_by={item}")
+    audit_refs = trust_summary.get("audit_refs", {})
+    if isinstance(audit_refs, dict):
+        for key, value in audit_refs.items():
+            print(f"audit_ref.{key}={value}")
     return 0

@@ -22,7 +22,16 @@ A model card makes these things explicit:
 
 ## Minimal model card template
 
-Copy this into your internal wiki or keep it next to your run artifacts:
+You can either copy the template below into your internal wiki, or emit a JSON
+starter file directly:
+
+```bash
+pyimgano-weights template model-card > ./model_card.json
+```
+
+There is also a checked-in example asset at `examples/configs/example_model_card.json`.
+
+Keep the model card next to your run artifacts or deploy bundle:
 
 ```markdown
 # <Model Name / Checkpoint ID>
@@ -34,6 +43,7 @@ Copy this into your internal wiki or keep it next to your run artifacts:
 
 ## Weights / Checkpoint
 - Path:
+- Manifest entry:
 - SHA256:
 - Source:
 - License:
@@ -65,4 +75,34 @@ If you manage multiple checkpoints, keep a local manifest JSON and validate it:
 
 - See: `docs/WEIGHTS.md`
 - CLI: `pyimgano-weights validate ./weights_manifest.json --check-hashes --json`
+- JSON template: `pyimgano-weights template manifest > ./weights_manifest.json`
+- Model card validation: `pyimgano-weights validate-model-card ./model_card.json --json`
 
+If you want the model card check to verify the referenced checkpoint asset too:
+
+```bash
+pyimgano-weights \
+  validate-model-card ./model_card.json \
+  --check-files \
+  --check-hashes \
+  --json
+```
+
+That mode resolves `weights.path` relative to the model card location by default
+and reports the resolved asset path in the JSON output.
+
+If you also keep a local weights manifest, you can cross-check the model card
+against it:
+
+```bash
+pyimgano-weights \
+  validate-model-card ./model_card.json \
+  --manifest ./weights_manifest.json \
+  --check-files \
+  --check-hashes \
+  --json
+```
+
+For the most stable linkage, add `weights.manifest_entry` to the model card so
+the validator can bind to a named manifest entry instead of inferring by path or
+sha256.

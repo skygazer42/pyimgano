@@ -1,0 +1,206 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420">
+  <defs>
+    <linearGradient id="abg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <linearGradient id="aBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#38bdf8"/>
+      <stop offset="100%" style="stop-color:#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="aPurple" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#818cf8"/>
+      <stop offset="100%" style="stop-color:#6366f1"/>
+    </linearGradient>
+    <linearGradient id="aPink" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f472b6"/>
+      <stop offset="100%" style="stop-color:#ec4899"/>
+    </linearGradient>
+    <linearGradient id="aGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#10b981"/>
+    </linearGradient>
+    <linearGradient id="aOrange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fb923c"/>
+      <stop offset="100%" style="stop-color:#f97316"/>
+    </linearGradient>
+    <filter id="aGlow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="#34d399"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="880" height="420" rx="12" fill="url(#abg)"/>
+
+  <!-- Title -->
+  <text x="440" y="32" text-anchor="middle" font-family="'Inter', system-ui, sans-serif" font-size="15" fill="#94a3b8" font-weight="600" letter-spacing="2">PYIMGANO ARCHITECTURE</text>
+
+  <!-- ====== Row 1: Input Layer ====== -->
+  <g transform="translate(40, 55)">
+    <rect width="800" height="60" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+    <text x="16" y="18" font-family="monospace" font-size="10" fill="#64748b" font-weight="600">INPUT LAYER</text>
+
+    <!-- Input boxes -->
+    <g transform="translate(16, 28)">
+      <rect width="110" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
+      <text x="55" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">=Á Image Paths</text>
+    </g>
+    <g transform="translate(140, 28)">
+      <rect width="130" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
+      <text x="65" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">=" NumPy Arrays</text>
+    </g>
+    <g transform="translate(284, 28)">
+      <rect width="130" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
+      <text x="65" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">=Ë JSONL Manifest</text>
+    </g>
+    <g transform="translate(428, 28)">
+      <rect width="120" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
+      <text x="60" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1"><¥ Video Frames</text>
+    </g>
+
+    <!-- ImageFormat label -->
+    <g transform="translate(600, 28)">
+      <rect width="180" height="24" rx="12" fill="#38bdf820" stroke="#38bdf8" stroke-width="0.8"/>
+      <text x="90" y="16" text-anchor="middle" font-family="monospace" font-size="10" fill="#38bdf8">ImageFormat (RGB/BGR/&)</text>
+    </g>
+  </g>
+
+  <!-- Arrow down -->
+  <line x1="440" y1="118" x2="440" y2="138" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+
+  <!-- ====== Row 2: Preprocessing ====== -->
+  <g transform="translate(40, 140)">
+    <rect width="380" height="60" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="0.8" opacity="0.8"/>
+    <text x="16" y="18" font-family="monospace" font-size="10" fill="#38bdf8" font-weight="600">PREPROCESSING</text>
+
+    <g transform="translate(16, 28)">
+      <rect width="80" height="22" rx="4" fill="#38bdf815"/>
+      <text x="40" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#7dd3fc">Resize</text>
+    </g>
+    <g transform="translate(104, 28)">
+      <rect width="80" height="22" rx="4" fill="#38bdf815"/>
+      <text x="40" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#7dd3fc">Normalize</text>
+    </g>
+    <g transform="translate(192, 28)">
+      <rect width="80" height="22" rx="4" fill="#38bdf815"/>
+      <text x="40" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#7dd3fc">Augment</text>
+    </g>
+    <g transform="translate(280, 28)">
+      <rect width="80" height="22" rx="4" fill="#38bdf815"/>
+      <text x="40" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#7dd3fc">Tiling</text>
+    </g>
+  </g>
+
+  <!-- Feature Extraction -->
+  <g transform="translate(440, 140)">
+    <rect width="400" height="60" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="0.8" opacity="0.8"/>
+    <text x="16" y="18" font-family="monospace" font-size="10" fill="#818cf8" font-weight="600">FEATURE EXTRACTION</text>
+
+    <g transform="translate(16, 28)">
+      <rect width="85" height="22" rx="4" fill="#818cf815"/>
+      <text x="42" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#a5b4fc">ResNet</text>
+    </g>
+    <g transform="translate(109, 28)">
+      <rect width="85" height="22" rx="4" fill="#818cf815"/>
+      <text x="42" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#a5b4fc">WideResNet</text>
+    </g>
+    <g transform="translate(202, 28)">
+      <rect width="85" height="22" rx="4" fill="#818cf815"/>
+      <text x="42" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#a5b4fc">DINOv2</text>
+    </g>
+    <g transform="translate(295, 28)">
+      <rect width="85" height="22" rx="4" fill="#818cf815"/>
+      <text x="42" y="15" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#a5b4fc">OpenCLIP</text>
+    </g>
+  </g>
+
+  <!-- Arrows down -->
+  <line x1="230" y1="203" x2="230" y2="223" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+  <line x1="640" y1="203" x2="640" y2="223" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+
+  <!-- ====== Row 3: Model Zoo ====== -->
+  <g transform="translate(40, 225)">
+    <rect width="800" height="85" rx="8" fill="#0f172a" stroke="#f472b6" stroke-width="0.8"/>
+    <text x="16" y="18" font-family="monospace" font-size="10" fill="#f472b6" font-weight="600">MODEL ZOO  120+ Detectors</text>
+
+    <!-- Classical -->
+    <g transform="translate(16, 30)">
+      <rect width="150" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
+      <text x="75" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Classical</text>
+      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">ECOD · KNN · IF · PCA · LOF</text>
+    </g>
+
+    <!-- Memory Bank -->
+    <g transform="translate(180, 30)">
+      <rect width="150" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
+      <text x="75" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Memory Bank</text>
+      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">PatchCore · SPADE · PaDiM</text>
+    </g>
+
+    <!-- Student-Teacher -->
+    <g transform="translate(344, 30)">
+      <rect width="150" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
+      <text x="75" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Student-Teacher</text>
+      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">STFPM · RD · EfficientAD</text>
+    </g>
+
+    <!-- Flow / Reconstruction -->
+    <g transform="translate(508, 30)">
+      <rect width="138" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
+      <text x="69" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Flow-based</text>
+      <text x="69" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">FastFlow · CFlow · CS</text>
+    </g>
+
+    <!-- VLM / Other -->
+    <g transform="translate(660, 30)">
+      <rect width="126" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
+      <text x="63" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">VLM / Other</text>
+      <text x="63" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">WinCLIP · DINO</text>
+    </g>
+  </g>
+
+  <!-- Arrow down -->
+  <line x1="440" y1="313" x2="440" y2="333" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- ====== Row 4: Output Layer ====== -->
+  <g transform="translate(40, 335)">
+    <rect width="800" height="65" rx="8" fill="#0f172a" stroke="#34d399" stroke-width="0.8"/>
+    <text x="16" y="18" font-family="monospace" font-size="10" fill="#34d399" font-weight="600">OUTPUT &amp; DEPLOYMENT</text>
+
+    <g transform="translate(16, 30)">
+      <rect width="120" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
+      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7"><¯ Anomaly Score</text>
+    </g>
+    <g transform="translate(148, 30)">
+      <rect width="120" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
+      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=ú Pixel Map</text>
+    </g>
+    <g transform="translate(280, 30)">
+      <rect width="120" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
+      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=2 Defect Regions</text>
+    </g>
+    <g transform="translate(412, 30)">
+      <rect width="100" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
+      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=Ä JSONL</text>
+    </g>
+    <g transform="translate(524, 30)">
+      <rect width="100" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
+      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=æ ONNX</text>
+    </g>
+    <g transform="translate(636, 30)">
+      <rect width="100" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
+      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">¡ OpenVINO</text>
+    </g>
+    <g transform="translate(748, 30)">
+      <rect width="80" height="26" rx="5" fill="#fb923c15" stroke="#fb923c40" stroke-width="0.5"/>
+      <text x="40" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#fdba74">=Ê Report</text>
+    </g>
+  </g>
+</svg>

@@ -141,6 +141,7 @@ def test_infer_cli_infer_config_delegates_context_loading(tmp_path: Path, monkey
             trained_checkpoint_path=None,
             threshold=0.5,
             defects_payload=None,
+            prediction_payload=None,
             defects_payload_source=None,
             illumination_contrast_knobs=None,
             tiling_payload=None,
@@ -203,6 +204,7 @@ def test_infer_cli_infer_config_delegates_detector_setup_to_service(
             trained_checkpoint_path=None,
             threshold=0.5,
             defects_payload=None,
+            prediction_payload=None,
             defects_payload_source=None,
             illumination_contrast_knobs=None,
             tiling_payload=None,
@@ -277,6 +279,7 @@ def test_infer_cli_infer_config_delegates_wrapper_setup_to_service(
             trained_checkpoint_path=None,
             threshold=0.5,
             defects_payload=None,
+            prediction_payload=None,
             defects_payload_source=None,
             illumination_contrast_knobs={"white_balance": "gray_world"},
             tiling_payload={
@@ -349,6 +352,17 @@ def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
         def decision_function(self, X):  # noqa: ANN001
             return np.asarray([0.1 for _ in X], dtype=np.float32)
 
+    postprocess_summary = {
+        "has_defects_payload": False,
+        "defects_payload_source": None,
+        "pixel_threshold_in_payload": False,
+        "pixel_threshold_strategy": None,
+        "has_prediction_policy": False,
+        "has_tiling": False,
+        "has_map_postprocess": True,
+        "maps_enabled_by_default": False,
+    }
+
     monkeypatch.setattr(
         infer_context_service,
         "prepare_infer_config_context",
@@ -363,11 +377,13 @@ def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
             trained_checkpoint_path=None,
             threshold=0.5,
             defects_payload=None,
+            prediction_payload=None,
             defects_payload_source=None,
             illumination_contrast_knobs=None,
             tiling_payload=None,
             infer_config_postprocess=None,
             enable_maps_by_default=False,
+            postprocess_summary=postprocess_summary,
             warnings=(),
         ),
     )
@@ -413,6 +429,7 @@ def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
     )
     assert rc == 0
     assert len(calls) == 1
+    assert calls[0].postprocess_summary == postprocess_summary
 
 
 def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypatch) -> None:
@@ -1313,6 +1330,89 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
 
     saved_masks = sorted(masks_dir.glob("*.npy"))
     assert len(saved_masks) == 1
+
+
+def test_infer_cli_infer_config_applies_prediction_defaults(tmp_path: Path, monkeypatch) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    ckpt_dir = run_dir / "checkpoints" / "custom"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_path = ckpt_dir / "model.pt"
+    ckpt_path.write_text("ckpt", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "adaptation": {"tiling": {}, "postprocess": None, "save_maps": False},
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+                "prediction": {
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _DummyDetector:
+        def __init__(self):
+            self.threshold_ = None
+            self.loaded = None
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            self.loaded = str(path)
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray([0.8, 0.9], dtype=np.float32)
+
+        def predict_confidence(self, X):  # noqa: ANN001
+            return np.asarray([0.6, 0.95], dtype=np.float32)
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert det.loaded == str(ckpt_path)
+
+    rows = [json.loads(line) for line in out_jsonl.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["label"] == -9
+    assert rows[0]["rejected"] is True
+    assert rows[0]["label_confidence"] == pytest.approx(0.6)
+    assert rows[1]["label"] == 1
+    assert rows[1]["rejected"] is False
+    assert rows[1]["label_confidence"] == pytest.approx(0.95)
 
 
 def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, monkeypatch) -> None:

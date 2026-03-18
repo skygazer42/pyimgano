@@ -779,5 +779,5 @@ Popular algorithms to consider:
 ## 📞 Support
 
 - **Documentation**: [docs/](.)
-- **Issues**: [GitHub Issues](https://github.com/jhlu2019/pyimgano/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jhlu2019/pyimgano/discussions)
+- **Issues**: [GitHub Issues](https://github.com/skygazer42/pyimgano/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/skygazer42/pyimgano/discussions)

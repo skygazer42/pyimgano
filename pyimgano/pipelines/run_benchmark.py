@@ -12,6 +12,7 @@ from pyimgano.evaluation import evaluate_detector
 from pyimgano.models.registry import create_model, materialize_model_constructor
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
+from pyimgano.reporting.split_fingerprint import build_split_fingerprint
 
 from .mvtec_visa import load_benchmark_split
 
@@ -415,6 +416,14 @@ def run_benchmark_category(
         threshold_provenance_payload.setdefault(
             "calibration_quantile_requested", float(config.calibration_quantile)
         )
+    split_fingerprint = build_split_fingerprint(
+        train_inputs=train_inputs,
+        calibration_inputs=[],
+        test_inputs=test_inputs,
+        test_labels=np.asarray(test_labels),
+        input_format=("rgb_u8_hwc" if str(config.input_mode) == "numpy" else None),
+        test_meta=test_meta,
+    )
 
     payload: dict[str, Any] = {
         "dataset": config.dataset,
@@ -429,6 +438,7 @@ def run_benchmark_category(
         "threshold_provenance": threshold_provenance_payload,
         "threshold": threshold_used,
         "calibrated_threshold": calibrated_threshold,
+        "split_fingerprint": split_fingerprint,
         "dataset_summary": dataset_summary,
         "results": results,
         "timing": dict(timing),

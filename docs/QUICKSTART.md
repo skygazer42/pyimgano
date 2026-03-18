@@ -191,6 +191,42 @@ References:
 - `docs/CLI_REFERENCE.md` (suite flags, sweep flags, artifacts)
 - `docs/EVALUATION_AND_BENCHMARK.md` (custom dataset details)
 - `docs/OPTIONAL_DEPENDENCIES.md` (extras map)
+- `docs/INDUSTRIAL_FASTPATH.md` (audited train/export/deploy flow)
+
+## Audited Workbench Fast-Path
+
+If you want the shortest production-oriented export flow, start from:
+
+```text
+examples/configs/industrial_adapt_audited.json
+```
+
+Then run:
+
+```bash
+pyimgano-train \
+  --config examples/configs/industrial_adapt_audited.json \
+  --export-infer-config \
+  --export-deploy-bundle
+```
+
+That path is intended to leave behind the audited artifact set:
+
+- `artifacts/infer_config.json`
+- `artifacts/calibration_card.json`
+- `deploy_bundle/bundle_manifest.json`
+
+See `docs/INDUSTRIAL_FASTPATH.md` for the compact checklist and verification loop.
+
+If you prefer to stay on the umbrella CLI instead of memorizing the dedicated
+entry points, the same operator loop is:
+
+```bash
+pyimgano --help
+pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
+pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
+pyimgano runs quality runs/<run_dir> --require-status audited --json
+```
 
 ## Recommended dataset inputs (paths-first)
 
@@ -913,7 +949,7 @@ print("Pixel-map:", list_models(tags=["pixel_map"])[:20])
 
 ### 2. Read Full Documentation
 
-- [API Reference](https://github.com/jhlu2019/pyimgano#api-reference)
+- [API Reference](https://skygazer42.github.io/pyimgano/)
 - [Algorithm Comparison](./COMPARISON.md)
 - [Anomalib Checkpoints](./ANOMALIB_CHECKPOINTS.md)
 - [PatchCore-Inspection Checkpoints](./PATCHCORE_INSPECTION_CHECKPOINTS.md)
@@ -936,9 +972,9 @@ See [Benchmark README](../benchmarks/README.md) for details.
 
 ### 5. Join the Community
 
-- 🐛 [Report Issues](https://github.com/jhlu2019/pyimgano/issues)
-- 💡 [Request Features](https://github.com/jhlu2019/pyimgano/issues/new)
-- ⭐ [Star on GitHub](https://github.com/jhlu2019/pyimgano)
+- 🐛 [Report Issues](https://github.com/skygazer42/pyimgano/issues)
+- 💡 [Request Features](https://github.com/skygazer42/pyimgano/issues/new)
+- ⭐ [Star on GitHub](https://github.com/skygazer42/pyimgano)
 
 ## FAQ
 
@@ -1006,7 +1042,7 @@ features = preprocess(gray)
 pip install pyimgano
 
 # Or install from source
-git clone https://github.com/jhlu2019/pyimgano
+git clone https://github.com/skygazer42/pyimgano
 cd pyimgano
 pip install -e .
 ```
@@ -1052,9 +1088,9 @@ detector = create_model("vision_iforest", contamination=0.1)  # Trains in second
 
 Need help? Here's how to get support:
 
-1. 📖 Check the [documentation](https://github.com/jhlu2019/pyimgano)
-2. 🔍 Search [existing issues](https://github.com/jhlu2019/pyimgano/issues)
-3. 💬 Ask a [new question](https://github.com/jhlu2019/pyimgano/issues/new)
-4. 📧 Contact: pyimgano@example.com
+1. 📖 Check the [documentation](https://skygazer42.github.io/pyimgano/)
+2. 🔍 Search [existing issues](https://github.com/skygazer42/pyimgano/issues)
+3. 💬 Ask in [GitHub Discussions](https://github.com/skygazer42/pyimgano/discussions)
+4. 📦 When reporting benchmark regressions, use the benchmark reproducibility issue template
 
 Happy anomaly detecting! 🎯

@@ -77,6 +77,10 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
             "save_run": True,
             "per_image_jsonl": False,
         },
+        "prediction": {
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
     }
     config_path = tmp_path / "cfg.json"
     config_path.write_text(json.dumps(cfg), encoding="utf-8")
@@ -90,11 +94,34 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
 
     assert payload["model"]["name"] == "test_export_infer_config_dummy_detector"
     assert "threshold" in payload
+    assert len(str(payload["split_fingerprint"]["sha256"])) == 64
     prov = payload["threshold_provenance"]
     assert prov["method"] == "quantile"
     assert prov["quantile"] == pytest.approx(0.9)
     assert prov["source"] == "contamination"
     assert prov["contamination"] == pytest.approx(0.1)
+    assert prov["score_summary"]["count"] >= 1
+    artifact_quality = payload["artifact_quality"]
+    assert artifact_quality["status"] == "audited"
+    assert artifact_quality["threshold_scope"] == "image"
+    assert artifact_quality["has_threshold_provenance"] is True
+    assert artifact_quality["has_split_fingerprint"] is True
+    assert artifact_quality["has_prediction_policy"] is True
+    assert artifact_quality["has_deploy_bundle"] is False
+    assert artifact_quality["has_bundle_manifest"] is False
+    assert artifact_quality["deploy_refs"] == {}
+    assert artifact_quality["audit_refs"]["calibration_card"] == "artifacts/calibration_card.json"
+
+    calibration_card_path = out_dir / "artifacts" / "calibration_card.json"
+    assert calibration_card_path.exists()
+    calibration_card = json.loads(calibration_card_path.read_text(encoding="utf-8"))
+    assert calibration_card["threshold_context"]["scope"] == "image"
+    assert calibration_card["threshold_context"]["category_count"] == 1
+    assert calibration_card["prediction_policy"]["reject_confidence_below"] == pytest.approx(0.75)
+    assert calibration_card["prediction_policy"]["reject_label"] == -9
+    assert calibration_card["image_threshold"]["threshold"] == pytest.approx(payload["threshold"])
+    assert calibration_card["image_threshold"]["provenance"]["source"] == "contamination"
+    assert calibration_card["image_threshold"]["score_distribution"]["count"] == prov["score_summary"]["count"]
 
     defects = payload["defects"]
     assert defects["enabled"] is False
@@ -108,6 +135,10 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert defects["close_ksize"] == 0
     assert defects["fill_holes"] is False
     assert defects["max_regions"] is None
+
+    prediction = payload["prediction"]
+    assert prediction["reject_confidence_below"] == pytest.approx(0.75)
+    assert prediction["reject_label"] == -9
 
 
 def test_train_cli_export_infer_config_delegates_to_workbench_service(tmp_path, monkeypatch):
@@ -296,6 +327,11 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     bundle_dir = out_dir / "deploy_bundle"
     assert bundle_dir.exists()
     assert (bundle_dir / "infer_config.json").exists()
+    bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
+    assert bundle_payload["artifact_quality"]["audit_refs"]["calibration_card"] == "calibration_card.json"
+    assert bundle_payload["artifact_quality"]["has_deploy_bundle"] is True
+    assert bundle_payload["artifact_quality"]["has_bundle_manifest"] is True
+    assert bundle_payload["artifact_quality"]["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
 
     copied_ckpt = bundle_dir / "checkpoints" / "custom" / "model.pt"
     assert copied_ckpt.exists()
@@ -490,6 +526,60 @@ def test_train_cli_export_deploy_bundle_stamps_infer_config_schema_version(tmp_p
 
     payload = json.loads((out_dir / "deploy_bundle" / "infer_config.json").read_text(encoding="utf-8"))
     assert payload["schema_version"] == 1
+
+
+def test_train_cli_export_deploy_bundle_writes_bundle_manifest(tmp_path):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        ckpt = run_dir / "checkpoints" / "custom" / "model.pt"
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_text("ckpt", encoding="utf-8")
+        return {
+            "run_dir": str(run_dir),
+            "dataset": str(cfg.dataset.name),
+            "category": str(cfg.dataset.category),
+            "model": str(cfg.model.name),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed", "source": "test"},
+            "checkpoint": {"path": "checkpoints/custom/model.pt"},
+        }
+
+    RECIPE_REGISTRY.register(
+        "test_export_deploy_bundle_manifest_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_export_deploy_bundle_manifest_recipe",
+        "dataset": {"name": "custom", "root": str(root), "category": "custom", "resize": [16, 16]},
+        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "output": {"output_dir": str(out_dir), "save_run": True, "per_image_jsonl": False},
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+
+    bundle_manifest = json.loads(
+        (out_dir / "deploy_bundle" / "bundle_manifest.json").read_text(encoding="utf-8")
+    )
+    assert bundle_manifest["schema_version"] == 1
+    assert bundle_manifest["source_run"]["run_dir"] == str(out_dir)
+    assert bundle_manifest["required_source_artifacts_present"] is False
+    assert bundle_manifest["required_bundle_artifacts_present"] is False
+    assert bundle_manifest["artifact_roles"]["infer_config"] == ["infer_config.json"]
+    paths = {entry["path"] for entry in bundle_manifest["entries"]}
+    assert "infer_config.json" in paths
 
 
 def test_validate_cli_accepts_legacy_deploy_bundle_without_schema_version(tmp_path, capsys):

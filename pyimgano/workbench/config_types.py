@@ -53,6 +53,49 @@ class TrainingConfig:
     enabled: bool = False
     epochs: int | None = None
     lr: float | None = None
+    validation_fraction: float | None = None
+    early_stopping_patience: int | None = None
+    early_stopping_min_delta: float | None = None
+    max_steps: int | None = None
+    max_train_samples: int | None = None
+    batch_size: int | None = None
+    num_workers: int | None = None
+    weight_decay: float | None = None
+    optimizer_name: str | None = None
+    optimizer_momentum: float | None = None
+    optimizer_nesterov: bool | None = None
+    optimizer_dampening: float | None = None
+    adam_beta1: float | None = None
+    adam_beta2: float | None = None
+    adam_amsgrad: bool | None = None
+    optimizer_eps: float | None = None
+    rmsprop_alpha: float | None = None
+    rmsprop_centered: bool | None = None
+    scheduler_name: str | None = None
+    scheduler_milestones: tuple[int, ...] | None = None
+    scheduler_step_size: int | None = None
+    scheduler_gamma: float | None = None
+    scheduler_t_max: int | None = None
+    scheduler_eta_min: float | None = None
+    scheduler_patience: int | None = None
+    scheduler_factor: float | None = None
+    scheduler_min_lr: float | None = None
+    scheduler_cooldown: int | None = None
+    scheduler_threshold: float | None = None
+    scheduler_threshold_mode: str | None = None
+    scheduler_eps: float | None = None
+    criterion_name: str | None = None
+    shuffle_train: bool | None = None
+    drop_last: bool | None = None
+    pin_memory: bool | None = None
+    persistent_workers: bool | None = None
+    validation_split_seed: int | None = None
+    warmup_epochs: int | None = None
+    warmup_start_factor: float | None = None
+    ema_enabled: bool | None = None
+    ema_decay: float | None = None
+    ema_start_epoch: int | None = None
+    resume_from_checkpoint: str | None = None
     checkpoint_name: str = "model.pt"
 
 
@@ -107,6 +150,12 @@ class DefectsConfig:
 
 
 @dataclass(frozen=True)
+class PredictionConfig:
+    reject_confidence_below: float | None = None
+    reject_label: int | None = None
+
+
+@dataclass(frozen=True)
 class PreprocessingConfig:
     """Optional preprocessing configuration for industrial runs."""
 
@@ -124,6 +173,7 @@ class WorkbenchConfig:
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     defects: DefectsConfig = field(default_factory=DefectsConfig)
+    prediction: PredictionConfig = field(default_factory=PredictionConfig)
 
 
 __all__ = [
@@ -137,6 +187,7 @@ __all__ = [
     "ShapeFiltersConfig",
     "MergeNearbyConfig",
     "DefectsConfig",
+    "PredictionConfig",
     "PreprocessingConfig",
     "WorkbenchConfig",
 ]

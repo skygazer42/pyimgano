@@ -13,6 +13,7 @@ class InferRuntimePlanRequest:
     include_maps_by_default: bool = False
     postprocess_requested: bool = False
     infer_config_postprocess: dict[str, Any] | None = None
+    postprocess_summary: dict[str, Any] | None = None
     defects_enabled: bool = False
     defects_payload: dict[str, Any] | None = None
     defects_payload_source: str | None = None
@@ -31,6 +32,7 @@ class InferRuntimePlanResult:
     postprocess: Any | None
     pixel_threshold_value: float | None
     pixel_threshold_provenance: dict[str, Any] | None
+    postprocess_summary: dict[str, Any] | None = None
 
 
 def _resolve_include_maps(request: InferRuntimePlanRequest) -> bool:
@@ -159,6 +161,9 @@ def prepare_infer_runtime_plan(
     return InferRuntimePlanResult(
         include_maps=bool(include_maps),
         postprocess=postprocess,
+        postprocess_summary=(
+            dict(request.postprocess_summary) if request.postprocess_summary is not None else None
+        ),
         pixel_threshold_value=(
             float(pixel_threshold_value) if pixel_threshold_value is not None else None
         ),

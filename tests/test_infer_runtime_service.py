@@ -187,3 +187,31 @@ def test_prepare_infer_runtime_plan_requires_threshold_when_defects_enabled_with
                 amp=False,
             )
         )
+
+
+def test_prepare_infer_runtime_plan_preserves_postprocess_summary() -> None:
+    summary = {
+        "has_defects_payload": True,
+        "defects_payload_source": "infer_config",
+        "pixel_threshold_in_payload": True,
+        "pixel_threshold_strategy": "normal_pixel_quantile",
+        "has_prediction_policy": False,
+        "has_tiling": False,
+        "has_map_postprocess": True,
+        "maps_enabled_by_default": True,
+    }
+
+    result = prepare_infer_runtime_plan(
+        InferRuntimePlanRequest(
+            detector=object(),
+            include_maps_requested=False,
+            include_maps_by_default=True,
+            postprocess_requested=False,
+            infer_config_postprocess=None,
+            postprocess_summary=summary,
+            defects_enabled=False,
+        )
+    )
+
+    assert result.postprocess_summary == summary
+    assert result.postprocess_summary is not summary

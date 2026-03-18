@@ -193,6 +193,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show sweep profile contents for a sweep name and exit",
     )
     parser.add_argument(
+        "--list-official-configs",
+        action="store_true",
+        help="List official reproducibility-oriented benchmark config presets and exit",
+    )
+    parser.add_argument(
+        "--official-config-info",
+        default=None,
+        help="Show metadata for an official benchmark config name/path and exit",
+    )
+    parser.add_argument(
         "--model-info",
         default=None,
         help="Show tags/metadata/signature/accepted kwargs for a model name and exit",
@@ -207,7 +217,8 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "When used with discovery flags (--list-models/--model-info/--list-suites/--suite-info/"
-            "--list-sweeps/--sweep-info/--list-feature-extractors/--feature-info/--list-categories), "
+            "--list-sweeps/--sweep-info/--list-official-configs/--official-config-info/"
+            "--list-feature-extractors/--feature-info/--list-categories), "
             "output JSON instead of text"
         ),
     )
@@ -590,26 +601,9 @@ def _extract_config_spec(argv: list[str]) -> tuple[str | None, list[str]]:
 
 
 def _load_config_spec(spec: str) -> Any:
-    text = str(spec).strip()
-    if not text:
-        raise ValueError("--config must not be empty")
+    from pyimgano.reporting.benchmark_config import load_benchmark_config_spec
 
-    if text.startswith("@"):
-        text = text[1:].strip()
-
-    if text.startswith("{") or text.startswith("["):
-        try:
-            return json.loads(text)
-        except Exception as exc:  # noqa: BLE001
-            raise ValueError("Failed to parse inline --config JSON") from exc
-
-    path = Path(text)
-    if not path.exists():
-        raise FileNotFoundError(f"Benchmark config not found: {path}")
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Failed to parse benchmark config JSON: {path}") from exc
+    return load_benchmark_config_spec(spec)
 
 
 def _primary_option_string(action: argparse.Action) -> str | None:
@@ -722,10 +716,14 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     config_spec, cleaned_argv = _extract_config_spec(raw_argv)
 
+    config_meta = None
     if config_spec is not None:
         cfg_obj = _load_config_spec(str(config_spec))
         cfg_argv = _argv_from_config_obj(parser, cfg_obj)
         args = parser.parse_args(cfg_argv + cleaned_argv)
+        from pyimgano.reporting.benchmark_config import describe_benchmark_config
+
+        config_meta = describe_benchmark_config(str(config_spec))
     else:
         args = parser.parse_args(cleaned_argv)
 
@@ -757,6 +755,8 @@ def main(argv: list[str] | None = None) -> int:
                 ("--suite-info", args.suite_info is not None),
                 ("--list-sweeps", bool(args.list_sweeps)),
                 ("--sweep-info", args.sweep_info is not None),
+                ("--list-official-configs", bool(args.list_official_configs)),
+                ("--official-config-info", args.official_config_info is not None),
                 ("--list-feature-extractors", bool(args.list_feature_extractors)),
                 ("--feature-info", args.feature_info is not None),
             ]
@@ -833,6 +833,40 @@ def main(argv: list[str] | None = None) -> int:
                 json_output=bool(args.json),
                 sort_keys=False,
             )
+
+        if bool(args.list_official_configs):
+            from pyimgano.reporting.benchmark_config import list_official_benchmark_configs
+
+            payload = list_official_benchmark_configs()
+            if bool(args.json):
+                return cli_output.emit_jsonable(payload)
+            return cli_listing.emit_listing(
+                [str(item["name"]) for item in payload],
+                json_output=False,
+                sort_keys=False,
+            )
+
+        if args.official_config_info is not None:
+            from pyimgano.reporting.benchmark_config import describe_benchmark_config
+
+            payload = describe_benchmark_config(str(args.official_config_info))
+            if bool(args.json):
+                return cli_output.emit_jsonable(payload)
+
+            print(f"Name: {payload['name']}")
+            print(f"Source: {payload['source']}")
+            print(f"Kind: {payload['kind']}")
+            print(f"Official: {'yes' if payload['official'] else 'no'}")
+            print(f"Dataset: {payload['dataset'] if payload['dataset'] is not None else '<none>'}")
+            print(f"Suite: {payload['suite'] if payload['suite'] is not None else '<none>'}")
+            print(f"SHA256: {payload['sha256']}")
+            print("Errors:")
+            if payload["errors"]:
+                for item in payload["errors"]:
+                    print(f"  - {item}")
+            else:
+                print("  <none>")
+            return 0
 
         if args.suite_info is not None:
             payload = discovery_service.build_suite_info_payload(str(args.suite_info))
@@ -1014,6 +1048,25 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
 
+            if config_meta is not None:
+                payload = dict(payload)
+                payload["benchmark_config"] = dict(config_meta)
+                run_dir = payload.get("run_dir")
+                if isinstance(run_dir, str) and run_dir:
+                    env_path = Path(run_dir) / "environment.json"
+                    if env_path.exists():
+                        try:
+                            env_payload = json.loads(env_path.read_text(encoding="utf-8"))
+                            if isinstance(env_payload, dict):
+                                payload["environment_fingerprint_sha256"] = env_payload.get(
+                                    "fingerprint_sha256"
+                                )
+                        except Exception:
+                            pass
+                    from pyimgano.reporting.report import save_run_report
+
+                    save_run_report(Path(run_dir) / "report.json", payload)
+
             if args.suite_export is not None:
                 run_dir = payload.get("run_dir")
                 if not isinstance(run_dir, str) or not run_dir:
@@ -1083,6 +1136,25 @@ def main(argv: list[str] | None = None) -> int:
                 default_knn_backend=_default_knn_backend,
             )
         )
+
+        if config_meta is not None:
+            payload = dict(payload)
+            payload["benchmark_config"] = dict(config_meta)
+            run_dir = payload.get("run_dir")
+            if isinstance(run_dir, str) and run_dir:
+                env_path = Path(run_dir) / "environment.json"
+                if env_path.exists():
+                    try:
+                        env_payload = json.loads(env_path.read_text(encoding="utf-8"))
+                        if isinstance(env_payload, dict):
+                            payload["environment_fingerprint_sha256"] = env_payload.get(
+                                "fingerprint_sha256"
+                            )
+                    except Exception:
+                        pass
+                from pyimgano.reporting.report import save_run_report
+
+                save_run_report(Path(run_dir) / "report.json", payload)
 
         if args.output:
             from pyimgano.reporting.report import save_run_report

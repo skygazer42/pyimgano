@@ -13,6 +13,7 @@ from pyimgano.workbench.config_section_parsers import (
     _parse_defects_config,
     _parse_model_config,
     _parse_output_config,
+    _parse_prediction_config,
     _parse_preprocessing_config,
     _parse_training_config,
 )
@@ -35,7 +36,48 @@ def test_workbench_config_parser_builds_compatible_workbench_config() -> None:
             "device": "cpu",
             "contamination": 0.2,
         },
-        "training": {"enabled": True, "epochs": 2, "lr": 0.001},
+        "training": {
+            "enabled": True,
+            "epochs": 2,
+            "lr": 0.001,
+            "validation_fraction": 0.2,
+            "early_stopping_patience": 3,
+            "early_stopping_min_delta": 0.01,
+            "max_steps": 9,
+            "max_train_samples": 21,
+            "batch_size": 8,
+            "num_workers": 2,
+            "weight_decay": 0.0005,
+            "optimizer_name": "adamw",
+            "optimizer_momentum": 0.8,
+            "optimizer_nesterov": True,
+            "optimizer_dampening": 0.0,
+            "adam_beta1": 0.82,
+            "adam_beta2": 0.96,
+            "adam_amsgrad": True,
+            "optimizer_eps": 1e-6,
+            "rmsprop_alpha": 0.95,
+            "rmsprop_centered": False,
+            "scheduler_name": "plateau",
+            "scheduler_patience": 2,
+            "scheduler_factor": 0.5,
+            "scheduler_min_lr": 1e-5,
+            "scheduler_cooldown": 1,
+            "scheduler_threshold": 5e-4,
+            "scheduler_threshold_mode": "abs",
+            "scheduler_eps": 1e-7,
+            "scheduler_step_size": 2,
+            "scheduler_gamma": 0.5,
+            "criterion_name": "mae",
+            "shuffle_train": False,
+            "drop_last": True,
+            "pin_memory": True,
+            "persistent_workers": False,
+            "validation_split_seed": 17,
+            "warmup_epochs": 3,
+            "warmup_start_factor": 0.25,
+            "resume_from_checkpoint": "/tmp/bootstrap/model.pt",
+        },
     }
 
     cfg = build_workbench_config_from_dict(raw)
@@ -48,6 +90,47 @@ def test_workbench_config_parser_builds_compatible_workbench_config() -> None:
     assert cfg.training.enabled is True
     assert cfg.training.epochs == 2
     assert cfg.training.lr == pytest.approx(0.001)
+    assert cfg.training.validation_fraction == pytest.approx(0.2)
+    assert cfg.training.early_stopping_patience == 3
+    assert cfg.training.early_stopping_min_delta == pytest.approx(0.01)
+    assert cfg.training.max_steps == 9
+    assert cfg.training.max_train_samples == 21
+    assert cfg.training.batch_size == 8
+    assert cfg.training.num_workers == 2
+    assert cfg.training.weight_decay == pytest.approx(0.0005)
+    assert cfg.training.optimizer_name == "adamw"
+    assert cfg.training.optimizer_momentum == pytest.approx(0.8)
+    assert cfg.training.optimizer_nesterov is True
+    assert cfg.training.optimizer_dampening == pytest.approx(0.0)
+    assert cfg.training.adam_beta1 == pytest.approx(0.82)
+    assert cfg.training.adam_beta2 == pytest.approx(0.96)
+    assert cfg.training.adam_amsgrad is True
+    assert cfg.training.optimizer_eps == pytest.approx(1e-6)
+    assert cfg.training.rmsprop_alpha == pytest.approx(0.95)
+    assert cfg.training.rmsprop_centered is False
+    assert cfg.training.scheduler_name == "plateau"
+    assert cfg.training.scheduler_step_size == 2
+    assert cfg.training.scheduler_gamma == pytest.approx(0.5)
+    assert cfg.training.scheduler_t_max is None
+    assert cfg.training.scheduler_eta_min is None
+    assert cfg.training.scheduler_patience == 2
+    assert cfg.training.scheduler_factor == pytest.approx(0.5)
+    assert cfg.training.scheduler_min_lr == pytest.approx(1e-5)
+    assert cfg.training.scheduler_cooldown == 1
+    assert cfg.training.scheduler_threshold == pytest.approx(5e-4)
+    assert cfg.training.scheduler_threshold_mode == "abs"
+    assert cfg.training.scheduler_eps == pytest.approx(1e-7)
+    assert cfg.training.criterion_name == "mae"
+    assert cfg.training.shuffle_train is False
+    assert cfg.training.drop_last is True
+    assert cfg.training.pin_memory is True
+    assert cfg.training.persistent_workers is False
+    assert cfg.training.validation_split_seed == 17
+    assert cfg.training.warmup_epochs == 3
+    assert cfg.training.warmup_start_factor == pytest.approx(0.25)
+    assert cfg.training.resume_from_checkpoint == "/tmp/bootstrap/model.pt"
+    assert cfg.prediction.reject_confidence_below is None
+    assert cfg.prediction.reject_label is None
 
 
 def test_workbench_config_parser_preserves_validation_messages() -> None:
@@ -77,7 +160,48 @@ def test_config_section_parsers_build_compatible_sections() -> None:
             "manifest_path": "/tmp/manifest.jsonl",
             "resize": [32, 64],
         },
-        "training": {"enabled": True, "epochs": "2", "lr": "0.001"},
+        "training": {
+            "enabled": True,
+            "epochs": "2",
+            "lr": "0.001",
+            "validation_fraction": "0.25",
+            "early_stopping_patience": "4",
+            "early_stopping_min_delta": "0.005",
+            "max_steps": "11",
+            "max_train_samples": "31",
+            "batch_size": "6",
+            "num_workers": "1",
+            "weight_decay": "0.0003",
+            "optimizer_name": "sgd",
+            "optimizer_momentum": "0.7",
+            "optimizer_nesterov": "true",
+            "optimizer_dampening": "0.0",
+            "adam_beta1": "0.75",
+            "adam_beta2": "0.98",
+            "adam_amsgrad": "false",
+            "optimizer_eps": "0.00001",
+            "rmsprop_alpha": "0.96",
+            "rmsprop_centered": "true",
+            "scheduler_name": "plateau",
+            "scheduler_patience": "3",
+            "scheduler_factor": "0.4",
+            "scheduler_min_lr": "0.0001",
+            "scheduler_cooldown": "2",
+            "scheduler_threshold": "0.002",
+            "scheduler_threshold_mode": "rel",
+            "scheduler_eps": "0.0000002",
+            "scheduler_step_size": "3",
+            "scheduler_gamma": "0.8",
+            "criterion_name": "bce",
+            "shuffle_train": "false",
+            "drop_last": "true",
+            "pin_memory": "true",
+            "persistent_workers": "true",
+            "validation_split_seed": "9",
+            "warmup_epochs": "2",
+            "warmup_start_factor": "0.5",
+            "resume_from_checkpoint": "/tmp/start.pt",
+        },
     }
 
     dataset = _parse_dataset_config(top, seed=5)
@@ -89,6 +213,83 @@ def test_config_section_parsers_build_compatible_sections() -> None:
     assert training.enabled is True
     assert training.epochs == 2
     assert training.lr == pytest.approx(0.001)
+    assert training.validation_fraction == pytest.approx(0.25)
+    assert training.early_stopping_patience == 4
+    assert training.early_stopping_min_delta == pytest.approx(0.005)
+    assert training.max_steps == 11
+    assert training.max_train_samples == 31
+    assert training.batch_size == 6
+    assert training.num_workers == 1
+    assert training.weight_decay == pytest.approx(0.0003)
+    assert training.optimizer_name == "sgd"
+    assert training.optimizer_momentum == pytest.approx(0.7)
+    assert training.optimizer_nesterov is True
+    assert training.optimizer_dampening == pytest.approx(0.0)
+    assert training.adam_beta1 == pytest.approx(0.75)
+    assert training.adam_beta2 == pytest.approx(0.98)
+    assert training.adam_amsgrad is False
+    assert training.optimizer_eps == pytest.approx(0.00001)
+    assert training.rmsprop_alpha == pytest.approx(0.96)
+    assert training.rmsprop_centered is True
+    assert training.scheduler_name == "plateau"
+    assert training.scheduler_step_size == 3
+    assert training.scheduler_gamma == pytest.approx(0.8)
+    assert training.scheduler_patience == 3
+    assert training.scheduler_factor == pytest.approx(0.4)
+    assert training.scheduler_min_lr == pytest.approx(0.0001)
+    assert training.scheduler_cooldown == 2
+    assert training.scheduler_threshold == pytest.approx(0.002)
+    assert training.scheduler_threshold_mode == "rel"
+    assert training.scheduler_eps == pytest.approx(0.0000002)
+    assert training.criterion_name == "bce"
+    assert training.shuffle_train is False
+    assert training.drop_last is True
+    assert training.pin_memory is True
+    assert training.persistent_workers is True
+    assert training.validation_split_seed == 9
+    assert training.warmup_epochs == 2
+    assert training.warmup_start_factor == pytest.approx(0.5)
+    assert training.resume_from_checkpoint == "/tmp/start.pt"
+
+
+def test_workbench_config_parser_builds_multistep_scheduler_config() -> None:
+    raw = {
+        "dataset": {"name": "custom", "root": "/tmp/data"},
+        "model": {"name": "vision_patchcore"},
+        "training": {
+            "enabled": True,
+            "scheduler_name": "multistep",
+            "scheduler_milestones": [2, "4", 7],
+            "scheduler_gamma": 0.3,
+        },
+    }
+
+    cfg = build_workbench_config_from_dict(raw)
+
+    assert cfg.training.enabled is True
+    assert cfg.training.scheduler_name == "multistep"
+    assert cfg.training.scheduler_milestones == (2, 4, 7)
+    assert cfg.training.scheduler_gamma == pytest.approx(0.3)
+
+
+def test_workbench_config_parser_builds_ema_training_config() -> None:
+    raw = {
+        "dataset": {"name": "custom", "root": "/tmp/data"},
+        "model": {"name": "vision_patchcore"},
+        "training": {
+            "enabled": True,
+            "ema_enabled": True,
+            "ema_decay": 0.998,
+            "ema_start_epoch": 3,
+        },
+    }
+
+    cfg = build_workbench_config_from_dict(raw)
+
+    assert cfg.training.enabled is True
+    assert cfg.training.ema_enabled is True
+    assert cfg.training.ema_decay == pytest.approx(0.998)
+    assert cfg.training.ema_start_epoch == 3
 
 
 def test_config_training_section_parser_builds_compatible_section() -> None:
@@ -102,6 +303,43 @@ def test_config_training_section_parser_builds_compatible_section() -> None:
             "enabled": True,
             "epochs": "3",
             "lr": "0.002",
+            "validation_fraction": "0.2",
+            "early_stopping_patience": "2",
+            "early_stopping_min_delta": "0.01",
+            "max_steps": "7",
+            "max_train_samples": "15",
+            "batch_size": "4",
+            "num_workers": "3",
+            "weight_decay": "0.0001",
+            "optimizer_name": "rmsprop",
+            "optimizer_momentum": "0.4",
+            "optimizer_nesterov": "false",
+            "optimizer_dampening": "0.0",
+            "adam_beta1": "0.84",
+            "adam_beta2": "0.99",
+            "adam_amsgrad": "true",
+            "optimizer_eps": "0.000001",
+            "rmsprop_alpha": "0.91",
+            "rmsprop_centered": "true",
+            "scheduler_name": "plateau",
+            "scheduler_patience": "1",
+            "scheduler_factor": "0.6",
+            "scheduler_min_lr": "0.00002",
+            "scheduler_cooldown": "3",
+            "scheduler_threshold": "0.0015",
+            "scheduler_threshold_mode": "abs",
+            "scheduler_eps": "0.0000003",
+            "scheduler_t_max": "7",
+            "scheduler_eta_min": "0.00001",
+            "criterion_name": "l1",
+            "shuffle_train": "true",
+            "drop_last": "false",
+            "pin_memory": "false",
+            "persistent_workers": "true",
+            "validation_split_seed": "23",
+            "warmup_epochs": "4",
+            "warmup_start_factor": "0.1",
+            "resume_from_checkpoint": " ./checkpoints/latest.pt ",
             "checkpoint_name": "weights.pt",
         }
     }
@@ -111,6 +349,45 @@ def test_config_training_section_parser_builds_compatible_section() -> None:
     assert training.enabled is True
     assert training.epochs == 3
     assert training.lr == pytest.approx(0.002)
+    assert training.validation_fraction == pytest.approx(0.2)
+    assert training.early_stopping_patience == 2
+    assert training.early_stopping_min_delta == pytest.approx(0.01)
+    assert training.max_steps == 7
+    assert training.max_train_samples == 15
+    assert training.batch_size == 4
+    assert training.num_workers == 3
+    assert training.weight_decay == pytest.approx(0.0001)
+    assert training.optimizer_name == "rmsprop"
+    assert training.optimizer_momentum == pytest.approx(0.4)
+    assert training.optimizer_nesterov is False
+    assert training.optimizer_dampening == pytest.approx(0.0)
+    assert training.adam_beta1 == pytest.approx(0.84)
+    assert training.adam_beta2 == pytest.approx(0.99)
+    assert training.adam_amsgrad is True
+    assert training.optimizer_eps == pytest.approx(0.000001)
+    assert training.rmsprop_alpha == pytest.approx(0.91)
+    assert training.rmsprop_centered is True
+    assert training.scheduler_name == "plateau"
+    assert training.scheduler_step_size is None
+    assert training.scheduler_gamma is None
+    assert training.scheduler_t_max == 7
+    assert training.scheduler_eta_min == pytest.approx(0.00001)
+    assert training.scheduler_patience == 1
+    assert training.scheduler_factor == pytest.approx(0.6)
+    assert training.scheduler_min_lr == pytest.approx(0.00002)
+    assert training.scheduler_cooldown == 3
+    assert training.scheduler_threshold == pytest.approx(0.0015)
+    assert training.scheduler_threshold_mode == "abs"
+    assert training.scheduler_eps == pytest.approx(0.0000003)
+    assert training.criterion_name == "l1"
+    assert training.shuffle_train is True
+    assert training.drop_last is False
+    assert training.pin_memory is False
+    assert training.persistent_workers is True
+    assert training.validation_split_seed == 23
+    assert training.warmup_epochs == 4
+    assert training.warmup_start_factor == pytest.approx(0.1)
+    assert training.resume_from_checkpoint == "./checkpoints/latest.pt"
     assert training.checkpoint_name == "weights.pt"
 
 
@@ -224,6 +501,27 @@ def test_config_model_output_section_parser_builds_compatible_sections() -> None
     assert output.per_image_jsonl is False
 
 
+def test_config_prediction_section_parser_builds_compatible_section() -> None:
+    try:
+        helper_module = importlib.import_module(
+            "pyimgano.workbench.config_prediction_section_parser"
+        )
+    except ModuleNotFoundError as exc:
+        pytest.fail(f"missing config prediction section helper: {exc}")
+
+    top = {
+        "prediction": {
+            "reject_confidence_below": "0.75",
+            "reject_label": "-9",
+        }
+    }
+
+    prediction = helper_module._parse_prediction_config(top)
+
+    assert prediction.reject_confidence_below == pytest.approx(0.75)
+    assert prediction.reject_label == -9
+
+
 def test_config_section_parsers_build_compatible_model_output_sections() -> None:
     top = {
         "model": {
@@ -246,6 +544,20 @@ def test_config_section_parsers_build_compatible_model_output_sections() -> None
     assert output.output_dir == "/tmp/results"
     assert output.save_run is True
     assert output.per_image_jsonl is False
+
+
+def test_config_section_parsers_build_compatible_prediction_section() -> None:
+    top = {
+        "prediction": {
+            "reject_confidence_below": "0.75",
+            "reject_label": "-9",
+        }
+    }
+
+    prediction = _parse_prediction_config(top)
+
+    assert prediction.reject_confidence_below == pytest.approx(0.75)
+    assert prediction.reject_label == -9
 
 
 def test_config_section_parsers_build_compatible_adaptation_section() -> None:

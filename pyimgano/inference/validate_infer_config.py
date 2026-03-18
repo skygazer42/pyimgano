@@ -19,6 +19,8 @@ _ALLOWED_MAP_SMOOTHING_METHODS = {"none", "median", "gaussian", "box"}
 _ALLOWED_TILING_SCORE_REDUCE = {"max", "mean", "topk_mean"}
 _ALLOWED_TILING_MAP_REDUCE = {"max", "mean", "hann", "gaussian"}
 _ALLOWED_WHITE_BALANCE = {"none", "gray_world", "max_rgb"}
+_ALLOWED_ARTIFACT_QUALITY_STATUS = {"reproducible", "audited", "deployable"}
+_ALLOWED_ARTIFACT_QUALITY_SCOPE = {"image", "per_category"}
 
 
 @dataclass(frozen=True)
@@ -26,6 +28,7 @@ class InferConfigValidation:
     payload: dict[str, Any]
     resolved_checkpoint_path: Path | None
     resolved_model_checkpoint_path: Path | None
+    trust_summary: dict[str, Any]
     warnings: list[str]
 
 
@@ -85,6 +88,112 @@ def _coerce_optional_int(value: Any, *, name: str) -> int | None:
     if value is None:
         return None
     return _coerce_int(value, name=name)
+
+
+def _resolve_infer_artifact_ref_path(
+    raw: str,
+    *,
+    config_path: str | Path,
+    field_name: str,
+) -> Path:
+    text = str(raw).strip()
+    if not text:
+        raise ValueError(f"{field_name} must be a non-empty path.")
+
+    p = Path(text)
+    if p.is_absolute():
+        if not p.exists():
+            raise FileNotFoundError(f"{field_name} not found: {p}")
+        return p
+
+    cfg_path = Path(config_path)
+    base = cfg_path.parent
+    candidates: list[Path] = [
+        (base / p).resolve(),
+        (base.parent / p).resolve(),
+    ]
+
+    for cand in candidates:
+        if cand.exists():
+            return cand
+
+    tried = "\n".join(f"- {cand}" for cand in candidates)
+    raise FileNotFoundError(
+        f"{field_name} not found.\n"
+        f"{field_name}={text!r}\n"
+        "Tried:\n"
+        f"{tried}"
+    )
+
+
+def _build_infer_config_trust_summary(
+    payload: Mapping[str, Any],
+    *,
+    check_files: bool,
+) -> dict[str, Any]:
+    artifact_quality = payload.get("artifact_quality", None)
+    if not isinstance(artifact_quality, Mapping):
+        return {
+            "status": "partial",
+            "trust_signals": {
+                "file_refs_checked": bool(check_files),
+            },
+            "degraded_by": ["missing_artifact_quality"],
+            "audit_refs": {},
+        }
+
+    audit_refs = artifact_quality.get("audit_refs", None)
+    deploy_refs = artifact_quality.get("deploy_refs", None)
+    audit_ref_map = dict(audit_refs) if isinstance(audit_refs, Mapping) else {}
+    deploy_ref_map = dict(deploy_refs) if isinstance(deploy_refs, Mapping) else {}
+    audit_status = str(artifact_quality.get("status", "") or "").strip().lower()
+
+    trust_signals = {
+        "file_refs_checked": bool(check_files),
+        "has_threshold_provenance": bool(artifact_quality.get("has_threshold_provenance")),
+        "has_split_fingerprint": bool(artifact_quality.get("has_split_fingerprint")),
+        "has_prediction_policy": bool(artifact_quality.get("has_prediction_policy")),
+        "has_deploy_bundle": bool(artifact_quality.get("has_deploy_bundle")),
+        "has_bundle_manifest": bool(artifact_quality.get("has_bundle_manifest")),
+        "has_calibration_card_ref": bool(
+            isinstance(audit_ref_map.get("calibration_card", None), str)
+            and str(audit_ref_map.get("calibration_card")).strip()
+        ),
+        "has_bundle_manifest_ref": bool(
+            isinstance(deploy_ref_map.get("bundle_manifest", None), str)
+            and str(deploy_ref_map.get("bundle_manifest")).strip()
+        ),
+    }
+    degraded_by: list[str] = []
+    if audit_status in {"audited", "deployable"}:
+        if not trust_signals["has_threshold_provenance"]:
+            degraded_by.append("missing_threshold_provenance")
+        if not trust_signals["has_split_fingerprint"]:
+            degraded_by.append("missing_split_fingerprint")
+        if not trust_signals["has_calibration_card_ref"]:
+            degraded_by.append("missing_calibration_card_ref")
+    if audit_status == "deployable":
+        if not trust_signals["has_deploy_bundle"]:
+            degraded_by.append("missing_deploy_bundle")
+        if not trust_signals["has_bundle_manifest"]:
+            degraded_by.append("missing_bundle_manifest")
+        if not trust_signals["has_bundle_manifest_ref"]:
+            degraded_by.append("missing_bundle_manifest_ref")
+    if not bool(check_files):
+        degraded_by.append("file_checks_skipped")
+
+    status = "trust-signaled" if not degraded_by else "partial"
+    merged_refs: dict[str, str] = {}
+    for mapping in (audit_ref_map, deploy_ref_map):
+        for key, value in mapping.items():
+            if isinstance(value, str) and value.strip():
+                merged_refs[str(key)] = str(value)
+    return {
+        "status": status,
+        "trust_signals": trust_signals,
+        "degraded_by": degraded_by,
+        "audit_refs": merged_refs,
+    }
 
 
 def validate_infer_config_payload(
@@ -433,6 +542,33 @@ def validate_infer_config_payload(
 
         normalized["defects"] = defects
 
+    prediction_raw = normalized.get("prediction", None)
+    prediction_map = _optional_mapping(prediction_raw, name="prediction")
+    if prediction_map is not None:
+        prediction: dict[str, Any] = dict(prediction_map)
+
+        if (
+            "reject_confidence_below" in prediction
+            and prediction["reject_confidence_below"] is not None
+        ):
+            reject_confidence_below = _coerce_float(
+                prediction["reject_confidence_below"],
+                name="prediction.reject_confidence_below",
+            )
+            if not (0.0 < float(reject_confidence_below) <= 1.0):
+                raise ValueError(
+                    "infer-config prediction.reject_confidence_below must be in (0,1]."
+                )
+            prediction["reject_confidence_below"] = float(reject_confidence_below)
+
+        if "reject_label" in prediction and prediction["reject_label"] is not None:
+            prediction["reject_label"] = _coerce_int(
+                prediction["reject_label"],
+                name="prediction.reject_label",
+            )
+
+        normalized["prediction"] = prediction
+
     # Optional thresholds/checkpoint metadata. Validate types when present.
     if "threshold" in normalized and normalized["threshold"] is not None:
         normalized["threshold"] = _coerce_float(normalized["threshold"], name="threshold")
@@ -442,6 +578,86 @@ def validate_infer_config_payload(
     if "from_run" in normalized and normalized["from_run"] is not None:
         normalized["from_run"] = str(normalized["from_run"])
 
+    artifact_quality_raw = normalized.get("artifact_quality", None)
+    artifact_quality_map = _optional_mapping(artifact_quality_raw, name="artifact_quality")
+    if artifact_quality_map is not None:
+        artifact_quality: dict[str, Any] = dict(artifact_quality_map)
+
+        if "status" in artifact_quality and artifact_quality["status"] is not None:
+            status = str(artifact_quality["status"]).strip().lower()
+            if status not in _ALLOWED_ARTIFACT_QUALITY_STATUS:
+                raise ValueError(
+                    "infer-config artifact_quality.status must be one of: "
+                    f"{sorted(_ALLOWED_ARTIFACT_QUALITY_STATUS)}"
+                )
+            artifact_quality["status"] = status
+
+        if "threshold_scope" in artifact_quality and artifact_quality["threshold_scope"] is not None:
+            threshold_scope = str(artifact_quality["threshold_scope"]).strip().lower()
+            if threshold_scope not in _ALLOWED_ARTIFACT_QUALITY_SCOPE:
+                raise ValueError(
+                    "infer-config artifact_quality.threshold_scope must be one of: "
+                    f"{sorted(_ALLOWED_ARTIFACT_QUALITY_SCOPE)}"
+                )
+            artifact_quality["threshold_scope"] = threshold_scope
+
+        for key in (
+            "has_threshold_provenance",
+            "has_split_fingerprint",
+            "has_prediction_policy",
+            "has_deploy_bundle",
+            "has_bundle_manifest",
+        ):
+            if key in artifact_quality and artifact_quality[key] is not None:
+                artifact_quality[key] = _coerce_bool(
+                    artifact_quality[key],
+                    name=f"artifact_quality.{key}",
+                )
+
+        audit_refs_raw = artifact_quality.get("audit_refs", None)
+        audit_refs_map = _optional_mapping(audit_refs_raw, name="artifact_quality.audit_refs")
+        if audit_refs_map is not None:
+            audit_refs: dict[str, str] = {}
+            for ref_name, ref_path in audit_refs_map.items():
+                text = _coerce_str(
+                    ref_path,
+                    name=f"artifact_quality.audit_refs.{ref_name}",
+                ).strip()
+                if not text:
+                    raise ValueError(
+                        f"infer-config artifact_quality.audit_refs.{ref_name} must be non-empty."
+                    )
+                audit_refs[str(ref_name)] = text
+            artifact_quality["audit_refs"] = audit_refs
+
+        deploy_refs_raw = artifact_quality.get("deploy_refs", None)
+        deploy_refs_map = _optional_mapping(deploy_refs_raw, name="artifact_quality.deploy_refs")
+        if deploy_refs_map is not None:
+            deploy_refs: dict[str, str] = {}
+            for ref_name, ref_path in deploy_refs_map.items():
+                text = _coerce_str(
+                    ref_path,
+                    name=f"artifact_quality.deploy_refs.{ref_name}",
+                ).strip()
+                if not text:
+                    raise ValueError(
+                        f"infer-config artifact_quality.deploy_refs.{ref_name} must be non-empty."
+                    )
+                deploy_refs[str(ref_name)] = text
+            artifact_quality["deploy_refs"] = deploy_refs
+
+        if bool(artifact_quality.get("has_bundle_manifest", False)):
+            deploy_refs = artifact_quality.get("deploy_refs", None)
+            if not isinstance(deploy_refs, Mapping) or not str(
+                deploy_refs.get("bundle_manifest", "")
+            ).strip():
+                raise ValueError(
+                    "infer-config artifact_quality.has_bundle_manifest=true requires "
+                    "artifact_quality.deploy_refs.bundle_manifest."
+                )
+
+        normalized["artifact_quality"] = artifact_quality
+
     resolved_ckpt: Path | None = None
     resolved_model_ckpt: Path | None = None
     if bool(check_files):
@@ -449,16 +665,48 @@ def validate_infer_config_payload(
             warnings.append(
                 "check_files=True but config_path is missing; checkpoint_path existence was not checked."
             )
+            if isinstance(normalized.get("artifact_quality", None), Mapping):
+                audit_refs = normalized["artifact_quality"].get("audit_refs", None)
+                if isinstance(audit_refs, Mapping):
+                    warnings.append(
+                        "check_files=True but config_path is missing; artifact_quality audit_refs existence was not checked."
+                    )
+                deploy_refs = normalized["artifact_quality"].get("deploy_refs", None)
+                if isinstance(deploy_refs, Mapping):
+                    warnings.append(
+                        "check_files=True but config_path is missing; artifact_quality deploy_refs existence was not checked."
+                    )
         else:
             resolved_ckpt = resolve_infer_checkpoint_path(normalized, config_path=config_path)
             resolved_model_ckpt = resolve_infer_model_checkpoint_path(
                 normalized, config_path=config_path
             )
+            if isinstance(normalized.get("artifact_quality", None), Mapping):
+                audit_refs = normalized["artifact_quality"].get("audit_refs", None)
+                if isinstance(audit_refs, Mapping):
+                    for ref_name, ref_path in audit_refs.items():
+                        _resolve_infer_artifact_ref_path(
+                            str(ref_path),
+                            config_path=config_path,
+                            field_name=f"artifact_quality.audit_refs.{ref_name}",
+                        )
+                deploy_refs = normalized["artifact_quality"].get("deploy_refs", None)
+                if isinstance(deploy_refs, Mapping):
+                    for ref_name, ref_path in deploy_refs.items():
+                        _resolve_infer_artifact_ref_path(
+                            str(ref_path),
+                            config_path=config_path,
+                            field_name=f"artifact_quality.deploy_refs.{ref_name}",
+                        )
 
     return InferConfigValidation(
         payload=normalized,
         resolved_checkpoint_path=resolved_ckpt,
         resolved_model_checkpoint_path=resolved_model_ckpt,
+        trust_summary=_build_infer_config_trust_summary(
+            normalized,
+            check_files=bool(check_files),
+        ),
         warnings=warnings,
     )
 

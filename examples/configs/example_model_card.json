@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "model_name": "example_model_name",
+  "summary": {
+    "purpose": "Brief summary of the deployment objective.",
+    "intended_inputs": "Describe expected image modality, shape, and domain.",
+    "output_contract": "image-level + pixel-level"
+  },
+  "weights": {
+    "path": "checkpoints/example_model.pt",
+    "manifest_entry": "example_checkpoint",
+    "sha256": "replace-with-sha256-if-known",
+    "source": "internal training run or upstream checkpoint source",
+    "license": "internal-or-upstream-license"
+  },
+  "training": {
+    "dataset": "dataset name or manifest id",
+    "split_policy": "document split / calibration policy",
+    "preprocessing": "summarize preprocessing and normalization",
+    "threshold_strategy": "fixed | normal_pixel_quantile | infer_config"
+  },
+  "evaluation": {
+    "datasets": [
+      "dataset/category names evaluated"
+    ],
+    "key_metrics": {
+      "auroc": 0.0
+    }
+  },
+  "deployment": {
+    "runtime": "torch",
+    "cache_locations": [
+      "TORCH_HOME=/models/torch_cache"
+    ],
+    "expected_throughput": "document throughput or latency target"
+  },
+  "limitations": {
+    "known_failure_modes": [
+      "lighting shift",
+      "alignment drift"
+    ],
+    "sensitivity": [
+      "camera changes",
+      "ROI mismatch"
+    ]
+  }
+}

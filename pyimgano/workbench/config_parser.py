@@ -9,6 +9,7 @@ from pyimgano.workbench.config_section_parsers import (
     _parse_defects_config,
     _parse_model_config,
     _parse_output_config,
+    _parse_prediction_config,
     _parse_preprocessing_config,
     _parse_training_config,
 )
@@ -38,6 +39,7 @@ def build_workbench_config_from_dict(
         preprocessing=_parse_preprocessing_config(top),
         training=_parse_training_config(top),
         defects=_parse_defects_config(top),
+        prediction=_parse_prediction_config(top),
     )
 
 

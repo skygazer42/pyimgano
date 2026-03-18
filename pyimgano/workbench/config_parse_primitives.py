@@ -28,6 +28,45 @@ def _optional_float(value: Any, *, name: str) -> float | None:
         raise ValueError(f"{name} must be float or null, got {value!r}") from exc
 
 
+def _optional_nonempty_str(value: Any, *, name: str) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        raise ValueError(f"{name} must be a non-empty string or null")
+    return text
+
+
+def _optional_bool(value: Any, *, name: str) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"true", "1", "yes", "on"}:
+            return True
+        if text in {"false", "0", "no", "off"}:
+            return False
+    raise ValueError(f"{name} must be a boolean or null, got {value!r}")
+
+
+def _optional_int_sequence(value: Any, *, name: str) -> tuple[int, ...] | None:
+    if value is None:
+        return None
+    if not isinstance(value, (list, tuple)):
+        raise ValueError(f"{name} must be a list/tuple of ints or null, got {value!r}")
+    if len(value) == 0:
+        raise ValueError(f"{name} must be a non-empty list/tuple of ints or null")
+    out: list[int] = []
+    for raw in value:
+        try:
+            out.append(int(raw))
+        except Exception as exc:  # noqa: BLE001 - validation boundary
+            raise ValueError(f"{name} must contain ints, got {value!r}") from exc
+    return tuple(out)
+
+
 def _parse_resize(value: Any, *, default: tuple[int, int]) -> tuple[int, int]:
     if value is None:
         return (int(default[0]), int(default[1]))
@@ -120,6 +159,9 @@ __all__ = [
     "_require_mapping",
     "_optional_int",
     "_optional_float",
+    "_optional_nonempty_str",
+    "_optional_bool",
+    "_optional_int_sequence",
     "_parse_resize",
     "_parse_int_pair",
     "_parse_percentile_range",

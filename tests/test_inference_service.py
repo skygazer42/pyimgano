@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pyimgano.inference.api import InferenceResult
+from pyimgano.inference.api import InferenceResult, result_to_jsonable
 from pyimgano.services.inference_service import run_inference
 
 
@@ -47,4 +47,68 @@ def test_run_inference_uses_runtime_adapter_score_path(monkeypatch):
         score=pytest.approx(0.1),
         label=None,
         anomaly_map=None,
+        decision_summary={
+            "decision": "score_only",
+            "threshold_applied": False,
+            "has_confidence": False,
+            "rejected": False,
+            "requires_review": False,
+        },
     )
+
+
+def test_run_inference_emits_decision_summary_for_triage() -> None:
+    class _ScoreWithConfidence:
+        input_mode = "numpy"
+
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            assert len(list(X)) == 3
+            return np.asarray([0.1, 0.4, 0.9], dtype=np.float32)
+
+        def predict_confidence(self, X):
+            assert len(list(X)) == 3
+            return np.asarray([0.8, 0.6, 0.95], dtype=np.float32)
+
+    X = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(3)]
+    out = run_inference(
+        detector=_ScoreWithConfidence(),
+        inputs=X,
+        input_format="rgb_u8_hwc",
+        reject_confidence_below=0.75,
+    )
+
+    assert [record.decision_summary for record in out.records] == [
+        {
+            "decision": "normal",
+            "threshold_applied": True,
+            "has_confidence": True,
+            "rejected": False,
+            "requires_review": False,
+        },
+        {
+            "decision": "rejected_low_confidence",
+            "threshold_applied": True,
+            "has_confidence": True,
+            "rejected": True,
+            "requires_review": True,
+        },
+        {
+            "decision": "anomalous",
+            "threshold_applied": True,
+            "has_confidence": True,
+            "rejected": False,
+            "requires_review": True,
+        },
+    ]
+
+    payload = result_to_jsonable(out.records[1])
+    assert payload["decision_summary"] == {
+        "decision": "rejected_low_confidence",
+        "threshold_applied": True,
+        "has_confidence": True,
+        "rejected": True,
+        "requires_review": True,
+    }

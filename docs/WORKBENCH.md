@@ -53,7 +53,10 @@ This writes a run directory containing:
 
 - `report.json` / `config.json` / `environment.json`
 - `categories/<cat>/per_image.jsonl`
-- `artifacts/infer_config.json` (model + adaptation + preprocessing + defects + `threshold` + `threshold_provenance` + optional `checkpoint`)
+- `categories/<cat>/report.json` with dataset summary, threshold provenance, split fingerprint,
+  and an `evaluation_contract` block for metric semantics
+- `artifacts/infer_config.json` (model + adaptation + preprocessing + defects + optional `prediction` defaults + `threshold` + `threshold_provenance` + optional `checkpoint`)
+- `artifacts/calibration_card.json` (image-threshold audit payload derived from `threshold_provenance`)
 - optional: `artifacts/maps/*.npy`
 - optional: `checkpoints/<cat>/...`
 
@@ -67,6 +70,15 @@ Optionally, export a deploy-friendly bundle directory (infer-config + checkpoint
 pyimgano-train --config cfg.json --export-deploy-bundle
 pyimgano-validate-infer-config /path/to/run_dir/deploy_bundle/infer_config.json
 ```
+
+The deploy bundle now also includes `bundle_manifest.json`, which records the
+bundled files, their relative paths, sizes, and SHA256 digests for auditability.
+This manifest is intended to be machine-verifiable as well as human-readable.
+When available, `deploy_bundle/` also carries `calibration_card.json` so the
+image-threshold context travels with the exported inference bundle.
+If you also place `model_card.json` or `weights_manifest.json` in the bundle
+root, the bundle manifest and quality gates will validate them as part of the
+handoff contract.
 
 5) Reuse the run for inference:
 
@@ -98,6 +110,9 @@ Notes:
 - When running with `--infer-config` (or `--from-run`), other defects extraction knobs can also be
   exported in the `defects` block (ROI, morphology, min-area, mask format, max regions, etc.).
   `pyimgano-infer` uses these values as defaults, but explicit CLI flags always override.
+- Workbench configs can also export a top-level `prediction` block with
+  `reject_confidence_below` / `reject_label`, so low-confidence rejection policy can be reproduced
+  in deploy-style inference without retyping CLI flags.
 
 ---
 
@@ -107,6 +122,14 @@ Notes:
   and loads checkpoints when the detector supports it.
 - For production shipping, prefer `artifacts/infer_config.json` (`pyimgano-infer --infer-config ...`):
   it’s a minimal “what inference needs” payload and includes `threshold_provenance` for auditing.
+- `artifacts/calibration_card.json` is the compact threshold-audit companion artifact for review,
+  release notes, and deploy-bundle handoff.
+- See `docs/CALIBRATION_AUDIT.md` for the review checklist and expected quality states.
+- Use `pyimgano-runs list` / `pyimgano-runs compare` to inspect and compare saved run directories
+  without opening `report.json` by hand.
+- The same workflow is available from the umbrella CLI:
+  `pyimgano train ...`, `pyimgano validate-infer-config ...`, and
+  `pyimgano runs quality ...`.
 - Future infer-config schema versions are rejected explicitly when the installed pyimgano build does
   not support them, rather than being silently accepted.
 - For high-resolution inference, you can still use `pyimgano-infer` tiling flags (see

@@ -22,6 +22,9 @@ class _DummyDetector:
     def decision_function(self, X):
         return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
 
+    def predict_confidence(self, X):
+        return np.linspace(0.6, 0.9, num=len(X), dtype=np.float32)
+
     def get_anomaly_map(self, item):
         _ = item
         return np.zeros((4, 4), dtype=np.float32)
@@ -144,6 +147,67 @@ def test_infer_cli_smoke_seed_calls_seed_everything(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert called["seed"] == 123
+
+
+def test_infer_cli_can_emit_label_confidence_jsonl(tmp_path, monkeypatch) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--include-confidence",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
+    assert record["label_confidence"] == pytest.approx(0.6)
+
+
+def test_infer_cli_can_emit_rejection_jsonl(tmp_path, monkeypatch) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--reject-confidence-below",
+            "0.75",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+
+    rows = [json.loads(line) for line in out_jsonl.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["label"] == -2
+    assert rows[0]["rejected"] is True
+    assert rows[0]["label_confidence"] == pytest.approx(0.6)
+    assert rows[1]["label"] == 1
+    assert rows[1]["rejected"] is False
 
 
 def test_infer_cli_smoke_delegates_to_inference_service(tmp_path, monkeypatch):

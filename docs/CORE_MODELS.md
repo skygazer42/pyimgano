@@ -62,7 +62,23 @@ from pyimgano.models import create_model
 det = create_model("core_iforest", contamination=0.05, n_estimators=200, random_state=0)
 det.fit(X_train)
 scores = det.decision_function(X_test)
+labels, confidence = det.predict(X_test, return_confidence=True)
+labels_with_reject = det.predict_with_rejection(X_test, confidence_threshold=0.75)
 ```
+
+## Confidence And Rejection
+
+Native `core_*` detectors that inherit the shared `BaseDetector` contract now expose:
+
+- `predict(X, return_confidence=True)` → `(labels, confidence)`
+- `predict_confidence(X)` → confidence of the predicted label on `[0, 1]`
+- `predict_with_rejection(X, confidence_threshold=..., reject_label=-2)` → low-confidence samples are marked as rejected
+
+Practical semantics:
+
+- confidence is high when a sample is far into the predicted side of the training score distribution
+- confidence is lower near the decision threshold
+- rejected samples use `-2` by default so they stay distinct from inlier `0` and outlier `1`
 
 ## Composition Patterns
 

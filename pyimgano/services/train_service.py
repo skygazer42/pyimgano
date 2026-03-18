@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from pyimgano.config import load_config
+from pyimgano.reporting.calibration_card import build_calibration_card_payload
+from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
 from pyimgano.reporting.report import save_run_report
 from pyimgano.workbench.config import WorkbenchConfig
 
@@ -94,6 +96,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         if src.exists():
             shutil.copy2(src, bundle_dir / name)
 
+    calibration_card_src = run_dir / "artifacts" / "calibration_card.json"
+    if calibration_card_src.exists():
+        shutil.copy2(calibration_card_src, bundle_dir / "calibration_card.json")
+
     def _resolve_path(raw: str) -> Path:
         path = Path(raw)
         if path.is_absolute():
@@ -154,6 +160,20 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         return out
 
     bundle_payload = deepcopy(infer_config_payload)
+    artifact_quality = bundle_payload.get("artifact_quality", None)
+    if isinstance(artifact_quality, dict):
+        audit_refs = artifact_quality.get("audit_refs", None)
+        if isinstance(audit_refs, dict) and (bundle_dir / "calibration_card.json").is_file():
+            rewritten_audit_refs = dict(audit_refs)
+            if "calibration_card" in rewritten_audit_refs:
+                rewritten_audit_refs["calibration_card"] = "calibration_card.json"
+            artifact_quality["audit_refs"] = rewritten_audit_refs
+        deploy_refs = artifact_quality.get("deploy_refs", None)
+        rewritten_deploy_refs = dict(deploy_refs) if isinstance(deploy_refs, dict) else {}
+        rewritten_deploy_refs["bundle_manifest"] = "bundle_manifest.json"
+        artifact_quality["deploy_refs"] = rewritten_deploy_refs
+        artifact_quality["has_deploy_bundle"] = True
+        artifact_quality["has_bundle_manifest"] = True
     used_dst: set[Path] = set()
     bundle_root = bundle_dir.resolve()
 
@@ -194,6 +214,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         shutil.copy2(src, dst)
 
     save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
+    save_run_report(
+        bundle_dir / "bundle_manifest.json",
+        build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
+    )
     return bundle_dir
 
 
@@ -234,6 +258,19 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
             report=report,
         )
         save_run_report(infer_config_path, infer_config_payload)
+        calibration_card_source = dict(report)
+        prediction_payload = infer_config_payload.get("prediction", None)
+        if isinstance(prediction_payload, dict):
+            calibration_card_source["prediction"] = dict(prediction_payload)
+        try:
+            calibration_card_payload = build_calibration_card_payload(calibration_card_source)
+        except ValueError:
+            calibration_card_payload = None
+        if calibration_card_payload is not None:
+            save_run_report(
+                run_dir / "artifacts" / "calibration_card.json",
+                calibration_card_payload,
+            )
 
     if bool(request.export_deploy_bundle):
         if infer_config_payload is None:

@@ -130,7 +130,7 @@ def select_infer_category(
     out = dict(payload)
     out.pop("per_category", None)
     out["category"] = str(chosen)
-    for key in ("threshold", "threshold_provenance", "checkpoint"):
+    for key in ("threshold", "threshold_provenance", "checkpoint", "split_fingerprint"):
         if key in cat_payload:
             out[key] = cat_payload.get(key)
     return out

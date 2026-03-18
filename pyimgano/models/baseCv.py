@@ -147,7 +147,15 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             # Default: list of file paths.
             train_dataset = VisionImageDataset(image_paths=x_list, transform=self.train_transform)
 
-        train_loader = data_loader_cls(train_dataset, batch_size=self.batch_size, shuffle=True)
+        train_loader = data_loader_cls(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=bool(self.shuffle_train),
+            num_workers=int(self.num_workers),
+            drop_last=bool(self.drop_last),
+            pin_memory=bool(self.pin_memory),
+            persistent_workers=bool(self.persistent_workers) and int(self.num_workers) > 0,
+        )
 
         # 3. 准备训练 (来自父类的方法)
         self.training_prepare()

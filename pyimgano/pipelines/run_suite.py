@@ -19,6 +19,7 @@ from pyimgano.baselines.suites import Baseline, get_baseline_suite, resolve_suit
 from pyimgano.models.registry import create_model
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, ensure_run_dir
+from pyimgano.reporting.split_fingerprint import build_split_fingerprint
 from pyimgano.utils.extras import extra_roots, extras_install_hint
 
 from .run_benchmark import (
@@ -35,6 +36,7 @@ class _SuiteSplit:
     test_labels: np.ndarray
     test_masks: np.ndarray | None
     pixel_skip_reason: str | None = None
+    test_meta: list[Mapping[str, Any] | None] | None = None
 
 
 def _override_known_kwargs(
@@ -141,6 +143,7 @@ def _load_split(
             test_labels=np.asarray(ms.test_labels),
             test_masks=(np.asarray(ms.test_masks) if ms.test_masks is not None else None),
             pixel_skip_reason=ms.pixel_skip_reason,
+            test_meta=(list(ms.test_meta) if ms.test_meta is not None else None),
         )
 
     from pyimgano.pipelines.mvtec_visa import load_benchmark_split
@@ -158,6 +161,7 @@ def _load_split(
         test_labels=np.asarray(split.test_labels),
         test_masks=(np.asarray(split.test_masks) if split.test_masks is not None else None),
         pixel_skip_reason=None,
+        test_meta=None,
     )
 
 
@@ -237,6 +241,37 @@ def _rank_table(rows: list[dict[str, Any]], *, key: str) -> list[dict[str, Any]]
     return sorted(rows, key=_sort_key)
 
 
+def _build_suite_split_fingerprint(
+    *,
+    split: _SuiteSplit,
+    input_mode: str,
+    limit_train: int | None,
+    limit_test: int | None,
+) -> dict[str, Any]:
+    train_inputs = list(split.train_paths)
+    test_inputs = list(split.test_paths)
+    test_labels = np.asarray(split.test_labels)
+    test_meta = list(split.test_meta) if split.test_meta is not None else None
+
+    if limit_train is not None:
+        train_inputs = train_inputs[: int(limit_train)]
+    if limit_test is not None:
+        lim = int(limit_test)
+        test_inputs = test_inputs[:lim]
+        test_labels = np.asarray(test_labels)[:lim]
+        if test_meta is not None:
+            test_meta = test_meta[:lim]
+
+    return build_split_fingerprint(
+        train_inputs=train_inputs,
+        calibration_inputs=[],
+        test_inputs=test_inputs,
+        test_labels=test_labels,
+        input_format=("rgb_u8_hwc" if str(input_mode) == "numpy" else None),
+        test_meta=test_meta,
+    )
+
+
 def _run_one_on_split(
     *,
     baseline: Baseline,
@@ -282,6 +317,7 @@ def _run_one_on_split(
     test_inputs = list(split.test_paths)
     test_labels = np.asarray(split.test_labels)
     test_masks = split.test_masks
+    test_meta = list(split.test_meta) if split.test_meta is not None else None
 
     if limit_train is not None:
         train_inputs = train_inputs[: int(limit_train)]
@@ -291,6 +327,8 @@ def _run_one_on_split(
         test_labels = np.asarray(test_labels)[:lim]
         if test_masks is not None:
             test_masks = np.asarray(test_masks)[:lim]
+        if test_meta is not None:
+            test_meta = test_meta[:lim]
 
     timing: dict[str, float] = {
         "create_model_s": 0.0,
@@ -476,6 +514,14 @@ def _run_one_on_split(
         threshold_provenance_payload.setdefault(
             "calibration_quantile_requested", float(calibration_quantile)
         )
+    split_fingerprint = build_split_fingerprint(
+        train_inputs=train_inputs,
+        calibration_inputs=[],
+        test_inputs=test_inputs,
+        test_labels=np.asarray(test_labels),
+        input_format=("rgb_u8_hwc" if str(input_mode) == "numpy" else None),
+        test_meta=test_meta,
+    )
 
     payload: dict[str, Any] = {
         "dataset": str(dataset),
@@ -487,6 +533,7 @@ def _run_one_on_split(
         "resize": [int(resize[0]), int(resize[1])],
         "results": results,
         "dataset_summary": dataset_summary,
+        "split_fingerprint": split_fingerprint,
         "threshold_provenance": threshold_provenance_payload,
         "timing": timing,
     }
@@ -836,6 +883,26 @@ def run_baseline_suite(
         summary["by_pixel_auroc"] = _rank_table(rows, key="pixel_auroc")
         summary["by_aupro"] = _rank_table(rows, key="aupro")
 
+    split_fingerprint_payload: dict[str, Any] | None = None
+    if split is not None:
+        split_fingerprint_payload = _build_suite_split_fingerprint(
+            split=split,
+            input_mode=str(input_mode),
+            limit_train=(int(limit_train) if limit_train is not None else None),
+            limit_test=(int(limit_test) if limit_test is not None else None),
+        )
+    else:
+        split_candidates: list[dict[str, Any]] = []
+        for item in per_baseline.values():
+            if not isinstance(item, Mapping):
+                continue
+            fp = item.get("split_fingerprint", None)
+            if isinstance(fp, Mapping) and isinstance(fp.get("sha256"), str):
+                split_candidates.append(dict(fp))
+        unique_sha = {str(item["sha256"]) for item in split_candidates}
+        if len(unique_sha) == 1 and split_candidates:
+            split_fingerprint_payload = split_candidates[0]
+
     payload: dict[str, Any] = {
         "suite": str(suite_obj.name),
         "suite_description": str(suite_obj.description),
@@ -859,6 +926,8 @@ def run_baseline_suite(
         "summary": summary,
         "skipped": skipped,
     }
+    if split_fingerprint_payload is not None:
+        payload["split_fingerprint"] = split_fingerprint_payload
     payload = stamp_report_payload(payload)
 
     if suite_dir is not None:

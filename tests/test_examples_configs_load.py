@@ -10,6 +10,7 @@ def test_examples_configs_load_and_parse():
 
     paths = [
         configs_dir / "industrial_adapt_fast.json",
+        configs_dir / "industrial_adapt_audited.json",
         configs_dir / "industrial_adapt_defects_roi.json",
         configs_dir / "industrial_adapt_defects_fp40.json",
         configs_dir / "industrial_adapt_maps_tiling.json",

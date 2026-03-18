@@ -1,133 +1,243 @@
-# pyimgano
+<p align="center">
+  <img src="assets/banner.svg" alt="pyimgano banner" width="100%"/>
+</p>
 
-Production-oriented **visual anomaly detection** (image-level + pixel-level) for industrial inspection.
+<p align="center">
+  <strong>Production-oriented visual anomaly detection for industrial inspection.</strong><br/>
+  <sub>Image-level + Pixel-level · 120+ Models · Train → Deploy in one pipeline</sub>
+</p>
 
-`pyimgano` focuses on the practical parts that matter in production:
+<p align="center">
+  <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/v/pyimgano.svg?style=flat-square&logo=pypi&logoColor=white&label=PyPI" alt="PyPI"/></a>
+  <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/pyversions/pyimgano.svg?style=flat-square&logo=python&logoColor=white" alt="Python"/></a>
+  <a href="https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/skygazer42/pyimgano/ci.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI" alt="CI"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"/></a>
+  <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="Code style: black"/></a>
+  <a href="https://pepy.tech/project/pyimgano"><img src="https://img.shields.io/pepy/dt/pyimgano?style=flat-square&logo=python&logoColor=white&label=Downloads" alt="Downloads"/></a>
+</p>
 
-- **Unified model registry** (120+ registered model entry points; native implementations + optional backends + aliases)
-- **Reproducible CLI runs** (workbench + reports + per-image JSONL)
-- **Deploy-friendly inference** (`pyimgano-infer` → JSONL; optional defect masks + connected-component regions)
-- **Industrial IO** (numpy-first, explicit image formats, high-resolution tiling)
-- **Benchmarking & metrics** (image-level + pixel-level; AUROC/AP/AUPRO/SegF1, etc.)
-- **Data & preprocessing** (dataset helpers + preprocessing/augmentation utilities)
+<p align="center">
+  <a href="#-installation">Installation</a> •
+  <a href="#-quickstart">Quickstart</a> •
+  <a href="#-model-zoo">Model Zoo</a> •
+  <a href="#-api-cheatsheet">API</a> •
+  <a href="#-benchmarking">Benchmarking</a> •
+  <a href="#-documentation">Docs</a> •
+  <a href="#-citation">Citation</a>
+</p>
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![PyPI](https://img.shields.io/pypi/v/pyimgano.svg)](https://pypi.org/project/pyimgano/)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyimgano.svg)](https://pypi.org/project/pyimgano/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml/badge.svg)](https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+<p align="center">
+  <b>Translations:</b> <a href="README_cn.md">中文</a> · <a href="README_ja.md">日本語</a> · <a href="README_ko.md">한국어</a>
+</p>
 
-> **Translations:** [中文](README_cn.md) · [日本語](README_ja.md) · [한국어](README_ko.md)
+---
 
-## Contents
+## Why pyimgano?
 
-- [Installation](#installation)
-- [Quickstart (CLI)](#quickstart-cli)
-- [Quickstart (Python)](#quickstart-python)
-- [Synthetic anomaly generation](#synthetic-anomaly-generation)
-- [Models & discovery](#models--discovery)
-- [Industrial outputs (defects)](#industrial-outputs-defects)
-- [Optional dependencies](#optional-dependencies)
-- [Weights & cache policy](#weights--cache-policy)
-- [Docs](#docs)
-- [Contributing](#contributing)
-- [License](#license)
-- [Citation](#citation)
+Most anomaly detection libraries target either **research** (maximizing paper metrics) or **tabular data** (PyOD-style). `pyimgano` bridges the gap for teams that need to go from algorithm selection to **production deployment** on real industrial images:
 
-## Installation
+| | Research libs | Tabular AD (PyOD…) | **pyimgano** |
+|---|---|---|---|
+| Image-level scoring | ✓ | ✓ | ✓ |
+| Pixel-level anomaly maps | ✓ | — | ✓ |
+| Industrial IO (numpy, tiling, formats) | — | — | ✓ |
+| Deploy bundles (ONNX / OpenVINO) | partial | — | ✓ |
+| Reproducible CLI + audit trail | — | — | ✓ |
+| 120+ unified model registry | — | ✓ | ✓ |
+| Synthetic anomaly generation | — | — | ✓ |
+
+---
+
+## ✨ Key Features
+
+<p align="center">
+  <img src="assets/features.svg" alt="Key Features" width="100%"/>
+</p>
+
+<table>
+<tr>
+<td width="50%">
+
+**🧠 Unified Model Registry**
+- 120+ registered entry points in a single `create_model()` call
+- Classical (ECOD, KNN, IF, PCA…) + Deep (PatchCore, PaDiM, STFPM…) + VLM (WinCLIP, AnomalyDINO…)
+- Lazy-loading registry — no heavy imports at startup
+
+</td>
+<td width="50%">
+
+**🔍 Image + Pixel Anomaly Detection**
+- Image-level anomaly scores
+- Pixel-level anomaly maps with defect masks
+- Connected-component regions with BBox and area
+- ROI gating & binary morphology
+
+</td>
+</tr>
+<tr>
+<td>
+
+**⚡ Production CLI Pipeline**
+- `pyimgano-train` → `pyimgano-infer` → JSONL
+- Reproducible runs with `report.json` + `per_image.jsonl`
+- Deploy bundles for containers/servers
+- Run comparison & leaderboard tables
+
+</td>
+<td>
+
+**🚀 Deploy-ready Inference**
+- Export to ONNX / OpenVINO / TorchScript
+- Auditable `infer_config.json` + `calibration_card.json`
+- High-resolution tiling for large images
+- Explicit `ImageFormat` (RGB/BGR, U8/U16/F32, HWC/CHW)
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🏗️ Architecture
+
+<p align="center">
+  <img src="assets/architecture.svg" alt="Architecture Overview" width="100%"/>
+</p>
+
+<details>
+<summary><b>Pipeline flow (Mermaid)</b></summary>
+
+```mermaid
+graph LR
+    A[📁 Images / NumPy] --> B[Preprocessing]
+    B --> C[Feature Extraction]
+    C --> D[Model Zoo<br/>120+ Detectors]
+    D --> E[Calibration]
+    E --> F{Output}
+    F --> G[🎯 Anomaly Score]
+    F --> H[🗺️ Pixel Map]
+    F --> I[🔲 Defect Regions]
+    F --> J[📄 JSONL Report]
+
+    style A fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style B fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style C fill:#1e293b,stroke:#818cf8,color:#e2e8f0
+    style D fill:#1e293b,stroke:#f472b6,color:#e2e8f0
+    style E fill:#1e293b,stroke:#fb923c,color:#e2e8f0
+    style F fill:#0f172a,stroke:#34d399,color:#e2e8f0
+    style G fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    style H fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    style I fill:#1e293b,stroke:#34d399,color:#e2e8f0
+    style J fill:#1e293b,stroke:#34d399,color:#e2e8f0
+```
+
+</details>
+
+---
+
+## 📦 Installation
 
 ```bash
 pip install pyimgano
 ```
 
-> Note: `pip install pyimgano` installs the latest release from PyPI.
-> If you need the latest unreleased changes on `main`, install from source:
->
-> ```bash
-> git clone https://github.com/skygazer42/pyimgano.git
-> cd pyimgano
-> pip install -e ".[dev]"
-> ```
->
-> For the release workflow, see `docs/PUBLISHING.md`.
-
-## Quickstart (CLI)
-
-### Fastest offline sanity check
-
-Run a tiny end-to-end demo (creates a minimal `custom` dataset + runs a suite + exports tables):
+<details>
+<summary><b>Install from source (latest dev)</b></summary>
 
 ```bash
+git clone https://github.com/skygazer42/pyimgano.git
+cd pyimgano
+pip install -e ".[dev]"
+```
+
+</details>
+
+<details>
+<summary><b>Optional extras</b></summary>
+
+```bash
+pip install "pyimgano[torch]"       # PyTorch deep backends + TorchScript export
+pip install "pyimgano[onnx]"        # ONNX runtime
+pip install "pyimgano[openvino]"    # OpenVINO runtime
+pip install "pyimgano[skimage]"     # scikit-image baselines (SSIM/HOG/LBP/Gabor…)
+pip install "pyimgano[numba]"       # Numba-accelerated baselines
+pip install "pyimgano[viz]"         # matplotlib / seaborn plots
+pip install "pyimgano[diffusion]"   # Diffusion-based methods
+pip install "pyimgano[clip]"        # OpenCLIP backends
+pip install "pyimgano[faiss]"       # Faster kNN for memory-bank methods
+pip install "pyimgano[anomalib]"    # Anomalib checkpoint wrappers
+pip install "pyimgano[backends]"    # clip + faiss + anomalib
+pip install "pyimgano[all]"         # Everything
+```
+
+See `docs/OPTIONAL_DEPENDENCIES.md` for the full extras map.
+
+</details>
+
+---
+
+## 🚀 Quickstart
+
+### Python API — 5 lines to detect
+
+```python
+from pyimgano.models import create_model
+
+detector = create_model("vision_patchcore", device="cuda")
+detector.fit(train_paths)                           # normal/reference images
+scores = detector.decision_function(test_paths)     # anomaly scores
+```
+
+<details>
+<summary><b>Classical baseline (CPU, no pixel maps)</b></summary>
+
+```python
+from pyimgano.models import create_model
+from pyimgano.utils import ImagePreprocessor
+
+extractor = ImagePreprocessor(resize=(224, 224), output_tensor=False)
+detector = create_model("vision_ecod", feature_extractor=extractor, contamination=0.1, n_jobs=-1)
+
+detector.fit(train_paths)
+scores = detector.decision_function(test_paths)
+labels, confidence = detector.predict(test_paths, return_confidence=True)
+```
+
+</details>
+
+<details>
+<summary><b>NumPy-first industrial inference</b></summary>
+
+```python
+import numpy as np
+from pyimgano.inference import calibrate_threshold, infer
+from pyimgano.inputs import ImageFormat
+
+train_frames = [np.zeros((64, 64, 3), dtype=np.uint8) for _ in range(8)]
+detector.fit(train_frames)
+calibrate_threshold(detector, train_frames, input_format=ImageFormat.RGB_U8_HWC, quantile=0.995)
+
+results = infer(detector, test_frames, input_format=ImageFormat.RGB_U8_HWC, include_maps=True)
+print(results[0].score, results[0].label)
+```
+
+</details>
+
+### CLI — End-to-end pipeline
+
+```bash
+# 1. Quick demo (creates dataset + runs suite + exports tables)
 pyimgano-demo
-```
 
-Tip: use `pyimgano-demo --help` to customize suite/sweep/output.
-
-Optional: sanity-check your environment and which baselines would be skipped due to missing extras:
-
-```bash
+# 2. Environment check
 pyimgano-doctor --suite industrial-v4
-```
 
-Unified discovery shortcut:
-
-```bash
-pyim --list
-pyim --list models --family patchcore
-pyim --list models --year 2021 --type deep-vision
-pyim --list models --type flow-based
-pyim --list model-presets --family graph
-pyim --list years --json
-pyim --list types --json
-pyim --list preprocessing --deployable-only
-
-pyimgano-infer --list-model-presets --family distillation --json
-pyimgano-infer --list-models --year 2021 --type deep-vision
-pyimgano-infer --list-models --year 2001 --type one-class-svm
-
-pyimgano-infer \
-  --model vision_patchcore \
-  --preprocessing-preset illumination-contrast-balanced \
-  --input /path/to/images
-```
-
-Optional: run inference + defects export on the demo dataset produced by `pyimgano-demo`:
-
-```bash
-pyimgano-infer \
-  --model-preset industrial-template-ncc-map \
-  --train-dir ./_demo_custom_dataset/train/normal \
-  --input ./_demo_custom_dataset/test \
-  --defects-preset industrial-defects-fp40 \
-  --save-jsonl ./_demo_results.jsonl \
-  --save-masks ./_demo_masks
-```
-
-### Train (workbench) → export `infer_config.json`
-
-Start from the provided template and edit dataset paths:
-
-```bash
+# 3. Train → export infer config
 pyimgano-train \
   --config examples/configs/industrial_adapt_defects_fp40.json \
   --export-infer-config
-```
 
-This writes a run directory (under `runs/` by default) containing:
-
-- `artifacts/infer_config.json` (model + threshold + postprocess + defects config)
-- `report.json` and `per_image.jsonl` (auditable run artifacts)
-
-Optional (deploy bundle): copy a single directory to servers/containers:
-
-```bash
-pyimgano-train --config cfg.json --export-deploy-bundle
-```
-
-### Inference → JSONL (+ optional defect masks/regions)
-
-```bash
+# 4. Inference → JSONL + defect masks
 pyimgano-infer \
   --infer-config /path/to/run_dir/artifacts/infer_config.json \
   --input /path/to/images \
@@ -136,15 +246,12 @@ pyimgano-infer \
   --save-jsonl /tmp/pyimgano_results.jsonl
 ```
 
-Guides:
-- `docs/WORKBENCH.md` (train/export flow)
-- `docs/CLI_REFERENCE.md` (all flags + JSONL schema)
-- `docs/INDUSTRIAL_INFERENCE.md` (tiling + defects + ROI notes)
-- `docs/FALSE_POSITIVE_DEBUGGING.md` (overlays + FP tuning loop)
+The JSONL output carries stable deployment metadata for downstream systems, including
+`decision_summary` on each success record; Python best-effort batch integrations also
+receive a `triage_summary` aggregate from `run_continue_on_error_inference(...)`.
 
-### One-off inference (no workbench)
-
-For quick experiments you can run `pyimgano-infer` directly from a registered model name:
+<details>
+<summary><b>One-off inference (no workbench)</b></summary>
 
 ```bash
 pyimgano-infer \
@@ -157,122 +264,189 @@ pyimgano-infer \
   --include-maps
 ```
 
-Notes:
-- Pass extra constructor kwargs via `--model-kwargs '{"backbone":"wide_resnet50","coreset_sampling_ratio":0.1}'`.
-- `--defects` requires anomaly maps. If you don’t pass a fixed `--pixel-threshold`, provide `--train-dir` so the default `normal_pixel_quantile` strategy can calibrate one from normal pixels.
-- High-resolution tiling works best with detectors tagged `numpy,pixel_map`:
-  - add `--tile-size 512 --tile-stride 384` (see `docs/INDUSTRIAL_INFERENCE.md`).
+Pass extra kwargs via `--model-kwargs '{"backbone":"wide_resnet50","coreset_sampling_ratio":0.1}'`.
 
-### Algorithm selection: baseline suites (+ optional small sweeps)
+</details>
 
-For industrial algorithm selection, `pyimgano-benchmark` can run curated **baseline suites**
-and write a single aggregated report + leaderboard tables.
-
-Discover suites / sweep profiles:
+<details>
+<summary><b>Model discovery</b></summary>
 
 ```bash
+pyimgano --list models
+pyimgano list models
+pyimgano -- list models --json
+pyimgano --list models --family patchcore
+pyimgano --list preprocessing --deployable-only
+pyim --list models
+pyim --list models --family patchcore
+pyim --list models --year 2021 --type deep-vision
+pyim --list models --type flow-based
+pyim --list preprocessing --deployable-only
+```
+
+`pyimgano` is now the umbrella CLI. `pyimgano list ...` and `pyimgano -- list ...`
+map to the same discovery flow as `pyimgano --list ...`. `pyim` remains the
+shorter discovery alias.
+
+</details>
+
+### Shortest audited operator path
+
+If you want the shortest “train -> validate -> gate” path for production-style
+handoff, the root CLI now exposes it directly:
+
+```bash
+pyimgano --help
+pyimgano -- list preprocessing --deployable-only
+pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
+pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
+pyimgano runs quality runs/<run_dir> --require-status audited --json
+```
+
+That flow uses the checked-in
+[`industrial_adapt_audited.json`](examples/configs/industrial_adapt_audited.json)
+example and is described in more detail in
+[`docs/INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md).
+
+---
+
+## 🧠 Model Zoo
+
+`pyimgano` ships **120+ registered model entry points** spanning classical statistics to modern vision-language models.
+
+### Algorithm Capability Matrix
+
+<p align="center">
+  <img src="assets/algo_matrix.svg" alt="Algorithm Capability Matrix" width="100%"/>
+</p>
+
+### Recommended Baselines
+
+| Goal | Model | Tags | Notes |
+|:-----|:------|:-----|:------|
+| 🎯 Strong pixel localization | `vision_patchcore` | `numpy,pixel_map` | Best default for MVTec/VisA-style data |
+| 🛡️ Robust to noisy normals | `vision_softpatch` | `numpy,pixel_map` | Filters outlier patches in memory bank |
+| 🪶 Lightweight pixel baseline | `vision_padim` / `vision_spade` | `numpy,pixel_map` | Simpler, easier to tune |
+| 📸 Few-shot / small normal set | `vision_anomalydino` | `numpy,pixel_map` | DINOv2-based, downloads weights on first run |
+| 💻 CPU-only / precomputed | `vision_ecod` / `vision_copod` | `classical` | Fast, parameter-free, score-only |
+| 🔌 Anomalib integration | `vision_*_anomalib` | `deep` | Requires `pyimgano[anomalib]` |
+
+<details>
+<summary><b>Full algorithm taxonomy</b></summary>
+
+| Category | Type | Algorithms | Count |
+|:---------|:-----|:-----------|------:|
+| **Statistical** | Density / Distribution | ECOD, COPOD, HBOS, KDE, GMM, MCD, QMCD | 24 |
+| **Proximity** | Neighbor-based | KNN, LOF, COF, LDOF, ODIN, INNE, LoOP | 18 |
+| **Subspace** | Projection | PCA, KPCA, SOD, ROD, LODA | 8 |
+| **Tree / Graph** | Isolation | Isolation Forest, RRCF, HST, MST, R-Graph | 10 |
+| **Ensemble** | Multi-detector | Feature Bagging, LSCP, SUOD, Score Ensemble | 6 |
+| **Memory Bank** | Patch-based deep | PatchCore, PaDiM, SPADE, SoftPatch, MemSeg | 12 |
+| **Student-Teacher** | Knowledge distill | STFPM, Reverse Distillation, EfficientAD, AST | 8 |
+| **Flow-based** | Normalizing flows | FastFlow, CFlow, CS-Flow | 6 |
+| **Reconstruction** | AE / VAE | AE, VAE, VQ-VAE, DRAEM, DFM | 10 |
+| **VLM / Zero-shot** | Vision-Language | WinCLIP, AnomalyDINO, PromptAD | 6 |
+| **Template** | Pixel statistics | SSIM, NCC, Phase correlation, Pixel Gaussian | 8 |
+| **Industrial** | Pipeline wrappers | ResNet18, ONNX, TorchScript pipelines | 14+ |
+
+</details>
+
+> 📖 See `docs/ALGORITHM_SELECTION_GUIDE.md` for a detailed decision flowchart.
+
+---
+
+## 📋 API Cheatsheet
+
+```python
+from pyimgano.models import create_model, list_models
+
+# ╭──────────────────────────────────────────────╮
+# │  Discovery                                   │
+# ╰──────────────────────────────────────────────╯
+list_models()                              # all registered names
+list_models(tags=["vision", "pixel_map"])  # filter by tags
+
+# ╭──────────────────────────────────────────────╮
+# │  Core detector API                           │
+# ╰──────────────────────────────────────────────╯
+detector = create_model("vision_patchcore", device="cuda", contamination=0.1)
+
+detector.fit(X_train)                      # train on normal images
+scores = detector.decision_function(X)     # → np.ndarray of anomaly scores
+labels = detector.predict(X)               # → 0 (normal) / 1 (anomaly)
+labels, conf = detector.predict(X, return_confidence=True)
+
+# ╭──────────────────────────────────────────────╮
+# │  Pixel-level (models with pixel_map tag)     │
+# ╰──────────────────────────────────────────────╯
+anomaly_map = detector.predict_anomaly_map(image)  # → H×W float array
+
+# ╭──────────────────────────────────────────────╮
+# │  Industrial inference                        │
+# ╰──────────────────────────────────────────────╯
+from pyimgano.inference import infer, calibrate_threshold
+from pyimgano.inputs import ImageFormat
+
+calibrate_threshold(detector, X_train, input_format=ImageFormat.RGB_U8_HWC, quantile=0.995)
+results = infer(detector, X_test, input_format=ImageFormat.RGB_U8_HWC, include_maps=True)
+# results[i].score, results[i].label, results[i].anomaly_map
+
+# ╭──────────────────────────────────────────────╮
+# │  Evaluation                                  │
+# ╰──────────────────────────────────────────────╯
+from pyimgano import evaluate_detector, compute_auroc
+
+metrics = evaluate_detector(detector, X_test, y_test)  # full report
+auroc = compute_auroc(y_true, scores)                   # single metric
+```
+
+---
+
+## 📊 Benchmarking
+
+Run curated **baseline suites** with a single command and get aggregated leaderboard tables:
+
+```bash
+# Discover suites
 pyimgano-benchmark --list-suites
 pyimgano-benchmark --suite-info industrial-v4 --json
 
-pyimgano-benchmark --list-sweeps
-pyimgano-benchmark --sweep-info industrial-template-small --json
+# Run a suite
+pyimgano-benchmark \
+  --dataset mvtec --root /path/to/mvtec_ad --category bottle \
+  --suite industrial-v4 --device cpu --no-pretrained \
+  --suite-export both --output-dir /tmp/suite_run
+
+# Optional: small grid search
+pyimgano-benchmark \
+  --dataset mvtec --root /path/to/mvtec_ad --category bottle \
+  --suite industrial-v4 --suite-sweep industrial-template-small \
+  --suite-sweep-max-variants 1 --suite-export csv \
+  --output-dir /tmp/suite_sweep
 ```
 
-Run a suite (and export `leaderboard.*` / `skipped.*` tables):
+<details>
+<summary><b>Run comparison</b></summary>
 
 ```bash
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --suite industrial-v4 \
-  --device cpu \
-  --no-pretrained \
-  --suite-export both \
-  --output-dir /tmp/pyimgano_suite_run
+pyimgano-runs list --root runs
+pyimgano-runs list --root runs --kind robustness --same-robustness-protocol-as runs/run_a --json
+pyimgano-runs compare runs/run_a runs/run_b --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-split --json
+pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-robustness-protocol --json
+pyimgano-runs publication /path/to/suite_export --json
 ```
 
-Optional: run a **small grid search** (bounded variants per baseline):
+</details>
 
-```bash
-pyimgano-benchmark \
-  --dataset mvtec \
-  --root /path/to/mvtec_ad \
-  --category bottle \
-  --suite industrial-v4 \
-  --suite-sweep industrial-template-small \
-  --suite-sweep-max-variants 1 \
-  --suite-export csv \
-  --output-dir /tmp/pyimgano_suite_sweep_run
-```
+> Some suite entries are **optional** and are skipped if extras are missing (with hints like `pip install 'pyimgano[torch]'`).
+> For reproducible publications, use built-in official presets via `--config official_mvtec_industrial_v4_cpu_offline.json`.
 
-Notes:
-- Some suite entries are **optional** and are skipped if extras are missing (with actionable hints like
-  `pip install 'pyimgano[skimage]'` or `pip install 'pyimgano[torch]'`).
-- See `docs/CLI_REFERENCE.md` for suite output layout and all flags.
+---
 
-## Quickstart (Python)
+## 🎨 Synthetic Anomaly Generation
 
-### Create a detector from the registry
-
-```python
-from pyimgano.models import create_model
-
-detector = create_model(
-    "vision_patchcore",
-    device="cuda",         # or "cpu"
-    contamination=0.1,     # used for threshold defaults when applicable
-)
-
-detector.fit(train_paths)                 # normal/reference images
-scores = detector.decision_function(test_paths)
-```
-
-### Classical baseline (CPU-friendly, no pixel maps)
-
-Classical detectors usually expect a `feature_extractor` that turns images into 2D features:
-
-```python
-from pyimgano.models import create_model
-from pyimgano.utils import ImagePreprocessor
-
-extractor = ImagePreprocessor(resize=(224, 224), output_tensor=False)
-detector = create_model("vision_ecod", feature_extractor=extractor, contamination=0.1, n_jobs=-1)
-detector.fit(train_paths)
-scores = detector.decision_function(test_paths)
-```
-
-### Numpy-first industrial inference
-
-If you already have decoded frames/images in memory, prefer the explicit IO helpers:
-
-```python
-import numpy as np
-
-from pyimgano.inference import calibrate_threshold, infer
-from pyimgano.inputs import ImageFormat
-
-train_frames = [np.zeros((64, 64, 3), dtype=np.uint8) for _ in range(8)]
-detector.fit(train_frames)
-calibrate_threshold(detector, train_frames, input_format=ImageFormat.RGB_U8_HWC, quantile=0.995)
-
-results = infer(
-    detector,
-    train_frames[:2],
-    input_format=ImageFormat.RGB_U8_HWC,
-    include_maps=True,
-)
-print(results[0].score, results[0].label)
-```
-
-Guide: `docs/INDUSTRIAL_INFERENCE.md`
-
-## Synthetic anomaly generation
-
-When real defects are scarce, `pyimgano` can generate **small, controlled** synthetic anomalies
-for smoke tests / robustness checks / pixel-mask pipelines.
-
-CLI: generate a tiny dataset + masks + JSONL manifest:
+When real defects are scarce, generate controlled synthetic anomalies for smoke tests, robustness checks, and pixel-mask pipelines:
 
 ```bash
 pyimgano-synthesize \
@@ -281,149 +455,161 @@ pyimgano-synthesize \
   --category synthetic_demo \
   --presets scratch stain tape edge_wear \
   --roi-mask /path/to/roi_mask.png \
-  --blend alpha \
-  --alpha 0.9 \
-  --n-train 50 \
-  --n-test-normal 20 \
-  --n-test-anomaly 20 \
+  --blend alpha --alpha 0.9 \
+  --n-train 50 --n-test-normal 20 --n-test-anomaly 20 \
   --seed 0
 ```
 
-Guide: `docs/SYNTHETIC_ANOMALY_GENERATION.md`
+Supported presets: `scratch` · `stain` · `tape` · `edge_wear` · Perlin noise · CutPaste · custom
 
-## Models & discovery
+> 📖 Guide: `docs/SYNTHETIC_ANOMALY_GENERATION.md`
 
-`pyimgano` ships **120+ registered model entry points** (native implementations + optional backend wrappers + aliases).
-Some models require optional extras (see below).
+---
 
-Discover models from the CLI:
+## 🏭 Industrial Outputs (Defects)
 
-```bash
-pyimgano-benchmark --list-models
-pyimgano-benchmark --list-models --tags vision,deep
-pyimgano-benchmark --model-info vision_patchcore --json
+When `--defects` is enabled, `pyimgano-infer` derives structured defect information from the anomaly map:
+
+```mermaid
+graph LR
+    A[Anomaly Map] --> B[Threshold]
+    B --> C[Binary Mask]
+    C --> D[Morphology<br/>open / close / fill]
+    D --> E[Connected Components]
+    E --> F[Defect Regions]
+
+    F --> G["area · bbox · score"]
+    F --> H[ROI Gating]
+
+    style A fill:#1e293b,stroke:#f472b6,color:#e2e8f0
+    style C fill:#1e293b,stroke:#818cf8,color:#e2e8f0
+    style F fill:#1e293b,stroke:#34d399,color:#e2e8f0
 ```
 
-### Recommended baselines (practical)
+- **Binary defect mask** — optional artifact output
+- **Connected-component regions** — area, bbox, per-region score
+- **ROI gating** — only flag defects inside the region of interest
+- **Morphology** — open/close/fill holes to reduce noise
+- **Stable triage metadata** — per-record `decision_summary` for review routing and low-confidence rejection handling
 
-If you’re doing industrial inspection with anomaly maps / defect localization, start here:
+> 📖 Guides: `docs/INDUSTRIAL_INFERENCE.md` · `docs/FALSE_POSITIVE_DEBUGGING.md`
 
-| Goal | Start with | Notes |
-|------|------------|-------|
-| Strong pixel localization baseline | `vision_patchcore` | `numpy,pixel_map`; great default for MVTec/VisA-style data |
-| Robustness to “noisy normal” | `vision_softpatch` | `numpy,pixel_map`; filters outlier patches in the memory bank |
-| Lightweight pixel baseline | `vision_padim` / `vision_spade` | `numpy,pixel_map`; simpler + often easier to tune |
-| Few-shot / small normal set | `vision_anomalydino` | `numpy,pixel_map`; may download DINOv2 weights on first run |
-| CPU-only / precomputed features | `vision_ecod` / `vision_copod` | fast, parameter-free; typically score-only (no pixel maps) |
-| You already train in anomalib | `vision_*_anomalib` / `vision_anomalib_checkpoint` | requires `pyimgano[anomalib]`; wraps trained checkpoints for evaluation/inference |
+---
 
-For a longer discussion, see `docs/ALGORITHM_SELECTION_GUIDE.md`.
+## 🔧 CLI Reference
 
-### Tags & capabilities
+| Command | Purpose |
+|:--------|:--------|
+| `pyimgano` | Top-level umbrella CLI (`pyimgano --help`, `pyimgano list models`) |
+| `pyimgano-demo` | Quick end-to-end demo |
+| `pyimgano-doctor` | Environment & dependency check |
+| `pyimgano-train` | Train + export `infer_config.json` |
+| `pyimgano-infer` | Inference → JSONL + masks |
+| `pyimgano-benchmark` | Suite / sweep benchmarking |
+| `pyimgano-synthesize` | Synthetic anomaly generation |
+| `pyimgano-runs` | Run listing & comparison |
+| `pyimgano-weights` | Weight manifest & model cards |
+| `pyimgano-features` | Feature extraction utilities |
+| `pyimgano-datasets` | Dataset management |
+| `pyimgano-defects` | Defect post-processing |
+| `pyim` | Unified discovery (`pyim --list models`) |
 
-Every registry entry has `tags` + `metadata`. Useful tags include:
+> 📖 Full reference: `docs/CLI_REFERENCE.md`
 
-- `classical` vs `deep`
-- `pixel_map` → model exposes anomaly maps (`--include-maps`, `--defects`, pixel metrics)
-- `numpy` → model can score **RGB uint8 numpy images** (needed for tiling + robustness corruptions)
+`pyimgano-runs quality` and `pyimgano-runs publication` now expose structured
+trust metadata as well:
 
-To inspect a model’s constructor signature and supported kwargs:
+- `trust_summary` for saved run artifacts
+- `trust_signals` for suite publication bundles
 
-```bash
-pyimgano-benchmark --model-info vision_patchcore
-pyimgano-benchmark --model-info vision_patchcore --json
-```
+This makes it easier to gate CI/release automation on auditable machine-readable
+signals instead of parsing free-form warnings.
 
-References:
-- `docs/MODEL_INDEX.md` (auto-generated model index)
-- `docs/ALGORITHM_SELECTION_GUIDE.md` (how to pick a baseline)
-- `docs/SOTA_ALGORITHMS.md` and `docs/DEEP_LEARNING_MODELS.md` (deeper dives)
+---
 
-## Industrial outputs (defects)
-
-When `--defects` is enabled, `pyimgano-infer` derives defect structures from the anomaly map:
-
-- binary defect mask (optional artifact output)
-- connected-component regions (area / bbox / per-region score)
-- optional ROI gating and binary morphology (open/close/fill holes)
-
-This is intended for downstream inspection systems that need more than a single anomaly score.
-
-Docs:
-- `docs/CLI_REFERENCE.md` (JSONL schema + examples)
-- `docs/INDUSTRIAL_INFERENCE.md` (defects + ROI configuration)
-- `docs/FALSE_POSITIVE_DEBUGGING.md` (how to tune down false positives)
-
-## Optional dependencies
-
-`pyimgano` is usable with the default dependencies, but some models/backends require extras:
-
-```bash
-pip install "pyimgano[torch]"       # torch + torchvision (deep backends, TorchScript export)
-pip install "pyimgano[onnx]"        # onnx + onnxruntime (+ onnxscript for torch.onnx.export)
-pip install "pyimgano[openvino]"    # OpenVINO runtime (deployment)
-pip install "pyimgano[skimage]"     # scikit-image baselines (SSIM/phase-corr/HOG/LBP/Gabor, etc.)
-pip install "pyimgano[numba]"       # numba-accelerated baselines
-pip install "pyimgano[viz]"         # matplotlib/seaborn plots
-pip install "pyimgano[diffusion]"   # diffusion-based methods
-pip install "pyimgano[clip]"        # OpenCLIP backends
-pip install "pyimgano[faiss]"       # faster kNN for memory-bank methods
-pip install "pyimgano[anomalib]"    # anomalib checkpoint wrappers (inference-first)
-pip install "pyimgano[backends]"    # clip + faiss + anomalib
-pip install "pyimgano[all]"         # everything (dev/docs/viz + torch/onnx/openvino + backends/diffusion)
-```
-
-See also: `docs/OPTIONAL_DEPENDENCIES.md` (extras map + recommended combos).
-
-## Weights & cache policy
+## ⚖️ Weights & Cache Policy
 
 - `pyimgano` does **not** ship model weights inside the wheel.
-- When models download weights (torchvision / OpenCLIP / HuggingFace), weights are cached on disk by upstream libraries.
-- Common cache env vars you may want to set on servers/containers:
-  - `TORCH_HOME`
-  - `HF_HOME` / `TRANSFORMERS_CACHE`
-  - `XDG_CACHE_HOME`
+- Weights are cached by upstream libraries (torchvision / OpenCLIP / HuggingFace).
+- Set cache env vars on servers: `TORCH_HOME`, `HF_HOME`, `XDG_CACHE_HOME`
 
-## Docs
+```bash
+# Auditable weight management
+pyimgano-weights template manifest > ./weights_manifest.json
+pyimgano-weights validate ./weights_manifest.json --check-files --json
+```
 
-Start here:
-- `docs/QUICKSTART.md`
-- `docs/WORKBENCH.md`
-- `docs/CLI_REFERENCE.md`
-- `docs/STABILITY.md` (public API + compatibility expectations)
+---
 
-Production/industrial:
-- `docs/INDUSTRIAL_INFERENCE.md` (numpy-first IO, tiling, postprocess, defects export)
-- `docs/ROBUSTNESS_BENCHMARK.md` (drift corruptions + evaluation)
-- `docs/MANIFEST_DATASET.md` (JSONL manifest datasets)
+## 📚 Documentation
 
-Reference:
-- `docs/MODEL_INDEX.md`
-- `docs/PREPROCESSING.md`
-- `docs/EVALUATION_AND_BENCHMARK.md`
-- `docs/PUBLISHING.md` (PyPI release flow)
+<table>
+<tr>
+<td width="33%">
 
-## Contributing
+**Getting Started**
+- [`QUICKSTART.md`](docs/QUICKSTART.md)
+- [`WORKBENCH.md`](docs/WORKBENCH.md)
+- [`CLI_REFERENCE.md`](docs/CLI_REFERENCE.md)
+- [`STABILITY.md`](docs/STABILITY.md)
 
-See:
+</td>
+<td width="33%">
 
-- `CONTRIBUTING.md`
-- `CODE_OF_CONDUCT.md`
-- `SECURITY.md`
+**Industrial / Production**
+- [`INDUSTRIAL_INFERENCE.md`](docs/INDUSTRIAL_INFERENCE.md)
+- [`INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md)
+- Example config: [`industrial_adapt_audited.json`](examples/configs/industrial_adapt_audited.json)
+- [`ROBUSTNESS_BENCHMARK.md`](docs/ROBUSTNESS_BENCHMARK.md)
+- [`FALSE_POSITIVE_DEBUGGING.md`](docs/FALSE_POSITIVE_DEBUGGING.md)
 
-## License
+</td>
+<td width="33%">
 
-MIT. See `LICENSE`.
+**Reference**
+- [`MODEL_INDEX.md`](docs/MODEL_INDEX.md)
+- [`ALGORITHM_SELECTION_GUIDE.md`](docs/ALGORITHM_SELECTION_GUIDE.md)
+- [`EVALUATION_AND_BENCHMARK.md`](docs/EVALUATION_AND_BENCHMARK.md)
+- [`PUBLISHING.md`](docs/PUBLISHING.md)
 
-## Citation
+</td>
+</tr>
+</table>
 
-GitHub citation metadata is provided via `CITATION.cff`.
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see:
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — development workflow
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- [`SECURITY.md`](SECURITY.md)
+
+---
+
+## 📄 License
+
+[MIT](LICENSE)
+
+---
+
+## 📝 Citation
+
+GitHub citation metadata is provided via [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
 @software{pyimgano2026,
-  author = {PyImgAno Contributors},
-  title = {pyimgano: Production-oriented Visual Anomaly Detection},
-  year = {2026},
-  url = {https://github.com/skygazer42/pyimgano}
+  author    = {PyImgAno Contributors},
+  title     = {pyimgano: Production-oriented Visual Anomaly Detection},
+  year      = {2026},
+  url       = {https://github.com/skygazer42/pyimgano}
 }
 ```
+
+---
+
+<p align="center">
+  <sub>Made with care for industrial inspection teams.</sub><br/>
+  <a href="https://github.com/skygazer42/pyimgano">⭐ Star us on GitHub</a>
+</p>

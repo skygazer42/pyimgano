@@ -97,6 +97,21 @@ def test_workbench_config_defects_shape_filters_parses() -> None:
     assert cfg.defects.max_regions_sort_by == "area"
 
 
+def test_workbench_config_prediction_parses() -> None:
+    raw = {
+        "dataset": {"name": "custom", "root": "/tmp/data"},
+        "model": {"name": "vision_patchcore"},
+        "prediction": {
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+
+    cfg = WorkbenchConfig.from_dict(raw)
+    assert cfg.prediction.reject_confidence_below == pytest.approx(0.75)
+    assert cfg.prediction.reject_label == -9
+
+
 def test_workbench_config_defaults():
     raw = {
         "dataset": {"name": "custom", "root": "/tmp/data"},
@@ -112,6 +127,8 @@ def test_workbench_config_defaults():
     assert cfg.defects.enabled is False
     assert cfg.defects.pixel_threshold is None
     assert cfg.defects.roi_xyxy_norm is None
+    assert cfg.prediction.reject_confidence_below is None
+    assert cfg.prediction.reject_label is None
 
 
 def test_workbench_config_invalid_resize_raises():

@@ -49,6 +49,7 @@ def test_load_config_backed_infer_detector_restores_checkpoint_and_threshold() -
                 trained_checkpoint_path="/tmp/trained-model.pt",
                 threshold=0.73,
                 defects_payload=None,
+                prediction_payload=None,
                 defects_payload_source=None,
                 illumination_contrast_knobs=None,
                 tiling_payload=None,

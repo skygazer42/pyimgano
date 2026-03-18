@@ -14,3 +14,5 @@ Docs
 
 - CLI reference: https://github.com/skygazer42/pyimgano/blob/main/docs/CLI_REFERENCE.md
 - Publishing: https://github.com/skygazer42/pyimgano/blob/main/docs/PUBLISHING.md
+- First-tier roadmap: https://github.com/skygazer42/pyimgano/blob/main/docs/FIRST_TIER_ROADMAP.md
+- Benchmark reproducibility issues: https://github.com/skygazer42/pyimgano/issues/new/choose
