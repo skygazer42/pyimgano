@@ -155,6 +155,13 @@ def _build_infer_config_trust_summary(
         "has_prediction_policy": bool(artifact_quality.get("has_prediction_policy")),
         "has_deploy_bundle": bool(artifact_quality.get("has_deploy_bundle")),
         "has_bundle_manifest": bool(artifact_quality.get("has_bundle_manifest")),
+        "has_required_bundle_artifacts": bool(
+            artifact_quality.get("required_bundle_artifacts_present")
+        ),
+        "has_bundle_artifact_roles": bool(
+            isinstance(artifact_quality.get("bundle_artifact_roles", None), Mapping)
+            and len(dict(artifact_quality.get("bundle_artifact_roles", {}))) > 0
+        ),
         "has_calibration_card_ref": bool(
             isinstance(audit_ref_map.get("calibration_card", None), str)
             and str(audit_ref_map.get("calibration_card")).strip()
@@ -179,6 +186,10 @@ def _build_infer_config_trust_summary(
             degraded_by.append("missing_bundle_manifest")
         if not trust_signals["has_bundle_manifest_ref"]:
             degraded_by.append("missing_bundle_manifest_ref")
+        if not trust_signals["has_required_bundle_artifacts"]:
+            degraded_by.append("missing_required_bundle_artifacts")
+        if not trust_signals["has_bundle_artifact_roles"]:
+            degraded_by.append("missing_bundle_artifact_roles")
     if not bool(check_files):
         degraded_by.append("file_checks_skipped")
 
@@ -607,12 +618,44 @@ def validate_infer_config_payload(
             "has_prediction_policy",
             "has_deploy_bundle",
             "has_bundle_manifest",
+            "required_bundle_artifacts_present",
         ):
             if key in artifact_quality and artifact_quality[key] is not None:
                 artifact_quality[key] = _coerce_bool(
                     artifact_quality[key],
                     name=f"artifact_quality.{key}",
                 )
+
+        bundle_artifact_roles_raw = artifact_quality.get("bundle_artifact_roles", None)
+        bundle_artifact_roles_map = _optional_mapping(
+            bundle_artifact_roles_raw,
+            name="artifact_quality.bundle_artifact_roles",
+        )
+        if bundle_artifact_roles_map is not None:
+            bundle_artifact_roles: dict[str, list[str]] = {}
+            for role_name, role_paths in bundle_artifact_roles_map.items():
+                if not isinstance(role_paths, list):
+                    raise ValueError(
+                        "infer-config artifact_quality.bundle_artifact_roles."
+                        f"{role_name} must be a list of strings."
+                    )
+                collected: list[str] = []
+                for index, role_path in enumerate(role_paths):
+                    text = _coerce_str(
+                        role_path,
+                        name=(
+                            "artifact_quality.bundle_artifact_roles."
+                            f"{role_name}[{index}]"
+                        ),
+                    ).strip()
+                    if not text:
+                        raise ValueError(
+                            "infer-config artifact_quality.bundle_artifact_roles."
+                            f"{role_name}[{index}] must be non-empty."
+                        )
+                    collected.append(text)
+                bundle_artifact_roles[str(role_name)] = collected
+            artifact_quality["bundle_artifact_roles"] = bundle_artifact_roles
 
         audit_refs_raw = artifact_quality.get("audit_refs", None)
         audit_refs_map = _optional_mapping(audit_refs_raw, name="artifact_quality.audit_refs")

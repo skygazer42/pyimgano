@@ -174,6 +174,8 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         artifact_quality["deploy_refs"] = rewritten_deploy_refs
         artifact_quality["has_deploy_bundle"] = True
         artifact_quality["has_bundle_manifest"] = True
+        artifact_quality["required_bundle_artifacts_present"] = False
+        artifact_quality["bundle_artifact_roles"] = {}
     used_dst: set[Path] = set()
     bundle_root = bundle_dir.resolve()
 
@@ -213,11 +215,27 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
+    def _apply_bundle_manifest_metadata(
+        payload: dict[str, Any], manifest: dict[str, Any]
+    ) -> dict[str, Any]:
+        artifact_quality = payload.get("artifact_quality", None)
+        if not isinstance(artifact_quality, dict):
+            return payload
+        artifact_quality["required_bundle_artifacts_present"] = bool(
+            manifest.get("required_bundle_artifacts_present", False)
+        )
+        artifact_roles = manifest.get("artifact_roles", None)
+        artifact_quality["bundle_artifact_roles"] = (
+            dict(artifact_roles) if isinstance(artifact_roles, dict) else {}
+        )
+        return payload
+
     save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
-    save_run_report(
-        bundle_dir / "bundle_manifest.json",
-        build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
-    )
+    bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    bundle_payload = _apply_bundle_manifest_metadata(bundle_payload, bundle_manifest)
+    save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
+    bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    save_run_report(bundle_dir / "bundle_manifest.json", bundle_manifest)
     return bundle_dir
 
 

@@ -328,9 +328,18 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     assert bundle_dir.exists()
     assert (bundle_dir / "infer_config.json").exists()
     bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
+    bundle_manifest = json.loads((bundle_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
     assert bundle_payload["artifact_quality"]["audit_refs"]["calibration_card"] == "calibration_card.json"
     assert bundle_payload["artifact_quality"]["has_deploy_bundle"] is True
     assert bundle_payload["artifact_quality"]["has_bundle_manifest"] is True
+    assert (
+        bundle_payload["artifact_quality"]["required_bundle_artifacts_present"]
+        == bundle_manifest["required_bundle_artifacts_present"]
+    )
+    assert (
+        bundle_payload["artifact_quality"]["bundle_artifact_roles"]
+        == bundle_manifest["artifact_roles"]
+    )
     assert bundle_payload["artifact_quality"]["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
 
     copied_ckpt = bundle_dir / "checkpoints" / "custom" / "model.pt"

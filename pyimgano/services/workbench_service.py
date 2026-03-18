@@ -317,6 +317,8 @@ def build_infer_config_payload(
         "has_prediction_policy": prediction_payload is not None,
         "has_deploy_bundle": False,
         "has_bundle_manifest": False,
+        "required_bundle_artifacts_present": False,
+        "bundle_artifact_roles": {},
         "audit_refs": {
             "calibration_card": "artifacts/calibration_card.json",
         },

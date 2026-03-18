@@ -93,6 +93,11 @@ def main(argv: list[str] | None = None) -> int:
             msg += (
                 f" bundle_manifest={str(bool(artifact_quality['has_bundle_manifest'])).lower()}"
             )
+        if "required_bundle_artifacts_present" in artifact_quality:
+            msg += (
+                " bundle_required="
+                f"{str(bool(artifact_quality['required_bundle_artifacts_present'])).lower()}"
+            )
     trust_status = trust_summary.get("status", None)
     if trust_status is not None:
         msg += f" trust_status={trust_status}"
