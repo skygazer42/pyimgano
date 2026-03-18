@@ -543,6 +543,7 @@ def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: P
     trust = quality["trust_summary"]
     assert trust["trust_signals"]["has_bundle_operator_contract"] is True
     assert trust["trust_signals"]["has_bundle_operator_contract_consistent"] is True
+    assert trust["trust_signals"]["has_bundle_operator_contract_digests_valid"] is True
 
 
 def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: Path) -> None:
@@ -612,4 +613,78 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: 
     trust = quality["trust_summary"]
     assert trust["trust_signals"]["has_bundle_operator_contract"] is True
     assert trust["trust_signals"]["has_bundle_operator_contract_consistent"] is False
+    assert trust["trust_signals"]["has_bundle_operator_contract_digests_valid"] is True
     assert "operator_contract_bundle_mismatch" in trust["degraded_by"]
+
+
+def test_evaluate_run_quality_flags_bundle_operator_contract_digest_mismatch(tmp_path: Path) -> None:
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "operator_contract": operator_contract,
+            "artifact_quality": {
+                "has_operator_contract": True,
+                "audit_refs": {"operator_contract": "artifacts/operator_contract.json"},
+            },
+        },
+    )
+    _write_json(run_dir / "artifacts" / "operator_contract.json", operator_contract)
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    bundle_dir = run_dir / "deploy_bundle"
+    _write_json(
+        bundle_dir / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "operator_contract": operator_contract,
+            "artifact_quality": {
+                "has_operator_contract": True,
+                "audit_refs": {"operator_contract": "operator_contract.json"},
+            },
+        },
+    )
+    _write_json(bundle_dir / "operator_contract.json", operator_contract)
+    _write_json(bundle_dir / "report.json", {"dataset": "custom"})
+    _write_json(bundle_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(bundle_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(bundle_dir / "calibration_card.json", {"schema_version": 1})
+
+    manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    manifest["operator_contract_digests"]["bundle_operator_contract_sha256"] = "0" * 64
+    _write_json(bundle_dir / "bundle_manifest.json", manifest)
+
+    quality = evaluate_run_quality(run_dir)
+    trust = quality["trust_summary"]
+    assert trust["trust_signals"]["has_bundle_operator_contract"] is True
+    assert trust["trust_signals"]["has_bundle_operator_contract_consistent"] is False
+    assert trust["trust_signals"]["has_bundle_operator_contract_digests_valid"] is False
+    assert "operator_contract_bundle_digest_mismatch" in trust["degraded_by"]
