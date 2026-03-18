@@ -1238,6 +1238,30 @@ def test_compare_run_summaries_emits_candidate_verdicts_and_blocking_reasons(tmp
         "target.dataset:mismatched",
         "target.category:mismatched",
     ]
+    assert summary["candidate_incompatibility_digest"] == {
+        "blocked": {
+            "verdict": "blocked",
+            "incompatible_gates": [
+                "split:mismatched",
+                "environment:mismatched",
+                "target:mismatched",
+                "target_dataset:mismatched",
+                "target_category:mismatched",
+            ],
+            "blocking_reasons": [
+                "primary_metric:regressed",
+                "split:mismatched",
+                "environment:mismatched",
+                "target.dataset:mismatched",
+                "target.category:mismatched",
+            ],
+        },
+        "clean": {
+            "verdict": "pass",
+            "incompatible_gates": [],
+            "blocking_reasons": [],
+        },
+    }
     assert summary["candidate_comparability_gates"] == {
         "clean": {
             "split": "matched",
@@ -1338,6 +1362,11 @@ def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_b
 
     assert summary["candidate_verdicts"]["candidate"] == "blocked"
     assert summary["candidate_blocking_reasons"]["candidate"] == ["operator_contract:missing"]
+    assert summary["candidate_incompatibility_digest"]["candidate"] == {
+        "verdict": "blocked",
+        "incompatible_gates": ["operator_contract:missing"],
+        "blocking_reasons": ["operator_contract:missing"],
+    }
     assert summary["operator_contract_gate"] == "incompatible"
     assert summary["comparability_gates"]["operator_contract"] == "incompatible"
     assert "--require-same-operator-contract" in summary["blocking_flags"]
@@ -1471,6 +1500,11 @@ def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract
     assert summary["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:missing"
     ]
+    assert summary["candidate_incompatibility_digest"]["candidate"] == {
+        "verdict": "blocked",
+        "incompatible_gates": ["bundle_operator_contract:missing"],
+        "blocking_reasons": ["operator_contract_bundle:missing"],
+    }
     assert summary["bundle_operator_contract_gate"] == "incompatible"
     assert summary["comparability_gates"]["bundle_operator_contract"] == "incompatible"
     assert "--require-same-bundle-operator-contract" in summary["blocking_flags"]

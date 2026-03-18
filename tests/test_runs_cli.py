@@ -139,6 +139,30 @@ def test_runs_cli_compare_json_emits_candidate_verdicts_and_blocking_reasons(
         "target.dataset:mismatched",
         "target.category:mismatched",
     ]
+    assert out["summary"]["candidate_incompatibility_digest"] == {
+        "blocked": {
+            "verdict": "blocked",
+            "incompatible_gates": [
+                "split:mismatched",
+                "environment:mismatched",
+                "target:mismatched",
+                "target_dataset:mismatched",
+                "target_category:mismatched",
+            ],
+            "blocking_reasons": [
+                "primary_metric:regressed",
+                "split:mismatched",
+                "environment:mismatched",
+                "target.dataset:mismatched",
+                "target.category:mismatched",
+            ],
+        },
+        "clean": {
+            "verdict": "pass",
+            "incompatible_gates": [],
+            "blocking_reasons": [],
+        },
+    }
     assert out["summary"]["candidate_comparability_gates"] == {
         "clean": {
             "split": "matched",
@@ -2624,6 +2648,11 @@ def test_runs_cli_compare_json_blocks_candidate_missing_operator_contract_when_b
     assert out["summary"]["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract:missing"
     ]
+    assert out["summary"]["candidate_incompatibility_digest"]["candidate"] == {
+        "verdict": "blocked",
+        "incompatible_gates": ["operator_contract:missing"],
+        "blocking_reasons": ["operator_contract:missing"],
+    }
 
 
 def test_runs_cli_compare_json_blocks_candidate_missing_bundle_operator_contract_when_baseline_consistent(
@@ -2761,6 +2790,11 @@ def test_runs_cli_compare_json_blocks_candidate_missing_bundle_operator_contract
     assert out["summary"]["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:missing"
     ]
+    assert out["summary"]["candidate_incompatibility_digest"]["candidate"] == {
+        "verdict": "blocked",
+        "incompatible_gates": ["bundle_operator_contract:missing"],
+        "blocking_reasons": ["operator_contract_bundle:missing"],
+    }
 
 
 def test_runs_cli_compare_json_blocks_candidate_bundle_operator_contract_baseline_mismatch(

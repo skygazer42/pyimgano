@@ -257,6 +257,58 @@ def _append_candidate_reason(
         reasons_by_name[run_dir_name].append(reason)
 
 
+_CANDIDATE_COMPARABILITY_GATE_ORDER = (
+    "split",
+    "environment",
+    "target",
+    "target_dataset",
+    "target_category",
+    "robustness_protocol",
+    "operator_contract",
+    "bundle_operator_contract",
+)
+
+
+def _build_candidate_incompatibility_digest(
+    *,
+    candidate_verdicts: Mapping[str, Any],
+    candidate_blocking_reasons: Mapping[str, Any],
+    candidate_comparability_gates: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    candidate_names = sorted(
+        {
+            str(name)
+            for name in (
+                list(candidate_verdicts.keys())
+                + list(candidate_blocking_reasons.keys())
+                + list(candidate_comparability_gates.keys())
+            )
+            if str(name)
+        }
+    )
+    digest: dict[str, dict[str, Any]] = {}
+    for name in candidate_names:
+        verdict = candidate_verdicts.get(name, None)
+        if not isinstance(verdict, str) or not verdict:
+            verdict = "pass"
+        reasons_raw = candidate_blocking_reasons.get(name, [])
+        reasons = [str(reason) for reason in list(reasons_raw) if str(reason)]
+        gate_states = candidate_comparability_gates.get(name, None)
+        gate_map = dict(gate_states) if isinstance(gate_states, Mapping) else {}
+        incompatible_gates: list[str] = []
+        for gate_name in _CANDIDATE_COMPARABILITY_GATE_ORDER:
+            status = gate_map.get(gate_name, None)
+            status_text = str(status).strip().lower() if status is not None else ""
+            if status_text in {"missing", "mismatched"}:
+                incompatible_gates.append(f"{gate_name}:{status_text}")
+        digest[name] = {
+            "verdict": verdict,
+            "incompatible_gates": incompatible_gates,
+            "blocking_reasons": reasons,
+        }
+    return digest
+
+
 def _load_operator_contract_payload(
     run_dir: object,
     *,
@@ -1628,6 +1680,11 @@ def compare_run_summaries(
     )
     summary["candidate_comparability_gates"] = dict(
         candidate_blocking_summary["candidate_comparability_gates"]
+    )
+    summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
+        candidate_verdicts=summary["candidate_verdicts"],
+        candidate_blocking_reasons=summary["candidate_blocking_reasons"],
+        candidate_comparability_gates=summary["candidate_comparability_gates"],
     )
 
     return {
