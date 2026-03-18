@@ -206,6 +206,81 @@ def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> li
     return errors
 
 
+def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
+    errors: list[str] = []
+
+    infer_config_path = bundle_root / "infer_config.json"
+    if not infer_config_path.is_file():
+        return errors
+
+    try:
+        infer_payload = _load_json_dict(infer_config_path)
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        errors.append(f"infer_config.json: {exc}")
+        return errors
+
+    operator_contract_path = bundle_root / "operator_contract.json"
+    operator_contract_payload: dict[str, Any] | None = None
+    has_operator_contract_file = operator_contract_path.is_file()
+    if has_operator_contract_file:
+        try:
+            operator_contract_payload = _load_json_dict(operator_contract_path)
+        except Exception as exc:  # noqa: BLE001 - validation boundary
+            errors.append(f"operator_contract.json: {exc}")
+
+    artifact_quality = infer_payload.get("artifact_quality", None)
+    has_operator_contract_flag = False
+    audit_refs: dict[str, Any] = {}
+    if isinstance(artifact_quality, Mapping):
+        has_operator_contract_flag = bool(artifact_quality.get("has_operator_contract", False))
+        audit_refs_raw = artifact_quality.get("audit_refs", None)
+        if isinstance(audit_refs_raw, Mapping):
+            audit_refs = dict(audit_refs_raw)
+
+    infer_operator_contract = infer_payload.get("operator_contract", None)
+    has_infer_operator_contract = isinstance(infer_operator_contract, Mapping)
+
+    if has_operator_contract_flag:
+        ref = audit_refs.get("operator_contract", None)
+        if not isinstance(ref, str) or not str(ref).strip():
+            errors.append(
+                "infer_config.json artifact_quality.has_operator_contract=true requires "
+                "artifact_quality.audit_refs.operator_contract."
+            )
+        elif str(ref).strip() != "operator_contract.json":
+            errors.append(
+                "infer_config.json artifact_quality.audit_refs.operator_contract must point to "
+                "operator_contract.json inside deploy bundle."
+            )
+        if not has_operator_contract_file:
+            errors.append(
+                "infer_config.json artifact_quality.has_operator_contract=true requires "
+                "operator_contract.json in deploy bundle."
+            )
+        if not has_infer_operator_contract:
+            errors.append(
+                "infer_config.json artifact_quality.has_operator_contract=true requires "
+                "infer_config.operator_contract payload."
+            )
+
+    if has_operator_contract_file and not has_infer_operator_contract and not has_operator_contract_flag:
+        errors.append(
+            "operator_contract.json exists but infer_config.json is missing operator_contract payload."
+        )
+
+    if (
+        has_operator_contract_file
+        and has_infer_operator_contract
+        and isinstance(operator_contract_payload, Mapping)
+    ):
+        if dict(infer_operator_contract) != dict(operator_contract_payload):
+            errors.append(
+                "operator_contract mismatch between infer_config.json and operator_contract.json."
+            )
+
+    return errors
+
+
 def build_deploy_bundle_manifest(*, bundle_dir: str | Path, source_run_dir: str | Path) -> dict[str, Any]:
     bundle_root = Path(bundle_dir)
     source_root = Path(source_run_dir)
@@ -355,6 +430,7 @@ def validate_deploy_bundle_manifest(
             ),
         )
     )
+    errors.extend(_validate_operator_contract_consistency(bundle_root))
     errors.extend(_validate_weight_audit_files(bundle_root, check_hashes=bool(check_hashes)))
 
     return errors

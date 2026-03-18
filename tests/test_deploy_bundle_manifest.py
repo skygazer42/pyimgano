@@ -338,3 +338,122 @@ def test_validate_deploy_bundle_manifest_rejects_invalid_model_card_payload(tmp_
     errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
 
     assert any("model_card.json" in item for item in errors)
+
+
+def test_validate_deploy_bundle_manifest_rejects_operator_contract_mismatch(tmp_path):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "operator_contract": {
+                    "schema_version": 1,
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.75,
+                        "reject_label": -9,
+                    },
+                },
+                "artifact_quality": {
+                    "has_operator_contract": True,
+                    "audit_refs": {"operator_contract": "operator_contract.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "operator_contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "review_policy": {
+                    "review_on": ["anomalous"],
+                    "confidence_gate_enabled": True,
+                    "reject_confidence_below": 0.6,
+                    "reject_label": -9,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
+
+    assert any("operator_contract mismatch" in item for item in errors)
+
+
+def test_validate_deploy_bundle_manifest_rejects_missing_operator_contract_ref(tmp_path):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "operator_contract": {"schema_version": 1},
+                "artifact_quality": {
+                    "has_operator_contract": True,
+                    "audit_refs": {},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "operator_contract.json").write_text(
+        json.dumps({"schema_version": 1}),
+        encoding="utf-8",
+    )
+
+    manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
+
+    assert any("artifact_quality.audit_refs.operator_contract" in item for item in errors)
+
+
+def test_validate_deploy_bundle_manifest_rejects_missing_operator_contract_file(tmp_path):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "operator_contract": {"schema_version": 1},
+                "artifact_quality": {
+                    "has_operator_contract": True,
+                    "audit_refs": {"operator_contract": "operator_contract.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
+
+    assert any("requires operator_contract.json" in item for item in errors)
