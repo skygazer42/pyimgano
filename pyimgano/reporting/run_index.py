@@ -228,6 +228,7 @@ def _build_candidate_blocking_summary(
     *,
     runs: list[dict[str, Any]],
     baseline_path_str: str | None,
+    baseline_operator_contract_status: str | None,
     primary_metric_info: Mapping[str, Any],
     split_comparison: Mapping[str, Any],
     environment_comparison: Mapping[str, Any],
@@ -353,6 +354,20 @@ def _build_candidate_blocking_summary(
                 run_dir_name=run_dir_name,
                 reason="robustness_protocol:mismatched",
             )
+
+    if str(baseline_operator_contract_status or "").strip().lower() == "consistent":
+        for run in runs:
+            run_path = str(Path(str(run.get("run_dir"))).resolve())
+            if baseline_path_str is not None and run_path == baseline_path_str:
+                continue
+            run_dir_name = run.get("run_dir_name", None)
+            status = str(run.get("operator_contract_status", "missing") or "missing").strip().lower()
+            if status in {"missing", "mismatched"}:
+                _append_candidate_reason(
+                    reasons_by_name,
+                    run_dir_name=run_dir_name,
+                    reason=f"operator_contract:{status}",
+                )
 
     candidate_verdicts = {
         name: ("blocked" if reasons_by_name.get(name, []) else "pass")
@@ -1305,6 +1320,12 @@ def compare_run_summaries(
     candidate_blocking_summary = _build_candidate_blocking_summary(
         runs=runs,
         baseline_path_str=baseline_path_str,
+        baseline_operator_contract_status=(
+            str(baseline_summary.get("operator_contract_status"))
+            if isinstance(baseline_summary, Mapping)
+            and baseline_summary.get("operator_contract_status") is not None
+            else None
+        ),
         primary_metric_info=primary_metric_info,
         split_comparison=split_comparison,
         environment_comparison=environment_comparison,

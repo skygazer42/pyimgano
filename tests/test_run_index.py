@@ -1256,6 +1256,84 @@ def test_compare_run_summaries_emits_candidate_verdicts_and_blocking_reasons(tmp
     }
 
 
+def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_baseline_consistent(
+    tmp_path,
+):
+    from pyimgano.reporting.run_index import compare_run_summaries
+
+    baseline = tmp_path / "baseline"
+    candidate = tmp_path / "candidate"
+    baseline.mkdir()
+    candidate.mkdir()
+    shared_report = {
+        "dataset": "mvtec",
+        "category": "bottle",
+        "split_fingerprint": {"sha256": "f" * 64},
+    }
+    (baseline / "report.json").write_text(
+        json.dumps({**shared_report, "model": "baseline", "results": {"auroc": 0.91}}),
+        encoding="utf-8",
+    )
+    (candidate / "report.json").write_text(
+        json.dumps({**shared_report, "model": "candidate", "results": {"auroc": 0.92}}),
+        encoding="utf-8",
+    )
+    (baseline / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (candidate / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (baseline / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (candidate / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts").mkdir()
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    (baseline / "artifacts" / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "threshold": 0.5,
+                "split_fingerprint": {"sha256": "f" * 64},
+                "operator_contract": operator_contract,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts" / "operator_contract.json").write_text(
+        json.dumps(operator_contract),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "split_fingerprint": {"sha256": "f" * 64},
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = compare_run_summaries([baseline, candidate], baseline_run_dir=baseline)
+    summary = payload["summary"]
+
+    assert summary["candidate_verdicts"]["candidate"] == "blocked"
+    assert summary["candidate_blocking_reasons"]["candidate"] == ["operator_contract:missing"]
+
+
 def test_compare_run_summaries_reports_environment_compatibility_vs_baseline(tmp_path):
     from pyimgano.reporting.run_index import compare_run_summaries
 
