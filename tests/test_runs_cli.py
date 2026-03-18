@@ -147,6 +147,8 @@ def test_runs_cli_compare_json_emits_candidate_verdicts_and_blocking_reasons(
             "target_dataset": "matched",
             "target_category": "matched",
             "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "unchecked",
         },
         "blocked": {
             "split": "mismatched",
@@ -155,6 +157,8 @@ def test_runs_cli_compare_json_emits_candidate_verdicts_and_blocking_reasons(
             "target_dataset": "mismatched",
             "target_category": "mismatched",
             "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "unchecked",
         },
     }
 
@@ -1500,6 +1504,228 @@ def test_runs_cli_compare_can_fail_on_robustness_protocol_incompatibility(tmp_pa
     ]
 
 
+def test_runs_cli_compare_can_fail_on_operator_contract_incompatibility(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    baseline = tmp_path / "baseline"
+    candidate = tmp_path / "candidate"
+    baseline.mkdir()
+    candidate.mkdir()
+    shared_report = {
+        "dataset": "mvtec",
+        "category": "bottle",
+        "split_fingerprint": {"sha256": "f" * 64},
+    }
+    (baseline / "report.json").write_text(
+        json.dumps({**shared_report, "model": "baseline", "results": {"auroc": 0.91}}),
+        encoding="utf-8",
+    )
+    (candidate / "report.json").write_text(
+        json.dumps({**shared_report, "model": "candidate", "results": {"auroc": 0.92}}),
+        encoding="utf-8",
+    )
+    (baseline / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (candidate / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (baseline / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (candidate / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts").mkdir()
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    (baseline / "artifacts" / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "threshold": 0.5,
+                "split_fingerprint": {"sha256": "f" * 64},
+                "operator_contract": operator_contract,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts" / "operator_contract.json").write_text(
+        json.dumps(operator_contract),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "split_fingerprint": {"sha256": "f" * 64},
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(
+        [
+            "compare",
+            str(baseline),
+            str(candidate),
+            "--baseline",
+            str(baseline),
+            "--require-same-operator-contract",
+            "--json",
+        ]
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert out["operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
+    assert out["operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
+
+
+def test_runs_cli_compare_can_fail_on_bundle_operator_contract_incompatibility(
+    tmp_path, capsys
+):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.runs_cli import main
+
+    baseline = tmp_path / "baseline"
+    candidate = tmp_path / "candidate"
+    baseline.mkdir()
+    candidate.mkdir()
+    shared_report = {
+        "dataset": "mvtec",
+        "category": "bottle",
+        "split_fingerprint": {"sha256": "f" * 64},
+    }
+    (baseline / "report.json").write_text(
+        json.dumps({**shared_report, "model": "baseline", "results": {"auroc": 0.91}}),
+        encoding="utf-8",
+    )
+    (candidate / "report.json").write_text(
+        json.dumps({**shared_report, "model": "candidate", "results": {"auroc": 0.92}}),
+        encoding="utf-8",
+    )
+    (baseline / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (candidate / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (baseline / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (candidate / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (baseline / "artifacts").mkdir()
+    (candidate / "artifacts").mkdir()
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    for run_dir in (baseline, candidate):
+        (run_dir / "artifacts" / "infer_config.json").write_text(
+            json.dumps(
+                {
+                    "threshold": 0.5,
+                    "split_fingerprint": {"sha256": "f" * 64},
+                    "operator_contract": operator_contract,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "artifacts" / "operator_contract.json").write_text(
+            json.dumps(operator_contract),
+            encoding="utf-8",
+        )
+        (run_dir / "artifacts" / "calibration_card.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "split_fingerprint": {"sha256": "f" * 64},
+                    "threshold_context": {"scope": "image", "category_count": 1},
+                    "image_threshold": {
+                        "threshold": 0.5,
+                        "provenance": {"method": "fixed", "source": "test"},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    baseline_bundle = baseline / "deploy_bundle"
+    baseline_bundle.mkdir()
+    (baseline_bundle / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "threshold": 0.5,
+                "operator_contract": operator_contract,
+                "artifact_quality": {
+                    "has_operator_contract": True,
+                    "audit_refs": {"operator_contract": "operator_contract.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (baseline_bundle / "operator_contract.json").write_text(
+        json.dumps(operator_contract),
+        encoding="utf-8",
+    )
+    (baseline_bundle / "report.json").write_text(
+        json.dumps({"dataset": "mvtec"}),
+        encoding="utf-8",
+    )
+    (baseline_bundle / "config.json").write_text(
+        json.dumps({"config": {}}),
+        encoding="utf-8",
+    )
+    (baseline_bundle / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "e" * 64}),
+        encoding="utf-8",
+    )
+    (baseline_bundle / "calibration_card.json").write_text(
+        json.dumps({"schema_version": 1}),
+        encoding="utf-8",
+    )
+    (baseline_bundle / "bundle_manifest.json").write_text(
+        json.dumps(
+            build_deploy_bundle_manifest(
+                bundle_dir=baseline_bundle,
+                source_run_dir=baseline,
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(
+        [
+            "compare",
+            str(baseline),
+            str(candidate),
+            "--baseline",
+            str(baseline),
+            "--require-same-bundle-operator-contract",
+            "--json",
+        ]
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert out["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
+    assert out["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
+
+
 def test_runs_cli_compare_plain_output_prints_robustness_protocol_mismatch_fields(
     tmp_path, capsys
 ):
@@ -2058,7 +2284,8 @@ def test_runs_cli_compare_plain_output_prints_candidate_verdicts_and_gates(
     assert (
         "candidate_comparability_gates.clean="
         "split:matched,environment:matched,target:matched,target_dataset:matched,"
-        "target_category:matched,robustness_protocol:unchecked"
+        "target_category:matched,robustness_protocol:unchecked,operator_contract:unchecked,"
+        "bundle_operator_contract:unchecked"
     ) in out
     assert "candidate_verdict.blocked=blocked" in out
     assert (
@@ -2070,7 +2297,8 @@ def test_runs_cli_compare_plain_output_prints_candidate_verdicts_and_gates(
         "candidate_comparability_gates.blocked="
         "split:mismatched,environment:mismatched,target:mismatched,"
         "target_dataset:mismatched,target_category:mismatched,"
-        "robustness_protocol:unchecked"
+        "robustness_protocol:unchecked,operator_contract:unchecked,"
+        "bundle_operator_contract:unchecked"
     ) in out
 
 

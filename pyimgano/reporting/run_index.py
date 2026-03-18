@@ -206,6 +206,8 @@ def _compare_blocking_flags(
     environment_summary: Mapping[str, Any],
     target_summary: Mapping[str, Any],
     robustness_protocol_summary: Mapping[str, Any],
+    operator_contract_summary: Mapping[str, Any],
+    bundle_operator_contract_summary: Mapping[str, Any],
 ) -> list[str]:
     flags: list[str] = []
     if int(total_regressions) > 0:
@@ -218,6 +220,10 @@ def _compare_blocking_flags(
         flags.append("--require-same-target")
     if _comparability_gate_status(robustness_protocol_summary) == "incompatible":
         flags.append("--require-same-robustness-protocol")
+    if _comparability_gate_status(operator_contract_summary) == "incompatible":
+        flags.append("--require-same-operator-contract")
+    if _comparability_gate_status(bundle_operator_contract_summary) == "incompatible":
+        flags.append("--require-same-bundle-operator-contract")
     return flags
 
 
@@ -305,6 +311,8 @@ def _build_candidate_blocking_summary(
             "target_dataset": "unchecked",
             "target_category": "unchecked",
             "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "unchecked",
         }
         for name in candidate_names
     }
@@ -425,6 +433,8 @@ def _build_candidate_blocking_summary(
                 continue
             run_dir_name = run.get("run_dir_name", None)
             status = str(run.get("operator_contract_status", "missing") or "missing").strip().lower()
+            if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
+                candidate_gates[run_dir_name]["operator_contract"] = status
             if status in {"missing", "mismatched"}:
                 _append_candidate_reason(
                     reasons_by_name,
@@ -436,11 +446,15 @@ def _build_candidate_blocking_summary(
                 if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
                     baseline_operator_contract_payload
                 ):
+                    if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
+                        candidate_gates[run_dir_name]["operator_contract"] = "mismatched"
                     _append_candidate_reason(
                         reasons_by_name,
                         run_dir_name=run_dir_name,
                         reason="operator_contract:baseline_mismatch",
                     )
+                elif isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
+                    candidate_gates[run_dir_name]["operator_contract"] = "matched"
 
     if str(baseline_bundle_operator_contract_status or "").strip().lower() == "consistent":
         for run in runs:
@@ -449,6 +463,8 @@ def _build_candidate_blocking_summary(
                 continue
             run_dir_name = run.get("run_dir_name", None)
             status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
+            if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
+                candidate_gates[run_dir_name]["bundle_operator_contract"] = status
             if status in {"missing", "mismatched"}:
                 _append_candidate_reason(
                     reasons_by_name,
@@ -463,11 +479,15 @@ def _build_candidate_blocking_summary(
                 if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
                     baseline_bundle_operator_contract_payload
                 ):
+                    if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
+                        candidate_gates[run_dir_name]["bundle_operator_contract"] = "mismatched"
                     _append_candidate_reason(
                         reasons_by_name,
                         run_dir_name=run_dir_name,
                         reason="operator_contract_bundle:baseline_mismatch",
                     )
+                elif isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
+                    candidate_gates[run_dir_name]["bundle_operator_contract"] = "matched"
 
     candidate_verdicts = {
         name: ("blocked" if reasons_by_name.get(name, []) else "pass")
@@ -891,6 +911,84 @@ def _build_robustness_protocol_comparison(
     }
 
 
+def _resolve_contract_status(run: Mapping[str, Any], *, key: str) -> str:
+    status = run.get(key, None)
+    if isinstance(status, str) and status:
+        return str(status).strip().lower()
+    return "missing"
+
+
+def _build_operator_contract_comparison(
+    runs: list[dict[str, Any]],
+    *,
+    baseline_summary: dict[str, Any] | None,
+    baseline_path_str: str | None,
+    status_key: str,
+    bundle: bool,
+) -> dict[str, Any]:
+    baseline_status = (
+        _resolve_contract_status(baseline_summary, key=status_key)
+        if isinstance(baseline_summary, Mapping)
+        else "missing"
+    )
+    baseline_payload = (
+        _load_operator_contract_payload(baseline_path_str, bundle=bundle)
+        if baseline_status == "consistent"
+        else None
+    )
+    checked = baseline_status == "consistent" and isinstance(baseline_payload, Mapping)
+    comparisons: list[dict[str, Any]] = []
+    matched_runs = 0
+    mismatched_runs = 0
+    missing_runs = 0
+
+    for run in runs:
+        run_path = str(Path(str(run.get("run_dir"))).resolve())
+        run_status = _resolve_contract_status(run, key=status_key)
+        row: dict[str, Any] = {
+            "run_dir": run.get("run_dir"),
+            "run_dir_name": run.get("run_dir_name"),
+            "contract_status": run_status,
+            "status": "unchecked",
+        }
+        is_baseline = baseline_path_str is not None and run_path == baseline_path_str
+        if is_baseline:
+            row["status"] = "baseline"
+        elif checked:
+            if run_status == "missing":
+                row["status"] = "missing"
+                missing_runs += 1
+            elif run_status != "consistent":
+                row["status"] = "mismatched"
+                mismatched_runs += 1
+                row["mismatch_reason"] = f"candidate_{run_status}"
+            else:
+                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
+                if not isinstance(candidate_payload, Mapping):
+                    row["status"] = "missing"
+                    missing_runs += 1
+                elif dict(candidate_payload) != dict(baseline_payload):
+                    row["status"] = "mismatched"
+                    mismatched_runs += 1
+                    row["mismatch_reason"] = "baseline_mismatch"
+                else:
+                    row["status"] = "matched"
+                    matched_runs += 1
+        comparisons.append(row)
+
+    return {
+        "baseline_status": baseline_status,
+        "comparisons": comparisons,
+        "summary": {
+            "checked": bool(checked),
+            "matched_runs": int(matched_runs),
+            "mismatched_runs": int(mismatched_runs),
+            "missing_runs": int(missing_runs),
+            "incompatible_runs": int(mismatched_runs + missing_runs),
+        },
+    }
+
+
 def latest_run_summary(
     root: str | Path,
     *,
@@ -1282,6 +1380,20 @@ def compare_run_summaries(
         baseline_summary=baseline_summary,
         baseline_path_str=baseline_path_str,
     )
+    operator_contract_comparison = _build_operator_contract_comparison(
+        runs,
+        baseline_summary=baseline_summary,
+        baseline_path_str=baseline_path_str,
+        status_key="operator_contract_status",
+        bundle=False,
+    )
+    bundle_operator_contract_comparison = _build_operator_contract_comparison(
+        runs,
+        baseline_summary=baseline_summary,
+        baseline_path_str=baseline_path_str,
+        status_key="bundle_operator_contract_status",
+        bundle=True,
+    )
     for name in metric_names:
         values = [
             float(run["metrics"][name])
@@ -1349,6 +1461,8 @@ def compare_run_summaries(
     environment_summary = dict(environment_comparison.get("summary", {}))
     target_summary = dict(target_comparison.get("summary", {}))
     robustness_protocol_summary = dict(robustness_protocol_comparison.get("summary", {}))
+    operator_contract_summary = dict(operator_contract_comparison.get("summary", {}))
+    bundle_operator_contract_summary = dict(bundle_operator_contract_comparison.get("summary", {}))
     baseline_checked = baseline_summary is not None
     blocking_flags = (
         _compare_blocking_flags(
@@ -1357,6 +1471,8 @@ def compare_run_summaries(
             environment_summary=environment_summary,
             target_summary=target_summary,
             robustness_protocol_summary=robustness_protocol_summary,
+            operator_contract_summary=operator_contract_summary,
+            bundle_operator_contract_summary=bundle_operator_contract_summary,
         )
         if bool(baseline_checked)
         else []
@@ -1487,6 +1603,10 @@ def compare_run_summaries(
     summary["trust_gate"] = trust_comparison.get("gate", None)
     summary["trust_status"] = trust_comparison.get("status", None)
     summary["trust_reason"] = trust_comparison.get("reason", None)
+    summary["operator_contract_gate"] = _comparability_gate_status(operator_contract_summary)
+    summary["bundle_operator_contract_gate"] = _comparability_gate_status(
+        bundle_operator_contract_summary
+    )
     summary["operator_contract_status"] = trust_comparison.get("operator_contract_status", None)
     summary["operator_contract_consistent"] = bool(
         trust_comparison.get("operator_contract_consistent", False)
@@ -1514,6 +1634,8 @@ def compare_run_summaries(
         "environment_comparison": environment_comparison,
         "target_comparison": target_comparison,
         "robustness_protocol_comparison": robustness_protocol_comparison,
+        "operator_contract_comparison": operator_contract_comparison,
+        "bundle_operator_contract_comparison": bundle_operator_contract_comparison,
         "metrics": metrics,
         "evaluation_contract": evaluation_contract,
         "summary": summary,

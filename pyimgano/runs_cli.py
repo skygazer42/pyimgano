@@ -43,6 +43,8 @@ def _compare_blocking_flags(
     environment_summary: dict[str, object],
     target_summary: dict[str, object],
     robustness_protocol_summary: dict[str, object],
+    operator_contract_summary: dict[str, object],
+    bundle_operator_contract_summary: dict[str, object],
 ) -> list[str]:
     flags: list[str] = []
     if int(total_regressions) > 0:
@@ -55,6 +57,10 @@ def _compare_blocking_flags(
         flags.append("--require-same-target")
     if _comparability_gate_status(robustness_protocol_summary) == "incompatible":
         flags.append("--require-same-robustness-protocol")
+    if _comparability_gate_status(operator_contract_summary) == "incompatible":
+        flags.append("--require-same-operator-contract")
+    if _comparability_gate_status(bundle_operator_contract_summary) == "incompatible":
+        flags.append("--require-same-bundle-operator-contract")
     return flags
 
 
@@ -213,6 +219,8 @@ def _format_candidate_comparability_gates(gates: dict[str, object]) -> str:
         "target_dataset",
         "target_category",
         "robustness_protocol",
+        "operator_contract",
+        "bundle_operator_contract",
     )
     parts: list[str] = []
     for key in ordered_keys:
@@ -360,6 +368,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "protocol (corruption mode, conditions, severities, input mode, resize)."
         ),
     )
+    p_compare.add_argument(
+        "--require-same-operator-contract",
+        action="store_true",
+        help="Return exit code 1 unless every non-baseline run matches the baseline operator contract.",
+    )
+    p_compare.add_argument(
+        "--require-same-bundle-operator-contract",
+        action="store_true",
+        help=(
+            "Return exit code 1 unless every non-baseline run matches the baseline deploy bundle "
+            "operator contract."
+        ),
+    )
     p_compare.add_argument("--json", action="store_true", help="Emit JSON output.")
 
     p_quality = sub.add_parser("quality", help="Inspect artifact completeness for a saved run.")
@@ -455,6 +476,12 @@ def main(argv: list[str] | None = None) -> int:
                 robustness_protocol_summary = dict(
                     payload.get("robustness_protocol_comparison", {}).get("summary", {})
                 )
+                operator_contract_summary = dict(
+                    payload.get("operator_contract_comparison", {}).get("summary", {})
+                )
+                bundle_operator_contract_summary = dict(
+                    payload.get("bundle_operator_contract_comparison", {}).get("summary", {})
+                )
                 if bool(args.require_same_split) and (
                     not bool(split_summary.get("checked"))
                     or int(split_summary.get("incompatible_runs", 0)) > 0
@@ -473,6 +500,16 @@ def main(argv: list[str] | None = None) -> int:
                 if bool(args.require_same_robustness_protocol) and (
                     not bool(robustness_protocol_summary.get("checked"))
                     or int(robustness_protocol_summary.get("incompatible_runs", 0)) > 0
+                ):
+                    return 1
+                if bool(args.require_same_operator_contract) and (
+                    not bool(operator_contract_summary.get("checked"))
+                    or int(operator_contract_summary.get("incompatible_runs", 0)) > 0
+                ):
+                    return 1
+                if bool(args.require_same_bundle_operator_contract) and (
+                    not bool(bundle_operator_contract_summary.get("checked"))
+                    or int(bundle_operator_contract_summary.get("incompatible_runs", 0)) > 0
                 ):
                     return 1
                 if bool(args.fail_on_regression) and int(payload["summary"]["total_regressions"]) > int(
@@ -624,6 +661,12 @@ def main(argv: list[str] | None = None) -> int:
                 robustness_protocol_summary = dict(
                     payload.get("robustness_protocol_comparison", {}).get("summary", {})
                 )
+                operator_contract_summary = dict(
+                    payload.get("operator_contract_comparison", {}).get("summary", {})
+                )
+                bundle_operator_contract_summary = dict(
+                    payload.get("bundle_operator_contract_comparison", {}).get("summary", {})
+                )
                 print(
                     "comparability_gates: "
                     f"split={_comparability_gate_status(split_summary)} "
@@ -641,6 +684,8 @@ def main(argv: list[str] | None = None) -> int:
                     environment_summary=environment_summary,
                     target_summary=target_summary,
                     robustness_protocol_summary=robustness_protocol_summary,
+                    operator_contract_summary=operator_contract_summary,
+                    bundle_operator_contract_summary=bundle_operator_contract_summary,
                 )
                 print(
                     "comparison_blocking_flags="
@@ -832,6 +877,22 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if not bool(robustness_protocol_summary.get("checked")) or int(
                     robustness_protocol_summary.get("incompatible_runs", 0)
+                ) > 0:
+                    return 1
+            if bool(args.require_same_operator_contract):
+                operator_contract_summary = dict(
+                    payload.get("operator_contract_comparison", {}).get("summary", {})
+                )
+                if not bool(operator_contract_summary.get("checked")) or int(
+                    operator_contract_summary.get("incompatible_runs", 0)
+                ) > 0:
+                    return 1
+            if bool(args.require_same_bundle_operator_contract):
+                bundle_operator_contract_summary = dict(
+                    payload.get("bundle_operator_contract_comparison", {}).get("summary", {})
+                )
+                if not bool(bundle_operator_contract_summary.get("checked")) or int(
+                    bundle_operator_contract_summary.get("incompatible_runs", 0)
                 ) > 0:
                     return 1
             if bool(args.fail_on_regression) and int(payload["summary"]["total_regressions"]) > int(

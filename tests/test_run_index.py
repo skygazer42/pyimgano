@@ -1244,6 +1244,8 @@ def test_compare_run_summaries_emits_candidate_verdicts_and_blocking_reasons(tmp
             "target_dataset": "matched",
             "target_category": "matched",
             "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "unchecked",
         },
         "blocked": {
             "split": "mismatched",
@@ -1252,6 +1254,8 @@ def test_compare_run_summaries_emits_candidate_verdicts_and_blocking_reasons(tmp
             "target_dataset": "mismatched",
             "target_category": "mismatched",
             "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "unchecked",
         },
     }
 
@@ -1332,6 +1336,10 @@ def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_b
 
     assert summary["candidate_verdicts"]["candidate"] == "blocked"
     assert summary["candidate_blocking_reasons"]["candidate"] == ["operator_contract:missing"]
+    assert summary["operator_contract_gate"] == "incompatible"
+    assert "--require-same-operator-contract" in summary["blocking_flags"]
+    assert payload["operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
+    assert payload["operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
 
 
 def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract_when_baseline_consistent(
@@ -1460,6 +1468,10 @@ def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract
     assert summary["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:missing"
     ]
+    assert summary["bundle_operator_contract_gate"] == "incompatible"
+    assert "--require-same-bundle-operator-contract" in summary["blocking_flags"]
+    assert payload["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
+    assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
 
 
 def test_compare_run_summaries_blocks_candidate_bundle_operator_contract_baseline_mismatch(
@@ -1610,6 +1622,9 @@ def test_compare_run_summaries_blocks_candidate_bundle_operator_contract_baselin
     assert summary["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:baseline_mismatch"
     ]
+    assert summary["bundle_operator_contract_gate"] == "incompatible"
+    assert payload["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
+    assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "mismatched"
 
 
 def test_compare_run_summaries_reports_environment_compatibility_vs_baseline(tmp_path):
