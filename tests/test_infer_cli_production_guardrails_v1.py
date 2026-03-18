@@ -256,6 +256,28 @@ def test_infer_cli_profile_json_writes_payload(tmp_path, monkeypatch) -> None:
     assert isinstance(summary, dict)
     assert summary.get("continue_on_error") is False
     assert summary.get("postprocess_summary") is None
+    assert summary.get("execution_policy") == {
+        "continue_on_error": False,
+        "max_errors": 0,
+        "flush_every": 0,
+        "include_confidence": False,
+        "include_maps": False,
+        "defects_enabled": False,
+        "reject_confidence_below": None,
+        "reject_label": None,
+        "exit_code_policy": {
+            "success": 0,
+            "partial_failure": 1,
+            "fatal_cli_error": 2,
+        },
+    }
+    assert summary.get("review_policy") == {
+        "review_on": ["anomalous", "rejected_low_confidence"],
+        "confidence_gate_enabled": False,
+        "reject_confidence_below": None,
+        "reject_label": None,
+        "score_only_requires_review": False,
+    }
     assert summary.get("triage_summary") == {
         "ok": 1,
         "remaining": 0,
@@ -331,6 +353,14 @@ def test_infer_cli_continue_on_error_profile_json_writes_triage_summary(
             "--profile-json",
             str(profile_path),
             "--continue-on-error",
+            "--max-errors",
+            "3",
+            "--flush-every",
+            "7",
+            "--reject-confidence-below",
+            "0.75",
+            "--reject-label",
+            "-9",
         ]
     )
     assert rc == 1
@@ -344,6 +374,28 @@ def test_infer_cli_continue_on_error_profile_json_writes_triage_summary(
     summary = payload.get("inference_summary")
     assert isinstance(summary, dict)
     assert summary.get("continue_on_error") is True
+    assert summary.get("execution_policy") == {
+        "continue_on_error": True,
+        "max_errors": 3,
+        "flush_every": 7,
+        "include_confidence": False,
+        "include_maps": False,
+        "defects_enabled": False,
+        "reject_confidence_below": 0.75,
+        "reject_label": -9,
+        "exit_code_policy": {
+            "success": 0,
+            "partial_failure": 1,
+            "fatal_cli_error": 2,
+        },
+    }
+    assert summary.get("review_policy") == {
+        "review_on": ["anomalous", "rejected_low_confidence"],
+        "confidence_gate_enabled": True,
+        "reject_confidence_below": 0.75,
+        "reject_label": -9,
+        "score_only_requires_review": False,
+    }
     assert summary.get("triage_summary") == triage_summary
 
 
@@ -384,11 +436,13 @@ def test_infer_cli_profile_prints_inference_summary_to_stderr(
     err = capsys.readouterr().err
     assert "profile:" in err
     assert "profile_summary:" in err
+    assert "profile_policy:" in err
     assert "continue_on_error=false" in err
     assert "ok=1" in err
     assert "errors=0" in err
     assert "review_required=0" in err
     assert "decisions=normal:1" in err
+    assert "confidence_gate_enabled=false" in err
 
 
 def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
@@ -446,6 +500,14 @@ def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
             str(out_jsonl),
             "--profile",
             "--continue-on-error",
+            "--max-errors",
+            "3",
+            "--flush-every",
+            "7",
+            "--reject-confidence-below",
+            "0.75",
+            "--reject-label",
+            "-9",
         ]
     )
     assert rc == 1
@@ -453,9 +515,15 @@ def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
     err = capsys.readouterr().err
     assert "profile:" in err
     assert "profile_summary:" in err
+    assert "profile_policy:" in err
     assert "continue_on_error=true" in err
     assert "ok=1" in err
     assert "errors=1" in err
     assert "review_required=1" in err
     assert "rejected_low_confidence=1" in err
     assert "decisions=normal:1,rejected_low_confidence:1" in err
+    assert "max_errors=3" in err
+    assert "flush_every=7" in err
+    assert "confidence_gate_enabled=true" in err
+    assert "reject_confidence_below=0.75" in err
+    assert "reject_label=-9" in err

@@ -142,6 +142,77 @@ def _format_profile_summary_line(
         f"decisions={decisions}"
     )
 
+
+def _build_execution_policy_summary(
+    *,
+    args: Any,
+    include_maps: bool,
+    continue_on_error: bool,
+    max_errors: int,
+    flush_every: int,
+) -> dict[str, Any]:
+    reject_threshold = getattr(args, "reject_confidence_below", None)
+    reject_label = (
+        int(getattr(args, "reject_label", -2)) if reject_threshold is not None else None
+    )
+    return {
+        "continue_on_error": bool(continue_on_error),
+        "max_errors": int(max_errors),
+        "flush_every": int(flush_every),
+        "include_confidence": bool(getattr(args, "include_confidence", False)),
+        "include_maps": bool(include_maps),
+        "defects_enabled": bool(getattr(args, "defects", False)),
+        "reject_confidence_below": (
+            float(reject_threshold) if reject_threshold is not None else None
+        ),
+        "reject_label": reject_label,
+        "exit_code_policy": {
+            "success": 0,
+            "partial_failure": 1,
+            "fatal_cli_error": 2,
+        },
+    }
+
+
+def _build_review_policy_summary(*, args: Any) -> dict[str, Any]:
+    reject_threshold = getattr(args, "reject_confidence_below", None)
+    reject_label = (
+        int(getattr(args, "reject_label", -2)) if reject_threshold is not None else None
+    )
+    return {
+        "review_on": ["anomalous", "rejected_low_confidence"],
+        "confidence_gate_enabled": bool(reject_threshold is not None),
+        "reject_confidence_below": (
+            float(reject_threshold) if reject_threshold is not None else None
+        ),
+        "reject_label": reject_label,
+        "score_only_requires_review": False,
+    }
+
+
+def _format_profile_policy_line(
+    *,
+    execution_policy: dict[str, Any],
+    review_policy: dict[str, Any],
+) -> str:
+    reject_threshold = review_policy.get("reject_confidence_below", None)
+    reject_label = review_policy.get("reject_label", None)
+    review_on = review_policy.get("review_on", [])
+    if isinstance(review_on, list):
+        review_on_text = ",".join(str(item) for item in review_on)
+    else:
+        review_on_text = str(review_on)
+    return (
+        "profile_policy: "
+        f"continue_on_error={str(bool(execution_policy.get('continue_on_error', False))).lower()} "
+        f"max_errors={int(execution_policy.get('max_errors', 0))} "
+        f"flush_every={int(execution_policy.get('flush_every', 0))} "
+        f"confidence_gate_enabled={str(bool(review_policy.get('confidence_gate_enabled', False))).lower()} "
+        f"reject_confidence_below={('none' if reject_threshold is None else str(float(reject_threshold)))} "
+        f"reject_label={('none' if reject_label is None else str(int(reject_label)))} "
+        f"review_on={review_on_text}"
+    )
+
 def _apply_onnx_session_options_shorthand(
     *,
     model_name: str,
@@ -1427,6 +1498,14 @@ def main(argv: list[str] | None = None) -> int:
         continue_on_error = bool(getattr(args, "continue_on_error", False))
         max_errors = int(getattr(args, "max_errors", 0))
         flush_every = int(getattr(args, "flush_every", 0))
+        execution_policy = _build_execution_policy_summary(
+            args=args,
+            include_maps=bool(include_maps),
+            continue_on_error=bool(continue_on_error),
+            max_errors=int(max_errors),
+            flush_every=int(flush_every),
+        )
+        review_policy = _build_review_policy_summary(args=args)
 
         infer_timing = InferenceTiming()
         results_iter = None
@@ -1682,6 +1761,13 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 file=sys.stderr,
             )
+            print(
+                _format_profile_policy_line(
+                    execution_policy=execution_policy,
+                    review_policy=review_policy,
+                ),
+                file=sys.stderr,
+            )
 
         if args.profile_json is not None:
             profile_path = Path(str(args.profile_json))
@@ -1703,6 +1789,8 @@ def main(argv: list[str] | None = None) -> int:
                 },
                 "inference_summary": {
                     "continue_on_error": bool(continue_on_error),
+                    "execution_policy": dict(execution_policy),
+                    "review_policy": dict(review_policy),
                     "triage_summary": (
                         dict(profile_triage_summary) if profile_triage_summary is not None else None
                     ),
