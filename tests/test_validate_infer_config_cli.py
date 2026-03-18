@@ -333,3 +333,6 @@ def test_validate_infer_config_cli_reports_bundle_completeness_metadata(
     assert rc == 0
     plain = capsys.readouterr().out.lower()
     assert "bundle_required=true" in plain
+    assert "trust_signal.file_refs_checked=true" in plain
+    assert "trust_signal.has_required_bundle_artifacts=true" in plain
+    assert "trust_signal.has_bundle_artifact_roles=true" in plain

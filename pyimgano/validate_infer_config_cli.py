@@ -106,6 +106,10 @@ def main(argv: list[str] | None = None) -> int:
     if model_ckpt is not None:
         msg += f" model_checkpoint={model_ckpt}"
     print(msg)
+    trust_signals = trust_summary.get("trust_signals", {})
+    if isinstance(trust_signals, dict):
+        for key, value in trust_signals.items():
+            print(f"trust_signal.{key}={value}")
     for item in trust_summary.get("degraded_by", []):
         print(f"degraded_by={item}")
     audit_refs = trust_summary.get("audit_refs", {})
