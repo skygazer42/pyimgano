@@ -113,7 +113,15 @@ def test_recipe_micro_finetune_autoencoder_restores_before_training(
             "path": str(config.training.resume_from_checkpoint),
         }
 
-    def _fake_micro_finetune(detector, train_inputs, *, seed=None, fit_kwargs=None):  # noqa: ANN001
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
         train_calls.append(
             {
                 "detector": detector,
@@ -226,7 +234,15 @@ def test_recipe_micro_finetune_autoencoder_passes_ema_kwargs(
         def save_checkpoint(self, path):  # noqa: ANN001 - test stub
             Path(path).write_text("ok", encoding="utf-8")
 
-    def _fake_micro_finetune(detector, train_inputs, *, seed=None, fit_kwargs=None):  # noqa: ANN001
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
         train_calls.append(
             {
                 "detector": detector,
@@ -310,3 +326,140 @@ def test_recipe_micro_finetune_autoencoder_passes_ema_kwargs(
             },
         }
     ]
+
+
+def test_recipe_micro_finetune_autoencoder_passes_tracker_and_callbacks(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import cv2
+
+    train_calls: list[dict[str, object]] = []
+
+    class _DummyDetector:
+        def __init__(self, **kwargs):  # noqa: ANN003 - test stub
+            self.kwargs = dict(kwargs)
+
+        def fit(self, X):  # noqa: ANN001
+            self.fit_inputs = list(X)
+            return self
+
+        def save_checkpoint(self, path):  # noqa: ANN001 - test stub
+            Path(path).write_text("ok", encoding="utf-8")
+
+    class _FakeTracker:
+        pass
+
+    fake_tracker = _FakeTracker()
+
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
+        train_calls.append(
+            {
+                "detector": detector,
+                "train_inputs": list(train_inputs),
+                "seed": seed,
+                "fit_kwargs": dict(fit_kwargs or {}),
+                "callbacks": list(callbacks or []),
+                "tracker": tracker,
+            }
+        )
+        return {"fit_kwargs_used": dict(fit_kwargs or {})}
+
+    def _fake_build_training_tracker(*, config, run_dir):  # noqa: ANN001
+        del config, run_dir
+        return (
+            fake_tracker,
+            {
+                "backend": "jsonl",
+                "log_dir": str(tmp_path / "tracking"),
+                "project": "pyimgano-dev",
+                "run_name": "recipe-run",
+                "mode": "offline",
+                "enabled": True,
+            },
+        )
+
+    recipe_module = importlib.import_module("pyimgano.recipes.builtin.micro_finetune_autoencoder")
+    monkeypatch.setattr(recipe_module, "micro_finetune", _fake_micro_finetune)
+    monkeypatch.setattr(recipe_module, "build_training_tracker", _fake_build_training_tracker)
+
+    MODEL_REGISTRY.register(
+        "test_recipe_micro_finetune_autoencoder_tracker_detector",
+        _DummyDetector,
+        tags=("vision",),
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    for rel, value in [
+        ("train/normal/train_0.png", 120),
+        ("train/normal/train_1.png", 121),
+        ("test/normal/good_0.png", 120),
+        ("test/anomaly/bad_0.png", 240),
+    ]:
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        img = np.ones((16, 16, 3), dtype=np.uint8) * int(value)
+        cv2.imwrite(str(p), img)
+
+    out_dir = tmp_path / "run_out"
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "micro-finetune-autoencoder",
+            "seed": 5,
+            "dataset": {
+                "name": "custom",
+                "root": str(root),
+                "category": "all",
+                "resize": [16, 16],
+                "input_mode": "paths",
+                "limit_train": 2,
+            },
+            "model": {
+                "name": "test_recipe_micro_finetune_autoencoder_tracker_detector",
+                "device": "cpu",
+                "pretrained": False,
+                "contamination": 0.1,
+            },
+            "training": {
+                "epochs": 2,
+                "tracker_backend": "jsonl",
+                "tracker_dir": str(tmp_path / "tracking"),
+                "tracker_project": "pyimgano-dev",
+                "tracker_run_name": "recipe-run",
+                "tracker_mode": "offline",
+                "callbacks": ["metrics_logger"],
+            },
+            "output": {
+                "output_dir": str(out_dir),
+                "save_run": True,
+            },
+        }
+    )
+
+    import pyimgano.recipes  # noqa: F401
+
+    recipe = RECIPE_REGISTRY.get("micro-finetune-autoencoder")
+    report = recipe(cfg)
+
+    assert train_calls[0]["tracker"] is fake_tracker
+    assert len(train_calls[0]["callbacks"]) == 1
+    assert train_calls[0]["callbacks"][0].__class__.__name__ == "MetricsLoggingCallback"
+    assert report["training"]["instrumentation"] == {
+        "callbacks": ["metrics_logger"],
+        "tracker": {
+            "backend": "jsonl",
+            "log_dir": str(tmp_path / "tracking"),
+            "project": "pyimgano-dev",
+            "run_name": "recipe-run",
+            "mode": "offline",
+            "enabled": True,
+        },
+    }

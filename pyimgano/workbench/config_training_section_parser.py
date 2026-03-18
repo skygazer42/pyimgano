@@ -279,6 +279,50 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
         t_map.get("resume_from_checkpoint", None),
         name="training.resume_from_checkpoint",
     )
+    tracker_backend_raw = t_map.get("tracker_backend", None)
+    tracker_backend: str | None = None
+    if tracker_backend_raw is not None:
+        tracker_backend = str(tracker_backend_raw).strip().lower()
+        if tracker_backend not in {"none", "jsonl", "tensorboard", "wandb", "mlflow"}:
+            raise ValueError(
+                "training.tracker_backend must be one of: none, jsonl, tensorboard, wandb, mlflow"
+            )
+    tracker_dir = _optional_nonempty_str(
+        t_map.get("tracker_dir", None),
+        name="training.tracker_dir",
+    )
+    tracker_project = _optional_nonempty_str(
+        t_map.get("tracker_project", None),
+        name="training.tracker_project",
+    )
+    tracker_run_name = _optional_nonempty_str(
+        t_map.get("tracker_run_name", None),
+        name="training.tracker_run_name",
+    )
+    tracker_mode = _optional_nonempty_str(
+        t_map.get("tracker_mode", None),
+        name="training.tracker_mode",
+    )
+    callbacks: tuple[str, ...] = ()
+    callbacks_raw = t_map.get("callbacks", None)
+    if callbacks_raw is not None:
+        if not isinstance(callbacks_raw, (list, tuple)):
+            raise ValueError("training.callbacks must be a list/tuple of callback names")
+        seen: set[str] = set()
+        parsed: list[str] = []
+        for raw_name in callbacks_raw:
+            name = str(raw_name).strip().lower()
+            if not name:
+                raise ValueError("training.callbacks must contain non-empty callback names")
+            if name not in {"metrics_logger", "resource_profiler"}:
+                raise ValueError(
+                    "training.callbacks contains unsupported callback "
+                    f"{raw_name!r}. Supported: metrics_logger, resource_profiler"
+                )
+            if name not in seen:
+                seen.add(name)
+                parsed.append(name)
+        callbacks = tuple(parsed)
     return TrainingConfig(
         enabled=bool(t_map.get("enabled", False)),
         epochs=epochs,
@@ -327,6 +371,12 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
         ema_start_epoch=ema_start_epoch,
         resume_from_checkpoint=resume_from_checkpoint,
         checkpoint_name=_parse_checkpoint_name(t_map.get("checkpoint_name", None)),
+        tracker_backend=tracker_backend,
+        tracker_dir=tracker_dir,
+        tracker_project=tracker_project,
+        tracker_run_name=tracker_run_name,
+        tracker_mode=tracker_mode,
+        callbacks=callbacks,
     )
 
 

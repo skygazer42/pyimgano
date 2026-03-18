@@ -792,3 +792,156 @@ def test_micro_finetune_uses_validation_split_seed_for_reproducible_random_holdo
     assert sorted(train_a + val_a) == ["a", "b", "c", "d", "e"]
     assert len(val_a) == 2
     assert (train_c, val_c) != (train_a, val_a)
+
+
+def test_micro_finetune_emits_callback_lifecycle_and_tracker_metrics():
+    class _RecorderCallback:
+        def __init__(self) -> None:
+            self.events: list[tuple[str, object]] = []
+
+        def on_train_start(self, *, context):  # noqa: ANN001 - test stub
+            self.events.append(("start", context["train_count"]))
+
+        def on_epoch_end(self, *, epoch, metrics, context):  # noqa: ANN001 - test stub
+            self.events.append(
+                (
+                    "epoch",
+                    {
+                        "epoch": int(epoch),
+                        "loss": metrics.get("loss"),
+                        "lr": metrics.get("lr"),
+                        "train_count": context["train_count"],
+                    },
+                )
+            )
+
+        def on_train_end(self, *, report, context):  # noqa: ANN001 - test stub
+            self.events.append(
+                (
+                    "end",
+                    {
+                        "fit_kwargs_used": dict(report.get("fit_kwargs_used", {})),
+                        "train_count": context["train_count"],
+                    },
+                )
+            )
+
+    class _RecorderTracker:
+        def __init__(self) -> None:
+            self.params: list[dict[str, object]] = []
+            self.metrics: list[dict[str, object]] = []
+            self.artifacts: list[dict[str, object]] = []
+            self.closed = False
+
+        def log_params(self, params):  # noqa: ANN001 - test stub
+            self.params.append(dict(params))
+
+        def log_metrics(self, metrics, *, step=None):  # noqa: ANN001 - test stub
+            self.metrics.append({"metrics": dict(metrics), "step": step})
+
+        def log_artifact(self, name, artifact):  # noqa: ANN001 - test stub
+            self.artifacts.append({"name": str(name), "artifact": dict(artifact)})
+
+        def close(self) -> None:
+            self.closed = True
+
+    class _Detector:
+        def fit(self, X, *, epochs=None):  # noqa: ANN001 - test stub
+            self.train_count = len(list(X))
+            self.epochs = epochs
+            self.training_loss_history_ = [0.9, 0.6]
+            self.training_lr_history_ = [0.01, 0.005]
+            return self
+
+    callback = _RecorderCallback()
+    tracker = _RecorderTracker()
+    out = micro_finetune(
+        _Detector(),
+        ["a", "b", "c"],
+        fit_kwargs={"epochs": 2},
+        callbacks=[callback],
+        tracker=tracker,
+    )
+
+    assert callback.events[0] == ("start", 3)
+    assert callback.events[1] == (
+        "epoch",
+        {"epoch": 1, "loss": 0.9, "lr": 0.01, "train_count": 3},
+    )
+    assert callback.events[2] == (
+        "epoch",
+        {"epoch": 2, "loss": 0.6, "lr": 0.005, "train_count": 3},
+    )
+    assert callback.events[3] == (
+        "end",
+        {"fit_kwargs_used": {"epochs": 2}, "train_count": 3},
+    )
+    assert tracker.params[0]["requested_fit_kwargs"] == {"epochs": 2}
+    epoch_metrics = [item for item in tracker.metrics if "loss" in item["metrics"]]
+    assert epoch_metrics == [
+        {"metrics": {"loss": 0.9, "lr": 0.01}, "step": 1},
+        {"metrics": {"loss": 0.6, "lr": 0.005}, "step": 2},
+    ]
+    assert tracker.artifacts[0]["name"] == "training_report.json"
+    assert tracker.artifacts[0]["artifact"]["fit_kwargs_used"] == {"epochs": 2}
+    assert tracker.closed is True
+    assert out["fit_kwargs_used"] == {"epochs": 2}
+
+
+def test_micro_finetune_reports_exception_to_callbacks_and_closes_tracker():
+    class _RecorderCallback:
+        def __init__(self) -> None:
+            self.errors: list[str] = []
+
+        def on_exception(self, *, error, context):  # noqa: ANN001 - test stub
+            self.errors.append(f"{type(error).__name__}:{error}")
+            self.train_count = context["train_count"]
+
+    class _RecorderTracker:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def log_params(self, params):  # noqa: ANN001 - test stub
+            self.last_params = dict(params)
+
+        def close(self) -> None:
+            self.closed = True
+
+    class _Detector:
+        def fit(self, X):  # noqa: ANN001 - test stub
+            raise RuntimeError(f"fit failed on {len(list(X))} samples")
+
+    callback = _RecorderCallback()
+    tracker = _RecorderTracker()
+    with pytest.raises(RuntimeError, match="fit failed on 2 samples"):
+        micro_finetune(
+            _Detector(),
+            ["x", "y"],
+            callbacks=[callback],
+            tracker=tracker,
+        )
+
+    assert callback.errors == ["RuntimeError:fit failed on 2 samples"]
+    assert callback.train_count == 2
+    assert tracker.closed is True
+
+
+def test_micro_finetune_resource_profiler_callback_adds_resource_profile():
+    from pyimgano.training.callbacks import ResourceProfilingCallback
+
+    class _Detector:
+        def fit(self, X):  # noqa: ANN001 - test stub
+            self.train_count = len(list(X))
+            return self
+
+    out = micro_finetune(
+        _Detector(),
+        ["a", "b", "c", "d"],
+        callbacks=[ResourceProfilingCallback(enable_cuda=False)],
+    )
+
+    resource_profile = out.get("resource_profile", {})
+    assert resource_profile["train_count"] == 4
+    assert resource_profile["duration_s"] >= 0.0
+    assert resource_profile["memory"]["peak_bytes"] >= resource_profile["memory"]["current_bytes"]
+    assert resource_profile["cuda"]["enabled"] is False

@@ -11,7 +11,15 @@ def test_workbench_training_runtime_runs_micro_finetune_and_checkpoint(
 ) -> None:
     calls: dict[str, object] = {}
 
-    def _fake_micro_finetune(detector, train_inputs, *, seed=None, fit_kwargs=None):  # noqa: ANN001
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
         calls["micro_finetune"] = {
             "detector": detector,
             "train_inputs": list(train_inputs),
@@ -195,7 +203,15 @@ def test_workbench_training_runtime_restores_checkpoint_before_micro_finetune(
     def _fake_restore(detector, checkpoint_path):  # noqa: ANN001
         calls.append(("restore", {"detector": detector, "checkpoint_path": str(checkpoint_path)}))
 
-    def _fake_micro_finetune(detector, train_inputs, *, seed=None, fit_kwargs=None):  # noqa: ANN001
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
         calls.append(
             (
                 "micro_finetune",
@@ -281,7 +297,15 @@ def test_workbench_training_runtime_passes_multistep_scheduler_kwargs(
 ) -> None:
     calls: dict[str, object] = {}
 
-    def _fake_micro_finetune(detector, train_inputs, *, seed=None, fit_kwargs=None):  # noqa: ANN001
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
         calls["micro_finetune"] = {
             "detector": detector,
             "train_inputs": list(train_inputs),
@@ -346,7 +370,15 @@ def test_workbench_training_runtime_passes_ema_kwargs(
 ) -> None:
     calls: dict[str, object] = {}
 
-    def _fake_micro_finetune(detector, train_inputs, *, seed=None, fit_kwargs=None):  # noqa: ANN001
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
         calls["micro_finetune"] = {
             "detector": detector,
             "train_inputs": list(train_inputs),
@@ -437,3 +469,273 @@ def test_workbench_training_runtime_falls_back_to_detector_fit(tmp_path: Path) -
     assert result.detector is detector
     assert result.training_report is None
     assert result.checkpoint_meta is None
+
+
+def test_workbench_training_runtime_passes_tracker_and_callbacks(
+    monkeypatch, tmp_path: Path
+) -> None:
+    calls: dict[str, object] = {}
+
+    class _FakeTracker:
+        pass
+
+    fake_tracker = _FakeTracker()
+
+    def _fake_create_training_tracker(**kwargs):  # noqa: ANN001
+        calls["create_tracker"] = dict(kwargs)
+        return fake_tracker
+
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
+        calls["micro_finetune"] = {
+            "detector": detector,
+            "train_inputs": list(train_inputs),
+            "seed": seed,
+            "fit_kwargs": dict(fit_kwargs or {}),
+            "callbacks": list(callbacks or []),
+            "tracker": tracker,
+        }
+        return {"fit_kwargs_used": dict(fit_kwargs or {})}
+
+    def _fake_save_checkpoint(detector, path):  # noqa: ANN001
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("ok", encoding="utf-8")
+        return out
+
+    import pyimgano.training.checkpointing as checkpointing_module
+    import pyimgano.training.runner as training_runner_module
+    import pyimgano.workbench.training_runtime as training_runtime_module
+
+    monkeypatch.setattr(training_runtime_module, "create_training_tracker", _fake_create_training_tracker)
+    monkeypatch.setattr(training_runner_module, "micro_finetune", _fake_micro_finetune)
+    monkeypatch.setattr(checkpointing_module, "save_checkpoint", _fake_save_checkpoint)
+
+    class _DummyDetector:
+        pass
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "seed": 7,
+            "dataset": {"name": "custom", "root": str(tmp_path), "category": "custom"},
+            "model": {"name": "vision_ecod"},
+            "training": {
+                "enabled": True,
+                "epochs": 2,
+                "tracker_backend": "jsonl",
+                "tracker_dir": str(tmp_path / "tracking"),
+                "tracker_project": "pyimgano-dev",
+                "tracker_run_name": "unit-run",
+                "tracker_mode": "offline",
+                "callbacks": ["metrics_logger"],
+            },
+            "output": {"save_run": True},
+        }
+    )
+
+    result = run_workbench_training(
+        detector=_DummyDetector(),
+        train_inputs=["train_1.png"],
+        config=cfg,
+        category="custom",
+        run_dir=tmp_path / "run_out",
+    )
+
+    assert calls["create_tracker"] == {
+        "backend": "jsonl",
+        "log_dir": str(tmp_path / "tracking"),
+        "project": "pyimgano-dev",
+        "run_name": "unit-run",
+        "mode": "offline",
+    }
+    assert calls["micro_finetune"]["tracker"] is fake_tracker
+    assert calls["micro_finetune"]["fit_kwargs"] == {"epochs": 2}
+    assert len(calls["micro_finetune"]["callbacks"]) == 1
+    assert calls["micro_finetune"]["callbacks"][0].__class__.__name__ == "MetricsLoggingCallback"
+    assert result.training_report["instrumentation"] == {
+        "callbacks": ["metrics_logger"],
+        "tracker": {
+            "backend": "jsonl",
+            "log_dir": str(tmp_path / "tracking"),
+            "project": "pyimgano-dev",
+            "run_name": "unit-run",
+            "mode": "offline",
+            "enabled": True,
+        },
+    }
+
+
+def test_workbench_training_runtime_builds_resource_profiler_callback(
+    monkeypatch, tmp_path: Path
+) -> None:
+    calls: dict[str, object] = {}
+
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
+        calls["micro_finetune"] = {
+            "detector": detector,
+            "train_inputs": list(train_inputs),
+            "seed": seed,
+            "fit_kwargs": dict(fit_kwargs or {}),
+            "callbacks": list(callbacks or []),
+            "tracker": tracker,
+        }
+        return {"fit_kwargs_used": dict(fit_kwargs or {})}
+
+    def _fake_save_checkpoint(detector, path):  # noqa: ANN001
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("ok", encoding="utf-8")
+        return out
+
+    import pyimgano.training.checkpointing as checkpointing_module
+    import pyimgano.training.runner as training_runner_module
+
+    monkeypatch.setattr(training_runner_module, "micro_finetune", _fake_micro_finetune)
+    monkeypatch.setattr(checkpointing_module, "save_checkpoint", _fake_save_checkpoint)
+
+    class _DummyDetector:
+        pass
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "seed": 7,
+            "dataset": {"name": "custom", "root": str(tmp_path), "category": "custom"},
+            "model": {"name": "vision_ecod"},
+            "training": {
+                "enabled": True,
+                "epochs": 2,
+                "callbacks": ["metrics_logger", "resource_profiler"],
+            },
+            "output": {"save_run": True},
+        }
+    )
+
+    result = run_workbench_training(
+        detector=_DummyDetector(),
+        train_inputs=["train_1.png"],
+        config=cfg,
+        category="custom",
+        run_dir=tmp_path / "run_out",
+    )
+
+    callback_names = [cb.__class__.__name__ for cb in calls["micro_finetune"]["callbacks"]]
+    assert callback_names == ["MetricsLoggingCallback", "ResourceProfilingCallback"]
+    assert calls["micro_finetune"]["tracker"] is None
+    assert result.training_report["instrumentation"] == {
+        "callbacks": ["metrics_logger", "resource_profiler"],
+    }
+
+
+def test_workbench_training_runtime_resolves_default_mlflow_tracker_dir(
+    monkeypatch, tmp_path: Path
+) -> None:
+    calls: dict[str, object] = {}
+
+    class _FakeTracker:
+        pass
+
+    fake_tracker = _FakeTracker()
+
+    def _fake_create_training_tracker(**kwargs):  # noqa: ANN001
+        calls["create_tracker"] = dict(kwargs)
+        return fake_tracker
+
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
+        calls["micro_finetune"] = {
+            "detector": detector,
+            "train_inputs": list(train_inputs),
+            "seed": seed,
+            "fit_kwargs": dict(fit_kwargs or {}),
+            "callbacks": list(callbacks or []),
+            "tracker": tracker,
+        }
+        return {"fit_kwargs_used": dict(fit_kwargs or {})}
+
+    def _fake_save_checkpoint(detector, path):  # noqa: ANN001
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("ok", encoding="utf-8")
+        return out
+
+    import pyimgano.training.checkpointing as checkpointing_module
+    import pyimgano.training.runner as training_runner_module
+    import pyimgano.workbench.training_runtime as training_runtime_module
+
+    monkeypatch.setattr(training_runtime_module, "create_training_tracker", _fake_create_training_tracker)
+    monkeypatch.setattr(training_runner_module, "micro_finetune", _fake_micro_finetune)
+    monkeypatch.setattr(checkpointing_module, "save_checkpoint", _fake_save_checkpoint)
+
+    class _DummyDetector:
+        pass
+
+    run_dir = tmp_path / "run_out"
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "seed": 7,
+            "dataset": {"name": "custom", "root": str(tmp_path), "category": "custom"},
+            "model": {"name": "vision_ecod"},
+            "training": {
+                "enabled": True,
+                "epochs": 2,
+                "tracker_backend": "mlflow",
+                "tracker_project": "pyimgano-prod",
+                "tracker_run_name": "run-42",
+            },
+            "output": {"save_run": True},
+        }
+    )
+
+    result = run_workbench_training(
+        detector=_DummyDetector(),
+        train_inputs=["train_1.png"],
+        config=cfg,
+        category="custom",
+        run_dir=run_dir,
+    )
+
+    expected_tracking_dir = str(run_dir / "artifacts" / "tracking")
+    assert calls["create_tracker"] == {
+        "backend": "mlflow",
+        "log_dir": expected_tracking_dir,
+        "project": "pyimgano-prod",
+        "run_name": "run-42",
+        "mode": None,
+    }
+    assert calls["micro_finetune"]["tracker"] is fake_tracker
+    assert result.training_report["instrumentation"] == {
+        "callbacks": [],
+        "tracker": {
+            "backend": "mlflow",
+            "log_dir": expected_tracking_dir,
+            "project": "pyimgano-prod",
+            "run_name": "run-42",
+            "mode": None,
+            "enabled": True,
+        },
+    }

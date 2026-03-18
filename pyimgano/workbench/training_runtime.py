@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 from typing import Any, Sequence
 
 from pyimgano.reporting.runs import build_workbench_run_paths
+from pyimgano.training.callbacks import MetricsLoggingCallback, ResourceProfilingCallback
+from pyimgano.training.tracking import create_training_tracker
 from pyimgano.workbench.config import WorkbenchConfig
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -15,7 +20,81 @@ class WorkbenchTrainingResult:
     checkpoint_meta: dict[str, Any] | None
 
 
-def _build_fit_kwargs(config: WorkbenchConfig) -> dict[str, Any]:
+def build_training_callbacks(config: WorkbenchConfig) -> tuple[list[Any], list[str]]:
+    callbacks: list[Any] = []
+    names: list[str] = []
+    for name in tuple(getattr(config.training, "callbacks", ()) or ()):
+        normalized = str(name).strip().lower()
+        if normalized == "metrics_logger":
+            callbacks.append(MetricsLoggingCallback())
+            names.append("metrics_logger")
+        if normalized == "resource_profiler":
+            callbacks.append(ResourceProfilingCallback())
+            names.append("resource_profiler")
+    return callbacks, names
+
+
+def _resolve_tracker_log_dir(
+    *,
+    config: WorkbenchConfig,
+    run_dir: str | Path | None,
+) -> str | None:
+    configured = getattr(config.training, "tracker_dir", None)
+    if configured is not None:
+        return str(configured)
+    backend = getattr(config.training, "tracker_backend", None)
+    if backend is None:
+        return None
+    normalized = str(backend).strip().lower()
+    if normalized not in {"jsonl", "tensorboard", "mlflow"}:
+        return None
+    if run_dir is None:
+        return None
+    run_path = Path(run_dir)
+    tracking_dir = build_workbench_run_paths(run_path).artifacts_dir / "tracking"
+    tracking_dir.mkdir(parents=True, exist_ok=True)
+    return tracking_dir.as_posix()
+
+
+def build_training_tracker(
+    *,
+    config: WorkbenchConfig,
+    run_dir: str | Path | None,
+) -> tuple[Any | None, dict[str, Any] | None]:
+    backend = getattr(config.training, "tracker_backend", None)
+    if backend is None:
+        return None, None
+    backend_text = str(backend).strip().lower()
+    log_dir = _resolve_tracker_log_dir(config=config, run_dir=run_dir)
+    tracker_meta: dict[str, Any] = {
+        "backend": backend_text,
+        "log_dir": log_dir,
+        "project": getattr(config.training, "tracker_project", None),
+        "run_name": getattr(config.training, "tracker_run_name", None),
+        "mode": getattr(config.training, "tracker_mode", None),
+        "enabled": False,
+    }
+    try:
+        tracker = create_training_tracker(
+            backend=backend_text,
+            log_dir=log_dir,
+            project=getattr(config.training, "tracker_project", None),
+            run_name=getattr(config.training, "tracker_run_name", None),
+            mode=getattr(config.training, "tracker_mode", None),
+        )
+        tracker_meta["enabled"] = backend_text not in {"none", "null", "off", "disabled"}
+        return tracker, tracker_meta
+    except Exception as exc:  # noqa: BLE001 - optional tracker backend boundary
+        tracker_meta["error"] = str(exc)
+        _LOGGER.warning(
+            "Failed to initialize training tracker backend=%s. Falling back to no tracking. %s",
+            backend_text,
+            exc,
+        )
+        return None, tracker_meta
+
+
+def build_training_fit_kwargs(config: WorkbenchConfig) -> dict[str, Any]:
     fit_kwargs: dict[str, Any] = {}
     if config.training.epochs is not None:
         fit_kwargs["epochs"] = int(config.training.epochs)
@@ -110,6 +189,21 @@ def _build_fit_kwargs(config: WorkbenchConfig) -> dict[str, Any]:
     return fit_kwargs
 
 
+def build_training_instrumentation_payload(
+    *,
+    callback_names: Sequence[str],
+    tracker_meta: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if len(callback_names) == 0 and tracker_meta is None:
+        return None
+    payload: dict[str, Any] = {
+        "callbacks": [str(name) for name in callback_names],
+    }
+    if tracker_meta is not None:
+        payload["tracker"] = dict(tracker_meta)
+    return payload
+
+
 def restore_training_checkpoint_if_requested(
     *,
     detector: Any,
@@ -154,12 +248,23 @@ def run_workbench_training(
             detector=detector,
             config=config,
         )
+        callbacks, callback_names = build_training_callbacks(config)
+        tracker, tracker_meta = build_training_tracker(config=config, run_dir=run_dir)
         training_report = micro_finetune(
             detector,
             train_inputs,
             seed=config.seed,
-            fit_kwargs=_build_fit_kwargs(config),
+            fit_kwargs=build_training_fit_kwargs(config),
+            callbacks=callbacks,
+            tracker=tracker,
         )
+        instrumentation_payload = build_training_instrumentation_payload(
+            callback_names=callback_names,
+            tracker_meta=tracker_meta,
+        )
+        if instrumentation_payload is not None:
+            training_report = dict(training_report or {})
+            training_report["instrumentation"] = instrumentation_payload
         if checkpoint_restore is not None:
             training_report = dict(training_report or {})
             training_report["checkpoint_restore"] = checkpoint_restore
@@ -189,4 +294,12 @@ def run_workbench_training(
     )
 
 
-__all__ = ["WorkbenchTrainingResult", "run_workbench_training"]
+__all__ = [
+    "WorkbenchTrainingResult",
+    "run_workbench_training",
+    "build_training_fit_kwargs",
+    "build_training_callbacks",
+    "build_training_tracker",
+    "build_training_instrumentation_payload",
+    "restore_training_checkpoint_if_requested",
+]

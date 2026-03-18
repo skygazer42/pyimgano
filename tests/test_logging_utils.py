@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import io
+import json
 import logging
 
 
@@ -20,3 +22,22 @@ def test_get_logger_sets_level() -> None:
 
     logger = get_logger("pyimgano.tests", verbose=2)
     assert logger.level == logging.DEBUG
+
+
+def test_configure_logging_writes_json_line() -> None:
+    from pyimgano.utils.logging import configure_logging
+
+    stream = io.StringIO()
+    logger = configure_logging(
+        logger_name="pyimgano.tests.structured",
+        verbose=2,
+        json_output=True,
+        stream=stream,
+        force=True,
+    )
+    logger.info("structured hello")
+
+    payload = json.loads(stream.getvalue().splitlines()[-1])
+    assert payload["level"] == "INFO"
+    assert payload["logger"] == "pyimgano.tests.structured"
+    assert payload["message"] == "structured hello"

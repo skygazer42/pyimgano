@@ -97,6 +97,12 @@ class TrainingConfig:
     ema_start_epoch: int | None = None
     resume_from_checkpoint: str | None = None
     checkpoint_name: str = "model.pt"
+    tracker_backend: str | None = None
+    tracker_dir: str | None = None
+    tracker_project: str | None = None
+    tracker_run_name: str | None = None
+    tracker_mode: str | None = None
+    callbacks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

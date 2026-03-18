@@ -58,6 +58,12 @@ def test_workbench_training_config_defaults():
     assert cfg.training.scheduler_milestones is None
     assert cfg.training.resume_from_checkpoint is None
     assert cfg.training.checkpoint_name == "model.pt"
+    assert cfg.training.tracker_backend is None
+    assert cfg.training.tracker_dir is None
+    assert cfg.training.tracker_project is None
+    assert cfg.training.tracker_run_name is None
+    assert cfg.training.tracker_mode is None
+    assert cfg.training.callbacks == ()
 
 
 def test_workbench_training_config_parses_section_and_normalizes_types():
@@ -107,6 +113,12 @@ def test_workbench_training_config_parses_section_and_normalizes_types():
                 "warmup_start_factor": "0.25",
                 "resume_from_checkpoint": "  /tmp/checkpoints/base.pt  ",
                 "checkpoint_name": "ae.pt",
+                "tracker_backend": "tensorboard",
+                "tracker_dir": " ./runs/train ",
+                "tracker_project": " pyimgano-dev ",
+                "tracker_run_name": " run-a ",
+                "tracker_mode": " offline ",
+                "callbacks": ["metrics_logger"],
             },
         }
     )
@@ -154,6 +166,12 @@ def test_workbench_training_config_parses_section_and_normalizes_types():
     assert cfg.training.warmup_start_factor == pytest.approx(0.25)
     assert cfg.training.resume_from_checkpoint == "/tmp/checkpoints/base.pt"
     assert cfg.training.checkpoint_name == "ae.pt"
+    assert cfg.training.tracker_backend == "tensorboard"
+    assert cfg.training.tracker_dir == "./runs/train"
+    assert cfg.training.tracker_project == "pyimgano-dev"
+    assert cfg.training.tracker_run_name == "run-a"
+    assert cfg.training.tracker_mode == "offline"
+    assert cfg.training.callbacks == ("metrics_logger",)
 
 
 def test_workbench_training_config_rejects_invalid_checkpoint_name():
@@ -204,6 +222,62 @@ def test_workbench_training_config_parses_ema_strategy():
     assert cfg.training.ema_enabled is True
     assert cfg.training.ema_decay == pytest.approx(0.995)
     assert cfg.training.ema_start_epoch == 2
+
+
+def test_workbench_training_config_parses_resource_profiler_callback():
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "dataset": {"name": "custom", "root": "/tmp/data"},
+            "model": {"name": "vision_patchcore"},
+            "training": {
+                "enabled": True,
+                "callbacks": ["metrics_logger", "resource_profiler", "metrics_logger"],
+            },
+        }
+    )
+
+    assert cfg.training.callbacks == ("metrics_logger", "resource_profiler")
+
+
+def test_workbench_training_config_parses_mlflow_tracker_backend():
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "dataset": {"name": "custom", "root": "/tmp/data"},
+            "model": {"name": "vision_patchcore"},
+            "training": {
+                "enabled": True,
+                "tracker_backend": "mlflow",
+                "tracker_project": "pyimgano-prod",
+                "tracker_run_name": "run-42",
+            },
+        }
+    )
+
+    assert cfg.training.tracker_backend == "mlflow"
+    assert cfg.training.tracker_project == "pyimgano-prod"
+    assert cfg.training.tracker_run_name == "run-42"
+
+
+def test_workbench_training_config_rejects_invalid_tracker_backend_and_callbacks():
+    base = {
+        "dataset": {"name": "custom", "root": "/tmp/data"},
+        "model": {"name": "vision_patchcore"},
+    }
+
+    with pytest.raises(ValueError, match="training\\.tracker_backend"):
+        WorkbenchConfig.from_dict(
+            {**base, "training": {"enabled": True, "tracker_backend": "comet"}}
+        )
+
+    with pytest.raises(ValueError, match="training\\.callbacks"):
+        WorkbenchConfig.from_dict(
+            {**base, "training": {"enabled": True, "callbacks": ["metrics_logger", ""]}}
+        )
+
+    with pytest.raises(ValueError, match="training\\.callbacks"):
+        WorkbenchConfig.from_dict(
+            {**base, "training": {"enabled": True, "callbacks": ["resource_profiler", "unknown"]}}
+        )
 
 
 def test_workbench_training_config_rejects_non_positive_values():

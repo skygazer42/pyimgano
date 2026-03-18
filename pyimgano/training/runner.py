@@ -5,6 +5,8 @@ import time
 from typing import Any, Mapping, Sequence
 
 import numpy as np
+from pyimgano.training.callbacks import run_callback_hook
+from pyimgano.training.tracking import TrainingTracker
 
 
 _FIT_KWARG_ALIASES: dict[str, tuple[str, ...]] = {
@@ -257,12 +259,94 @@ def _should_report_dataset_summary(
     return train_count_used != original_train_count or validation_count > 0
 
 
+def _call_tracker(
+    tracker: TrainingTracker | None,
+    *,
+    method: str,
+    **kwargs: Any,
+) -> str | None:
+    if tracker is None:
+        return None
+    func = getattr(tracker, method, None)
+    if func is None:
+        return None
+    try:
+        func(**kwargs)
+    except Exception as exc:  # noqa: BLE001 - tracker is optional extension point
+        return f"tracker.{method}: {type(exc).__name__}: {exc}"
+    return None
+
+
+def _build_callback_context(
+    *,
+    detector: Any,
+    seed: int | None,
+    requested_fit_kwargs: Mapping[str, Any],
+    original_train_count: int,
+    train_count: int,
+    validation_count: int,
+) -> dict[str, Any]:
+    return {
+        "detector": detector,
+        "seed": seed,
+        "requested_fit_kwargs": dict(requested_fit_kwargs),
+        "original_train_count": int(original_train_count),
+        "train_count": int(train_count),
+        "validation_count": int(validation_count),
+    }
+
+
+def _emit_epoch_metrics(
+    *,
+    detector_training_state: Mapping[str, Any],
+    callbacks: Sequence[Any],
+    callback_context: Mapping[str, Any],
+    tracker: TrainingTracker | None,
+) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    per_epoch_metrics: list[dict[str, Any]] = []
+    callback_warnings: list[str] = []
+    tracker_warnings: list[str] = []
+
+    loss_history = detector_training_state.get("loss_history", None)
+    if not isinstance(loss_history, list) or len(loss_history) == 0:
+        return per_epoch_metrics, callback_warnings, tracker_warnings
+
+    lr_history_raw = detector_training_state.get("lr_history", None)
+    lr_history = lr_history_raw if isinstance(lr_history_raw, list) else []
+
+    for idx, loss in enumerate(loss_history, start=1):
+        metrics: dict[str, float] = {"loss": float(loss)}
+        if idx <= len(lr_history):
+            metrics["lr"] = float(lr_history[idx - 1])
+        per_epoch_metrics.append({"epoch": int(idx), "metrics": dict(metrics)})
+        callback_warnings.extend(
+            run_callback_hook(
+                callbacks,
+                hook="on_epoch_end",
+                epoch=int(idx),
+                metrics=metrics,
+                context=callback_context,
+            )
+        )
+        tracker_warning = _call_tracker(
+            tracker,
+            method="log_metrics",
+            metrics=metrics,
+            step=int(idx),
+        )
+        if tracker_warning is not None:
+            tracker_warnings.append(tracker_warning)
+    return per_epoch_metrics, callback_warnings, tracker_warnings
+
+
 def micro_finetune(
     detector: Any,
     train_inputs: Sequence[Any],
     *,
     seed: int | None = None,
     fit_kwargs: Mapping[str, Any] | None = None,
+    callbacks: Sequence[Any] | None = None,
+    tracker: TrainingTracker | None = None,
 ) -> dict[str, Any]:
     """Best-effort micro-finetune runner for supported detectors.
 
@@ -299,6 +383,34 @@ def micro_finetune(
     fit_request = dict(requested)
     if validation_inputs:
         fit_request["validation_inputs"] = list(validation_inputs)
+    callbacks_used = list(callbacks or [])
+    callback_context = _build_callback_context(
+        detector=detector,
+        seed=(int(seed) if seed is not None else None),
+        requested_fit_kwargs=fit_request,
+        original_train_count=len(original_inputs),
+        train_count=len(train_inputs_used),
+        validation_count=len(validation_inputs),
+    )
+    callback_warnings: list[str] = run_callback_hook(
+        callbacks_used,
+        hook="on_train_start",
+        context=callback_context,
+    )
+    tracker_warnings: list[str] = []
+    tracker_warning = _call_tracker(
+        tracker,
+        method="log_params",
+        params={
+            "seed": int(seed) if seed is not None else None,
+            "requested_fit_kwargs": dict(fit_request),
+            "original_train_count": int(len(original_inputs)),
+            "train_count": int(len(train_inputs_used)),
+            "validation_count": int(len(validation_inputs)),
+        },
+    )
+    if tracker_warning is not None:
+        tracker_warnings.append(tracker_warning)
     kwargs, explicit_fit_support = _select_fit_kwargs(detector, fit_request)
     detector_attr_overrides_used = _apply_detector_attr_overrides(
         detector,
@@ -309,11 +421,25 @@ def micro_finetune(
     fit_start = time.perf_counter()
     fit_kwargs_used: dict[str, Any]
     try:
-        detector.fit(train_inputs_used, **kwargs)
-        fit_kwargs_used = kwargs
-    except TypeError:
-        detector.fit(train_inputs_used)
-        fit_kwargs_used = {}
+        try:
+            detector.fit(train_inputs_used, **kwargs)
+            fit_kwargs_used = kwargs
+        except TypeError:
+            detector.fit(train_inputs_used)
+            fit_kwargs_used = {}
+    except Exception as exc:
+        callback_warnings.extend(
+            run_callback_hook(
+                callbacks_used,
+                hook="on_exception",
+                error=exc,
+                context=callback_context,
+            )
+        )
+        close_warning = _call_tracker(tracker, method="close")
+        if close_warning is not None:
+            tracker_warnings.append(close_warning)
+        raise
     fit_s = float(time.perf_counter() - fit_start)
 
     total_s = float(time.perf_counter() - total_start)
@@ -342,4 +468,45 @@ def micro_finetune(
     detector_training_state = _collect_detector_training_state(detector)
     if detector_training_state:
         report["detector_training_state"] = detector_training_state
+    per_epoch_metrics, epoch_callback_warnings, epoch_tracker_warnings = _emit_epoch_metrics(
+        detector_training_state=detector_training_state,
+        callbacks=callbacks_used,
+        callback_context=callback_context,
+        tracker=tracker,
+    )
+    callback_warnings.extend(epoch_callback_warnings)
+    tracker_warnings.extend(epoch_tracker_warnings)
+    if per_epoch_metrics:
+        report["epoch_metrics"] = per_epoch_metrics
+    timing_warning = _call_tracker(
+        tracker,
+        method="log_metrics",
+        metrics={"fit_s": fit_s, "total_s": total_s},
+        step=None,
+    )
+    if timing_warning is not None:
+        tracker_warnings.append(timing_warning)
+    callback_warnings.extend(
+        run_callback_hook(
+            callbacks_used,
+            hook="on_train_end",
+            report=report,
+            context=callback_context,
+        )
+    )
+    artifact_warning = _call_tracker(
+        tracker,
+        method="log_artifact",
+        name="training_report.json",
+        artifact=report,
+    )
+    if artifact_warning is not None:
+        tracker_warnings.append(artifact_warning)
+    close_warning = _call_tracker(tracker, method="close")
+    if close_warning is not None:
+        tracker_warnings.append(close_warning)
+    if callback_warnings:
+        report["callback_warnings"] = callback_warnings
+    if tracker_warnings:
+        report["tracker_warnings"] = tracker_warnings
     return report
