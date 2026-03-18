@@ -335,6 +335,9 @@ def _build_trust_summary(
     operator_contract_audit: Mapping[str, Any],
     bundle_manifest: Mapping[str, Any],
     weights_audit: Mapping[str, Any],
+    has_bundle_operator_contract: bool,
+    has_bundle_operator_contract_consistent: bool,
+    has_bundle_operator_contract_error: bool,
 ) -> dict[str, Any]:
     status_reasons: list[str] = []
     degraded_by: list[str] = []
@@ -345,6 +348,8 @@ def _build_trust_summary(
         "has_operator_contract_consistent": bool(
             operator_contract_audit.get("matching_payload") is True
         ),
+        "has_bundle_operator_contract": bool(has_bundle_operator_contract),
+        "has_bundle_operator_contract_consistent": bool(has_bundle_operator_contract_consistent),
         "has_calibration_card": bool(artifacts.get("calibration_card", {}).get("present")),
         "has_threshold_context": bool(calibration_audit.get("has_threshold_context")),
         "has_split_fingerprint": bool(calibration_audit.get("has_split_fingerprint")),
@@ -402,6 +407,8 @@ def _build_trust_summary(
         and "operator_contract_mismatch" not in degraded_by
     ):
         degraded_by.append("operator_contract_mismatch")
+    if bool(has_bundle_operator_contract_error):
+        degraded_by.append("operator_contract_bundle_mismatch")
 
     report_present = bool(artifacts.get("report", {}).get("present"))
     if not report_present:
@@ -498,6 +505,17 @@ def evaluate_run_quality(
             bundle_manifest_payload["valid"] = len(errors) == 0
             bundle_manifest_payload["errors"] = list(errors)
 
+    has_bundle_operator_contract = bool((root / "deploy_bundle" / "operator_contract.json").is_file())
+    bundle_operator_contract_error_present = any(
+        "operator_contract" in str(item).lower() or "operator contract" in str(item).lower()
+        for item in bundle_manifest_payload["errors"]
+    )
+    has_bundle_operator_contract_consistent = (
+        bool(has_bundle_operator_contract)
+        and bool(bundle_manifest_payload.get("present"))
+        and not bool(bundle_operator_contract_error_present)
+    )
+
     weights_audit = _evaluate_bundle_weights_audit(
         root / "deploy_bundle",
         check_hashes=bool(check_bundle_hashes),
@@ -551,6 +569,9 @@ def evaluate_run_quality(
         operator_contract_audit=operator_contract_audit,
         bundle_manifest=bundle_manifest_payload,
         weights_audit=weights_audit,
+        has_bundle_operator_contract=has_bundle_operator_contract,
+        has_bundle_operator_contract_consistent=has_bundle_operator_contract_consistent,
+        has_bundle_operator_contract_error=bundle_operator_contract_error_present,
     )
 
     return {

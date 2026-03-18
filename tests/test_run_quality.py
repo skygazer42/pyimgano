@@ -471,3 +471,145 @@ def test_evaluate_run_quality_downgrades_invalid_bundle_model_card(tmp_path: Pat
     assert "deploy_bundle_incomplete" in trust["status_reasons"]
     assert "invalid_bundle_weights_audit" in trust["degraded_by"]
     assert trust["audit_refs"]["deploy_bundle_manifest_json"] == "deploy_bundle/bundle_manifest.json"
+
+
+def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: Path) -> None:
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "operator_contract": operator_contract,
+            "artifact_quality": {
+                "has_operator_contract": True,
+                "audit_refs": {"operator_contract": "artifacts/operator_contract.json"},
+            },
+        },
+    )
+    _write_json(run_dir / "artifacts" / "operator_contract.json", operator_contract)
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    bundle_dir = run_dir / "deploy_bundle"
+    _write_json(
+        bundle_dir / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "operator_contract": operator_contract,
+            "artifact_quality": {
+                "has_operator_contract": True,
+                "audit_refs": {"operator_contract": "operator_contract.json"},
+            },
+        },
+    )
+    _write_json(bundle_dir / "operator_contract.json", operator_contract)
+    _write_json(bundle_dir / "report.json", {"dataset": "custom"})
+    _write_json(bundle_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(bundle_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(bundle_dir / "calibration_card.json", {"schema_version": 1})
+    _write_json(
+        bundle_dir / "bundle_manifest.json",
+        build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
+    )
+
+    quality = evaluate_run_quality(run_dir)
+    trust = quality["trust_summary"]
+    assert trust["trust_signals"]["has_bundle_operator_contract"] is True
+    assert trust["trust_signals"]["has_bundle_operator_contract_consistent"] is True
+
+
+def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: Path) -> None:
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+
+    operator_contract = {
+        "schema_version": 1,
+        "review_policy": {
+            "review_on": ["anomalous", "rejected_low_confidence"],
+            "confidence_gate_enabled": True,
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+    _write_json(run_dir / "artifacts" / "infer_config.json", {"threshold": 0.5})
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    bundle_dir = run_dir / "deploy_bundle"
+    _write_json(
+        bundle_dir / "infer_config.json",
+        {
+            "threshold": 0.5,
+            "operator_contract": operator_contract,
+            "artifact_quality": {
+                "has_operator_contract": True,
+                "audit_refs": {"operator_contract": "operator_contract.json"},
+            },
+        },
+    )
+    _write_json(
+        bundle_dir / "operator_contract.json",
+        {
+            "schema_version": 1,
+            "review_policy": {
+                "review_on": ["anomalous"],
+                "confidence_gate_enabled": True,
+                "reject_confidence_below": 0.6,
+                "reject_label": -9,
+            },
+        },
+    )
+    _write_json(bundle_dir / "report.json", {"dataset": "custom"})
+    _write_json(bundle_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(bundle_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(bundle_dir / "calibration_card.json", {"schema_version": 1})
+    _write_json(
+        bundle_dir / "bundle_manifest.json",
+        build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
+    )
+
+    quality = evaluate_run_quality(run_dir)
+    trust = quality["trust_summary"]
+    assert trust["trust_signals"]["has_bundle_operator_contract"] is True
+    assert trust["trust_signals"]["has_bundle_operator_contract_consistent"] is False
+    assert "operator_contract_bundle_mismatch" in trust["degraded_by"]
