@@ -151,10 +151,14 @@ def _build_manifest_trust_summary(
     report: Any,
     *,
     manifest_path: str | Path,
+    check_files: bool,
+    check_hashes: bool,
 ) -> dict[str, Any]:
     entries = [dict(item) for item in getattr(report, "entries", ())]
     has_entries = len(entries) > 0
     trust_signals = {
+        "file_refs_checked": bool(check_files),
+        "hashes_checked": bool(check_hashes),
         "has_entries": bool(has_entries),
         "all_entries_have_sha256": bool(
             has_entries and all(_nonempty_str(item.get("sha256", None)) is not None for item in entries)
@@ -201,6 +205,8 @@ def _build_model_card_trust_summary(
     *,
     model_card_path: str | Path,
     manifest_path: str | Path | None,
+    check_files: bool,
+    check_hashes: bool,
 ) -> dict[str, Any]:
     normalized = getattr(report, "normalized", {})
     if not isinstance(normalized, dict):
@@ -219,6 +225,8 @@ def _build_model_card_trust_summary(
         manifest_asset = {}
 
     trust_signals = {
+        "file_refs_checked": bool(check_files),
+        "hashes_checked": bool(check_hashes),
         "has_weights_sha256": _nonempty_str(weights.get("sha256", None)) is not None,
         "has_weights_source": _nonempty_str(weights.get("source", None)) is not None,
         "has_weights_license": _nonempty_str(weights.get("license", None)) is not None,
@@ -269,6 +277,10 @@ def _build_model_card_trust_summary(
 
 def _emit_trust_summary(summary: Mapping[str, Any]) -> None:
     print(f"trust_status={summary.get('status')}")
+    trust_signals = summary.get("trust_signals", {})
+    if isinstance(trust_signals, Mapping):
+        for key, value in trust_signals.items():
+            print(f"trust_signal.{key}={value}")
     for item in summary.get("degraded_by", []):
         print(f"degraded_by={item}")
     audit_refs = summary.get("audit_refs", {})
@@ -304,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
             trust_summary = _build_manifest_trust_summary(
                 report,
                 manifest_path=str(args.manifest),
+                check_files=bool(args.check_files),
+                check_hashes=bool(args.check_hashes),
             )
             if bool(args.json):
                 payload = report.to_jsonable()
@@ -334,6 +348,8 @@ def main(argv: list[str] | None = None) -> int:
                 report,
                 model_card_path=str(args.path),
                 manifest_path=(str(args.manifest) if args.manifest is not None else None),
+                check_files=bool(args.check_files),
+                check_hashes=bool(args.check_hashes),
             )
             if bool(args.json):
                 payload = report.to_jsonable()

@@ -222,3 +222,92 @@ def test_weights_cli_validate_manifest_json_includes_trust_summary(tmp_path, cap
     assert trust["trust_signals"]["all_entries_have_license"] is True
     assert trust["trust_signals"]["all_entries_have_runtime"] is True
     assert trust["audit_refs"]["weights_manifest_json"] == str(manifest_path)
+
+
+def test_weights_cli_validate_manifest_plain_output_prints_check_strength(
+    tmp_path, capsys
+):
+    from pyimgano.weights_cli import main
+
+    ckpt = tmp_path / "checkpoints" / "demo.pt"
+    ckpt.parent.mkdir(parents=True, exist_ok=True)
+    ckpt.write_bytes(b"demo-weights")
+
+    manifest = {
+        "schema_version": 1,
+        "entries": [
+            {
+                "name": "demo_model_entry",
+                "path": "checkpoints/demo.pt",
+                "sha256": "a" * 64,
+                "source": "unit-test",
+                "license": "internal",
+                "runtime": "torch",
+            }
+        ],
+    }
+    manifest_path = tmp_path / "weights_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    rc = main(
+        [
+            "validate",
+            str(manifest_path),
+            "--check-files",
+        ]
+    )
+    assert rc == 0
+
+    out = capsys.readouterr().out.lower()
+    assert "trust_signal.file_refs_checked=true" in out
+    assert "trust_signal.hashes_checked=false" in out
+
+
+def test_weights_cli_validate_model_card_json_includes_check_strength(
+    tmp_path, capsys
+):
+    from pyimgano.weights_cli import main
+
+    ckpt = tmp_path / "checkpoints" / "demo.pt"
+    ckpt.parent.mkdir(parents=True, exist_ok=True)
+    data = b"demo-weights"
+    ckpt.write_bytes(data)
+
+    import hashlib
+
+    sha = hashlib.sha256(data).hexdigest()
+
+    payload = {
+        "schema_version": 1,
+        "model_name": "demo_model",
+        "summary": {
+            "purpose": "demo",
+            "intended_inputs": "RGB",
+            "output_contract": "image-level",
+        },
+        "weights": {
+            "path": "checkpoints/demo.pt",
+            "sha256": sha,
+            "source": "unit-test",
+            "license": "internal",
+        },
+        "deployment": {"runtime": "torch"},
+    }
+    path = tmp_path / "model_card.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    rc = main(
+        [
+            "validate-model-card",
+            str(path),
+            "--check-files",
+            "--check-hashes",
+            "--json",
+        ]
+    )
+    assert rc == 0
+
+    out = json.loads(capsys.readouterr().out)
+    trust = out["trust_summary"]
+    assert trust["trust_signals"]["file_refs_checked"] is True
+    assert trust["trust_signals"]["hashes_checked"] is True
