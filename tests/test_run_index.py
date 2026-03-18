@@ -1066,6 +1066,8 @@ def test_compare_run_summaries_emits_machine_readable_verdict_summary(tmp_path):
         "environment": "incompatible",
         "target": "incompatible",
         "robustness_protocol": "unchecked",
+        "operator_contract": "unchecked",
+        "bundle_operator_contract": "unchecked",
     }
     assert summary["blocking_flags"] == [
         "--fail-on-regression",
@@ -1337,6 +1339,7 @@ def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_b
     assert summary["candidate_verdicts"]["candidate"] == "blocked"
     assert summary["candidate_blocking_reasons"]["candidate"] == ["operator_contract:missing"]
     assert summary["operator_contract_gate"] == "incompatible"
+    assert summary["comparability_gates"]["operator_contract"] == "incompatible"
     assert "--require-same-operator-contract" in summary["blocking_flags"]
     assert payload["operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
     assert payload["operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
@@ -1469,6 +1472,7 @@ def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract
         "operator_contract_bundle:missing"
     ]
     assert summary["bundle_operator_contract_gate"] == "incompatible"
+    assert summary["comparability_gates"]["bundle_operator_contract"] == "incompatible"
     assert "--require-same-bundle-operator-contract" in summary["blocking_flags"]
     assert payload["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
     assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "missing"

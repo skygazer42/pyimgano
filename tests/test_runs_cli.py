@@ -1153,6 +1153,8 @@ def test_runs_cli_compare_json_emits_machine_readable_verdict_summary(tmp_path, 
     assert out["summary"]["comparability_gates"]["environment"] == "incompatible"
     assert out["summary"]["comparability_gates"]["target"] == "incompatible"
     assert out["summary"]["comparability_gates"]["robustness_protocol"] == "unchecked"
+    assert out["summary"]["comparability_gates"]["operator_contract"] == "unchecked"
+    assert out["summary"]["comparability_gates"]["bundle_operator_contract"] == "unchecked"
     assert out["summary"]["blocking_flags"] == [
         "--fail-on-regression",
         "--require-same-split",

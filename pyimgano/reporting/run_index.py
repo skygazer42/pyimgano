@@ -1490,6 +1490,10 @@ def compare_run_summaries(
             "environment": _comparability_gate_status(environment_summary),
             "target": _comparability_gate_status(target_summary),
             "robustness_protocol": _comparability_gate_status(robustness_protocol_summary),
+            "operator_contract": _comparability_gate_status(operator_contract_summary),
+            "bundle_operator_contract": _comparability_gate_status(
+                bundle_operator_contract_summary
+            ),
         },
         "blocking_flags": blocking_flags,
         "verdict": (
