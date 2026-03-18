@@ -746,6 +746,11 @@ def main(argv: list[str] | None = None) -> int:
                     if isinstance(verdict, str) and verdict:
                         print(f"candidate_verdict.{run_name}={verdict}")
                     reasons = candidate_blocking_reasons.get(run_name, [])
+                    reason_tokens = (
+                        {str(item) for item in reasons if str(item)}
+                        if isinstance(reasons, list)
+                        else set()
+                    )
                     if isinstance(reasons, list) and reasons:
                         print(
                             "candidate_blocking_reasons."
@@ -781,6 +786,11 @@ def main(argv: list[str] | None = None) -> int:
                         "candidate_incompatibility_digest."
                         f"{run_name}={_format_candidate_incompatibility_digest(digest_entry)}"
                     )
+                    if "operator_contract_bundle:digest_mismatch" in reason_tokens:
+                        print(
+                            "bundle_operator_contract_integrity."
+                            f"{run_name}=digest_mismatch"
+                        )
                 print(
                     "split: "
                     f"checked={split_summary.get('checked')} "

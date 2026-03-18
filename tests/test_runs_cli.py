@@ -3122,6 +3122,19 @@ def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_m
         "bundle_operator_contract:mismatched"
     ]
 
+    rc_plain = main(
+        [
+            "compare",
+            str(baseline),
+            str(candidate),
+            "--baseline",
+            str(baseline),
+        ]
+    )
+    plain_out = capsys.readouterr().out.lower()
+    assert rc_plain == 0
+    assert "bundle_operator_contract_integrity.candidate=digest_mismatch" in plain_out
+
 
 def test_runs_cli_compare_plain_output_prints_limited_trust_gate_for_partial_baseline(
     tmp_path, capsys
