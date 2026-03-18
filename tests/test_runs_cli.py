@@ -2546,6 +2546,10 @@ def test_runs_cli_compare_plain_output_prints_candidate_verdicts_and_gates(
         "target_category:matched,robustness_protocol:unchecked,operator_contract:unchecked,"
         "bundle_operator_contract:unchecked"
     ) in out
+    assert (
+        "candidate_incompatibility_digest.clean="
+        "verdict:pass|incompatible_gates:none|blocking_reasons:none"
+    ) in out
     assert "candidate_verdict.blocked=blocked" in out
     assert (
         "candidate_blocking_reasons.blocked="
@@ -2558,6 +2562,13 @@ def test_runs_cli_compare_plain_output_prints_candidate_verdicts_and_gates(
         "target_dataset:mismatched,target_category:mismatched,"
         "robustness_protocol:unchecked,operator_contract:unchecked,"
         "bundle_operator_contract:unchecked"
+    ) in out
+    assert (
+        "candidate_incompatibility_digest.blocked="
+        "verdict:blocked|incompatible_gates:split:mismatched,environment:mismatched,"
+        "target:mismatched,target_dataset:mismatched,target_category:mismatched|"
+        "blocking_reasons:primary_metric:regressed,split:mismatched,environment:mismatched,"
+        "target.dataset:mismatched,target.category:mismatched"
     ) in out
 
 

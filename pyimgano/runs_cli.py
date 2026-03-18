@@ -21,6 +21,17 @@ _QUALITY_STATUS_RANK = {
     "deployable": 4,
 }
 
+_CANDIDATE_COMPARABILITY_GATES_ORDER = (
+    "split",
+    "environment",
+    "target",
+    "target_dataset",
+    "target_category",
+    "robustness_protocol",
+    "operator_contract",
+    "bundle_operator_contract",
+)
+
 
 def _format_metric_value(value: object) -> str | None:
     if not isinstance(value, (int, float)):
@@ -212,22 +223,30 @@ def _format_compare_run_brief(
 
 
 def _format_candidate_comparability_gates(gates: dict[str, object]) -> str:
-    ordered_keys = (
-        "split",
-        "environment",
-        "target",
-        "target_dataset",
-        "target_category",
-        "robustness_protocol",
-        "operator_contract",
-        "bundle_operator_contract",
-    )
     parts: list[str] = []
-    for key in ordered_keys:
+    for key in _CANDIDATE_COMPARABILITY_GATES_ORDER:
         value = gates.get(key, None)
         if isinstance(value, str) and value:
             parts.append(f"{key}:{value}")
     return ",".join(parts) if parts else "none"
+
+
+def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
+    verdict = entry.get("verdict", None)
+    verdict_text = str(verdict) if isinstance(verdict, str) and verdict else "pass"
+    incompatible = entry.get("incompatible_gates", [])
+    blocking = entry.get("blocking_reasons", [])
+    incompatible_items = (
+        [str(item) for item in incompatible if str(item)] if isinstance(incompatible, list) else []
+    )
+    blocking_items = [str(item) for item in blocking if str(item)] if isinstance(blocking, list) else []
+    incompatible_text = ",".join(incompatible_items) if incompatible_items else "none"
+    blocking_text = ",".join(blocking_items) if blocking_items else "none"
+    return (
+        f"verdict:{verdict_text}|"
+        f"incompatible_gates:{incompatible_text}|"
+        f"blocking_reasons:{blocking_text}"
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -715,6 +734,9 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_comparability_gates = dict(
                     summary.get("candidate_comparability_gates", {})
                 )
+                candidate_incompatibility_digest = dict(
+                    summary.get("candidate_incompatibility_digest", {})
+                )
                 for run_name in candidate_names:
                     verdict = candidate_verdicts.get(run_name, None)
                     if isinstance(verdict, str) and verdict:
@@ -733,6 +755,28 @@ def main(argv: list[str] | None = None) -> int:
                             "candidate_comparability_gates."
                             f"{run_name}={_format_candidate_comparability_gates(gates)}"
                         )
+                    digest_entry = candidate_incompatibility_digest.get(run_name, None)
+                    if not isinstance(digest_entry, dict):
+                        gate_map = gates if isinstance(gates, dict) else {}
+                        incompatible_gates: list[str] = []
+                        for gate_name in _CANDIDATE_COMPARABILITY_GATES_ORDER:
+                            gate_status = gate_map.get(gate_name, None)
+                            gate_status_text = (
+                                str(gate_status).strip().lower()
+                                if isinstance(gate_status, str)
+                                else ""
+                            )
+                            if gate_status_text in {"missing", "mismatched"}:
+                                incompatible_gates.append(f"{gate_name}:{gate_status_text}")
+                        digest_entry = {
+                            "verdict": verdict if isinstance(verdict, str) and verdict else "pass",
+                            "incompatible_gates": incompatible_gates,
+                            "blocking_reasons": reasons if isinstance(reasons, list) else [],
+                        }
+                    print(
+                        "candidate_incompatibility_digest."
+                        f"{run_name}={_format_candidate_incompatibility_digest(digest_entry)}"
+                    )
                 print(
                     "split: "
                     f"checked={split_summary.get('checked')} "
