@@ -853,6 +853,54 @@ def main(argv: list[str] | None = None) -> int:
                             "robustness_protocol_mismatch."
                             f"{run_dir_name}={','.join(str(item) for item in mismatch_fields)}"
                         )
+                print(
+                    "operator_contract: "
+                    f"checked={operator_contract_summary.get('checked')} "
+                    f"matched={operator_contract_summary.get('matched_runs', 0)} "
+                    f"mismatched={operator_contract_summary.get('mismatched_runs', 0)} "
+                    f"missing={operator_contract_summary.get('missing_runs', 0)}"
+                )
+                for row in payload.get("operator_contract_comparison", {}).get("comparisons", []):
+                    if not isinstance(row, dict):
+                        continue
+                    status = str(row.get("status"))
+                    if status not in {"mismatched", "missing"}:
+                        continue
+                    run_dir_name = row.get("run_dir_name", None)
+                    if not isinstance(run_dir_name, str) or not run_dir_name:
+                        continue
+                    mismatch_reason = row.get("mismatch_reason", None)
+                    if isinstance(mismatch_reason, str) and mismatch_reason:
+                        print(
+                            "operator_contract_incompat."
+                            f"{run_dir_name}={status}:{mismatch_reason}"
+                        )
+                    else:
+                        print(f"operator_contract_incompat.{run_dir_name}={status}")
+                print(
+                    "bundle_operator_contract: "
+                    f"checked={bundle_operator_contract_summary.get('checked')} "
+                    f"matched={bundle_operator_contract_summary.get('matched_runs', 0)} "
+                    f"mismatched={bundle_operator_contract_summary.get('mismatched_runs', 0)} "
+                    f"missing={bundle_operator_contract_summary.get('missing_runs', 0)}"
+                )
+                for row in payload.get("bundle_operator_contract_comparison", {}).get("comparisons", []):
+                    if not isinstance(row, dict):
+                        continue
+                    status = str(row.get("status"))
+                    if status not in {"mismatched", "missing"}:
+                        continue
+                    run_dir_name = row.get("run_dir_name", None)
+                    if not isinstance(run_dir_name, str) or not run_dir_name:
+                        continue
+                    mismatch_reason = row.get("mismatch_reason", None)
+                    if isinstance(mismatch_reason, str) and mismatch_reason:
+                        print(
+                            "bundle_operator_contract_incompat."
+                            f"{run_dir_name}={status}:{mismatch_reason}"
+                        )
+                    else:
+                        print(f"bundle_operator_contract_incompat.{run_dir_name}={status}")
             if bool(args.require_same_split):
                 split_summary = dict(payload.get("split_comparison", {}).get("summary", {}))
                 if not bool(split_summary.get("checked")) or int(
