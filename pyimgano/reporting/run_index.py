@@ -86,6 +86,18 @@ def _operator_contract_status_from_trust_summary(trust_summary: Mapping[str, Any
     return ("consistent" if is_consistent else "mismatched"), bool(is_consistent)
 
 
+def _bundle_operator_contract_status_from_trust_summary(
+    trust_summary: Mapping[str, Any],
+) -> tuple[str, bool]:
+    trust_signals = trust_summary.get("trust_signals", None)
+    signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
+    has_contract = bool(signal_map.get("has_bundle_operator_contract"))
+    is_consistent = bool(signal_map.get("has_bundle_operator_contract_consistent"))
+    if not has_contract:
+        return "missing", False
+    return ("consistent" if is_consistent else "mismatched"), bool(is_consistent)
+
+
 def _comparison_trust_reason(
     *,
     trust_status: object,
@@ -130,10 +142,23 @@ def _build_trust_comparison(
     operator_contract_status, operator_contract_consistent = (
         _operator_contract_status_from_trust_summary(trust_summary)
     )
+    bundle_operator_contract_status, bundle_operator_contract_consistent = (
+        _bundle_operator_contract_status_from_trust_summary(trust_summary)
+    )
     baseline_operator_contract_status = baseline_summary.get("operator_contract_status", None)
     if isinstance(baseline_operator_contract_status, str) and baseline_operator_contract_status:
         operator_contract_status = str(baseline_operator_contract_status)
         operator_contract_consistent = operator_contract_status == "consistent"
+    baseline_bundle_operator_contract_status = baseline_summary.get(
+        "bundle_operator_contract_status",
+        None,
+    )
+    if (
+        isinstance(baseline_bundle_operator_contract_status, str)
+        and baseline_bundle_operator_contract_status
+    ):
+        bundle_operator_contract_status = str(baseline_bundle_operator_contract_status)
+        bundle_operator_contract_consistent = bundle_operator_contract_status == "consistent"
     quality_status = artifact_quality.get("status", None)
     trust_status = trust_summary.get("status", None)
     status_reasons = list(trust_summary.get("status_reasons", []))
@@ -156,6 +181,8 @@ def _build_trust_comparison(
         "degraded_by": [str(item) for item in degraded_by if str(item)],
         "operator_contract_status": str(operator_contract_status),
         "operator_contract_consistent": bool(operator_contract_consistent),
+        "bundle_operator_contract_status": str(bundle_operator_contract_status),
+        "bundle_operator_contract_consistent": bool(bundle_operator_contract_consistent),
         "audit_refs": {
             str(key): str(value)
             for key, value in audit_refs.items()
@@ -229,6 +256,7 @@ def _build_candidate_blocking_summary(
     runs: list[dict[str, Any]],
     baseline_path_str: str | None,
     baseline_operator_contract_status: str | None,
+    baseline_bundle_operator_contract_status: str | None,
     primary_metric_info: Mapping[str, Any],
     split_comparison: Mapping[str, Any],
     environment_comparison: Mapping[str, Any],
@@ -367,6 +395,20 @@ def _build_candidate_blocking_summary(
                     reasons_by_name,
                     run_dir_name=run_dir_name,
                     reason=f"operator_contract:{status}",
+                )
+
+    if str(baseline_bundle_operator_contract_status or "").strip().lower() == "consistent":
+        for run in runs:
+            run_path = str(Path(str(run.get("run_dir"))).resolve())
+            if baseline_path_str is not None and run_path == baseline_path_str:
+                continue
+            run_dir_name = run.get("run_dir_name", None)
+            status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
+            if status in {"missing", "mismatched"}:
+                _append_candidate_reason(
+                    reasons_by_name,
+                    run_dir_name=run_dir_name,
+                    reason=f"operator_contract_bundle:{status}",
                 )
 
     candidate_verdicts = {
@@ -635,10 +677,14 @@ def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
     robustness_trust = _extract_robustness_trust(report)
 
     artifact_quality = evaluate_run_quality(root)
-    operator_contract_status, _ = _operator_contract_status_from_trust_summary(
+    trust_summary = (
         dict(artifact_quality.get("trust_summary", {}))
         if isinstance(artifact_quality, Mapping)
         else {}
+    )
+    operator_contract_status, _ = _operator_contract_status_from_trust_summary(trust_summary)
+    bundle_operator_contract_status, _ = _bundle_operator_contract_status_from_trust_summary(
+        trust_summary
     )
 
     payload = {
@@ -655,6 +701,7 @@ def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
         "split_fingerprint_sha256": _extract_split_fingerprint_sha256(report),
         "artifact_quality": artifact_quality,
         "operator_contract_status": str(operator_contract_status),
+        "bundle_operator_contract_status": str(bundle_operator_contract_status),
         "metrics": metrics,
         "evaluation_contract": _extract_evaluation_contract(report, metrics=metrics),
     }
@@ -1326,6 +1373,12 @@ def compare_run_summaries(
             and baseline_summary.get("operator_contract_status") is not None
             else None
         ),
+        baseline_bundle_operator_contract_status=(
+            str(baseline_summary.get("bundle_operator_contract_status"))
+            if isinstance(baseline_summary, Mapping)
+            and baseline_summary.get("bundle_operator_contract_status") is not None
+            else None
+        ),
         primary_metric_info=primary_metric_info,
         split_comparison=split_comparison,
         environment_comparison=environment_comparison,
@@ -1379,6 +1432,13 @@ def compare_run_summaries(
     summary["operator_contract_status"] = trust_comparison.get("operator_contract_status", None)
     summary["operator_contract_consistent"] = bool(
         trust_comparison.get("operator_contract_consistent", False)
+    )
+    summary["bundle_operator_contract_status"] = trust_comparison.get(
+        "bundle_operator_contract_status",
+        None,
+    )
+    summary["bundle_operator_contract_consistent"] = bool(
+        trust_comparison.get("bundle_operator_contract_consistent", False)
     )
     summary["candidate_verdicts"] = dict(candidate_blocking_summary["candidate_verdicts"])
     summary["candidate_blocking_reasons"] = dict(
