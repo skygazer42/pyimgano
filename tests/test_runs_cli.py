@@ -2107,6 +2107,11 @@ def test_runs_cli_compare_plain_output_prints_operator_contract_incompatibility_
         "robustness_protocol=unchecked operator_contract=incompatible "
         "bundle_operator_contract=unchecked"
     ) in out
+    operator_baseline_hash_lines = [
+        line for line in out.splitlines() if line.startswith("operator_contract_baseline.sha256=")
+    ]
+    assert len(operator_baseline_hash_lines) == 1
+    assert len(operator_baseline_hash_lines[0].split("=", 1)[1]) == 64
     assert "operator_contract: checked=true matched=0 mismatched=0 missing=1" in out
     assert "operator_contract_incompat.candidate=missing" in out
     assert "--require-same-operator-contract" in out
@@ -2248,6 +2253,13 @@ def test_runs_cli_compare_plain_output_prints_bundle_operator_contract_incompati
         "bundle_operator_contract=incompatible"
     ) in out
     assert "comparison_bundle_operator_contract_digests_valid=true" in out
+    bundle_baseline_hash_lines = [
+        line
+        for line in out.splitlines()
+        if line.startswith("bundle_operator_contract_baseline.sha256=")
+    ]
+    assert len(bundle_baseline_hash_lines) == 1
+    assert len(bundle_baseline_hash_lines[0].split("=", 1)[1]) == 64
     assert "candidate_bundle_operator_contract_digest_status.candidate=missing" in out
     assert "bundle_operator_contract: checked=true matched=0 mismatched=0 missing=1" in out
     assert "bundle_operator_contract_incompat.candidate=missing" in out
@@ -3139,6 +3151,13 @@ def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_m
     assert rc_plain == 0
     assert "candidate_bundle_operator_contract_digest_status.candidate=invalid" in plain_out
     assert "bundle_operator_contract_integrity.candidate=digest_mismatch" in plain_out
+    bundle_candidate_hash_lines = [
+        line
+        for line in plain_out.splitlines()
+        if line.startswith("bundle_operator_contract_sha256.candidate=")
+    ]
+    assert len(bundle_candidate_hash_lines) == 1
+    assert len(bundle_candidate_hash_lines[0].split("=", 1)[1]) == 64
 
 
 def test_runs_cli_compare_plain_output_prints_limited_trust_gate_for_partial_baseline(

@@ -1093,6 +1093,9 @@ def _build_operator_contract_comparison(
                 row["status"] = "mismatched"
                 mismatched_runs += 1
                 row["mismatch_reason"] = f"candidate_{run_status}"
+                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
+                if isinstance(candidate_payload, Mapping):
+                    row["contract_sha256"] = _contract_payload_sha256(candidate_payload)
             else:
                 candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
                 if not isinstance(candidate_payload, Mapping):

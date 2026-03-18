@@ -931,6 +931,15 @@ def main(argv: list[str] | None = None) -> int:
                     f"mismatched={operator_contract_summary.get('mismatched_runs', 0)} "
                     f"missing={operator_contract_summary.get('missing_runs', 0)}"
                 )
+                operator_contract_baseline_sha256 = payload.get("operator_contract_comparison", {}).get(
+                    "baseline_contract_sha256",
+                    None,
+                )
+                if (
+                    isinstance(operator_contract_baseline_sha256, str)
+                    and operator_contract_baseline_sha256
+                ):
+                    print(f"operator_contract_baseline.sha256={operator_contract_baseline_sha256}")
                 for row in payload.get("operator_contract_comparison", {}).get("comparisons", []):
                     if not isinstance(row, dict):
                         continue
@@ -948,6 +957,9 @@ def main(argv: list[str] | None = None) -> int:
                         )
                     else:
                         print(f"operator_contract_incompat.{run_dir_name}={status}")
+                    candidate_sha256 = row.get("contract_sha256", None)
+                    if isinstance(candidate_sha256, str) and candidate_sha256:
+                        print(f"operator_contract_sha256.{run_dir_name}={candidate_sha256}")
                 print(
                     "bundle_operator_contract: "
                     f"checked={bundle_operator_contract_summary.get('checked')} "
@@ -955,6 +967,18 @@ def main(argv: list[str] | None = None) -> int:
                     f"mismatched={bundle_operator_contract_summary.get('mismatched_runs', 0)} "
                     f"missing={bundle_operator_contract_summary.get('missing_runs', 0)}"
                 )
+                bundle_operator_contract_baseline_sha256 = payload.get(
+                    "bundle_operator_contract_comparison",
+                    {},
+                ).get("baseline_contract_sha256", None)
+                if (
+                    isinstance(bundle_operator_contract_baseline_sha256, str)
+                    and bundle_operator_contract_baseline_sha256
+                ):
+                    print(
+                        "bundle_operator_contract_baseline.sha256="
+                        f"{bundle_operator_contract_baseline_sha256}"
+                    )
                 for row in payload.get("bundle_operator_contract_comparison", {}).get("comparisons", []):
                     if not isinstance(row, dict):
                         continue
@@ -972,6 +996,9 @@ def main(argv: list[str] | None = None) -> int:
                         )
                     else:
                         print(f"bundle_operator_contract_incompat.{run_dir_name}={status}")
+                    candidate_sha256 = row.get("contract_sha256", None)
+                    if isinstance(candidate_sha256, str) and candidate_sha256:
+                        print(f"bundle_operator_contract_sha256.{run_dir_name}={candidate_sha256}")
             if bool(args.require_same_split):
                 split_summary = dict(payload.get("split_comparison", {}).get("summary", {}))
                 if not bool(split_summary.get("checked")) or int(
