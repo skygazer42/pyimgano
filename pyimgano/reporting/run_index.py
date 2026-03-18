@@ -1749,6 +1749,14 @@ def compare_run_summaries(
     summary["bundle_operator_contract_gate"] = _comparability_gate_status(
         bundle_operator_contract_summary
     )
+    summary["operator_contract_baseline_sha256"] = operator_contract_comparison.get(
+        "baseline_contract_sha256",
+        None,
+    )
+    summary["bundle_operator_contract_baseline_sha256"] = bundle_operator_contract_comparison.get(
+        "baseline_contract_sha256",
+        None,
+    )
     summary["operator_contract_status"] = trust_comparison.get("operator_contract_status", None)
     summary["operator_contract_consistent"] = bool(
         trust_comparison.get("operator_contract_consistent", False)

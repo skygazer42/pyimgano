@@ -1362,6 +1362,7 @@ def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_b
 
     assert summary["candidate_verdicts"]["candidate"] == "blocked"
     assert summary["candidate_blocking_reasons"]["candidate"] == ["operator_contract:missing"]
+    assert len(str(summary["operator_contract_baseline_sha256"])) == 64
     assert summary["candidate_incompatibility_digest"]["candidate"] == {
         "verdict": "blocked",
         "incompatible_gates": ["operator_contract:missing"],
@@ -1504,6 +1505,7 @@ def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract
     assert summary["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:missing"
     ]
+    assert len(str(summary["bundle_operator_contract_baseline_sha256"])) == 64
     assert summary["candidate_incompatibility_digest"]["candidate"] == {
         "verdict": "blocked",
         "incompatible_gates": ["bundle_operator_contract:missing"],
