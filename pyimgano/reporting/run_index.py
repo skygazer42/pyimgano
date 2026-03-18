@@ -251,6 +251,31 @@ def _append_candidate_reason(
         reasons_by_name[run_dir_name].append(reason)
 
 
+def _load_operator_contract_payload(
+    run_dir: object,
+    *,
+    bundle: bool,
+) -> dict[str, Any] | None:
+    if run_dir is None:
+        return None
+    root = Path(str(run_dir))
+    rel_path = (
+        "deploy_bundle/operator_contract.json"
+        if bool(bundle)
+        else "artifacts/operator_contract.json"
+    )
+    contract_path = root / rel_path
+    if not contract_path.is_file():
+        return None
+    try:
+        payload = json.loads(contract_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    return dict(payload)
+
+
 def _build_candidate_blocking_summary(
     *,
     runs: list[dict[str, Any]],
@@ -283,6 +308,16 @@ def _build_candidate_blocking_summary(
         }
         for name in candidate_names
     }
+    baseline_operator_contract_payload = (
+        _load_operator_contract_payload(baseline_path_str, bundle=False)
+        if str(baseline_operator_contract_status or "").strip().lower() == "consistent"
+        else None
+    )
+    baseline_bundle_operator_contract_payload = (
+        _load_operator_contract_payload(baseline_path_str, bundle=True)
+        if str(baseline_bundle_operator_contract_status or "").strip().lower() == "consistent"
+        else None
+    )
 
     for row in primary_metric_info.get("comparisons", []):
         if not isinstance(row, Mapping):
@@ -396,6 +431,16 @@ def _build_candidate_blocking_summary(
                     run_dir_name=run_dir_name,
                     reason=f"operator_contract:{status}",
                 )
+            elif status == "consistent" and isinstance(baseline_operator_contract_payload, Mapping):
+                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=False)
+                if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
+                    baseline_operator_contract_payload
+                ):
+                    _append_candidate_reason(
+                        reasons_by_name,
+                        run_dir_name=run_dir_name,
+                        reason="operator_contract:baseline_mismatch",
+                    )
 
     if str(baseline_bundle_operator_contract_status or "").strip().lower() == "consistent":
         for run in runs:
@@ -410,6 +455,19 @@ def _build_candidate_blocking_summary(
                     run_dir_name=run_dir_name,
                     reason=f"operator_contract_bundle:{status}",
                 )
+            elif status == "consistent" and isinstance(
+                baseline_bundle_operator_contract_payload,
+                Mapping,
+            ):
+                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=True)
+                if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
+                    baseline_bundle_operator_contract_payload
+                ):
+                    _append_candidate_reason(
+                        reasons_by_name,
+                        run_dir_name=run_dir_name,
+                        reason="operator_contract_bundle:baseline_mismatch",
+                    )
 
     candidate_verdicts = {
         name: ("blocked" if reasons_by_name.get(name, []) else "pass")
