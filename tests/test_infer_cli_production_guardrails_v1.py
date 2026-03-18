@@ -345,3 +345,117 @@ def test_infer_cli_continue_on_error_profile_json_writes_triage_summary(
     assert isinstance(summary, dict)
     assert summary.get("continue_on_error") is True
     assert summary.get("triage_summary") == triage_summary
+
+
+def test_infer_cli_profile_prints_inference_summary_to_stderr(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _OK:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
+
+    det = _OK()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+            "--profile",
+        ]
+    )
+    assert rc == 0
+
+    err = capsys.readouterr().err
+    assert "profile:" in err
+    assert "profile_summary:" in err
+    assert "continue_on_error=false" in err
+    assert "ok=1" in err
+    assert "errors=0" in err
+    assert "review_required=0" in err
+    assert "decisions=normal:1" in err
+
+
+def test_infer_cli_continue_on_error_profile_prints_inference_summary_to_stderr(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: object())
+
+    import pyimgano.services.infer_continue_service as infer_continue_service
+
+    monkeypatch.setattr(
+        infer_continue_service,
+        "run_continue_on_error_inference",
+        lambda request, *, process_ok_result=None, handle_error=None, run_inference_impl=None: (
+            infer_continue_service.ContinueOnErrorInferResult(
+                processed=2,
+                errors=1,
+                timing_seconds=0.0,
+                stop_early=False,
+                triage_summary={
+                    "ok": 1,
+                    "remaining": 0,
+                    "error_stages": {
+                        "artifacts": 0,
+                        "infer": 1,
+                    },
+                    "decision_counts": {
+                        "normal": 1,
+                        "rejected_low_confidence": 1,
+                    },
+                    "fallback_used": True,
+                    "review_required": 1,
+                    "rejected_low_confidence": 1,
+                    "stop_reason": "completed",
+                },
+            )
+        ),
+    )
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+            "--profile",
+            "--continue-on-error",
+        ]
+    )
+    assert rc == 1
+
+    err = capsys.readouterr().err
+    assert "profile:" in err
+    assert "profile_summary:" in err
+    assert "continue_on_error=true" in err
+    assert "ok=1" in err
+    assert "errors=1" in err
+    assert "review_required=1" in err
+    assert "rejected_low_confidence=1" in err
+    assert "decisions=normal:1,rejected_low_confidence:1" in err

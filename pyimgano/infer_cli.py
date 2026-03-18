@@ -116,6 +116,32 @@ def _build_profile_triage_summary(
         "stop_reason": str(stop_reason),
     }
 
+
+def _format_profile_summary_line(
+    *,
+    continue_on_error: bool,
+    triage_summary: dict[str, Any] | None,
+    errors: int,
+) -> str:
+    triage = dict(triage_summary) if triage_summary is not None else {}
+    decision_counts = triage.get("decision_counts", {})
+    if isinstance(decision_counts, dict) and decision_counts:
+        decisions = ",".join(
+            f"{str(key)}:{int(value)}" for key, value in sorted(decision_counts.items())
+        )
+    else:
+        decisions = "none"
+
+    return (
+        "profile_summary: "
+        f"continue_on_error={str(bool(continue_on_error)).lower()} "
+        f"ok={int(triage.get('ok', 0))} "
+        f"errors={int(errors)} "
+        f"review_required={int(triage.get('review_required', 0))} "
+        f"rejected_low_confidence={int(triage.get('rejected_low_confidence', 0))} "
+        f"decisions={decisions}"
+    )
+
 def _apply_onnx_session_options_shorthand(
     *,
     model_name: str,
@@ -1645,6 +1671,14 @@ def main(argv: list[str] | None = None) -> int:
                         f"artifacts={t_artifacts:.3f}s",
                         f"total={total:.3f}s",
                     ]
+                ),
+                file=sys.stderr,
+            )
+            print(
+                _format_profile_summary_line(
+                    continue_on_error=bool(continue_on_error),
+                    triage_summary=profile_triage_summary,
+                    errors=int(errors),
                 ),
                 file=sys.stderr,
             )
