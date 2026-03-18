@@ -211,6 +211,7 @@ def test_runs_cli_list_plain_output_prints_quality_and_trust(tmp_path, capsys):
     assert "quality=reproducible" in out
     assert "trust=partial" in out
     assert "operator_contract=missing" in out
+    assert "bundle_operator_contract=missing" in out
     assert "primary_metric=auroc:0.95" in out
     assert "reason=core_artifacts_present" in out
 
@@ -302,6 +303,7 @@ def test_runs_cli_latest_plain_output_prints_quality_and_trust(tmp_path, capsys)
     assert "quality=reproducible" in out
     assert "trust=partial" in out
     assert "operator_contract=missing" in out
+    assert "bundle_operator_contract=missing" in out
     assert "primary_metric=auroc:0.95" in out
     assert "reason=core_artifacts_present" in out
 
@@ -1759,6 +1761,8 @@ def test_runs_cli_compare_plain_output_prints_primary_metric_and_baseline_trust_
     assert "baseline_trust=partial" in out
     assert "comparison_operator_contract_status=missing" in out
     assert "comparison_operator_contract_consistent=false" in out
+    assert "comparison_bundle_operator_contract_status=missing" in out
+    assert "comparison_bundle_operator_contract_consistent=false" in out
     assert "baseline_reason=core_artifacts_present" in out
     assert "primary_metric_status.candidate=improved" in out
     assert "primary_metric_delta.candidate=0.01" in out
@@ -1821,6 +1825,7 @@ def test_runs_cli_compare_plain_output_prints_structured_run_briefs(
         "candidate: candidate quality=reproducible trust=partial operator_contract=missing "
         "primary_metric=auroc:0.92 primary_metric_status=improved primary_metric_delta=0.01"
     ) in out
+    assert out.count("bundle_operator_contract=missing") >= 2
 
 
 def test_runs_cli_compare_plain_output_prints_comparability_gate_summary(

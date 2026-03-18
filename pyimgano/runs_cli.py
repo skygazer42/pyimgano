@@ -103,10 +103,35 @@ def _resolve_operator_contract_status(
     return "consistent" if bool(signal_map.get("has_operator_contract_consistent")) else "mismatched"
 
 
+def _resolve_bundle_operator_contract_status(
+    *,
+    run: dict[str, object],
+    trust_summary: dict[str, object],
+) -> str:
+    run_level = run.get("bundle_operator_contract_status", None)
+    if isinstance(run_level, str) and run_level:
+        return str(run_level)
+
+    trust_signals = trust_summary.get("trust_signals", {})
+    signal_map = dict(trust_signals) if isinstance(trust_signals, dict) else {}
+    has_contract = bool(signal_map.get("has_bundle_operator_contract"))
+    if not has_contract:
+        return "missing"
+    return (
+        "consistent"
+        if bool(signal_map.get("has_bundle_operator_contract_consistent"))
+        else "mismatched"
+    )
+
+
 def _format_run_brief(run: dict[str, object]) -> str:
     artifact_quality = dict(run.get("artifact_quality", {}))
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
     operator_contract_status = _resolve_operator_contract_status(
+        run=run,
+        trust_summary=trust_summary,
+    )
+    bundle_operator_contract_status = _resolve_bundle_operator_contract_status(
         run=run,
         trust_summary=trust_summary,
     )
@@ -132,6 +157,7 @@ def _format_run_brief(run: dict[str, object]) -> str:
     status_reasons = list(trust_summary.get("status_reasons", []))
     if status_reasons:
         parts.append(f"reason={status_reasons[0]}")
+    parts.append(f"bundle_operator_contract={bundle_operator_contract_status}")
 
     return " ".join(parts)
 
@@ -145,6 +171,10 @@ def _format_compare_run_brief(
     artifact_quality = dict(run.get("artifact_quality", {}))
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
     operator_contract_status = _resolve_operator_contract_status(
+        run=run,
+        trust_summary=trust_summary,
+    )
+    bundle_operator_contract_status = _resolve_bundle_operator_contract_status(
         run=run,
         trust_summary=trust_summary,
     )
@@ -170,6 +200,7 @@ def _format_compare_run_brief(
         delta = _format_metric_value(primary_metric_row.get("delta_vs_baseline", None))
         if delta is not None and str(status) != "baseline":
             parts.append(f"primary_metric_delta={delta}")
+    parts.append(f"bundle_operator_contract={bundle_operator_contract_status}")
 
     return " ".join(parts)
 
@@ -560,6 +591,22 @@ def main(argv: list[str] | None = None) -> int:
                 print(
                     "comparison_operator_contract_consistent="
                     f"{str(bool(summary_payload.get('operator_contract_consistent', False))).lower()}"
+                )
+                bundle_operator_contract_status = summary_payload.get(
+                    "bundle_operator_contract_status",
+                    None,
+                )
+                if (
+                    isinstance(bundle_operator_contract_status, str)
+                    and bundle_operator_contract_status
+                ):
+                    print(
+                        "comparison_bundle_operator_contract_status="
+                        f"{bundle_operator_contract_status}"
+                    )
+                print(
+                    "comparison_bundle_operator_contract_consistent="
+                    f"{str(bool(summary_payload.get('bundle_operator_contract_consistent', False))).lower()}"
                 )
                 if baseline_degraded_by:
                     print(
