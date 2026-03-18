@@ -158,12 +158,36 @@ def prepare_infer_runtime_plan(
             ),
         )
 
+    summary = None
+    if request.postprocess_summary is not None:
+        runtime_postprocess_source = None
+        if bool(request.postprocess_requested):
+            runtime_postprocess_source = "cli"
+        elif request.infer_config_postprocess is not None and postprocess is not None:
+            runtime_postprocess_source = "infer_config"
+
+        summary = dict(request.postprocess_summary)
+        summary.update(
+            {
+                "maps_requested": bool(request.include_maps_requested),
+                "maps_enabled": bool(include_maps),
+                "runtime_postprocess_applied": bool(postprocess is not None),
+                "runtime_postprocess_source": runtime_postprocess_source,
+                "defects_enabled": bool(request.defects_enabled),
+                "pixel_threshold_resolved": bool(pixel_threshold_value is not None),
+                "pixel_threshold_source": (
+                    str(pixel_threshold_provenance.get("source"))
+                    if isinstance(pixel_threshold_provenance, dict)
+                    and pixel_threshold_provenance.get("source") is not None
+                    else None
+                ),
+            }
+        )
+
     return InferRuntimePlanResult(
         include_maps=bool(include_maps),
         postprocess=postprocess,
-        postprocess_summary=(
-            dict(request.postprocess_summary) if request.postprocess_summary is not None else None
-        ),
+        postprocess_summary=summary,
         pixel_threshold_value=(
             float(pixel_threshold_value) if pixel_threshold_value is not None else None
         ),

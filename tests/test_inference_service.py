@@ -53,6 +53,7 @@ def test_run_inference_uses_runtime_adapter_score_path(monkeypatch):
             "has_confidence": False,
             "rejected": False,
             "requires_review": False,
+            "review_reason": "unthresholded_score",
         },
     )
 
@@ -87,6 +88,7 @@ def test_run_inference_emits_decision_summary_for_triage() -> None:
             "has_confidence": True,
             "rejected": False,
             "requires_review": False,
+            "review_reason": "none",
         },
         {
             "decision": "rejected_low_confidence",
@@ -94,6 +96,7 @@ def test_run_inference_emits_decision_summary_for_triage() -> None:
             "has_confidence": True,
             "rejected": True,
             "requires_review": True,
+            "review_reason": "low_confidence",
         },
         {
             "decision": "anomalous",
@@ -101,6 +104,7 @@ def test_run_inference_emits_decision_summary_for_triage() -> None:
             "has_confidence": True,
             "rejected": False,
             "requires_review": True,
+            "review_reason": "anomaly_label",
         },
     ]
 
@@ -111,4 +115,35 @@ def test_run_inference_emits_decision_summary_for_triage() -> None:
         "has_confidence": True,
         "rejected": True,
         "requires_review": True,
+        "review_reason": "low_confidence",
+    }
+
+
+def test_run_inference_threads_postprocess_summary_into_records() -> None:
+    class _ScoreOnly:
+        input_mode = "numpy"
+
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            assert len(list(X)) == 1
+            return np.asarray([0.1], dtype=np.float32)
+
+    out = run_inference(
+        detector=_ScoreOnly(),
+        inputs=[np.zeros((4, 4, 3), dtype=np.uint8)],
+        input_format="rgb_u8_hwc",
+        postprocess_summary={
+            "maps_enabled": False,
+            "runtime_postprocess_applied": False,
+            "map_postprocess_summary": None,
+        },
+    )
+
+    payload = result_to_jsonable(out.records[0])
+    assert payload["postprocess_summary"] == {
+        "maps_enabled": False,
+        "runtime_postprocess_applied": False,
+        "map_postprocess_summary": None,
     }

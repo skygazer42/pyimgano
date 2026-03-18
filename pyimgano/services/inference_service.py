@@ -186,15 +186,19 @@ def _build_decision_summary(
     if rejected_flag:
         decision = "rejected_low_confidence"
         requires_review = True
+        review_reason = "low_confidence"
     elif label is None:
         decision = "score_only"
         requires_review = False
+        review_reason = "unthresholded_score"
     elif int(label) == 0:
         decision = "normal"
         requires_review = False
+        review_reason = "none"
     else:
         decision = "anomalous"
         requires_review = True
+        review_reason = "anomaly_label"
 
     return {
         "decision": str(decision),
@@ -202,6 +206,7 @@ def _build_decision_summary(
         "has_confidence": bool(has_confidence),
         "rejected": bool(rejected_flag),
         "requires_review": bool(requires_review),
+        "review_reason": str(review_reason),
     }
 
 
@@ -216,6 +221,7 @@ def iter_inference_records(
     reject_confidence_below: float | None = None,
     reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
+    postprocess_summary: dict[str, Any] | None = None,
     batch_size: int | None = None,
     amp: bool = False,
     timing: InferenceTiming | None = None,
@@ -223,6 +229,9 @@ def iter_inference_records(
     normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)
     rejection_threshold = _resolve_rejection_threshold(reject_confidence_below)
+    summary_payload = (
+        dict(postprocess_summary) if postprocess_summary is not None else None
+    )
 
     bs: int | None
     if batch_size is None:
@@ -298,6 +307,7 @@ def iter_inference_records(
                 label_confidence=label_confidence,
                 rejected=rejected_flag,
                 anomaly_map=anomaly_map,
+                postprocess_summary=summary_payload,
                 decision_summary=_build_decision_summary(
                     label=label,
                     label_confidence=label_confidence,
@@ -325,6 +335,7 @@ def run_inference(
     reject_confidence_below: float | None = None,
     reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
+    postprocess_summary: dict[str, Any] | None = None,
     batch_size: int | None = None,
     amp: bool = False,
 ) -> InferenceRunResult:
@@ -342,6 +353,7 @@ def run_inference(
             reject_confidence_below=reject_confidence_below,
             reject_label=reject_label,
             postprocess=postprocess,
+            postprocess_summary=postprocess_summary,
             batch_size=batch_size,
             amp=amp,
             timing=timing,

@@ -1362,6 +1362,7 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 reject_label=(int(args.reject_label) if args.reject_confidence_below is not None else None),
                 postprocess=postprocess,
+                postprocess_summary=runtime_plan.postprocess_summary,
                 batch_size=batch_size,
                 amp=bool(args.amp),
                 timing=infer_timing,
@@ -1494,6 +1495,7 @@ def main(argv: list[str] | None = None) -> int:
                             else None
                         ),
                         postprocess=postprocess,
+                        postprocess_summary=runtime_plan.postprocess_summary,
                         batch_size=batch_size,
                         amp=bool(args.amp),
                         max_errors=int(max_errors),

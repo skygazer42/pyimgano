@@ -58,7 +58,12 @@ def test_run_continue_on_error_inference_falls_back_to_per_input_when_batch_fail
             "artifacts": 0,
             "infer": 1,
         },
+        "decision_counts": {
+            "normal": 1,
+        },
         "fallback_used": True,
+        "review_required": 0,
+        "rejected_low_confidence": 0,
         "stop_reason": "completed",
     }
 
@@ -112,7 +117,12 @@ def test_run_continue_on_error_inference_records_artifact_stage_errors() -> None
             "artifacts": 1,
             "infer": 0,
         },
+        "decision_counts": {
+            "normal": 2,
+        },
         "fallback_used": False,
+        "review_required": 0,
+        "rejected_low_confidence": 0,
         "stop_reason": "completed",
     }
 
@@ -155,7 +165,10 @@ def test_run_continue_on_error_inference_stops_early_after_max_errors() -> None:
             "artifacts": 0,
             "infer": 2,
         },
+        "decision_counts": {},
         "fallback_used": True,
+        "review_required": 0,
+        "rejected_low_confidence": 0,
         "stop_reason": "max_errors",
     }
 
@@ -196,6 +209,9 @@ def test_run_continue_on_error_inference_passes_rejection_controls() -> None:
             "artifacts": 0,
             "infer": 0,
         },
+        "decision_counts": {},
         "fallback_used": False,
+        "review_required": 0,
+        "rejected_low_confidence": 0,
         "stop_reason": "completed",
     }

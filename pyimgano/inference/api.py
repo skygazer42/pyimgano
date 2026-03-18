@@ -23,6 +23,7 @@ class InferenceResult:
     label_confidence: Optional[float] = None
     rejected: Optional[bool] = None
     anomaly_map: Optional[np.ndarray] = None
+    postprocess_summary: dict[str, Any] | None = None
     decision_summary: dict[str, Any] | None = None
 
 
@@ -285,15 +286,19 @@ def _build_decision_summary(
     if rejected_flag:
         decision = "rejected_low_confidence"
         requires_review = True
+        review_reason = "low_confidence"
     elif label is None:
         decision = "score_only"
         requires_review = False
+        review_reason = "unthresholded_score"
     elif int(label) == 0:
         decision = "normal"
         requires_review = False
+        review_reason = "none"
     else:
         decision = "anomalous"
         requires_review = True
+        review_reason = "anomaly_label"
 
     return {
         "decision": str(decision),
@@ -301,6 +306,7 @@ def _build_decision_summary(
         "has_confidence": bool(has_confidence),
         "rejected": bool(rejected_flag),
         "requires_review": bool(requires_review),
+        "review_reason": str(review_reason),
     }
 
 
@@ -315,6 +321,7 @@ def infer(
     reject_confidence_below: float | None = None,
     reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
+    postprocess_summary: dict[str, Any] | None = None,
     batch_size: int | None = None,
     amp: bool = False,
 ) -> list[InferenceResult]:
@@ -335,6 +342,7 @@ def infer(
             reject_confidence_below=reject_confidence_below,
             reject_label=reject_label,
             postprocess=postprocess,
+            postprocess_summary=postprocess_summary,
             batch_size=batch_size,
             amp=amp,
         )
@@ -350,6 +358,7 @@ def infer_bgr(
     reject_confidence_below: float | None = None,
     reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
+    postprocess_summary: dict[str, Any] | None = None,
     batch_size: int | None = None,
     amp: bool = False,
 ) -> list[InferenceResult]:
@@ -368,6 +377,7 @@ def infer_bgr(
         reject_confidence_below=reject_confidence_below,
         reject_label=reject_label,
         postprocess=postprocess,
+        postprocess_summary=postprocess_summary,
         batch_size=batch_size,
         amp=amp,
     )
@@ -382,6 +392,7 @@ def infer_iter_bgr(
     reject_confidence_below: float | None = None,
     reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
+    postprocess_summary: dict[str, Any] | None = None,
     batch_size: int | None = None,
     amp: bool = False,
     timing: InferenceTiming | None = None,
@@ -397,6 +408,7 @@ def infer_iter_bgr(
         reject_confidence_below=reject_confidence_below,
         reject_label=reject_label,
         postprocess=postprocess,
+        postprocess_summary=postprocess_summary,
         batch_size=batch_size,
         amp=amp,
         timing=timing,
@@ -434,6 +446,7 @@ def infer_iter(
     reject_confidence_below: float | None = None,
     reject_label: int | None = None,
     postprocess: AnomalyMapPostprocess | None = None,
+    postprocess_summary: dict[str, Any] | None = None,
     batch_size: int | None = None,
     amp: bool = False,
     timing: InferenceTiming | None = None,
@@ -447,6 +460,9 @@ def infer_iter(
     normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)
     rejection_threshold = _resolve_rejection_threshold(reject_confidence_below)
+    summary_payload = (
+        dict(postprocess_summary) if postprocess_summary is not None else None
+    )
 
     bs: int | None
     if batch_size is None:
@@ -521,6 +537,7 @@ def infer_iter(
                 label_confidence=label_confidence,
                 rejected=rejected_flag,
                 anomaly_map=anomaly_map,
+                postprocess_summary=summary_payload,
                 decision_summary=_build_decision_summary(
                     label=label,
                     label_confidence=label_confidence,
@@ -550,6 +567,8 @@ def result_to_jsonable(
         payload["label_confidence"] = float(result.label_confidence)
     if result.rejected is not None:
         payload["rejected"] = bool(result.rejected)
+    if result.postprocess_summary is not None:
+        payload["postprocess_summary"] = dict(result.postprocess_summary)
     if result.decision_summary is not None:
         payload["decision_summary"] = dict(result.decision_summary)
 

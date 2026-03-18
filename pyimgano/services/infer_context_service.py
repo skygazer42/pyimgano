@@ -239,6 +239,82 @@ def _build_postprocess_summary(
         pixel_threshold_strategy = defects_payload.get("pixel_threshold_strategy", None)
         pixel_threshold_in_payload = defects_payload.get("pixel_threshold", None) is not None
 
+    prediction_summary = (
+        dict(prediction_payload) if isinstance(prediction_payload, dict) else None
+    )
+
+    tiling_summary = None
+    if isinstance(tiling_payload, dict):
+        tiling_summary = {
+            "tile_size": (
+                int(tiling_payload["tile_size"])
+                if tiling_payload.get("tile_size") is not None
+                else None
+            ),
+            "stride": (
+                int(tiling_payload["stride"])
+                if tiling_payload.get("stride") is not None
+                else None
+            ),
+            "score_reduce": (
+                str(tiling_payload["score_reduce"])
+                if tiling_payload.get("score_reduce") is not None
+                else None
+            ),
+            "score_topk": (
+                float(tiling_payload["score_topk"])
+                if tiling_payload.get("score_topk") is not None
+                else None
+            ),
+            "map_reduce": (
+                str(tiling_payload["map_reduce"])
+                if tiling_payload.get("map_reduce") is not None
+                else None
+            ),
+        }
+
+    map_postprocess_summary = None
+    if isinstance(infer_config_postprocess, dict):
+        percentile_range = infer_config_postprocess.get("percentile_range", None)
+        map_postprocess_summary = {
+            "normalize": bool(infer_config_postprocess.get("normalize", False)),
+            "normalize_method": (
+                str(infer_config_postprocess["normalize_method"])
+                if infer_config_postprocess.get("normalize_method") is not None
+                else None
+            ),
+            "percentile_range": (
+                [float(item) for item in percentile_range]
+                if isinstance(percentile_range, (list, tuple))
+                else None
+            ),
+            "gaussian_sigma": (
+                float(infer_config_postprocess["gaussian_sigma"])
+                if infer_config_postprocess.get("gaussian_sigma") is not None
+                else None
+            ),
+            "morph_open_ksize": (
+                int(infer_config_postprocess["morph_open_ksize"])
+                if infer_config_postprocess.get("morph_open_ksize") is not None
+                else None
+            ),
+            "morph_close_ksize": (
+                int(infer_config_postprocess["morph_close_ksize"])
+                if infer_config_postprocess.get("morph_close_ksize") is not None
+                else None
+            ),
+            "component_threshold": (
+                float(infer_config_postprocess["component_threshold"])
+                if infer_config_postprocess.get("component_threshold") is not None
+                else None
+            ),
+            "min_component_area": (
+                int(infer_config_postprocess["min_component_area"])
+                if infer_config_postprocess.get("min_component_area") is not None
+                else None
+            ),
+        }
+
     return {
         "has_defects_payload": defects_payload is not None,
         "defects_payload_source": defects_payload_source,
@@ -247,8 +323,11 @@ def _build_postprocess_summary(
             str(pixel_threshold_strategy) if pixel_threshold_strategy is not None else None
         ),
         "has_prediction_policy": prediction_payload is not None,
+        "prediction_policy": prediction_summary,
         "has_tiling": tiling_payload is not None,
+        "tiling_summary": tiling_summary,
         "has_map_postprocess": infer_config_postprocess is not None,
+        "map_postprocess_summary": map_postprocess_summary,
         "maps_enabled_by_default": bool(enable_maps_by_default),
     }
 

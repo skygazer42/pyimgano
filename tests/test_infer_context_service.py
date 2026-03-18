@@ -161,8 +161,20 @@ def test_prepare_from_run_context_applies_request_overrides_and_optional_payload
         "pixel_threshold_in_payload": False,
         "pixel_threshold_strategy": None,
         "has_prediction_policy": True,
+        "prediction_policy": {
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
         "has_tiling": True,
+        "tiling_summary": {
+            "tile_size": 16,
+            "stride": 8,
+            "score_reduce": "topk_mean",
+            "score_topk": 0.2,
+            "map_reduce": "hann",
+        },
         "has_map_postprocess": False,
+        "map_postprocess_summary": None,
         "maps_enabled_by_default": False,
     }
     assert context.illumination_contrast_knobs == {"white_balance": "gray_world"}
@@ -390,8 +402,29 @@ def test_prepare_infer_config_context_builds_postprocess_summary(tmp_path) -> No
         "pixel_threshold_in_payload": True,
         "pixel_threshold_strategy": "infer_config",
         "has_prediction_policy": True,
+        "prediction_policy": {
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
         "has_tiling": True,
+        "tiling_summary": {
+            "tile_size": 32,
+            "stride": 16,
+            "score_reduce": None,
+            "score_topk": None,
+            "map_reduce": None,
+        },
         "has_map_postprocess": True,
+        "map_postprocess_summary": {
+            "normalize": True,
+            "normalize_method": None,
+            "percentile_range": None,
+            "gaussian_sigma": 1.5,
+            "morph_open_ksize": None,
+            "morph_close_ksize": None,
+            "component_threshold": None,
+            "min_component_area": None,
+        },
         "maps_enabled_by_default": True,
     }
 

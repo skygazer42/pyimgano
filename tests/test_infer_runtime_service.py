@@ -213,5 +213,14 @@ def test_prepare_infer_runtime_plan_preserves_postprocess_summary() -> None:
         )
     )
 
-    assert result.postprocess_summary == summary
+    assert result.postprocess_summary == {
+        **summary,
+        "maps_requested": False,
+        "maps_enabled": True,
+        "runtime_postprocess_applied": False,
+        "runtime_postprocess_source": None,
+        "defects_enabled": False,
+        "pixel_threshold_resolved": False,
+        "pixel_threshold_source": None,
+    }
     assert result.postprocess_summary is not summary

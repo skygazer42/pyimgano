@@ -124,6 +124,41 @@ def test_infer_can_reject_low_confidence_samples() -> None:
     assert payload[1]["label"] == -2
 
 
+def test_infer_can_export_postprocess_summary() -> None:
+    class _ScoreOnly:
+        def __init__(self) -> None:
+            self.threshold_ = 0.5
+
+        def decision_function(self, X):
+            assert len(X) == 1
+            return np.asarray([0.1], dtype=np.float32)
+
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8)]
+    out = infer(
+        _ScoreOnly(),
+        imgs,
+        input_format=ImageFormat.RGB_U8_HWC,
+        postprocess_summary={
+            "maps_enabled": False,
+            "runtime_postprocess_applied": False,
+            "prediction_policy": {
+                "reject_confidence_below": 0.75,
+                "reject_label": -9,
+            },
+        },
+    )
+
+    payload = results_to_jsonable(out)
+    assert payload[0]["postprocess_summary"] == {
+        "maps_enabled": False,
+        "runtime_postprocess_applied": False,
+        "prediction_policy": {
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
+    }
+
+
 def test_infer_rejection_requires_confidence_support() -> None:
     class _ScoreOnly:
         def __init__(self) -> None:
