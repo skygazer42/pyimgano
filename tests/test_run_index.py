@@ -1370,8 +1370,12 @@ def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_b
     assert summary["operator_contract_gate"] == "incompatible"
     assert summary["comparability_gates"]["operator_contract"] == "incompatible"
     assert "--require-same-operator-contract" in summary["blocking_flags"]
-    assert payload["operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
-    assert payload["operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
+    operator_cmp = payload["operator_contract_comparison"]
+    assert operator_cmp["summary"]["incompatible_runs"] == 1
+    assert operator_cmp["comparisons"][1]["status"] == "missing"
+    assert len(str(operator_cmp["baseline_contract_sha256"])) == 64
+    assert len(str(operator_cmp["comparisons"][0]["contract_sha256"])) == 64
+    assert operator_cmp["comparisons"][1]["contract_sha256"] is None
 
 
 def test_compare_run_summaries_blocks_candidate_missing_bundle_operator_contract_when_baseline_consistent(
@@ -1664,8 +1668,12 @@ def test_compare_run_summaries_blocks_candidate_bundle_operator_contract_baselin
     ]
     assert summary["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "valid"
     assert summary["bundle_operator_contract_gate"] == "incompatible"
-    assert payload["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
-    assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "mismatched"
+    bundle_cmp = payload["bundle_operator_contract_comparison"]
+    assert bundle_cmp["summary"]["incompatible_runs"] == 1
+    assert bundle_cmp["comparisons"][1]["status"] == "mismatched"
+    assert len(str(bundle_cmp["baseline_contract_sha256"])) == 64
+    assert len(str(bundle_cmp["comparisons"][1]["contract_sha256"])) == 64
+    assert bundle_cmp["comparisons"][1]["contract_sha256"] != bundle_cmp["baseline_contract_sha256"]
 
 
 def test_compare_run_summaries_flags_candidate_bundle_operator_contract_digest_mismatch(

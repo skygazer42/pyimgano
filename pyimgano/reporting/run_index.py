@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -628,6 +629,11 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _contract_payload_sha256(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def _extract_metrics(report: dict[str, Any]) -> dict[str, float]:
     metrics: dict[str, float] = {}
     robustness_summary = report.get("robustness_summary", None)
@@ -1055,6 +1061,11 @@ def _build_operator_contract_comparison(
         else None
     )
     checked = baseline_status == "consistent" and isinstance(baseline_payload, Mapping)
+    baseline_contract_sha256 = (
+        _contract_payload_sha256(baseline_payload)
+        if checked and isinstance(baseline_payload, Mapping)
+        else None
+    )
     comparisons: list[dict[str, Any]] = []
     matched_runs = 0
     mismatched_runs = 0
@@ -1067,11 +1078,13 @@ def _build_operator_contract_comparison(
             "run_dir": run.get("run_dir"),
             "run_dir_name": run.get("run_dir_name"),
             "contract_status": run_status,
+            "contract_sha256": None,
             "status": "unchecked",
         }
         is_baseline = baseline_path_str is not None and run_path == baseline_path_str
         if is_baseline:
             row["status"] = "baseline"
+            row["contract_sha256"] = baseline_contract_sha256
         elif checked:
             if run_status == "missing":
                 row["status"] = "missing"
@@ -1085,17 +1098,21 @@ def _build_operator_contract_comparison(
                 if not isinstance(candidate_payload, Mapping):
                     row["status"] = "missing"
                     missing_runs += 1
-                elif dict(candidate_payload) != dict(baseline_payload):
-                    row["status"] = "mismatched"
-                    mismatched_runs += 1
-                    row["mismatch_reason"] = "baseline_mismatch"
                 else:
-                    row["status"] = "matched"
-                    matched_runs += 1
+                    candidate_contract_sha256 = _contract_payload_sha256(candidate_payload)
+                    row["contract_sha256"] = candidate_contract_sha256
+                    if dict(candidate_payload) != dict(baseline_payload):
+                        row["status"] = "mismatched"
+                        mismatched_runs += 1
+                        row["mismatch_reason"] = "baseline_mismatch"
+                    else:
+                        row["status"] = "matched"
+                        matched_runs += 1
         comparisons.append(row)
 
     return {
         "baseline_status": baseline_status,
+        "baseline_contract_sha256": baseline_contract_sha256,
         "comparisons": comparisons,
         "summary": {
             "checked": bool(checked),
