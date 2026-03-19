@@ -64,6 +64,9 @@ For benchmark-facing releases, also verify the trust contract surfaces are prese
 
 - `leaderboard_metadata.json` carries `evaluation_contract`
 - `leaderboard_metadata.json` carries benchmark `citation` when an official config is used
+- `leaderboard_metadata.json` carries `audit_refs.report_json|config_json|environment_json`
+- `leaderboard_metadata.json` carries matching `audit_digests.report_json|config_json|environment_json`
+- `leaderboard_metadata.json` carries matching `exported_file_digests.*` for exported leaderboard tables
 - `pyimgano-runs quality` exposes `trust_summary`
 - `pyimgano-runs publication` exposes `trust_signals`
 

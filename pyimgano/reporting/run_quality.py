@@ -7,8 +7,7 @@ from typing import Any, Mapping
 
 from pyimgano.reporting.calibration_card import validate_calibration_card_payload
 from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
-from pyimgano.weights.manifest import validate_weights_manifest_file
-from pyimgano.weights.model_card import validate_model_card_file
+from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
 
 @dataclass(frozen=True)
@@ -178,53 +177,45 @@ def _evaluate_bundle_weights_audit(
     check_hashes: bool = False,
 ) -> dict[str, Any]:
     bundle_root = Path(bundle_dir)
-    payload = {
-        "present": False,
-        "valid": None,
-        "cross_checked": False,
-        "model_card": _validation_payload("model_card.json"),
-        "weights_manifest": _validation_payload("weights_manifest.json"),
-    }
-
-    manifest_path = bundle_root / "weights_manifest.json"
-    manifest_ok = False
-    if manifest_path.is_file():
-        payload["present"] = True
-        payload["weights_manifest"]["present"] = True
-        report = validate_weights_manifest_file(
-            manifest_path=manifest_path,
-            check_files=True,
-            check_hashes=bool(check_hashes),
-        )
-        payload["weights_manifest"]["valid"] = bool(report.ok)
-        payload["weights_manifest"]["errors"] = list(report.errors)
-        payload["weights_manifest"]["warnings"] = list(report.warnings)
-        manifest_ok = bool(report.ok)
-
-    model_card_path = bundle_root / "model_card.json"
-    if model_card_path.is_file():
-        payload["present"] = True
-        payload["model_card"]["present"] = True
-        report = validate_model_card_file(
-            model_card_path,
-            manifest_path=(manifest_path if manifest_ok else None),
-            check_files=True,
-            check_hashes=bool(check_hashes),
-        )
-        payload["model_card"]["valid"] = bool(report.ok)
-        payload["model_card"]["errors"] = list(report.errors)
-        payload["model_card"]["warnings"] = list(report.warnings)
-        payload["cross_checked"] = bool(manifest_ok)
-
-    if bool(payload["present"]):
-        valid = True
-        for key in ("model_card", "weights_manifest"):
-            artifact_payload = payload[key]
-            if bool(artifact_payload["present"]) and artifact_payload["valid"] is False:
-                valid = False
-        payload["valid"] = bool(valid)
-
-    return payload
+    if not bundle_root.exists() or not bundle_root.is_dir():
+        return {
+            "bundle_dir": str(bundle_root),
+            "present": False,
+            "valid": None,
+            "cross_checked": False,
+            "missing_required": [],
+            "warnings": [],
+            "errors": [],
+            "status": "partial",
+            "ready": False,
+            "model_card": _validation_payload("model_card.json"),
+            "weights_manifest": _validation_payload("weights_manifest.json"),
+            "trust_summary": {
+                "status": "partial",
+                "trust_signals": {
+                    "file_refs_checked": True,
+                    "hashes_checked": bool(check_hashes),
+                    "has_model_card": False,
+                    "model_card_valid": False,
+                    "has_weights_manifest": False,
+                    "weights_manifest_valid": False,
+                    "has_cross_checked_manifest": False,
+                    "has_weights_sha256": False,
+                    "has_weights_source": False,
+                    "has_weights_license": False,
+                    "has_deployment_runtime": False,
+                    "has_manifest_link": False,
+                    "manifest_has_entries": False,
+                    "manifest_all_entries_have_sha256": False,
+                    "manifest_all_entries_have_source": False,
+                    "manifest_all_entries_have_license": False,
+                    "manifest_all_entries_have_runtime": False,
+                },
+                "degraded_by": ["missing_model_card", "missing_weights_manifest"],
+                "audit_refs": {},
+            },
+        }
+    return evaluate_bundle_weights_audit(bundle_dir, check_hashes=bool(check_hashes))
 
 
 def _evaluate_operator_contract_audit(

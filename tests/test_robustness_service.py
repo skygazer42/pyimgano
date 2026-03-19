@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
 from pyimgano.services.robustness_service import RobustnessRunRequest, run_robustness_request
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_summarize_robustness_report_includes_drop_metrics() -> None:
@@ -322,3 +327,19 @@ def test_run_robustness_request_can_persist_run_artifacts(monkeypatch, tmp_path:
     assert saved_report["robustness_protocol"]["condition_count"] == 2
     assert saved_report["robustness_protocol"]["conditions"] == ["clean", "lighting"]
     assert saved_report["robustness_trust"]["status"] == "partial"
+    assert saved_report["robustness_trust"]["trust_signals"]["has_audit_refs"] is True
+    assert saved_report["robustness_trust"]["trust_signals"]["has_audit_digests"] is True
+    assert (
+        saved_report["robustness_trust"]["audit_refs"]["robustness_conditions_csv"]
+        == "artifacts/robustness_conditions.csv"
+    )
+    assert (
+        saved_report["robustness_trust"]["audit_refs"]["robustness_summary_json"]
+        == "artifacts/robustness_summary.json"
+    )
+    assert saved_report["robustness_trust"]["audit_digests"]["robustness_conditions_csv"] == _sha256(
+        run_dir / "artifacts" / "robustness_conditions.csv"
+    )
+    assert saved_report["robustness_trust"]["audit_digests"]["robustness_summary_json"] == _sha256(
+        run_dir / "artifacts" / "robustness_summary.json"
+    )

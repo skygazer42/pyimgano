@@ -326,6 +326,27 @@ def build_infer_config_payload(
             "requires_image_score": True,
             "supports_pixel_outputs": bool(config.defects.enabled),
             "supports_reject_label": (config.prediction.reject_label is not None),
+            "score_order": "higher_is_more_anomalous",
+            "confidence_semantics": "predicted_label_confidence",
+            "confidence_range": [0.0, 1.0],
+            "decision_values": [
+                *(
+                    ["score_only", "normal", "anomalous", "rejected_low_confidence"]
+                    if config.prediction.reject_confidence_below is not None
+                    else ["score_only", "normal", "anomalous"]
+                )
+            ],
+            "label_encoding": {
+                **{
+                    "normal": 0,
+                    "anomalous": 1,
+                },
+                **(
+                    {"rejected": int(config.prediction.reject_label)}
+                    if config.prediction.reject_label is not None
+                    else {}
+                ),
+            },
         },
     }
 

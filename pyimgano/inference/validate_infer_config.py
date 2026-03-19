@@ -21,6 +21,14 @@ _ALLOWED_TILING_MAP_REDUCE = {"max", "mean", "hann", "gaussian"}
 _ALLOWED_WHITE_BALANCE = {"none", "gray_world", "max_rgb"}
 _ALLOWED_ARTIFACT_QUALITY_STATUS = {"reproducible", "audited", "deployable"}
 _ALLOWED_ARTIFACT_QUALITY_SCOPE = {"image", "per_category"}
+_ALLOWED_OUTPUT_SCORE_ORDER = {"higher_is_more_anomalous"}
+_ALLOWED_OUTPUT_CONFIDENCE_SEMANTICS = {"predicted_label_confidence"}
+_ALLOWED_OUTPUT_DECISION_VALUES = {
+    "score_only",
+    "normal",
+    "anomalous",
+    "rejected_low_confidence",
+}
 
 
 @dataclass(frozen=True)
@@ -737,6 +745,149 @@ def validate_infer_config_payload(
                         output_contract[key],
                         name=f"operator_contract.output_contract.{key}",
                     )
+
+            if "score_order" in output_contract and output_contract["score_order"] is not None:
+                score_order = str(output_contract["score_order"]).strip().lower()
+                if score_order not in _ALLOWED_OUTPUT_SCORE_ORDER:
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.score_order must be one of: "
+                        f"{sorted(_ALLOWED_OUTPUT_SCORE_ORDER)}"
+                    )
+                output_contract["score_order"] = score_order
+
+            if (
+                "confidence_semantics" in output_contract
+                and output_contract["confidence_semantics"] is not None
+            ):
+                confidence_semantics = str(output_contract["confidence_semantics"]).strip().lower()
+                if confidence_semantics not in _ALLOWED_OUTPUT_CONFIDENCE_SEMANTICS:
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.confidence_semantics "
+                        f"must be one of: {sorted(_ALLOWED_OUTPUT_CONFIDENCE_SEMANTICS)}"
+                    )
+                output_contract["confidence_semantics"] = confidence_semantics
+
+            if "confidence_range" in output_contract and output_contract["confidence_range"] is not None:
+                confidence_range = output_contract["confidence_range"]
+                if not isinstance(confidence_range, (list, tuple)) or len(confidence_range) != 2:
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.confidence_range must be a list of length 2."
+                    )
+                lo = _coerce_float(
+                    confidence_range[0],
+                    name="operator_contract.output_contract.confidence_range[0]",
+                )
+                hi = _coerce_float(
+                    confidence_range[1],
+                    name="operator_contract.output_contract.confidence_range[1]",
+                )
+                if abs(float(lo) - 0.0) > 1e-12 or abs(float(hi) - 1.0) > 1e-12:
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.confidence_range must be [0.0, 1.0]."
+                    )
+                output_contract["confidence_range"] = [0.0, 1.0]
+
+            if "decision_values" in output_contract and output_contract["decision_values"] is not None:
+                decision_values = output_contract["decision_values"]
+                if not isinstance(decision_values, list):
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.decision_values must be a list of strings."
+                    )
+                normalized_decisions: list[str] = []
+                seen_decisions: set[str] = set()
+                for index, value in enumerate(decision_values):
+                    decision = _coerce_str(
+                        value,
+                        name=f"operator_contract.output_contract.decision_values[{index}]",
+                    ).strip()
+                    if not decision:
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.decision_values"
+                            f"[{index}] must be non-empty."
+                        )
+                    if decision not in _ALLOWED_OUTPUT_DECISION_VALUES:
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.decision_values "
+                            f"contains unsupported value: {decision!r}"
+                        )
+                    if decision in seen_decisions:
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.decision_values "
+                            f"contains duplicate value: {decision!r}"
+                        )
+                    seen_decisions.add(decision)
+                    normalized_decisions.append(decision)
+                output_contract["decision_values"] = normalized_decisions
+
+            label_encoding_raw = output_contract.get("label_encoding", None)
+            label_encoding_map = _optional_mapping(
+                label_encoding_raw,
+                name="operator_contract.output_contract.label_encoding",
+            )
+            if label_encoding_map is not None:
+                label_encoding: dict[str, int] = {}
+                for label_name, label_value in label_encoding_map.items():
+                    key = str(label_name).strip()
+                    if not key:
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.label_encoding keys must be non-empty."
+                        )
+                    label_encoding[key] = _coerce_int(
+                        label_value,
+                        name=f"operator_contract.output_contract.label_encoding.{key}",
+                    )
+
+                if label_encoding.get("normal", None) != 0:
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.label_encoding.normal must be 0."
+                    )
+                if label_encoding.get("anomalous", None) != 1:
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.label_encoding.anomalous must be 1."
+                    )
+
+                review_policy = operator_contract.get("review_policy", None)
+                review_reject_label = None
+                if isinstance(review_policy, Mapping):
+                    review_reject_label = review_policy.get("reject_label", None)
+
+                prediction = normalized.get("prediction", None)
+                prediction_reject_label = None
+                if isinstance(prediction, Mapping):
+                    prediction_reject_label = prediction.get("reject_label", None)
+
+                expected_reject_label = (
+                    prediction_reject_label
+                    if prediction_reject_label is not None
+                    else review_reject_label
+                )
+
+                if "rejected" in label_encoding:
+                    if not bool(output_contract.get("supports_reject_label", False)):
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.label_encoding.rejected "
+                            "requires supports_reject_label=true."
+                        )
+                    if expected_reject_label is None:
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.label_encoding.rejected "
+                            "requires prediction.reject_label or "
+                            "operator_contract.review_policy.reject_label."
+                        )
+                    if int(label_encoding["rejected"]) != int(expected_reject_label):
+                        raise ValueError(
+                            "infer-config operator_contract.output_contract.label_encoding.rejected "
+                            "must match prediction.reject_label when both are set."
+                        )
+                elif bool(output_contract.get("supports_reject_label", False)) and (
+                    expected_reject_label is not None
+                ):
+                    raise ValueError(
+                        "infer-config operator_contract.output_contract.supports_reject_label=true "
+                        "requires operator_contract.output_contract.label_encoding.rejected."
+                    )
+
+                output_contract["label_encoding"] = label_encoding
 
             defects = normalized.get("defects", None)
             if (

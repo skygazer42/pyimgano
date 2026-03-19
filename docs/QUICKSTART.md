@@ -226,6 +226,18 @@ pyimgano --help
 pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano runs quality runs/<run_dir> --require-status audited --json
+pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
+```
+
+If the next step is a reproducible benchmark export instead of a single audited
+handoff, keep the umbrella CLI in the loop:
+
+```bash
+pyimgano benchmark --list-official-configs
+pyimgano benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json
+pyimgano runs acceptance /path/to/suite_export --json
+pyimgano runs publication /path/to/suite_export --json
 ```
 
 ## Recommended dataset inputs (paths-first)

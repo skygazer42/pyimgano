@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
@@ -160,6 +161,10 @@ def _resolve_corruptions(names: str) -> list[_NamedCorruption]:
     return out
 
 
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
     import pyimgano.models  # noqa: F401
 
@@ -311,6 +316,8 @@ def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
             ),
         )
         export_robustness_tables(payload, run_dir / "artifacts")
+        conditions_csv = run_dir / "artifacts" / "robustness_conditions.csv"
+        summary_json = run_dir / "artifacts" / "robustness_summary.json"
         payload["robustness_trust"] = _build_robustness_trust_summary(
             report=report,
             robustness_summary=robustness_summary,
@@ -318,6 +325,10 @@ def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
             audit_refs={
                 "robustness_conditions_csv": "artifacts/robustness_conditions.csv",
                 "robustness_summary_json": "artifacts/robustness_summary.json",
+            },
+            audit_digests={
+                "robustness_conditions_csv": _file_sha256(conditions_csv),
+                "robustness_summary_json": _file_sha256(summary_json),
             },
         )
         save_run_report(run_dir / "report.json", payload)

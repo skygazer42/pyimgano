@@ -1,4 +1,9 @@
+import hashlib
 import json
+
+
+def _sha256_file(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_runs_cli_list_json(tmp_path, capsys):
@@ -901,6 +906,285 @@ def test_runs_cli_quality_plain_output_prints_trust_signals(tmp_path, capsys):
     assert "ref=calibration_card_json:artifacts/calibration_card.json" in out
 
 
+def test_runs_cli_acceptance_json_ready_for_audited_run(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "run_a"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts").mkdir()
+    (run_dir / "artifacts" / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model": {"name": "vision_ecod", "model_kwargs": {}},
+                "threshold": 0.5,
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_operator_contract": False,
+                    "audit_refs": {"calibration_card": "artifacts/calibration_card.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(run_dir), "--json"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    acceptance = out["acceptance"]
+    assert acceptance["status"] == "ready"
+    assert acceptance["ready"] is True
+    assert acceptance["required_quality"] == "audited"
+    assert acceptance["quality"]["status"] == "audited"
+    assert acceptance["infer_config"]["valid"] is True
+    assert acceptance["infer_config"]["selected_source"] == "artifacts"
+    assert acceptance["bundle_weights"]["applicable"] is False
+    assert acceptance["blocking_reasons"] == []
+
+
+def test_runs_cli_acceptance_uses_deploy_bundle_infer_config_when_present(tmp_path, capsys):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "run_a"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts").mkdir()
+    (run_dir / "artifacts" / "infer_config.json").write_text(
+        json.dumps({"schema_version": 1, "model": {"name": "vision_ecod", "model_kwargs": {}}}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    bundle_dir = run_dir / "deploy_bundle"
+    bundle_dir.mkdir()
+    (bundle_dir / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model": {"name": "vision_ecod", "model_kwargs": {}},
+                "threshold": 0.5,
+                "artifact_quality": {
+                    "status": "deployable",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": False,
+                    "has_prediction_policy": False,
+                    "has_operator_contract": False,
+                    "has_deploy_bundle": True,
+                    "has_bundle_manifest": True,
+                    "required_bundle_artifacts_present": True,
+                    "bundle_artifact_roles": {"infer_config": ["infer_config.json"]},
+                    "audit_refs": {"calibration_card": "calibration_card.json"},
+                    "deploy_refs": {"bundle_manifest": "bundle_manifest.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "report.json").write_text(json.dumps({"dataset": "custom"}), encoding="utf-8")
+    (bundle_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (bundle_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (bundle_dir / "bundle_manifest.json").write_text(
+        json.dumps(build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(run_dir), "--require-status", "deployable", "--json"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    acceptance = out["acceptance"]
+    assert acceptance["ready"] is True
+    assert acceptance["infer_config"]["selected_source"] == "deploy_bundle"
+    assert acceptance["infer_config"]["path"].endswith("deploy_bundle/infer_config.json")
+
+
+def test_runs_cli_acceptance_blocks_invalid_bundle_weights_metadata(tmp_path, capsys):
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "run_a"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts").mkdir()
+    (run_dir / "artifacts" / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model": {"name": "vision_ecod", "model_kwargs": {}},
+                "threshold": 0.5,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    bundle_dir = run_dir / "deploy_bundle"
+    bundle_dir.mkdir()
+    (bundle_dir / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model": {"name": "vision_ecod", "model_kwargs": {}},
+                "threshold": 0.5,
+                "artifact_quality": {
+                    "status": "deployable",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": False,
+                    "has_prediction_policy": False,
+                    "has_operator_contract": False,
+                    "has_deploy_bundle": True,
+                    "has_bundle_manifest": True,
+                    "required_bundle_artifacts_present": True,
+                    "bundle_artifact_roles": {"infer_config": ["infer_config.json"]},
+                    "audit_refs": {"calibration_card": "calibration_card.json"},
+                    "deploy_refs": {"bundle_manifest": "bundle_manifest.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "report.json").write_text(json.dumps({"dataset": "custom"}), encoding="utf-8")
+    (bundle_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (bundle_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (bundle_dir / "model_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model_name": "broken_model",
+                "summary": {
+                    "purpose": "demo",
+                    "intended_inputs": "RGB",
+                    "output_contract": "image-level",
+                },
+                "weights": {
+                    "path": "missing_model.pt",
+                    "source": "unit-test",
+                    "license": "internal",
+                },
+                "deployment": {"runtime": "torch"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "bundle_manifest.json").write_text(
+        json.dumps(build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(run_dir), "--require-status", "audited", "--json"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert rc == 1
+    acceptance = out["acceptance"]
+    assert acceptance["status"] == "partial"
+    assert acceptance["ready"] is False
+    assert acceptance["bundle_weights"]["applicable"] is True
+    assert acceptance["bundle_weights"]["valid"] is False
+    assert "bundle_weights_not_ready" in acceptance["blocking_reasons"]
+
+
 def test_runs_cli_list_supports_robustness_kind(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
@@ -930,6 +1214,73 @@ def test_runs_cli_list_supports_robustness_kind(tmp_path, capsys):
     assert out["runs"][0]["kind"] == "robustness"
     assert out["runs"][0]["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"] is True
     assert out["runs"][0]["robustness_trust"]["status"] == "partial"
+
+
+def test_runs_cli_list_revalidates_saved_robustness_artifact_digests(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "robust_run"
+    artifacts_dir = run_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True)
+    conditions_csv = artifacts_dir / "robustness_conditions.csv"
+    summary_json = artifacts_dir / "robustness_summary.json"
+    conditions_csv.write_text("condition,severity,auroc\nclean,,0.95\n", encoding="utf-8")
+    summary_json.write_text(
+        json.dumps({"trust_summary": {"status": "trust-signaled"}}),
+        encoding="utf-8",
+    )
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "dataset": "mvtec",
+                "category": "bottle",
+                "model": "vision_patchcore",
+                "robustness_summary": {
+                    "clean_auroc": 0.95,
+                    "worst_corruption_auroc": 0.85,
+                },
+                "robustness": {
+                    "corruption_mode": "full",
+                    "clean": {"results": {"auroc": 0.95}, "latency_ms_per_image": 1.0},
+                    "corruptions": {
+                        "lighting": {
+                            "severity_1": {
+                                "results": {"auroc": 0.85},
+                                "latency_ms_per_image": 1.2,
+                            }
+                        }
+                    },
+                },
+                "robustness_trust": {
+                    "status": "trust-signaled",
+                    "audit_refs": {
+                        "robustness_conditions_csv": "artifacts/robustness_conditions.csv",
+                        "robustness_summary_json": "artifacts/robustness_summary.json",
+                    },
+                    "audit_digests": {
+                        "robustness_conditions_csv": _sha256_file(conditions_csv),
+                        "robustness_summary_json": _sha256_file(summary_json),
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    conditions_csv.write_text("condition,severity,auroc\nclean,,0.90\n", encoding="utf-8")
+
+    rc = main(["list", "--root", str(tmp_path), "--kind", "robustness", "--json"])
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    trust = out["runs"][0]["robustness_trust"]
+    assert trust["status"] == "partial"
+    assert trust["trust_signals"]["has_audit_digests"] is False
+    assert "audit_digest_mismatch.robustness_conditions_csv" in trust["degraded_by"]
 
 
 def test_runs_cli_compare_json_uses_robustness_contract(tmp_path, capsys):
@@ -3355,6 +3706,18 @@ def test_runs_cli_publication_json(tmp_path, capsys):
 
     export_dir = tmp_path / "suite_export"
     export_dir.mkdir()
+    (export_dir / "report.json").write_text(
+        json.dumps({"suite": "industrial-v4"}),
+        encoding="utf-8",
+    )
+    (export_dir / "config.json").write_text(
+        json.dumps({"config": {"seed": 123}}),
+        encoding="utf-8",
+    )
+    (export_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
     (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
     (export_dir / "leaderboard_metadata.json").write_text(
         json.dumps(
@@ -3371,12 +3734,27 @@ def test_runs_cli_publication_json(tmp_path, capsys):
                     "has_environment_fingerprint": True,
                     "has_split_fingerprint": True,
                 },
+                "environment_fingerprint_sha256": "f" * 64,
+                "split_fingerprint": {"sha256": "b" * 64},
                 "evaluation_contract": {"primary_metric": "auroc"},
                 "citation": {"project": "pyimgano"},
                 "publication_ready": True,
+                "audit_refs": {
+                    "report_json": "report.json",
+                    "config_json": "config.json",
+                    "environment_json": "environment.json",
+                },
+                "audit_digests": {
+                    "report_json": _sha256_file(export_dir / "report.json"),
+                    "config_json": _sha256_file(export_dir / "config.json"),
+                    "environment_json": _sha256_file(export_dir / "environment.json"),
+                },
                 "exported_files": {
                     "leaderboard_csv": str(export_dir / "leaderboard.csv"),
                     "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+                },
+                "exported_file_digests": {
+                    "leaderboard_csv": _sha256_file(export_dir / "leaderboard.csv"),
                 },
             }
         ),
@@ -3394,11 +3772,23 @@ def test_runs_cli_publication_json(tmp_path, capsys):
     assert out["publication"]["audit_refs"]["benchmark_config_source"].endswith(".json")
 
 
-def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys):
+def test_runs_cli_acceptance_routes_suite_export_to_publication_gate(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     export_dir = tmp_path / "suite_export"
     export_dir.mkdir()
+    (export_dir / "report.json").write_text(
+        json.dumps({"suite": "industrial-v4"}),
+        encoding="utf-8",
+    )
+    (export_dir / "config.json").write_text(
+        json.dumps({"config": {"seed": 123}}),
+        encoding="utf-8",
+    )
+    (export_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
     (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
     (export_dir / "leaderboard_metadata.json").write_text(
         json.dumps(
@@ -3415,12 +3805,140 @@ def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys
                     "has_environment_fingerprint": True,
                     "has_split_fingerprint": True,
                 },
+                "environment_fingerprint_sha256": "f" * 64,
+                "split_fingerprint": {"sha256": "b" * 64},
                 "evaluation_contract": {"primary_metric": "auroc"},
                 "citation": {"project": "pyimgano"},
                 "publication_ready": True,
+                "audit_refs": {
+                    "report_json": "report.json",
+                    "config_json": "config.json",
+                    "environment_json": "environment.json",
+                },
+                "audit_digests": {
+                    "report_json": _sha256_file(export_dir / "report.json"),
+                    "config_json": _sha256_file(export_dir / "config.json"),
+                    "environment_json": _sha256_file(export_dir / "environment.json"),
+                },
                 "exported_files": {
                     "leaderboard_csv": str(export_dir / "leaderboard.csv"),
                     "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+                },
+                "exported_file_digests": {
+                    "leaderboard_csv": _sha256_file(export_dir / "leaderboard.csv"),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(export_dir), "--json"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    acceptance = out["acceptance"]
+    assert acceptance["kind"] == "publication"
+    assert acceptance["status"] == "ready"
+    assert acceptance["ready"] is True
+    assert acceptance["blocking_reasons"] == []
+    assert acceptance["publication"]["status"] == "ready"
+    assert acceptance["publication"]["publication_ready"] is True
+
+
+def test_runs_cli_acceptance_returns_nonzero_for_partial_suite_export(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    export_dir = tmp_path / "suite_export"
+    export_dir.mkdir()
+    metadata_path = export_dir / "leaderboard_metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "artifact_quality": {
+                    "required_files_present": False,
+                    "missing_required": ["environment_fingerprint_sha256"],
+                    "has_official_benchmark_config": False,
+                    "has_environment_fingerprint": False,
+                    "has_split_fingerprint": True,
+                },
+                "publication_ready": False,
+                "exported_files": {
+                    "leaderboard_csv": str(export_dir / "leaderboard.csv"),
+                    "leaderboard_metadata_json": str(metadata_path),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(metadata_path), "--json"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert rc == 1
+    acceptance = out["acceptance"]
+    assert acceptance["kind"] == "publication"
+    assert acceptance["status"] == "partial"
+    assert acceptance["ready"] is False
+    assert "publication_not_ready" in acceptance["blocking_reasons"]
+    assert "missing_required_exports" in acceptance["blocking_reasons"]
+    assert acceptance["publication"]["status"] == "partial"
+    assert "leaderboard_csv" in acceptance["publication"]["missing_required"]
+
+
+def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    export_dir = tmp_path / "suite_export"
+    export_dir.mkdir()
+    (export_dir / "report.json").write_text(
+        json.dumps({"suite": "industrial-v4"}),
+        encoding="utf-8",
+    )
+    (export_dir / "config.json").write_text(
+        json.dumps({"config": {"seed": 123}}),
+        encoding="utf-8",
+    )
+    (export_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
+    (export_dir / "leaderboard_metadata.json").write_text(
+        json.dumps(
+            {
+                "benchmark_config": {
+                    "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                    "official": True,
+                    "sha256": "a" * 64,
+                },
+                "artifact_quality": {
+                    "required_files_present": True,
+                    "missing_required": [],
+                    "has_official_benchmark_config": True,
+                    "has_environment_fingerprint": True,
+                    "has_split_fingerprint": True,
+                },
+                "environment_fingerprint_sha256": "f" * 64,
+                "split_fingerprint": {"sha256": "b" * 64},
+                "evaluation_contract": {"primary_metric": "auroc"},
+                "citation": {"project": "pyimgano"},
+                "publication_ready": True,
+                "audit_refs": {
+                    "report_json": "report.json",
+                    "config_json": "config.json",
+                    "environment_json": "environment.json",
+                },
+                "audit_digests": {
+                    "report_json": _sha256_file(export_dir / "report.json"),
+                    "config_json": _sha256_file(export_dir / "config.json"),
+                    "environment_json": _sha256_file(export_dir / "environment.json"),
+                },
+                "exported_files": {
+                    "leaderboard_csv": str(export_dir / "leaderboard.csv"),
+                    "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+                },
+                "exported_file_digests": {
+                    "leaderboard_csv": _sha256_file(export_dir / "leaderboard.csv"),
                 },
             }
         ),
@@ -3473,6 +3991,18 @@ def test_runs_cli_publication_returns_nonzero_for_invalid_declared_model_card(tm
 
     export_dir = tmp_path / "suite_export"
     export_dir.mkdir()
+    (export_dir / "report.json").write_text(
+        json.dumps({"suite": "industrial-v4"}),
+        encoding="utf-8",
+    )
+    (export_dir / "config.json").write_text(
+        json.dumps({"config": {"seed": 123}}),
+        encoding="utf-8",
+    )
+    (export_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
     (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
     (export_dir / "model_card.json").write_text(
         json.dumps(
@@ -3492,6 +4022,11 @@ def test_runs_cli_publication_returns_nonzero_for_invalid_declared_model_card(tm
     (export_dir / "leaderboard_metadata.json").write_text(
         json.dumps(
             {
+                "benchmark_config": {
+                    "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                    "official": True,
+                    "sha256": "a" * 64,
+                },
                 "artifact_quality": {
                     "required_files_present": True,
                     "missing_required": [],
@@ -3499,11 +4034,29 @@ def test_runs_cli_publication_returns_nonzero_for_invalid_declared_model_card(tm
                     "has_environment_fingerprint": True,
                     "has_split_fingerprint": True,
                 },
+                "environment_fingerprint_sha256": "f" * 64,
+                "split_fingerprint": {"sha256": "b" * 64},
+                "evaluation_contract": {"primary_metric": "auroc"},
+                "citation": {"project": "pyimgano"},
                 "publication_ready": True,
+                "audit_refs": {
+                    "report_json": "report.json",
+                    "config_json": "config.json",
+                    "environment_json": "environment.json",
+                },
+                "audit_digests": {
+                    "report_json": _sha256_file(export_dir / "report.json"),
+                    "config_json": _sha256_file(export_dir / "config.json"),
+                    "environment_json": _sha256_file(export_dir / "environment.json"),
+                },
                 "exported_files": {
                     "leaderboard_csv": str(export_dir / "leaderboard.csv"),
                     "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
                     "model_card_json": str(export_dir / "model_card.json"),
+                },
+                "exported_file_digests": {
+                    "leaderboard_csv": _sha256_file(export_dir / "leaderboard.csv"),
+                    "model_card_json": _sha256_file(export_dir / "model_card.json"),
                 },
             }
         ),

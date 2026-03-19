@@ -14,6 +14,11 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert "train" in out
     assert "runs" in out
     assert "--list [KIND]" in out
+    assert "benchmark --list-official-configs" in out
+    assert "industrial_adapt_audited.json" in out
+    assert "runs publication" in out
+    assert "runs acceptance" in out
+    assert "weights audit-bundle" in out
 
 
 def test_root_cli_delegates_discovery_shortcuts(monkeypatch):

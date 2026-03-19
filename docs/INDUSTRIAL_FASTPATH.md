@@ -85,6 +85,21 @@ After export, the minimal audited check is:
 ```bash
 pyimgano-runs quality /path/to/run_dir --require-status audited --json
 pyimgano-validate-infer-config /path/to/run_dir/deploy_bundle/infer_config.json
+pyimgano-runs acceptance /path/to/run_dir --require-status audited --check-bundle-hashes --json
+```
+
+If the deploy bundle also carries `model_card.json` and `weights_manifest.json`,
+gate that handoff with:
+
+```bash
+pyimgano-weights audit-bundle /path/to/run_dir/deploy_bundle --check-hashes --json
+```
+
+If the next step is a suite export handoff instead of a single-run delivery,
+the same acceptance entrypoint also works on the publication bundle:
+
+```bash
+pyimgano-runs acceptance /path/to/suite_export --json
 ```
 
 If `pyimgano-runs quality` reports `deployable`, the run has the full audited

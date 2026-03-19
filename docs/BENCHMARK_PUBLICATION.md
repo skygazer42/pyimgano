@@ -17,6 +17,12 @@ Use this checklist before publishing or citing a `pyimgano` benchmark result.
 - Review `leaderboard_metadata.json` before publication:
   - `artifact_quality`
   - `evaluation_contract`
+  - `citation`
+  - `benchmark_config.source` + `benchmark_config.sha256`
+  - `audit_refs.report_json` / `config_json` / `environment_json`
+  - `audit_digests.report_json` / `config_json` / `environment_json`
+  - `exported_file_digests.leaderboard_csv` / `best_by_baseline_csv` / `skipped_csv`
+    (and matching `*.md` digests when markdown exports are present)
   - `publication_ready`
   - `exported_files`
 - If `exported_files` declares `model_card_json` or `weights_manifest_json`, make sure those
@@ -40,6 +46,19 @@ python tools/audit_publication_contract.py
 - Confirm exported benchmark metadata declares an `evaluation_contract` so dashboards and
   downstream publication tools can interpret metric directionality and ranking semantics
   without hardcoding them.
+- Confirm the suite export keeps benchmark provenance (`benchmark_config.source`,
+  `benchmark_config.sha256`) plus a citation payload; the publication gate now blocks when
+  those fields are missing even if `publication_ready=true` was stamped manually.
+- Confirm the suite export also carries run-artifact audit refs back to
+  `report.json`, `config.json`, and `environment.json`; publication is now treated as
+  incomplete when those references are missing.
+- Confirm the same run-artifact set also has stable sha256 digests in
+  `audit_digests.*`; the publication gate now verifies both the reference and the
+  referenced file content.
+- Confirm the exported leaderboard tables themselves also have stable sha256 digests
+  in `exported_file_digests.*`; publication is now incomplete if the declared
+  `leaderboard.*`, `best_by_baseline.*`, or `skipped.*` files are missing or no
+  longer match the recorded digest.
 - If using a deployable checkpoint, keep the corresponding model card and weights manifest.
 - If you attach those files to a suite export, prefer a model card with `weights.manifest_entry`
   so the package can be checked against the manifest deterministically.

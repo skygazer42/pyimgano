@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -104,41 +105,204 @@ def _collect_metric_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     return sorted(names)
 
 
+def _nonempty_str(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text if text else None
+
+
+def _split_fingerprint_sha256(split_fingerprint: Any) -> str | None:
+    if not isinstance(split_fingerprint, Mapping):
+        return None
+    return _nonempty_str(split_fingerprint.get("sha256"))
+
+
+def _append_missing_required(missing_required: list[str], item: str) -> None:
+    if item not in missing_required:
+        missing_required.append(item)
+
+
+def _build_publication_audit_refs(
+    *,
+    out_dir: Path,
+    benchmark_config: Mapping[str, Any] | None,
+) -> dict[str, str]:
+    refs: dict[str, str] = {}
+    for key, filename in (
+        ("report_json", "report.json"),
+        ("config_json", "config.json"),
+        ("environment_json", "environment.json"),
+    ):
+        path = out_dir / filename
+        if path.is_file():
+            refs[key] = filename
+
+    benchmark_source = (
+        _nonempty_str(benchmark_config.get("source"))
+        if isinstance(benchmark_config, Mapping)
+        else None
+    )
+    if benchmark_source is not None:
+        refs["benchmark_config_source"] = benchmark_source
+
+    return refs
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _build_publication_audit_digests(
+    *,
+    out_dir: Path,
+) -> dict[str, str]:
+    digests: dict[str, str] = {}
+    for key, filename in (
+        ("report_json", "report.json"),
+        ("config_json", "config.json"),
+        ("environment_json", "environment.json"),
+    ):
+        path = out_dir / filename
+        if path.is_file():
+            digests[key] = _file_sha256(path)
+    return digests
+
+
+def _build_exported_file_digests(
+    *,
+    written: Mapping[str, str],
+) -> dict[str, str]:
+    digests: dict[str, str] = {}
+    for key, raw_path in written.items():
+        if str(key) == "leaderboard_metadata_json":
+            continue
+        path = Path(raw_path)
+        if path.is_file():
+            digests[str(key)] = _file_sha256(path)
+    return digests
+
+
 def _build_publication_artifact_quality(
     *,
     written: Mapping[str, str],
     benchmark_config: Mapping[str, Any] | None,
     environment_fingerprint_sha256: Any,
     split_fingerprint: Any,
+    evaluation_contract: Mapping[str, Any] | None,
+    citation: Mapping[str, Any] | None,
+    audit_refs: Mapping[str, Any] | None,
+    audit_digests: Mapping[str, Any] | None,
+    exported_file_digests: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     missing_required: list[str] = []
     if "leaderboard_metadata_json" not in written:
-        missing_required.append("leaderboard_metadata_json")
+        _append_missing_required(missing_required, "leaderboard_metadata_json")
     if not any(key.startswith("leaderboard_") and key != "leaderboard_metadata_json" for key in written):
-        missing_required.append("leaderboard_table")
-    if not isinstance(benchmark_config, Mapping):
-        missing_required.append("benchmark_config")
-    if not isinstance(environment_fingerprint_sha256, str) or not environment_fingerprint_sha256:
-        missing_required.append("environment_fingerprint_sha256")
-    split_sha256 = None
-    if isinstance(split_fingerprint, Mapping):
-        raw_sha256 = split_fingerprint.get("sha256", None)
-        if isinstance(raw_sha256, str) and raw_sha256:
-            split_sha256 = raw_sha256
-    if split_sha256 is None:
-        missing_required.append("split_fingerprint.sha256")
+        _append_missing_required(missing_required, "leaderboard_table")
+    required_exported_digest_keys = [
+        str(key) for key in written if str(key) != "leaderboard_metadata_json"
+    ]
 
-    return {
+    benchmark_source = None
+    benchmark_sha256 = None
+    benchmark_trust_summary = None
+    if not isinstance(benchmark_config, Mapping):
+        _append_missing_required(missing_required, "benchmark_config")
+    else:
+        benchmark_source = _nonempty_str(benchmark_config.get("source"))
+        benchmark_sha256 = _nonempty_str(benchmark_config.get("sha256"))
+        if benchmark_source is None:
+            _append_missing_required(missing_required, "benchmark_config.source")
+        if benchmark_sha256 is None:
+            _append_missing_required(missing_required, "benchmark_config.sha256")
+        raw_trust_summary = benchmark_config.get("trust_summary")
+        if isinstance(raw_trust_summary, Mapping):
+            benchmark_trust_summary = raw_trust_summary
+
+    environment_sha256 = _nonempty_str(environment_fingerprint_sha256)
+    if environment_sha256 is None:
+        _append_missing_required(missing_required, "environment_fingerprint_sha256")
+
+    split_sha256 = _split_fingerprint_sha256(split_fingerprint)
+    if split_sha256 is None:
+        _append_missing_required(missing_required, "split_fingerprint.sha256")
+
+    has_evaluation_contract = isinstance(evaluation_contract, Mapping)
+    if not has_evaluation_contract:
+        _append_missing_required(missing_required, "evaluation_contract")
+
+    has_benchmark_citation = isinstance(citation, Mapping)
+    if not has_benchmark_citation:
+        _append_missing_required(missing_required, "citation")
+
+    has_run_artifact_refs = True
+    if not isinstance(audit_refs, Mapping):
+        has_run_artifact_refs = False
+    else:
+        for key in ("report_json", "config_json", "environment_json"):
+            if _nonempty_str(audit_refs.get(key)) is None:
+                _append_missing_required(missing_required, f"audit_refs.{key}")
+                has_run_artifact_refs = False
+
+    has_run_artifact_digests = True
+    if not isinstance(audit_digests, Mapping):
+        has_run_artifact_digests = False
+    else:
+        for key in ("report_json", "config_json", "environment_json"):
+            if _nonempty_str(audit_digests.get(key)) is None:
+                _append_missing_required(missing_required, f"audit_digests.{key}")
+                has_run_artifact_digests = False
+
+    has_exported_file_digests = bool(required_exported_digest_keys)
+    if not isinstance(exported_file_digests, Mapping):
+        has_exported_file_digests = False
+        for key in required_exported_digest_keys:
+            _append_missing_required(missing_required, f"exported_file_digests.{key}")
+    else:
+        for key in required_exported_digest_keys:
+            if _nonempty_str(exported_file_digests.get(key)) is None:
+                _append_missing_required(missing_required, f"exported_file_digests.{key}")
+                has_exported_file_digests = False
+
+    has_official_benchmark_config = bool(
+        isinstance(benchmark_config, Mapping) and benchmark_config.get("official")
+    )
+    has_benchmark_provenance = bool(
+        has_official_benchmark_config and benchmark_source and benchmark_sha256
+    )
+
+    payload = {
         "required_files_present": len(missing_required) == 0,
         "missing_required": missing_required,
-        "has_official_benchmark_config": bool(
-            isinstance(benchmark_config, Mapping) and benchmark_config.get("official")
-        ),
-        "has_environment_fingerprint": bool(
-            isinstance(environment_fingerprint_sha256, str) and environment_fingerprint_sha256
-        ),
+        "has_official_benchmark_config": has_official_benchmark_config,
+        "has_environment_fingerprint": bool(environment_sha256),
         "has_split_fingerprint": bool(split_sha256),
+        "has_evaluation_contract": bool(has_evaluation_contract),
+        "has_benchmark_citation": bool(has_benchmark_citation),
+        "has_benchmark_provenance": bool(has_benchmark_provenance),
+        "has_run_artifact_refs": bool(has_run_artifact_refs),
+        "has_run_artifact_digests": bool(has_run_artifact_digests),
+        "has_exported_file_digests": bool(has_exported_file_digests),
     }
+    if isinstance(benchmark_trust_summary, Mapping):
+        payload["has_trust_signaled_benchmark_config"] = (
+            str(benchmark_trust_summary.get("status", "")) == "trust-signaled"
+        )
+    return payload
+
+
+def _publication_ready(artifact_quality: Mapping[str, Any]) -> bool:
+    return bool(
+        artifact_quality.get("required_files_present")
+        and artifact_quality.get("has_official_benchmark_config")
+        and artifact_quality.get("has_evaluation_contract")
+        and artifact_quality.get("has_benchmark_citation")
+        and artifact_quality.get("has_benchmark_provenance")
+        and artifact_quality.get("has_run_artifact_refs")
+        and artifact_quality.get("has_run_artifact_digests")
+        and artifact_quality.get("has_exported_file_digests")
+    )
 
 
 def _write_csv(path: Path, *, rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> None:
@@ -235,13 +399,13 @@ def export_suite_tables(
             "benchmark_config_sha256": benchmark_config.get("sha256"),
             "publication_guide": "docs/BENCHMARK_PUBLICATION.md",
         }
-
-    artifact_quality = _build_publication_artifact_quality(
-        written=written,
+    audit_refs = _build_publication_audit_refs(
+        out_dir=out_dir,
         benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
-        environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
-        split_fingerprint=payload.get("split_fingerprint"),
     )
+    audit_digests = _build_publication_audit_digests(out_dir=out_dir)
+    exported_file_digests = _build_exported_file_digests(written=written)
+
     evaluation_contract = build_evaluation_contract(
         metric_names=_collect_metric_names(rows_norm),
         primary_metric="auroc",
@@ -258,6 +422,17 @@ def export_suite_tables(
             else None
         ),
     )
+    artifact_quality = _build_publication_artifact_quality(
+        written=written,
+        benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
+        environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
+        split_fingerprint=payload.get("split_fingerprint"),
+        evaluation_contract=evaluation_contract,
+        citation=(citation if isinstance(citation, Mapping) else None),
+        audit_refs=audit_refs,
+        audit_digests=audit_digests,
+        exported_file_digests=exported_file_digests,
+    )
 
     metadata = {
         "suite": payload.get("suite"),
@@ -269,11 +444,11 @@ def export_suite_tables(
         "environment_fingerprint_sha256": payload.get("environment_fingerprint_sha256"),
         "split_fingerprint": payload.get("split_fingerprint"),
         "citation": citation,
+        "audit_refs": audit_refs,
+        "audit_digests": audit_digests,
+        "exported_file_digests": exported_file_digests,
         "artifact_quality": artifact_quality,
-        "publication_ready": bool(
-            artifact_quality["required_files_present"]
-            and artifact_quality["has_official_benchmark_config"]
-        ),
+        "publication_ready": _publication_ready(artifact_quality),
         "exported_files": dict(written),
     }
     metadata_path = out_dir / "leaderboard_metadata.json"
@@ -285,11 +460,13 @@ def export_suite_tables(
         benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
         environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
         split_fingerprint=payload.get("split_fingerprint"),
+        evaluation_contract=evaluation_contract,
+        citation=(citation if isinstance(citation, Mapping) else None),
+        audit_refs=audit_refs,
+        audit_digests=audit_digests,
+        exported_file_digests=exported_file_digests,
     )
-    metadata["publication_ready"] = bool(
-        metadata["artifact_quality"]["required_files_present"]
-        and metadata["artifact_quality"]["has_official_benchmark_config"]
-    )
+    metadata["publication_ready"] = _publication_ready(metadata["artifact_quality"])
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
 
     return written

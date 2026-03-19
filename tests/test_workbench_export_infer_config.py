@@ -125,6 +125,25 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert operator_contract["review_policy"]["confidence_gate_enabled"] is True
     assert operator_contract["review_policy"]["reject_confidence_below"] == pytest.approx(0.75)
     assert operator_contract["review_policy"]["reject_label"] == -9
+    output_contract = operator_contract["output_contract"]
+    assert output_contract["requires_image_score"] is True
+    assert output_contract["supports_pixel_outputs"] is False
+    assert output_contract["supports_reject_label"] is True
+    assert output_contract["score_order"] == "higher_is_more_anomalous"
+    assert output_contract["confidence_semantics"] == "predicted_label_confidence"
+    assert output_contract["confidence_range"] == [0.0, 1.0]
+    assert output_contract["decision_values"] == [
+        "score_only",
+        "normal",
+        "anomalous",
+        "rejected_low_confidence",
+    ]
+    assert output_contract["label_encoding"] == {
+        "normal": 0,
+        "anomalous": 1,
+        "rejected": -9,
+    }
+    assert payload["operator_contract"]["output_contract"] == output_contract
 
     calibration_card_path = out_dir / "artifacts" / "calibration_card.json"
     assert calibration_card_path.exists()
