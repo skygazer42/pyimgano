@@ -699,23 +699,33 @@ def _extract_robustness_protocol(report: Mapping[str, Any]) -> dict[str, Any] | 
     return summarize_robustness_protocol(robustness)
 
 
-def _extract_robustness_trust(report: Mapping[str, Any]) -> dict[str, Any] | None:
+def _extract_robustness_trust(
+    report: Mapping[str, Any],
+    *,
+    root: Path | None = None,
+) -> dict[str, Any] | None:
     raw = report.get("robustness_trust", None)
-    if isinstance(raw, Mapping):
-        return dict(raw)
-
     robustness = _extract_robustness_payload(report)
     if robustness is None:
+        if isinstance(raw, Mapping):
+            return dict(raw)
         return None
 
     robustness_summary = report.get("robustness_summary", None)
     robustness_protocol = _extract_robustness_protocol(report)
+    raw_audit_refs = raw.get("audit_refs", None) if isinstance(raw, Mapping) else None
+    raw_audit_digests = raw.get("audit_digests", None) if isinstance(raw, Mapping) else None
     return build_robustness_trust_summary(
         report=robustness,
         robustness_summary=(
             dict(robustness_summary) if isinstance(robustness_summary, Mapping) else None
         ),
         robustness_protocol=robustness_protocol,
+        audit_refs=(dict(raw_audit_refs) if isinstance(raw_audit_refs, Mapping) else None),
+        audit_digests=(
+            dict(raw_audit_digests) if isinstance(raw_audit_digests, Mapping) else None
+        ),
+        audit_root=root,
     )
 
 
@@ -876,7 +886,7 @@ def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
         model_or_suite = report.get("model", None)
 
     robustness_protocol = _extract_robustness_protocol(report)
-    robustness_trust = _extract_robustness_trust(report)
+    robustness_trust = _extract_robustness_trust(report, root=root)
 
     artifact_quality = evaluate_run_quality(root)
     trust_summary = (

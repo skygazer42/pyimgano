@@ -301,12 +301,42 @@ pyimgano -- list preprocessing --deployable-only
 pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano runs quality runs/<run_dir> --require-status audited --json
+pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
 ```
 
 That flow uses the checked-in
 [`industrial_adapt_audited.json`](examples/configs/industrial_adapt_audited.json)
 example and is described in more detail in
 [`docs/INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md).
+
+For reproducible benchmark reporting, pair that operator loop with the built-in
+official preset discovery and publication gate:
+
+```bash
+pyimgano benchmark --list-official-configs
+pyimgano benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json
+pyimgano runs acceptance /path/to/suite_export --json
+pyimgano runs publication /path/to/suite_export --json
+```
+
+That keeps the shortest industrial fast-path and the publication path visible
+from the same umbrella CLI entrypoint.
+
+If your deploy bundle carries `model_card.json` and `weights_manifest.json`,
+`pyimgano weights audit-bundle ...` gives you a single delivery gate for both.
+If you want one aggregated release check instead of calling the low-level
+validators individually, use `pyimgano runs acceptance ...`; it now auto-routes
+run directories and suite publication exports through the matching gate.
+For suite exports, the publication gate now also enforces benchmark provenance
+(`benchmark_config.source` + `sha256`), `evaluation_contract`, and `citation`
+instead of trusting a manually stamped `publication_ready=true`.
+It also expects audit refs back to `report.json`, `config.json`, and
+`environment.json`, plus matching sha256 digests for those files, so exported
+leaderboards remain traceable to the saved run. The exported leaderboard tables
+themselves now carry recorded sha256 digests too, so `leaderboard.csv`,
+`best_by_baseline.csv`, `skipped.csv` (and markdown variants when exported)
+are verified before a suite export is treated as publication-ready.
 
 ---
 
@@ -434,6 +464,7 @@ pyimgano-runs list --root runs --kind robustness --same-robustness-protocol-as r
 pyimgano-runs compare runs/run_a runs/run_b --json
 pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-split --json
 pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-robustness-protocol --json
+pyimgano-runs acceptance /path/to/suite_export --json
 pyimgano-runs publication /path/to/suite_export --json
 ```
 
@@ -516,7 +547,7 @@ graph LR
 
 > 📖 Full reference: `docs/CLI_REFERENCE.md`
 
-`pyimgano-runs quality` and `pyimgano-runs publication` now expose structured
+`pyimgano-runs quality`, `pyimgano-runs acceptance`, and `pyimgano-runs publication` now expose structured
 trust metadata as well:
 
 - `trust_summary` for saved run artifacts

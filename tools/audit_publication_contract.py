@@ -35,6 +35,12 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="pyimgano_publication_audit_") as tmp:
         out_dir = Path(tmp)
+        (out_dir / "report.json").write_text('{"suite":"industrial-v4"}', encoding="utf-8")
+        (out_dir / "config.json").write_text('{"config":{"seed":123}}', encoding="utf-8")
+        (out_dir / "environment.json").write_text(
+            '{"fingerprint_sha256":"' + ("f" * 64) + '"}',
+            encoding="utf-8",
+        )
         export_suite_tables(payload, out_dir, formats=["csv"])
         quality = evaluate_publication_quality(out_dir)
         trust_signals = dict(quality.get("trust_signals", {}))
@@ -49,6 +55,15 @@ def main() -> int:
             return 1
         if not bool(trust_signals.get("has_benchmark_citation")):
             print(f"error: publication contract missing citation trust signal: {quality}")
+            return 1
+        if not bool(trust_signals.get("has_run_artifact_refs")):
+            print(f"error: publication contract missing run artifact audit refs: {quality}")
+            return 1
+        if not bool(trust_signals.get("has_run_artifact_digests")):
+            print(f"error: publication contract missing run artifact audit digests: {quality}")
+            return 1
+        if not bool(trust_signals.get("has_exported_file_digests")):
+            print(f"error: publication contract missing exported leaderboard digests: {quality}")
             return 1
 
     print("OK: suite publication contract is ready, auditable, and trust-signaled.")

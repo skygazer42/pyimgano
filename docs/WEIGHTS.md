@@ -71,6 +71,12 @@ pyimgano-weights \
   --json
 ```
 
+Audit a deploy bundle in one call:
+
+```bash
+pyimgano-weights audit-bundle ./deploy_bundle --check-hashes --json
+```
+
 Notes:
 
 - `weights.path` is resolved relative to the model card file by default.
@@ -111,6 +117,12 @@ The deploy bundle manifest records:
 If `model_card.json` or `weights_manifest.json` are present in the deploy bundle
 root, bundle validation now checks them too instead of treating them as opaque
 attachments.
+
+If you want a single delivery gate for those bundle-local files, use:
+
+```bash
+pyimgano-weights audit-bundle ./deploy_bundle --check-hashes --json
+```
 
 See also: `docs/WORKBENCH.md` and `docs/CLI_REFERENCE.md`.
 

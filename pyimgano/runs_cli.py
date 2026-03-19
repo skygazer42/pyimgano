@@ -9,6 +9,7 @@ from pyimgano.reporting.run_index import (
     latest_run_summary,
     list_run_summaries,
 )
+from pyimgano.reporting.run_acceptance import evaluate_acceptance
 from pyimgano.reporting.publication_quality import evaluate_publication_quality
 from pyimgano.reporting.run_quality import evaluate_run_quality
 
@@ -451,6 +452,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Return exit code 1 unless the run quality reaches at least this status.",
     )
     p_quality.add_argument("--json", action="store_true", help="Emit JSON output.")
+
+    p_acceptance = sub.add_parser(
+        "acceptance",
+        help="Run the aggregated handoff/release gate for a saved run or suite export.",
+    )
+    p_acceptance.add_argument(
+        "path",
+        help="Run directory, suite export directory, or leaderboard_metadata.json path.",
+    )
+    p_acceptance.add_argument(
+        "--check-bundle-hashes",
+        action="store_true",
+        help="Also verify deploy bundle manifest/weights hashes when present for run directories.",
+    )
+    p_acceptance.add_argument(
+        "--require-status",
+        choices=["reproducible", "audited", "deployable"],
+        default="audited",
+        help="Minimum run quality required before the run acceptance gate can pass. Ignored for suite exports. Default: audited",
+    )
+    p_acceptance.add_argument("--json", action="store_true", help="Emit JSON output.")
 
     p_publication = sub.add_parser(
         "publication",
@@ -1062,6 +1084,73 @@ def main(argv: list[str] | None = None) -> int:
             if not bool(meets_required_status):
                 return 1
             return 0
+
+        if str(args.cmd) == "acceptance":
+            acceptance = evaluate_acceptance(
+                args.path,
+                required_quality=str(args.require_status),
+                check_bundle_hashes=bool(args.check_bundle_hashes),
+            )
+            payload = {"path": str(args.path), "acceptance": acceptance}
+            if str(acceptance.get("kind")) == "run":
+                payload["run_dir"] = str(acceptance.get("run_dir"))
+            if bool(args.json):
+                rc = cli_output.emit_jsonable(payload, indent=None)
+                if not bool(acceptance.get("ready")):
+                    return 1
+                return rc
+
+            if str(acceptance.get("kind")) == "publication":
+                publication = dict(acceptance.get("publication", {}))
+                print(
+                    f"{Path(str(args.path)).name}: kind=publication "
+                    f"status={acceptance.get('status')} "
+                    f"publication_ready={publication.get('publication_ready')}"
+                )
+                for item in acceptance.get("blocking_reasons", []):
+                    print(f"blocking_reason={item}")
+                trust_signals = dict(publication.get("trust_signals", {}))
+                for key, value in trust_signals.items():
+                    print(f"trust_signal.{key}={value}")
+                audit_refs = dict(publication.get("audit_refs", {}))
+                for key, value in audit_refs.items():
+                    print(f"audit_ref.{key}={value}")
+                missing_required = list(publication.get("missing_required", []))
+                if missing_required:
+                    print("missing_required=" + ", ".join(str(item) for item in missing_required))
+                invalid_declared = list(publication.get("invalid_declared", []))
+                if invalid_declared:
+                    print("invalid_declared=" + ", ".join(str(item) for item in invalid_declared))
+                return 0 if bool(acceptance.get("ready")) else 1
+
+            infer_cfg = dict(acceptance.get("infer_config", {}))
+            bundle_weights = dict(acceptance.get("bundle_weights", {}))
+            bundle_status = (
+                str(bundle_weights.get("status"))
+                if bool(bundle_weights.get("applicable"))
+                else "not_applicable"
+            )
+            print(
+                f"{Path(str(args.path)).name}: kind=run status={acceptance.get('status')} "
+                f"required_quality={acceptance.get('required_quality')} "
+                f"quality={dict(acceptance.get('quality', {})).get('status')} "
+                f"infer_config={infer_cfg.get('selected_source')} "
+                f"bundle_weights={bundle_status}"
+            )
+            for item in acceptance.get("blocking_reasons", []):
+                print(f"blocking_reason={item}")
+            for item in infer_cfg.get("warnings", []):
+                print(f"infer_warning={item}")
+            for item in infer_cfg.get("errors", []):
+                print(f"infer_error={item}")
+            if bool(bundle_weights.get("applicable")):
+                for item in bundle_weights.get("missing_required", []):
+                    print(f"bundle_missing_required={item}")
+                for item in bundle_weights.get("warnings", []):
+                    print(f"bundle_warning={item}")
+                for item in bundle_weights.get("errors", []):
+                    print(f"bundle_error={item}")
+            return 0 if bool(acceptance.get("ready")) else 1
 
         if str(args.cmd) == "publication":
             publication = evaluate_publication_quality(args.path)

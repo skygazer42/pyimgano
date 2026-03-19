@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -100,6 +102,26 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit a JSON report instead of printing human-readable errors/warnings.",
+    )
+
+    p_audit_bundle = sub.add_parser(
+        "audit-bundle",
+        help="Validate deploy-bundle model_card.json + weights_manifest.json together",
+    )
+    p_audit_bundle.add_argument(
+        "bundle_dir",
+        help="Path to deploy_bundle directory containing model_card.json / weights_manifest.json",
+    )
+    p_audit_bundle.add_argument(
+        "--check-hashes",
+        action="store_true",
+        default=False,
+        help="Verify sha256 values for bundle-local assets when declared. Default: false",
+    )
+    p_audit_bundle.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON audit report instead of printing human-readable output.",
     )
 
     p_template = sub.add_parser(
@@ -362,6 +384,27 @@ def main(argv: list[str] | None = None) -> int:
                 for e in report.errors:
                     print(f"error: {e}")
             return 0 if report.ok else 1
+
+        if str(args.cmd) == "audit-bundle":
+            audit = evaluate_bundle_weights_audit(
+                str(args.bundle_dir),
+                check_hashes=bool(args.check_hashes),
+            )
+            if bool(args.json):
+                print(json.dumps(audit, indent=2, sort_keys=True))
+            else:
+                print(
+                    f"status={audit.get('status')} ready={str(bool(audit.get('ready'))).lower()} "
+                    f"bundle_dir={audit.get('bundle_dir')}"
+                )
+                _emit_trust_summary(dict(audit.get("trust_summary", {})))
+                for item in audit.get("missing_required", []):
+                    print(f"missing_required={item}")
+                for item in audit.get("warnings", []):
+                    print(f"warning: {item}")
+                for item in audit.get("errors", []):
+                    print(f"error: {item}")
+            return 0 if bool(audit.get("ready")) else 1
 
         if str(args.cmd) == "template":
             if str(args.template_kind) == "manifest":

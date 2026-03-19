@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -37,6 +38,10 @@ _METRIC_COLUMNS = [
     "aupro",
     "pixel_segf1",
 ]
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _safe_metric(results: Mapping[str, Any], key: str) -> Any:
@@ -128,6 +133,8 @@ def export_robustness_tables(
         writer.writeheader()
         for row in rows:
             writer.writerow({key: row.get(key) for key in _CSV_COLUMNS})
+    audit_refs = {"robustness_conditions_csv": csv_path.name}
+    audit_digests = {"robustness_conditions_csv": _file_sha256(csv_path)}
 
     summary_payload = {
         "dataset": payload.get("dataset"),
@@ -155,8 +162,11 @@ def export_robustness_tables(
                 if isinstance(payload.get("robustness_protocol"), Mapping)
                 else None
             ),
-            audit_refs={"robustness_conditions_csv": csv_path.name},
+            audit_refs=audit_refs,
+            audit_digests=audit_digests,
         ),
+        "audit_refs": audit_refs,
+        "audit_digests": audit_digests,
         "condition_count": len(rows),
     }
     summary_path = out_dir / "robustness_summary.json"

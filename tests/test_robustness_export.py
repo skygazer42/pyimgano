@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
+
+
+def _sha256(path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_export_robustness_tables_writes_csv_and_summary(tmp_path) -> None:
@@ -75,5 +80,14 @@ def test_export_robustness_tables_writes_csv_and_summary(tmp_path) -> None:
     assert trust["trust_signals"]["has_corruption_conditions"] is True
     assert trust["trust_signals"]["has_summary_metrics"] is True
     assert trust["trust_signals"]["has_latency_profile"] is True
+    assert trust["trust_signals"]["has_audit_refs"] is True
+    assert trust["trust_signals"]["has_audit_digests"] is True
     assert trust["audit_refs"]["robustness_conditions_csv"] == "robustness_conditions.csv"
+    assert trust["audit_digests"]["robustness_conditions_csv"] == _sha256(
+        tmp_path / "robustness_conditions.csv"
+    )
+    assert summary["audit_refs"]["robustness_conditions_csv"] == "robustness_conditions.csv"
+    assert summary["audit_digests"]["robustness_conditions_csv"] == _sha256(
+        tmp_path / "robustness_conditions.csv"
+    )
     assert summary["condition_count"] == 3

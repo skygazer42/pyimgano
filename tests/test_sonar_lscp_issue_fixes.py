@@ -60,3 +60,16 @@ def test_lscp_accepts_numpy_generator_random_state() -> None:
     scores = det.decision_function(x[:4])
 
     assert scores.shape == (4,)
+
+
+def test_lscp_competent_detector_selection_handles_nearly_constant_scores() -> None:
+    det = CoreLSCP(detector_list=[object(), object(), object(), object(), object()], n_bins=3)
+
+    scores = np.asarray(
+        [1.0, 1.0, 1.0, 1.0, np.nextafter(1.0, 2.0)],
+        dtype=np.float64,
+    )
+
+    idx = det._get_competent_detectors(scores)
+
+    assert np.array_equal(idx, np.asarray([4], dtype=np.int64))

@@ -383,6 +383,20 @@ def test_validate_infer_config_cli_accepts_consistent_operator_contract(
                         "requires_image_score": True,
                         "supports_pixel_outputs": True,
                         "supports_reject_label": True,
+                        "score_order": "higher_is_more_anomalous",
+                        "confidence_semantics": "predicted_label_confidence",
+                        "confidence_range": [0.0, 1.0],
+                        "decision_values": [
+                            "score_only",
+                            "normal",
+                            "anomalous",
+                            "rejected_low_confidence",
+                        ],
+                        "label_encoding": {
+                            "normal": 0,
+                            "anomalous": 1,
+                            "rejected": -9,
+                        },
                     },
                 },
                 "artifact_quality": {
@@ -407,6 +421,59 @@ def test_validate_infer_config_cli_accepts_consistent_operator_contract(
     out = capsys.readouterr().out.lower()
     assert "trust_signal.has_operator_contract=true" in out
     assert "trust_signal.has_operator_contract_ref=true" in out
+
+
+def test_validate_infer_config_cli_rejects_output_contract_rejected_label_mismatch(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "prediction": {
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+                "operator_contract": {
+                    "schema_version": 1,
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.75,
+                        "reject_label": -9,
+                    },
+                    "output_contract": {
+                        "requires_image_score": True,
+                        "supports_pixel_outputs": False,
+                        "supports_reject_label": True,
+                        "score_order": "higher_is_more_anomalous",
+                        "confidence_semantics": "predicted_label_confidence",
+                        "confidence_range": [0.0, 1.0],
+                        "decision_values": [
+                            "score_only",
+                            "normal",
+                            "anomalous",
+                            "rejected_low_confidence",
+                        ],
+                        "label_encoding": {
+                            "normal": 0,
+                            "anomalous": 1,
+                            "rejected": -7,
+                        },
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--no-check-files"])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "label_encoding.rejected" in err
 
 
 def test_validate_infer_config_cli_plain_output_shows_artifact_quality(

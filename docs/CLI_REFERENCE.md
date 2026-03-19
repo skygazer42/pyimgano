@@ -39,6 +39,7 @@ pyimgano -- list models --json
 pyimgano --list models --family patchcore
 pyimgano train --help
 pyimgano runs quality /path/to/run_dir --json
+pyimgano runs acceptance /path/to/run_or_suite_export --json
 ```
 
 Notes:
@@ -216,7 +217,7 @@ Suite artifacts (when `--save-run` is enabled):
 
 - `<suite_dir>/report.json` — aggregated suite report (ranking + skipped baselines)
 - `<suite_dir>/config.json`, `<suite_dir>/environment.json`
-- `<suite_dir>/leaderboard_metadata.json` — compact benchmark metadata payload (suite, dataset, config provenance, environment fingerprint)
+- `<suite_dir>/leaderboard_metadata.json` — compact benchmark metadata payload (suite, dataset, config provenance, environment fingerprint, run-artifact audit refs/digests, and exported leaderboard file digests)
   - official benchmark presets also stamp a small `citation` payload for publication workflows
 - `<suite_dir>/leaderboard.csv`, `<suite_dir>/skipped.csv` (when `--suite-export csv|both`)
 - `<suite_dir>/best_by_baseline.csv` (when `--suite-export csv|both`, best variant per baseline by AUROC; most useful with `--suite-sweep`)
@@ -281,6 +282,8 @@ pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same
 pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-target --json
 pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-environment --json
 pyimgano-runs compare runs/run_a runs/run_b --baseline runs/run_a --require-same-robustness-protocol --json
+pyimgano-runs acceptance /path/to/run_dir --require-status audited --json
+pyimgano-runs acceptance /path/to/suite_export --json
 pyimgano-runs publication /path/to/suite_export --json
 ```
 
@@ -338,9 +341,15 @@ Notes:
   if either file is present but invalid, the run does not qualify as `deployable`.
 - `pyimgano-runs quality --require-status reproducible|audited|deployable` returns exit code `1`
   unless the run reaches at least the requested artifact quality level.
+- `pyimgano-runs acceptance` is the aggregated handoff gate: it auto-detects run directories vs suite exports, reuses `quality` for runs, validates the selected `infer_config.json` (preferring `deploy_bundle/` when present), and only blocks on bundle weight metadata when `model_card.json` or `weights_manifest.json` actually exist.
 - `pyimgano-runs publication` inspects `leaderboard_metadata.json` and returns exit code `1`
-  unless the export is publication-ready; declared `model_card_json` / `weights_manifest_json`
-  exports also have to validate cleanly.
+  unless the export is publication-ready; that now requires benchmark provenance
+  (`benchmark_config.source` + `sha256`), `evaluation_contract`, `citation`,
+  `audit_refs.report_json|config_json|environment_json`,
+  matching `audit_digests.report_json|config_json|environment_json`, and any
+  declared exported file digests to match the on-disk files, plus any
+  `model_card_json` / `weights_manifest_json` exports to validate cleanly.
+  Keep it when you want the dedicated suite-only alias.
 - `--require-same-split` returns exit code `1` when the baseline split fingerprint is missing or any non-baseline run does not match it.
 - `--require-same-target` returns exit code `1` when the baseline dataset/category is unavailable for checking or any non-baseline run does not match it.
 - `--require-same-environment` returns exit code `1` when the baseline environment fingerprint is unavailable for checking or any non-baseline run does not match it.
@@ -685,6 +694,7 @@ pyimgano-weights validate ./weights_manifest.json --check-files --check-hashes -
 pyimgano-weights validate-model-card ./model_card.json --json
 pyimgano-weights validate-model-card ./model_card.json --check-files --check-hashes --json
 pyimgano-weights validate-model-card ./model_card.json --manifest ./weights_manifest.json --check-files --check-hashes --json
+pyimgano-weights audit-bundle ./deploy_bundle --check-hashes --json
 pyimgano-weights template manifest
 pyimgano-weights template model-card
 ```
@@ -695,6 +705,7 @@ Notes:
 - Add `--check-files` to verify that `weights.path` exists on disk.
 - Add `--check-hashes` to verify `weights.sha256` when present.
 - Add `--manifest FILE` to cross-check the model card against a weights manifest.
+- `audit-bundle DIR` validates `DIR/model_card.json` and `DIR/weights_manifest.json` together and returns exit code `1` unless the bundle is delivery-ready.
 - Relative `weights.path` values are resolved against the model card parent directory by default.
 - Override the resolution root with `--base-dir DIR`.
 - When possible, set `weights.manifest_entry` in the model card for an explicit manifest link.
@@ -804,6 +815,9 @@ Notes:
 - Saved runs also include `artifacts/robustness_conditions.csv` and `artifacts/robustness_summary.json`.
 - `robustness_conditions.csv` includes per-condition `drop_*` deltas relative to the clean baseline.
 - `robustness_summary.json` includes aggregate clean/corruption accuracy retention plus latency drift ratios for run comparison.
+- `robustness_summary.json` also carries audit refs/digests for `robustness_conditions.csv`, and saved `report.json`
+  carries matching `robustness_trust.audit_refs|audit_digests` entries for both robustness artifacts.
+- `pyimgano-runs list` / `latest` revalidate those saved robustness artifact digests before reporting `robustness_trust`.
 - Saved robustness runs can be inspected with `pyimgano-runs list --kind robustness`.
 
 ---

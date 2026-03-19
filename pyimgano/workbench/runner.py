@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from pyimgano.train_progress import get_active_train_progress_reporter
 from pyimgano.workbench.category_execution import run_workbench_category
 from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.infer_config_payload import build_workbench_infer_config_payload
@@ -18,13 +19,16 @@ def run_workbench(
 ) -> dict[str, Any]:
     validate_workbench_runtime_guardrails(config=config)
 
+    reporter = get_active_train_progress_reporter()
     run_context = initialize_workbench_run_context(config=config, recipe_name=recipe_name)
     run_dir = None if run_context is None else run_context.run_dir
     paths = None if run_context is None else run_context.paths
+    reporter.on_run_context(run_dir=(str(run_dir) if run_dir is not None else None))
 
     category = str(config.dataset.category)
 
     if category.lower() != "all":
+        reporter.on_category_start(category=category, index=1, total=1)
         payload = run_workbench_category(
             config=config,
             recipe_name=recipe_name,

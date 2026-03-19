@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
@@ -15,6 +17,10 @@ _ROBUSTNESS_COMPARABILITY_HINTS = {
     "requires_same_severities": True,
     "recommends_same_environment": True,
 }
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _safe_float(value: Any) -> float | None:
@@ -218,6 +224,8 @@ def build_robustness_trust_summary(
     robustness_summary: Mapping[str, Any] | None = None,
     robustness_protocol: Mapping[str, Any] | None = None,
     audit_refs: Mapping[str, Any] | None = None,
+    audit_digests: Mapping[str, Any] | None = None,
+    audit_root: Path | None = None,
 ) -> dict[str, Any]:
     protocol = (
         dict(robustness_protocol)
@@ -254,6 +262,53 @@ def build_robustness_trust_summary(
         or bool(corruption_latencies)
     )
 
+    refs: dict[str, str] = {}
+    if isinstance(audit_refs, Mapping):
+        for key, value in audit_refs.items():
+            if isinstance(value, str) and value.strip():
+                refs[str(key)] = str(value)
+
+    digests: dict[str, str] = {}
+    if isinstance(audit_digests, Mapping):
+        for key, value in audit_digests.items():
+            if isinstance(value, str) and value.strip():
+                digests[str(key)] = str(value)
+
+    has_audit_refs = bool(refs)
+    has_audit_digests = bool(digests)
+
+    audit_degraded_by: list[str] = []
+    if audit_root is not None and (refs or digests):
+        audit_keys = list(dict.fromkeys([*refs.keys(), *digests.keys()]))
+        has_audit_refs = bool(audit_keys)
+        has_audit_digests = bool(audit_keys)
+        for key in audit_keys:
+            ref = refs.get(key)
+            if ref is None:
+                has_audit_refs = False
+                has_audit_digests = False
+                audit_degraded_by.append(f"missing_audit_ref.{key}")
+                continue
+
+            artifact_path = Path(ref)
+            if not artifact_path.is_absolute():
+                artifact_path = audit_root / artifact_path
+            if not artifact_path.is_file():
+                has_audit_refs = False
+                has_audit_digests = False
+                audit_degraded_by.append(f"missing_audit_artifact.{key}")
+                continue
+
+            digest = digests.get(key)
+            if digest is None:
+                has_audit_digests = False
+                audit_degraded_by.append(f"missing_audit_digest.{key}")
+                continue
+
+            if _file_sha256(artifact_path) != digest:
+                has_audit_digests = False
+                audit_degraded_by.append(f"audit_digest_mismatch.{key}")
+
     trust_signals = {
         "has_clean_baseline": bool(has_clean_baseline),
         "has_corruption_conditions": bool(corruption_count > 0),
@@ -262,6 +317,8 @@ def build_robustness_trust_summary(
         "has_severity_schedule": bool(severity_count > 0),
         "full_corruption_mode": bool(full_corruption_mode),
         "has_comparability_hints": isinstance(protocol.get("comparability_hints"), Mapping),
+        "has_audit_refs": bool(has_audit_refs),
+        "has_audit_digests": bool(has_audit_digests),
     }
 
     status_reasons: list[str] = []
@@ -295,6 +352,7 @@ def build_robustness_trust_summary(
         degraded_by.append("missing_comparability_hints")
     if not trust_signals["full_corruption_mode"]:
         degraded_by.append("clean_only_mode")
+    degraded_by.extend(audit_degraded_by)
 
     if not trust_signals["has_clean_baseline"]:
         status = "broken"
@@ -303,18 +361,13 @@ def build_robustness_trust_summary(
     else:
         status = "trust-signaled"
 
-    refs: dict[str, str] = {}
-    if isinstance(audit_refs, Mapping):
-        for key, value in audit_refs.items():
-            if isinstance(value, str) and value.strip():
-                refs[str(key)] = str(value)
-
     return {
         "status": status,
         "status_reasons": list(dict.fromkeys(str(item) for item in status_reasons)),
         "trust_signals": trust_signals,
         "degraded_by": list(dict.fromkeys(str(item) for item in degraded_by)),
         "audit_refs": refs,
+        "audit_digests": digests,
     }
 
 

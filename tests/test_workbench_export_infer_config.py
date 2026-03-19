@@ -24,12 +24,12 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, x):  # noqa: ANN001
-            self.fit_inputs = list(x)
+        def fit(self, X):  # noqa: ANN001
+            self.fit_inputs = list(X)
             return self
 
-        def decision_function(self, x):  # noqa: ANN001
-            n = len(list(x))
+        def decision_function(self, X):  # noqa: ANN001
+            n = len(list(X))
             if n == 0:
                 return np.asarray([], dtype=np.float32)
             return np.linspace(0.0, 1.0, num=n, dtype=np.float32)
@@ -77,6 +77,10 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
             "save_run": True,
             "per_image_jsonl": False,
         },
+        "prediction": {
+            "reject_confidence_below": 0.75,
+            "reject_label": -9,
+        },
     }
     config_path = tmp_path / "cfg.json"
     config_path.write_text(json.dumps(cfg), encoding="utf-8")
@@ -90,17 +94,73 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
 
     assert payload["model"]["name"] == "test_export_infer_config_dummy_detector"
     assert "threshold" in payload
+    assert len(str(payload["split_fingerprint"]["sha256"])) == 64
     prov = payload["threshold_provenance"]
     assert prov["method"] == "quantile"
-    assert np.isclose(prov["quantile"], 0.9)
+    assert prov["quantile"] == pytest.approx(0.9)
     assert prov["source"] == "contamination"
-    assert np.isclose(prov["contamination"], 0.1)
+    assert prov["contamination"] == pytest.approx(0.1)
+    assert prov["score_summary"]["count"] >= 1
+    artifact_quality = payload["artifact_quality"]
+    assert artifact_quality["status"] == "audited"
+    assert artifact_quality["threshold_scope"] == "image"
+    assert artifact_quality["has_threshold_provenance"] is True
+    assert artifact_quality["has_split_fingerprint"] is True
+    assert artifact_quality["has_prediction_policy"] is True
+    assert artifact_quality["has_operator_contract"] is True
+    assert artifact_quality["has_deploy_bundle"] is False
+    assert artifact_quality["has_bundle_manifest"] is False
+    assert artifact_quality["deploy_refs"] == {}
+    assert artifact_quality["audit_refs"]["calibration_card"] == "artifacts/calibration_card.json"
+    assert artifact_quality["audit_refs"]["operator_contract"] == "artifacts/operator_contract.json"
+
+    operator_contract_path = out_dir / "artifacts" / "operator_contract.json"
+    assert operator_contract_path.exists()
+    operator_contract = json.loads(operator_contract_path.read_text(encoding="utf-8"))
+    assert operator_contract["schema_version"] == 1
+    assert operator_contract["review_policy"]["review_on"] == [
+        "anomalous",
+        "rejected_low_confidence",
+    ]
+    assert operator_contract["review_policy"]["confidence_gate_enabled"] is True
+    assert operator_contract["review_policy"]["reject_confidence_below"] == pytest.approx(0.75)
+    assert operator_contract["review_policy"]["reject_label"] == -9
+    output_contract = operator_contract["output_contract"]
+    assert output_contract["requires_image_score"] is True
+    assert output_contract["supports_pixel_outputs"] is False
+    assert output_contract["supports_reject_label"] is True
+    assert output_contract["score_order"] == "higher_is_more_anomalous"
+    assert output_contract["confidence_semantics"] == "predicted_label_confidence"
+    assert output_contract["confidence_range"] == [0.0, 1.0]
+    assert output_contract["decision_values"] == [
+        "score_only",
+        "normal",
+        "anomalous",
+        "rejected_low_confidence",
+    ]
+    assert output_contract["label_encoding"] == {
+        "normal": 0,
+        "anomalous": 1,
+        "rejected": -9,
+    }
+    assert payload["operator_contract"]["output_contract"] == output_contract
+
+    calibration_card_path = out_dir / "artifacts" / "calibration_card.json"
+    assert calibration_card_path.exists()
+    calibration_card = json.loads(calibration_card_path.read_text(encoding="utf-8"))
+    assert calibration_card["threshold_context"]["scope"] == "image"
+    assert calibration_card["threshold_context"]["category_count"] == 1
+    assert calibration_card["prediction_policy"]["reject_confidence_below"] == pytest.approx(0.75)
+    assert calibration_card["prediction_policy"]["reject_label"] == -9
+    assert calibration_card["image_threshold"]["threshold"] == pytest.approx(payload["threshold"])
+    assert calibration_card["image_threshold"]["provenance"]["source"] == "contamination"
+    assert calibration_card["image_threshold"]["score_distribution"]["count"] == prov["score_summary"]["count"]
 
     defects = payload["defects"]
     assert defects["enabled"] is False
     assert defects["pixel_threshold"] is None
     assert defects["pixel_threshold_strategy"] == "normal_pixel_quantile"
-    assert np.isclose(defects["pixel_normal_quantile"], 0.999)
+    assert defects["pixel_normal_quantile"] == pytest.approx(0.999)
     assert defects["mask_format"] == "png"
     assert defects["roi_xyxy_norm"] is None
     assert defects["min_area"] == 0
@@ -108,6 +168,10 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert defects["close_ksize"] == 0
     assert defects["fill_holes"] is False
     assert defects["max_regions"] is None
+
+    prediction = payload["prediction"]
+    assert prediction["reject_confidence_below"] == pytest.approx(0.75)
+    assert prediction["reject_label"] == -9
 
 
 def test_train_cli_export_infer_config_delegates_to_workbench_service(tmp_path, monkeypatch):
@@ -184,12 +248,12 @@ def test_workbench_runner_does_not_import_cli_module(tmp_path, monkeypatch) -> N
         def __init__(self):
             self.threshold_ = None
 
-        def fit(self, x):  # noqa: ANN001 - test stub
-            self.fit_inputs = list(x)
+        def fit(self, X):  # noqa: ANN001 - test stub
+            self.fit_inputs = list(X)
             return self
 
-        def decision_function(self, x):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
 
     monkeypatch.setattr(
         workbench_service,
@@ -296,6 +360,27 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     bundle_dir = out_dir / "deploy_bundle"
     assert bundle_dir.exists()
     assert (bundle_dir / "infer_config.json").exists()
+    bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
+    bundle_manifest = json.loads((bundle_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
+    assert bundle_payload["artifact_quality"]["audit_refs"]["calibration_card"] == "calibration_card.json"
+    assert bundle_payload["artifact_quality"]["audit_refs"]["operator_contract"] == "operator_contract.json"
+    assert bundle_payload["artifact_quality"]["has_deploy_bundle"] is True
+    assert bundle_payload["artifact_quality"]["has_bundle_manifest"] is True
+    assert (
+        bundle_payload["artifact_quality"]["required_bundle_artifacts_present"]
+        == bundle_manifest["required_bundle_artifacts_present"]
+    )
+    assert (
+        bundle_payload["artifact_quality"]["bundle_artifact_roles"]
+        == bundle_manifest["artifact_roles"]
+    )
+    assert bundle_payload["artifact_quality"]["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
+    assert bundle_manifest["source_run"]["artifact_refs"]["operator_contract"] == (
+        "artifacts/operator_contract.json"
+    )
+    assert bundle_manifest["bundle_artifact_refs"]["operator_contract"] == "operator_contract.json"
+    assert bundle_manifest["artifact_roles"]["operator_contract"] == ["operator_contract.json"]
+    assert (bundle_dir / "operator_contract.json").exists()
 
     copied_ckpt = bundle_dir / "checkpoints" / "custom" / "model.pt"
     assert copied_ckpt.exists()
@@ -492,6 +577,66 @@ def test_train_cli_export_deploy_bundle_stamps_infer_config_schema_version(tmp_p
     assert payload["schema_version"] == 1
 
 
+def test_train_cli_export_deploy_bundle_writes_bundle_manifest(tmp_path):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        ckpt = run_dir / "checkpoints" / "custom" / "model.pt"
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_text("ckpt", encoding="utf-8")
+        return {
+            "run_dir": str(run_dir),
+            "dataset": str(cfg.dataset.name),
+            "category": str(cfg.dataset.category),
+            "model": str(cfg.model.name),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed", "source": "test"},
+            "checkpoint": {"path": "checkpoints/custom/model.pt"},
+        }
+
+    RECIPE_REGISTRY.register(
+        "test_export_deploy_bundle_manifest_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_export_deploy_bundle_manifest_recipe",
+        "dataset": {"name": "custom", "root": str(root), "category": "custom", "resize": [16, 16]},
+        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "output": {"output_dir": str(out_dir), "save_run": True, "per_image_jsonl": False},
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+
+    bundle_manifest = json.loads(
+        (out_dir / "deploy_bundle" / "bundle_manifest.json").read_text(encoding="utf-8")
+    )
+    assert bundle_manifest["schema_version"] == 1
+    assert bundle_manifest["source_run"]["run_dir"] == str(out_dir)
+    assert bundle_manifest["required_source_artifacts_present"] is False
+    assert bundle_manifest["required_bundle_artifacts_present"] is False
+    assert bundle_manifest["artifact_roles"]["infer_config"] == ["infer_config.json"]
+    assert bundle_manifest["artifact_roles"]["operator_contract"] == ["operator_contract.json"]
+    assert bundle_manifest["source_run"]["artifact_refs"]["operator_contract"] == (
+        "artifacts/operator_contract.json"
+    )
+    assert bundle_manifest["bundle_artifact_refs"]["operator_contract"] == "operator_contract.json"
+    paths = {entry["path"] for entry in bundle_manifest["entries"]}
+    assert "infer_config.json" in paths
+    assert "operator_contract.json" in paths
+
+
 def test_validate_cli_accepts_legacy_deploy_bundle_without_schema_version(tmp_path, capsys):
     from pyimgano.validate_infer_config_cli import main
 
@@ -570,8 +715,8 @@ def test_infer_cli_accepts_legacy_deploy_bundle_with_preprocessing_and_defects(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, x):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -599,7 +744,7 @@ def test_infer_cli_accepts_legacy_deploy_bundle_with_preprocessing_and_defects(
     assert det.loaded == str(ckpt_path)
 
     record = json.loads(out_jsonl.read_text(encoding="utf-8").strip())
-    assert np.isclose(record["defects"]["pixel_threshold"], 0.5)
+    assert record["defects"]["pixel_threshold"] == pytest.approx(0.5)
 
 
 def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_enabled(
@@ -650,4 +795,3 @@ def test_train_cli_export_deploy_bundle_requires_pixel_threshold_when_defects_en
     assert code == 2
     err = capsys.readouterr().err.lower()
     assert "pixel_threshold" in err
-

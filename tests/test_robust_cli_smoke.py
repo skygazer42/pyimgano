@@ -259,6 +259,8 @@ def test_robust_cli_smoke(tmp_path, capsys) -> None:
     assert trust["trust_signals"]["has_clean_baseline"] is True
     assert trust["trust_signals"]["has_corruption_conditions"] is True
     assert trust["trust_signals"]["has_summary_metrics"] is True
+    assert trust["trust_signals"]["has_audit_refs"] is False
+    assert trust["trust_signals"]["has_audit_digests"] is False
 
     report = payload["robustness"]
     assert "clean" in report

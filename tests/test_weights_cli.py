@@ -311,3 +311,95 @@ def test_weights_cli_validate_model_card_json_includes_check_strength(
     trust = out["trust_summary"]
     assert trust["trust_signals"]["file_refs_checked"] is True
     assert trust["trust_signals"]["hashes_checked"] is True
+
+
+def test_weights_cli_audit_bundle_json_success(tmp_path, capsys):
+    from pyimgano.weights_cli import main
+
+    ckpt = tmp_path / "deploy_bundle" / "model.pt"
+    ckpt.parent.mkdir(parents=True, exist_ok=True)
+    data = b"bundle-weights"
+    ckpt.write_bytes(data)
+
+    import hashlib
+
+    sha = hashlib.sha256(data).hexdigest()
+
+    model_card = {
+        "schema_version": 1,
+        "model_name": "bundle_model",
+        "summary": {
+            "purpose": "bundle validation",
+            "intended_inputs": "RGB",
+            "output_contract": "image-level",
+        },
+        "weights": {
+            "path": "model.pt",
+            "manifest_entry": "bundle_model",
+            "sha256": sha,
+            "source": "unit-test",
+            "license": "internal",
+        },
+        "deployment": {"runtime": "torch"},
+    }
+    manifest = {
+        "schema_version": 1,
+        "entries": [
+            {
+                "name": "bundle_model",
+                "path": "model.pt",
+                "sha256": sha,
+                "source": "unit-test",
+                "license": "internal",
+                "runtime": "torch",
+            }
+        ],
+    }
+    (tmp_path / "deploy_bundle" / "model_card.json").write_text(
+        json.dumps(model_card),
+        encoding="utf-8",
+    )
+    (tmp_path / "deploy_bundle" / "weights_manifest.json").write_text(
+        json.dumps(manifest),
+        encoding="utf-8",
+    )
+
+    rc = main(
+        [
+            "audit-bundle",
+            str(tmp_path / "deploy_bundle"),
+            "--check-hashes",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "ready"
+    assert out["ready"] is True
+    assert out["missing_required"] == []
+    assert out["model_card"]["valid"] is True
+    assert out["weights_manifest"]["valid"] is True
+    assert out["cross_checked"] is True
+    trust = out["trust_summary"]
+    assert trust["status"] == "trust-signaled"
+    assert trust["trust_signals"]["has_model_card"] is True
+    assert trust["trust_signals"]["has_weights_manifest"] is True
+    assert trust["trust_signals"]["has_cross_checked_manifest"] is True
+
+
+def test_weights_cli_audit_bundle_requires_model_card_and_manifest(tmp_path, capsys):
+    from pyimgano.weights_cli import main
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+
+    rc = main(["audit-bundle", str(bundle_dir), "--json"])
+
+    assert rc == 1
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "partial"
+    assert out["ready"] is False
+    assert "model_card.json" in out["missing_required"]
+    assert "weights_manifest.json" in out["missing_required"]
+    assert out["trust_summary"]["status"] == "partial"

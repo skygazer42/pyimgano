@@ -250,6 +250,10 @@ class CoreLSCP:
     def _get_competent_detectors(self, corr_scores: NDArray[np.float64]) -> NDArray[np.int64]:
         scores = np.asarray(corr_scores, dtype=np.float64).reshape(-1)
         n_clf = int(scores.shape[0])
+        if scores.size == 0:
+            return np.asarray([0], dtype=np.int64)
+        if np.allclose(scores, scores[0], rtol=1e-12, atol=1e-12):
+            return np.asarray([int(np.argmax(scores))], dtype=np.int64)
 
         n_bins = int(self.n_bins)
         if n_bins < 1:
@@ -257,7 +261,10 @@ class CoreLSCP:
         if n_bins > n_clf:
             n_bins = n_clf
 
-        hist, edges = np.histogram(scores, bins=n_bins)
+        try:
+            hist, edges = np.histogram(scores, bins=n_bins)
+        except ValueError:
+            return np.asarray([int(np.argmax(scores))], dtype=np.int64)
         if hist.size == 0:
             return np.asarray([int(np.argmax(scores))], dtype=np.int64)
 

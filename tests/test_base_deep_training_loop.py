@@ -143,6 +143,108 @@ def test_base_deep_detector_respects_max_steps_budget() -> None:
     assert det.training_stop_reason_ == "max_steps"
 
 
+def test_base_deep_detector_emits_live_epoch_timing_metrics(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.base_deep as base_deep_module
+    from pyimgano.models.base_deep import BaseDeepLearningDetector
+    from pyimgano.train_progress import TrainProgressReporter, use_train_progress_reporter
+
+    class _Recorder(TrainProgressReporter):
+        def __init__(self) -> None:
+            self.events: list[dict[str, float | int | bool | None]] = []
+
+        def on_training_epoch(self, *, epoch, total_epochs, metrics, live=False):  # noqa: ANN001
+            self.events.append(
+                {
+                    "epoch": int(epoch),
+                    "total_epochs": None if total_epochs is None else int(total_epochs),
+                    "loss": float(metrics["loss"]),
+                    "lr": float(metrics["lr"]),
+                    "epoch_s": float(metrics["epoch_s"]),
+                    "elapsed_s": float(metrics["elapsed_s"]),
+                    "eta_s": float(metrics["eta_s"]),
+                    "train_items": int(metrics["train_items"]),
+                    "items_per_s": float(metrics["items_per_s"]),
+                    "live": bool(live),
+                }
+            )
+
+    class DummyDeep(BaseDeepLearningDetector):
+        def build_model(self):
+            self.model = torch.nn.Linear(self.feature_size, self.feature_size)
+            return self.model
+
+        def training_forward(self, batch_data):
+            x, _y = batch_data
+            x = x.to(self.device)
+            self.optimizer.zero_grad(set_to_none=True)
+            out = self.model(x)
+            loss = self.criterion(out, x)
+            loss.backward()
+            self.optimizer.step()
+            return float(loss.item())
+
+        def evaluating_forward(self, batch_data):
+            x, _y = batch_data
+            x = x.to(self.device)
+            out = self.model(x)
+            err = torch.mean((out - x) ** 2, dim=1)
+            return err.detach().cpu().numpy()
+
+    perf_counter_values = iter([10.0, 13.0, 13.5, 15.5])
+    monkeypatch.setattr(
+        base_deep_module.time,
+        "perf_counter",
+        lambda: next(perf_counter_values),
+    )
+
+    rng = np.random.default_rng(0)
+    x_train = rng.standard_normal(size=(8, 4)).astype(np.float32)
+    det = DummyDeep(
+        contamination=0.1,
+        preprocessing=False,
+        lr=1e-2,
+        epoch_num=2,
+        batch_size=2,
+        optimizer_name="adam",
+        criterion_name="mse",
+        device="cpu",
+        verbose=0,
+    )
+    recorder = _Recorder()
+
+    with use_train_progress_reporter(recorder):
+        det.fit(x_train)
+
+    assert recorder.events == [
+        {
+            "epoch": 1,
+            "total_epochs": 2,
+            "loss": pytest.approx(recorder.events[0]["loss"]),
+            "lr": pytest.approx(det.training_lr_history_[0]),
+            "epoch_s": pytest.approx(3.0),
+            "elapsed_s": pytest.approx(3.0),
+            "eta_s": pytest.approx(3.0),
+            "train_items": 8,
+            "items_per_s": pytest.approx(8.0 / 3.0),
+            "live": True,
+        },
+        {
+            "epoch": 2,
+            "total_epochs": 2,
+            "loss": pytest.approx(recorder.events[1]["loss"]),
+            "lr": pytest.approx(det.training_lr_history_[1]),
+            "epoch_s": pytest.approx(2.0),
+            "elapsed_s": pytest.approx(5.0),
+            "eta_s": pytest.approx(0.0),
+            "train_items": 8,
+            "items_per_s": pytest.approx(4.0),
+            "live": True,
+        },
+    ]
+
+
 def test_base_deep_detector_uses_weight_decay_num_workers_and_optimizer_name(
     monkeypatch,
 ) -> None:

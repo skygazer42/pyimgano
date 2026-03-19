@@ -90,6 +90,11 @@ Notes:
   - `artifacts/robustness_summary.json`
   - `robustness_conditions.csv` includes per-condition `drop_*` columns relative to the clean baseline,
     so publication tables and regression gates do not need to recompute clean deltas offline.
+  - `robustness_summary.json` carries a `trust_summary` plus audit refs/digests for
+    `robustness_conditions.csv`, while the saved `report.json` payload carries matching
+    `robustness_trust.audit_refs|audit_digests` entries for both robustness artifacts.
+  - `pyimgano-runs list` / `latest` revalidate those saved artifact digests on read, so a later
+    edit to either robustness artifact degrades the reported `robustness_trust` status.
 
 You can then inspect saved robustness runs with:
 
@@ -164,7 +169,8 @@ The CLI prints a JSON object (or saves via `--output`) with a structure like:
 When `--save-run` is enabled, `artifacts/robustness_conditions.csv` flattens the clean and
 corrupted conditions into a publication-friendly table and includes explicit `drop_*` columns
 relative to the clean baseline, while `artifacts/robustness_summary.json` stores the compact
-aggregate summary.
+aggregate summary. That summary also records audit refs/digests for the exported conditions CSV,
+so downstream tooling can verify the flattened robustness table without recomputing hashes ad hoc.
 
 The summary is designed to support direct gating in `pyimgano-runs compare`, including:
 - accuracy retention (`mean_corruption_*`, `worst_corruption_*`)

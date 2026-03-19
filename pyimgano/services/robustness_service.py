@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import hashlib
+from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
@@ -8,6 +10,15 @@ from numpy.typing import NDArray
 
 import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.models.registry import create_model
+from pyimgano.reporting.environment import collect_environment
+from pyimgano.reporting.robustness_export import export_robustness_tables
+from pyimgano.reporting.robustness_summary import (
+    build_robustness_trust_summary as _build_robustness_trust_summary,
+    summarize_robustness_protocol as _summarize_robustness_protocol,
+    summarize_robustness_report as _summarize_robustness_report,
+)
+from pyimgano.reporting.report import save_run_report, stamp_report_payload
+from pyimgano.reporting.runs import build_run_dir_name, ensure_run_dir
 from pyimgano.robustness.corruptions import (
     apply_blur,
     apply_geo_jitter,
@@ -47,6 +58,8 @@ class RobustnessRunRequest:
     seed: int = 0
     limit_train: int | None = None
     limit_test: int | None = None
+    save_run: bool = False
+    output_dir: str | None = None
 
 
 @dataclass(frozen=True)
@@ -146,6 +159,10 @@ def _resolve_corruptions(names: str) -> list[_NamedCorruption]:
     if not out:
         raise ValueError("--corruptions resolved to an empty list.")
     return out
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
@@ -265,12 +282,61 @@ def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
     if notes:
         report["notes"] = list(notes)
 
-    return {
-        "dataset": str(request.dataset),
-        "category": str(request.category),
-        "model": str(request.model),
-        "robustness": report,
-    }
+    robustness_summary = _summarize_robustness_report(report)
+    robustness_protocol = _summarize_robustness_protocol(report)
+    robustness_trust = _build_robustness_trust_summary(
+        report=report,
+        robustness_summary=robustness_summary,
+        robustness_protocol=robustness_protocol,
+    )
+    payload = stamp_report_payload(
+        {
+            "dataset": str(request.dataset),
+            "category": str(request.category),
+            "model": str(request.model),
+            "input_mode": input_mode,
+            "device": str(request.device),
+            "preset": (str(request.preset) if request.preset is not None else None),
+            "resize": [int(resize_hw[0]), int(resize_hw[1])],
+            "robustness_summary": robustness_summary,
+            "robustness_protocol": robustness_protocol,
+            "robustness_trust": robustness_trust,
+            "robustness": report,
+        }
+    )
+
+    save_requested = bool(request.save_run) or request.output_dir is not None
+    if save_requested:
+        run_dir = ensure_run_dir(
+            output_dir=(str(request.output_dir) if request.output_dir is not None else None),
+            name=build_run_dir_name(
+                dataset=str(request.dataset),
+                model=f"robust_{str(request.model)}",
+                category=str(request.category),
+            ),
+        )
+        export_robustness_tables(payload, run_dir / "artifacts")
+        conditions_csv = run_dir / "artifacts" / "robustness_conditions.csv"
+        summary_json = run_dir / "artifacts" / "robustness_summary.json"
+        payload["robustness_trust"] = _build_robustness_trust_summary(
+            report=report,
+            robustness_summary=robustness_summary,
+            robustness_protocol=robustness_protocol,
+            audit_refs={
+                "robustness_conditions_csv": "artifacts/robustness_conditions.csv",
+                "robustness_summary_json": "artifacts/robustness_summary.json",
+            },
+            audit_digests={
+                "robustness_conditions_csv": _file_sha256(conditions_csv),
+                "robustness_summary_json": _file_sha256(summary_json),
+            },
+        )
+        save_run_report(run_dir / "report.json", payload)
+        save_run_report(run_dir / "config.json", {"config": asdict(request)})
+        save_run_report(run_dir / "environment.json", collect_environment())
+        payload["run_dir"] = str(Path(run_dir))
+
+    return payload
 
 
 __all__ = ["RobustnessRunRequest", "run_robustness_request"]

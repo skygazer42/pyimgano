@@ -54,6 +54,22 @@ def _help_text() -> str:
         commands:
         {command_lines}
 
+        industrial fast-path:
+          pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
+          pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
+          pyimgano runs quality runs/<run_dir> --require-status audited --json
+          pyimgano runs acceptance runs/<run_dir> --require-status audited --json
+
+        benchmark publication:
+          pyimgano benchmark --list-official-configs
+          pyimgano benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json
+          pyimgano runs acceptance /path/to/suite_export --json
+          pyimgano runs publication /path/to/suite_export --json
+
+        artifact acceptance:
+          pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+          pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
+
         examples:
           pyimgano --list
           pyimgano list models

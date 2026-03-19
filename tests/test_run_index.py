@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 
@@ -588,6 +589,76 @@ def test_list_run_summaries_classifies_robustness_and_extracts_metrics(tmp_path)
         items[0]["evaluation_contract"]["comparability_hints"]["requires_same_corruption_protocol"]
         is True
     )
+
+
+def test_list_run_summaries_revalidates_saved_robustness_artifact_digests(tmp_path):
+    from pyimgano.reporting.run_index import list_run_summaries
+
+    run_dir = tmp_path / "robust_run"
+    artifacts_dir = run_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True)
+    conditions_csv = artifacts_dir / "robustness_conditions.csv"
+    summary_json = artifacts_dir / "robustness_summary.json"
+    conditions_csv.write_text("condition,severity,auroc\nclean,,0.95\n", encoding="utf-8")
+    summary_json.write_text(
+        json.dumps({"trust_summary": {"status": "trust-signaled"}}),
+        encoding="utf-8",
+    )
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "dataset": "mvtec",
+                "category": "bottle",
+                "model": "vision_patchcore",
+                "robustness_summary": {
+                    "clean_auroc": 0.95,
+                    "worst_corruption_auroc": 0.85,
+                },
+                "robustness": {
+                    "corruption_mode": "full",
+                    "clean": {"results": {"auroc": 0.95}, "latency_ms_per_image": 1.0},
+                    "corruptions": {
+                        "lighting": {
+                            "severity_1": {
+                                "results": {"auroc": 0.85},
+                                "latency_ms_per_image": 1.2,
+                            }
+                        }
+                    },
+                },
+                "robustness_trust": {
+                    "status": "trust-signaled",
+                    "audit_refs": {
+                        "robustness_conditions_csv": "artifacts/robustness_conditions.csv",
+                        "robustness_summary_json": "artifacts/robustness_summary.json",
+                    },
+                    "audit_digests": {
+                        "robustness_conditions_csv": hashlib.sha256(
+                            conditions_csv.read_bytes()
+                        ).hexdigest(),
+                        "robustness_summary_json": hashlib.sha256(
+                            summary_json.read_bytes()
+                        ).hexdigest(),
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    conditions_csv.write_text("condition,severity,auroc\nclean,,0.90\n", encoding="utf-8")
+
+    items = list_run_summaries(tmp_path)
+
+    trust = items[0]["robustness_trust"]
+    assert trust["status"] == "partial"
+    assert trust["trust_signals"]["has_audit_refs"] is True
+    assert trust["trust_signals"]["has_audit_digests"] is False
+    assert "audit_digest_mismatch.robustness_conditions_csv" in trust["degraded_by"]
 
 
 def test_compare_run_summaries_uses_robustness_contract_when_baseline_is_robustness(tmp_path):
