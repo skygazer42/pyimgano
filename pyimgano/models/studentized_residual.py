@@ -31,6 +31,10 @@ def _mad_scale(x: np.ndarray, *, eps: float) -> tuple[float, float]:
     return med, mad
 
 
+def _is_degenerate_subspace(x: np.ndarray, *, eps: float) -> bool:
+    return not bool(np.any(np.abs(np.asarray(x, dtype=np.float64)) > float(eps)))
+
+
 @register_model(
     "core_studentized_residual",
     tags=("classical", "core", "features", "pca", "residual"),
@@ -64,8 +68,10 @@ class CoreStudentizedResidual(BaseDetector):
         sd = np.where(sd > float(self.eps), sd, 1.0)
         z = (x_arr - mu) / sd
 
-        pca = PCA(n_components=self.n_components, random_state=self.random_state)
-        pca.fit(z)
+        pca = None
+        if not _is_degenerate_subspace(z, eps=float(self.eps)):
+            pca = PCA(n_components=self.n_components, random_state=self.random_state)
+            pca.fit(z)
 
         resid = self._residual(z, pca)
         med, mad = _mad_scale(resid, eps=float(self.eps))
@@ -81,9 +87,12 @@ class CoreStudentizedResidual(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def _residual(self, z: np.ndarray, pca: PCA) -> np.ndarray:
-        transformed = pca.transform(z)
-        z_hat = pca.inverse_transform(transformed)
+    def _residual(self, z: np.ndarray, pca: PCA | None) -> np.ndarray:
+        if pca is None:
+            z_hat = np.zeros_like(z, dtype=np.float64)
+        else:
+            transformed = pca.transform(z)
+            z_hat = pca.inverse_transform(transformed)
         resid = np.linalg.norm(z - z_hat, axis=1)
         return np.asarray(resid, dtype=np.float64).reshape(-1)
 

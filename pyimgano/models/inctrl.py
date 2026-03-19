@@ -367,7 +367,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
                 loss.backward()
                 optimizer.step()
 
-                total_loss += loss.item()
+                total_loss += loss.detach().item()
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = total_loss / len(dataloader)

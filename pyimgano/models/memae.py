@@ -267,7 +267,7 @@ class MemAE(BaseVisionDeepDetector):
                 loss.backward()
                 optimizer.step()
 
-                epoch_loss += loss.item()
+                epoch_loss += loss.detach().item()
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / len(dataloader)

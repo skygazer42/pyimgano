@@ -76,8 +76,8 @@ class _RPkNNBackend:
         projection = np.asarray(self.proj_, dtype=np.float64)  # type: ignore[arg-type]
         return np.asarray(x @ projection, dtype=np.float64)
 
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like
-        del y
+    def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like
+        del _y
         x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         d = int(x_arr.shape[1])
         self.proj_ = self._make_proj(d)

@@ -149,7 +149,9 @@ def test_workbench_training_runtime_runs_micro_finetune_and_checkpoint(
             "warmup_start_factor": 0.25,
         },
     }
-    assert str(calls["save_checkpoint"]["path"]).endswith("checkpoints/custom/model.pt")
+    assert Path(calls["save_checkpoint"]["path"]).as_posix().endswith(
+        "checkpoints/custom/model.pt"
+    )
     assert result.training_report == {
         "fit_kwargs_used": {
             "epochs": 2,

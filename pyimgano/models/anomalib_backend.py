@@ -149,8 +149,8 @@ class VisionAnomalibCheckpoint:
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
-    def fit(self, x: object = MISSING, y=None, **kwargs: object):
-        del y
+    def fit(self, x: object = MISSING, _y=None, **kwargs: object):
+        del _y
         paths = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not paths:
             raise ValueError("X must contain at least one training image path.")

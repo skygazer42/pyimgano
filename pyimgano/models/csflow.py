@@ -339,7 +339,7 @@ class CSFlowDetector(BaseVisionDeepDetector):
                 total_loss.backward()
                 optimizer.step()
 
-                epoch_loss += total_loss.item()
+                epoch_loss += total_loss.detach().item()
                 num_batches += 1
 
             if (epoch + 1) % 10 == 0:

@@ -118,6 +118,41 @@ def _split_fingerprint_sha256(split_fingerprint: Any) -> str | None:
     return _nonempty_str(split_fingerprint.get("sha256"))
 
 
+def _load_run_report(run_dir: Any) -> Mapping[str, Any] | None:
+    path_text = _nonempty_str(run_dir)
+    if path_text is None:
+        return None
+
+    report_path = Path(path_text) / "report.json"
+    if not report_path.is_file():
+        return None
+
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    return payload if isinstance(payload, Mapping) else None
+
+
+def _resolve_split_fingerprint(
+    *, payload: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]
+) -> Mapping[str, Any] | None:
+    split_fingerprint = payload.get("split_fingerprint")
+    if isinstance(split_fingerprint, Mapping):
+        return dict(split_fingerprint)
+
+    for row in rows:
+        report = _load_run_report(row.get("run_dir"))
+        if report is None:
+            continue
+        candidate = report.get("split_fingerprint")
+        if isinstance(candidate, Mapping):
+            return dict(candidate)
+
+    return None
+
+
 def _append_missing_required(missing_required: list[str], item: str) -> None:
     if item not in missing_required:
         missing_required.append(item)
@@ -391,6 +426,7 @@ def export_suite_tables(
         written["skipped_md"] = str(skipped_md)
 
     benchmark_config = payload.get("benchmark_config")
+    split_fingerprint = _resolve_split_fingerprint(payload=payload, rows=rows_norm)
     citation = None
     if isinstance(benchmark_config, Mapping) and bool(benchmark_config.get("official")):
         citation = {
@@ -426,7 +462,7 @@ def export_suite_tables(
         written=written,
         benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
         environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
-        split_fingerprint=payload.get("split_fingerprint"),
+        split_fingerprint=split_fingerprint,
         evaluation_contract=evaluation_contract,
         citation=(citation if isinstance(citation, Mapping) else None),
         audit_refs=audit_refs,
@@ -442,7 +478,7 @@ def export_suite_tables(
         "benchmark_config": benchmark_config,
         "evaluation_contract": evaluation_contract,
         "environment_fingerprint_sha256": payload.get("environment_fingerprint_sha256"),
-        "split_fingerprint": payload.get("split_fingerprint"),
+        "split_fingerprint": split_fingerprint,
         "citation": citation,
         "audit_refs": audit_refs,
         "audit_digests": audit_digests,
@@ -459,7 +495,7 @@ def export_suite_tables(
         written=written,
         benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
         environment_fingerprint_sha256=payload.get("environment_fingerprint_sha256"),
-        split_fingerprint=payload.get("split_fingerprint"),
+        split_fingerprint=split_fingerprint,
         evaluation_contract=evaluation_contract,
         citation=(citation if isinstance(citation, Mapping) else None),
         audit_refs=audit_refs,

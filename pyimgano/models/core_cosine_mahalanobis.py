@@ -41,8 +41,8 @@ class _CosineMahalanobisBackend:
         norms = np.maximum(norms, float(self.eps))
         return np.asarray(x / norms, dtype=np.float64)
 
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        del y
+    def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del _y
         x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         if int(x_arr.shape[0]) == 0:
             raise ValueError("Training set cannot be empty")

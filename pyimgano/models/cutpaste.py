@@ -385,7 +385,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
                 optimizer.step()
 
                 # Statistics
-                epoch_loss += loss.item()
+                epoch_loss += loss.detach().item()
                 _, predicted = logits.max(1)
                 total += labels.size(0)
                 correct += predicted.eq(labels).sum().item()

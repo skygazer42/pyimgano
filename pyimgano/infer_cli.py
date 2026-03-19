@@ -362,6 +362,35 @@ def _resolve_preprocessing_preset_knobs(args: argparse.Namespace):
     )
 
 
+def _resolve_prediction_cli_options(
+    args: argparse.Namespace,
+    *,
+    prediction_payload: dict[str, Any] | None,
+) -> tuple[bool, float | None, int | None]:
+    default_reject_confidence_below = None
+    default_reject_label = None
+    if isinstance(prediction_payload, dict):
+        if prediction_payload.get("reject_confidence_below", None) is not None:
+            default_reject_confidence_below = float(
+                prediction_payload["reject_confidence_below"]
+            )
+        if prediction_payload.get("reject_label", None) is not None:
+            default_reject_label = int(prediction_payload["reject_label"])
+
+    reject_confidence_below = (
+        float(args.reject_confidence_below)
+        if args.reject_confidence_below is not None
+        else default_reject_confidence_below
+    )
+    reject_label = (
+        int(args.reject_label) if args.reject_label is not None else default_reject_label
+    )
+    include_confidence = bool(getattr(args, "include_confidence", False)) or (
+        reject_confidence_below is not None
+    )
+    return bool(include_confidence), reject_confidence_below, reject_label
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-infer")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -569,6 +598,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "--include-maps",
         action="store_true",
         help="Request anomaly maps if detector supports them",
+    )
+    parser.add_argument(
+        "--include-confidence",
+        action="store_true",
+        help="Include label confidence when the detector exposes confidence helpers",
+    )
+    parser.add_argument(
+        "--reject-confidence-below",
+        type=float,
+        default=None,
+        help="Rewrite low-confidence predictions to a reject label",
+    )
+    parser.add_argument(
+        "--reject-label",
+        type=int,
+        default=None,
+        help="Label value used for rejected samples (default: -2)",
     )
     parser.add_argument(
         "--tile-size",
@@ -1015,6 +1061,8 @@ def main(argv: list[str] | None = None) -> int:
         infer_config_mode = args.infer_config is not None
         threshold_from_run = None
         infer_config_postprocess = None
+        prediction_payload: dict[str, Any] | None = None
+        context_postprocess_summary: dict[str, Any] | None = None
         defects_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
         include_maps_by_default = False
@@ -1051,9 +1099,15 @@ def main(argv: list[str] | None = None) -> int:
             threshold_from_run = context.threshold
             model_name = str(context.model_name)
             defects_payload = context.defects_payload
+            prediction_payload = context.prediction_payload
             defects_payload_source = context.defects_payload_source
             illumination_contrast_knobs = context.illumination_contrast_knobs
             tiling_payload = context.tiling_payload
+            context_postprocess_summary = (
+                dict(context.postprocess_summary)
+                if context.postprocess_summary is not None
+                else None
+            )
 
             user_kwargs = merge_checkpoint_path(
                 dict(context.base_user_kwargs),
@@ -1108,11 +1162,17 @@ def main(argv: list[str] | None = None) -> int:
             model_name = str(context.model_name)
             threshold_from_run = context.threshold
             defects_payload = context.defects_payload
+            prediction_payload = context.prediction_payload
             defects_payload_source = context.defects_payload_source
             illumination_contrast_knobs = context.illumination_contrast_knobs
             tiling_payload = context.tiling_payload
             infer_config_postprocess = context.infer_config_postprocess
             include_maps_by_default = bool(context.enable_maps_by_default)
+            context_postprocess_summary = (
+                dict(context.postprocess_summary)
+                if context.postprocess_summary is not None
+                else None
+            )
 
             user_kwargs = merge_checkpoint_path(
                 dict(context.base_user_kwargs),
@@ -1255,6 +1315,10 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         batch_size = int(args.batch_size) if int(args.batch_size) > 0 else None
+        include_confidence, reject_confidence_below, reject_label = _resolve_prediction_cli_options(
+            args,
+            prediction_payload=prediction_payload,
+        )
 
         runtime_plan = infer_runtime_service.prepare_infer_runtime_plan(
             infer_runtime_service.InferRuntimePlanRequest(
@@ -1263,6 +1327,7 @@ def main(argv: list[str] | None = None) -> int:
                 include_maps_by_default=bool(include_maps_by_default),
                 postprocess_requested=bool(args.postprocess),
                 infer_config_postprocess=infer_config_postprocess,
+                postprocess_summary=context_postprocess_summary,
                 defects_enabled=bool(args.defects),
                 defects_payload=defects_payload,
                 defects_payload_source=defects_payload_source,
@@ -1286,6 +1351,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         include_maps = bool(runtime_plan.include_maps)
         postprocess = runtime_plan.postprocess
+        postprocess_summary = runtime_plan.postprocess_summary
         pixel_threshold_value = runtime_plan.pixel_threshold_value
         pixel_threshold_provenance = runtime_plan.pixel_threshold_provenance
 
@@ -1302,7 +1368,11 @@ def main(argv: list[str] | None = None) -> int:
                 detector=detector,
                 inputs=inputs,
                 include_maps=bool(include_maps),
+                include_confidence=bool(include_confidence),
+                reject_confidence_below=reject_confidence_below,
+                reject_label=reject_label,
                 postprocess=postprocess,
+                postprocess_summary=postprocess_summary,
                 batch_size=batch_size,
                 amp=bool(args.amp),
                 timing=infer_timing,
@@ -1423,7 +1493,11 @@ def main(argv: list[str] | None = None) -> int:
                         detector=detector,
                         inputs=list(inputs),
                         include_maps=bool(include_maps),
+                        include_confidence=bool(include_confidence),
+                        reject_confidence_below=reject_confidence_below,
+                        reject_label=reject_label,
                         postprocess=postprocess,
+                        postprocess_summary=postprocess_summary,
                         batch_size=batch_size,
                         amp=bool(args.amp),
                         max_errors=int(max_errors),

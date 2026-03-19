@@ -9,7 +9,11 @@ class ContinueOnErrorInferRequest:
     detector: Any
     inputs: Sequence[str]
     include_maps: bool = False
+    include_confidence: bool = False
+    reject_confidence_below: float | None = None
+    reject_label: int | None = None
     postprocess: Any | None = None
+    postprocess_summary: dict[str, Any] | None = None
     batch_size: int | None = None
     amp: bool = False
     max_errors: int = 0
@@ -68,7 +72,11 @@ def _run_single_input_fallback(
     chunk: list[str],
     detector: Any,
     include_maps: bool,
+    include_confidence: bool,
+    reject_confidence_below: float | None,
+    reject_label: int | None,
     postprocess: Any | None,
+    postprocess_summary: dict[str, Any] | None,
     amp: bool,
     max_errors: int,
     run_inference_fn: Callable[..., Any],
@@ -87,7 +95,11 @@ def _run_single_input_fallback(
                 detector=detector,
                 inputs=[input_path],
                 include_maps=bool(include_maps),
+                include_confidence=bool(include_confidence),
+                reject_confidence_below=reject_confidence_below,
+                reject_label=reject_label,
                 postprocess=postprocess,
+                postprocess_summary=postprocess_summary,
                 batch_size=None,
                 amp=bool(amp),
             )
@@ -142,7 +154,11 @@ def run_continue_on_error_inference(
                 detector=request.detector,
                 inputs=chunk,
                 include_maps=bool(request.include_maps),
+                include_confidence=bool(request.include_confidence),
+                reject_confidence_below=request.reject_confidence_below,
+                reject_label=request.reject_label,
                 postprocess=request.postprocess,
+                postprocess_summary=request.postprocess_summary,
                 batch_size=None,
                 amp=bool(request.amp),
             )
@@ -170,7 +186,11 @@ def run_continue_on_error_inference(
                 chunk=chunk,
                 detector=request.detector,
                 include_maps=bool(request.include_maps),
+                include_confidence=bool(request.include_confidence),
+                reject_confidence_below=request.reject_confidence_below,
+                reject_label=request.reject_label,
                 postprocess=request.postprocess,
+                postprocess_summary=request.postprocess_summary,
                 amp=bool(request.amp),
                 max_errors=int(request.max_errors),
                 run_inference_fn=run_inference_fn,

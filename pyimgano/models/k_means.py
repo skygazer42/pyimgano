@@ -55,8 +55,8 @@ class CoreKMeans:
         self.kmeans_: KMeans | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201
-        del y
+    def fit(self, x, _y=None):  # noqa: ANN001, ANN201
+        del _y
         x = check_array(x, ensure_2d=True, dtype=np.float64)
         n = int(x.shape[0])
         if n == 0:

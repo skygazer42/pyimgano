@@ -158,8 +158,8 @@ class VisionPatchEmbeddingCoreMap:
             )
         return np.asarray(scores, dtype=np.float32)
 
-    def fit(self, x: object = MISSING, y=None, **kwargs: object):
-        del y
+    def fit(self, x: object = MISSING, _y=None, **kwargs: object):
+        del _y
         items = list(
             cast(
                 Iterable[Union[str, np.ndarray]],

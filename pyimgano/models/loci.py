@@ -88,8 +88,8 @@ class CoreLOCI:
 
         return outlier_scores
 
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        del y
+    def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del _y
         x = check_array(x, ensure_2d=True, dtype=np.float64)
         self.decision_scores_ = self._calculate_scores(x)
         return self

@@ -26,8 +26,8 @@ class UpstreamRef:
     marker: str
 
 
-_GITHUB_RE = re.compile(r"github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
-_ORG_REPO_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\b")
+_GITHUB_RE = re.compile(r"github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
+_ORG_REPO_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\b")
 
 
 def _iter_py_files(root: Path) -> list[Path]:

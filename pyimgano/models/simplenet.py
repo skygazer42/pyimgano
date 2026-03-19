@@ -401,7 +401,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
                 loss.backward()
                 optimizer.step()
 
-                epoch_loss += loss.item()
+                epoch_loss += loss.detach().item()
                 num_batches += 1
 
             avg_loss = epoch_loss / num_batches

@@ -213,8 +213,8 @@ class CoreFeatureBagging:
             param_name="max_features",
         )
 
-        rng = np.random.default_rng(self.random_state)
-        seeds = rng.integers(_MAX_INT, size=self.n_estimators)
+        seed_sequence = np.random.SeedSequence(self.random_state)
+        seeds = seed_sequence.generate_state(self.n_estimators, dtype=np.uint32)
 
         self.estimators_ = []
         self.estimators_features_ = []

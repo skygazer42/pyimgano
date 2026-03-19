@@ -5,6 +5,7 @@ from pyimgano.workbench.config_adaptation_section_parser import (
 )
 from pyimgano.workbench.config_dataset_section_parser import (
     _parse_dataset_config,
+    _parse_split_policy_config,
 )
 from pyimgano.workbench.config_defects_section_parser import (
     _parse_defects_config,
@@ -25,6 +26,7 @@ from pyimgano.workbench.config_training_section_parser import (
 
 __all__ = [
     "_parse_dataset_config",
+    "_parse_split_policy_config",
     "_parse_model_config",
     "_parse_output_config",
     "_parse_prediction_config",

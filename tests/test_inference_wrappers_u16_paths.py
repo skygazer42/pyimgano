@@ -13,8 +13,7 @@ def _write_gray_u16_png(path: Path, array: np.ndarray) -> None:
     if arr.dtype != np.uint16 or arr.ndim != 2:
         raise ValueError("Expected uint16 HW array for test image writer")
 
-    # Pillow writes 16-bit grayscale PNGs using mode "I;16".
-    img = Image.fromarray(arr, mode="I;16")
+    img = Image.fromarray(arr)
     img.save(str(path))
 
 
@@ -63,4 +62,3 @@ def test_preprocessing_detector_loads_u16_paths_with_u16_max(tmp_path: Path) -> 
     out = np.asarray(scores, dtype=np.float32).reshape(-1)
     assert out.shape == (1,)
     assert np.isclose(float(out[0]), 255.0)
-

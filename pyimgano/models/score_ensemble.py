@@ -79,8 +79,8 @@ class VisionScoreEnsemble:
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
-    def fit(self, x: Iterable[Any], y=None):
-        del y
+    def fit(self, x: Iterable[Any], _y=None):
+        del _y
         items = list(x)
         if not items:
             raise ValueError("x must be non-empty")

@@ -137,7 +137,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional max number of test images evaluated (for quick runs)",
     )
     parser.add_argument("--output", default=None, help="Optional JSON output path")
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Optional run output directory; when set, persist robustness artifacts there",
+    )
     return parser
+
+
 def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
     return parse_model_kwargs(text)
 
@@ -202,6 +209,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed=int(args.seed),
                 limit_train=(int(args.limit_train) if args.limit_train is not None else None),
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
+                output_dir=(str(args.output_dir) if args.output_dir is not None else None),
             )
         )
 

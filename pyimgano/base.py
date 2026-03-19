@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .models.base_detector import BaseDetector
+from .models.base_dl import BaseVisionDeepDetector
 
 
 class BaseVisionClassicalDetector(BaseDetector):
@@ -16,3 +17,10 @@ class BaseVisionClassicalDetector(BaseDetector):
     def _check_is_fitted(self) -> None:
         if not bool(getattr(self, "is_fitted_", False)):
             raise RuntimeError("Model must be fitted before calling this method.")
+
+
+__all__ = [
+    "BaseDetector",
+    "BaseVisionClassicalDetector",
+    "BaseVisionDeepDetector",
+]

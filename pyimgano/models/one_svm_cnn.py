@@ -20,7 +20,13 @@ ONE_CLASS_CNN_FEATURE_EXTRACTION = "one_class_cnn CNN feature extraction"
     metadata={"description": "基于多特征的一类 SVM 图像检测器"},
 )
 class ImageAnomalyDetector:
-    def __init__(self, feature_type="combined", nu=0.05, cnn_pretrained: bool = False):
+    def __init__(
+        self,
+        feature_type="combined",
+        nu=0.05,
+        cnn_pretrained: bool = False,
+        random_state: int | None = 0,
+    ):
         """
         初始化异常检测器
         feature_type: 'histogram', 'hog', 'combined', 'cnn'
@@ -32,6 +38,8 @@ class ImageAnomalyDetector:
         self.scaler = StandardScaler()
         self.pca = PCA(n_components=128, random_state=0)  # 降维到128维
         self.is_trained = False
+
+        self.pca.random_state = random_state
 
     def extract_features(self, image_path):
         """提取图像特征"""

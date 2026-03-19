@@ -308,7 +308,7 @@ class VisionPANDA(BaseVisionDeepDetector):
                 with torch.no_grad():
                     self.prototypes_.data = F.normalize(self.prototypes_.data, p=2, dim=1)
 
-                total_loss += loss.item()
+                total_loss += loss.detach().item()
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = total_loss / len(dataloader)

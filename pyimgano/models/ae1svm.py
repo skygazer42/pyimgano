@@ -186,7 +186,7 @@ class VisionAE1SVM(BaseVisionDeepDetector):
                 loss.backward()
                 self.optimizer.step()
 
-                overall_loss.append(loss.item())
+                overall_loss.append(loss.detach().item())
 
             if self.verbose > 1:
                 print(f"Epoch {epoch + 1}/{self.epoch_num}, Loss: {np.mean(overall_loss):.4f}")

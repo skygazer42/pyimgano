@@ -165,6 +165,28 @@ def find_optimal_threshold(
     >>> threshold, f1 = find_optimal_threshold(y_true, y_scores, metric='f1')
     >>> print(f"Optimal threshold: {threshold:.3f}, F1: {f1:.3f}")
     """
+    y_true = np.asarray(y_true).ravel()
+    y_scores = np.asarray(y_scores).ravel()
+
+    if y_true.size == 0 or y_scores.size == 0:
+        raise ValueError("y_true and y_scores must be non-empty.")
+    if y_true.shape[0] != y_scores.shape[0]:
+        raise ValueError(
+            "y_true and y_scores must have the same length. "
+            f"Got {y_true.shape[0]} != {y_scores.shape[0]}."
+        )
+
+    unique = np.unique(y_true)
+    if unique.size < 2:
+        max_score = float(np.max(y_scores))
+        only_label = int(unique[0]) if unique.size == 1 else 0
+        if only_label == 0:
+            # Predict everything as negative to avoid false positives.
+            return float(np.nextafter(max_score, np.inf)), 0.0
+        if metric == "youden":
+            return float(np.min(y_scores)), 0.0
+        return float(np.min(y_scores)), 1.0
+
     if metric == "f1":
         # Optimize F1 score
         precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
@@ -248,7 +270,7 @@ def compute_classification_metrics(
     f1 = f1_score(y_true, y_pred, zero_division=0)
 
     # Confusion matrix
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
 
     # Specificity and accuracy
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0

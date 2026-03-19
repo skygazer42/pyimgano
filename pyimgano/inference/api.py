@@ -310,6 +310,21 @@ def _build_decision_summary(
     }
 
 
+def _maybe_build_decision_summary(
+    *,
+    label: int | None,
+    label_confidence: float | None,
+    rejected: bool | None,
+) -> dict[str, Any] | None:
+    if label is None and label_confidence is None and rejected is None:
+        return None
+    return _build_decision_summary(
+        label=label,
+        label_confidence=label_confidence,
+        rejected=rejected,
+    )
+
+
 def infer(
     detector: Any,
     inputs: Sequence[ImageInput],
@@ -538,7 +553,7 @@ def infer_iter(
                 rejected=rejected_flag,
                 anomaly_map=anomaly_map,
                 postprocess_summary=summary_payload,
-                decision_summary=_build_decision_summary(
+                decision_summary=_maybe_build_decision_summary(
                     label=label,
                     label_confidence=label_confidence,
                     rejected=rejected_flag,

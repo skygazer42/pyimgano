@@ -54,7 +54,7 @@ def _resolve_tracker_log_dir(
     run_path = Path(run_dir)
     tracking_dir = build_workbench_run_paths(run_path).artifacts_dir / "tracking"
     tracking_dir.mkdir(parents=True, exist_ok=True)
-    return tracking_dir.as_posix()
+    return str(tracking_dir)
 
 
 def build_training_tracker(
@@ -221,7 +221,7 @@ def restore_training_checkpoint_if_requested(
     return {
         "requested_path": str(resume_path),
         "loaded": True,
-        "path": checkpoint_path.as_posix(),
+        "path": str(checkpoint_path),
     }
 
 
@@ -230,7 +230,7 @@ def _build_checkpoint_meta(*, saved: Path, run_dir: Path) -> dict[str, Any]:
         rel = saved.relative_to(run_dir)
         return {"path": rel.as_posix()}
     except Exception:
-        return {"path": saved.as_posix()}
+        return {"path": str(saved)}
 
 
 def run_workbench_training(

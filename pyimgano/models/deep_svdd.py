@@ -269,7 +269,7 @@ class CoreDeepSVDD(BaseDetector):
 
                 loss.backward()
                 optimizer.step()
-                epoch_loss += loss.item() * batch_x.size(0)
+                epoch_loss += loss.detach().item() * batch_x.size(0)
 
             epoch_loss /= x_norm.shape[0]
             if epoch_loss < best_loss:

@@ -346,7 +346,7 @@ class VisionDST(BaseVisionDeepDetector):
                 loss.backward()
                 optimizer.step()
 
-                total_loss += loss.item()
+                total_loss += loss.detach().item()
                 total_loss1 += loss1.item()
                 total_loss2 += loss2.item()
 

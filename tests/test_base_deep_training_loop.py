@@ -4,6 +4,11 @@ import pytest
 pytest.importorskip("torch")
 
 
+def _loss_value(loss):
+    detached = loss.detach() if hasattr(loss, "detach") else loss
+    return float(detached.item()) if hasattr(detached, "item") else float(detached)
+
+
 def test_base_deep_detector_fit_score_predict_smoke() -> None:
     import torch
 
@@ -23,7 +28,7 @@ def test_base_deep_detector_fit_score_predict_smoke() -> None:
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -183,7 +188,7 @@ def test_base_deep_detector_emits_live_epoch_timing_metrics(monkeypatch) -> None
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -266,7 +271,7 @@ def test_base_deep_detector_uses_weight_decay_num_workers_and_optimizer_name(
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -386,7 +391,7 @@ def test_base_deep_detector_supports_adam_amsgrad_and_rmsprop_options(monkeypatc
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -528,7 +533,7 @@ def test_base_deep_detector_applies_ema_weights_after_training() -> None:
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
-            value = float(self.model.weight.mean().item())
+            value = _loss_value(self.model.weight.mean())
             return torch.full((x.shape[0],), value, dtype=torch.float32)
 
     X_train = np.zeros((4, 1), dtype=np.float32)
@@ -549,7 +554,7 @@ def test_base_deep_detector_applies_ema_weights_after_training() -> None:
     assert det.training_steps_completed_ == 4
     assert det.training_ema_updates_ == 2
     assert det.training_ema_applied_ is True
-    assert float(det.model.weight.mean().item()) == pytest.approx(3.5)
+    assert _loss_value(det.model.weight.mean()) == pytest.approx(3.5)
     assert np.asarray(det.decision_scores_).tolist() == pytest.approx([3.5, 3.5, 3.5, 3.5])
 
 
@@ -571,7 +576,7 @@ def test_base_deep_detector_applies_step_scheduler_and_records_lr_history() -> N
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -621,7 +626,7 @@ def test_base_deep_detector_applies_warmup_before_scheduler() -> None:
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -672,7 +677,7 @@ def test_base_deep_detector_applies_multistep_scheduler_from_milestones() -> Non
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -772,7 +777,7 @@ def test_base_deep_detector_passes_plateau_plateau_kwargs_to_scheduler(
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data
@@ -896,7 +901,7 @@ def test_base_deep_detector_respects_criterion_shuffle_drop_last_and_loader_memo
             loss = self.criterion(out, x)
             loss.backward()
             self.optimizer.step()
-            return float(loss.item())
+            return _loss_value(loss)
 
         def evaluating_forward(self, batch_data):
             x, _y = batch_data

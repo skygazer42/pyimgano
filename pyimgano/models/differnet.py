@@ -342,7 +342,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     loss.backward()
                     optimizer.step()
 
-                    epoch_loss += loss.item()
+                    epoch_loss += loss.detach().item()
 
                 if (epoch + 1) % 5 == 0:
                     print(

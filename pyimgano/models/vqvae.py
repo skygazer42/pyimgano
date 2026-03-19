@@ -209,7 +209,7 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
         loss = rec_loss + vq_loss
         loss.backward()
         self.optimizer.step()
-        return float(loss.item())
+        return float(loss.detach().item())
 
     def evaluating_forward(self, batch):  # noqa: ANN001
         import torch
@@ -249,6 +249,7 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
                 err = F.mse_loss(recon, images, reduction="none")
                 # Mean over channels -> (B,1,H,W)
                 map_tensor = err.mean(dim=1, keepdim=True)
+                image_size = getattr(self.cfg, "image_size", None)
                 if image_size is not None:
                     out_h, out_w = int(image_size[0]), int(image_size[1])
                     if out_h <= 0 or out_w <= 0:

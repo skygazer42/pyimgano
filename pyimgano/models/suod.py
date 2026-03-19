@@ -112,8 +112,8 @@ class CoreSUOD:
             CoreIForest(n_estimators=150, random_state=rs),
         ]
 
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        del y
+    def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del _y
         x = check_array(x, ensure_2d=True, dtype=np.float64)
         n_samples = int(x.shape[0])
         if n_samples == 0:

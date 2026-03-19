@@ -46,7 +46,7 @@ def _evaluate_infer_config_validation(run_dir: Path) -> dict[str, Any]:
     source, path = _select_infer_config_path(run_dir)
     payload = _infer_config_validation_payload()
     payload["selected_source"] = source
-    payload["path"] = str(path) if path is not None else None
+    payload["path"] = path.as_posix() if path is not None else None
     payload["present"] = path is not None
     if path is None:
         payload["errors"] = ["No infer_config.json found under deploy_bundle/ or artifacts/."]

@@ -114,8 +114,8 @@ class VisionAAClip:
         self.decision_scores_: NDArray | None = None
         self.threshold_: float | None = None
 
-    def fit(self, x: object = MISSING, y=None, **kwargs: object):
-        del y
+    def fit(self, x: object = MISSING, _y=None, **kwargs: object):
+        del _y
         items = list(cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("X must contain at least one support sample.")

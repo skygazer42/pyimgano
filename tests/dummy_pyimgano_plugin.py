@@ -21,8 +21,8 @@ def register() -> None:
             self.contamination = float(contamination)
             self.decision_scores_ = None
 
-        def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like shim for tests
-            del y
+        def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like shim for tests
+            del _y
             items = list(x)
             self.decision_scores_ = np.zeros((len(items),), dtype=np.float64)
             return self

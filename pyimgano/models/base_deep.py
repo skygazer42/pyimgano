@@ -31,6 +31,15 @@ def _require_torch():
     return require("torch", extra="torch", purpose="deep-learning detectors")
 
 
+def _coerce_loss_float(loss: Any) -> float:
+    """Convert model loss outputs to a plain float without autograd warnings."""
+
+    detached = loss.detach() if hasattr(loss, "detach") else loss
+    if hasattr(detached, "item"):
+        return float(detached.item())
+    return float(detached)
+
+
 @dataclass(frozen=True)
 class _CriterionSpec:
     name: str
@@ -537,7 +546,7 @@ class BaseDeepLearningDetector(BaseDetector):
                     epoch_sample_count += int(batch_items)
                 loss = self.training_forward(batch_data)
                 # training_forward may return floats or tuples; only require float for now.
-                losses.append(float(loss))
+                losses.append(_coerce_loss_float(loss))
                 if self._should_update_ema(epoch_index=_epoch):
                     self._update_ema_state()
                     self.training_ema_updates_ += 1

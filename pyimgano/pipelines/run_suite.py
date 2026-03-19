@@ -19,6 +19,7 @@ from pyimgano.baselines.suites import Baseline, get_baseline_suite, resolve_suit
 from pyimgano.models.registry import create_model
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, ensure_run_dir
+from pyimgano.reporting.split_fingerprint import build_split_fingerprint
 from pyimgano.utils.extras import extra_roots, extras_install_hint
 
 from .run_benchmark import (
@@ -35,6 +36,7 @@ class _SuiteSplit:
     test_labels: np.ndarray
     test_masks: np.ndarray | None
     pixel_skip_reason: str | None = None
+    split_fingerprint: dict[str, Any] | None = None
 
 
 def _override_known_kwargs(
@@ -142,6 +144,13 @@ def _load_split(
             test_labels=np.asarray(ms.test_labels),
             test_masks=(np.asarray(ms.test_masks) if ms.test_masks is not None else None),
             pixel_skip_reason=ms.pixel_skip_reason,
+            split_fingerprint=build_split_fingerprint(
+                train_inputs=list(ms.train_paths),
+                calibration_inputs=[],
+                test_inputs=list(ms.test_paths),
+                test_labels=np.asarray(ms.test_labels),
+                input_format="paths",
+            ),
         )
 
     from pyimgano.pipelines.mvtec_visa import load_benchmark_split
@@ -159,6 +168,13 @@ def _load_split(
         test_labels=np.asarray(split.test_labels),
         test_masks=(np.asarray(split.test_masks) if split.test_masks is not None else None),
         pixel_skip_reason=None,
+        split_fingerprint=build_split_fingerprint(
+            train_inputs=list(split.train_paths),
+            calibration_inputs=[],
+            test_inputs=list(split.test_paths),
+            test_labels=np.asarray(split.test_labels),
+            input_format="paths",
+        ),
     )
 
 
@@ -491,6 +507,8 @@ def _run_one_on_split(
         "threshold_provenance": threshold_provenance_payload,
         "timing": timing,
     }
+    if split.split_fingerprint is not None:
+        payload["split_fingerprint"] = dict(split.split_fingerprint)
     payload = stamp_report_payload(payload)
 
     if save_run and output_dir is not None:
@@ -860,6 +878,8 @@ def run_baseline_suite(
         "summary": summary,
         "skipped": skipped,
     }
+    if split.split_fingerprint is not None:
+        payload["split_fingerprint"] = dict(split.split_fingerprint)
     payload = stamp_report_payload(payload)
 
     if suite_dir is not None:

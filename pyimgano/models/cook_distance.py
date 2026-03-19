@@ -40,6 +40,10 @@ def _zscore(x: np.ndarray, *, eps: float) -> tuple[np.ndarray, np.ndarray, np.nd
     return z_scores, mu, sd
 
 
+def _is_degenerate_subspace(x: np.ndarray, *, eps: float) -> bool:
+    return not bool(np.any(np.abs(np.asarray(x, dtype=np.float64)) > float(eps)))
+
+
 def _leverage_diag(x: np.ndarray, *, ridge: float, eps: float) -> np.ndarray:
     # Hat matrix diag: diag(X (X^T X)^{-1} X^T)
     # Use ridge for stability on near-singular X^T X.
@@ -83,8 +87,10 @@ class CoreCookDistance(BaseDetector):
         self._set_n_classes(y)
 
         z_scores, mu, sd = _zscore(x_arr, eps=float(self.eps))
-        pca = PCA(n_components=self.n_components, random_state=self.random_state)
-        pca.fit(z_scores)
+        pca = None
+        if not _is_degenerate_subspace(z_scores, eps=float(self.eps)):
+            pca = PCA(n_components=self.n_components, random_state=self.random_state)
+            pca.fit(z_scores)
 
         scores = self._score_from_z(z_scores, pca)
         self._mu = mu
@@ -94,10 +100,13 @@ class CoreCookDistance(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def _score_from_z(self, z_scores: np.ndarray, pca: PCA) -> np.ndarray:
+    def _score_from_z(self, z_scores: np.ndarray, pca: PCA | None) -> np.ndarray:
         # Reconstruction residual in standardized space.
-        transformed = pca.transform(z_scores)
-        z_hat = pca.inverse_transform(transformed)
+        if pca is None:
+            z_hat = np.zeros_like(z_scores, dtype=np.float64)
+        else:
+            transformed = pca.transform(z_scores)
+            z_hat = pca.inverse_transform(transformed)
         resid = np.linalg.norm(z_scores - z_hat, axis=1)
 
         h = _leverage_diag(z_scores, ridge=float(self.ridge), eps=float(self.eps))

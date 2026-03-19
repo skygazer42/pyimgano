@@ -370,7 +370,7 @@ class InTraDetector(BaseVisionDeepDetector):
                 loss.backward()
                 optimizer.step()
 
-                epoch_loss += loss.item()
+                epoch_loss += loss.detach().item()
                 num_batches += 1
 
             if (epoch + 1) % 10 == 0:

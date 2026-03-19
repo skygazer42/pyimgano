@@ -10,6 +10,7 @@ import pyimgano.cli_discovery_options as cli_discovery_options
 import pyimgano.cli_discovery_rendering as cli_discovery_rendering
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
+from pyimgano.models.registry import create_model
 from pyimgano.utils.optional_deps import optional_import
 
 

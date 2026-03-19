@@ -290,7 +290,11 @@ class CoreCBLOF(BaseDetector):
         self.n_clusters_ = len(self.cluster_sizes_)
 
         if self.n_clusters_ != self.n_clusters:
-            warnings.warn(f"实际聚类数 {self.n_clusters_} 与设定值 {self.n_clusters} 不同")
+            logger.info(
+                "CBLOF actual cluster count %d differs from requested %d",
+                self.n_clusters_,
+                self.n_clusters,
+            )
 
         # 区分大小簇
         self._set_small_large_clusters(n_samples)
@@ -344,7 +348,7 @@ class CoreCBLOF(BaseDetector):
             threshold = beta_list[0]
         else:
             threshold = 1
-            warnings.warn("无法有效区分大小簇，使用默认设置")
+            logger.info("CBLOF falling back to default large/small cluster split threshold=1")
 
         self.large_cluster_labels_ = sorted_indices[:threshold]
         self.small_cluster_labels_ = sorted_indices[threshold:]

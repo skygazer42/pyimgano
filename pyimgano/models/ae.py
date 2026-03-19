@@ -175,7 +175,7 @@ class OptimizedAEDetector(BaseVisionDeepDetector):
         loss = self.criterion(recon, targets)
         loss.backward()
         self.optimizer.step()
-        return float(loss.item())
+        return float(loss.detach().item())
 
     def evaluating_forward(self, batch):  # noqa: ANN001
         import torch

@@ -125,6 +125,16 @@ class TestFindOptimalThreshold:
         with pytest.raises(ValueError, match="Unsupported metric"):
             find_optimal_threshold(y_true, y_scores, metric="invalid")
 
+    def test_single_class_labels_return_fallback_threshold_without_warning(self):
+        """Single-class labels should short-circuit before sklearn PR/ROC helpers warn."""
+        y_true = np.zeros((4,), dtype=np.int64)
+        y_scores = np.array([0.1, 0.2, 0.2, 0.3], dtype=np.float64)
+
+        threshold, f1 = find_optimal_threshold(y_true, y_scores, metric="f1")
+
+        assert threshold > float(np.max(y_scores))
+        assert f1 == 0.0
+
 
 class TestClassificationMetrics:
     """Test classification metrics computation."""

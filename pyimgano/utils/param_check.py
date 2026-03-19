@@ -35,6 +35,12 @@ def check_parameter(
     if not isinstance(param, Number) or isinstance(param, bool):
         raise TypeError(f"{param_name} must be a number, got {type(param).__name__}")
 
+    if low is not None and (not isinstance(low, Number) or isinstance(low, bool)):
+        raise TypeError(f"low must be a number, got {type(low).__name__}")
+
+    if high is not None and (not isinstance(high, Number) or isinstance(high, bool)):
+        raise TypeError(f"high must be a number, got {type(high).__name__}")
+
     if low is not None and high is not None and float(low) > float(high):
         raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
 

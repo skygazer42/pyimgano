@@ -325,7 +325,7 @@ class FastFlow(BaseVisionDeepDetector):
 
         loss.backward()
         self.optimizer.step()
-        return float(loss.item())
+        return float(loss.detach().item())
 
     # ------------------------------------------------------------------
     @torch.no_grad()

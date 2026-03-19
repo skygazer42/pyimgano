@@ -53,8 +53,8 @@ class CoreIMDD:
         self.decision_scores_ = None
 
     # ------------------------------------------------------------------
-    def fit(self, x, y=None):
-        del y
+    def fit(self, x, _y=None):
+        del _y
         x = check_array(x)
         self.decision_scores_ = self._compute_scores(x)
         return self

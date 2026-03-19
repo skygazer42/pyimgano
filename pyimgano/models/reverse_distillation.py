@@ -125,7 +125,7 @@ class ReverseDistillation(BaseVisionDeepDetector):
             loss = loss + F.mse_loss(s_feat, t_feat.detach())
         loss.backward()
         self.optimizer.step()
-        return float(loss.item())
+        return float(loss.detach().item())
 
     @torch.no_grad()
     def evaluating_forward(self, batch: Tuple[torch.Tensor, torch.Tensor]):

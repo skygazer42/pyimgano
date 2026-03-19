@@ -164,14 +164,87 @@ class BaseDetector:
             setattr(self, k, v)
         return self
 
+    def _linear_outlier_probability(
+        self,
+        scores: Any,
+        *,
+        train_scores: Any | None = None,
+    ) -> np.ndarray:
+        if train_scores is None:
+            if not hasattr(self, "decision_scores_"):
+                raise RuntimeError("Model must be fitted before calling predict_proba().")
+            train_scores = self.decision_scores_
+
+        train_scores_arr = np.asarray(train_scores, dtype=np.float64).reshape(-1)
+        scores_arr = np.asarray(scores, dtype=np.float64).reshape(-1)
+        lo = float(np.min(train_scores_arr))
+        hi = float(np.max(train_scores_arr))
+        denom = hi - lo
+        if denom <= 0.0:
+            return np.full(scores_arr.shape, 0.5, dtype=np.float64)
+        outlier = (scores_arr - lo) / denom
+        return np.clip(outlier, 0.0, 1.0)
+
+    def _label_confidence_from_scores(
+        self,
+        scores: Any,
+        *,
+        labels: Any | None = None,
+    ) -> np.ndarray:
+        """Estimate predicted-label confidence on ``[0, 1]``."""
+
+        if not hasattr(self, "decision_scores_"):
+            raise RuntimeError("Model must be fitted before calling confidence helpers.")
+
+        scores_arr = np.asarray(scores, dtype=np.float64).reshape(-1)
+        train_scores = np.asarray(self.decision_scores_, dtype=np.float64).reshape(-1)
+        threshold = getattr(self, "threshold_", None)
+
+        if labels is None:
+            if threshold is not None:
+                labels_arr = (scores_arr > float(threshold)).astype(np.int64)
+            else:
+                probs = self._linear_outlier_probability(scores_arr, train_scores=train_scores)
+                labels_arr = (probs >= 0.5).astype(np.int64)
+                return np.where(labels_arr == 1, probs, 1.0 - probs)
+        else:
+            labels_arr = np.asarray(labels, dtype=np.int64).reshape(-1)
+
+        if labels_arr.shape[0] != scores_arr.shape[0]:
+            raise ValueError("labels must have the same length as scores")
+
+        if threshold is None:
+            probs = self._linear_outlier_probability(scores_arr, train_scores=train_scores)
+            return np.where(labels_arr == 1, probs, 1.0 - probs)
+
+        lo = float(np.min(train_scores))
+        hi = float(np.max(train_scores))
+        thr = float(threshold)
+        inlier_span = max(thr - lo, 1e-12)
+        outlier_span = max(hi - thr, 1e-12)
+
+        conf = np.empty_like(scores_arr, dtype=np.float64)
+        inlier_mask = labels_arr <= 0
+        if np.any(inlier_mask):
+            conf[inlier_mask] = (thr - scores_arr[inlier_mask]) / inlier_span
+        if np.any(~inlier_mask):
+            conf[~inlier_mask] = (scores_arr[~inlier_mask] - thr) / outlier_span
+        return np.clip(conf, 0.0, 1.0)
+
+    def predict_confidence(self, x):  # noqa: ANN001, ANN201
+        """Return predicted-label confidence on ``[0, 1]``."""
+
+        scores = np.asarray(self.decision_function(x), dtype=np.float64).reshape(-1)
+        labels = None
+        if hasattr(self, "threshold_"):
+            labels = (scores > float(self.threshold_)).astype(np.int64)
+        return self._label_confidence_from_scores(scores, labels=labels)
+
     def predict(self, x, return_confidence: bool = False):  # noqa: ANN001, ANN201
         """Predict binary anomaly labels.
 
         Returns 0 for inliers and 1 for outliers.
         """
-
-        if return_confidence:
-            raise NotImplementedError("return_confidence is not implemented in native BaseDetector")
 
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model must be fitted before calling predict().")
@@ -179,7 +252,31 @@ class BaseDetector:
         scores = np.asarray(self.decision_function(x), dtype=np.float64)
         if scores.ndim != 1:
             scores = scores.reshape(-1)
-        return (scores > float(self.threshold_)).astype(int).ravel()
+        labels = (scores > float(self.threshold_)).astype(int).ravel()
+        if not bool(return_confidence):
+            return labels
+
+        conf = self._label_confidence_from_scores(scores, labels=labels)
+        return labels, conf
+
+    def predict_with_rejection(
+        self,
+        x,
+        *,
+        confidence_threshold: float,
+        reject_label: int = -2,
+        return_confidence: bool = False,
+    ):  # noqa: ANN001, ANN201
+        if not 0.0 < float(confidence_threshold) <= 1.0:
+            raise ValueError("confidence_threshold must be in (0, 1].")
+
+        labels, conf = self.predict(x, return_confidence=True)
+        labels_arr = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
+        conf_arr = np.asarray(conf, dtype=np.float64).reshape(-1)
+        labels_arr[conf_arr < float(confidence_threshold)] = int(reject_label)
+        if not bool(return_confidence):
+            return labels_arr
+        return labels_arr, conf_arr
 
     def fit_predict(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like helper
         """Fit detector then return labels for X."""
@@ -203,9 +300,6 @@ class BaseDetector:
         This keeps compatibility with common 2-class `predict_proba` tooling.
         """
 
-        if return_confidence:
-            raise NotImplementedError("return_confidence is not implemented in native BaseDetector")
-
         if not hasattr(self, "decision_scores_"):
             raise RuntimeError("Model must be fitted before calling predict_proba().")
 
@@ -219,19 +313,10 @@ class BaseDetector:
         probs = np.zeros((len(test_scores), n_classes), dtype=np.float64)
 
         if method == "linear":
-            lo = float(np.min(train_scores))
-            hi = float(np.max(train_scores))
-            denom = hi - lo
-            if denom <= 0.0:
-                outlier = np.zeros_like(test_scores, dtype=np.float64)
-            else:
-                outlier = (test_scores - lo) / denom
-                outlier = np.clip(outlier, 0.0, 1.0)
+            outlier = self._linear_outlier_probability(test_scores, train_scores=train_scores)
             probs[:, 1] = outlier
             probs[:, 0] = 1.0 - outlier
-            return probs
-
-        if method == "unify":
+        elif method == "unify":
             # Unification via erf, then clamp to [0,1].
             try:
                 from scipy.special import erf  # type: ignore
@@ -249,6 +334,15 @@ class BaseDetector:
             outlier = np.clip(erf(pre), 0.0, 1.0)
             probs[:, 1] = outlier
             probs[:, 0] = 1.0 - outlier
+        else:
+            raise ValueError(f"method {method!r} is not a valid probability conversion method")
+
+        if not bool(return_confidence):
             return probs
 
-        raise ValueError(f"method {method!r} is not a valid probability conversion method")
+        if hasattr(self, "threshold_"):
+            labels = (test_scores > float(self.threshold_)).astype(np.int64)
+        else:
+            labels = np.argmax(probs, axis=1).astype(np.int64)
+        conf = self._label_confidence_from_scores(test_scores, labels=labels)
+        return probs, conf

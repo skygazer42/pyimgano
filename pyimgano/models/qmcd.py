@@ -64,8 +64,8 @@ class CoreQMCD:
 
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        del y
+    def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del _y
         x = check_array(x, ensure_2d=True, dtype=np.float64)
 
         self._scaler = MinMaxScaler()
