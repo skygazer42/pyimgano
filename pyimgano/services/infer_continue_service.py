@@ -9,11 +9,7 @@ class ContinueOnErrorInferRequest:
     detector: Any
     inputs: Sequence[str]
     include_maps: bool = False
-    include_confidence: bool = False
-    reject_confidence_below: float | None = None
-    reject_label: int | None = None
     postprocess: Any | None = None
-    postprocess_summary: dict[str, Any] | None = None
     batch_size: int | None = None
     amp: bool = False
     max_errors: int = 0
@@ -25,93 +21,26 @@ class ContinueOnErrorInferResult:
     errors: int
     timing_seconds: float
     stop_early: bool
-    triage_summary: dict[str, Any] | None = None
 
 
-def _build_triage_summary(
-    *,
-    processed: int,
-    errors: int,
-    stop_early: bool,
-    inputs_total: int,
-    error_stages: dict[str, int],
-    fallback_used: bool,
-    decision_counts: dict[str, int],
-    review_required: int,
-    rejected_low_confidence: int,
-) -> dict[str, Any]:
-    return {
-        "ok": max(0, int(processed) - int(errors)),
-        "remaining": max(0, int(inputs_total) - int(processed)),
-        "error_stages": {str(k): int(v) for k, v in sorted(error_stages.items())},
-        "decision_counts": {str(k): int(v) for k, v in sorted(decision_counts.items())},
-        "fallback_used": bool(fallback_used),
-        "review_required": int(review_required),
-        "rejected_low_confidence": int(rejected_low_confidence),
-        "stop_reason": ("max_errors" if bool(stop_early) else "completed"),
-    }
-
-
-def _extract_result_triage(result: Any) -> tuple[str, bool]:
-    summary = getattr(result, "decision_summary", None)
-    if isinstance(summary, dict):
-        decision = summary.get("decision", None)
-        if decision is not None:
-            return str(decision), bool(summary.get("requires_review", False))
-
-    rejected = getattr(result, "rejected", None)
-    label = getattr(result, "label", None)
-    if bool(rejected):
-        return "rejected_low_confidence", True
-    if label is None:
-        return "score_only", False
-    if int(label) == 0:
-        return "normal", False
-    return "anomalous", True
-
-
-def _run_inference_chunk(
-    *,
-    run_inference_fn: Callable[..., Any],
-    request: ContinueOnErrorInferRequest,
-    inputs: Sequence[str],
-) -> Any:
-    return run_inference_fn(
-        detector=request.detector,
-        inputs=inputs,
-        include_maps=bool(request.include_maps),
-        include_confidence=bool(
-            request.include_confidence or request.reject_confidence_below is not None
-        ),
-        reject_confidence_below=(
-            float(request.reject_confidence_below)
-            if request.reject_confidence_below is not None
-            else None
-        ),
-        reject_label=(int(request.reject_label) if request.reject_label is not None else None),
-        postprocess=request.postprocess,
-        postprocess_summary=(
-            dict(request.postprocess_summary) if request.postprocess_summary is not None else None
-        ),
-        batch_size=None,
-        amp=bool(request.amp),
-    )
+def _has_reached_max_errors(*, errors: int, max_errors: int) -> bool:
+    return int(max_errors) > 0 and int(errors) >= int(max_errors)
 
 
 def _process_chunk_records(
     *,
     start: int,
-    chunk: Sequence[str],
-    chunk_records: Sequence[Any],
-    observe_result: Callable[..., None],
+    chunk: list[str],
+    chunk_results: list[Any],
     process_ok_result: Callable[..., None],
     handle_error: Callable[..., None],
-) -> tuple[int, int]:
+    errors: int,
+    max_errors: int,
+) -> tuple[int, int, bool]:
     processed = 0
-    errors = 0
-    for j, result in enumerate(chunk_records):
+    stop_early = False
+    for j, result in enumerate(chunk_results):
         idx = int(start + j)
-        observe_result(result=result)
         try:
             process_ok_result(
                 index=idx,
@@ -126,37 +55,46 @@ def _process_chunk_records(
                 exc=exc,
                 stage="artifacts",
             )
+            stop_early = _has_reached_max_errors(errors=errors, max_errors=max_errors)
         processed += 1
-    return processed, errors
+        if stop_early:
+            break
+    return processed, errors, stop_early
 
 
-def _run_chunk_with_fallback(
+def _run_single_input_fallback(
     *,
     start: int,
-    chunk: Sequence[str],
-    request: ContinueOnErrorInferRequest,
+    chunk: list[str],
+    detector: Any,
+    include_maps: bool,
+    postprocess: Any | None,
+    amp: bool,
+    max_errors: int,
     run_inference_fn: Callable[..., Any],
-    observe_result: Callable[..., None],
     process_ok_result: Callable[..., None],
     handle_error: Callable[..., None],
-    timing_seconds: float,
-    processed: int,
     errors: int,
-) -> tuple[float, int, int, bool]:
+) -> tuple[int, int, float, bool]:
+    processed = 0
+    timing_seconds = 0.0
     stop_early = False
+
     for j, input_path in enumerate(chunk):
         idx = int(start + j)
         try:
-            one_run = _run_inference_chunk(
-                run_inference_fn=run_inference_fn,
-                request=request,
+            one_run = run_inference_fn(
+                detector=detector,
                 inputs=[input_path],
+                include_maps=bool(include_maps),
+                postprocess=postprocess,
+                batch_size=None,
+                amp=bool(amp),
             )
             timing_seconds += float(one_run.timing_seconds)
             one = list(one_run.records)
             if len(one) != 1:
                 raise RuntimeError("Internal error: expected 1 result for 1 input")
-            observe_result(result=one[0])
             process_ok_result(
                 index=idx,
                 input_path=str(input_path),
@@ -170,12 +108,13 @@ def _run_chunk_with_fallback(
                 exc=exc,
                 stage="infer",
             )
-        processed += 1
+            stop_early = _has_reached_max_errors(errors=errors, max_errors=max_errors)
 
-        if int(request.max_errors) > 0 and int(errors) >= int(request.max_errors):
-            stop_early = True
+        processed += 1
+        if stop_early:
             break
-    return timing_seconds, processed, errors, stop_early
+
+    return processed, errors, timing_seconds, stop_early
 
 
 def run_continue_on_error_inference(
@@ -195,72 +134,52 @@ def run_continue_on_error_inference(
     timing_seconds = 0.0
     stop_early = False
     inputs = [str(item) for item in request.inputs]
-    error_stages: dict[str, int] = {"artifacts": 0, "infer": 0}
-    fallback_used = False
-    decision_counts: dict[str, int] = {}
-    review_required = 0
-    rejected_low_confidence = 0
-
-    def _observe_result(*, result: Any) -> None:
-        nonlocal review_required, rejected_low_confidence
-        decision, requires_review = _extract_result_triage(result)
-        decision_counts[decision] = int(decision_counts.get(decision, 0)) + 1
-        if bool(requires_review):
-            review_required += 1
-        if decision == "rejected_low_confidence":
-            rejected_low_confidence += 1
-
-    def _handle_error_with_summary(
-        *,
-        index: int,
-        input_path: str,
-        exc: Exception,
-        stage: str,
-    ) -> None:
-        stage_key = str(stage)
-        error_stages[stage_key] = int(error_stages.get(stage_key, 0)) + 1
-        handle_error(
-            index=int(index),
-            input_path=str(input_path),
-            exc=exc,
-            stage=stage_key,
-        )
 
     for start in range(0, len(inputs), int(chunk_size)):
         chunk = inputs[start : start + int(chunk_size)]
         try:
-            chunk_run = _run_inference_chunk(
-                run_inference_fn=run_inference_fn,
-                request=request,
+            chunk_run = run_inference_fn(
+                detector=request.detector,
                 inputs=chunk,
+                include_maps=bool(request.include_maps),
+                postprocess=request.postprocess,
+                batch_size=None,
+                amp=bool(request.amp),
             )
             chunk_results = list(chunk_run.records)
             timing_seconds += float(chunk_run.timing_seconds)
-            chunk_processed, chunk_errors = _process_chunk_records(
-                start=start,
+            chunk_processed, errors, stop_early = _process_chunk_records(
+                start=int(start),
                 chunk=chunk,
-                chunk_records=chunk_results,
-                observe_result=_observe_result,
+                chunk_results=chunk_results,
                 process_ok_result=process_ok_result,
-                handle_error=_handle_error_with_summary,
+                handle_error=handle_error,
+                errors=int(errors),
+                max_errors=int(request.max_errors),
             )
             processed += int(chunk_processed)
-            errors += int(chunk_errors)
         except Exception:
             # Fallback: isolate per-input failures when a chunk run fails.
-            fallback_used = True
-            timing_seconds, processed, errors, stop_early = _run_chunk_with_fallback(
-                start=start,
+            (
+                chunk_processed,
+                errors,
+                chunk_timing,
+                stop_early,
+            ) = _run_single_input_fallback(
+                start=int(start),
                 chunk=chunk,
-                request=request,
+                detector=request.detector,
+                include_maps=bool(request.include_maps),
+                postprocess=request.postprocess,
+                amp=bool(request.amp),
+                max_errors=int(request.max_errors),
                 run_inference_fn=run_inference_fn,
-                observe_result=_observe_result,
                 process_ok_result=process_ok_result,
-                handle_error=_handle_error_with_summary,
-                timing_seconds=timing_seconds,
-                processed=processed,
-                errors=errors,
+                handle_error=handle_error,
+                errors=int(errors),
             )
+            processed += int(chunk_processed)
+            timing_seconds += float(chunk_timing)
         if bool(stop_early):
             break
 
@@ -269,17 +188,6 @@ def run_continue_on_error_inference(
         errors=int(errors),
         timing_seconds=float(timing_seconds),
         stop_early=bool(stop_early),
-        triage_summary=_build_triage_summary(
-            processed=int(processed),
-            errors=int(errors),
-            stop_early=bool(stop_early),
-            inputs_total=int(len(inputs)),
-            error_stages=error_stages,
-            fallback_used=bool(fallback_used),
-            decision_counts=decision_counts,
-            review_required=int(review_required),
-            rejected_low_confidence=int(rejected_low_confidence),
-        ),
     )
 
 

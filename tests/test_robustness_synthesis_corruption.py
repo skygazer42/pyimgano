@@ -4,14 +4,14 @@ import numpy as np
 
 
 class _DummyDetector:
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        _ = (X, y)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        _ = (x, y)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         # Constant scores are fine; AUROC should become defined once labels
         # contain both 0 and 1.
-        return np.zeros((len(list(X)),), dtype=np.float64)
+        return np.zeros((len(list(x)),), dtype=np.float64)
 
 
 class _SynthesisLikeCorruption:

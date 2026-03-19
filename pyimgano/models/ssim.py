@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Iterable, Optional, Sequence, cast
 
 import numpy as np
 from sklearn.cluster import KMeans
@@ -24,6 +24,7 @@ from sklearn.metrics import pairwise_distances
 
 from pyimgano.io.image import read_image
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .registry import register_model
 
@@ -82,10 +83,10 @@ def _select_templates(
     for im in imgs:
         g = _resize_gray(im, size_hw=small_hw)
         reps.append(g.reshape(-1).astype(np.float32) / 255.0)
-    X = np.stack(reps, axis=0)
+    x_repr = np.stack(reps, axis=0)
 
     km = KMeans(n_clusters=n_templates_eff, random_state=random_state, n_init=10)
-    labels = km.fit_predict(X)
+    labels = km.fit_predict(x_repr)
 
     templates: list[np.ndarray] = []
     for k in range(n_templates_eff):
@@ -93,7 +94,7 @@ def _select_templates(
         if idx.size == 0:
             continue
         center = km.cluster_centers_[k].reshape(1, -1)
-        d = pairwise_distances(X[idx], center, metric="euclidean").reshape(-1)
+        d = pairwise_distances(x_repr[idx], center, metric="euclidean").reshape(-1)
         best = int(idx[int(np.argmin(d))])
         templates.append(np.asarray(imgs[best], dtype=np.uint8))
 
@@ -150,8 +151,10 @@ class SSIMTemplateDetector(BaseDetector):
             raise TypeError(f"Unsupported input type: {type(item)}")
         return _resize_gray(gray, size_hw=self.resize_hw)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        items = list(
+            cast(Iterable[object], resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
+        )
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -168,7 +171,7 @@ class SSIMTemplateDetector(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
         if self.templates_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -177,7 +180,12 @@ class SSIMTemplateDetector(BaseDetector):
         skmetrics = require("skimage.metrics", extra="skimage", purpose="SSIM similarity metric")
         ssim = skmetrics.structural_similarity
 
-        items = list(X)
+        items = list(
+            cast(
+                Iterable[object],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, it in enumerate(items):
             img = self._load_and_preprocess(it)

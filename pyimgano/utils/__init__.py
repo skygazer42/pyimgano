@@ -151,4 +151,4 @@ def __getattr__(name: str) -> Any:  # pragma: no cover - thin delegation
 
 
 def __dir__() -> list[str]:  # pragma: no cover - tooling convenience
-    return sorted(set(globals()) | set(__all__))
+    return sorted(globals().keys() | __all__)

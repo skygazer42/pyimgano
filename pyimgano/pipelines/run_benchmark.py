@@ -12,7 +12,6 @@ from pyimgano.evaluation import evaluate_detector
 from pyimgano.models.registry import create_model, materialize_model_constructor
 from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
-from pyimgano.reporting.split_fingerprint import build_split_fingerprint
 
 from .mvtec_visa import load_benchmark_split
 
@@ -60,7 +59,7 @@ def _seed_everything(seed: int) -> None:
     import random
 
     random.seed(int(seed))
-    np.random.seed(int(seed))
+    np.random.mtrand._rand.seed(int(seed))
 
     try:
         import torch
@@ -235,11 +234,12 @@ def run_benchmark_category(
             mp = str(config.manifest_path) if config.manifest_path is not None else str(config.root)
             root_fallback = str(config.root) if config.manifest_path is not None else None
 
-            seed = 0
-            if config.manifest_split_seed is not None:
-                seed = int(config.manifest_split_seed)
-            elif config.seed is not None:
-                seed = int(config.seed)
+            default_seed = 0 if config.seed is None else int(config.seed)
+            seed = (
+                int(config.manifest_split_seed)
+                if config.manifest_split_seed is not None
+                else default_seed
+            )
             policy = ManifestSplitPolicy(
                 seed=seed,
                 test_normal_fraction=float(config.manifest_test_normal_fraction),
@@ -416,14 +416,6 @@ def run_benchmark_category(
         threshold_provenance_payload.setdefault(
             "calibration_quantile_requested", float(config.calibration_quantile)
         )
-    split_fingerprint = build_split_fingerprint(
-        train_inputs=train_inputs,
-        calibration_inputs=[],
-        test_inputs=test_inputs,
-        test_labels=np.asarray(test_labels),
-        input_format=("rgb_u8_hwc" if str(config.input_mode) == "numpy" else None),
-        test_meta=test_meta,
-    )
 
     payload: dict[str, Any] = {
         "dataset": config.dataset,
@@ -438,7 +430,6 @@ def run_benchmark_category(
         "threshold_provenance": threshold_provenance_payload,
         "threshold": threshold_used,
         "calibrated_threshold": calibrated_threshold,
-        "split_fingerprint": split_fingerprint,
         "dataset_summary": dataset_summary,
         "results": results,
         "timing": dict(timing),

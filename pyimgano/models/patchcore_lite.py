@@ -12,7 +12,7 @@ so it stays lightweight and integrates well with our classical pipeline stack.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
@@ -20,6 +20,7 @@ from sklearn.utils.validation import check_array
 
 from pyimgano.utils.fitted import require_fitted
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
@@ -51,11 +52,12 @@ class CorePatchCoreLite(BaseDetector):
         self.p = int(p)
         self.random_state = random_state
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
+        x_arr = check_array(cast(object, x_value), ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(x_array.shape[0])
+        n = int(x_arr.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
 
@@ -66,13 +68,13 @@ class CorePatchCoreLite(BaseDetector):
         m = max(1, int(np.ceil(r * n)))
         rng = np.random.default_rng(0 if self.random_state is None else int(self.random_state))
         idx = rng.choice(n, size=m, replace=False).astype(np.int64, copy=False)
-        bank = np.asarray(x_array[idx], dtype=np.float64)
+        bank = np.asarray(x_arr[idx], dtype=np.float64)
 
         nn = NearestNeighbors(n_neighbors=2 if m > 1 else 1, metric=self.metric, p=self.p)
         nn.fit(bank)
 
         # Training scores: distance to nearest bank item, using 2-NN to avoid self==0
-        dist, _ = nn.kneighbors(x_array, n_neighbors=2 if m > 1 else 1, return_distance=True)
+        dist, _ = nn.kneighbors(x_arr, n_neighbors=2 if m > 1 else 1, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)
         if m > 1:
             # If a point is in the bank, 1-NN distance can be 0; use the 2nd NN.
@@ -88,11 +90,12 @@ class CorePatchCoreLite(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
         require_fitted(self, ["nn_"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        x_arr = check_array(cast(object, x_value), ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self.nn_  # type: ignore[assignment]
-        dist, _ = nn.kneighbors(x_array, n_neighbors=1, return_distance=True)
+        dist, _ = nn.kneighbors(x_arr, n_neighbors=1, return_distance=True)
         return np.asarray(dist[:, 0], dtype=np.float64).reshape(-1)
 
 

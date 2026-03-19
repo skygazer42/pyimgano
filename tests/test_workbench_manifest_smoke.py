@@ -31,18 +31,18 @@ def test_workbench_manifest_dataset_runs_all_categories(tmp_path: Path) -> None:
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             if n == 0:
                 return np.asarray([], dtype=np.float32)
             return np.linspace(0.0, 1.0, num=n, dtype=np.float32)
 
-        def predict_anomaly_map(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def predict_anomaly_map(self, x):  # noqa: ANN001
+            n = len(list(x))
             return np.zeros((n, 16, 16), dtype=np.float32)
 
     MODEL_REGISTRY.register(
@@ -68,7 +68,7 @@ def test_workbench_manifest_dataset_runs_all_categories(tmp_path: Path) -> None:
         _write_rgb(mdir / aname, value=240)
         row: dict = {"image_path": aname, "category": cat, "label": 1}
 
-        # Only "bottle" has masks → "cable" should skip pixel metrics with reason.
+        # Only "bottle" has masks �?"cable" should skip pixel metrics with reason.
         if cat == "bottle":
             mname = f"{cat}_a0_mask.png"
             _write_mask(mdir / mname)
@@ -135,12 +135,12 @@ def test_workbench_manifest_per_image_jsonl_includes_meta(tmp_path: Path) -> Non
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             if n == 0:
                 return np.asarray([], dtype=np.float32)
             return np.linspace(0.0, 1.0, num=n, dtype=np.float32)
@@ -219,3 +219,4 @@ def test_workbench_manifest_per_image_jsonl_includes_meta(tmp_path: Path) -> Non
     bad = [r for r in records if str(r["input"]).endswith("bad.png")][0]
     assert good.get("meta") == {"frame": 0}
     assert bad.get("meta") == {"frame": 1, "defect": "scratch"}
+

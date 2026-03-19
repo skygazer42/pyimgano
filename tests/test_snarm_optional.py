@@ -18,6 +18,7 @@ def test_fit_snarm_raises_importerror_when_mamba_ssm_missing(monkeypatch):
 
     class DummyEmbedder:
         def embed(self, image):
+            del image
             patches = np.zeros((4, 8), dtype=np.float32)
             return patches, (2, 2), (32, 32)
 

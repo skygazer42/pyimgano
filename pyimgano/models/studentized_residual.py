@@ -55,19 +55,19 @@ class CoreStudentizedResidual(BaseDetector):
         self.clamp_zero = bool(clamp_zero)
         self.random_state = random_state
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        mu = np.mean(x_array, axis=0)
-        sd = np.std(x_array, axis=0)
+        mu = np.mean(x_arr, axis=0)
+        sd = np.std(x_arr, axis=0)
         sd = np.where(sd > float(self.eps), sd, 1.0)
-        z_scores = (x_array - mu) / sd
+        z = (x_arr - mu) / sd
 
         pca = PCA(n_components=self.n_components, random_state=self.random_state)
-        pca.fit(z_scores)
+        pca.fit(z)
 
-        resid = self._residual(z_scores, pca)
+        resid = self._residual(z, pca)
         med, mad = _mad_scale(resid, eps=float(self.eps))
 
         self._mu = mu
@@ -81,10 +81,10 @@ class CoreStudentizedResidual(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def _residual(self, z_scores: np.ndarray, pca: PCA) -> np.ndarray:
-        transformed = pca.transform(z_scores)
-        z_reconstructed = pca.inverse_transform(transformed)
-        resid = np.linalg.norm(z_scores - z_reconstructed, axis=1)
+    def _residual(self, z: np.ndarray, pca: PCA) -> np.ndarray:
+        transformed = pca.transform(z)
+        z_hat = pca.inverse_transform(transformed)
+        resid = np.linalg.norm(z - z_hat, axis=1)
         return np.asarray(resid, dtype=np.float64).reshape(-1)
 
     def _standardize(self, resid: np.ndarray) -> np.ndarray:
@@ -96,14 +96,14 @@ class CoreStudentizedResidual(BaseDetector):
             z = np.maximum(z, 0.0)
         return np.asarray(z, dtype=np.float64).reshape(-1)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["_mu", "_sd", "_pca", "_resid_median", "_resid_mad"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         mu = np.asarray(self._mu, dtype=np.float64)  # type: ignore[attr-defined]
         sd = np.asarray(self._sd, dtype=np.float64)  # type: ignore[attr-defined]
         sd = np.where(sd > float(self.eps), sd, 1.0)
-        z_scores = (x_array - mu) / sd
-        resid = self._residual(z_scores, self._pca)  # type: ignore[arg-type]
+        z = (x_arr - mu) / sd
+        resid = self._residual(z, self._pca)  # type: ignore[arg-type]
         return self._standardize(resid)
 
 

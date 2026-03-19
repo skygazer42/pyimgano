@@ -23,8 +23,8 @@ def test_infer_cli_applies_preprocessing_preset_for_direct_model_mode(
         def __init__(self):
             self.seen_numpy = False
 
-        def decision_function(self, X):  # noqa: ANN001
-            items = list(X)
+        def decision_function(self, x):  # noqa: ANN001
+            items = list(x)
             assert items
             assert all(isinstance(x, np.ndarray) for x in items)
             self.seen_numpy = True

@@ -9,7 +9,7 @@ Uses adaptive diffusion models at both global and local scales for improved
 anomaly detection and reconstruction.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -184,8 +185,9 @@ class VisionGLAD(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(50, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((50, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create and train detector
     >>> detector = VisionGLAD(epochs=30, num_timesteps=50)
@@ -206,7 +208,7 @@ class VisionGLAD(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.num_timesteps = num_timesteps
         self.learning_rate = learning_rate
@@ -215,25 +217,25 @@ class VisionGLAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.global_diffusion_ = None
         self.local_diffusion_ = None
         self.fusion_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _build_feature_extractor(self):
         """Build feature extractor."""
@@ -275,7 +277,12 @@ class VisionGLAD(BaseVisionDeepDetector):
         noisy_x = alpha.sqrt() * x + (1 - alpha).sqrt() * noise
         return noisy_x, noise
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionGLAD":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionGLAD":
         """
         Fit the GLAD detector.
 
@@ -291,8 +298,10 @@ class VisionGLAD(BaseVisionDeepDetector):
         self : VisionGLAD
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -368,7 +377,12 @@ class VisionGLAD(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -391,7 +405,8 @@ class VisionGLAD(BaseVisionDeepDetector):
         self.local_diffusion_.eval()
         self.fusion_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -422,14 +437,22 @@ class VisionGLAD(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         batch_size_int = validate_batch_size(batch_size)
         if batch_size_int is None:
-            return self.predict(X)
+            return self.predict(x_array)
         return call_with_temporary_attr(
             self,
             "batch_size",
             batch_size_int,
-            lambda: self.predict(X),
+            lambda: self.predict(x_array),
         )

@@ -17,13 +17,14 @@ Notes
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Tuple, Union
+from typing import Any, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .anomalydino import PatchEmbedder, TorchHubDinoV2Embedder
 from .baseCv import BaseVisionDeepDetector
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
@@ -75,13 +76,13 @@ class _MambaReconstructor:
         mamba_cls = getattr(mamba_ssm, "Mamba", None)
         if mamba_cls is None:  # pragma: no cover
             try:
-                from mamba_ssm.modules.mamba_simple import Mamba as _mamba_cls  # type: ignore
+                from mamba_ssm.modules.mamba_simple import Mamba as _Mamba  # type: ignore
             except Exception as exc:  # pragma: no cover
                 raise ImportError(
                     "Unable to import Mamba from mamba_ssm. "
                     "Your installed mamba-ssm version may be unsupported."
                 ) from exc
-            mamba_cls = _mamba_cls
+            mamba_cls = _Mamba
 
         class Block(torch.nn.Module):
             def __init__(self) -> None:
@@ -255,8 +256,12 @@ class VisionMambaAD(BaseVisionDeepDetector):
             expand=self.expand,
         ).to(self.device)
 
-    def fit(self, X: Iterable[ImageInput], y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        x_iter = cast(
+            Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="fit")
+        )
+        items = list(x_iter)
         if not items:
             raise ValueError("X must contain at least one training image.")
 
@@ -276,11 +281,14 @@ class VisionMambaAD(BaseVisionDeepDetector):
         batch = torch.stack(sequences, dim=0)  # (N, P, D)
 
         dataset = torch.utils.data.TensorDataset(batch)
+        loader_generator = torch.Generator()
+        loader_generator.manual_seed(int(self.random_seed))
         loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=min(self.batch_size, len(dataset)),
             shuffle=True,
             drop_last=False,
+            generator=loader_generator,
         )
 
         opt = torch.optim.AdamW(
@@ -327,16 +335,23 @@ class VisionMambaAD(BaseVisionDeepDetector):
         return np.asarray(out, dtype=np.float32)
 
     def decision_function(
-        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
     ) -> NDArray:
         # This detector scores one image at a time. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
+        x_iter = cast(
+            Iterable[ImageInput],
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+        )
         if batch_size is not None:
             batch_size_int = int(batch_size)
             if batch_size_int <= 0:
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
-        items = list(X)
+        items = list(x_iter)
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             embedded = self._embed(item)
@@ -348,7 +363,12 @@ class VisionMambaAD(BaseVisionDeepDetector):
             )
         return scores
 
-    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         if return_confidence:
             raise NotImplementedError(
                 f"return_confidence is not implemented for {self.__class__.__name__}"
@@ -356,7 +376,10 @@ class VisionMambaAD(BaseVisionDeepDetector):
 
         if getattr(self, "threshold_", None) is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        x_iter = cast(
+            Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+        )
+        scores = self.decision_function(x_iter)
         return (scores >= float(self.threshold_)).astype(np.int64)
 
     def get_anomaly_map(self, image: ImageInput) -> NDArray:
@@ -385,8 +408,11 @@ class VisionMambaAD(BaseVisionDeepDetector):
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        x_iter = cast(
+            Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        )
+        items = list(x_iter)
         maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
             raise ValueError("X must be non-empty")

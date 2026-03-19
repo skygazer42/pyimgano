@@ -7,7 +7,7 @@ def test_legacy_isolation_forest_struct_is_still_registered_and_fittable() -> No
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(3)
-    X = rng.normal(size=(60, 6))
+    x = rng.normal(size=(60, 6))
 
     det = create_model(
         "isolation_forest_struct",
@@ -16,7 +16,7 @@ def test_legacy_isolation_forest_struct_is_still_registered_and_fittable() -> No
         n_estimators=25,
         random_state=3,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:8])
+    det.fit(x)
+    scores = det.decision_function(x[:8])
     assert scores.shape == (8,)
     assert np.all(np.isfinite(scores))

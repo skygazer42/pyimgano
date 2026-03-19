@@ -50,6 +50,7 @@ def test_fit_mambaad_raises_importerror_when_mamba_ssm_missing(monkeypatch):
 
     class DummyEmbedder:
         def embed(self, image):
+            del image
             patches = np.zeros((4, 8), dtype=np.float32)  # 2x2 grid, dim=8
             return patches, (2, 2), (32, 32)
 

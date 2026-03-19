@@ -52,8 +52,9 @@ class CoreKDE:
         self.kde_: KernelDensity | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         self.kde_ = KernelDensity(
             bandwidth=self.bandwidth,
             algorithm=self.algorithm,
@@ -66,15 +67,15 @@ class CoreKDE:
             breadth_first=self.breadth_first,
             **self._kde_kwargs,
         )
-        self.kde_.fit(X)
-        self.decision_scores_ = self.decision_function(X)
+        self.kde_.fit(x)
+        self.decision_scores_ = self.decision_function(x)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         if self.kde_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        log_density = self.kde_.score_samples(X)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        log_density = self.kde_.score_samples(x)
         return (-log_density).astype(np.float64).ravel()
 
 
@@ -164,8 +165,8 @@ class VisionKDE(BaseVisionDetector):
     def _build_detector(self):
         return CoreKDE(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

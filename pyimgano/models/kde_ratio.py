@@ -52,35 +52,35 @@ class CoreKDERatio(BaseDetector):
         self.kernel = str(kernel)
         self.standardize = bool(standardize)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         scaler = StandardScaler() if bool(self.standardize) else None
-        Z = scaler.fit_transform(x_array) if scaler is not None else x_array
+        z = scaler.fit_transform(x_arr) if scaler is not None else x_arr
 
         kde_local = KernelDensity(bandwidth=float(self.bandwidth_local), kernel=str(self.kernel))
         kde_global = KernelDensity(bandwidth=float(self.bandwidth_global), kernel=str(self.kernel))
-        kde_local.fit(Z)
-        kde_global.fit(Z)
+        kde_local.fit(z)
+        kde_global.fit(z)
 
         self._scaler = scaler
         self._kde_local = kde_local
         self._kde_global = kde_global
 
-        scores = self.decision_function(x_array)
+        scores = self.decision_function(x_arr)
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).reshape(-1)
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["_kde_local", "_kde_global"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         scaler = getattr(self, "_scaler", None)
-        Z = scaler.transform(x_array) if scaler is not None else x_array
+        z = scaler.transform(x_arr) if scaler is not None else x_arr
 
-        ll_local = np.asarray(self._kde_local.score_samples(Z), dtype=np.float64).reshape(-1)  # type: ignore[attr-defined]
-        ll_global = np.asarray(self._kde_global.score_samples(Z), dtype=np.float64).reshape(-1)  # type: ignore[attr-defined]
+        ll_local = np.asarray(self._kde_local.score_samples(z), dtype=np.float64).reshape(-1)  # type: ignore[attr-defined]
+        ll_global = np.asarray(self._kde_global.score_samples(z), dtype=np.float64).reshape(-1)  # type: ignore[attr-defined]
         score = ll_global - ll_local
         score = np.maximum(score, 0.0)
         return np.asarray(score, dtype=np.float64).reshape(-1)

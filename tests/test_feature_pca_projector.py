@@ -5,11 +5,11 @@ def test_pca_projector_fit_transform_shapes() -> None:
     from pyimgano.features.pca_projector import PCAProjector
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(50, 10))
+    x = rng.normal(size=(50, 10))
 
     ext = PCAProjector(n_components=5, random_state=0)
-    ext.fit(X)
-    Z = ext.extract(X[:7])
+    ext.fit(x)
+    z = ext.extract(x[:7])
 
-    assert Z.shape == (7, 5)
-    assert np.all(np.isfinite(Z))
+    assert z.shape == (7, 5)
+    assert np.all(np.isfinite(z))

@@ -5,12 +5,12 @@ def test_standard_scaler_extractor_centers_features() -> None:
     from pyimgano.features.scaler import StandardScalerExtractor
 
     rng = np.random.default_rng(0)
-    X = rng.normal(loc=10.0, scale=3.0, size=(50, 4))
+    x = rng.normal(loc=10.0, scale=3.0, size=(50, 4))
 
     ext = StandardScalerExtractor()
-    ext.fit(X)
-    Z = ext.extract(X)
+    ext.fit(x)
+    z = ext.extract(x)
 
-    assert Z.shape == X.shape
+    assert z.shape == x.shape
     # Approximately zero mean per feature
-    assert np.allclose(Z.mean(axis=0), 0.0, atol=1e-5)
+    assert np.allclose(z.mean(axis=0), 0.0, atol=1e-5)

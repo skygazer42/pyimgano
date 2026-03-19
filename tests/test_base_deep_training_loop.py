@@ -34,8 +34,8 @@ def test_base_deep_detector_fit_score_predict_smoke() -> None:
             return err.detach().cpu().numpy()
 
     rng = np.random.default_rng(0)
-    X_train = rng.standard_normal(size=(32, 8)).astype(np.float32)
-    X_test = rng.standard_normal(size=(8, 8)).astype(np.float32)
+    x_train = rng.standard_normal(size=(32, 8)).astype(np.float32)
+    x_test = rng.standard_normal(size=(8, 8)).astype(np.float32)
 
     det = DummyDeep(
         contamination=0.1,
@@ -49,20 +49,20 @@ def test_base_deep_detector_fit_score_predict_smoke() -> None:
         verbose=0,
     )
 
-    det.fit(X_train)
+    det.fit(x_train)
     assert hasattr(det, "decision_scores_")
-    assert np.asarray(det.decision_scores_).shape == (len(X_train),)
+    assert np.asarray(det.decision_scores_).shape == (len(x_train),)
 
-    scores = np.asarray(det.decision_function(X_test), dtype=np.float32)
-    assert scores.shape == (len(X_test),)
+    scores = np.asarray(det.decision_function(x_test), dtype=np.float32)
+    assert scores.shape == (len(x_test),)
     assert np.isfinite(scores).all()
 
-    preds = np.asarray(det.predict(X_test), dtype=int)
-    assert preds.shape == (len(X_test),)
+    preds = np.asarray(det.predict(x_test), dtype=int)
+    assert preds.shape == (len(x_test),)
     assert set(np.unique(preds)).issubset({0, 1})
 
-    proba = np.asarray(det.predict_proba(X_test), dtype=np.float32)
-    assert proba.shape == (len(X_test), 2)
+    proba = np.asarray(det.predict_proba(x_test), dtype=np.float32)
+    assert proba.shape == (len(x_test), 2)
     assert np.all(proba >= 0.0)
     assert np.all(proba <= 1.0)
 

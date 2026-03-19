@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 
 class _FakeInferencerDict:
@@ -61,7 +62,7 @@ def test_anomalib_checkpoint_wrapper_calibrates_threshold_and_predicts():
     model.fit(train_paths)
 
     expected_threshold = float(np.quantile([scores[p] for p in train_paths], 0.75))
-    assert model.threshold_ == expected_threshold
+    assert np.isclose(model.threshold_, expected_threshold)
 
     y_pred = model.predict(test_paths)
     assert set(np.unique(y_pred).tolist()).issubset({0, 1})

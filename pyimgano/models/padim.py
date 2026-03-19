@@ -15,7 +15,7 @@ Notes for this implementation:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -23,6 +23,7 @@ from sklearn.random_projection import GaussianRandomProjection
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -174,7 +175,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
     def _extract_patch_features(self, image_path: ImageInput) -> NDArray:
         torch = require("torch", extra="torch", purpose="VisionPaDiM feature extraction")
-        F = require("torch.nn.functional", extra="torch", purpose="VisionPaDiM feature extraction")
+        functional = require("torch.nn.functional", extra="torch", purpose="VisionPaDiM feature extraction")
 
         img = self._load_image_rgb(image_path)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
@@ -185,7 +186,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         layer2_feat = self.feature_maps["layer2"]  # (1, C2, H2, W2)
         layer3_feat = self.feature_maps["layer3"]  # (1, C3, H3, W3)
 
-        layer3_feat = F.interpolate(
+        layer3_feat = functional.interpolate(
             layer3_feat,
             size=layer2_feat.shape[-2:],
             mode="bilinear",
@@ -204,8 +205,15 @@ class VisionPaDiM(BaseVisionDeepDetector):
             return item
         return f"<ndarray:{idx} shape={tuple(item.shape)} dtype={item.dtype}>"
 
-    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPaDiM":
-        x_list = list(X)
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionPaDiM":
+        del y
+        x_iter = cast(Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
+        x_list = list(x_iter)
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
@@ -275,7 +283,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
         return np.sqrt(q, dtype=np.float32)
 
     def decision_function(
-        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
     ) -> NDArray:
         # This detector scores one image at a time. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
@@ -285,7 +296,11 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         self._check_fitted()
-        x_list = list(X)
+        x_iter = cast(
+            Iterable[ImageInput],
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+        )
+        x_list = list(x_iter)
         scores = np.zeros(len(x_list), dtype=np.float32)
 
         for i, image in enumerate(x_list):
@@ -297,7 +312,12 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 scores[i] = 0.0
         return scores
 
-    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         if return_confidence:
             raise NotImplementedError(
                 f"return_confidence is not implemented for {self.__class__.__name__}"
@@ -305,7 +325,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        x_iter = cast(
+            Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+        )
+        scores = self.decision_function(x_iter)
         return (scores >= self.threshold_).astype(int)
 
     def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
@@ -324,6 +347,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
             interpolation=cv2.INTER_CUBIC,
         ).astype(np.float32, copy=False)
 
-    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
-        maps = [self.get_anomaly_map(item) for item in X]
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        x_iter = cast(
+            Iterable[ImageInput],
+            resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+        )
+        maps = [self.get_anomaly_map(item) for item in x_iter]
         return np.stack(maps, axis=0)

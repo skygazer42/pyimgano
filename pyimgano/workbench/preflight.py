@@ -6,7 +6,6 @@ from pyimgano.workbench.preflight_model_compat import run_workbench_model_compat
 from pyimgano.workbench.preflight_report import build_preflight_report
 from pyimgano.workbench.preflight_summary import resolve_workbench_preflight_summary
 from pyimgano.workbench.preflight_types import (
-    IssueSeverity,
     PreflightIssue,
     PreflightReport,
 )

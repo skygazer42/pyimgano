@@ -20,19 +20,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pyimgano.models import ECOD
 from pyimgano.preprocessing import ImageEnhancer, PreprocessingMixin, PreprocessingPipeline
 
-CREATE_SAMPLE_IMAGES_SEED = 7
-BASIC_OPERATIONS_SEED = 11
-PREPROCESSING_PIPELINE_SEED = 19
-
 
 def create_sample_images():
     """Create sample images for demonstration."""
     images = []
-    rng = np.random.default_rng(CREATE_SAMPLE_IMAGES_SEED)
+    rng = np.random.default_rng(0)
 
     for i in range(10):
         # Create varied sample images
-        img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
+        img = rng.integers(0, 256, (100, 100, 3), dtype=np.uint8)
 
         # Add some structure
         if i % 2 == 0:
@@ -57,10 +53,10 @@ def example_basic_operations():
 
     # Create enhancer
     enhancer = ImageEnhancer()
-    rng = np.random.default_rng(BASIC_OPERATIONS_SEED)
+    rng = np.random.default_rng(1)
 
     # Create sample image
-    img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    img = rng.integers(0, 256, (100, 100, 3), dtype=np.uint8)
     cv2.rectangle(img, (30, 30), (70, 70), (255, 255, 255), -1)
 
     print("\nOriginal image shape:", img.shape)
@@ -97,10 +93,9 @@ def example_preprocessing_pipeline():
     print("\n" + "=" * 60)
     print("Example 2: Preprocessing Pipeline")
     print("=" * 60)
-    rng = np.random.default_rng(PREPROCESSING_PIPELINE_SEED)
 
     # Create sample image
-    img = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
+    img = np.random.default_rng(2).integers(0, 256, (100, 100, 3), dtype=np.uint8)
     cv2.circle(img, (50, 50), 30, (255, 255, 255), -1)
 
     # Build pipeline
@@ -148,28 +143,28 @@ def example_detector_with_preprocessing():
             self.add_preprocessing_step("gaussian_blur", ksize=(5, 5))
             self.add_preprocessing_step("normalize", method="minmax")
 
-        def fit(self, X, y=None):
+        def fit(self, x, y=None):
             """Fit with preprocessing."""
-            print(f"Preprocessing {len(X)} training images...")
-            x_processed = self.preprocess_images(X)
+            print(f"Preprocessing {len(x)} training images...")
+            x_processed = self.preprocess_images(x)
 
             # Flatten for ECOD
             x_flat = [img.flatten() for img in x_processed]
             return super().fit(x_flat, y)
 
-        def predict(self, X):
+        def predict(self, x):
             """Predict with preprocessing."""
-            print(f"Preprocessing {len(X)} test images...")
-            x_processed = self.preprocess_images(X)
+            print(f"Preprocessing {len(x)} test images...")
+            x_processed = self.preprocess_images(x)
 
             # Flatten for ECOD
             x_flat = [img.flatten() for img in x_processed]
             return super().predict(x_flat)
 
-        def decision_function(self, X):
+        def decision_function(self, x):
             """Compute anomaly scores with preprocessing."""
-            print(f"Preprocessing {len(X)} test images...")
-            x_processed = self.preprocess_images(X)
+            print(f"Preprocessing {len(x)} test images...")
+            x_processed = self.preprocess_images(x)
 
             # Flatten for ECOD
             x_flat = [img.flatten() for img in x_processed]

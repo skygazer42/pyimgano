@@ -29,9 +29,9 @@ def _synthetic_data(seed: int = 0, *, n_normal: int = 200, n_outlier: int = 10, 
     rng = np.random.default_rng(int(seed))
     x_normal = rng.normal(loc=0.0, scale=1.0, size=(int(n_normal), int(d)))
     x_outlier = rng.normal(loc=8.0, scale=1.0, size=(int(n_outlier), int(d)))
-    x_all = np.concatenate([x_normal, x_outlier], axis=0)
+    x = np.concatenate([x_normal, x_outlier], axis=0)
     y = np.concatenate([np.zeros((x_normal.shape[0],)), np.ones((x_outlier.shape[0],))], axis=0)
-    return x_all, y
+    return x, y
 
 
 def _ensure_repo_root_on_sys_path() -> None:
@@ -48,7 +48,7 @@ def audit_score_direction(*, seed: int = 0) -> list[AuditResult]:
     from pyimgano.models import create_model
     from pyimgano.models.registry import MODEL_REGISTRY, list_models
 
-    X, y = _synthetic_data(seed=seed)
+    x, y = _synthetic_data(seed=seed)
 
     results: list[AuditResult] = []
     for name in sorted(n for n in list_models() if n.startswith("core_")):
@@ -58,8 +58,8 @@ def audit_score_direction(*, seed: int = 0) -> list[AuditResult]:
 
         try:
             det = create_model(name, contamination=0.05)
-            det.fit(X)
-            scores = np.asarray(det.decision_function(X), dtype=np.float64).reshape(-1)
+            det.fit(x)
+            scores = np.asarray(det.decision_function(x), dtype=np.float64).reshape(-1)
             mn = float(np.mean(scores[y == 0]))
             mo = float(np.mean(scores[y == 1]))
             ok = bool(mo > mn)

@@ -206,8 +206,8 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="TorchvisionBackboneExtractor")
-        F = require("torch.nn.functional", extra="torch", purpose="TorchvisionBackboneExtractor")
-        T = require("torchvision.transforms", extra="torch", purpose="TorchvisionBackboneExtractor")
+        f = require("torch.nn.functional", extra="torch", purpose="TorchvisionBackboneExtractor")
+        t = require("torchvision.transforms", extra="torch", purpose="TorchvisionBackboneExtractor")
 
         pool = str(self.pool).strip().lower()
         model, weight_transform = _load_torchvision_backbone(
@@ -251,11 +251,11 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         else:
             mean = (0.485, 0.456, 0.406)
             std = (0.229, 0.224, 0.225)
-            transform = T.Compose(
+            transform = t.Compose(
                 [
-                    T.Resize((int(self.image_size), int(self.image_size))),
-                    T.ToTensor(),
-                    T.Normalize(mean=mean, std=std),
+                    t.Resize((int(self.image_size), int(self.image_size))),
+                    t.ToTensor(),
+                    t.Normalize(mean=mean, std=std),
                 ]
             )
 
@@ -263,7 +263,7 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         self._transform = transform
         self._device = dev
         self._torch = torch
-        self._F = F
+        self._F = f
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
         items = list(inputs)
@@ -314,7 +314,7 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         assert self._device is not None
 
         torch = self._torch
-        F = self._F
+        f = self._F
         bs = max(1, int(self.batch_size))
         pool = str(self.pool).strip().lower()
 
@@ -353,9 +353,9 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
                         out_t = torch.as_tensor(out)
                         if out_t.ndim == 4:
                             if pool == "max":
-                                out_t = F.adaptive_max_pool2d(out_t, output_size=(1, 1))
+                                out_t = f.adaptive_max_pool2d(out_t, output_size=(1, 1))
                             else:
-                                out_t = F.adaptive_avg_pool2d(out_t, output_size=(1, 1))
+                                out_t = f.adaptive_avg_pool2d(out_t, output_size=(1, 1))
                             emb = torch.flatten(out_t, start_dim=1)
                         elif out_t.ndim > 2:
                             emb = torch.flatten(out_t, start_dim=1)

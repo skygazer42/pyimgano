@@ -5,30 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-_ILLUMINATION = "illumination"
-_CONTRAST = "contrast"
-_DEPLOYABLE = "deployable"
-_INDUSTRIAL = "industrial"
-_PYTHON_API = "python-api"
-_PREPROCESSING_ILLUMINATION_CONTRAST = "preprocessing.illumination_contrast"
+ILLUMINATION_CONTRAST_KEY = "preprocessing.illumination_contrast"
 
-_ENABLED = "enabled"
-_WHITE_BALANCE = "white_balance"
-_GRAY_WORLD = "gray_world"
-_MAX_RGB = "max_rgb"
-_HOMOMORPHIC = "homomorphic"
-_HOMOMORPHIC_CUTOFF = "homomorphic_cutoff"
-_HOMOMORPHIC_GAMMA_LOW = "homomorphic_gamma_low"
-_HOMOMORPHIC_GAMMA_HIGH = "homomorphic_gamma_high"
-_HOMOMORPHIC_C = "homomorphic_c"
-_HOMOMORPHIC_PER_CHANNEL = "homomorphic_per_channel"
-_CLAHE = "clahe"
-_CLAHE_TILE_GRID_SIZE = "clahe_tile_grid_size"
-_CLAHE_CLIP_LIMIT = "clahe_clip_limit"
-_GAMMA = "gamma"
-_CONTRAST_STRETCH = "contrast_stretch"
-_CONTRAST_LOWER_PERCENTILE = "contrast_lower_percentile"
-_CONTRAST_UPPER_PERCENTILE = "contrast_upper_percentile"
+
+
 
 
 @dataclass(frozen=True)
@@ -50,21 +30,21 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "mild homomorphic filtering, CLAHE, and percentile contrast stretching."
         ),
         deployable=True,
-        tags=(_ILLUMINATION, _CONTRAST, _DEPLOYABLE, _INDUSTRIAL),
-        config_key=_PREPROCESSING_ILLUMINATION_CONTRAST,
+        tags=("illumination", "contrast", "deployable", "industrial"),
+        config_key=ILLUMINATION_CONTRAST_KEY,
         payload={
-            _ENABLED: True,
-            _WHITE_BALANCE: _GRAY_WORLD,
-            _HOMOMORPHIC: True,
-            _HOMOMORPHIC_CUTOFF: 0.25,
-            _HOMOMORPHIC_GAMMA_LOW: 0.8,
-            _HOMOMORPHIC_GAMMA_HIGH: 1.2,
-            _CLAHE: True,
-            _CLAHE_TILE_GRID_SIZE: [8, 8],
-            _CLAHE_CLIP_LIMIT: 2.0,
-            _GAMMA: None,
-            _CONTRAST_LOWER_PERCENTILE: 1.0,
-            _CONTRAST_UPPER_PERCENTILE: 99.0,
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": True,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 2.0,
+            "gamma": None,
+            "contrast_lower_percentile": 1.0,
+            "contrast_upper_percentile": 99.0,
         },
     ),
     "illumination-contrast-lowlight": PreprocessingScheme(
@@ -74,21 +54,21 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "homomorphic filtering, CLAHE, and a gentle gamma lift."
         ),
         deployable=True,
-        tags=(_ILLUMINATION, _CONTRAST, _DEPLOYABLE, "lowlight", _INDUSTRIAL),
-        config_key=_PREPROCESSING_ILLUMINATION_CONTRAST,
+        tags=("illumination", "contrast", "deployable", "lowlight", "industrial"),
+        config_key=ILLUMINATION_CONTRAST_KEY,
         payload={
-            _ENABLED: True,
-            _WHITE_BALANCE: _GRAY_WORLD,
-            _HOMOMORPHIC: True,
-            _HOMOMORPHIC_CUTOFF: 0.2,
-            _HOMOMORPHIC_GAMMA_LOW: 0.7,
-            _HOMOMORPHIC_GAMMA_HIGH: 1.35,
-            _CLAHE: True,
-            _CLAHE_TILE_GRID_SIZE: [8, 8],
-            _CLAHE_CLIP_LIMIT: 2.5,
-            _GAMMA: 1.08,
-            _CONTRAST_LOWER_PERCENTILE: 0.5,
-            _CONTRAST_UPPER_PERCENTILE: 99.5,
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": True,
+            "homomorphic_cutoff": 0.2,
+            "homomorphic_gamma_low": 0.7,
+            "homomorphic_gamma_high": 1.35,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 2.5,
+            "gamma": 1.08,
+            "contrast_lower_percentile": 0.5,
+            "contrast_upper_percentile": 99.5,
         },
     ),
     "illumination-contrast-texture-boost": PreprocessingScheme(
@@ -98,21 +78,21 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "CLAHE, and tighter percentile contrast stretching."
         ),
         deployable=True,
-        tags=(_ILLUMINATION, _CONTRAST, _DEPLOYABLE, "texture", _INDUSTRIAL),
-        config_key=_PREPROCESSING_ILLUMINATION_CONTRAST,
+        tags=("illumination", "contrast", "deployable", "texture", "industrial"),
+        config_key=ILLUMINATION_CONTRAST_KEY,
         payload={
-            _ENABLED: True,
-            _WHITE_BALANCE: _MAX_RGB,
-            _HOMOMORPHIC: False,
-            _HOMOMORPHIC_CUTOFF: 0.25,
-            _HOMOMORPHIC_GAMMA_LOW: 0.8,
-            _HOMOMORPHIC_GAMMA_HIGH: 1.2,
-            _CLAHE: True,
-            _CLAHE_TILE_GRID_SIZE: [8, 8],
-            _CLAHE_CLIP_LIMIT: 3.0,
-            _GAMMA: None,
-            _CONTRAST_LOWER_PERCENTILE: 2.0,
-            _CONTRAST_UPPER_PERCENTILE: 98.0,
+            "enabled": True,
+            "white_balance": "max_rgb",
+            "homomorphic": False,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 3.0,
+            "gamma": None,
+            "contrast_lower_percentile": 2.0,
+            "contrast_upper_percentile": 98.0,
         },
     ),
     "illumination-contrast-aggressive": PreprocessingScheme(
@@ -122,24 +102,24 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "gray-world white balance + homomorphic filtering + strong CLAHE + contrast stretching."
         ),
         deployable=True,
-        tags=(_ILLUMINATION, _CONTRAST, _DEPLOYABLE, _INDUSTRIAL, "aggressive"),
-        config_key=_PREPROCESSING_ILLUMINATION_CONTRAST,
+        tags=("illumination", "contrast", "deployable", "industrial", "aggressive"),
+        config_key=ILLUMINATION_CONTRAST_KEY,
         payload={
-            _ENABLED: True,
-            _WHITE_BALANCE: _GRAY_WORLD,
-            _HOMOMORPHIC: True,
-            _HOMOMORPHIC_CUTOFF: 0.18,
-            _HOMOMORPHIC_GAMMA_LOW: 0.65,
-            _HOMOMORPHIC_GAMMA_HIGH: 1.45,
-            _HOMOMORPHIC_C: 1.0,
-            _HOMOMORPHIC_PER_CHANNEL: True,
-            _CLAHE: True,
-            _CLAHE_TILE_GRID_SIZE: [8, 8],
-            _CLAHE_CLIP_LIMIT: 3.5,
-            _GAMMA: 1.05,
-            _CONTRAST_STRETCH: True,
-            _CONTRAST_LOWER_PERCENTILE: 0.5,
-            _CONTRAST_UPPER_PERCENTILE: 99.5,
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": True,
+            "homomorphic_cutoff": 0.18,
+            "homomorphic_gamma_low": 0.65,
+            "homomorphic_gamma_high": 1.45,
+            "homomorphic_c": 1.0,
+            "homomorphic_per_channel": True,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 3.5,
+            "gamma": 1.05,
+            "contrast_stretch": True,
+            "contrast_lower_percentile": 0.5,
+            "contrast_upper_percentile": 99.5,
         },
     ),
     "illumination-contrast-no-homomorphic": PreprocessingScheme(
@@ -149,24 +129,24 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "mild contrast stretching (no homomorphic filter)."
         ),
         deployable=True,
-        tags=(_ILLUMINATION, _CONTRAST, _DEPLOYABLE, _INDUSTRIAL, "no-homomorphic"),
-        config_key=_PREPROCESSING_ILLUMINATION_CONTRAST,
+        tags=("illumination", "contrast", "deployable", "industrial", "no-homomorphic"),
+        config_key=ILLUMINATION_CONTRAST_KEY,
         payload={
-            _ENABLED: True,
-            _WHITE_BALANCE: _GRAY_WORLD,
-            _HOMOMORPHIC: False,
-            _HOMOMORPHIC_CUTOFF: 0.25,
-            _HOMOMORPHIC_GAMMA_LOW: 0.8,
-            _HOMOMORPHIC_GAMMA_HIGH: 1.2,
-            _HOMOMORPHIC_C: 1.0,
-            _HOMOMORPHIC_PER_CHANNEL: True,
-            _CLAHE: True,
-            _CLAHE_TILE_GRID_SIZE: [8, 8],
-            _CLAHE_CLIP_LIMIT: 2.2,
-            _GAMMA: None,
-            _CONTRAST_STRETCH: True,
-            _CONTRAST_LOWER_PERCENTILE: 1.0,
-            _CONTRAST_UPPER_PERCENTILE: 99.0,
+            "enabled": True,
+            "white_balance": "gray_world",
+            "homomorphic": False,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "homomorphic_c": 1.0,
+            "homomorphic_per_channel": True,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 2.2,
+            "gamma": None,
+            "contrast_stretch": True,
+            "contrast_lower_percentile": 1.0,
+            "contrast_upper_percentile": 99.0,
         },
     ),
     "illumination-contrast-color-stable": PreprocessingScheme(
@@ -176,24 +156,24 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "gentle CLAHE + mild gamma lift (avoids heavy global contrast stretching)."
         ),
         deployable=True,
-        tags=(_ILLUMINATION, _CONTRAST, _DEPLOYABLE, _INDUSTRIAL, "color-stable"),
-        config_key=_PREPROCESSING_ILLUMINATION_CONTRAST,
+        tags=("illumination", "contrast", "deployable", "industrial", "color-stable"),
+        config_key=ILLUMINATION_CONTRAST_KEY,
         payload={
-            _ENABLED: True,
-            _WHITE_BALANCE: _MAX_RGB,
-            _HOMOMORPHIC: False,
-            _HOMOMORPHIC_CUTOFF: 0.25,
-            _HOMOMORPHIC_GAMMA_LOW: 0.8,
-            _HOMOMORPHIC_GAMMA_HIGH: 1.2,
-            _HOMOMORPHIC_C: 1.0,
-            _HOMOMORPHIC_PER_CHANNEL: True,
-            _CLAHE: True,
-            _CLAHE_TILE_GRID_SIZE: [8, 8],
-            _CLAHE_CLIP_LIMIT: 1.8,
-            _GAMMA: 1.03,
-            _CONTRAST_STRETCH: False,
-            _CONTRAST_LOWER_PERCENTILE: 2.0,
-            _CONTRAST_UPPER_PERCENTILE: 98.0,
+            "enabled": True,
+            "white_balance": "max_rgb",
+            "homomorphic": False,
+            "homomorphic_cutoff": 0.25,
+            "homomorphic_gamma_low": 0.8,
+            "homomorphic_gamma_high": 1.2,
+            "homomorphic_c": 1.0,
+            "homomorphic_per_channel": True,
+            "clahe": True,
+            "clahe_tile_grid_size": [8, 8],
+            "clahe_clip_limit": 1.8,
+            "gamma": 1.03,
+            "contrast_stretch": False,
+            "contrast_lower_percentile": 2.0,
+            "contrast_upper_percentile": 98.0,
         },
     ),
     "retinex-msrcr-lite": PreprocessingScheme(
@@ -203,7 +183,7 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "`pyimgano.preprocessing.msrcr_lite`."
         ),
         deployable=False,
-        tags=("retinex", _ILLUMINATION, _PYTHON_API),
+        tags=("retinex", "illumination", "python-api"),
         entrypoint="pyimgano.preprocessing.msrcr_lite",
     ),
     "rolling-ball-flatfield": PreprocessingScheme(
@@ -213,7 +193,7 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "estimate and subtraction helpers."
         ),
         deployable=False,
-        tags=("background", "flatfield", _PYTHON_API),
+        tags=("background", "flatfield", "python-api"),
         entrypoint="pyimgano.preprocessing.subtract_background_rolling_ball",
     ),
     "guided-filter-denoise": PreprocessingScheme(
@@ -223,7 +203,7 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "feature extraction or scoring."
         ),
         deployable=False,
-        tags=("denoise", "edge-preserving", _PYTHON_API),
+        tags=("denoise", "edge-preserving", "python-api"),
         entrypoint="pyimgano.preprocessing.guided_filter",
     ),
     "defect-amplify-local-contrast": PreprocessingScheme(
@@ -233,7 +213,7 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "manual preprocessing pipelines."
         ),
         deployable=False,
-        tags=("defect-boost", _CONTRAST, _PYTHON_API),
+        tags=("defect-boost", "contrast", "python-api"),
         entrypoint="pyimgano.preprocessing.defect_amplification",
     ),
     "anisotropic-diffusion-denoise": PreprocessingScheme(
@@ -242,7 +222,7 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "Edge-preserving denoising using Perona–Malik anisotropic diffusion (Python API helper)."
         ),
         deployable=False,
-        tags=("denoise", "edge-preserving", _PYTHON_API, _INDUSTRIAL),
+        tags=("denoise", "edge-preserving", "python-api", "industrial"),
         entrypoint="pyimgano.preprocessing.anisotropic_diffusion",
     ),
     "shading-correction-rolling-ball": PreprocessingScheme(
@@ -251,7 +231,7 @@ _SCHEMES: dict[str, PreprocessingScheme] = {
             "Shading correction preset for uneven illumination: rolling-ball background subtraction + CLAHE."
         ),
         deployable=False,
-        tags=("background", "flatfield", _ILLUMINATION, _PYTHON_API, _INDUSTRIAL),
+        tags=("background", "flatfield", "illumination", "python-api", "industrial"),
         entrypoint="pyimgano.preprocessing.shading_correction",
     ),
 }

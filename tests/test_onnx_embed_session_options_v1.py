@@ -75,6 +75,11 @@ def test_onnx_embed_extractor_applies_session_options(monkeypatch, tmp_path: Pat
         def get_available_providers():
             return ["CPUExecutionProvider"]
 
+    setattr(_FakeORT, "SessionOptions", _FakeORT.session_options)
+    setattr(_FakeORT, "InferenceSession", _FakeORT.inference_session)
+    setattr(_FakeORT, "GraphOptimizationLevel", _FakeORT.graph_optimization_level)
+    setattr(_FakeORT, "ExecutionMode", _FakeORT.execution_mode)
+
     monkeypatch.setattr(onnx_embed, "require", lambda *a, **k: _FakeORT)
 
     ckpt = tmp_path / "model.onnx"

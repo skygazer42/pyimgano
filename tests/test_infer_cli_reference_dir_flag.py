@@ -41,8 +41,8 @@ def test_infer_cli_reference_dir_flag_applies_to_detector(tmp_path: Path) -> Non
             r_img = np.asarray(Image.open(str(r)).convert("L"), dtype=np.float32) / 255.0
             return np.abs(q_img - r_img).astype(np.float32)
 
-        def decision_function(self, X):  # noqa: ANN001
-            items = list(X)
+        def decision_function(self, x):  # noqa: ANN001
+            items = list(x)
             scores = []
             for it in items:
                 m = np.asarray(self.get_anomaly_map(it), dtype=np.float32)
@@ -96,8 +96,8 @@ def test_infer_cli_reference_dir_rejects_non_reference_detectors(
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.zeros(len(list(X)), dtype=np.float64)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.zeros(len(list(x)), dtype=np.float64)
 
     MODEL_REGISTRY.register(
         "test_infer_cli_no_reference_support",
@@ -122,3 +122,4 @@ def test_infer_cli_reference_dir_rejects_non_reference_detectors(
     assert rc == 2
     err = capsys.readouterr().err.lower()
     assert "reference-dir" in err
+

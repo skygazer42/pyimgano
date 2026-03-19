@@ -26,6 +26,7 @@ from pyimgano.preprocessing import (
     morphological_operation,
     normalize_image,
 )
+from pyimgano.preprocessing.mixin import ExampleDetectorWithPreprocessing
 
 # Fixtures
 
@@ -661,8 +662,8 @@ class TestIntegration:
                 self.add_preprocessing_step("gaussian_blur", ksize=(5, 5))
                 self.add_preprocessing_step("normalize", method="minmax")
 
-            def fit(self, X):
-                x_processed = self.preprocess_images(X)
+            def fit(self, x):
+                x_processed = self.preprocess_images(x)
                 return x_processed
 
         detector = MockDetector()
@@ -672,6 +673,32 @@ class TestIntegration:
         assert len(processed) == 2
         for img in processed:
             assert img is not None
+
+    def test_example_detector_predict_returns_finite_scores(self, sample_color_image):
+        """Example detector should return one finite score per preprocessed image."""
+        detector = ExampleDetectorWithPreprocessing()
+        scores = detector.predict([sample_color_image, sample_color_image, sample_color_image])
+
+        assert scores.shape == (3,)
+        assert np.all(np.isfinite(scores))
+
+    def test_example_detector_predict_does_not_mutate_global_numpy_state(
+        self, sample_color_image
+    ):
+        """Example detector prediction should not touch the module-level NumPy RNG."""
+        detector = ExampleDetectorWithPreprocessing()
+        global_rng = np.random.mtrand._rand
+        before = global_rng.get_state()
+
+        try:
+            detector.predict([sample_color_image, sample_color_image])
+            after = global_rng.get_state()
+        finally:
+            global_rng.set_state(before)
+
+        assert after[0] == before[0]
+        assert np.array_equal(after[1], before[1])
+        assert after[2:] == before[2:]
 
     def test_edge_detection_workflow(self, sample_color_image):
         """Test edge detection workflow."""

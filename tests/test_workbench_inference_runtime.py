@@ -80,6 +80,7 @@ def test_workbench_inference_runtime_skips_map_collection_when_not_needed(monkey
     def _fake_infer(
         detector, test_inputs, *, input_format=None, include_maps=False, postprocess=None
     ):  # noqa: ANN001
+        del detector, test_inputs, input_format, postprocess
         calls["include_maps"] = include_maps
         return [SimpleNamespace(score=0.2, anomaly_map=None)]
 
@@ -92,6 +93,7 @@ def test_workbench_inference_runtime_skips_map_collection_when_not_needed(monkey
         pixel_labels=None,
         pixel_scores=None,
     ):  # noqa: ANN001
+        del test_labels, scores, find_best_threshold, pixel_labels
         calls["pixel_scores"] = pixel_scores
         return {"threshold": threshold, "average_precision": 0.6}
 

@@ -86,8 +86,8 @@ def test_workbench_preflight_custom_dataset_structure_validation(tmp_path: Path)
 def test_workbench_preflight_non_manifest_uses_workbench_category_boundary(
     monkeypatch, tmp_path: Path
 ) -> None:
-    import pyimgano.workbench.preflight as preflight_module
     import pyimgano.workbench.non_manifest_category_listing as listing_module
+    import pyimgano.workbench.preflight as preflight_module
 
     root = tmp_path / "mvtec"
     root.mkdir(parents=True, exist_ok=True)

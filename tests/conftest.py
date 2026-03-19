@@ -11,6 +11,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
+_GLOBAL_NUMPY_RNG = np.random.mtrand._rand
+
+
+def _fixture_rng(seed: int) -> np.random.Generator:
+    return np.random.default_rng(seed)
+
 
 @pytest.fixture(scope="session")
 def temp_dir() -> Generator[Path, None, None]:
@@ -23,7 +29,7 @@ def temp_dir() -> Generator[Path, None, None]:
 def sample_image() -> np.ndarray:
     """Create a sample image for testing."""
     # Create a simple 100x100 RGB image
-    image = np.random.default_rng(1).integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
+    image = _fixture_rng(0).integers(0, 255, (100, 100, 3), dtype=np.uint8)
     return image
 
 
@@ -40,9 +46,9 @@ def sample_image_path(temp_dir: Path, sample_image: np.ndarray) -> Path:
 def sample_image_paths(temp_dir: Path) -> list[Path]:
     """Create multiple sample images and return their paths."""
     paths = []
-    rng = np.random.default_rng(2)
+    rng = _fixture_rng(1)
     for i in range(5):
-        image = rng.integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        image = rng.integers(0, 255, (100, 100, 3), dtype=np.uint8)
         image_path = temp_dir / f"test_image_{i}.jpg"
         pil_image = Image.fromarray(image)
         pil_image.save(image_path)
@@ -53,14 +59,14 @@ def sample_image_paths(temp_dir: Path) -> list[Path]:
 @pytest.fixture
 def sample_grayscale_image() -> np.ndarray:
     """Create a sample grayscale image for testing."""
-    image = np.random.default_rng(3).integers(0, 255, size=(100, 100), dtype=np.uint8)
+    image = _fixture_rng(2).integers(0, 255, (100, 100), dtype=np.uint8)
     return image
 
 
 @pytest.fixture(autouse=True)
 def reset_random_seeds():
     """Reset random seeds before each test for reproducibility."""
-    np.random.seed(42)
+    _GLOBAL_NUMPY_RNG.seed(42)
     # Add torch seed if torch is available
     try:
         import torch
@@ -79,14 +85,14 @@ def mock_dataset_paths(temp_dir: Path) -> dict[str, list[Path]]:
     test_dir = temp_dir / "test"
     train_dir.mkdir()
     test_dir.mkdir()
-    rng = np.random.default_rng(4)
 
     train_paths = []
     test_paths = []
+    rng = _fixture_rng(3)
 
     # Create training images
     for i in range(10):
-        image = rng.integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        image = rng.integers(0, 255, (100, 100, 3), dtype=np.uint8)
         image_path = train_dir / f"train_{i}.jpg"
         pil_image = Image.fromarray(image)
         pil_image.save(image_path)
@@ -94,7 +100,7 @@ def mock_dataset_paths(temp_dir: Path) -> dict[str, list[Path]]:
 
     # Create test images
     for i in range(5):
-        image = rng.integers(0, 255, size=(100, 100, 3), dtype=np.uint8)
+        image = rng.integers(0, 255, (100, 100, 3), dtype=np.uint8)
         image_path = test_dir / f"test_{i}.jpg"
         pil_image = Image.fromarray(image)
         pil_image.save(image_path)
@@ -118,6 +124,7 @@ def pytest_configure(config):
 # Skip GPU tests if CUDA is not available
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to skip GPU tests if CUDA is not available."""
+    del config
     try:
         import torch
 

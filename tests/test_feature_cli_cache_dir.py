@@ -48,6 +48,7 @@ def test_feature_cli_cache_dir_reuses_cache(tmp_path: Path, monkeypatch) -> None
     from pyimgano.features.edge_stats import EdgeStatsExtractor
 
     def _boom(self, inputs):  # noqa: ANN001, ANN201 - signature matches extractor protocol
+        del inputs, self
         raise RuntimeError("EdgeStatsExtractor.extract should not be called when cache is warm")
 
     monkeypatch.setattr(EdgeStatsExtractor, "extract", _boom, raising=True)

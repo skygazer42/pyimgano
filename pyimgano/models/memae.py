@@ -205,7 +205,7 @@ class MemAE(BaseVisionDeepDetector):
 
         self.network_ = None
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "MemAE":
+    def fit(self, x: NDArray, y: Optional[NDArray] = None) -> "MemAE":
         """
         Fit MemAE model.
 
@@ -221,34 +221,31 @@ class MemAE(BaseVisionDeepDetector):
         self : MemAE
             Fitted estimator
         """
+        del y
         # Convert to torch tensor
-        if X.ndim == 3:
-            X = np.expand_dims(X, axis=-1)
+        if x.ndim == 3:
+            x = np.expand_dims(x, axis=-1)
 
-        X = np.transpose(X, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(X).float() / 255.0
+        x = np.transpose(x, (0, 3, 1, 2))
+        x_tensor = torch.from_numpy(x).float() / 255.0
 
         # Initialize network
         self.network_ = MemAENetwork(
-            in_channels=X.shape[1], mem_dim=self.mem_dim, shrink_thres=self.shrink_thres
+            in_channels=x.shape[1], mem_dim=self.mem_dim, shrink_thres=self.shrink_thres
         ).to(self.device)
 
         # Setup optimizer
-        optimizer = torch.optim.Adam(
-            self.network_.parameters(), lr=self.learning_rate, weight_decay=0.0
-        )
+        optimizer = torch.optim.Adam(self.network_.parameters(), lr=self.learning_rate, weight_decay=0.0)
 
         # Training loop
         dataset = TensorDataset(x_tensor)
-        dataloader = DataLoader(
-            dataset, batch_size=self.batch_size, shuffle=True, num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         self.network_.train()
         for epoch in range(self.epochs):
             epoch_loss = 0
 
-            for batch_idx, (batch,) in enumerate(dataloader):
+            for (batch,) in dataloader:
                 batch = batch.to(self.device)
 
                 # Forward pass
@@ -279,7 +276,7 @@ class MemAE(BaseVisionDeepDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: NDArray) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -296,11 +293,11 @@ class MemAE(BaseVisionDeepDetector):
         self._check_is_fitted()
 
         # Preprocess
-        if X.ndim == 3:
-            X = np.expand_dims(X, axis=-1)
+        if x.ndim == 3:
+            x = np.expand_dims(x, axis=-1)
 
-        X = np.transpose(X, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(X).float() / 255.0
+        x = np.transpose(x, (0, 3, 1, 2))
+        x_tensor = torch.from_numpy(x).float() / 255.0
 
         # Compute scores
         self.network_.eval()

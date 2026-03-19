@@ -6,6 +6,7 @@ from pyimgano.models.registry import ModelRegistry
 
 def test_model_info_exposes_signature_and_kwargs() -> None:
     def _ctor(*, a: int = 1, b: str = "x") -> object:
+        del a, b
         return object()
 
     registry = ModelRegistry()
@@ -35,6 +36,7 @@ def test_model_info_handles_var_kwargs_constructors() -> None:
 
 def test_registry_model_info_method_matches_introspection() -> None:
     def _ctor(*, x: int = 0) -> object:
+        del x
         return object()
 
     registry = ModelRegistry()

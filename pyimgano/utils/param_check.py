@@ -9,14 +9,6 @@ from __future__ import annotations
 from numbers import Number
 
 
-def _validate_bound(value: Number | None, *, bound_name: str) -> tuple[bool, Number]:
-    if value is None:
-        return False, 0
-    if not isinstance(value, Number) or isinstance(value, bool):
-        raise TypeError(f"{bound_name} must be a number, got {type(value).__name__}")
-    return True, value
-
-
 def check_parameter(
     param: Number,
     low: Number | None = None,
@@ -43,24 +35,21 @@ def check_parameter(
     if not isinstance(param, Number) or isinstance(param, bool):
         raise TypeError(f"{param_name} must be a number, got {type(param).__name__}")
 
-    has_low, low_value = _validate_bound(low, bound_name="low")
-    has_high, high_value = _validate_bound(high, bound_name="high")
-
-    if has_low and has_high and low_value > high_value:
+    if low is not None and high is not None and float(low) > float(high):
         raise ValueError(f"Invalid bounds for {param_name}: low={low} > high={high}")
 
-    if has_low:
+    if low is not None:
         if include_left:
-            if param < low_value:
-                raise ValueError(f"{param_name} must be >= {low_value}, got {param}")
+            if param < low:
+                raise ValueError(f"{param_name} must be >= {low}, got {param}")
         else:
-            if param <= low_value:
-                raise ValueError(f"{param_name} must be > {low_value}, got {param}")
+            if param <= low:
+                raise ValueError(f"{param_name} must be > {low}, got {param}")
 
-    if has_high:
+    if high is not None:
         if include_right:
-            if param > high_value:
-                raise ValueError(f"{param_name} must be <= {high_value}, got {param}")
+            if param > high:
+                raise ValueError(f"{param_name} must be <= {high}, got {param}")
         else:
-            if param >= high_value:
-                raise ValueError(f"{param_name} must be < {high_value}, got {param}")
+            if param >= high:
+                raise ValueError(f"{param_name} must be < {high}, got {param}")

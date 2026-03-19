@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -50,6 +50,7 @@ def test_run_workbench_category_orchestrates_runtime_boundaries(
     def _fake_run_workbench_training(
         *, detector, train_inputs, config, category, run_dir
     ):  # noqa: ANN001 - test seam
+        del config
         calls["training"] = {
             "detector": detector,
             "train_inputs": list(train_inputs),

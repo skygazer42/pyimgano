@@ -232,6 +232,7 @@ def _make_missing_torch_autoencoder_detector():
         """
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401 - legacy shim
+            del args, kwargs
             from pyimgano.utils.optional_deps import require
 
             require("torch", extra="torch", purpose="pyimgano.detectors.AutoencoderDetector")

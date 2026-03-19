@@ -202,12 +202,13 @@ def test_cli_supports_numpy_input_mode_flag(tmp_path, capsys):
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
+        def fit(self, x):  # noqa: ANN001
+            del x
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
+        def decision_function(self, x):  # noqa: ANN001
             scores: list[float] = []
-            for item in X:
+            for item in x:
                 arr = np.asarray(item)
                 scores.append(float(arr.mean()))
             return np.asarray(scores, dtype=np.float32)

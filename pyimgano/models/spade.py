@@ -14,7 +14,7 @@ This implementation:
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Iterable, Optional, Sequence, Tuple, Union, cast
 
 import cv2
 import numpy as np
@@ -26,6 +26,7 @@ from scipy.ndimage import gaussian_filter
 from scipy.spatial import cKDTree
 from torchvision import models
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -128,10 +129,8 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
 
         if device is not None:
             device_str = device
-        elif torch.cuda.is_available():
-            device_str = "cuda"
         else:
-            device_str = "cpu"
+            device_str = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = torch.device(device_str)
 
         self.feature_extractor = DeepPyramidExtractor(
@@ -152,28 +151,28 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         img = cv2.resize(img, (self.image_size, self.image_size), interpolation=cv2.INTER_AREA)
         return (img.astype(np.float32) / 255.0).astype(np.float32, copy=False)
 
-    def _iter_images(self, X: Union[Iterable[str], NDArray]) -> Iterable[NDArray]:
-        if isinstance(X, str):
+    def _iter_images(self, x: Union[Iterable[str], NDArray]) -> Iterable[NDArray]:
+        if isinstance(x, str):
             raise TypeError("Expected an iterable of paths, got a single string path.")
 
-        if isinstance(X, np.ndarray):
-            if X.ndim == 3:
-                yield self._maybe_resize_image(X)
+        if isinstance(x, np.ndarray):
+            if x.ndim == 3:
+                yield self._maybe_resize_image(x)
                 return
-            if X.ndim != 4:
-                raise ValueError(f"Expected X shape (N,H,W,C) or (H,W,C); got {X.shape}")
-            for img in X:
+            if x.ndim != 4:
+                raise ValueError(f"Expected x shape (N,H,W,C) or (H,W,C); got {x.shape}")
+            for img in x:
                 yield self._maybe_resize_image(img)
             return
 
-        for item in X:
+        for item in x:
             if isinstance(item, str):
                 yield self._load_image(item)
             elif isinstance(item, np.ndarray):
                 yield self._maybe_resize_image(item)
             else:
                 raise TypeError(
-                    "Expected X to be an iterable of str paths or numpy images, "
+                    "Expected x to be an iterable of str paths or numpy images, "
                     f"got element type {type(item)}"
                 )
 
@@ -199,9 +198,23 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         return (img_t - mean) / std
 
     def fit(
-        self, X: Union[Iterable[str], NDArray], y: Optional[NDArray] = None, **kwargs
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
     ) -> "VisionSPADEDetector":
-        images = list(self._iter_images(X))
+        legacy_kwargs: dict[str, object] = {}
+        if "X" in kwargs:
+            legacy_kwargs["X"] = kwargs.pop("X")
+        del y, kwargs
+        images = list(
+            self._iter_images(
+                cast(
+                    Union[Iterable[str], NDArray],
+                    resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit"),
+                )
+            )
+        )
         if not images:
             raise ValueError("Training set cannot be empty")
 
@@ -237,7 +250,10 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
     def decision_function(
-        self, X: Union[Iterable[str], NDArray], batch_size: Optional[int] = None
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
     ) -> NDArray:
         # SPADE scores one image at a time. Keep `batch_size` for interface
         # compatibility with BaseDeepLearningDetector.
@@ -249,24 +265,46 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         self._check_fitted()
 
         scores: list[float] = []
-        for img in self._iter_images(X):
+        for img in self._iter_images(
+            cast(
+                Union[Iterable[str], NDArray],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        ):
             anomaly_map = self._compute_anomaly_map(img)
             scores.append(float(anomaly_map.max()))
 
         return np.asarray(scores, dtype=np.float32)
 
-    def predict_proba(self, X: Union[Iterable[str], NDArray], **kwargs) -> NDArray:
+    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
         # For SPADE, "probability" is an anomaly score; keep for compatibility.
-        return self.decision_function(X)
+        legacy_kwargs: dict[str, object] = {}
+        if "X" in kwargs:
+            legacy_kwargs["X"] = kwargs.pop("X")
+        del kwargs
+        return self.decision_function(
+            cast(
+                Union[Iterable[str], NDArray],
+                resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba"),
+            )
+        )
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
         self._check_fitted()
         img = self._load_image(image_path)
         return self._compute_anomaly_map(img)
 
-    def predict_anomaly_map(self, X: Union[Iterable[str], NDArray]) -> NDArray:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         self._check_fitted()
-        maps = [self._compute_anomaly_map(img) for img in self._iter_images(X)]
+        maps = [
+            self._compute_anomaly_map(img)
+            for img in self._iter_images(
+                cast(
+                    Union[Iterable[str], NDArray],
+                    resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+                )
+            )
+        ]
         return np.stack(maps, axis=0)
 
     def _compute_anomaly_map(self, image: NDArray) -> NDArray:

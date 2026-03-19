@@ -6,18 +6,18 @@
 import os
 import sys
 
+PROJECT_TITLE = "PyImgAno Documentation"
+
+
 # Add the parent directory to the path so we can import pyimgano
 sys.path.insert(0, os.path.abspath("../.."))
-
-PROJECT_NAME = "PyImgAno"
-PROJECT_DOC_TITLE = f"{PROJECT_NAME} Documentation"
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = PROJECT_NAME
-copyright = f"2026, {PROJECT_NAME} Contributors"
-author = f"{PROJECT_NAME} Contributors"
+project = "PyImgAno"
+copyright = "2026, PyImgAno Contributors"
+author = "PyImgAno Contributors"
 try:
     import pyimgano as _pyimgano
 except Exception:
@@ -165,14 +165,14 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, f"{PROJECT_NAME}.tex", PROJECT_DOC_TITLE, author, "manual"),
+    (master_doc, "PyImgAno.tex", PROJECT_TITLE, "PyImgAno Contributors", "manual"),
 ]
 
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "pyimgano", PROJECT_DOC_TITLE, [author], 1)]
+man_pages = [(master_doc, "pyimgano", PROJECT_TITLE, [author], 1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -182,10 +182,10 @@ man_pages = [(master_doc, "pyimgano", PROJECT_DOC_TITLE, [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        PROJECT_NAME,
-        PROJECT_DOC_TITLE,
+        "PyImgAno",
+        PROJECT_TITLE,
         author,
-        PROJECT_NAME,
+        "PyImgAno",
         "Enterprise-Grade Visual Anomaly Detection Toolkit",
         "Miscellaneous",
     ),

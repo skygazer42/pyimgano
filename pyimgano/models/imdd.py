@@ -53,32 +53,33 @@ class CoreIMDD:
         self.decision_scores_ = None
 
     # ------------------------------------------------------------------
-    def fit(self, X, _y=None):
-        X = check_array(X)
-        self.decision_scores_ = self._compute_scores(X)
+    def fit(self, x, y=None):
+        del y
+        x = check_array(x)
+        self.decision_scores_ = self._compute_scores(x)
         return self
 
-    def decision_function(self, X):
-        X = check_array(X)
-        return self._compute_scores(X)
+    def decision_function(self, x):
+        x = check_array(x)
+        return self._compute_scores(x)
 
     # ------------------------------------------------------------------
-    def _compute_scores(self, X):
-        dis = np.zeros(X.shape[0])
-        card = np.zeros(X.shape[0])
+    def _compute_scores(self, x):
+        dis = np.zeros(x.shape[0])
+        card = np.zeros(x.shape[0])
 
         # base order computation
-        base_scores = self._smoothing_factor(X)
-        self._update_cardinality(base_scores, card, X.shape[0])
+        base_scores = self._smoothing_factor(x)
+        self._update_cardinality(base_scores, card, x.shape[0])
         dis = np.maximum(dis, base_scores)
 
-        indices = np.arange(X.shape[0])
+        indices = np.arange(x.shape[0])
         rs = check_random_state(self.random_state.randint(0, 2**31 - 1))
         for _ in range(self.n_iter):
             rs.shuffle(indices)
-            shuffled = X[indices]
+            shuffled = x[indices]
             scores = self._smoothing_factor(shuffled)[np.argsort(indices)]
-            current_card = X.shape[0] - np.count_nonzero(scores)
+            current_card = x.shape[0] - np.count_nonzero(scores)
             better = scores > dis
             dis[better] = scores[better]
             card[better] = current_card
@@ -87,12 +88,12 @@ class CoreIMDD:
     def _update_cardinality(self, scores, card, n_samples):
         card[:] = np.where(scores > 0, n_samples - np.count_nonzero(scores), card)
 
-    def _smoothing_factor(self, X):
-        res = np.zeros(X.shape[0])
+    def _smoothing_factor(self, x):
+        res = np.zeros(x.shape[0])
         best_delta = -np.inf
         best_idx = 0
-        for i in range(1, X.shape[0]):
-            delta = self.dis_measure(X[: i + 1]) - self.dis_measure(X[:i])
+        for i in range(1, x.shape[0]):
+            delta = self.dis_measure(x[: i + 1]) - self.dis_measure(x[:i])
             if delta > best_delta:
                 best_delta = delta
                 best_idx = i
@@ -100,11 +101,11 @@ class CoreIMDD:
         if best_delta <= 0:
             return res
         res[best_idx] = best_delta
-        prefix = X[: best_idx + 1]
-        prefix_prev = X[:best_idx]
-        for k in range(best_idx + 1, X.shape[0]):
-            diff = self.dis_measure(np.vstack((prefix_prev, X[k]))) - self.dis_measure(
-                np.vstack((prefix, X[k]))
+        prefix = x[: best_idx + 1]
+        prefix_prev = x[:best_idx]
+        for k in range(best_idx + 1, x.shape[0]):
+            diff = self.dis_measure(np.vstack((prefix_prev, x[k]))) - self.dis_measure(
+                np.vstack((prefix, x[k]))
             )
             if diff >= 0:
                 res[k] = diff + best_delta
@@ -157,13 +158,14 @@ class VisionIMDD(BaseVisionDetector):
     def _build_detector(self):
         return CoreIMDD(**self.detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        features = np.asarray(self.feature_extractor.extract(X))
+    def fit(self, x: Iterable[str], y=None):
+        del y
+        features = np.asarray(self.feature_extractor.extract(x))
         self.detector.fit(features)
         self.decision_scores_ = self.detector.decision_scores_
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):
-        features = np.asarray(self.feature_extractor.extract(X))
+    def decision_function(self, x):
+        features = np.asarray(self.feature_extractor.extract(x))
         return self.detector.decision_function(features)

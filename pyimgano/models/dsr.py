@@ -26,6 +26,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 
+from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_dl import BaseVisionDeepDetector
 
 
@@ -104,7 +105,8 @@ class FeatureExtractor(nn.Module):
 
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
-            # Extract features up to layer3
+
+        # Extract features up to layer3
             self.features = nn.Sequential(
                 model.conv1,
                 model.bn1,
@@ -236,10 +238,10 @@ class DSRDetector(BaseVisionDeepDetector):
             Anomaly maps [N, H_img, W_img]
         """
         features_np = features.cpu().numpy()
-        N, _, _, _ = features_np.shape
+        n, _, _, _ = features_np.shape
 
         anomaly_maps = []
-        for i in range(N):
+        for i in range(n):
             # Transpose to [H, W, C]
             feat = features_np[i].transpose(1, 2, 0)  # [H, W, C]
 
@@ -253,7 +255,7 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return np.array(anomaly_maps)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object):
         """Fit the detector on normal images.
 
         For DSR, this computes statistics of normal spectral residuals
@@ -263,8 +265,10 @@ class DSRDetector(BaseVisionDeepDetector):
             X: Normal images [N, H, W, C]
             y: Ignored (unsupervised)
         """
+        del y
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x_arr)
 
         # Compute anomaly maps for normal images
         anomaly_maps = self._compute_spectral_anomaly_map(features)
@@ -279,7 +283,7 @@ class DSRDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -291,8 +295,10 @@ class DSRDetector(BaseVisionDeepDetector):
         if not self.fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="predict_proba"))
+
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x_arr)
 
         # Compute anomaly maps
         anomaly_maps = self._compute_spectral_anomaly_map(features)
@@ -308,7 +314,7 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return scores
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -320,23 +326,25 @@ class DSRDetector(BaseVisionDeepDetector):
         if not self.fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
+
         # Get original image size
-        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        h_img, w_img = x_arr.shape[1:3] if x_arr.shape[-1] == 3 else x_arr.shape[2:4]
 
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x_arr)
 
         # Compute anomaly maps
         anomaly_maps = self._compute_spectral_anomaly_map(features)
 
         # Upsample to original image size
-        N = anomaly_maps.shape[0]
-        upsampled_maps = np.zeros((N, height_img, width_img))
+        n = anomaly_maps.shape[0]
+        upsampled_maps = np.zeros((n, h_img, w_img))
 
-        for i in range(N):
+        for i in range(n):
             map_tensor = torch.from_numpy(anomaly_maps[i]).unsqueeze(0).unsqueeze(0).float()
             upsampled = F.interpolate(
-                map_tensor, size=(height_img, width_img), mode="bilinear", align_corners=False
+                map_tensor, size=(h_img, w_img), mode="bilinear", align_corners=False
             )
             upsampled_maps[i] = upsampled.squeeze().numpy()
 
@@ -348,7 +356,7 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return upsampled_maps
 
-    def predict(self, X: NDArray, threshold: Optional[float] = None) -> NDArray:
+    def predict(self, x: object = MISSING, threshold: Optional[float] = None, **kwargs: object) -> NDArray:
         """Predict anomaly labels.
 
         Args:
@@ -358,7 +366,7 @@ class DSRDetector(BaseVisionDeepDetector):
         Returns:
             Labels [N] (0=normal, 1=anomaly)
         """
-        scores = self.predict_proba(X)
+        scores = self.predict_proba(resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
 
         if threshold is None:
             # Use auto threshold from normal data

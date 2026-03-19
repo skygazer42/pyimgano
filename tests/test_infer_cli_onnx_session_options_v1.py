@@ -31,8 +31,8 @@ def test_infer_cli_onnx_session_options_shorthand_passes_to_model_kwargs(
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     def _create_model(name: str, **kwargs):  # noqa: ANN001, ANN201 - test stub
         _ = name
@@ -88,8 +88,8 @@ def test_infer_cli_onnx_session_options_shorthand_delegates_to_model_options(
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_cli,
@@ -225,6 +225,11 @@ def test_infer_cli_onnx_sweep_selects_best_session_options_and_applies_to_model(
         def get_available_providers():
             return ["CPUExecutionProvider"]
 
+    setattr(_FakeORT, "SessionOptions", _FakeORT.session_options)
+    setattr(_FakeORT, "InferenceSession", _FakeORT.inference_session)
+    setattr(_FakeORT, "GraphOptimizationLevel", _FakeORT.graph_optimization_level)
+    setattr(_FakeORT, "ExecutionMode", _FakeORT.execution_mode)
+
     monkeypatch.setattr(onnx_embed, "require", lambda *a, **k: _FakeORT)
 
     captured: dict[str, object] = {"kwargs": None}
@@ -233,8 +238,8 @@ def test_infer_cli_onnx_sweep_selects_best_session_options_and_applies_to_model(
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     def _create_model(name: str, **kwargs):  # noqa: ANN001, ANN201 - test stub
         _ = name

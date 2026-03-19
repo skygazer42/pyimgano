@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import importlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -86,6 +86,7 @@ def test_manifest_record_preflight_resolves_loaded_records_via_loader(monkeypatc
     sentinel_records = [SimpleNamespace(category="bottle")]
 
     def _fake_load_manifest_records_best_effort(*, manifest_path, issues, issue_builder):  # noqa: ANN001
+        del issues, issue_builder
         calls.append(str(manifest_path))
         return sentinel_records, {"bottle", "cable"}
 
@@ -517,6 +518,7 @@ def test_manifest_preflight_categories_filters_records_and_preserves_order(
         issues,
         issue_builder,
     ):
+        del issues, issue_builder
         calls.append(
             {
                 "category": str(category),

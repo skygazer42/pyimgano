@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from pyimgano.utils.jsonable import to_jsonable
 
@@ -29,7 +30,7 @@ def test_to_jsonable_converts_common_types(tmp_path) -> None:
 
 def test_to_jsonable_leaves_builtin_types_unchanged() -> None:
     assert to_jsonable(1) == 1
-    assert np.isclose(to_jsonable(1.5), 1.5)
+    assert to_jsonable(1.5) == pytest.approx(1.5)
     assert to_jsonable("x") == "x"
     assert to_jsonable(None) is None
     assert to_jsonable(Path("a/b")) == "a/b"

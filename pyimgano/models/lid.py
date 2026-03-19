@@ -60,17 +60,17 @@ class CoreLID(BaseDetector):
         self.n_jobs = n_jobs
         self.eps = float(eps)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(x_array.shape[0])
+        n = int(x_arr.shape[0])
         k = int(self.n_neighbors)
         if k <= 0:
             raise ValueError(f"n_neighbors must be > 0, got {self.n_neighbors}")
         if n <= 1:
-            self._X_train = x_array
-            self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(x_array)
+            self._X_train = x_arr
+            self._nn = NearestNeighbors(n_neighbors=1, metric=self.metric).fit(x_arr)
             self.decision_scores_ = np.zeros((n,), dtype=np.float64)
             self._process_decision_scores()
             return self
@@ -84,33 +84,33 @@ class CoreLID(BaseDetector):
             p=self.p,
             n_jobs=self.n_jobs,
         )
-        nn.fit(x_array)
-        dist, _idx = nn.kneighbors(x_array, n_neighbors=k + 1, return_distance=True)
+        nn.fit(x_arr)
+        dist, _idx = nn.kneighbors(x_arr, n_neighbors=k + 1, return_distance=True)
         dist = np.asarray(dist[:, 1:], dtype=np.float64)  # drop self
 
         scores = _lid_from_knn_distances(dist, eps=float(self.eps))
-        self._X_train = x_array
+        self._X_train = x_arr
         self._nn = nn
         self.decision_scores_ = scores
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["_nn", "_X_train"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
 
         # For new points, use k neighbors from training set.
         k = int(self.n_neighbors)
         n_train = int(getattr(self, "_X_train").shape[0])  # type: ignore[union-attr]
         if n_train <= 1:
-            return np.zeros((x_array.shape[0],), dtype=np.float64)
+            return np.zeros((x_arr.shape[0],), dtype=np.float64)
 
         k_eff = min(k, n_train)
         if k_eff <= 0:
-            return np.zeros((x_array.shape[0],), dtype=np.float64)
+            return np.zeros((x_arr.shape[0],), dtype=np.float64)
 
-        dist, _idx = nn.kneighbors(x_array, n_neighbors=k_eff, return_distance=True)
+        dist, _idx = nn.kneighbors(x_arr, n_neighbors=k_eff, return_distance=True)
         return _lid_from_knn_distances(dist, eps=float(self.eps))
 
 

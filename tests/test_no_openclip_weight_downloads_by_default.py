@@ -24,6 +24,7 @@ def test_openclip_extractor_passes_pretrained_none(monkeypatch) -> None:
     calls: list[object] = []
 
     def create_model_and_transforms(model_name: str, *, pretrained=None, **kwargs):  # noqa: ANN001
+        del model_name, kwargs
         calls.append(pretrained)
 
         class DummyModel:

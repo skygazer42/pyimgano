@@ -85,10 +85,10 @@ class MultiHeadAttention(nn.Module):
             output: Attention output [B, N, D]
             attention: Attention weights [B, H, N, N]
         """
-        B, N, D = x.shape
+        b, n, d = x.shape
 
         # QKV projections
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim)
+        qkv = self.qkv(x).reshape(b, n, 3, self.num_heads, self.head_dim)
         qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, B, H, N, D/H]
         q, k, v = qkv[0], qkv[1], qkv[2]
 
@@ -98,7 +98,7 @@ class MultiHeadAttention(nn.Module):
         attn = self.dropout(attn)
 
         # Apply attention to values
-        x = (attn @ v).transpose(1, 2).reshape(B, N, D)  # [B, N, D]
+        x = (attn @ v).transpose(1, 2).reshape(b, n, d)  # [B, N, D]
         x = self.proj(x)
         x = self.dropout(x)
 
@@ -316,37 +316,36 @@ class InTraDetector(BaseVisionDeepDetector):
 
         return images
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None):
         """Fit the detector on normal images.
 
         Args:
             X: Normal images [N, H, W, C]
             y: Ignored (unsupervised)
         """
+        del y
         # Training mode
         self.encoder.train()
         self.decoder.train()
 
         # Optimizer
         optimizer = torch.optim.Adam(
-            list(self.encoder.parameters()) + list(self.decoder.parameters()),
-            lr=self.learning_rate,
-            weight_decay=0.0,
+            list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=self.learning_rate, weight_decay=0.0
         )
 
         # Convert to tensor
-        if not isinstance(X, torch.Tensor):
-            X = torch.from_numpy(X).float()
+        if not isinstance(x, torch.Tensor):
+            x = torch.from_numpy(x).float()
 
-        num_samples = X.shape[0]
+        n = x.shape[0]
 
         # Training loop
         for epoch in range(self.epochs):
             epoch_loss = 0.0
             num_batches = 0
 
-            for i in range(0, num_samples, self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, n, self.batch_size):
+                batch = x[i : i + self.batch_size]
 
                 # Preprocess
                 images = self._preprocess(batch)
@@ -358,8 +357,9 @@ class InTraDetector(BaseVisionDeepDetector):
                 reconstructed = self.decoder(features)  # [B, N_patches, P*P*3]
 
                 # Original patches
-                patch_size = self.patch_size
-                patches = F.unfold(images, kernel_size=patch_size, stride=patch_size)
+                p = self.patch_size
+                _, _, _, _ = images.shape
+                patches = F.unfold(images, kernel_size=p, stride=p)  # [B, C*P*P, N_patches]
                 patches = patches.transpose(1, 2)  # [B, N_patches, C*P*P]
 
                 # Reconstruction loss
@@ -383,8 +383,8 @@ class InTraDetector(BaseVisionDeepDetector):
         # Compute normal statistics
         all_features = []
         with torch.no_grad():
-            for i in range(0, num_samples, self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, n, self.batch_size):
+                batch = x[i : i + self.batch_size]
                 images = self._preprocess(batch)
                 features, _ = self.encoder(images)
                 all_features.append(features.cpu().numpy())
@@ -398,7 +398,7 @@ class InTraDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: NDArray) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -411,7 +411,7 @@ class InTraDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Preprocess
-        images = self._preprocess(X)
+        images = self._preprocess(x)
 
         # Forward
         with torch.no_grad():
@@ -429,7 +429,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         return image_scores
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: NDArray) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -442,10 +442,10 @@ class InTraDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get original image size
-        image_height, image_width = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        h_img, w_img = x.shape[1:3] if x.shape[-1] == 3 else x.shape[2:4]
 
         # Preprocess
-        images = self._preprocess(X)
+        images = self._preprocess(x)
 
         # Forward
         with torch.no_grad():
@@ -453,7 +453,7 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Normalize features
         features_np = features.cpu().numpy()
-        batch_size, n_patches, _ = features_np.shape
+        b, n_patches, _ = features_np.shape
 
         normalized = (features_np - self.normal_features_mean) / self.normal_features_std
 
@@ -462,18 +462,15 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Reshape to spatial grid
         n_patches_per_side = int(np.sqrt(n_patches))
-        anomaly_maps = patch_scores.reshape(batch_size, n_patches_per_side, n_patches_per_side)
+        anomaly_maps = patch_scores.reshape(b, n_patches_per_side, n_patches_per_side)
 
         # Upsample to original size
         from scipy.ndimage import zoom
 
-        upsampled_maps = np.zeros((batch_size, image_height, image_width))
+        upsampled_maps = np.zeros((b, h_img, w_img))
 
-        for i in range(batch_size):
-            zoom_factors = (
-                image_height / n_patches_per_side,
-                image_width / n_patches_per_side,
-            )
+        for i in range(b):
+            zoom_factors = (h_img / n_patches_per_side, w_img / n_patches_per_side)
             upsampled_maps[i] = zoom(anomaly_maps[i], zoom_factors, order=1)
 
         return upsampled_maps

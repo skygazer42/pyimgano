@@ -9,7 +9,7 @@ Achieves first place in 17/18 settings on MVTec and VisA datasets through
 continual learning with gradient projection for stable anomaly detection.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -79,10 +80,6 @@ class ContinualDiffusion(nn.Module):
             nn.SiLU(),
         )
 
-    @staticmethod
-    def _merge_skip_connection(current: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
-        return torch.cat([current, skip], dim=1)
-
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """
         Predict noise at timestep t.
@@ -117,7 +114,8 @@ class ContinualDiffusion(nn.Module):
         # Decoder with skip connections
         for i, decoder in enumerate(self.decoder):
             h = F.interpolate(h, scale_factor=2, mode="nearest")
-            h = self._merge_skip_connection(h, enc_features[-(i + 1)])
+            # Skip-connection concat is inherently per-layer; this is not a loop accumulation.
+            h = torch.cat((h, enc_features[-(i + 1)]), dim=1)  # NOSONAR
             h = decoder(h)
 
         return h
@@ -225,8 +223,9 @@ class VisionOneForMore(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(100, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((100, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create and train detector (CVPR 2025 #1 method!)
     >>> detector = VisionOneForMore(epochs=30)
@@ -249,7 +248,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.hidden_channels = hidden_channels
         self.num_timesteps = num_timesteps
@@ -260,24 +259,24 @@ class VisionOneForMore(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.diffusion_model_ = None
         self.gradient_projection_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _build_feature_extractor(self):
         """Build feature extractor."""
@@ -320,7 +319,12 @@ class VisionOneForMore(BaseVisionDeepDetector):
         noisy_x = alpha_t.sqrt() * x + (1 - alpha_t).sqrt() * noise
         return noisy_x, noise
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionOneForMore":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionOneForMore":
         """
         Fit the One-for-More detector.
 
@@ -336,8 +340,10 @@ class VisionOneForMore(BaseVisionDeepDetector):
         self : VisionOneForMore
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -364,9 +370,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
         dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.diffusion_model_.parameters(), lr=self.learning_rate, weight_decay=0.0
-        )
+        optimizer = torch.optim.Adam(self.diffusion_model_.parameters(), lr=self.learning_rate, weight_decay=0.0)
 
         self.diffusion_model_.train()
 
@@ -414,7 +418,12 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -435,7 +444,8 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         self.diffusion_model_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -468,14 +478,22 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         batch_size_int = validate_batch_size(batch_size)
         if batch_size_int is None:
-            return self.predict(X)
+            return self.predict(x_array)
         return call_with_temporary_attr(
             self,
             "batch_size",
             batch_size_int,
-            lambda: self.predict(X),
+            lambda: self.predict(x_array),
         )

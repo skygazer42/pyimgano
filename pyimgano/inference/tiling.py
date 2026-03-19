@@ -14,7 +14,7 @@ ScoreReduce = Literal["max", "mean", "topk_mean"]
 
 @dataclass(frozen=True)
 class Tile:
-    """A single tile placement in the original image coordinate space."""
+    """a single tile placement in the original image coordinate space."""
 
     y0: int
     x0: int
@@ -308,15 +308,15 @@ class TiledDetector:
         if self.stride <= 0:
             raise ValueError(f"stride must be positive, got {self.stride}")
 
-        # Cache tile coordinate grids per (H,W,tile_size,stride) to avoid recomputing
+        # Cache tile coordinate grids per (h,w,tile_size,stride) to avoid recomputing
         # them for repeated inputs of the same size.
         self._tile_coords_cache: dict[tuple[int, int, int, int], tuple[tuple[int, int], ...]] = {}
 
-    def fit(self, X, y=None, **kwargs):
+    def fit(self, x, y=None, **kwargs):
         try:
-            return self.detector.fit(X, y=y, **kwargs)
+            return self.detector.fit(x, y=y, **kwargs)
         except TypeError:
-            return self.detector.fit(X, y=y)
+            return self.detector.fit(x, y=y)
 
     def _to_image_array(self, item: ImageInput) -> NDArray:
         if isinstance(item, (str, Path)):
@@ -359,8 +359,8 @@ class TiledDetector:
         scores = self.detector.decision_function(batch)
         return np.asarray(scores, dtype=np.float32).reshape(-1)
 
-    def decision_function(self, X: Iterable[ImageInput]) -> NDArray:
-        items = list(X)
+    def decision_function(self, x: Iterable[ImageInput]) -> NDArray:
+        items = list(x)
         scores_out = np.zeros(len(items), dtype=np.float32)
         for i, item in enumerate(items):
             image = self._to_image_array(item)
@@ -416,11 +416,11 @@ class TiledDetector:
         )
         return np.asarray(stitched, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable[ImageInput]) -> NDArray:
+        items = list(x)
         maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
-            raise ValueError("X must be non-empty")
+            raise ValueError("x must be non-empty")
 
         first_shape = maps[0].shape
         for m in maps[1:]:

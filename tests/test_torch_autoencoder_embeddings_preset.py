@@ -25,8 +25,8 @@ def test_vision_embedding_torch_autoencoder_smoke_on_vectors() -> None:
     from pyimgano.models.registry import create_model
 
     rng = np.random.default_rng(0)
-    X_train = rng.standard_normal(size=(32, 16)).astype(np.float32)
-    X_test = rng.standard_normal(size=(5, 16)).astype(np.float32)
+    x_train = rng.standard_normal(size=(32, 16)).astype(np.float32)
+    x_test = rng.standard_normal(size=(5, 16)).astype(np.float32)
 
     det = create_model(
         "vision_embedding_torch_autoencoder",
@@ -43,7 +43,7 @@ def test_vision_embedding_torch_autoencoder_smoke_on_vectors() -> None:
         },
         contamination=0.25,
     )
-    det.fit(X_train)
-    scores = np.asarray(det.decision_function(X_test), dtype=np.float64)
-    assert scores.shape == (X_test.shape[0],)
+    det.fit(x_train)
+    scores = np.asarray(det.decision_function(x_test), dtype=np.float64)
+    assert scores.shape == (x_test.shape[0],)
     assert np.isfinite(scores).all()

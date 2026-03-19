@@ -14,7 +14,7 @@ This keeps the registry name stable but aligns the model with the native
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional, cast
 
 import numpy as np
 from sklearn.cluster import KMeans
@@ -22,6 +22,7 @@ from sklearn.metrics import pairwise_distances
 
 from pyimgano.io.image import read_image
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .registry import register_model
 
@@ -74,13 +75,13 @@ def _select_templates(
     n_templates_eff = min(int(n_templates), len(imgs))
 
     small_hw = (64, 64)
-    X = np.stack(
+    x_repr = np.stack(
         [(_resize(im, size_hw=small_hw).reshape(-1).astype(np.float32) / 255.0) for im in imgs],
         axis=0,
     )
 
     km = KMeans(n_clusters=n_templates_eff, random_state=random_state, n_init=10)
-    labels = km.fit_predict(X)
+    labels = km.fit_predict(x_repr)
 
     templates: list[np.ndarray] = []
     for k in range(n_templates_eff):
@@ -88,7 +89,7 @@ def _select_templates(
         if idx.size == 0:
             continue
         center = km.cluster_centers_[k].reshape(1, -1)
-        d = pairwise_distances(X[idx], center, metric="euclidean").reshape(-1)
+        d = pairwise_distances(x_repr[idx], center, metric="euclidean").reshape(-1)
         best = int(idx[int(np.argmin(d))])
         templates.append(np.asarray(imgs[best], dtype=np.uint8))
 
@@ -139,8 +140,10 @@ class SSIMStructDetector(BaseDetector):
         gray = _resize(gray, size_hw=self.resize_hw)
         return _edges(gray, t1=self.canny_threshold1, t2=self.canny_threshold2)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        items = list(
+            cast(Iterable[object], resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
+        )
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -155,7 +158,7 @@ class SSIMStructDetector(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
         if self.templates_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -164,7 +167,12 @@ class SSIMStructDetector(BaseDetector):
         skmetrics = require("skimage.metrics", extra="skimage", purpose="SSIM similarity metric")
         ssim = skmetrics.structural_similarity
 
-        items = list(X)
+        items = list(
+            cast(
+                Iterable[object],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, it in enumerate(items):
             img = self._load_and_preprocess(it)

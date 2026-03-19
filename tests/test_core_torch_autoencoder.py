@@ -20,7 +20,7 @@ def test_core_torch_autoencoder_fit_predict_smoke() -> None:
     from pyimgano.models.registry import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(60, 12)).astype(np.float64)
+    x = rng.normal(size=(60, 12)).astype(np.float64)
 
     det = create_model(
         "core_torch_autoencoder",
@@ -35,9 +35,9 @@ def test_core_torch_autoencoder_fit_predict_smoke() -> None:
         preprocessing=True,
         random_state=0,
     )
-    det.fit(X)
-    scores = np.asarray(det.decision_function(X[:8]), dtype=np.float64).reshape(-1)
-    preds = np.asarray(det.predict(X[:8]), dtype=np.int64).reshape(-1)
+    det.fit(x)
+    scores = np.asarray(det.decision_function(x[:8]), dtype=np.float64).reshape(-1)
+    preds = np.asarray(det.predict(x[:8]), dtype=np.int64).reshape(-1)
     assert scores.shape == (8,)
     assert preds.shape == (8,)
     assert np.all(np.isfinite(scores))
@@ -53,7 +53,7 @@ def test_vision_torch_autoencoder_supports_identity_extractor_on_vectors() -> No
     from pyimgano.models.registry import create_model
 
     rng = np.random.default_rng(1)
-    X = [rng.normal(size=(10,)).astype(np.float32) for _ in range(80)]
+    x = [rng.normal(size=(10,)).astype(np.float32) for _ in range(80)]
 
     det = create_model(
         "vision_torch_autoencoder",
@@ -67,7 +67,7 @@ def test_vision_torch_autoencoder_supports_identity_extractor_on_vectors() -> No
         preprocessing=True,
         random_state=0,
     )
-    det.fit(X)
-    scores = np.asarray(det.decision_function(X[:5]), dtype=np.float64).reshape(-1)
+    det.fit(x)
+    scores = np.asarray(det.decision_function(x[:5]), dtype=np.float64).reshape(-1)
     assert scores.shape == (5,)
     assert np.all(np.isfinite(scores))

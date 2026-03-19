@@ -19,13 +19,14 @@ Key constraints
 """
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Optional, Tuple, Union
+from typing import Any, Iterable, Mapping, Optional, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyimgano.features.torchvision_conv_patch_embedder import TorchvisionConvPatchEmbedder
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import create_model, register_model
 
@@ -157,8 +158,14 @@ class VisionPatchEmbeddingCoreMap:
             )
         return np.asarray(scores, dtype=np.float32)
 
-    def fit(self, X: Iterable[Union[str, np.ndarray]], _y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            )
+        )
         if not items:
             raise ValueError("X must contain at least one training image.")
 
@@ -180,8 +187,13 @@ class VisionPatchEmbeddingCoreMap:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             embedded = self._embed(item)
@@ -193,10 +205,15 @@ class VisionPatchEmbeddingCoreMap:
             )
         return scores
 
-    def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
+            )
+        )
         return (scores > float(self.threshold_)).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -225,8 +242,13 @@ class VisionPatchEmbeddingCoreMap:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)
 

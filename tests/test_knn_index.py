@@ -6,11 +6,11 @@ from pyimgano.models.knn_index import FaissKNNIndex, SklearnKNNIndex, build_knn_
 
 def test_sklearn_knn_index_basic():
     rng = np.random.default_rng(0)
-    X = rng.random((20, 4)).astype(np.float32)
+    x = rng.random((20, 4)).astype(np.float32)
 
     index = SklearnKNNIndex(n_neighbors=3)
-    index.fit(X)
-    distances, indices = index.kneighbors(X[:2])
+    index.fit(x)
+    distances, indices = index.kneighbors(x[:2])
 
     assert distances.shape == (2, 3)
     assert indices.shape == (2, 3)
@@ -33,11 +33,11 @@ def test_faiss_knn_index_optional():
     pytest.importorskip("faiss")
 
     rng = np.random.default_rng(0)
-    X = rng.random((20, 4)).astype(np.float32)
+    x = rng.random((20, 4)).astype(np.float32)
 
     index = FaissKNNIndex(n_neighbors=3)
-    index.fit(X)
-    distances, indices = index.kneighbors(X[:2])
+    index.fit(x)
+    distances, indices = index.kneighbors(x[:2])
 
     assert distances.shape == (2, 3)
     assert indices.shape == (2, 3)

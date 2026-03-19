@@ -199,7 +199,7 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = [rng.normal(size=(16,)).astype(np.float32) for _ in range(80)]
+    x = [rng.normal(size=(16,)).astype(np.float32) for _ in range(80)]
 
     for name in [
         "vision_structural_copod",
@@ -210,8 +210,8 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
         "vision_structural_pca_md",
     ]:
         det = create_model(name, contamination=0.2, feature_extractor="identity")
-        det.fit(X)
-        scores = np.asarray(det.decision_function(X[:5]), dtype=np.float64).reshape(-1)
+        det.fit(x)
+        scores = np.asarray(det.decision_function(x[:5]), dtype=np.float64).reshape(-1)
         assert scores.shape == (5,)
         assert np.all(np.isfinite(scores))
 
@@ -232,8 +232,8 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
         "vision_resnet18_oddoneout",
     ]:
         det = create_model(name, contamination=0.2, embedding_extractor="identity")
-        det.fit(X)
-        scores = np.asarray(det.decision_function(X[:5]), dtype=np.float64).reshape(-1)
+        det.fit(x)
+        scores = np.asarray(det.decision_function(x[:5]), dtype=np.float64).reshape(-1)
         assert scores.shape == (5,)
         assert np.all(np.isfinite(scores))
 
@@ -266,8 +266,8 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
         "vision_onnx_oddoneout",
     ]:
         det = create_model(name, contamination=0.2, embedding_extractor="identity")
-        det.fit(X)
-        scores = np.asarray(det.decision_function(X[:5]), dtype=np.float64).reshape(-1)
+        det.fit(x)
+        scores = np.asarray(det.decision_function(x[:5]), dtype=np.float64).reshape(-1)
         assert scores.shape == (5,)
         assert np.all(np.isfinite(scores))
 
@@ -287,7 +287,7 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
             "hidden_dims": (12, 4),
         },
     )
-    det.fit(X)
-    scores = np.asarray(det.decision_function(X[:5]), dtype=np.float64).reshape(-1)
+    det.fit(x)
+    scores = np.asarray(det.decision_function(x[:5]), dtype=np.float64).reshape(-1)
     assert scores.shape == (5,)
     assert np.all(np.isfinite(scores))

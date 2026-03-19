@@ -33,11 +33,11 @@ from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
-def _l2_normalize_rows(X: np.ndarray, *, eps: float = 1e-12) -> np.ndarray:
-    x_float = np.asarray(X, dtype=np.float64)
-    denom = np.linalg.norm(x_float, axis=1, keepdims=True)
+def _l2_normalize_rows(x: np.ndarray, *, eps: float = 1e-12) -> np.ndarray:
+    x_features = np.asarray(x, dtype=np.float64)
+    denom = np.linalg.norm(x_features, axis=1, keepdims=True)
     denom = np.maximum(denom, float(eps))
-    return x_float / denom
+    return x_features / denom
 
 
 class CoreCrossMAD:
@@ -84,9 +84,9 @@ class CoreCrossMAD:
         self.centers_: np.ndarray | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        _ = y
-        x_np = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x_np = check_array(x, ensure_2d=True, dtype=np.float64)
         n = int(x_np.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
@@ -118,11 +118,11 @@ class CoreCrossMAD:
         )
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.centers_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        x_np = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_np = check_array(x, ensure_2d=True, dtype=np.float64)
         x_eval = _l2_normalize_rows(x_np) if self.normalize else x_np
 
         d = pairwise_distances(x_eval, self.centers_, metric=str(self.metric))
@@ -239,11 +239,11 @@ class VisionCrossMAD(BaseVisionDetector):
     def _build_detector(self):
         return CoreCrossMAD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable, y=None):  # noqa: ANN001, ANN201
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable, y=None):  # noqa: ANN001, ANN201
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
-        return super().decision_function(X)
+    def decision_function(self, x):  # noqa: ANN001, ANN201
+        return super().decision_function(x)
 
 
 __all__ = ["CoreCrossMADModel", "VisionCrossMAD"]

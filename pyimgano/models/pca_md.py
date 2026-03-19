@@ -43,16 +43,16 @@ class CorePCAMahalanobis(BaseDetector):
         self.reg = float(reg)
         self.random_state = random_state
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
-        if x_array.shape[0] == 0:
+        if x_arr.shape[0] == 0:
             raise ValueError("X must be non-empty")
 
         pca = PCA(
             n_components=self.n_components, whiten=self.whiten, random_state=self.random_state
         )
-        z = pca.fit_transform(x_array)
+        z = pca.fit_transform(x_arr)
 
         mu = np.mean(z, axis=0)
         diff = z - mu
@@ -64,18 +64,18 @@ class CorePCAMahalanobis(BaseDetector):
         self.mean_ = mu
         self.inv_cov_ = inv
 
-        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["pca_", "mean_", "inv_cov_"])
         pca: PCA = self.pca_  # type: ignore[assignment]
         mu = np.asarray(self.mean_, dtype=np.float64)  # type: ignore[arg-type]
         inv = np.asarray(self.inv_cov_, dtype=np.float64)  # type: ignore[arg-type]
 
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
-        z = pca.transform(x_array)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+        z = pca.transform(x_arr)
         diff = z - mu
         md2 = np.einsum("ij,jk,ik->i", diff, inv, diff)
         return np.asarray(md2, dtype=np.float64).reshape(-1)

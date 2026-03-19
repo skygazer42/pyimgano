@@ -8,6 +8,7 @@ def test_synthesizer_uses_alpha_mask_for_alpha_blend() -> None:
     from pyimgano.synthesis.synthesizer import AnomalySynthesizer, SynthSpec
 
     def _preset(image_u8: np.ndarray, rng: np.random.Generator) -> PresetResult:
+        del rng
         base = np.asarray(image_u8, dtype=np.uint8)
         overlay = base.copy()
         overlay[0, 0, :] = 200

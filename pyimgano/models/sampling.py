@@ -67,27 +67,28 @@ class CoreSampling:
             raise ValueError("subset_size as float must be in (0.0, 1.0]")
         return max(1, int(subset_f * n_samples))
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_samples = int(x.shape[0])
         if n_samples == 0:
             raise ValueError("Training set cannot be empty")
 
         subset_size = self._resolve_subset_size(n_samples)
         idx = self._rng.choice(n_samples, size=subset_size, replace=False)
-        self.subset_ = X[idx, :]
+        self.subset_ = x[idx, :]
 
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.subset_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
 
         distances = pairwise_distances(
-            X,
+            x,
             self.subset_,
             metric=self.metric,
             **(self.metric_params or {}),
@@ -160,8 +161,8 @@ class VisionSampling(BaseVisionDetector):
     def _build_detector(self):
         return CoreSampling(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

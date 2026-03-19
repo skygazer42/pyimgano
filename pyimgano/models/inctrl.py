@@ -10,7 +10,7 @@ from different application domains without further training on target data.
 Uses in-context learning with few-shot sample prompts.
 """
 
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
 import torch
@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -107,21 +108,21 @@ class InContextAttention(nn.Module):
         attended : torch.Tensor
             Context-attended features (B, D)
         """
-        B = query.size(0)
-        K = context.size(0)
+        batch_size = query.size(0)
+        context_size = context.size(0)
 
         # Project
-        Q = self.q_proj(query).view(B, self.num_heads, self.head_dim)
-        k_context = self.k_proj(context).view(K, self.num_heads, self.head_dim)
-        v_context = self.v_proj(context).view(K, self.num_heads, self.head_dim)
+        query_heads = self.q_proj(query).view(batch_size, self.num_heads, self.head_dim)
+        key_context = self.k_proj(context).view(context_size, self.num_heads, self.head_dim)
+        value_context = self.v_proj(context).view(context_size, self.num_heads, self.head_dim)
 
         # Attention scores
-        scores = torch.einsum("bhd,khd->bhk", Q, k_context) / (self.head_dim**0.5)
+        scores = torch.einsum("bhd,khd->bhk", query_heads, key_context) / (self.head_dim**0.5)
         attn_weights = F.softmax(scores, dim=-1)  # (B, H, K)
 
         # Aggregate
-        attended = torch.einsum("bhk,khd->bhd", attn_weights, v_context)
-        attended = attended.reshape(B, -1)
+        attended = torch.einsum("bhk,khd->bhd", attn_weights, value_context)
+        attended = attended.reshape(batch_size, -1)
 
         # Output projection
         out = self.out_proj(attended)
@@ -217,8 +218,9 @@ class VisionInCTRL(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(100, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((100, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create and train detector (generalist model)
     >>> detector = VisionInCTRL(k_shot=5, epochs=30)
@@ -241,7 +243,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.feature_dim = feature_dim
         self.num_heads = num_heads
@@ -252,32 +254,37 @@ class VisionInCTRL(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.encoder_ = None
         self.in_context_attn_ = None
         self.residual_predictor_ = None
         self.context_samples_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _sample_context(self, x_tensor: torch.Tensor, k: int) -> torch.Tensor:
         """Sample k-shot context samples."""
         indices = torch.randperm(len(x_tensor))[:k]
         return x_tensor[indices]
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionInCTRL":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionInCTRL":
         """
         Fit the InCTRL detector.
 
@@ -293,8 +300,10 @@ class VisionInCTRL(BaseVisionDeepDetector):
         self : VisionInCTRL
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize modules
         if self.encoder_ is None:
@@ -366,7 +375,12 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -388,7 +402,8 @@ class VisionInCTRL(BaseVisionDeepDetector):
         self.in_context_attn_.eval()
         self.residual_predictor_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -410,14 +425,22 @@ class VisionInCTRL(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         batch_size_int = validate_batch_size(batch_size)
         if batch_size_int is None:
-            return self.predict(X)
+            return self.predict(x_array)
         return call_with_temporary_attr(
             self,
             "batch_size",
             batch_size_int,
-            lambda: self.predict(X),
+            lambda: self.predict(x_array),
         )

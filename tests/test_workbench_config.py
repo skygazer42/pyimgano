@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from pyimgano.workbench.config import WorkbenchConfig
@@ -57,9 +59,9 @@ def test_workbench_config_from_dict_normalizes_types():
     assert cfg.output.save_run is False
     assert cfg.output.per_image_jsonl is False
     assert cfg.defects.enabled is True
-    assert cfg.defects.pixel_threshold == pytest.approx(0.5)
+    assert math.isclose(cfg.defects.pixel_threshold, 0.5)
     assert cfg.defects.pixel_threshold_strategy == "fixed"
-    assert cfg.defects.pixel_normal_quantile == pytest.approx(0.999)
+    assert math.isclose(cfg.defects.pixel_normal_quantile, 0.999)
     assert cfg.defects.mask_format == "png"
     assert cfg.defects.roi_xyxy_norm == pytest.approx((0.1, 0.2, 0.8, 0.9))
     assert cfg.defects.min_area == 10
@@ -97,21 +99,6 @@ def test_workbench_config_defects_shape_filters_parses() -> None:
     assert cfg.defects.max_regions_sort_by == "area"
 
 
-def test_workbench_config_prediction_parses() -> None:
-    raw = {
-        "dataset": {"name": "custom", "root": "/tmp/data"},
-        "model": {"name": "vision_patchcore"},
-        "prediction": {
-            "reject_confidence_below": 0.75,
-            "reject_label": -9,
-        },
-    }
-
-    cfg = WorkbenchConfig.from_dict(raw)
-    assert cfg.prediction.reject_confidence_below == pytest.approx(0.75)
-    assert cfg.prediction.reject_label == -9
-
-
 def test_workbench_config_defaults():
     raw = {
         "dataset": {"name": "custom", "root": "/tmp/data"},
@@ -127,8 +114,6 @@ def test_workbench_config_defaults():
     assert cfg.defects.enabled is False
     assert cfg.defects.pixel_threshold is None
     assert cfg.defects.roi_xyxy_norm is None
-    assert cfg.prediction.reject_confidence_below is None
-    assert cfg.prediction.reject_label is None
 
 
 def test_workbench_config_invalid_resize_raises():
@@ -167,4 +152,4 @@ def test_workbench_config_manifest_parses_split_policy_defaults():
     assert cfg.dataset.split_policy.seed == 7
     assert cfg.dataset.split_policy.mode == "benchmark"
     assert cfg.dataset.split_policy.scope == "category"
-    assert cfg.dataset.split_policy.test_normal_fraction == pytest.approx(0.3)
+    assert math.isclose(cfg.dataset.split_policy.test_normal_fraction, 0.3)

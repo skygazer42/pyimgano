@@ -92,6 +92,7 @@ def test_openclip_promptscore_caches_text_features_by_class_name():
             self.model = _FakeModel()
 
         def create_model_and_transforms(self, _model_name: str, pretrained=None, **_kwargs):
+            del pretrained
             self.create_model_calls += 1
 
             def _preprocess(_image):

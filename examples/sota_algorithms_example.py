@@ -7,15 +7,13 @@ This script demonstrates the latest SOTA algorithms added to PyImgAno:
 - DifferNet (WACV 2023): Learnable difference detection
 """
 
-import importlib.util
-
 import cv2
 import numpy as np
 
 from pyimgano.models import create_model
 
-PREDICTING_MESSAGE = "Predicting anomaly scores..."
-RESULTS_HEADER = "\nResults:"
+PREDICTING_ANOMALY_SCORES_MESSAGE = "Predicting anomaly scores..."
+
 
 
 def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
@@ -30,7 +28,7 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
         Tuple of (X_train, X_test, y_test).
     """
     print(f"Generating {n_normal} normal + {n_anomaly} anomaly samples...")
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(0)
 
     # Normal images: simple patterns
     normal_images = []
@@ -54,15 +52,15 @@ def generate_sample_data(n_normal=100, n_anomaly=20, image_size=(256, 256)):
     for _ in range(n_anomaly):
         img = rng.random((*image_size, 3)) * 100  # Different intensity
         # Add random defects
-        cx, cy = rng.integers(50, 200, size=2)
+        cx, cy = rng.integers(50, 200, 2)
         cv2.circle(img, (cx, cy), 30, (255, 0, 0), -1)
         anomaly_images.append(img.astype(np.uint8))
 
-    X_train = np.array(normal_images)
-    X_test = np.array(test_normal + anomaly_images)
+    x_train = np.array(normal_images)
+    x_test = np.array(test_normal + anomaly_images)
     y_test = np.array([0] * len(test_normal) + [1] * len(anomaly_images))
 
-    return X_train, X_test, y_test
+    return x_train, x_test, y_test
 
 
 def demo_cutpaste():
@@ -72,7 +70,7 @@ def demo_cutpaste():
     print("=" * 70)
 
     # Generate data
-    X_train, X_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
+    x_train, x_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
 
     # Create CutPaste detector
     print("\nCreating CutPaste detector...")
@@ -87,12 +85,12 @@ def demo_cutpaste():
 
     # Train
     print("Training CutPaste (this may take a few minutes)...")
-    detector.fit(X_train)
+    detector.fit(x_train)
 
     # Predict
-    print(PREDICTING_MESSAGE)
-    scores = detector.predict_proba(X_test)
-    predictions = detector.predict(X_test)
+    print(PREDICTING_ANOMALY_SCORES_MESSAGE)
+    scores = detector.predict_proba(x_test)
+    predictions = detector.predict(x_test)
 
     # Evaluate
     from sklearn.metrics import accuracy_score, roc_auc_score
@@ -100,7 +98,7 @@ def demo_cutpaste():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print(RESULTS_HEADER)
+    print("\nResults:")
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
     print(f"  Normal samples detected: {sum(predictions[:10] == 0)}/10")
@@ -115,13 +113,15 @@ def demo_winclip():
     print("WinCLIP: Zero-Shot CLIP-based Detection (CVPR 2023)")
     print("=" * 70)
 
-    if importlib.util.find_spec("clip") is None:
+    try:
+        import clip
+    except ImportError:
         print("\nSkipping WinCLIP demo - CLIP not installed")
         print("Install with: pip install git+https://github.com/openai/CLIP.git")
         return None, None, None
 
     # Generate data
-    X_train, X_test, y_test = generate_sample_data(n_normal=20, n_anomaly=10)
+    x_train, x_test, y_test = generate_sample_data(n_normal=20, n_anomaly=10)
 
     # Create WinCLIP detector
     print("\nCreating WinCLIP detector...")
@@ -138,12 +138,12 @@ def demo_winclip():
 
     # Train (few-shot)
     print("Training WinCLIP (few-shot learning)...")
-    detector.fit(X_train)
+    detector.fit(x_train)
 
     # Predict
-    print(PREDICTING_MESSAGE)
-    scores = detector.predict_proba(X_test)
-    predictions = detector.predict(X_test)
+    print(PREDICTING_ANOMALY_SCORES_MESSAGE)
+    scores = detector.predict_proba(x_test)
+    predictions = detector.predict(x_test)
 
     # Evaluate
     from sklearn.metrics import accuracy_score, roc_auc_score
@@ -151,13 +151,13 @@ def demo_winclip():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print(RESULTS_HEADER)
+    print("\nResults:")
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
 
     # Demo anomaly localization
     print("\nGenerating anomaly maps for first 3 test images...")
-    anomaly_maps = detector.predict_anomaly_map(X_test[:3])
+    anomaly_maps = detector.predict_anomaly_map(x_test[:3])
     for i, map in enumerate(anomaly_maps):
         print(
             f"  Image {i}: Anomaly map shape {map.shape}, "
@@ -174,7 +174,7 @@ def demo_differnet():
     print("=" * 70)
 
     # Generate data
-    X_train, X_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
+    x_train, x_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
 
     # Create DifferNet detector
     print("\nCreating DifferNet detector...")
@@ -190,12 +190,12 @@ def demo_differnet():
 
     # Train
     print("Training DifferNet...")
-    detector.fit(X_train)
+    detector.fit(x_train)
 
     # Predict
-    print(PREDICTING_MESSAGE)
-    scores = detector.predict_proba(X_test)
-    predictions = detector.predict(X_test)
+    print(PREDICTING_ANOMALY_SCORES_MESSAGE)
+    scores = detector.predict_proba(x_test)
+    predictions = detector.predict(x_test)
 
     # Evaluate
     from sklearn.metrics import accuracy_score, roc_auc_score
@@ -203,7 +203,7 @@ def demo_differnet():
     auc = roc_auc_score(y_test, scores)
     acc = accuracy_score(y_test, predictions)
 
-    print(RESULTS_HEADER)
+    print("\nResults:")
     print(f"  AUC-ROC: {auc:.4f}")
     print(f"  Accuracy: {acc:.4f}")
     print(f"  Memory bank size: {len(detector.memory_bank['layer3'])} features")
@@ -218,7 +218,7 @@ def compare_algorithms():
     print("=" * 70)
 
     # Generate shared test data
-    _, _, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
+    x_train, x_test, y_test = generate_sample_data(n_normal=50, n_anomaly=10)
 
     results = {}
 

@@ -2,8 +2,8 @@ import json
 
 
 def test_pyim_list_model_presets_delegates_to_discovery_service(monkeypatch, capsys):
-    from pyimgano.pyim_cli import main
     import pyimgano.services.discovery_service as discovery_service
+    from pyimgano.pyim_cli import main
 
     monkeypatch.setattr(
         discovery_service,
@@ -40,8 +40,8 @@ def test_pyim_list_model_presets_outputs_json_metadata(capsys):
 
 
 def test_pyim_list_model_presets_json_delegates_to_discovery_service(monkeypatch, capsys):
-    from pyimgano.pyim_cli import main
     import pyimgano.services.discovery_service as discovery_service
+    from pyimgano.pyim_cli import main
 
     monkeypatch.setattr(
         discovery_service,
@@ -105,8 +105,8 @@ def test_pyim_model_preset_json_uses_shared_rendering_helper(monkeypatch):
 def test_pyim_model_preset_listing_delegates_raw_filters_to_discovery_service(
     monkeypatch, capsys
 ):
-    from pyimgano.pyim_cli import main
     import pyimgano.services.discovery_service as discovery_service
+    from pyimgano.pyim_cli import main
 
     service_calls: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(

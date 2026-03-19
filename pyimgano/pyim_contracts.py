@@ -34,9 +34,9 @@ class PyimModelFacetSummary:
         return {
             "name": self.name,
             "description": self.description,
-            "tags": list(self.tags),
+            "tags": self.tags.copy(),
             "model_count": int(self.model_count),
-            "sample_models": list(self.sample_models),
+            "sample_models": self.sample_models.copy(),
         }
 
 
@@ -79,7 +79,7 @@ class PyimYearSummary:
             "label": self.label,
             "description": self.description,
             "model_count": int(self.model_count),
-            "sample_models": list(self.sample_models),
+            "sample_models": self.sample_models.copy(),
         }
         if self._has_year:
             payload["year"] = self.year
@@ -151,7 +151,7 @@ class PyimPreprocessingSchemeSummary:
             "name": self.name,
             "description": self.description,
             "deployable": bool(self.deployable),
-            "tags": list(self.tags),
+            "tags": self.tags.copy(),
         }
         if self.config_key is not None:
             payload["config_key"] = self.config_key

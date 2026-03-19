@@ -93,7 +93,7 @@ def test_synthesis_end_to_end_manifest_pipeline_with_preset_mix_meta(tmp_path: P
     )
     assert split.test_meta is not None
     # Only anomalies are guaranteed to have meta (normals may be None).
-    for p, lab, meta in zip(split.test_paths, split.test_labels.tolist(), split.test_meta):
+    for lab, meta in zip(split.test_labels.tolist(), split.test_meta):
         if int(lab) == 1:
             assert meta is not None
             assert meta.get("preset") in {"scratch", "stain", "tape"}

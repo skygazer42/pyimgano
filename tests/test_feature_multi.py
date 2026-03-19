@@ -10,10 +10,10 @@ def test_multi_extractor_concats_feature_matrices() -> None:
             n = len(list(inputs))
             return np.ones((n, 2), dtype=np.float32)
 
-    X = np.arange(12, dtype=np.float32).reshape(4, 3)
+    x = np.arange(12, dtype=np.float32).reshape(4, 3)
     ext = MultiExtractor([IdentityExtractor(), _Const()])
-    out = ext.extract(X)
+    out = ext.extract(x)
 
     assert out.shape == (4, 5)
-    assert np.allclose(out[:, :3], X)
+    assert np.allclose(out[:, :3], x)
     assert np.allclose(out[:, 3:], 1.0)

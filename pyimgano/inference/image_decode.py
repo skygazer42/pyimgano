@@ -52,7 +52,7 @@ def load_path_as_rgb_u8_hwc(
             fmt = ImageFormat.GRAY_U16_HW
         else:
             raise ValueError(
-                "Unsupported grayscale dtype for path input. " f"Got dtype={arr.dtype} for {path}."
+                f"Unsupported grayscale dtype for path input. Got dtype={arr.dtype} for {path}."
             )
         out = normalize_numpy_image(arr, input_format=fmt, u16_max=u16_max)
         return np.ascontiguousarray(out, dtype=np.uint8)
@@ -87,7 +87,7 @@ def load_path_as_rgb_u8_hwc(
             fmt = ImageFormat.BGR_U16_HWC
         else:
             raise ValueError(
-                "Unsupported color dtype for path input. " f"Got dtype={arr.dtype} for {path}."
+                f"Unsupported color dtype for path input. Got dtype={arr.dtype} for {path}."
             )
 
         out = normalize_numpy_image(arr, input_format=fmt, u16_max=u16_max)

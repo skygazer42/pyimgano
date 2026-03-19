@@ -147,7 +147,7 @@ class ONNXEmbedExtractor(BaseFeatureExtractor):
             unknown = sorted(set(opts) - set(allowed))
             if unknown:
                 raise ValueError(
-                    "Unknown session_options key(s): " f"{unknown}. Allowed: {sorted(allowed)}"
+                    f"Unknown session_options key(s): {unknown}. Allowed: {sorted(allowed)}"
                 )
 
             v = opts.get("intra_op_num_threads", None)

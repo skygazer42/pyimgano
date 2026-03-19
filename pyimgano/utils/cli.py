@@ -284,6 +284,12 @@ class Logger:
             file_handler.setFormatter(logging.Formatter(format))
             self._logger.addHandler(file_handler)
 
+    @property
+    def logger(self) -> logging.Logger:
+        """Expose the underlying logger (backwards compatible public attribute)."""
+
+        return self._logger
+
     def debug(self, message: str):
         """Log debug message."""
         self._logger.debug(message)

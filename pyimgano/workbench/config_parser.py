@@ -15,7 +15,6 @@ from pyimgano.workbench.config_section_parsers import (
 )
 from pyimgano.workbench.config_types import WorkbenchConfig
 
-
 WorkbenchConfigT = TypeVar("WorkbenchConfigT", bound=WorkbenchConfig)
 
 

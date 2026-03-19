@@ -21,6 +21,7 @@ from pyimgano.utils import (  # Dataset utilities; Visualization utilities; Mode
     create_evaluation_report,
     load_dataset,
     load_model,
+    plot_anomaly_heatmap,
     plot_confusion_matrix,
     plot_roc_curve,
     plot_score_distribution,
@@ -69,8 +70,9 @@ def example_1_dataset_loading():
     return train_data, test_data, test_labels, test_masks
 
 
-def example_2_advanced_visualization(_test_data, test_labels, scores, predictions):
+def example_2_advanced_visualization(test_data, test_labels, scores, predictions):
     """Example 2: Advanced Visualization"""
+    del test_data
     print("\n" + "=" * 80)
     print("EXAMPLE 2: Advanced Visualization")
     print("=" * 80)
@@ -108,10 +110,9 @@ def example_2_advanced_visualization(_test_data, test_labels, scores, prediction
     # 2.4 Anomaly Heatmap (for first anomaly)
     print("\n2.4 Plotting anomaly heatmap...")
     # Assuming model has predict_anomaly_map method
-    # first_anomaly_idx = np.nonzero(test_labels == 1)[0][0]
-    # anomaly_map = model.predict_anomaly_map(_test_data[[first_anomaly_idx]])[0]
+    # anomaly_map = model.predict_anomaly_map(test_data[[np.where(test_labels == 1)[0][0]]])[0]
     # plot_anomaly_heatmap(
-    #     _test_data[first_anomaly_idx],
+    #     test_data[first_anomaly_idx],
     #     anomaly_map,
     #     save_path='./outputs/anomaly_heatmap.png',
     #     show=False
@@ -165,7 +166,7 @@ def example_3_model_management(model):
     # 3.4 Model profiling
     print("\n3.4 Profiling model performance...")
     # Create dummy test data for profiling
-    dummy_data = np.random.default_rng(1).integers(0, 256, size=(100, 256, 256, 3), dtype=np.uint8)
+    dummy_data = np.random.default_rng(0).integers(0, 256, (100, 256, 256, 3), dtype=np.uint8)
     metrics = profile_model(model, dummy_data, n_runs=5)
 
     print(f"Average inference time: {metrics['avg_time_ms']:.2f} ms")
@@ -284,9 +285,9 @@ def main():
 
     # For demonstration, create dummy data
     print("\nCreating dummy data for demonstration...")
-    rng = np.random.default_rng(2)
-    train_data = rng.integers(0, 256, size=(50, 256, 256, 3), dtype=np.uint8)
-    test_data = rng.integers(0, 256, size=(30, 256, 256, 3), dtype=np.uint8)
+    rng = np.random.default_rng(1)
+    train_data = rng.integers(0, 256, (50, 256, 256, 3), dtype=np.uint8)
+    test_data = rng.integers(0, 256, (30, 256, 256, 3), dtype=np.uint8)
     test_labels = np.array([0] * 20 + [1] * 10)  # 20 normal, 10 anomalies
 
     # Train a simple model

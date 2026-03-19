@@ -8,7 +8,7 @@ Uses two student networks learning from a single teacher, providing
 complementary anomaly detection capabilities through different perspectives.
 """
 
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import numpy as np
 import torch
@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -162,8 +163,9 @@ class VisionDST(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(100, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((100, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create and train detector
     >>> detector = VisionDST(epochs=30)
@@ -183,7 +185,7 @@ class VisionDST(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -191,26 +193,26 @@ class VisionDST(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.teacher_ = None
         self.student1_ = None
         self.student2_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
         # Convert to CHW format if needed
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
         # Normalize
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _distillation_loss(
         self, student_features: List[torch.Tensor], teacher_features: List[torch.Tensor]
@@ -254,7 +256,12 @@ class VisionDST(BaseVisionDeepDetector):
 
         return total_loss / len(student_features)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionDST":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionDST":
         """
         Fit the DST detector.
 
@@ -270,8 +277,10 @@ class VisionDST(BaseVisionDeepDetector):
         self : VisionDST
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize teacher
         if self.teacher_ is None:
@@ -354,7 +363,12 @@ class VisionDST(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -376,7 +390,8 @@ class VisionDST(BaseVisionDeepDetector):
         self.student1_.eval()
         self.student2_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -414,10 +429,18 @@ class VisionDST(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is None:
-            return self.predict(X)
+            return self.predict(x_array)
 
         batch_size_int = int(batch_size)
         if batch_size_int <= 0:
@@ -426,6 +449,6 @@ class VisionDST(BaseVisionDeepDetector):
         old_batch_size = self.batch_size
         try:
             self.batch_size = batch_size_int
-            return self.predict(X)
+            return self.predict(x_array)
         finally:
             self.batch_size = old_batch_size

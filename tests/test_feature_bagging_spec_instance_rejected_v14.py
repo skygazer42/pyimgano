@@ -5,8 +5,8 @@ import pytest
 
 
 class _DummyEstimator:
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - test helper
-        return np.zeros(len(np.asarray(X)), dtype=np.float64)
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - test helper
+        return np.zeros(len(np.asarray(x)), dtype=np.float64)
 
 
 def test_feature_bagging_spec_rejects_estimator_instances() -> None:
@@ -23,6 +23,6 @@ def test_feature_bagging_spec_rejects_estimator_instances() -> None:
         base_estimator_spec=_DummyEstimator(),
     )
 
-    X = np.random.default_rng(0).normal(size=(16, 4)).astype(np.float64)
+    x = np.random.default_rng(0).normal(size=(16, 4)).astype(np.float64)
     with pytest.raises(TypeError, match="Instances are not supported"):
-        det.fit(X)
+        det.fit(x)

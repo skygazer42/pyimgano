@@ -2,6 +2,8 @@
 Tests for evaluation metrics module.
 """
 
+import math
+
 import numpy as np
 import pytest
 
@@ -24,7 +26,7 @@ class TestAUROC:
         y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
         auroc = compute_auroc(y_true, y_scores)
-        assert auroc == pytest.approx(1.0)
+        assert math.isclose(auroc, 1.0)
 
     def test_random_classifier(self):
         """Test AUROC with random scores (around 0.5)."""
@@ -49,7 +51,7 @@ class TestAUROC:
         y_scores = np.array([0.9, 0.8, 0.7, 0.3, 0.2, 0.1])
 
         auroc = compute_auroc(y_true, y_scores)
-        assert auroc == pytest.approx(0.0)
+        assert math.isclose(auroc, 0.0)
 
 
 class TestAveragePrecision:
@@ -61,7 +63,7 @@ class TestAveragePrecision:
         y_scores = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
         ap = compute_average_precision(y_true, y_scores)
-        assert ap == pytest.approx(1.0)
+        assert math.isclose(ap, 1.0)
 
     def test_single_class(self):
         """Test AP with only one class."""
@@ -134,11 +136,11 @@ class TestClassificationMetrics:
 
         metrics = compute_classification_metrics(y_true, y_pred)
 
-        assert metrics["precision"] == pytest.approx(1.0)
-        assert metrics["recall"] == pytest.approx(1.0)
-        assert metrics["f1"] == pytest.approx(1.0)
-        assert metrics["specificity"] == pytest.approx(1.0)
-        assert metrics["accuracy"] == pytest.approx(1.0)
+        assert math.isclose(metrics["precision"], 1.0)
+        assert math.isclose(metrics["recall"], 1.0)
+        assert math.isclose(metrics["f1"], 1.0)
+        assert math.isclose(metrics["specificity"], 1.0)
+        assert math.isclose(metrics["accuracy"], 1.0)
         assert metrics["tp"] == 2
         assert metrics["tn"] == 2
         assert metrics["fp"] == 0
@@ -151,11 +153,11 @@ class TestClassificationMetrics:
 
         metrics = compute_classification_metrics(y_true, y_pred)
 
-        assert metrics["precision"] == pytest.approx(0.0)
-        assert metrics["recall"] == pytest.approx(0.0)
-        assert metrics["f1"] == pytest.approx(0.0)
-        assert metrics["specificity"] == pytest.approx(1.0)
-        assert metrics["accuracy"] == pytest.approx(0.5)
+        assert math.isclose(metrics["precision"], 0.0)
+        assert math.isclose(metrics["recall"], 0.0)
+        assert math.isclose(metrics["f1"], 0.0)
+        assert math.isclose(metrics["specificity"], 1.0)
+        assert math.isclose(metrics["accuracy"], 0.5)
         assert metrics["tp"] == 0
         assert metrics["fn"] == 2
 
@@ -166,9 +168,9 @@ class TestClassificationMetrics:
 
         metrics = compute_classification_metrics(y_true, y_pred)
 
-        assert metrics["recall"] == pytest.approx(1.0)
-        assert metrics["specificity"] == pytest.approx(0.0)
-        assert metrics["accuracy"] == pytest.approx(0.5)
+        assert math.isclose(metrics["recall"], 1.0)
+        assert math.isclose(metrics["specificity"], 0.0)
+        assert math.isclose(metrics["accuracy"], 0.5)
 
 
 class TestEvaluateDetector:
@@ -186,7 +188,7 @@ class TestEvaluateDetector:
         assert "threshold" in results
         assert "metrics" in results
 
-        assert results["threshold"] == pytest.approx(0.5)
+        assert math.isclose(results["threshold"], 0.5)
         assert 0 <= results["auroc"] <= 1
         assert 0 <= results["average_precision"] <= 1
 
@@ -258,8 +260,8 @@ class TestEvaluateDetector:
         )
 
         pixel_metrics = results["pixel_metrics"]
-        assert pixel_metrics["pixel_segf1"] == pytest.approx(1.0)
-        assert pixel_metrics["bg_fpr"] == pytest.approx(0.0)
+        assert math.isclose(pixel_metrics["pixel_segf1"], 1.0)
+        assert math.isclose(pixel_metrics["bg_fpr"], 0.0)
 
 
 class TestPROScore:

@@ -13,6 +13,7 @@ def test_diffusion_augmentor_defaults_to_local_files_only(monkeypatch) -> None: 
     )
 
     def _fake_from_pretrained(cls, model, *args, **kwargs):  # noqa: ANN001, ANN201
+        del cls, model, args
         assert kwargs.get("local_files_only", None) is True
         raise RuntimeError("stop-before-loading")
 

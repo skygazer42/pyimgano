@@ -55,9 +55,10 @@ class CoreKMeans:
         self.kmeans_: KMeans | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n = int(x.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
 
@@ -76,19 +77,19 @@ class CoreKMeans:
             algorithm=self.algorithm,
             **self._kwargs,
         )
-        km.fit(X)
+        km.fit(x)
         self.kmeans_ = km
 
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         if self.kmeans_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         centers = np.asarray(self.kmeans_.cluster_centers_, dtype=np.float64)
-        dists = pairwise_distances(X, centers, metric="euclidean")
+        dists = pairwise_distances(x, centers, metric="euclidean")
         return np.min(dists, axis=1).astype(np.float64, copy=False).reshape(-1)
 
 
@@ -165,11 +166,11 @@ class VisionKMeans(BaseVisionDetector):
     def _build_detector(self):
         return CoreKMeans(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)
 
 
 @register_model(

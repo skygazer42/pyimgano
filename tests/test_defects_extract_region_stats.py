@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from pyimgano.defects.extract import extract_defects_from_anomaly_map
 

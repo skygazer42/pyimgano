@@ -38,7 +38,7 @@ def test_synthesis_multiple_defects_union_mask_and_meta() -> None:
     assert a1 > 0
     assert a2 >= a1
 
-    assert np.isclose(float(r2.meta.get("severity", 0.0)), 1.0)
+    assert np.isclose(r2.meta.get("severity"), 1.0)
     assert int(r2.meta.get("num_defects", 0)) == 2
     assert int(r2.meta.get("defects_applied", 0)) == 2
 
@@ -61,29 +61,3 @@ def test_synthesis_severity_scales_effect_strength() -> None:
     d_low = _mean_abs_diff(r_low.image_u8, img)
     d_high = _mean_abs_diff(r_high.image_u8, img)
     assert d_low < d_high
-
-
-def test_synthesizer_no_seed_path_uses_explicit_seeded_rng_helper(monkeypatch: pytest.MonkeyPatch) -> None:
-    import pyimgano.utils.random_state as random_state_module
-    from pyimgano.synthesis.synthesizer import AnomalySynthesizer, SynthSpec
-
-    img = np.full((32, 32, 3), 120, dtype=np.uint8)
-    synth = AnomalySynthesizer(
-        SynthSpec(preset="scratch", probability=0.0, blend="alpha", alpha=1.0)
-    )
-
-    observed_seeds: list[int | None] = []
-    original_default_rng = random_state_module.np.random.default_rng
-
-    monkeypatch.setattr(random_state_module.os, "urandom", lambda n: b"\x07" * n)
-
-    def _tracking_default_rng(seed=None):
-        observed_seeds.append(seed)
-        return original_default_rng(seed)
-
-    monkeypatch.setattr(random_state_module.np.random, "default_rng", _tracking_default_rng)
-
-    synth.synthesize(img)
-
-    assert observed_seeds
-    assert observed_seeds[0] is not None

@@ -26,7 +26,7 @@ from typing import Any, Iterable, List, Optional, Union
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.utils import check_array, check_random_state
+from sklearn.utils import check_array
 
 from ..utils.param_check import check_parameter
 from .baseml import BaseVisionDetector
@@ -81,9 +81,10 @@ class _CoreLOF:
         self.detector_: LocalOutlierFactor | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_samples = int(x.shape[0])
         if n_samples < 2:
             # Not enough points to estimate local density.
             self.detector_ = None
@@ -97,7 +98,7 @@ class _CoreLOF:
             contamination="auto",  # we threshold outside via BaseDetector
             n_jobs=self.n_jobs,
         )
-        self.detector_.fit(X)
+        self.detector_.fit(x)
 
         # sklearn: negative_outlier_factor_ is lower (more negative) for outliers.
         self.decision_scores_ = (
@@ -105,16 +106,16 @@ class _CoreLOF:
         ).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Base estimator must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self.detector_ is None:
-            return np.zeros((X.shape[0],), dtype=np.float64)
+            return np.zeros((x.shape[0],), dtype=np.float64)
 
         # sklearn: score_samples higher => inlier. Negate to match "higher => more anomalous".
-        return (-np.asarray(self.detector_.score_samples(X), dtype=np.float64)).reshape(-1)
+        return (-np.asarray(self.detector_.score_samples(x), dtype=np.float64)).reshape(-1)
 
 
 class CoreFeatureBagging:
@@ -175,9 +176,10 @@ class CoreFeatureBagging:
             return _CoreLOF(n_neighbors=self.n_neighbors, n_jobs=self.n_jobs)
         raise ValueError(f"Unknown base_estimator: {self.base_estimator!r}. Supported: 'lof'")
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples, n_features = map(int, X.shape)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_samples, n_features = map(int, x.shape)
         self.n_features_in_ = n_features
 
         if n_samples == 0:
@@ -211,8 +213,8 @@ class CoreFeatureBagging:
             param_name="max_features",
         )
 
-        rng = check_random_state(self.random_state)
-        seeds = rng.randint(_MAX_INT, size=self.n_estimators)
+        rng = np.random.default_rng(self.random_state)
+        seeds = rng.integers(_MAX_INT, size=self.n_estimators)
 
         self.estimators_ = []
         self.estimators_features_ = []
@@ -226,16 +228,16 @@ class CoreFeatureBagging:
                 max_features=max_features,
             )
             estimator = self._make_base_estimator()
-            estimator.fit(X[:, features])
+            estimator.fit(x[:, features])
             self.estimators_.append(estimator)
             self.estimators_features_.append(features)
 
-        score_mat = self._get_train_score_matrix(X, n_samples=n_samples)
+        score_mat = self._get_train_score_matrix(x, n_samples=n_samples)
         self.decision_scores_ = self._combine_scores(score_mat).astype(np.float64, copy=False)
         return self
 
     def _get_train_score_matrix(
-        self, X: NDArray[np.float64], *, n_samples: int
+        self, x: NDArray[np.float64], *, n_samples: int
     ) -> NDArray[np.float64]:
         mat = np.zeros((n_samples, len(self.estimators_)), dtype=np.float64)
         for i, (est, feats) in enumerate(zip(self.estimators_, self.estimators_features_)):
@@ -243,7 +245,7 @@ class CoreFeatureBagging:
             if scores is None:
                 # Not all estimators expose `decision_scores_`. Fall back to scoring the
                 # training set (sklearn-style).
-                scores = est.decision_function(X[:, feats])  # type: ignore[attr-defined]
+                scores = est.decision_function(x[:, feats])  # type: ignore[attr-defined]
             scores_np = np.asarray(scores, dtype=np.float64).reshape(-1)
             if scores_np.shape[0] != n_samples:
                 raise ValueError("Base estimator returned unexpected decision_scores_ length")
@@ -261,21 +263,21 @@ class CoreFeatureBagging:
 
         raise ValueError("combination must be one of {'average', 'max'}")
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.n_features_in_ is None or self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X.shape[1]) != int(self.n_features_in_):
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if int(x.shape[1]) != int(self.n_features_in_):
             raise ValueError(
                 f"Number of features must match training data. "
-                f"Model n_features={self.n_features_in_}, input n_features={X.shape[1]}."
+                f"Model n_features={self.n_features_in_}, input n_features={x.shape[1]}."
             )
 
-        score_mat = np.zeros((X.shape[0], len(self.estimators_)), dtype=np.float64)
+        score_mat = np.zeros((x.shape[0], len(self.estimators_)), dtype=np.float64)
         for i, (est, feats) in enumerate(zip(self.estimators_, self.estimators_features_)):
             score_mat[:, i] = np.asarray(
-                est.decision_function(X[:, feats]), dtype=np.float64
+                est.decision_function(x[:, feats]), dtype=np.float64
             ).reshape(-1)
         return self._combine_scores(score_mat).astype(np.float64, copy=False)
 
@@ -367,11 +369,11 @@ class VisionFeatureBagging(BaseVisionDetector):
     def _build_detector(self):
         return CoreFeatureBagging(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)
 
 
 @register_model(
@@ -468,8 +470,8 @@ class VisionFeatureBaggingSpec(BaseVisionDetector):
     def _build_detector(self):
         return CoreFeatureBagging(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

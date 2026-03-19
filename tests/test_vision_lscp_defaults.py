@@ -12,7 +12,7 @@ def test_vision_lscp_default_detectors_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401 - registry population
     from pyimgano.models import create_model
 
-    X = _toy_vectors(0, n=80, d=8)
+    x = _toy_vectors(0, n=80, d=8)
 
     det = create_model(
         "vision_lscp",
@@ -21,9 +21,9 @@ def test_vision_lscp_default_detectors_fit_predict_smoke() -> None:
         random_state=0,
         local_region_iterations=5,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)
@@ -35,7 +35,7 @@ def test_vision_lscp_spec_default_detectors_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401 - registry population
     from pyimgano.models import create_model
 
-    X = _toy_vectors(1, n=80, d=8)
+    x = _toy_vectors(1, n=80, d=8)
 
     det = create_model(
         "vision_lscp_spec",
@@ -44,9 +44,9 @@ def test_vision_lscp_spec_default_detectors_fit_predict_smoke() -> None:
         random_state=0,
         local_region_iterations=5,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)

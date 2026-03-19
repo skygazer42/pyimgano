@@ -22,7 +22,7 @@ from pyimgano.models.protocols import normalize_anomaly_maps, normalize_scores
 
 @runtime_checkable
 class SupportsAnomalyMap(Protocol):
-    def get_anomaly_map(self, X: Any) -> np.ndarray:  # noqa: ANN401 - protocol
+    def get_anomaly_map(self, x: Any) -> np.ndarray:  # noqa: ANN401 - protocol
         """Return an anomaly map for a single image (H,W) or batch (N,H,W)."""
 
 

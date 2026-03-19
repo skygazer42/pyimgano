@@ -10,6 +10,9 @@ from .registry import register_model
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
+
+
+
 def _as_float_array(image: Any) -> NDArray:
     arr = np.asarray(image, dtype=np.float32)
     if arr.ndim < 2:
@@ -86,8 +89,8 @@ class VisionAnoGenAdapter:
         self.decision_scores_: NDArray | None = None
         self.threshold_: float | None = None
 
-    def generate_training_pairs(self, X: Iterable[Any]) -> list[dict[str, Any]]:
-        items = list(X)
+    def generate_training_pairs(self, x: Iterable[Any]) -> list[dict[str, Any]]:
+        items = list(x)
         pairs: list[dict[str, Any]] = []
         for item in items:
             image = _as_float_array(item)
@@ -102,8 +105,9 @@ class VisionAnoGenAdapter:
             )
         return pairs
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, y=None):
+        del y
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one support image.")
 
@@ -156,10 +160,10 @@ class VisionAnoGenAdapter:
             )
         raise TypeError("scoring_backend must be callable or implement .score(...).")
 
-    def decision_function(self, X):
+    def decision_function(self, x):
         if self.support_prototype_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        items = list(X)
+        items = list(x)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = self._score_with_backend(_as_float_array(item))
@@ -168,15 +172,15 @@ class VisionAnoGenAdapter:
     def get_anomaly_map(self, image: Any) -> NDArray:
         return self._default_score_map(_as_float_array(image))
 
-    def predict_anomaly_map(self, X: Iterable[Any]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable[Any]) -> NDArray:
+        items = list(x)
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(self.decision_function(x), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)

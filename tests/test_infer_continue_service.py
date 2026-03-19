@@ -5,8 +5,7 @@ from typing import Any
 import pytest
 
 from pyimgano.inference.api import InferenceResult
-from pyimgano.services import inference_service
-from pyimgano.services import infer_continue_service
+from pyimgano.services import infer_continue_service, inference_service
 
 
 def test_run_continue_on_error_inference_falls_back_to_per_input_when_batch_fails() -> None:
@@ -51,21 +50,6 @@ def test_run_continue_on_error_inference_falls_back_to_per_input_when_batch_fail
     assert result.errors == 1
     assert result.stop_early is False
     assert result.timing_seconds == pytest.approx(0.2)
-    assert result.triage_summary == {
-        "ok": 1,
-        "remaining": 0,
-        "error_stages": {
-            "artifacts": 0,
-            "infer": 1,
-        },
-        "decision_counts": {
-            "normal": 1,
-        },
-        "fallback_used": True,
-        "review_required": 0,
-        "rejected_low_confidence": 0,
-        "stop_reason": "completed",
-    }
 
 
 def test_run_continue_on_error_inference_records_artifact_stage_errors() -> None:
@@ -110,21 +94,6 @@ def test_run_continue_on_error_inference_records_artifact_stage_errors() -> None
     assert result.errors == 1
     assert result.stop_early is False
     assert result.timing_seconds == pytest.approx(0.4)
-    assert result.triage_summary == {
-        "ok": 1,
-        "remaining": 0,
-        "error_stages": {
-            "artifacts": 1,
-            "infer": 0,
-        },
-        "decision_counts": {
-            "normal": 2,
-        },
-        "fallback_used": False,
-        "review_required": 0,
-        "rejected_low_confidence": 0,
-        "stop_reason": "completed",
-    }
 
 
 def test_run_continue_on_error_inference_stops_early_after_max_errors() -> None:
@@ -158,60 +127,46 @@ def test_run_continue_on_error_inference_stops_early_after_max_errors() -> None:
     assert result.errors == 2
     assert result.stop_early is True
     assert result.timing_seconds == pytest.approx(0.0)
-    assert result.triage_summary == {
-        "ok": 0,
-        "remaining": 1,
-        "error_stages": {
-            "artifacts": 0,
-            "infer": 2,
-        },
-        "decision_counts": {},
-        "fallback_used": True,
-        "review_required": 0,
-        "rejected_low_confidence": 0,
-        "stop_reason": "max_errors",
-    }
 
 
-def test_run_continue_on_error_inference_passes_rejection_controls() -> None:
-    seen: dict[str, Any] = {}
+def test_run_continue_on_error_inference_stops_early_after_artifact_errors() -> None:
+    calls: list[list[str]] = []
+    errors: list[tuple[int, str, str]] = []
+    processed_inputs: list[str] = []
 
     def fake_run_inference(**kwargs):
-        seen.update(kwargs)
-        return inference_service.InferenceRunResult(records=[], timing_seconds=0.0)
+        inputs = [str(item) for item in kwargs["inputs"]]
+        calls.append(inputs)
+        return inference_service.InferenceRunResult(
+            records=[InferenceResult(score=0.5, label=0, anomaly_map=None)],
+            timing_seconds=0.1,
+        )
+
+    def process_ok_result(*, index: int, input_path: str, result: Any) -> None:
+        _ = index, result
+        processed_inputs.append(str(input_path))
+        raise RuntimeError("artifact boom")
 
     result = infer_continue_service.run_continue_on_error_inference(
         infer_continue_service.ContinueOnErrorInferRequest(
             detector=object(),
-            inputs=["a.png"],
+            inputs=["a.png", "b.png"],
             include_maps=False,
-            include_confidence=False,
-            reject_confidence_below=0.75,
-            reject_label=-9,
-            batch_size=None,
+            batch_size=1,
             amp=False,
-            max_errors=0,
+            max_errors=1,
         ),
-        process_ok_result=lambda *, index, input_path, result: None,
-        handle_error=lambda *, index, input_path, exc, stage: None,
+        process_ok_result=process_ok_result,
+        handle_error=lambda *, index, input_path, exc, stage: errors.append(
+            (int(index), str(input_path), str(stage))
+        ),
         run_inference_impl=fake_run_inference,
     )
 
-    assert seen["include_confidence"] is True
-    assert seen["reject_confidence_below"] == pytest.approx(0.75)
-    assert seen["reject_label"] == -9
-    assert result.processed == 0
-    assert result.errors == 0
-    assert result.triage_summary == {
-        "ok": 0,
-        "remaining": 1,
-        "error_stages": {
-            "artifacts": 0,
-            "infer": 0,
-        },
-        "decision_counts": {},
-        "fallback_used": False,
-        "review_required": 0,
-        "rejected_low_confidence": 0,
-        "stop_reason": "completed",
-    }
+    assert calls == [["a.png"]]
+    assert processed_inputs == ["a.png"]
+    assert errors == [(0, "a.png", "artifacts")]
+    assert result.processed == 1
+    assert result.errors == 1
+    assert result.stop_early is True
+    assert result.timing_seconds == pytest.approx(0.1)

@@ -49,6 +49,7 @@ class _FakePatchCoreInferencer:
         self._maps = list(maps)
 
     def predict(self, images):
+        del images
         # Ignore images; return fixed outputs in order for testing.
         return list(self._scores), list(self._maps)
 

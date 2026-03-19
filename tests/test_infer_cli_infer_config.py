@@ -74,8 +74,8 @@ def test_infer_cli_supports_infer_config(tmp_path: Path, monkeypatch) -> None:
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
     det = _DummyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -265,8 +265,8 @@ def test_infer_cli_infer_config_delegates_context_loading(tmp_path: Path, monkey
     class _Det:
         threshold_ = 0.5
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     calls: list[object] = []
 
@@ -331,8 +331,8 @@ def test_infer_cli_infer_config_delegates_detector_setup_to_service(
     class _Det:
         threshold_ = 0.5
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_context_service,
@@ -406,8 +406,8 @@ def test_infer_cli_infer_config_delegates_wrapper_setup_to_service(
     class _Det:
         threshold_ = 0.5
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     monkeypatch.setattr(
         infer_context_service,
@@ -493,8 +493,8 @@ def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
     class _Det:
         threshold_ = 0.5
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray([0.1 for _ in X], dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray([0.1 for _ in x], dtype=np.float32)
 
     postprocess_summary = {
         "has_defects_payload": False,
@@ -639,8 +639,8 @@ def test_infer_cli_supports_infer_config_preprocessing(tmp_path: Path, monkeypat
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            items = tuple(X)
+        def decision_function(self, x):  # noqa: ANN001
+            items = tuple(x)
             assert items
             assert all(isinstance(x, np.ndarray) for x in items)
             assert all(x.dtype == np.uint8 for x in items)
@@ -731,8 +731,8 @@ def test_infer_cli_errors_when_preprocessing_enabled_on_non_numpy_model(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            items = tuple(X)
+        def decision_function(self, x):  # noqa: ANN001
+            items = tuple(x)
             assert items
             assert all(isinstance(x, np.ndarray) for x in items)
             assert all(x.dtype == np.uint8 for x in items)
@@ -817,8 +817,8 @@ def test_infer_cli_supports_infer_config_defects(tmp_path: Path, monkeypatch) ->
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -911,8 +911,8 @@ def test_infer_cli_supports_infer_config_defects_border_ignore_px(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -999,8 +999,8 @@ def test_infer_cli_supports_infer_config_defects_map_smoothing(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1084,8 +1084,8 @@ def test_infer_cli_supports_infer_config_defects_hysteresis(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1169,8 +1169,8 @@ def test_infer_cli_supports_infer_config_defects_shape_filters(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1254,8 +1254,8 @@ def test_infer_cli_supports_infer_config_defects_merge_nearby(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1342,12 +1342,12 @@ def test_infer_cli_infer_config_recalibrates_pixel_threshold_when_train_dir_prov
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def fit(self, X):  # noqa: ANN001
-            _ = X
+        def fit(self, x):  # noqa: ANN001
+            _ = x
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             s = str(item)
@@ -1437,8 +1437,8 @@ def test_infer_cli_infer_config_applies_defects_defaults(tmp_path: Path, monkeyp
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
             _ = item
@@ -1607,8 +1607,8 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
         def __init__(self):
             self.threshold_ = None
 
-        def decision_function(self, X):  # noqa: ANN001 - test stub
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001 - test stub
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
     det = _DummyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -1639,8 +1639,8 @@ def test_infer_cli_applies_tiling_defaults_from_infer_config(tmp_path: Path, mon
             )
             self.detector = detector
 
-        def decision_function(self, X):  # noqa: ANN001 - test stub
-            return self.detector.decision_function(X)
+        def decision_function(self, x):  # noqa: ANN001 - test stub
+            return self.detector.decision_function(x)
 
         def __getattr__(self, name: str):  # noqa: D401 - test stub
             return getattr(self.detector, name)
@@ -1737,8 +1737,8 @@ def test_infer_cli_infer_config_resolves_model_checkpoint_path_relative_to_confi
         def __init__(self):
             self.threshold_ = None
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
     def _create_model(name, **kwargs):  # noqa: ANN001 - test stub
         seen["name"] = str(name)
@@ -1763,3 +1763,4 @@ def test_infer_cli_infer_config_resolves_model_checkpoint_path_relative_to_confi
     kwargs = seen["kwargs"]
     assert isinstance(kwargs, dict)
     assert kwargs.get("checkpoint_path") == str(model_artifact.resolve())
+

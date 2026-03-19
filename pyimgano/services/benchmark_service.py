@@ -4,8 +4,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from pyimgano.models.registry import create_model
 import pyimgano.services.dataset_split_service as dataset_split_service
+from pyimgano.models.registry import create_model
 from pyimgano.services.model_options import (
     enforce_checkpoint_requirement,
     resolve_model_options,

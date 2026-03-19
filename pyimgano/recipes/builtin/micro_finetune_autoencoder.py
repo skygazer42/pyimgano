@@ -4,8 +4,8 @@ from dataclasses import asdict
 from typing import Any, Sequence
 
 import numpy as np
-import pyimgano.services.workbench_service as workbench_service
 
+import pyimgano.services.workbench_service as workbench_service
 from pyimgano.recipes.registry import register_recipe
 from pyimgano.reporting.environment import collect_environment
 from pyimgano.reporting.report import save_run_report, stamp_report_payload

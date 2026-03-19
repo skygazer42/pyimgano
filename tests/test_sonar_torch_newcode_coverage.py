@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 
@@ -5,8 +7,6 @@ import pytest
 # The SonarCloud workflow installs `pyimgano[torch]` to cover new-code guards
 # added in torch-based detectors without forcing torch on all CI workflows.
 pytest.importorskip("torch")
-
-_GLOBAL_NUMPY_RNG = np.random.mtrand._rand
 
 
 def _make_instance_without_init(cls):
@@ -19,21 +19,10 @@ def _stub_scores_predict(n: int):
     return np.zeros((int(n),), dtype=np.float64)
 
 
-def _global_numpy_state_after(action):
-    state = _GLOBAL_NUMPY_RNG.get_state()
-    try:
-        action()
-        return _GLOBAL_NUMPY_RNG.get_state()
-    finally:
-        _GLOBAL_NUMPY_RNG.set_state(state)
-
-
-def _numpy_states_equal(left, right) -> bool:
-    return (
-        left[0] == right[0]
-        and np.array_equal(left[1], right[1])
-        and left[2:] == right[2:]
-    )
+def _assert_x_signature(method, expected_name: str = "x") -> None:
+    params = list(inspect.signature(method).parameters)
+    assert expected_name in params
+    assert "X" not in params
 
 
 def test_torch_detectors_predict_return_confidence_raises():
@@ -81,6 +70,121 @@ def test_torch_detectors_predict_return_confidence_raises():
             cls.predict(inst, X=[], return_confidence=True)
 
 
+def test_torch_detectors_use_lowercase_x_signatures():
+    from pyimgano.models.anomalib_backend import VisionAnomalibCheckpoint
+    from pyimgano.models.bayesianpf import VisionBayesianPF
+    from pyimgano.models.cflow import VisionCFlow
+    from pyimgano.models.dfm import VisionDFM
+    from pyimgano.models.realnet import VisionRealNet
+    from pyimgano.models.regad import VisionRegAD
+    from pyimgano.models.simplenet import VisionSimpleNet
+    from pyimgano.models.spade import VisionSPADEDetector
+
+    cases = (
+        (
+            VisionBayesianPF,
+            {
+                "_preprocess": "x",
+                "fit": "x",
+                "predict": "x",
+                "decision_function": "x",
+                "predict_with_uncertainty": "x",
+            },
+        ),
+        (
+            VisionCFlow,
+            {
+                "fit": "x",
+                "predict": "x",
+                "decision_function": "x",
+                "predict_anomaly_map": "x",
+            },
+        ),
+        (VisionDFM, {"fit": "x", "predict": "x", "decision_function": "x"}),
+        (
+            VisionRealNet,
+            {"_preprocess": "x", "fit": "x", "predict": "x", "decision_function": "x"},
+        ),
+        (
+            VisionRegAD,
+            {
+                "_preprocess": "x",
+                "fit": "x",
+                "predict": "x",
+                "decision_function": "x",
+                "get_registration_map": "x",
+            },
+        ),
+        (
+            VisionSimpleNet,
+            {
+                "fit": "x",
+                "_build_reference_features": "image_paths",
+                "predict": "x",
+                "decision_function": "x",
+            },
+        ),
+        (
+            VisionSPADEDetector,
+            {
+                "_iter_images": "x",
+                "fit": "x",
+                "decision_function": "x",
+                "predict_proba": "x",
+                "predict_anomaly_map": "x",
+            },
+        ),
+        (
+            VisionAnomalibCheckpoint,
+            {"fit": "x", "decision_function": "x", "predict": "x", "predict_anomaly_map": "x"},
+        ),
+    )
+
+    for cls, method_expectations in cases:
+        for method_name, expected_name in method_expectations.items():
+            _assert_x_signature(getattr(cls, method_name), expected_name=expected_name)
+
+
+def test_draem_public_methods_accept_legacy_X_keyword():
+    from pyimgano.models.draem import VisionDRAEM
+
+    inst = _make_instance_without_init(VisionDRAEM)
+    inst.get_anomaly_map = lambda _path: np.zeros((1, 1), dtype=np.float32)  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="Training set cannot be empty"):
+        VisionDRAEM.fit(inst, X=[], y=None)
+
+    with pytest.raises(NotImplementedError):
+        VisionDRAEM.predict(inst, X=[], return_confidence=True)
+
+    with pytest.raises(ValueError):
+        VisionDRAEM.decision_function(inst, X=[], batch_size=0)
+
+    maps = VisionDRAEM.predict_anomaly_map(inst, X=[object(), object()])
+    assert isinstance(maps, np.ndarray)
+    assert maps.shape == (2, 1, 1)
+
+
+def test_stfpm_public_methods_accept_legacy_X_keyword():
+    from pyimgano.models.stfpm import VisionSTFPM
+
+    inst = _make_instance_without_init(VisionSTFPM)
+    inst.get_anomaly_map = lambda _path: np.zeros((1, 1), dtype=np.float32)  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="Training set cannot be empty"):
+        VisionSTFPM.fit(inst, X=[], y=None)
+
+    with pytest.raises(NotImplementedError):
+        VisionSTFPM.predict(inst, X=[], return_confidence=True)
+
+    with pytest.raises(ValueError):
+        VisionSTFPM.decision_function(inst, X=[], batch_size=0)
+
+    maps = VisionSTFPM.predict_anomaly_map(inst, X=[object(), object()])
+    assert isinstance(maps, np.ndarray)
+    assert maps.shape == (2, 1, 1)
+
+
 def test_torch_detectors_decision_function_alias_batch_size_paths():
     # These detectors implement decision_function as an alias to predict() and
     # accept an optional batch_size for interface compatibility.
@@ -112,7 +216,7 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
         VisionRegAD,
     )
 
-    X = [object(), object(), object()]
+    x = [object(), object(), object()]
     for cls in classes:
         inst = _make_instance_without_init(cls)
         inst.batch_size = 4
@@ -124,17 +228,17 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
         # Route decision_function -> predict without invoking heavy model code.
         inst.predict = _predict_stub  # type: ignore[assignment]
 
-        scores = cls.decision_function(inst, X=X, batch_size=None)
+        scores = cls.decision_function(inst, X=x, batch_size=None)
         assert isinstance(scores, np.ndarray)
-        assert scores.shape == (len(X),)
+        assert scores.shape == (len(x),)
         assert int(inst.batch_size) == 4
 
         with pytest.raises(ValueError):
-            cls.decision_function(inst, X=X, batch_size=0)
+            cls.decision_function(inst, X=x, batch_size=0)
 
-        scores2 = cls.decision_function(inst, X=X, batch_size=2)
+        scores2 = cls.decision_function(inst, X=x, batch_size=2)
         assert isinstance(scores2, np.ndarray)
-        assert scores2.shape == (len(X),)
+        assert scores2.shape == (len(x),)
         assert int(inst.batch_size) == 4
 
 
@@ -166,11 +270,11 @@ def test_torch_detectors_batch_size_validation_only_paths():
     )
 
     def _setup_differnet(inst):  # noqa: ANN001
-        inst.predict_proba = lambda X: _stub_scores_predict(len(X))  # type: ignore[assignment]
+        inst.predict_proba = lambda x: _stub_scores_predict(len(x))  # type: ignore[assignment]
 
     def _setup_spade(inst):  # noqa: ANN001
         inst._check_fitted = lambda: None  # type: ignore[assignment]
-        inst._iter_images = lambda X: []  # type: ignore[assignment]
+        inst._iter_images = lambda x: []  # type: ignore[assignment]
 
     cases.extend([(DifferNetDetector, _setup_differnet), (VisionSPADEDetector, _setup_spade)])
 
@@ -186,55 +290,3 @@ def test_torch_detectors_batch_size_validation_only_paths():
         if cls in (DifferNetDetector, VisionSPADEDetector):
             scores = cls.decision_function(inst, X=[], batch_size=None)
             assert isinstance(scores, np.ndarray)
-
-
-def test_realnet_init_random_state_does_not_reset_numpy_global_rng():
-    from pyimgano.models.realnet import VisionRealNet
-
-    expected = _global_numpy_state_after(lambda: None)
-    observed = _global_numpy_state_after(
-        lambda: VisionRealNet(random_state=123, epochs=1, device="cpu")
-    )
-
-    assert _numpy_states_equal(observed, expected)
-
-
-def test_ast_init_random_state_does_not_reset_numpy_global_rng():
-    from pyimgano.models.ast import VisionAST
-
-    expected = _global_numpy_state_after(lambda: None)
-    observed = _global_numpy_state_after(lambda: VisionAST(random_state=123, epochs=1, device="cpu"))
-
-    assert _numpy_states_equal(observed, expected)
-
-
-def test_ast_random_state_makes_synthetic_anomalies_repeatable():
-    import torch
-
-    from pyimgano.models.ast import VisionAST
-
-    images = torch.arange(2 * 3 * 16 * 16, dtype=torch.float32).reshape(2, 3, 16, 16)
-    model_a = VisionAST(random_state=123, epochs=1, device="cpu")
-    model_b = VisionAST(random_state=123, epochs=1, device="cpu")
-
-    anomalous_a, masks_a = model_a._generate_synthetic_anomalies(images)
-    anomalous_b, masks_b = model_b._generate_synthetic_anomalies(images)
-
-    assert torch.equal(masks_a, masks_b)
-    assert torch.allclose(anomalous_a, anomalous_b)
-
-
-def test_realnet_anomaly_generator_random_state_is_repeatable():
-    import torch
-
-    from pyimgano.models.realnet import AnomalyGenerator
-
-    image = torch.arange(3 * 16 * 16, dtype=torch.float32).reshape(3, 16, 16)
-    generator_a = AnomalyGenerator(random_state=123)
-    generator_b = AnomalyGenerator(random_state=123)
-
-    anomalous_a, mask_a = generator_a.generate_anomaly(image, anomaly_type="intensity")
-    anomalous_b, mask_b = generator_b.generate_anomaly(image, anomaly_type="intensity")
-
-    assert torch.equal(mask_a, mask_b)
-    assert torch.allclose(anomalous_a, anomalous_b)

@@ -19,17 +19,17 @@ def test_isolation_forest_detector_compat_fit_and_predict_proba_on_features() ->
     from pyimgano.detectors import IsolationForestDetector
 
     rng = np.random.default_rng(0)
-    X_train = rng.standard_normal((64, 8))
-    X_test = rng.standard_normal((16, 8))
+    x_train = rng.standard_normal((64, 8))
+    x_test = rng.standard_normal((16, 8))
 
     detector = IsolationForestDetector(n_estimators=10, contamination=0.1)
-    detector.fit(X_train)
+    detector.fit(x_train)
 
-    scores = np.asarray(detector.decision_function(X_test))
-    assert scores.shape == (len(X_test),)
+    scores = np.asarray(detector.decision_function(x_test))
+    assert scores.shape == (len(x_test),)
 
-    proba = np.asarray(detector.predict_proba(X_test))
-    assert proba.shape == (len(X_test), 2)
+    proba = np.asarray(detector.predict_proba(x_test))
+    assert proba.shape == (len(x_test), 2)
     assert np.all(proba >= 0.0)
     assert np.all(proba <= 1.0)
 
@@ -38,26 +38,26 @@ def test_registry_model_estimator_smoke_on_feature_vectors() -> None:
     from pyimgano.sklearn_adapter import RegistryModelEstimator
 
     class IdentityExtractor:
-        def extract(self, X):
-            return np.asarray(X)
+        def extract(self, x):
+            return np.asarray(x)
 
     rng = np.random.default_rng(0)
-    X_train = rng.standard_normal((32, 8)).astype(np.float32)
-    X_test = rng.standard_normal((8, 8)).astype(np.float32)
+    x_train = rng.standard_normal((32, 8)).astype(np.float32)
+    x_test = rng.standard_normal((8, 8)).astype(np.float32)
 
     est = RegistryModelEstimator(
         model="vision_ecod",
         feature_extractor=IdentityExtractor(),
         contamination=0.1,
     )
-    est.fit(X_train)
+    est.fit(x_train)
 
-    scores = np.asarray(est.decision_function(X_test))
-    assert scores.shape == (len(X_test),)
+    scores = np.asarray(est.decision_function(x_test))
+    assert scores.shape == (len(x_test),)
     assert np.isfinite(scores).all()
 
-    preds = np.asarray(est.predict(X_test), dtype=int)
-    assert preds.shape == (len(X_test),)
+    preds = np.asarray(est.predict(x_test), dtype=int)
+    assert preds.shape == (len(x_test),)
     assert set(np.unique(preds)).issubset({0, 1})
 
 
@@ -67,8 +67,8 @@ def test_registry_model_estimator_errors_are_clear() -> None:
     from pyimgano.sklearn_adapter import RegistryModelEstimator
 
     class IdentityExtractor:
-        def extract(self, X):
-            return np.asarray(X)
+        def extract(self, x):
+            return np.asarray(x)
 
     est = RegistryModelEstimator(
         model="vision_ecod",
@@ -83,5 +83,6 @@ def test_registry_model_estimator_errors_are_clear() -> None:
         est.fit("train_0.png")
 
     with pytest.raises(ValueError, match="Unknown model name"):
-        bad_features = np.random.default_rng(0).standard_normal((4, 2))
-        RegistryModelEstimator(model="__does_not_exist__").fit(bad_features)
+        RegistryModelEstimator(model="__does_not_exist__").fit(
+            np.random.default_rng(0).standard_normal((4, 2))
+        )

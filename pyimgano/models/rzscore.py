@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Robust Z-score detector (median + MAD).
+"""Robust z-score detector (median + MAD).
 
 This overlaps conceptually with the MAD baseline but exposes a dedicated core
 detector and a different default aggregation.
@@ -43,29 +43,29 @@ class CoreRZScore(BaseDetector):
         self.eps = float(eps)
         self.consistency_correction = bool(consistency_correction)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
-        if x_array.shape[0] == 0:
-            raise ValueError("X must be non-empty")
+        if x_arr.shape[0] == 0:
+            raise ValueError("x must be non-empty")
 
-        self.median_ = np.median(x_array, axis=0)
-        abs_dev = np.abs(x_array - self.median_)
+        self.median_ = np.median(x_arr, axis=0)
+        abs_dev = np.abs(x_arr - self.median_)
         mad = np.median(abs_dev, axis=0)
         mad = np.maximum(mad, float(self.eps))
         self.mad_ = mad
 
-        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["median_", "mad_"])
         median = np.asarray(self.median_, dtype=np.float64)  # type: ignore[arg-type]
         mad = np.asarray(self.mad_, dtype=np.float64)  # type: ignore[arg-type]
 
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
-        z = np.abs(x_array - median) / mad
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+        z = np.abs(x_arr - median) / mad
         if self.consistency_correction:
             z = 0.6745 * z
 

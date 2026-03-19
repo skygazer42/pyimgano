@@ -13,19 +13,20 @@ from pyimgano.models.protocols import (
 class _DummyDetector(BaseDetector):
     input_mode = "numpy"
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
+        del x, y
         self.decision_scores_ = np.asarray([0.1, 0.9], dtype=np.float64)
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):
-        n = len(list(X))
+    def decision_function(self, x):
+        n = len(list(x))
         return np.zeros((n,), dtype=np.float32)
 
 
 class _DummyPixelDetector(_DummyDetector):
-    def predict_anomaly_map(self, X):
-        n = len(list(X))
+    def predict_anomaly_map(self, x):
+        n = len(list(x))
         return [np.ones((4, 4), dtype=np.float32) for _ in range(n)]
 
 

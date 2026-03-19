@@ -9,13 +9,14 @@ Uses Bayesian learning to optimize prompt flows for zero-shot anomaly detection,
 enabling effective detection without any training on the target domain.
 """
 
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
 from numpy.typing import NDArray
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -72,8 +73,8 @@ class BayesianPromptGenerator(nn.Module):
         prompts_flat = mean + eps * std
 
         # Reshape to prompts
-        B = x.size(0)
-        prompts = prompts_flat.view(B, self.num_prompts, self.prompt_dim)
+        b = x.size(0)
+        prompts = prompts_flat.view(b, self.num_prompts, self.prompt_dim)
 
         return prompts, mean, logvar
 
@@ -177,8 +178,9 @@ class VisionBayesianPF(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(50, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((50, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create detector (zero-shot, minimal training!)
     >>> detector = VisionBayesianPF(num_samples=10)
@@ -199,7 +201,7 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.prompt_dim = prompt_dim
         self.num_prompts = num_prompts
@@ -208,25 +210,25 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.prompt_generator_ = None
         self.prompt_flow_ = None
         self.reference_statistics_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _build_feature_extractor(self):
         """Build feature extractor."""
@@ -262,7 +264,12 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         return extractor
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionBayesianPF":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionBayesianPF":
         """
         Fit the BayesianPF detector (minimal calibration).
 
@@ -278,8 +285,10 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         self : VisionBayesianPF
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -342,7 +351,12 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores (zero-shot).
 
@@ -360,11 +374,12 @@ class VisionBayesianPF(BaseVisionDeepDetector):
             raise NotImplementedError(
                 f"return_confidence is not implemented for {self.__class__.__name__}"
             )
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
 
         self.prompt_generator_.eval()
         self.prompt_flow_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -394,10 +409,16 @@ class VisionBayesianPF(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
         if batch_size is None:
-            return self.predict(X)
+            return self.predict(x_array)
 
         batch_size_int = int(batch_size)
         if batch_size_int <= 0:
@@ -406,11 +427,13 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         old_batch_size = self.batch_size
         try:
             self.batch_size = batch_size_int
-            return self.predict(X)
+            return self.predict(x_array)
         finally:
             self.batch_size = old_batch_size
 
-    def predict_with_uncertainty(self, X: NDArray) -> tuple[NDArray, NDArray]:
+    def predict_with_uncertainty(
+        self, x: object = MISSING, **kwargs: object
+    ) -> tuple[NDArray, NDArray]:
         """
         Predict anomaly scores with uncertainty estimates.
 
@@ -429,7 +452,10 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         self.prompt_generator_.eval()
         self.prompt_flow_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict_with_uncertainty")
+        )
+        x_tensor = self._preprocess(x_array)
         scores = []
         uncertainties = []
 

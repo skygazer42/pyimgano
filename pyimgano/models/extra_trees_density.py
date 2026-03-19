@@ -52,8 +52,8 @@ class CoreExtraTreesDensity(BaseDetector):
         self.random_state = random_state
         self.eps = float(eps)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         emb = RandomTreesEmbedding(
@@ -62,9 +62,9 @@ class CoreExtraTreesDensity(BaseDetector):
             min_samples_leaf=int(self.min_samples_leaf),
             random_state=self.random_state,
         )
-        emb.fit(x_array)
+        emb.fit(x_arr)
 
-        leaf = emb.apply(x_array)  # (n, n_estimators)
+        leaf = emb.apply(x_arr)  # (n, n_estimators)
         leaf = np.asarray(leaf, dtype=np.int64)
         n = int(leaf.shape[0])
         m = int(leaf.shape[1])
@@ -112,11 +112,11 @@ class CoreExtraTreesDensity(BaseDetector):
         out = out / float(m)
         return np.asarray(out, dtype=np.float64).reshape(-1)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["embedding_", "leaf_counts_"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         emb: RandomTreesEmbedding = self.embedding_  # type: ignore[assignment]
-        leaf = np.asarray(emb.apply(x_array), dtype=np.int64)
+        leaf = np.asarray(emb.apply(x_arr), dtype=np.int64)
         return self._score_from_leaf(leaf)
 
 

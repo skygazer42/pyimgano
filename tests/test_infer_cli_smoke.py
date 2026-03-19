@@ -14,13 +14,13 @@ class _DummyDetector:
         self.threshold_ = 0.5
         self.fit_calls = 0
 
-    def fit(self, X):
-        _ = X
+    def fit(self, x):
+        _ = x
         self.fit_calls += 1
         return self
 
-    def decision_function(self, X):
-        return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+    def decision_function(self, x):
+        return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
     def predict_confidence(self, X):
         return np.linspace(0.6, 0.9, num=len(X), dtype=np.float32)
@@ -568,8 +568,8 @@ def test_infer_cli_smoke_defects_export(tmp_path, monkeypatch):
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):
             _ = item
@@ -625,8 +625,8 @@ def test_infer_cli_smoke_defects_image_space_and_overlays(tmp_path, monkeypatch)
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
         def get_anomaly_map(self, item):
             _ = item
@@ -685,8 +685,8 @@ def test_infer_cli_smoke_defects_roi_gates_defects_only(tmp_path, monkeypatch):
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
-            _ = X
+        def decision_function(self, x):
+            _ = x
             return np.asarray([1.0], dtype=np.float32)
 
         def get_anomaly_map(self, item):
@@ -752,13 +752,13 @@ def test_infer_cli_train_dir_auto_calibrates_when_threshold_missing(tmp_path, mo
         def __init__(self) -> None:
             self.fit_calls = 0
 
-        def fit(self, X):
-            _ = X
+        def fit(self, x):
+            _ = x
             self.fit_calls += 1
             return self
 
-        def decision_function(self, X):
-            return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+        def decision_function(self, x):
+            return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
     det = _NoThresholdDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -782,3 +782,4 @@ def test_infer_cli_train_dir_auto_calibrates_when_threshold_missing(tmp_path, mo
     assert len(lines) == 2
     record = json.loads(lines[0])
     assert "label" in record
+

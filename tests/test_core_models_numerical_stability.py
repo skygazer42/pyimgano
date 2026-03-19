@@ -20,10 +20,10 @@ def test_selected_core_models_handle_constant_inputs(model_name: str) -> None:
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
 
-    X = np.zeros((40, 6), dtype=np.float64)
+    x = np.zeros((40, 6), dtype=np.float64)
     det = create_model(model_name, contamination=0.1)
-    det.fit(X)
-    scores = np.asarray(det.decision_function(X[:10]), dtype=np.float64)
+    det.fit(x)
+    scores = np.asarray(det.decision_function(x[:10]), dtype=np.float64)
 
     assert scores.shape == (10,)
     assert np.all(np.isfinite(scores))

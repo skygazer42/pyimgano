@@ -78,7 +78,7 @@ class CoreKNNCosineCalibrated(BaseDetector):
         self.base_model_ = None
         self.standardizer_ = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         base = CoreKNNCosineModel(
             contamination=float(self.contamination),
             n_neighbors=int(self.n_neighbors),
@@ -88,10 +88,10 @@ class CoreKNNCosineCalibrated(BaseDetector):
             n_jobs=int(self.n_jobs),
             random_state=self.random_state,
         )
-        base.fit(X, y=y)
+        base.fit(x, y=y)
 
         train_scores = np.asarray(
-            getattr(base, "decision_scores_", base.decision_function(X)), dtype=np.float64
+            getattr(base, "decision_scores_", base.decision_function(x)), dtype=np.float64
         ).reshape(-1)
         std = ScoreStandardizer(method=str(self.method), eps=float(self.standardize_eps)).fit(
             train_scores
@@ -105,11 +105,11 @@ class CoreKNNCosineCalibrated(BaseDetector):
         self._set_n_classes(y)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         require_fitted(self, ["base_model_", "standardizer_"])
         base: CoreKNNCosineModel = self.base_model_  # type: ignore[assignment]
         std: ScoreStandardizer = self.standardizer_  # type: ignore[assignment]
-        raw = np.asarray(base.decision_function(X), dtype=np.float64).reshape(-1)
+        raw = np.asarray(base.decision_function(x), dtype=np.float64).reshape(-1)
         return std.transform(raw)
 
 

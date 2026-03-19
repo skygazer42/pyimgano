@@ -6,12 +6,12 @@ def test_core_hst_fit_predict_smoke() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(80, 5))
+    x = rng.normal(size=(80, 5))
 
     det = create_model("core_hst", contamination=0.1, n_trees=9, max_depth=6, random_state=0)
-    det.fit(X)
-    scores = det.decision_function(X[:13])
-    preds = det.predict(X[:13])
+    det.fit(x)
+    scores = det.decision_function(x[:13])
+    preds = det.predict(x[:13])
 
     assert scores.shape == (13,)
     assert preds.shape == (13,)
@@ -25,7 +25,7 @@ def test_vision_hst_with_identity_extractor() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(1)
-    X = rng.normal(size=(50, 4))
+    x = rng.normal(size=(50, 4))
     det = create_model(
         "vision_hst",
         feature_extractor=IdentityExtractor(),
@@ -34,7 +34,7 @@ def test_vision_hst_with_identity_extractor() -> None:
         max_depth=5,
         random_state=1,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:7])
+    det.fit(x)
+    scores = det.decision_function(x[:7])
     assert scores.shape == (7,)
     assert np.all(np.isfinite(scores))

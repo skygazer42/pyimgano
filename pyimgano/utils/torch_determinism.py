@@ -36,7 +36,7 @@ def set_torch_determinism(
 
     s = int(seed)
     random.seed(s)
-    np.random.seed(s)
+    np.random.mtrand._rand.seed(s)
     torch.manual_seed(s)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(s)

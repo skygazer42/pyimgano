@@ -71,8 +71,8 @@ class CoreLDOF(BaseDetector):
         self.n_jobs = n_jobs
         self.eps = float(eps)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         n = int(x_arr.shape[0])
@@ -106,12 +106,12 @@ class CoreLDOF(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["_nn", "_X_train"])
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
-        X_train = np.asarray(self._X_train, dtype=np.float64)  # type: ignore[arg-type]
+        x_train = np.asarray(self._X_train, dtype=np.float64)  # type: ignore[arg-type]
 
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         k = int(self.n_neighbors)
 
         distances, indices = nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)
@@ -121,7 +121,7 @@ class CoreLDOF(BaseDetector):
         d_in = np.mean(d, axis=1)
         d_out = np.empty(x_arr.shape[0], dtype=np.float64)
         for i in range(x_arr.shape[0]):
-            pts = X_train[nbr_idx[i]]
+            pts = x_train[nbr_idx[i]]
             d_out[i] = _mean_pairwise_distance(pts)
 
         scores = d_in / (d_out + float(self.eps))

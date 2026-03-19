@@ -7,6 +7,7 @@ import numpy as np
 
 from pyimgano.utils.image_u8 import as_u8_image
 
+
 @dataclass(frozen=True)
 class RetinexConfig:
     sigmas: tuple[float, ...] = (15.0, 80.0, 250.0)

@@ -24,12 +24,12 @@ _InputColor = Literal["rgb", "bgr"]
 class PatchGridExtractor(BaseFeatureExtractor):
     """Patch-level embeddings aggregated into a fixed vector.
 
-    We take a convolutional feature map (N,C,H,W) and aggregate spatially:
-    - mean over patches (C)
-    - max over patches (C)
-    - std over patches (C)
+    We take a convolutional feature map (N,c,h,w) and aggregate spatially:
+    - mean over patches (c)
+    - max over patches (c)
+    - std over patches (c)
 
-    Output dim = 3*C.
+    Output dim = 3*c.
     """
 
     backbone: str = "resnet18"
@@ -53,7 +53,7 @@ class PatchGridExtractor(BaseFeatureExtractor):
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="PatchGridExtractor")
-        T = require("torchvision.transforms", extra="torch", purpose="PatchGridExtractor")
+        t = require("torchvision.transforms", extra="torch", purpose="PatchGridExtractor")
         fe = require(
             "torchvision.models.feature_extraction",
             extra="torch",
@@ -75,11 +75,11 @@ class PatchGridExtractor(BaseFeatureExtractor):
         else:
             mean = (0.485, 0.456, 0.406)
             std = (0.229, 0.224, 0.225)
-            transform = T.Compose(
+            transform = t.Compose(
                 [
-                    T.Resize((int(self.image_size), int(self.image_size))),
-                    T.ToTensor(),
-                    T.Normalize(mean=mean, std=std),
+                    t.Resize((int(self.image_size), int(self.image_size))),
+                    t.ToTensor(),
+                    t.Normalize(mean=mean, std=std),
                 ]
             )
 
@@ -118,7 +118,7 @@ class PatchGridExtractor(BaseFeatureExtractor):
                     rows.append(out.detach().cpu().numpy().astype(np.float64, copy=False))
                     continue
 
-                # (N,C,H,W) -> patches (N,C,P)
+                # (N,c,h,w) -> patches (N,c,P)
                 n, c, h, w = out.shape
                 patches = out.reshape(n, c, h * w)
                 mean = patches.mean(dim=2)

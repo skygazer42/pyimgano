@@ -11,7 +11,7 @@ Reference:
 """
 
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, cast
 
 import cv2
 import numpy as np
@@ -23,6 +23,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -334,7 +335,12 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         return loss
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionSimpleNet":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionSimpleNet":
         """
         Train SimpleNet on normal images.
 
@@ -350,9 +356,10 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         self : VisionSimpleNet
             Fitted detector
         """
+        del y
         logger.info("Training SimpleNet detector (fast training mode)")
 
-        x_list = list(X)
+        x_list = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
@@ -376,7 +383,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
             epoch_loss = 0.0
             num_batches = 0
 
-            for batch_idx, (images, _) in enumerate(dataloader):
+            for images, _ in dataloader:
                 images = images.to(self.device)
 
                 # Extract frozen features
@@ -412,7 +419,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         return self
 
-    def _build_reference_features(self, X: List[str]) -> None:
+    def _build_reference_features(self, image_paths: List[str]) -> None:
         """Build reference feature bank from normal training images."""
         logger.debug("Building reference feature bank")
 
@@ -420,7 +427,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         all_features = []
 
         with torch.no_grad():
-            for img_path in X:
+            for img_path in image_paths:
                 try:
                     # Load image
                     img = cv2.imread(img_path)
@@ -451,7 +458,8 @@ class VisionSimpleNet(BaseVisionDeepDetector):
                 np.linalg.norm(self.reference_features, axis=1, keepdims=True) + 1e-8
             )
             n_refs = min(1000, len(ref_norm))
-            rng = np.random.default_rng(getattr(self, "random_state", 42))
+            seed = getattr(self, "random_state", 42)
+            rng = np.random.default_rng(None if seed is None else int(seed))
             if n_refs < len(ref_norm):
                 indices = rng.choice(len(ref_norm), n_refs, replace=False)
                 self.reference_features_subset_ = ref_norm[indices]
@@ -508,7 +516,12 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         return score
 
-    def predict(self, X: Iterable[str], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -530,10 +543,17 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         if not hasattr(self, "reference_features") or not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        )
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[str], batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Compute anomaly scores for test images.
 
@@ -559,7 +579,12 @@ class VisionSimpleNet(BaseVisionDeepDetector):
 
         self.adapter.eval()
 
-        x_list = list(X)
+        x_list = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(x_list))
 
         logger.info("Computing anomaly scores for %d images", len(x_list))

@@ -72,8 +72,8 @@ def test_summarize_robustness_protocol_exposes_comparability_metadata() -> None:
 
 
 def test_run_robustness_request_delegates_to_benchmark(monkeypatch) -> None:
-    import pyimgano.services.robustness_service as robustness_service
     import pyimgano.services.dataset_split_service as dataset_split_service
+    import pyimgano.services.robustness_service as robustness_service
 
     calls: list[dict[str, object]] = []
 
@@ -122,8 +122,8 @@ def test_run_robustness_request_delegates_to_benchmark(monkeypatch) -> None:
 
 
 def test_run_robustness_request_uses_request_checkpoint_path(monkeypatch) -> None:
-    import pyimgano.services.robustness_service as robustness_service
     import pyimgano.services.dataset_split_service as dataset_split_service
+    import pyimgano.services.robustness_service as robustness_service
 
     class _Split:
         train_paths = ["train_0.png"]
@@ -170,8 +170,8 @@ def test_run_robustness_request_uses_request_checkpoint_path(monkeypatch) -> Non
 
 
 def test_run_robustness_request_accepts_model_preset_alias(monkeypatch) -> None:
-    import pyimgano.services.robustness_service as robustness_service
     import pyimgano.services.dataset_split_service as dataset_split_service
+    import pyimgano.services.robustness_service as robustness_service
 
     class _Split:
         train_paths = ["train_0.png"]
@@ -216,8 +216,8 @@ def test_run_robustness_request_accepts_model_preset_alias(monkeypatch) -> None:
 
 
 def test_run_robustness_request_delegates_split_loading_through_service(monkeypatch) -> None:
-    import pyimgano.services.robustness_service as robustness_service
     import pyimgano.services.dataset_split_service as dataset_split_service
+    import pyimgano.services.robustness_service as robustness_service
 
     calls: list[dict[str, object]] = []
 

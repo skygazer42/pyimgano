@@ -153,7 +153,7 @@ class FCDD(BaseVisionDeepDetector):
 
         return center
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "FCDD":
+    def fit(self, x: NDArray, y: Optional[NDArray] = None) -> "FCDD":
         """
         Fit FCDD model.
 
@@ -169,21 +169,20 @@ class FCDD(BaseVisionDeepDetector):
         self : FCDD
             Fitted estimator
         """
+        del y
         # Convert to torch tensor
-        if X.ndim == 3:
-            X = np.expand_dims(X, axis=-1)
+        if x.ndim == 3:
+            x = np.expand_dims(x, axis=-1)
 
-        X = np.transpose(X, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(X).float() / 255.0
+        x = np.transpose(x, (0, 3, 1, 2))
+        x_tensor = torch.from_numpy(x).float() / 255.0
 
         # Initialize network
-        self.network_ = FCDDNetwork(in_channels=X.shape[1]).to(self.device)
+        self.network_ = FCDDNetwork(in_channels=x.shape[1]).to(self.device)
 
         # Setup data loader
         dataset = TensorDataset(x_tensor)
-        dataloader = DataLoader(
-            dataset, batch_size=self.batch_size, shuffle=True, num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Initialize center (for HSC objective)
         if self.objective == "hsc":
@@ -199,7 +198,7 @@ class FCDD(BaseVisionDeepDetector):
         for epoch in range(self.epochs):
             epoch_loss = 0
 
-            for batch_idx, (batch,) in enumerate(dataloader):
+            for (batch,) in dataloader:
                 batch = batch.to(self.device)
 
                 # Forward pass
@@ -230,7 +229,7 @@ class FCDD(BaseVisionDeepDetector):
         self.is_fitted_ = True
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, x: NDArray) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -247,11 +246,11 @@ class FCDD(BaseVisionDeepDetector):
         self._check_is_fitted()
 
         # Preprocess
-        if X.ndim == 3:
-            X = np.expand_dims(X, axis=-1)
+        if x.ndim == 3:
+            x = np.expand_dims(x, axis=-1)
 
-        X = np.transpose(X, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(X).float() / 255.0
+        x = np.transpose(x, (0, 3, 1, 2))
+        x_tensor = torch.from_numpy(x).float() / 255.0
 
         # Compute scores
         self.network_.eval()
@@ -268,7 +267,7 @@ class FCDD(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def predict_with_map(self, X: NDArray) -> Tuple[NDArray, NDArray]:
+    def predict_with_map(self, x: NDArray) -> Tuple[NDArray, NDArray]:
         """
         Compute anomaly scores and pixel-level maps.
 
@@ -287,12 +286,12 @@ class FCDD(BaseVisionDeepDetector):
         self._check_is_fitted()
 
         # Preprocess
-        if X.ndim == 3:
-            X = np.expand_dims(X, axis=-1)
+        if x.ndim == 3:
+            x = np.expand_dims(x, axis=-1)
 
-        original_h, original_w = X.shape[1], X.shape[2]
-        X = np.transpose(X, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(X).float() / 255.0
+        original_h, original_w = x.shape[1], x.shape[2]
+        x = np.transpose(x, (0, 3, 1, 2))
+        x_tensor = torch.from_numpy(x).float() / 255.0
 
         # Compute scores and maps
         self.network_.eval()

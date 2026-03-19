@@ -10,7 +10,7 @@ def test_core_deep_svdd_smoke_can_fit_and_score() -> None:
     from pyimgano.models.deep_svdd import CoreDeepSVDD
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(20, 8)).astype(np.float32)
+    x = rng.normal(size=(20, 8)).astype(np.float32)
 
     det = CoreDeepSVDD(
         n_features=8,
@@ -22,13 +22,13 @@ def test_core_deep_svdd_smoke_can_fit_and_score() -> None:
         random_state=0,
         contamination=0.2,
     )
-    det.fit(X)
+    det.fit(x)
 
-    scores = det.decision_function(X[:5])
+    scores = det.decision_function(x[:5])
     assert scores.shape == (5,)
     assert np.isfinite(scores).all()
 
-    labels = det.predict(X[:5])
+    labels = det.predict(x[:5])
     assert set(np.unique(labels)).issubset({0, 1})
 
 

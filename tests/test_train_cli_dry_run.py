@@ -31,8 +31,8 @@ def test_train_cli_dry_run_prints_effective_config_without_writing(tmp_path, cap
 
 
 def test_train_cli_dry_run_delegates_to_train_service(tmp_path, capsys, monkeypatch):
-    from pyimgano.train_cli import main
     import pyimgano.services.train_service as train_service
+    from pyimgano.train_cli import main
 
     cfg_path = tmp_path / "cfg.json"
     cfg_path.write_text(

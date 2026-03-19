@@ -8,7 +8,7 @@ def test_vision_score_ensemble_accepts_detector_specs() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = [rng.normal(size=(8,)).astype(np.float32) for _ in range(80)]
+    x = [rng.normal(size=(8,)).astype(np.float32) for _ in range(80)]
 
     ens = create_model(
         "vision_score_ensemble",
@@ -19,9 +19,9 @@ def test_vision_score_ensemble_accepts_detector_specs() -> None:
         contamination=0.1,
         combine="mean_rank",
     )
-    ens.fit(X)
-    scores = ens.decision_function(X[:10])
-    preds = ens.predict(X[:10])
+    ens.fit(x)
+    scores = ens.decision_function(x[:10])
+    preds = ens.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)

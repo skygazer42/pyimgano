@@ -20,7 +20,7 @@ def test_capabilities_include_numpy_input_mode_when_tagged() -> None:
 
 def test_capabilities_detect_pixel_map_via_method_presence() -> None:
     class _PixelModel:
-        def predict_anomaly_map(self, X):  # noqa: ANN001 - test stub
+        def predict_anomaly_map(self, x):  # noqa: ANN001 - test stub
             raise NotImplementedError
 
     registry = ModelRegistry()

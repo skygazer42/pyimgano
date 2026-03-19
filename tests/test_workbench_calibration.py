@@ -7,8 +7,8 @@ def test_calibrate_detector_threshold_uses_contamination_default():
     class _Det:
         contamination = 0.1
 
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             return np.arange(n, dtype=np.float32)
 
     det = _Det()
@@ -21,8 +21,8 @@ def test_calibrate_detector_threshold_uses_contamination_default():
 
 def test_calibrate_detector_threshold_respects_explicit_quantile():
     class _Det:
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             return np.arange(n, dtype=np.float32)
 
     det = _Det()

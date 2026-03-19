@@ -56,11 +56,11 @@ class CorePCA:
         self.pca_: PCA | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        _ = y
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
 
-        x_proc = X
+        x_proc = x
         if self.standardization:
             self.scaler_ = StandardScaler()
             x_proc = self.scaler_.fit_transform(x_proc)
@@ -74,32 +74,32 @@ class CorePCA:
         )
         self.pca_.fit(x_proc)
 
-        self.decision_scores_ = self.decision_function(X)
+        self.decision_scores_ = self.decision_function(x)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         if self.pca_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        x_proc = X
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        x_proc = x
         if self.standardization:
             if self.scaler_ is None:
                 raise RuntimeError("Internal error: missing scaler")
             x_proc = self.scaler_.transform(x_proc)
 
-        z_values = self.pca_.transform(x_proc)
+        z = self.pca_.transform(x_proc)
 
         if self.n_selected_components is not None:
             k = int(self.n_selected_components)
             if k < 1:
                 raise ValueError("n_selected_components must be >= 1")
-            k = min(k, z_values.shape[1])
-            z_masked = np.zeros_like(z_values)
-            z_masked[:, :k] = z_values[:, :k]
+            k = min(k, z.shape[1])
+            z_masked = np.zeros_like(z)
+            z_masked[:, :k] = z[:, :k]
             x_recon = self.pca_.inverse_transform(z_masked)
         else:
-            x_recon = self.pca_.inverse_transform(z_values)
+            x_recon = self.pca_.inverse_transform(z)
 
         # Reconstruction error in the (optionally) standardized space.
         err = np.sum((x_proc - x_recon) ** 2, axis=1)
@@ -193,8 +193,8 @@ class VisionPCA(BaseVisionDetector):
     def _build_detector(self):
         return CorePCA(**self.detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

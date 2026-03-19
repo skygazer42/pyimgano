@@ -57,200 +57,10 @@ def _parse_csv_ints_arg(text: str, *, arg_name: str) -> list[int]:
     return out
 
 
-def _parse_csv_strs_arg(text: str) -> list[str]:
+def _parse_csv_strs_arg(text: str, *, arg_name: str) -> list[str]:
+    del arg_name
     raw = [t.strip() for t in str(text).split(",")]
     return [t for t in raw if t]
-
-
-def _extract_result_triage(result: Any) -> tuple[str, bool]:
-    summary = getattr(result, "decision_summary", None)
-    if isinstance(summary, dict):
-        decision = summary.get("decision", None)
-        if isinstance(decision, str) and decision.strip():
-            return str(decision), bool(summary.get("requires_review", False))
-
-    rejected = getattr(result, "rejected", None)
-    label = getattr(result, "label", None)
-    if bool(rejected):
-        return "rejected_low_confidence", True
-    if label is None:
-        return "score_only", False
-    if int(label) == 0:
-        return "normal", False
-    return "anomalous", True
-
-
-def _observe_result_triage(
-    result: Any,
-    *,
-    decision_counts: dict[str, int],
-) -> tuple[int, int]:
-    decision, requires_review = _extract_result_triage(result)
-    decision_counts[decision] = int(decision_counts.get(decision, 0)) + 1
-    return (1 if bool(requires_review) else 0, 1 if decision == "rejected_low_confidence" else 0)
-
-
-def _build_profile_triage_summary(
-    *,
-    processed: int,
-    errors: int,
-    inputs_total: int,
-    error_stages: dict[str, int] | None,
-    decision_counts: dict[str, int],
-    fallback_used: bool,
-    review_required: int,
-    rejected_low_confidence: int,
-    stop_reason: str,
-) -> dict[str, Any]:
-    stages = {"artifacts": 0, "infer": 0}
-    if isinstance(error_stages, dict):
-        stages.update({str(k): int(v) for k, v in error_stages.items()})
-    return {
-        "ok": max(0, int(processed) - int(errors)),
-        "remaining": max(0, int(inputs_total) - int(processed)),
-        "error_stages": {str(k): int(v) for k, v in sorted(stages.items())},
-        "decision_counts": {str(k): int(v) for k, v in sorted(decision_counts.items())},
-        "fallback_used": bool(fallback_used),
-        "review_required": int(review_required),
-        "rejected_low_confidence": int(rejected_low_confidence),
-        "stop_reason": str(stop_reason),
-    }
-
-
-def _format_profile_summary_line(
-    *,
-    continue_on_error: bool,
-    triage_summary: dict[str, Any] | None,
-    errors: int,
-) -> str:
-    triage = dict(triage_summary) if triage_summary is not None else {}
-    decision_counts = triage.get("decision_counts", {})
-    if isinstance(decision_counts, dict) and decision_counts:
-        decisions = ",".join(
-            f"{str(key)}:{int(value)}" for key, value in sorted(decision_counts.items())
-        )
-    else:
-        decisions = "none"
-
-    return (
-        "profile_summary: "
-        f"continue_on_error={str(bool(continue_on_error)).lower()} "
-        f"ok={int(triage.get('ok', 0))} "
-        f"errors={int(errors)} "
-        f"review_required={int(triage.get('review_required', 0))} "
-        f"rejected_low_confidence={int(triage.get('rejected_low_confidence', 0))} "
-        f"decisions={decisions}"
-    )
-
-
-def _build_execution_policy_summary(
-    *,
-    args: Any,
-    include_maps: bool,
-    continue_on_error: bool,
-    max_errors: int,
-    flush_every: int,
-) -> dict[str, Any]:
-    reject_threshold = getattr(args, "reject_confidence_below", None)
-    reject_label = (
-        int(getattr(args, "reject_label", -2)) if reject_threshold is not None else None
-    )
-    return {
-        "continue_on_error": bool(continue_on_error),
-        "max_errors": int(max_errors),
-        "flush_every": int(flush_every),
-        "include_confidence": bool(getattr(args, "include_confidence", False)),
-        "include_maps": bool(include_maps),
-        "defects_enabled": bool(getattr(args, "defects", False)),
-        "reject_confidence_below": (
-            float(reject_threshold) if reject_threshold is not None else None
-        ),
-        "reject_label": reject_label,
-        "exit_code_policy": {
-            "success": 0,
-            "partial_failure": 1,
-            "fatal_cli_error": 2,
-        },
-    }
-
-
-def _build_review_policy_summary(*, args: Any) -> dict[str, Any]:
-    reject_threshold = getattr(args, "reject_confidence_below", None)
-    reject_label = (
-        int(getattr(args, "reject_label", -2)) if reject_threshold is not None else None
-    )
-    return {
-        "review_on": ["anomalous", "rejected_low_confidence"],
-        "confidence_gate_enabled": bool(reject_threshold is not None),
-        "reject_confidence_below": (
-            float(reject_threshold) if reject_threshold is not None else None
-        ),
-        "reject_label": reject_label,
-        "score_only_requires_review": False,
-    }
-
-
-def _format_profile_policy_line(
-    *,
-    execution_policy: dict[str, Any],
-    review_policy: dict[str, Any],
-) -> str:
-    reject_threshold = review_policy.get("reject_confidence_below", None)
-    reject_label = review_policy.get("reject_label", None)
-    review_on = review_policy.get("review_on", [])
-    if isinstance(review_on, list):
-        review_on_text = ",".join(str(item) for item in review_on)
-    else:
-        review_on_text = str(review_on)
-    return (
-        "profile_policy: "
-        f"continue_on_error={str(bool(execution_policy.get('continue_on_error', False))).lower()} "
-        f"max_errors={int(execution_policy.get('max_errors', 0))} "
-        f"flush_every={int(execution_policy.get('flush_every', 0))} "
-        f"confidence_gate_enabled={str(bool(review_policy.get('confidence_gate_enabled', False))).lower()} "
-        f"reject_confidence_below={('none' if reject_threshold is None else str(float(reject_threshold)))} "
-        f"reject_label={('none' if reject_label is None else str(int(reject_label)))} "
-        f"review_on={review_on_text}"
-    )
-
-
-def _build_output_contract_summary(
-    *,
-    args: Any,
-    include_maps: bool,
-) -> dict[str, Any]:
-    save_jsonl = bool(getattr(args, "save_jsonl", None) is not None)
-    save_maps = bool(getattr(args, "save_maps", None) is not None)
-    save_masks = bool(getattr(args, "save_masks", None) is not None)
-    save_overlays = bool(getattr(args, "save_overlays", None) is not None)
-    defects_regions_jsonl = bool(getattr(args, "defects_regions_jsonl", None) is not None)
-    defects_enabled = bool(getattr(args, "defects", False))
-    return {
-        "record_sink": ("jsonl" if save_jsonl else "stdout"),
-        "save_jsonl": bool(save_jsonl),
-        "save_maps": bool(save_maps),
-        "save_masks": bool(save_masks),
-        "save_overlays": bool(save_overlays),
-        "defects_regions_jsonl": bool(defects_regions_jsonl),
-        "profile_json": bool(getattr(args, "profile_json", None) is not None),
-        "maps_materialized": bool(include_maps and save_maps),
-        "masks_materialized": bool(defects_enabled and save_masks),
-        "overlays_materialized": bool(defects_enabled and save_overlays),
-        "regions_materialized": bool(defects_enabled and defects_regions_jsonl),
-    }
-
-
-def _format_profile_outputs_line(*, output_contract: dict[str, Any]) -> str:
-    return (
-        "profile_outputs: "
-        f"record_sink={str(output_contract.get('record_sink', 'stdout'))} "
-        f"save_jsonl={str(bool(output_contract.get('save_jsonl', False))).lower()} "
-        f"save_maps={str(bool(output_contract.get('save_maps', False))).lower()} "
-        f"save_masks={str(bool(output_contract.get('save_masks', False))).lower()} "
-        f"save_overlays={str(bool(output_contract.get('save_overlays', False))).lower()} "
-        f"defects_regions_jsonl={str(bool(output_contract.get('defects_regions_jsonl', False))).lower()} "
-        f"profile_json={str(bool(output_contract.get('profile_json', False))).lower()}"
-    )
 
 def _apply_onnx_session_options_shorthand(
     *,
@@ -477,7 +287,7 @@ def _maybe_apply_onnx_session_options_and_sweep(
             else _default_onnx_sweep_intra_values()
         )
         opt_levels = (
-            _parse_csv_strs_arg(str(args.onnx_sweep_opt_levels))
+            _parse_csv_strs_arg(str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels")
             if getattr(args, "onnx_sweep_opt_levels", None)
             else ["all", "extended"]
         )
@@ -532,23 +342,6 @@ def _apply_defects_defaults_from_payload(
     defects_payload: dict[str, Any],
 ) -> None:
     infer_options_service.apply_defects_defaults(args, defects_payload)
-
-
-def _apply_prediction_defaults_from_payload(
-    args: argparse.Namespace,
-    prediction_payload: dict[str, Any],
-) -> None:
-    reject_confidence_below = prediction_payload.get("reject_confidence_below", None)
-    if args.reject_confidence_below is None and reject_confidence_below is not None:
-        args.reject_confidence_below = float(reject_confidence_below)
-
-    reject_label = prediction_payload.get("reject_label", None)
-    if (
-        reject_label is not None
-        and int(args.reject_label) == -2
-        and args.reject_confidence_below is not None
-    ):
-        args.reject_label = int(reject_label)
 
 
 def _apply_defects_preset_if_requested(args: argparse.Namespace) -> None:
@@ -778,26 +571,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Request anomaly maps if detector supports them",
     )
     parser.add_argument(
-        "--include-confidence",
-        action="store_true",
-        help="Include best-effort predicted-label confidence in JSONL/stdout records when supported",
-    )
-    parser.add_argument(
-        "--reject-confidence-below",
-        type=float,
-        default=None,
-        help=(
-            "Optional confidence threshold in (0,1]. Samples below it are emitted with a reject label. "
-            "Requires detector confidence support."
-        ),
-    )
-    parser.add_argument(
-        "--reject-label",
-        type=int,
-        default=-2,
-        help="Label value used for low-confidence rejected samples (default: -2)",
-    )
-    parser.add_argument(
         "--tile-size",
         type=int,
         default=None,
@@ -882,18 +655,14 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help=(
-            "Stop early after N errors when --continue-on-error is set. "
-            "Default: 0 (no limit)."
+            "Stop early after N errors when --continue-on-error is set. Default: 0 (no limit)."
         ),
     )
     parser.add_argument(
         "--flush-every",
         type=int,
         default=0,
-        help=(
-            "Flush JSONL output files every N records (stability vs performance). "
-            "Default: 0 (no periodic flush)."
-        ),
+        help="Flush JSONL output files every N records (stability vs performance). Default: 0 (no periodic flush).",
     )
     parser.add_argument(
         "--include-anomaly-map-values",
@@ -1247,12 +1016,10 @@ def main(argv: list[str] | None = None) -> int:
         threshold_from_run = None
         infer_config_postprocess = None
         defects_payload: dict[str, Any] | None = None
-        prediction_payload: dict[str, Any] | None = None
         defects_payload_source: str | None = None
         include_maps_by_default = False
         illumination_contrast_knobs = None
         tiling_payload: dict[str, Any] | None = None
-        postprocess_summary: dict[str, Any] | None = None
 
         t_load_start = time.perf_counter()
         if from_run:
@@ -1284,11 +1051,9 @@ def main(argv: list[str] | None = None) -> int:
             threshold_from_run = context.threshold
             model_name = str(context.model_name)
             defects_payload = context.defects_payload
-            prediction_payload = context.prediction_payload
             defects_payload_source = context.defects_payload_source
             illumination_contrast_knobs = context.illumination_contrast_knobs
             tiling_payload = context.tiling_payload
-            postprocess_summary = context.postprocess_summary
 
             user_kwargs = merge_checkpoint_path(
                 dict(context.base_user_kwargs),
@@ -1343,13 +1108,11 @@ def main(argv: list[str] | None = None) -> int:
             model_name = str(context.model_name)
             threshold_from_run = context.threshold
             defects_payload = context.defects_payload
-            prediction_payload = context.prediction_payload
             defects_payload_source = context.defects_payload_source
             illumination_contrast_knobs = context.illumination_contrast_knobs
             tiling_payload = context.tiling_payload
             infer_config_postprocess = context.infer_config_postprocess
             include_maps_by_default = bool(context.enable_maps_by_default)
-            postprocess_summary = context.postprocess_summary
 
             user_kwargs = merge_checkpoint_path(
                 dict(context.base_user_kwargs),
@@ -1420,8 +1183,6 @@ def main(argv: list[str] | None = None) -> int:
 
         if defects_payload is not None:
             _apply_defects_defaults_from_payload(args, defects_payload)
-        if prediction_payload is not None:
-            _apply_prediction_defaults_from_payload(args, prediction_payload)
 
         if preprocessing_preset_knobs is not None:
             illumination_contrast_knobs = preprocessing_preset_knobs
@@ -1454,9 +1215,6 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         t_load_model = time.perf_counter() - t_load_start
-
-        if args.reject_confidence_below is None and int(args.reject_label) != -2:
-            raise ValueError("--reject-label requires --reject-confidence-below.")
 
         t_fit_start = time.perf_counter()
         train_paths: list[str] = []
@@ -1505,7 +1263,6 @@ def main(argv: list[str] | None = None) -> int:
                 include_maps_by_default=bool(include_maps_by_default),
                 postprocess_requested=bool(args.postprocess),
                 infer_config_postprocess=infer_config_postprocess,
-                postprocess_summary=postprocess_summary,
                 defects_enabled=bool(args.defects),
                 defects_payload=defects_payload,
                 defects_payload_source=defects_payload_source,
@@ -1537,18 +1294,6 @@ def main(argv: list[str] | None = None) -> int:
         continue_on_error = bool(getattr(args, "continue_on_error", False))
         max_errors = int(getattr(args, "max_errors", 0))
         flush_every = int(getattr(args, "flush_every", 0))
-        execution_policy = _build_execution_policy_summary(
-            args=args,
-            include_maps=bool(include_maps),
-            continue_on_error=bool(continue_on_error),
-            max_errors=int(max_errors),
-            flush_every=int(flush_every),
-        )
-        review_policy = _build_review_policy_summary(args=args)
-        output_contract = _build_output_contract_summary(
-            args=args,
-            include_maps=bool(include_maps),
-        )
 
         infer_timing = InferenceTiming()
         results_iter = None
@@ -1557,15 +1302,7 @@ def main(argv: list[str] | None = None) -> int:
                 detector=detector,
                 inputs=inputs,
                 include_maps=bool(include_maps),
-                include_confidence=bool(args.include_confidence),
-                reject_confidence_below=(
-                    float(args.reject_confidence_below)
-                    if args.reject_confidence_below is not None
-                    else None
-                ),
-                reject_label=(int(args.reject_label) if args.reject_confidence_below is not None else None),
                 postprocess=postprocess,
-                postprocess_summary=runtime_plan.postprocess_summary,
                 batch_size=batch_size,
                 amp=bool(args.amp),
                 timing=infer_timing,
@@ -1606,10 +1343,6 @@ def main(argv: list[str] | None = None) -> int:
             regions_written = 0
             errors = 0
             processed = 0
-            decision_counts: dict[str, int] = {}
-            review_required = 0
-            rejected_low_confidence = 0
-            profile_triage_summary: dict[str, Any] | None = None
 
             def _process_ok_result(
                 *, index: int, input_path: str, result: Any, include_status: bool
@@ -1690,19 +1423,7 @@ def main(argv: list[str] | None = None) -> int:
                         detector=detector,
                         inputs=list(inputs),
                         include_maps=bool(include_maps),
-                        include_confidence=bool(args.include_confidence),
-                        reject_confidence_below=(
-                            float(args.reject_confidence_below)
-                            if args.reject_confidence_below is not None
-                            else None
-                        ),
-                        reject_label=(
-                            int(args.reject_label)
-                            if args.reject_confidence_below is not None
-                            else None
-                        ),
                         postprocess=postprocess,
-                        postprocess_summary=runtime_plan.postprocess_summary,
                         batch_size=batch_size,
                         amp=bool(args.amp),
                         max_errors=int(max_errors),
@@ -1719,33 +1440,12 @@ def main(argv: list[str] | None = None) -> int:
                 processed = int(continue_result.processed)
                 errors = int(continue_result.errors)
                 infer_timing.seconds += float(continue_result.timing_seconds)
-                profile_triage_summary = (
-                    dict(continue_result.triage_summary)
-                    if continue_result.triage_summary is not None
-                    else _build_profile_triage_summary(
-                        processed=int(processed),
-                        errors=int(errors),
-                        inputs_total=int(len(inputs)),
-                        error_stages=None,
-                        decision_counts={},
-                        fallback_used=False,
-                        review_required=0,
-                        rejected_low_confidence=0,
-                        stop_reason=("max_errors" if bool(continue_result.stop_early) else "completed"),
-                    )
-                )
             else:
                 if results_iter is None:  # pragma: no cover - defensive
                     raise RuntimeError("Internal error: results_iter was not initialized")
 
                 count = 0
                 for i, (input_path, result) in enumerate(zip(inputs, results_iter)):
-                    review_delta, rejected_delta = _observe_result_triage(
-                        result,
-                        decision_counts=decision_counts,
-                    )
-                    review_required += int(review_delta)
-                    rejected_low_confidence += int(rejected_delta)
                     _process_ok_result(
                         index=int(i),
                         input_path=str(input_path),
@@ -1759,18 +1459,6 @@ def main(argv: list[str] | None = None) -> int:
                         "Internal error: inference iterator produced fewer results than inputs "
                         f"({count} vs {len(inputs)})."
                     )
-                processed = int(count)
-                profile_triage_summary = _build_profile_triage_summary(
-                    processed=int(processed),
-                    errors=0,
-                    inputs_total=int(len(inputs)),
-                    error_stages={"artifacts": 0, "infer": 0},
-                    decision_counts=decision_counts,
-                    fallback_used=False,
-                    review_required=int(review_required),
-                    rejected_low_confidence=int(rejected_low_confidence),
-                    stop_reason="completed",
-                )
 
             t_loop = time.perf_counter() - t_loop_start
             t_infer = float(infer_timing.seconds)
@@ -1796,25 +1484,6 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 file=sys.stderr,
             )
-            print(
-                _format_profile_summary_line(
-                    continue_on_error=bool(continue_on_error),
-                    triage_summary=profile_triage_summary,
-                    errors=int(errors),
-                ),
-                file=sys.stderr,
-            )
-            print(
-                _format_profile_policy_line(
-                    execution_policy=execution_policy,
-                    review_policy=review_policy,
-                ),
-                file=sys.stderr,
-            )
-            print(
-                _format_profile_outputs_line(output_contract=output_contract),
-                file=sys.stderr,
-            )
 
         if args.profile_json is not None:
             profile_path = Path(str(args.profile_json))
@@ -1824,7 +1493,7 @@ def main(argv: list[str] | None = None) -> int:
                 "tool": "pyimgano-infer",
                 "counts": {
                     "inputs": int(len(inputs)),
-                    "processed": int(processed),
+                    "processed": int(len(inputs) if not bool(continue_on_error) else processed),
                     "errors": int(errors),
                 },
                 "timing_seconds": {
@@ -1833,20 +1502,6 @@ def main(argv: list[str] | None = None) -> int:
                     "infer": float(t_infer),
                     "artifacts": float(t_artifacts),
                     "total": float(total),
-                },
-                "inference_summary": {
-                    "continue_on_error": bool(continue_on_error),
-                    "execution_policy": dict(execution_policy),
-                    "output_contract": dict(output_contract),
-                    "review_policy": dict(review_policy),
-                    "triage_summary": (
-                        dict(profile_triage_summary) if profile_triage_summary is not None else None
-                    ),
-                    "postprocess_summary": (
-                        dict(runtime_plan.postprocess_summary)
-                        if runtime_plan.postprocess_summary is not None
-                        else None
-                    ),
                 },
             }
             profile_path.write_text(

@@ -211,45 +211,44 @@ class HomographyTransform:
             if len(src_points) < 4:
                 raise ValueError("Need at least 4 point correspondences")
 
-            H = HomographyTransform._compute_homography_dlt(src_points, dst_points)
+            h = HomographyTransform._compute_homography_dlt(src_points, dst_points)
             mask = np.ones(len(src_points), dtype=np.uint8)
-            return H, mask
+            return h, mask
 
         method_map = {"ransac": cv2.RANSAC, "lmeds": cv2.LMEDS, "rho": cv2.RHO}
 
-        H, mask = cv2.findHomography(
+        h, mask = cv2.findHomography(
             src_points, dst_points, method_map.get(method, cv2.RANSAC), ransac_threshold
         )
 
-        return H, mask
+        return h, mask
 
     @staticmethod
     def _compute_homography_dlt(src_points: NDArray, dst_points: NDArray) -> NDArray:
         """Compute homography using Direct Linear Transform."""
         n = len(src_points)
-        A = np.zeros((2 * n, 9))
+        a = np.zeros((2 * n, 9))
 
         for i in range(n):
             x, y = src_points[i]
             u, v = dst_points[i]
 
-            A[2 * i] = [-x, -y, -1, 0, 0, 0, u * x, u * y, u]
-            A[2 * i + 1] = [0, 0, 0, -x, -y, -1, v * x, v * y, v]
+            a[2 * i] = [-x, -y, -1, 0, 0, 0, u * x, u * y, u]
+            a[2 * i + 1] = [0, 0, 0, -x, -y, -1, v * x, v * y, v]
 
         # Solve Ah = 0 using SVD
-        _, _, vt = np.linalg.svd(A)
-        homography = vt[-1].reshape(3, 3)
-        homography = homography / homography[2, 2]  # Normalize
+        _, _, vt = np.linalg.svd(a)
+        h = vt[-1].reshape(3, 3)
+        h = h / h[2, 2]  # Normalize
 
-        return homography
+        return h
 
     @staticmethod
     def warp_perspective(
         image: NDArray,
-        homography: Optional[NDArray] = None,
-        output_size: Tuple[int, int] = (0, 0),
+        homography: NDArray,
+        output_size: Tuple[int, int],
         interpolation: str = "linear",
-        **legacy_kwargs,
     ) -> NDArray:
         """
         Apply perspective transformation.
@@ -272,14 +271,6 @@ class HomographyTransform:
         """
         if not HAS_OPENCV:
             raise NotImplementedError("Perspective warp requires OpenCV")
-
-        if homography is None and "H" in legacy_kwargs:
-            homography = legacy_kwargs.pop("H")
-        if legacy_kwargs:
-            unexpected = ", ".join(sorted(legacy_kwargs))
-            raise TypeError(f"Unexpected keyword argument(s): {unexpected}")
-        if homography is None:
-            raise TypeError("homography is required")
 
         interp_map = {
             "nearest": cv2.INTER_NEAREST,
@@ -332,10 +323,10 @@ class HomographyTransform:
         )
 
         # Compute homography
-        homography, _ = HomographyTransform.find_homography(pts, dst)
+        h, _ = HomographyTransform.find_homography(pts, dst)
 
         # Warp
-        warped = HomographyTransform.warp_perspective(image, homography, (max_width, max_height))
+        warped = HomographyTransform.warp_perspective(image, h, (max_width, max_height))
 
         return warped
 

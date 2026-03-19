@@ -14,13 +14,13 @@ from pyimgano.models.lscp import (
 class _DummyDetector:
     """Minimal detector stub to exercise LSCP without heavy dependencies."""
 
-    def fit(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        x_arr = np.asarray(X)
+    def fit(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        x_arr = np.asarray(x)
         self.decision_scores_ = np.arange(x_arr.shape[0], dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        x_arr = np.asarray(X)
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        x_arr = np.asarray(x)
         return np.arange(x_arr.shape[0], dtype=np.float64)
 
 
@@ -35,13 +35,28 @@ def test_lscp_constructors_and_fit_cover_sonar_fixes() -> None:
     VisionLSCPSpec(feature_extractor="identity", detector_specs=[d1, d2], contamination=0.1)
 
     # Cover CoreLSCP.fit(...) handling of the sklearn-style `y` argument.
-    X = np.arange(20, dtype=np.float64).reshape(10, 2)
+    x = np.arange(20, dtype=np.float64).reshape(10, 2)
     det = CoreLSCP(
         detector_list=[_DummyDetector(), _DummyDetector()],
         local_region_iterations=1,
         local_region_size=3,
         random_state=0,
     )
-    det.fit(X, y=np.zeros((X.shape[0],), dtype=np.int64))
-    scores = det.decision_function(X)
-    assert scores.shape == (X.shape[0],)
+    det.fit(x, y=np.zeros((x.shape[0],), dtype=np.int64))
+    scores = det.decision_function(x)
+    assert scores.shape == (x.shape[0],)
+
+
+def test_lscp_accepts_numpy_generator_random_state() -> None:
+    x = np.arange(24, dtype=np.float64).reshape(12, 2)
+    det = CoreLSCP(
+        detector_list=[_DummyDetector(), _DummyDetector()],
+        local_region_iterations=1,
+        local_region_size=4,
+        random_state=np.random.default_rng(0),
+    )
+
+    det.fit(x)
+    scores = det.decision_function(x[:4])
+
+    assert scores.shape == (4,)

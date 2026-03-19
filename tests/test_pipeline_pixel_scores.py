@@ -5,11 +5,12 @@ from pyimgano.pipelines.mvtec_visa import BenchmarkSplit, evaluate_split
 
 
 class _DummyMapDetector:
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
+        del x, y
         return self
 
-    def decision_function(self, X):
-        paths = list(X)
+    def decision_function(self, x):
+        paths = list(x)
         # Deterministic scores: make later item more anomalous
         return np.linspace(0.0, 1.0, num=len(paths), dtype=np.float64)
 
@@ -21,15 +22,16 @@ class _DummyMapDetector:
 
 
 class _DummyBatchMapDetector:
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
+        del x, y
         return self
 
-    def decision_function(self, X):
-        paths = list(X)
+    def decision_function(self, x):
+        paths = list(x)
         return np.linspace(0.0, 1.0, num=len(paths), dtype=np.float64)
 
-    def predict_anomaly_map(self, X):
-        paths = list(X)
+    def predict_anomaly_map(self, x):
+        paths = list(x)
         maps = []
         for path in paths:
             if "anomaly" in path:
@@ -100,6 +102,6 @@ def test_evaluate_split_pixel_segf1_with_normal_quantile_threshold():
     )
     assert "pixel_metrics" in results
     pixel_metrics = results["pixel_metrics"]
-    assert pixel_metrics["pixel_threshold"] == pytest.approx(0.0)
-    assert pixel_metrics["pixel_segf1"] == pytest.approx(1.0)
-    assert pixel_metrics["bg_fpr"] == pytest.approx(0.0)
+    assert np.isclose(pixel_metrics["pixel_threshold"], 0.0)
+    assert np.isclose(pixel_metrics["pixel_segf1"], 1.0)
+    assert np.isclose(pixel_metrics["bg_fpr"], 0.0)

@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from pyimgano.workbench.config import WorkbenchConfig
@@ -46,15 +48,15 @@ def test_workbench_config_adaptation_parses_sections():
     assert cfg.adaptation.tiling.tile_size == 256
     assert cfg.adaptation.tiling.stride == 128
     assert cfg.adaptation.tiling.score_reduce == "topk_mean"
-    assert cfg.adaptation.tiling.score_topk == pytest.approx(0.2)
+    assert math.isclose(cfg.adaptation.tiling.score_topk, 0.2)
     assert cfg.adaptation.tiling.map_reduce == "hann"
     assert cfg.adaptation.postprocess is not None
     assert cfg.adaptation.postprocess.normalize_method == "percentile"
     assert cfg.adaptation.postprocess.percentile_range == (5.0, 95.0)
-    assert cfg.adaptation.postprocess.gaussian_sigma == pytest.approx(1.0)
+    assert math.isclose(cfg.adaptation.postprocess.gaussian_sigma, 1.0)
     assert cfg.adaptation.postprocess.morph_open_ksize == 3
     assert cfg.adaptation.postprocess.morph_close_ksize == 5
-    assert cfg.adaptation.postprocess.component_threshold == pytest.approx(0.5)
+    assert math.isclose(cfg.adaptation.postprocess.component_threshold, 0.5)
     assert cfg.adaptation.postprocess.min_component_area == 10
 
 

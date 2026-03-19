@@ -15,7 +15,7 @@ def seed_everything(seed: int) -> None:
 
     s = int(seed)
     random.seed(s)
-    np.random.seed(s)
+    np.random.mtrand._rand.seed(s)
 
     try:  # pragma: no cover - depends on optional torch install
         import torch

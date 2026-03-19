@@ -21,16 +21,16 @@ def test_core_detector_contract_decision_function_shape_dtype_finite(model_name:
     from pyimgano.models.registry import create_model
 
     rng = np.random.default_rng(0)
-    X_train = rng.standard_normal(size=(128, 16)).astype(np.float32)
-    X_test = rng.standard_normal(size=(7, 16)).astype(np.float32)
+    x_train = rng.standard_normal(size=(128, 16)).astype(np.float32)
+    x_test = rng.standard_normal(size=(7, 16)).astype(np.float32)
 
     detector = create_model(model_name, contamination=0.1)
-    fitted = detector.fit(X_train)
+    fitted = detector.fit(x_train)
     assert fitted is detector
 
-    scores = detector.decision_function(X_test)
+    scores = detector.decision_function(x_test)
     scores = np.asarray(scores)
 
-    assert scores.shape == (X_test.shape[0],)
+    assert scores.shape == (x_test.shape[0],)
     assert scores.dtype == np.float64
     assert np.isfinite(scores).all()

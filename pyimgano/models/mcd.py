@@ -51,12 +51,13 @@ class CoreMCD:
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[0] == 0:
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
 
-        _, n_features = map(int, X.shape)
+        _, n_features = map(int, x.shape)
         self.n_features_in_ = n_features
 
         # Robust covariance estimation is not meant for extremely high
@@ -77,22 +78,22 @@ class CoreMCD:
             random_state=self.random_state,
             assume_centered=self.assume_centered,
         )
-        self.estimator_.fit(X)
+        self.estimator_.fit(x)
 
         self.decision_scores_ = np.asarray(
-            self.estimator_.mahalanobis(X), dtype=np.float64
+            self.estimator_.mahalanobis(x), dtype=np.float64
         ).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.estimator_ is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X.shape[1]) != int(self.n_features_in_):
-            raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if int(x.shape[1]) != int(self.n_features_in_):
+            raise ValueError(f"Expected {self.n_features_in_} features, got {x.shape[1]}")
 
-        return np.asarray(self.estimator_.mahalanobis(X), dtype=np.float64).reshape(-1)
+        return np.asarray(self.estimator_.mahalanobis(x), dtype=np.float64).reshape(-1)
 
 
 @register_model(
@@ -167,8 +168,8 @@ class VisionMCD(BaseVisionDetector):
     def _build_detector(self):
         return CoreMCD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

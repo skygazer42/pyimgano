@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+UPSTREAM_PREFIX = "UPSTREAM:"
+
+
 """Audit helper for third-party code notices.
 
 Policy:
 - If we copy code into `pyimgano/`, we must keep upstream attribution.
-- Copied files must contain the upstream marker.
-- `third_party/NOTICE.md` must mention each referenced upstream repo.
+- Copied files must contain an `UPSTREAM:` marker.
+- `third_party/NOTICE.md` must mention each upstream repo referenced by `UPSTREAM:`.
 
 This script is intentionally conservative and text-based.
 """
@@ -23,9 +26,8 @@ class UpstreamRef:
     marker: str
 
 
-_GITHUB_RE = re.compile(r"github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
-_ORG_REPO_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\b")
-_UPSTREAM_MARKER = "UPSTREAM:"
+_GITHUB_RE = re.compile(r"github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)")
+_ORG_REPO_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\b")
 
 
 def _iter_py_files(root: Path) -> list[Path]:
@@ -63,16 +65,16 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
             text = p.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
-        if _UPSTREAM_MARKER not in text:
+        if UPSTREAM_PREFIX not in text:
             continue
 
         for lineno, line in enumerate(text.splitlines(), start=1):
-            if _UPSTREAM_MARKER not in line:
+            if UPSTREAM_PREFIX not in line:
                 continue
             # Accept formats like:
             #   # UPSTREAM: org/repo @ <sha>
             #   # UPSTREAM: https://github.com/org/repo (commit ...)
-            marker = line.split(_UPSTREAM_MARKER, 1)[1].strip()
+            marker = line.split(UPSTREAM_PREFIX, 1)[1].strip()
             if not marker:
                 continue
             key, _url = _normalize_upstream(marker)
@@ -84,71 +86,8 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
     return upstream_to_refs
 
 
-def _report_missing_notice_file(
-    *,
-    repo_root: Path,
-    upstreams: dict[str, list[UpstreamRef]],
-) -> int:
-    print("error: UPSTREAM markers found but third_party/NOTICE.md is missing", file=sys.stderr)
-    for key, refs in sorted(upstreams.items(), key=lambda kv: kv[0].lower()):
-        _key, url = _normalize_upstream(key)
-        print(f"- {_UPSTREAM_MARKER} {key}", file=sys.stderr)
-        if url is not None:
-            print(f"  - url: {url}", file=sys.stderr)
-        for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
-            rel = ref.path.relative_to(repo_root)
-            print(f"  - referenced by: {rel}:{ref.lineno}", file=sys.stderr)
-    return 1
-
-
-def _notice_needles(key: str, refs: list[UpstreamRef]) -> list[str]:
-    normalized_key, url = _normalize_upstream(key)
-    needles = [str(normalized_key)]
-    if url is not None:
-        needles.append(str(url))
-    needles.extend([str(r.marker) for r in refs])
-    return needles
-
-
-def _collect_missing_notice_entries(
-    *,
-    upstreams: dict[str, list[UpstreamRef]],
-    notice_l: str,
-) -> dict[str, list[UpstreamRef]]:
-    missing: dict[str, list[UpstreamRef]] = {}
-    for key, refs in upstreams.items():
-        if not any(needle.lower() in notice_l for needle in _notice_needles(key, refs) if needle):
-            missing[key] = refs
-    return missing
-
-
-def _report_missing_notice_entries(
-    *,
-    repo_root: Path,
-    missing: dict[str, list[UpstreamRef]],
-    notice_l: str,
-) -> int:
-    print("error: missing third-party notice entries for copied code:", file=sys.stderr)
-    for key, refs in sorted(missing.items(), key=lambda kv: kv[0].lower()):
-        _key, url = _normalize_upstream(key)
-        print(f"- UPSTREAM not found in third_party/NOTICE.md: {key}", file=sys.stderr)
-        if url is not None and url.lower() not in notice_l:
-            print(f"  - suggested url: {url}", file=sys.stderr)
-        for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
-            rel = ref.path.relative_to(repo_root)
-            print(
-                f"  - referenced by: {rel}:{ref.lineno}  ({_UPSTREAM_MARKER} {ref.marker})",
-                file=sys.stderr,
-            )
-    print("", file=sys.stderr)
-    print(
-        "Fix: add an entry to third_party/NOTICE.md for each upstream repo referenced by UPSTREAM markers.",
-        file=sys.stderr,
-    )
-    return 1
-
-
-def main(_argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
+    del argv
     repo_root = Path(__file__).resolve().parents[1]
     src_root = repo_root / "pyimgano"
     notice_path = repo_root / "third_party" / "NOTICE.md"
@@ -166,18 +105,56 @@ def main(_argv: list[str] | None = None) -> int:
         return 0
 
     if not notice_path.exists():
-        return _report_missing_notice_file(repo_root=repo_root, upstreams=upstreams)
+        print("error: UPSTREAM markers found but third_party/NOTICE.md is missing", file=sys.stderr)
+        for key, refs in sorted(upstreams.items(), key=lambda kv: kv[0].lower()):
+            _key, url = _normalize_upstream(key)
+            print(f"- UPSTREAM: {key}", file=sys.stderr)
+            if url is not None:
+                print(f"  - url: {url}", file=sys.stderr)
+            for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
+                rel = ref.path.relative_to(repo_root)
+                print(f"  - referenced by: {rel}:{ref.lineno}", file=sys.stderr)
+        return 1
 
     notice = notice_path.read_text(encoding="utf-8", errors="replace")
     notice_l = notice.lower()
-    missing = _collect_missing_notice_entries(upstreams=upstreams, notice_l=notice_l)
+
+    missing: dict[str, list[UpstreamRef]] = {}
+    for key, refs in upstreams.items():
+        # Match either:
+        # - the normalized key (org/repo), or
+        # - a derived GitHub URL, or
+        # - the raw marker content (as typed in code).
+        # This keeps the audit strict about coverage while allowing NOTICE.md
+        # to use a stable canonical form.
+        _key, url = _normalize_upstream(key)
+        needles = [str(_key)]
+        if url is not None:
+            needles.append(str(url))
+        needles.extend([str(r.marker) for r in refs])
+
+        if not any(n.lower() in notice_l for n in needles if n):
+            missing[key] = refs
 
     if missing:
-        return _report_missing_notice_entries(
-            repo_root=repo_root,
-            missing=missing,
-            notice_l=notice_l,
+        print("error: missing third-party notice entries for copied code:", file=sys.stderr)
+        for key, refs in sorted(missing.items(), key=lambda kv: kv[0].lower()):
+            _key, url = _normalize_upstream(key)
+            print(f"- UPSTREAM not found in third_party/NOTICE.md: {key}", file=sys.stderr)
+            if url is not None and url.lower() not in notice_l:
+                print(f"  - suggested url: {url}", file=sys.stderr)
+            for ref in sorted(refs, key=lambda r: (str(r.path), int(r.lineno))):
+                rel = ref.path.relative_to(repo_root)
+                print(
+                    f"  - referenced by: {rel}:{ref.lineno}  (UPSTREAM: {ref.marker})",
+                    file=sys.stderr,
+                )
+        print("", file=sys.stderr)
+        print(
+            "Fix: add an entry to third_party/NOTICE.md for each upstream repo referenced by UPSTREAM markers.",
+            file=sys.stderr,
         )
+        return 1
 
     print(
         f"OK: found {len(upstreams)} UPSTREAM marker(s) and all are covered in third_party/NOTICE.md"

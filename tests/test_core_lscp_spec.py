@@ -8,7 +8,7 @@ def test_core_lscp_spec_fit_predict_smoke() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(120, 8)).astype(np.float64)
+    x = rng.normal(size=(120, 8)).astype(np.float64)
 
     det = create_model(
         "core_lscp_spec",
@@ -24,10 +24,10 @@ def test_core_lscp_spec_fit_predict_smoke() -> None:
         n_bins=10,
         random_state=0,
     )
-    det.fit(X)
+    det.fit(x)
 
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert hasattr(det, "decision_scores_")
     assert np.asarray(det.decision_scores_).shape == (120,)

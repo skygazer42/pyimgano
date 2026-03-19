@@ -6,12 +6,12 @@ def test_core_rrcf_fit_predict_smoke() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(64, 4))
+    x = rng.normal(size=(64, 4))
 
     det = create_model("core_rrcf", contamination=0.1, n_trees=7, max_samples=32, random_state=0)
-    det.fit(X)
-    scores = det.decision_function(X[:9])
-    preds = det.predict(X[:9])
+    det.fit(x)
+    scores = det.decision_function(x[:9])
+    preds = det.predict(x[:9])
 
     assert scores.shape == (9,)
     assert preds.shape == (9,)
@@ -25,7 +25,7 @@ def test_vision_rrcf_with_identity_extractor() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(1)
-    X = rng.normal(size=(50, 3))
+    x = rng.normal(size=(50, 3))
     det = create_model(
         "vision_rrcf",
         feature_extractor=IdentityExtractor(),
@@ -34,7 +34,7 @@ def test_vision_rrcf_with_identity_extractor() -> None:
         max_samples=40,
         random_state=1,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:6])
+    det.fit(x)
+    scores = det.decision_function(x[:6])
     assert scores.shape == (6,)
     assert np.all(np.isfinite(scores))

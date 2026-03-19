@@ -58,9 +58,10 @@ class CoreINNE:
         self.max_samples_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, accept_sparse=False, dtype=np.float64)
-        n_samples = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, accept_sparse=False, dtype=np.float64)
+        n_samples = int(x.shape[0])
         if n_samples < 2:
             raise ValueError("INNE requires at least 2 samples to fit")
 
@@ -92,12 +93,12 @@ class CoreINNE:
             max_samples = max(1, int(max_samples_f * n_samples))
 
         self.max_samples_ = int(max_samples)
-        self._fit_ensemble(X)
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self._fit_ensemble(x)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
-    def _fit_ensemble(self, X: NDArray[np.float64]) -> None:
-        n_samples, n_features = map(int, X.shape)
+    def _fit_ensemble(self, x: NDArray[np.float64]) -> None:
+        n_samples, n_features = map(int, x.shape)
         assert self.max_samples_ is not None
 
         self._centroids = np.empty(
@@ -112,7 +113,7 @@ class CoreINNE:
         for i in range(self.n_estimators):
             rnd = check_random_state(self._seeds[i])
             center_index = rnd.choice(n_samples, self.max_samples_, replace=False)
-            centroids = X[center_index]
+            centroids = x[center_index]
             self._centroids[i] = centroids
 
             # Pairwise centroid distances (squared).
@@ -128,18 +129,18 @@ class CoreINNE:
 
             self._ratio[i] = 1.0 - (cnn_radius + _MIN_FLOAT) / (centroid_radius + _MIN_FLOAT)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.max_samples_ is None or not hasattr(self, "_centroids"):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, accept_sparse=False, dtype=np.float64)
+        x = check_array(x, accept_sparse=False, dtype=np.float64)
         assert self.max_samples_ is not None
 
-        isolation_scores = np.ones((self.n_estimators, X.shape[0]), dtype=np.float64)
+        isolation_scores = np.ones((self.n_estimators, x.shape[0]), dtype=np.float64)
 
         # Each test instance is evaluated against n_estimators sets of hyperspheres.
         for i in range(self.n_estimators):
-            x_dists = euclidean_distances(X, self._centroids[i], squared=True)
+            x_dists = euclidean_distances(x, self._centroids[i], squared=True)
 
             cover_radius = np.where(
                 x_dists <= self._centroids_radius[i][None, :],
@@ -226,8 +227,8 @@ class VisionINNE(BaseVisionDetector):
     def _build_detector(self):
         return CoreINNE(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

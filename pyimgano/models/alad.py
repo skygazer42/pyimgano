@@ -315,18 +315,8 @@ class ALAD(BaseVisionDeepDetector):
         )
         gen_params = list(self.enc.parameters()) + list(self.dec.parameters())
 
-        self.opt_disc = optim.Adam(
-            disc_params,
-            lr=self.learning_rate_disc,
-            betas=(0.5, 0.999),
-            weight_decay=0.0,
-        )
-        self.opt_gen = optim.Adam(
-            gen_params,
-            lr=self.learning_rate_gen,
-            betas=(0.5, 0.999),
-            weight_decay=0.0,
-        )
+        self.opt_disc = optim.Adam(disc_params, lr=self.learning_rate_disc, betas=(0.5, 0.999), weight_decay=0.0)
+        self.opt_gen = optim.Adam(gen_params, lr=self.learning_rate_gen, betas=(0.5, 0.999), weight_decay=0.0)
 
         return nn.Module()
 
@@ -341,10 +331,10 @@ class ALAD(BaseVisionDeepDetector):
         self.disc_zz.train()
         x_real, _ = batch
         x_real = x_real.to(self.device)
-        B = x_real.size(0)
+        b = x_real.size(0)
 
         # 采样潜变量 z ~ N(0, I)
-        z_real = torch.randn(B, self.latent_dim, device=self.device)
+        z_real = torch.randn(b, self.latent_dim, device=self.device)
 
         bce = nn.BCELoss()
 

@@ -11,19 +11,19 @@ InputMode = Literal["paths", "numpy", "features"]
 class DetectorProtocol(Protocol):
     input_mode: InputMode
 
-    def fit(self, X: Iterable[Any], y: Any | None = None) -> "DetectorProtocol":
+    def fit(self, x: Iterable[Any], y: Any | None = None) -> "DetectorProtocol":
         ...
 
-    def decision_function(self, X: Iterable[Any]) -> np.ndarray:
+    def decision_function(self, x: Iterable[Any]) -> np.ndarray:
         ...
 
-    def predict(self, X: Iterable[Any]) -> np.ndarray:
+    def predict(self, x: Iterable[Any]) -> np.ndarray:
         ...
 
 
 @runtime_checkable
 class PixelMapDetectorProtocol(DetectorProtocol, Protocol):
-    def predict_anomaly_map(self, X: Iterable[Any]) -> Any:
+    def predict_anomaly_map(self, x: Iterable[Any]) -> Any:
         ...
 
 

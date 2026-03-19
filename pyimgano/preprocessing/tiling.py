@@ -51,13 +51,13 @@ def _weight_window(kind: str, tile_size: int) -> NDArray:
 
 
 def _tile_starts(length: int, *, tile_size: int, stride: int) -> list[int]:
-    L = int(length)
+    length_value = int(length)
     t = int(tile_size)
     s = int(stride)
-    if L <= t:
+    if length_value <= t:
         return [0]
-    starts = list(range(0, L - t + 1, s))
-    last = L - t
+    starts = list(range(0, length_value - t + 1, s))
+    last = length_value - t
     if starts[-1] != last:
         starts.append(last)
     return starts

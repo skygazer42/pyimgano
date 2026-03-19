@@ -6,9 +6,9 @@ from pyimgano.workbench.category_execution import run_workbench_category
 from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.infer_config_payload import build_workbench_infer_config_payload
 from pyimgano.workbench.multi_category_execution import run_all_workbench_categories
-from pyimgano.workbench.runtime_guardrails import validate_workbench_runtime_guardrails
 from pyimgano.workbench.run_context import initialize_workbench_run_context
 from pyimgano.workbench.run_report import persist_workbench_run_report
+from pyimgano.workbench.runtime_guardrails import validate_workbench_runtime_guardrails
 
 
 def run_workbench(

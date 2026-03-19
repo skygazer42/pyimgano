@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+OPENCLIP_DETECTORS = "OpenCLIP detectors"
+
+
 """OpenCLIP backend model skeletons.
 
 This module intentionally has **no hard dependency** on `open_clip_torch`. The
@@ -10,24 +13,23 @@ The goal is to make `import pyimgano.models` safe even when optional deps are
 not installed, while still registering model names so they can be discovered.
 """
 
-from typing import Any, Literal, Optional, Union
+from typing import Any, Iterable, Literal, Optional, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .anomalydino import PatchEmbedder, VisionAnomalyDINO
 from .patchknn_core import aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
-
-_OPENCLIP_PURPOSE = "OpenCLIP detectors"
 
 
 def _require_open_clip(open_clip_module=None):
     if open_clip_module is not None:
         return open_clip_module
-    return require("open_clip", extra="clip", purpose=_OPENCLIP_PURPOSE)
+    return require("open_clip", extra="clip", purpose=OPENCLIP_DETECTORS)
 
 
 def _l2_normalize(x: NDArray, *, axis: int, eps: float = 1e-12) -> NDArray:
@@ -104,7 +106,7 @@ def _load_openclip_model_and_preprocess(
 
     from pyimgano.utils.optional_deps import require
 
-    torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
+    torch = require("torch", extra="torch", purpose=OPENCLIP_DETECTORS)
 
     device_t = torch.device(str(device))
     kwargs: dict[str, Any] = {}
@@ -118,7 +120,7 @@ def _load_openclip_model_and_preprocess(
     )
     if not isinstance(result, tuple):
         raise RuntimeError(
-            "Unexpected return value from open_clip.create_model_and_transforms: " f"{type(result)}"
+            f"Unexpected return value from open_clip.create_model_and_transforms: {type(result)}"
         )
 
     if len(result) == 3:
@@ -128,7 +130,7 @@ def _load_openclip_model_and_preprocess(
         model, preprocess = result
     else:
         raise RuntimeError(
-            "Unexpected return arity from open_clip.create_model_and_transforms: " f"{len(result)}"
+            f"Unexpected return arity from open_clip.create_model_and_transforms: {len(result)}"
         )
 
     model.eval()
@@ -216,7 +218,7 @@ class OpenCLIPViTPatchEmbedder:
     def _extract_vit_patch_tokens(self, image_tensor):
         from pyimgano.utils.optional_deps import require
 
-        torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
+        torch = require("torch", extra="torch", purpose=OPENCLIP_DETECTORS)
 
         if self._model is None:  # pragma: no cover - guarded by _ensure_loaded
             raise RuntimeError("OpenCLIP model not loaded")
@@ -308,7 +310,7 @@ class OpenCLIPViTPatchEmbedder:
 
         from pyimgano.utils.optional_deps import require
 
-        torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
+        torch = require("torch", extra="torch", purpose=OPENCLIP_DETECTORS)
 
         if self._preprocess is None or self._device_t is None:  # pragma: no cover
             raise RuntimeError("OpenCLIP preprocess not loaded")
@@ -348,7 +350,7 @@ def _encode_openclip_text_features(
 
     from pyimgano.utils.optional_deps import require
 
-    torch = require("torch", extra="torch", purpose=_OPENCLIP_PURPOSE)
+    torch = require("torch", extra="torch", purpose=OPENCLIP_DETECTORS)
 
     tokens = open_clip.tokenize(prompts).to(device_t)
     with torch.no_grad():
@@ -549,8 +551,9 @@ class VisionOpenCLIPPromptScore:
 
         return patch_embeddings_np, (grid_h, grid_w), (original_h, original_w)
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        items = list(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("X must contain at least one training image path.")
 
@@ -559,14 +562,14 @@ class VisionOpenCLIPPromptScore:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X):
+    def decision_function(self, x: object = MISSING, **kwargs: object):
         self._ensure_text_features()
         if (
             self.text_features_normal is None or self.text_features_anomaly is None
         ):  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
-        items = list(X)
+        items = list(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")))
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             patch_embeddings, _grid_shape, _original_size = self._embed(item)
@@ -583,10 +586,10 @@ class VisionOpenCLIPPromptScore:
             )
         return scores
 
-    def predict(self, X):
+    def predict(self, x: object = MISSING, **kwargs: object):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        scores = self.decision_function(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="predict")))
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -622,8 +625,8 @@ class VisionOpenCLIPPromptScore:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X):
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object):
+        items = list(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")))
         maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
             raise ValueError("X must be non-empty")
@@ -632,7 +635,7 @@ class VisionOpenCLIPPromptScore:
         for m in maps[1:]:
             if m.shape != first_shape:
                 raise ValueError(
-                    "Inconsistent anomaly map shapes. " f"Expected {first_shape}, got {m.shape}."
+                    f"Inconsistent anomaly map shapes. Expected {first_shape}, got {m.shape}."
                 )
         return np.stack(maps)
 
@@ -685,21 +688,21 @@ class VisionOpenCLIPPatchKNN:
         self._kwargs = dict(kwargs)
         self._core = VisionAnomalyDINO(embedder=embedder, device=str(device), **kwargs)
 
-    def fit(self, X, y=None):  # pragma: no cover - skeleton API
-        self._core.fit(X, y=y)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # pragma: no cover - skeleton API
+        self._core.fit(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), y=y)
         return self
 
-    def decision_function(self, X):  # pragma: no cover - skeleton API
-        return self._core.decision_function(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # pragma: no cover - skeleton API
+        return self._core.decision_function(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
 
-    def predict(self, X):
-        return self._core.predict(X)
+    def predict(self, x: object = MISSING, **kwargs: object):
+        return self._core.predict(resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]):
         return self._core.get_anomaly_map(image)
 
-    def predict_anomaly_map(self, X):
-        return self._core.predict_anomaly_map(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object):
+        return self._core.predict_anomaly_map(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
 
     @property
     def decision_scores_(self):

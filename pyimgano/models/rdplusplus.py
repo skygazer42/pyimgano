@@ -320,37 +320,34 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
 
         return total_loss / len(teacher_features)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None):
         """Fit the detector on normal images.
 
         Args:
             X: Normal images [N, H, W, C]
             y: Ignored (unsupervised)
         """
+        del y
         # Training mode
         self.student.train()
         self.teacher.eval()
 
         # Optimizer
-        optimizer = torch.optim.Adam(
-            self.student.parameters(),
-            lr=self.learning_rate,
-            weight_decay=0.0,
-        )
+        optimizer = torch.optim.Adam(self.student.parameters(), lr=self.learning_rate, weight_decay=0.0)
 
         # Convert to tensor dataset
-        if not isinstance(X, torch.Tensor):
-            X = torch.from_numpy(X).float()
+        if not isinstance(x, torch.Tensor):
+            x = torch.from_numpy(x).float()
 
-        N = X.shape[0]
+        n = x.shape[0]
 
         # Training loop
         for epoch in range(self.epochs):
             epoch_loss = 0.0
             num_batches = 0
 
-            for i in range(0, N, self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, n, self.batch_size):
+                batch = x[i : i + self.batch_size]
 
                 # Preprocess
                 images = self._extract_features(batch)
@@ -382,7 +379,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: NDArray) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -395,7 +392,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Preprocess
-        images = self._extract_features(X)
+        images = self._extract_features(x)
 
         # Forward pass
         with torch.no_grad():
@@ -423,7 +420,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
 
         return scores.cpu().numpy()
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: NDArray) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -436,10 +433,10 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get image size
-        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        h_img, w_img = x.shape[1:3] if x.shape[-1] == 3 else x.shape[2:4]
 
         # Preprocess
-        images = self._extract_features(X)
+        images = self._extract_features(x)
 
         # Forward pass
         with torch.no_grad():
@@ -460,7 +457,7 @@ class RDPlusPlusDetector(BaseVisionDeepDetector):
 
             # Upsample to image size
             diff_upsampled = F.interpolate(
-                diff, size=(height_img, width_img), mode="bilinear", align_corners=False
+                diff, size=(h_img, w_img), mode="bilinear", align_corners=False
             )
 
             anomaly_maps.append(diff_upsampled)

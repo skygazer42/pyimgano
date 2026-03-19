@@ -79,10 +79,11 @@ class VisionScoreEnsemble:
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
-    def fit(self, X: Iterable[Any], _y=None):
-        items = list(X)
+    def fit(self, x: Iterable[Any], y=None):
+        del y
+        items = list(x)
         if not items:
-            raise ValueError("X must be non-empty")
+            raise ValueError("x must be non-empty")
 
         from pyimgano.models.ensemble_spec import resolve_model_specs
 
@@ -173,8 +174,8 @@ class VisionScoreEnsemble:
 
         raise ValueError(f"Unknown combine strategy: {combine!r}")
 
-    def decision_function(self, X: Iterable[Any]) -> NDArray:
-        items = list(X)
+    def decision_function(self, x: Iterable[Any]) -> NDArray:
+        items = list(x)
         if not items:
             return np.zeros((0,), dtype=np.float32)
 
@@ -197,10 +198,10 @@ class VisionScoreEnsemble:
 
         return self._combined_scores(per_detector)
 
-    def predict(self, X: Iterable[Any]) -> NDArray:
+    def predict(self, x: Iterable[Any]) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(self.decision_function(x), dtype=np.float64)
         return (scores >= float(self.threshold_)).astype(np.int64)
 
 

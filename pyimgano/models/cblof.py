@@ -51,18 +51,15 @@ class ImageFeatureExtractor:
         PCA降维后的维度
     """
 
-    def __init__(self, method="combined", reduce_dim=True, n_components=50, random_state=0):
+    def __init__(self, method="combined", reduce_dim=True, n_components=50):
         self.method = method
         self.reduce_dim = reduce_dim
         self.n_components = n_components
-        self.random_state = random_state
         self.scaler = StandardScaler()
-        self.pca = (
-            PCA(n_components=n_components, random_state=self.random_state) if reduce_dim else None
-        )
+        self.pca = PCA(n_components=n_components, random_state=0) if reduce_dim else None
         self.is_fitted = False
 
-    def extract(self, X):
+    def extract(self, x):
         """
         提取图像特征 - BaseVisionDetector要求的接口
 
@@ -77,15 +74,15 @@ class ImageFeatureExtractor:
             提取的特征矩阵
         """
         # 如果已经是特征矩阵，直接处理
-        if isinstance(X, np.ndarray):
+        if isinstance(x, np.ndarray):
             if self.is_fitted:
-                X = self.scaler.transform(X)
+                x = self.scaler.transform(x)
                 if self.reduce_dim and self.pca is not None:
-                    X = self.pca.transform(X)
-            return X
+                    x = self.pca.transform(x)
+            return x
 
         # 从图像路径提取特征：物化一次，便于计数与复用迭代器
-        paths = list(X)
+        paths = list(x)
         logger.info("CBLOF: extracting image features for %d inputs", len(paths))
         features = []
 
@@ -268,11 +265,11 @@ class CoreCBLOF(BaseDetector):
         self.threshold_ = None
         self.labels_ = None
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
         """训练CBLOF模型"""
-        X = check_array(X)
+        x = check_array(x)
         self._set_n_classes(y)
-        n_samples, _ = X.shape
+        n_samples, _ = x.shape
 
         # 参数验证
         check_parameter(
@@ -284,7 +281,7 @@ class CoreCBLOF(BaseDetector):
         self.clustering_estimator_ = KMeans(
             n_clusters=self.n_clusters, random_state=self.random_state
         )
-        self.clustering_estimator_.fit(X)
+        self.clustering_estimator_.fit(x)
 
         # 获取聚类结果
         self.cluster_labels_ = self.clustering_estimator_.labels_
@@ -299,21 +296,21 @@ class CoreCBLOF(BaseDetector):
         self._set_small_large_clusters(n_samples)
 
         # 计算异常分数
-        self.decision_scores_ = self._compute_scores(X, self.cluster_labels_).ravel()
+        self.decision_scores_ = self._compute_scores(x, self.cluster_labels_).ravel()
         self._process_decision_scores()
 
         return self
 
-    def decision_function(self, X):
+    def decision_function(self, x):
         """计算异常分数"""
         require_fitted(self, ["cluster_centers_", "threshold_"])
-        X = check_array(X)
+        x = check_array(x)
 
         # 预测聚类标签
-        labels = self.clustering_estimator_.predict(X)
+        labels = self.clustering_estimator_.predict(x)
 
         # 计算异常分数
-        return self._compute_scores(X, labels)
+        return self._compute_scores(x, labels)
 
     def _set_small_large_clusters(self, n_samples):
         """区分大簇和小簇"""
@@ -359,15 +356,15 @@ class CoreCBLOF(BaseDetector):
             self.n_clusters_,
         )
 
-    def _compute_scores(self, X, labels):
+    def _compute_scores(self, x, labels):
         """计算异常分数"""
-        scores = np.zeros(X.shape[0])
+        scores = np.zeros(x.shape[0])
 
         # 小簇中的样本：计算到最近大簇中心的距离
         small_mask = np.isin(labels, self.small_cluster_labels_)
         if small_mask.any():
             large_centers = self.cluster_centers_[self.large_cluster_labels_]
-            dist_to_large = cdist(X[small_mask], large_centers)
+            dist_to_large = cdist(x[small_mask], large_centers)
             scores[small_mask] = np.min(dist_to_large, axis=1)
 
         # 大簇中的样本：计算到所属簇中心的距离
@@ -377,7 +374,7 @@ class CoreCBLOF(BaseDetector):
                 label_mask = labels == label
                 if label_mask.any():
                     center = self.cluster_centers_[label]
-                    scores[label_mask] = np.linalg.norm(X[label_mask] - center, axis=1)
+                    scores[label_mask] = np.linalg.norm(x[label_mask] - center, axis=1)
 
         # 使用簇大小作为权重
         if self.use_weights:
@@ -471,10 +468,7 @@ class VisionCBLOF(BaseVisionDetector):
         # 如果未提供特征提取器，创建默认的
         if feature_extractor is None:
             feature_extractor = ImageFeatureExtractor(
-                method=feature_method,
-                reduce_dim=reduce_dim,
-                n_components=n_components,
-                random_state=self.random_state,
+                method=feature_method, reduce_dim=reduce_dim, n_components=n_components
             )
             logger.info(
                 "CBLOF: using default feature extractor (method=%s, pca=%s)",

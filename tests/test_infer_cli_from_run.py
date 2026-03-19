@@ -85,8 +85,8 @@ def test_infer_cli_supports_from_run(tmp_path, monkeypatch):
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
     det = _DummyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -184,8 +184,8 @@ def test_infer_cli_from_run_resolves_model_checkpoint_path_relative_to_run_dir(
         def __init__(self):
             self.threshold_ = None
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
     def _create_model(name, **kwargs):  # noqa: ANN001 - test stub
         seen["name"] = str(name)
@@ -293,8 +293,8 @@ def test_infer_cli_from_run_applies_tiling_defaults_from_run_config(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
     class _FakeTiledDetector:
         def __init__(
@@ -324,8 +324,8 @@ def test_infer_cli_from_run_applies_tiling_defaults_from_run_config(
         def __getattr__(self, name: str):  # pragma: no cover - test stub
             return getattr(self.detector, name)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return self.detector.decision_function(X)
+        def decision_function(self, x):  # noqa: ANN001
+            return self.detector.decision_function(x)
 
     det = _DummyDetector()
     monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
@@ -641,8 +641,8 @@ def test_infer_cli_from_run_supports_preprocessing_for_base_vision_models(
         def load_checkpoint(self, path):  # noqa: ANN001 - test stub
             self.loaded = str(path)
 
-        def decision_function(self, X):  # noqa: ANN001
-            items = list(X)
+        def decision_function(self, x):  # noqa: ANN001
+            items = list(x)
             assert items
             assert all(isinstance(x, np.ndarray) for x in items)
             assert all(x.dtype == np.uint8 for x in items)
@@ -663,3 +663,4 @@ def test_infer_cli_from_run_supports_preprocessing_for_base_vision_models(
     )
     assert rc == 0
     assert det.loaded == str(ckpt_path)
+

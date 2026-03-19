@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from pyimgano.defects.map_ops import apply_roi_to_map, compute_roi_stats
 

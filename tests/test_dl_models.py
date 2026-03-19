@@ -4,6 +4,7 @@ Tests for deep learning vision anomaly detection models.
 Tests cover PatchCore, STFPM, SimpleNet, and other DL-based detectors.
 """
 
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -62,7 +63,7 @@ class TestPatchCore:
 
         assert detector is not None
         assert detector.backbone_name == "wide_resnet50"
-        assert detector.coreset_sampling_ratio == pytest.approx(0.1)
+        assert math.isclose(detector.coreset_sampling_ratio, 0.1)
         assert detector.n_neighbors == 9
 
     def test_invalid_parameters(self):
@@ -149,7 +150,7 @@ class TestSTFPM:
         assert detector.backbone_name == "resnet18"
         assert detector.epochs == 5
         assert detector.batch_size == 2
-        assert detector.lr == pytest.approx(0.4)
+        assert math.isclose(detector.lr, 0.4)
 
     def test_invalid_parameters(self):
         """Test invalid parameter handling."""
@@ -550,7 +551,7 @@ class TestDLModelComparison:
             }
 
         # All models should produce valid scores
-        for name, result in results.items():
+        for result in results.values():
             assert len(result["scores"]) == len(sample_images["all"])
             assert all(np.isfinite(s) for s in result["scores"])
 

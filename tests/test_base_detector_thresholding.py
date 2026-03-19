@@ -22,13 +22,14 @@ def test_process_decision_scores_sets_threshold_and_labels() -> None:
     from pyimgano.models.base_detector import BaseDetector
 
     class Dummy(BaseDetector):
-        def fit(self, X, y=None):  # noqa: ANN001
-            self.decision_scores_ = np.asarray(X, dtype=np.float64)
+        def fit(self, x, y=None):  # noqa: ANN001
+            del y
+            self.decision_scores_ = np.asarray(x, dtype=np.float64)
             self._process_decision_scores()
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray(X, dtype=np.float64)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray(x, dtype=np.float64)
 
     det = Dummy(contamination=0.2)
     det.fit([0, 1, 2, 3, 4])
@@ -47,13 +48,14 @@ def test_predict_uses_threshold_and_returns_binary_labels() -> None:
     from pyimgano.models.base_detector import BaseDetector
 
     class Dummy(BaseDetector):
-        def fit(self, X, y=None):  # noqa: ANN001
-            self.decision_scores_ = np.asarray(X, dtype=np.float64)
+        def fit(self, x, y=None):  # noqa: ANN001
+            del y
+            self.decision_scores_ = np.asarray(x, dtype=np.float64)
             self._process_decision_scores()
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray(X, dtype=np.float64)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray(x, dtype=np.float64)
 
     det = Dummy(contamination=0.2).fit([0, 1, 2, 3, 4])
 

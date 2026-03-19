@@ -542,7 +542,7 @@ def read_video(video_path: Union[str, Path], max_frames: Optional[int] = None) -
     """
     frames = []
     with VideoReader(video_path) as reader:
-        for i, frame in enumerate(reader.iter_frames()):
+        for frame in reader.iter_frames():
             frames.append(frame)
             if max_frames and len(frames) >= max_frames:
                 break
@@ -566,9 +566,9 @@ def write_video(frames: NDArray, output_path: Union[str, Path], fps: float = 30.
     if len(frames) == 0:
         raise ValueError("No frames to write")
 
-    _, H, W, _ = frames.shape
+    _, h, w, _ = frames.shape
 
-    with VideoWriter(output_path, fps, (W, H)) as writer:
+    with VideoWriter(output_path, fps, (w, h)) as writer:
         for frame in frames:
             writer.write(frame)
 

@@ -18,6 +18,7 @@ from pathlib import Path
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_deep import BaseDeepLearningDetector
 
 
@@ -70,11 +71,11 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
 
                 self.train_transform = default_train_transforms()
             else:
-                T = require(
+                t = require(
                     "torchvision.transforms",
                     purpose="BaseVisionDeepDetector default train transform",
                 )
-                self.train_transform = T.ToTensor()
+                self.train_transform = t.ToTensor()
 
         if eval_transform is not None:
             self.eval_transform = eval_transform
@@ -85,11 +86,11 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
 
                 self.eval_transform = default_eval_transforms()
             else:
-                T = require(
+                t = require(
                     "torchvision.transforms",
                     purpose="BaseVisionDeepDetector default eval transform",
                 )
-                self.eval_transform = T.ToTensor()
+                self.eval_transform = t.ToTensor()
 
         # Optional eval-time tensor cache (best-effort).
         self._eval_tensor_cache = None
@@ -104,6 +105,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
     # To keep those detectors instantiable, we provide default implementations
     # that raise clear errors if a subclass actually relies on the training loop.
     def build_model(self, *args, **kwargs):  # pragma: no cover
+        del args, kwargs
         if getattr(self, "model", None) is not None:
             return self.model
         raise NotImplementedError(
@@ -120,7 +122,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             "Subclasses using BaseVisionDeepDetector.decision_function must implement evaluating_forward()."
         )
 
-    def fit(self, X, y=None):
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
         """
         【特色功能 3: 重写 fit 方法以处理图像路径】
         使用正常的、无缺陷的图像数据来拟合检测器。
@@ -134,12 +136,13 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
 
         from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
-        data_loader_cls = require("torch.utils.data", purpose="deep vision training").DataLoader
+        dataloader_cls = require("torch.utils.data", purpose="deep vision training").DataLoader
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
 
         # 1. 构建模型
         self.model = self.build_model()
 
-        x_list = list(X)
+        x_list = list(x_value)
         if x_list and isinstance(x_list[0], np.ndarray):
             # Numpy-first industrial workflows: images already decoded in memory.
             train_dataset = VisionArrayDataset(images=x_list, transform=self.train_transform)
@@ -147,15 +150,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             # Default: list of file paths.
             train_dataset = VisionImageDataset(image_paths=x_list, transform=self.train_transform)
 
-        train_loader = data_loader_cls(
-            train_dataset,
-            batch_size=self.batch_size,
-            shuffle=bool(self.shuffle_train),
-            num_workers=int(self.num_workers),
-            drop_last=bool(self.drop_last),
-            pin_memory=bool(self.pin_memory),
-            persistent_workers=bool(self.persistent_workers) and int(self.num_workers) > 0,
-        )
+        train_loader = dataloader_cls(train_dataset, batch_size=self.batch_size, shuffle=True)
 
         # 3. 准备训练 (来自父类的方法)
         self.training_prepare()
@@ -176,7 +171,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             import logging
 
             logging.getLogger(__name__).info("正在计算训练集上的异常分数...")
-        self.decision_scores_ = self.decision_function(X)
+        self.decision_scores_ = self.decision_function(x_value)
 
         # 6. 调用基类的方法来计算阈值和标签
         self._process_decision_scores()
@@ -184,16 +179,16 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
         self._set_n_classes(y)
         return self
 
-    def decision_function(self, X, batch_size=None):
+    def decision_function(self, x: object = MISSING, batch_size=None, **kwargs: object):
         import numpy as np
 
         from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
 
-        data_loader_cls = require("torch.utils.data", purpose="deep vision evaluation").DataLoader
+        dataloader_cls = require("torch.utils.data", purpose="deep vision evaluation").DataLoader
 
         current_batch_size = batch_size if batch_size is not None else self.batch_size
 
-        x_list = list(X)
+        x_list = list(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
         if x_list and isinstance(x_list[0], np.ndarray):
             eval_dataset = VisionArrayDataset(images=x_list, transform=self.eval_transform)
         else:
@@ -210,7 +205,9 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
                     image_paths=[str(p) for p in x_list],
                     transform=self.eval_transform,
                 )
-        eval_loader = data_loader_cls(eval_dataset, batch_size=current_batch_size, shuffle=False)
+        eval_loader = dataloader_cls(
+            eval_dataset, batch_size=current_batch_size, shuffle=False
+        )
 
         # 调用父类的评估方法 evaluating_forward
         scores = self.evaluate(eval_loader)

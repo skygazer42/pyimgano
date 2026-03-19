@@ -9,7 +9,6 @@ from pyimgano.workbench.adaptation_types import (
     TilingConfig,
 )
 
-
 __all__ = [
     "TilingConfig",
     "MapPostprocessConfig",

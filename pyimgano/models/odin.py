@@ -17,6 +17,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.validation import check_array
 
 from ..utils.fitted import require_fitted
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
@@ -47,8 +48,12 @@ class CoreODIN(BaseDetector):
         self.n_jobs = n_jobs
         self.eps = float(eps)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        x_arr = check_array(
+            resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            ensure_2d=True,
+            dtype=np.float64,
+        )
         self._set_n_classes(y)
 
         n = int(x_arr.shape[0])
@@ -84,13 +89,17 @@ class CoreODIN(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
         require_fitted(self, ["_nn", "indegree_", "indegree_max_"])
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
         indegree = np.asarray(self.indegree_, dtype=np.float64).reshape(-1)  # type: ignore[arg-type]
         indegree_max = float(self.indegree_max_)  # type: ignore[arg-type]
 
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            ensure_2d=True,
+            dtype=np.float64,
+        )
         k = int(self.n_neighbors)
 
         _d, indices = nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)

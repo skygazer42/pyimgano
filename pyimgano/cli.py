@@ -10,8 +10,6 @@ import pyimgano.cli_discovery_options as cli_discovery_options
 import pyimgano.cli_discovery_rendering as cli_discovery_rendering
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
-from pyimgano.models.registry import create_model
-from pyimgano.utils.jsonable import to_jsonable
 from pyimgano.utils.optional_deps import optional_import
 
 
@@ -804,7 +802,7 @@ def main(argv: list[str] | None = None) -> int:
                     missing.append("--root")
             if missing:
                 raise ValueError(
-                    "Missing required arguments for --list-categories: " f"{', '.join(missing)}."
+                    f"Missing required arguments for --list-categories: {', '.join(missing)}."
                 )
 
             categories = discovery_service.list_dataset_categories_payload(

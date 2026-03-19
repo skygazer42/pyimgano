@@ -26,34 +26,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Literal, Optional, Sequence
+from typing import Iterable, Literal, Optional, Sequence, cast
 
 import numpy as np
 
 from pyimgano.io.image import read_image
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .registry import register_model
+
+CHANNEL_REDUCE_ERROR = "channel_reduce must be one of: max, mean, l2"
+EMPTY_TRAINING_SET_ERROR = "Training set cannot be empty"
+GET_ANOMALY_MAP_BEFORE_FIT_ERROR = "Detector must be fitted before calling get_anomaly_map"
+
 
 _Color = Literal["gray", "rgb"]
 _Reduction = Literal["max", "mean", "topk_mean"]
 _ChannelReduce = Literal["max", "mean", "l2"]
-
-_COLOR_OPTIONS = ("gray", "rgb")
-_TOPK_MEAN = "topk_mean"
-_REDUCTION_OPTIONS = ("max", "mean", _TOPK_MEAN)
-_CHANNEL_REDUCE_OPTIONS = ("max", "mean", "l2")
-_TRAINING_SET_EMPTY_ERROR = "Training set cannot be empty"
-_NOT_FITTED_ERROR = "Detector must be fitted before calling get_anomaly_map"
-_CHANNEL_REDUCE_ERROR = "channel_reduce must be one of: max, mean, l2"
-_BASE_MODEL_TAGS = ("vision", "classical", "template", "pixel_stats", "numpy", "pixel_map")
-_PIXEL_FIRST_TYPE = "pixel-first"
-
-
-def _shape_mismatch_error(
-    rep_shape: tuple[int, ...], *, expected_label: str, expected_shape: tuple[int, ...]
-) -> ValueError:
-    return ValueError(f"Shape mismatch: rep={rep_shape} {expected_label}={expected_shape}")
 
 
 def _ensure_uint8(img: np.ndarray) -> np.ndarray:
@@ -131,9 +121,9 @@ def _reduce_map(m: np.ndarray, *, reduction: _Reduction, topk: float) -> float:
         return float(np.max(m))
     if red == "mean":
         return float(np.mean(m))
-    if red == _TOPK_MEAN:
+    if red == "topk_mean":
         return float(_topk_mean(m, topk=float(topk)))
-    raise ValueError(f"reduction must be one of: {', '.join(_REDUCTION_OPTIONS)}")
+    raise ValueError("reduction must be one of: max, mean, topk_mean")
 
 
 def _reduce_channels(z: np.ndarray, *, mode: _ChannelReduce) -> np.ndarray:
@@ -146,7 +136,7 @@ def _reduce_channels(z: np.ndarray, *, mode: _ChannelReduce) -> np.ndarray:
         return np.mean(z, axis=2)
     if m == "l2":
         return np.sqrt(np.mean(z * z, axis=2))
-    raise ValueError(_CHANNEL_REDUCE_ERROR)
+    raise ValueError(CHANNEL_REDUCE_ERROR)
 
 
 @dataclass(frozen=True)
@@ -169,12 +159,12 @@ class _BasePixelStatsMapDetector(BaseDetector):
         super().__init__(contamination=float(contamination))
         self.resize_hw = (int(resize_hw[0]), int(resize_hw[1]))
         self.color = str(color).strip().lower()  # type: ignore[assignment]
-        if self.color not in _COLOR_OPTIONS:
-            raise ValueError(f"color must be one of: {', '.join(_COLOR_OPTIONS)}")
+        if self.color not in ("gray", "rgb"):
+            raise ValueError("color must be one of: gray, rgb")
 
         self.reduction = str(reduction).strip().lower()  # type: ignore[assignment]
-        if self.reduction not in _REDUCTION_OPTIONS:
-            raise ValueError(f"reduction must be one of: {', '.join(_REDUCTION_OPTIONS)}")
+        if self.reduction not in ("max", "mean", "topk_mean"):
+            raise ValueError("reduction must be one of: max, mean, topk_mean")
 
         self.topk = float(topk)
         self.assume_numpy_rgb = bool(assume_numpy_rgb)
@@ -203,15 +193,15 @@ class _BasePixelStatsMapDetector(BaseDetector):
         return _Prepared(orig_hw=orig_hw, rep_u8=np.asarray(rep, dtype=np.uint8))
 
     # ------------------------------------------------------------------
-    def predict_anomaly_map(self, X: Iterable) -> np.ndarray:  # noqa: ANN001, ANN201
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> np.ndarray:  # noqa: ANN001, ANN201
+        items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")))
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(it) for it in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
-        items = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
+        items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")))
         if not items:
             return np.zeros((0,), dtype=np.float64)
         scores = np.zeros((len(items),), dtype=np.float64)
@@ -223,10 +213,10 @@ class _BasePixelStatsMapDetector(BaseDetector):
 
 @register_model(
     "vision_pixel_mean_absdiff_map",
-    tags=_BASE_MODEL_TAGS,
+    tags=("vision", "classical", "template", "pixel_stats", "numpy", "pixel_map"),
     metadata={
         "description": "Per-pixel mean template abs-diff anomaly map (fast aligned baseline)",
-        "type": _PIXEL_FIRST_TYPE,
+        "type": "pixel-first",
     },
 )
 class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
@@ -238,7 +228,7 @@ class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
         contamination: float = 0.01,
         resize_hw: tuple[int, int] = (256, 256),
         color: _Color = "gray",
-        reduction: _Reduction = _TOPK_MEAN,
+        reduction: _Reduction = "topk_mean",
         topk: float = 0.01,
         assume_numpy_rgb: bool = True,
     ) -> None:
@@ -252,10 +242,10 @@ class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
         )
         self.mean_template_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like signature
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201 - sklearn-like signature
+        items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
-            raise ValueError(_TRAINING_SET_EMPTY_ERROR)
+            raise ValueError(EMPTY_TRAINING_SET_ERROR)
 
         self._set_n_classes(y)
 
@@ -269,14 +259,14 @@ class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
 
     def get_anomaly_map(self, item) -> np.ndarray:  # noqa: ANN001, ANN201
         if self.mean_template_ is None:
-            raise RuntimeError(_NOT_FITTED_ERROR)
+            raise RuntimeError(GET_ANOMALY_MAP_BEFORE_FIT_ERROR)
 
         prepared = self._prepare(item)
         rep = prepared.rep_u8.astype(np.float32, copy=False)
 
         tmpl = np.asarray(self.mean_template_, dtype=np.float32)
         if rep.shape != tmpl.shape:
-            raise _shape_mismatch_error(rep.shape, expected_label="tmpl", expected_shape=tmpl.shape)
+            raise ValueError(f"Shape mismatch: rep={rep.shape} tmpl={tmpl.shape}")
 
         if self.color == "gray":
             diff = np.abs(rep - tmpl)
@@ -295,10 +285,10 @@ class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
 
 @register_model(
     "vision_pixel_gaussian_map",
-    tags=_BASE_MODEL_TAGS + ("gaussian",),
+    tags=("vision", "classical", "template", "pixel_stats", "gaussian", "numpy", "pixel_map"),
     metadata={
         "description": "Per-pixel Gaussian baseline (mean+std) anomaly map via z-score",
-        "type": _PIXEL_FIRST_TYPE,
+        "type": "pixel-first",
     },
 )
 class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
@@ -311,7 +301,7 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
         resize_hw: tuple[int, int] = (256, 256),
         color: _Color = "gray",
         channel_reduce: _ChannelReduce = "max",
-        reduction: _Reduction = _TOPK_MEAN,
+        reduction: _Reduction = "topk_mean",
         topk: float = 0.01,
         std_floor: float = 1.0,
         eps: float = 1e-6,
@@ -326,8 +316,8 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
             assume_numpy_rgb=bool(assume_numpy_rgb),
         )
         self.channel_reduce = str(channel_reduce).strip().lower()  # type: ignore[assignment]
-        if self.channel_reduce not in _CHANNEL_REDUCE_OPTIONS:
-            raise ValueError(_CHANNEL_REDUCE_ERROR)
+        if self.channel_reduce not in ("max", "mean", "l2"):
+            raise ValueError(CHANNEL_REDUCE_ERROR)
 
         self.std_floor = float(std_floor)
         self.eps = float(eps)
@@ -335,10 +325,10 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
         self.mean_: np.ndarray | None = None
         self.std_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
-            raise ValueError(_TRAINING_SET_EMPTY_ERROR)
+            raise ValueError(EMPTY_TRAINING_SET_ERROR)
 
         self._set_n_classes(y)
 
@@ -377,7 +367,7 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
 
     def get_anomaly_map(self, item) -> np.ndarray:  # noqa: ANN001, ANN201
         if self.mean_ is None or self.std_ is None:
-            raise RuntimeError(_NOT_FITTED_ERROR)
+            raise RuntimeError(GET_ANOMALY_MAP_BEFORE_FIT_ERROR)
 
         prepared = self._prepare(item)
         rep = prepared.rep_u8.astype(np.float32, copy=False)
@@ -385,7 +375,7 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
         mean = np.asarray(self.mean_, dtype=np.float32)
         std = np.asarray(self.std_, dtype=np.float32)
         if rep.shape != mean.shape:
-            raise _shape_mismatch_error(rep.shape, expected_label="mean", expected_shape=mean.shape)
+            raise ValueError(f"Shape mismatch: rep={rep.shape} mean={mean.shape}")
 
         z = np.abs(rep - mean) / (std + float(self.eps))
         if z.ndim == 2:
@@ -403,10 +393,10 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
 
 @register_model(
     "vision_pixel_mad_map",
-    tags=_BASE_MODEL_TAGS + ("robust",),
+    tags=("vision", "classical", "template", "pixel_stats", "robust", "numpy", "pixel_map"),
     metadata={
         "description": "Per-pixel robust MAD baseline anomaly map (median + MAD z-score)",
-        "type": _PIXEL_FIRST_TYPE,
+        "type": "pixel-first",
     },
 )
 class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
@@ -419,7 +409,7 @@ class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
         resize_hw: tuple[int, int] = (256, 256),
         color: _Color = "gray",
         channel_reduce: _ChannelReduce = "max",
-        reduction: _Reduction = _TOPK_MEAN,
+        reduction: _Reduction = "topk_mean",
         topk: float = 0.01,
         mad_floor: float = 1.0,
         eps: float = 1e-6,
@@ -437,8 +427,8 @@ class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
             assume_numpy_rgb=bool(assume_numpy_rgb),
         )
         self.channel_reduce = str(channel_reduce).strip().lower()  # type: ignore[assignment]
-        if self.channel_reduce not in _CHANNEL_REDUCE_OPTIONS:
-            raise ValueError(_CHANNEL_REDUCE_ERROR)
+        if self.channel_reduce not in ("max", "mean", "l2"):
+            raise ValueError(CHANNEL_REDUCE_ERROR)
 
         self.mad_floor = float(mad_floor)
         self.eps = float(eps)
@@ -457,10 +447,10 @@ class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
         idx = rng.choice(len(items), size=max_n, replace=False)
         return [items[int(i)] for i in np.sort(idx)]
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items_all = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        items_all = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items_all:
-            raise ValueError(_TRAINING_SET_EMPTY_ERROR)
+            raise ValueError(EMPTY_TRAINING_SET_ERROR)
 
         self._set_n_classes(y)
 
@@ -483,7 +473,7 @@ class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
 
     def get_anomaly_map(self, item) -> np.ndarray:  # noqa: ANN001, ANN201
         if self.median_ is None or self.mad_ is None:
-            raise RuntimeError(_NOT_FITTED_ERROR)
+            raise RuntimeError(GET_ANOMALY_MAP_BEFORE_FIT_ERROR)
 
         prepared = self._prepare(item)
         rep = prepared.rep_u8.astype(np.float32, copy=False)
@@ -491,7 +481,7 @@ class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
         med = np.asarray(self.median_, dtype=np.float32)
         mad = np.asarray(self.mad_, dtype=np.float32)
         if rep.shape != med.shape:
-            raise _shape_mismatch_error(rep.shape, expected_label="median", expected_shape=med.shape)
+            raise ValueError(f"Shape mismatch: rep={rep.shape} median={med.shape}")
 
         z = np.abs(rep - med) / (mad + float(self.eps))
         if self.consistency_correction:

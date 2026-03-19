@@ -12,7 +12,7 @@ Key Features:
 - Efficient inference
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torchvision import models
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -308,24 +309,34 @@ class MemSegDetector(BaseVisionDeepDetector):
         else:
             self.seg_head = None
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None, **kwargs):
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ):
         """Build memory banks from training images.
 
         Args:
             X: Training images (N, H, W, C).
             y: Not used (unsupervised).
         """
+        legacy_kwargs = {}
+        if "X" in kwargs:
+            legacy_kwargs["X"] = kwargs.pop("X")
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit"))
+        del y, kwargs
         print("Building MemSeg memory banks...")
 
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x_array.max() > 1.0:
+            x_array = x_array.astype(np.float32) / 255.0
 
         self.feature_extractor.eval()
 
         with torch.no_grad():
-            for i, img in enumerate(X):
+            for i, img in enumerate(x_array):
                 if (i + 1) % 50 == 0:
-                    print(f"  Processing image {i+1}/{len(X)}")
+                    print(f"  Processing image {i+1}/{len(x_array)}")
 
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
 
@@ -337,7 +348,7 @@ class MemSegDetector(BaseVisionDeepDetector):
             f"  Memory filled: {self.feature_extractor.memory_banks['layer4'].memory_filled}/{self.memory_size}"
         )
 
-    def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
+    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -346,14 +357,21 @@ class MemSegDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly scores.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        legacy_kwargs = {}
+        if "X" in kwargs:
+            legacy_kwargs["X"] = kwargs.pop("X")
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
+        )
+        del kwargs
+        if x_array.max() > 1.0:
+            x_array = x_array.astype(np.float32) / 255.0
 
         self.feature_extractor.eval()
         scores = []
 
         with torch.no_grad():
-            for img in X:
+            for img in x_array:
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
 
                 # Extract features
@@ -370,7 +388,7 @@ class MemSegDetector(BaseVisionDeepDetector):
 
         return np.array(scores)
 
-    def predict_anomaly_map(self, X: NDArray) -> List[NDArray]:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> List[NDArray]:
         """Predict pixel-level anomaly maps.
 
         Args:
@@ -379,8 +397,11 @@ class MemSegDetector(BaseVisionDeepDetector):
         Returns:
             List of anomaly maps.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        )
+        if x_array.max() > 1.0:
+            x_array = x_array.astype(np.float32) / 255.0
 
         self.feature_extractor.eval()
         if self.seg_head is not None:
@@ -389,7 +410,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         anomaly_maps = []
 
         with torch.no_grad():
-            for img in X:
+            for img in x_array:
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
 
                 # Extract features
@@ -408,7 +429,7 @@ class MemSegDetector(BaseVisionDeepDetector):
 
                     # Combine multi-scale scores
                     maps = []
-                    for layer_name, score_map in anomaly_scores.items():
+                    for score_map in anomaly_scores.values():
                         score_map = score_map.unsqueeze(0).unsqueeze(0)
                         upsampled = F.interpolate(
                             score_map, size=img.shape[:2], mode="bilinear", align_corners=False

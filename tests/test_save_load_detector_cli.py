@@ -11,6 +11,7 @@ def _write_png(path, *, value: int = 128) -> None:
 
 
 def _raise_fit_called(*args, **kwargs):  # noqa: ANN002, ANN003 - test helper
+    del args, kwargs
     raise RuntimeError("fit() should not be called when using --load-detector")
 
 

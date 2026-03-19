@@ -42,14 +42,14 @@ class PCAProjector(BaseFeatureExtractor):
         if isinstance(base, FittableFeatureExtractor):
             base.fit(items, y=y)
 
-        X = np.asarray(base.extract(items), dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        x = np.asarray(base.extract(items), dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
 
         pca = PCA(
             n_components=self.n_components, whiten=self.whiten, random_state=self.random_state
         )
-        pca.fit(X)
+        pca.fit(x)
         self._pca = pca
         return self
 
@@ -58,8 +58,8 @@ class PCAProjector(BaseFeatureExtractor):
             raise RuntimeError("PCAProjector is not fitted yet. Call fit() first.")
 
         items = list(inputs)
-        X = np.asarray(self.base_extractor.extract(items), dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        Z = self._pca.transform(X)
-        return np.asarray(Z, dtype=np.float32)
+        x = np.asarray(self.base_extractor.extract(items), dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        z = self._pca.transform(x)
+        return np.asarray(z, dtype=np.float32)

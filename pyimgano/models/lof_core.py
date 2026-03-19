@@ -46,9 +46,10 @@ class CoreLOF:
         self.detector_: LocalOutlierFactor | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n = int(x.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
         if n <= 2:
@@ -71,7 +72,7 @@ class CoreLOF:
             leaf_size=self.leaf_size,
             n_jobs=self.n_jobs,
         )
-        det.fit(X)
+        det.fit(x)
         self.detector_ = det
 
         # sklearn: more negative => more abnormal. Negate to match "higher => more anomalous".
@@ -80,16 +81,16 @@ class CoreLOF:
         ).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self.detector_ is None:
-            return np.zeros((X.shape[0],), dtype=np.float64)
+            return np.zeros((x.shape[0],), dtype=np.float64)
 
         # sklearn: score_samples higher => inlier. Negate to match "higher => more anomalous".
-        return (-np.asarray(self.detector_.score_samples(X), dtype=np.float64)).reshape(-1)
+        return (-np.asarray(self.detector_.score_samples(x), dtype=np.float64)).reshape(-1)
 
 
 @register_model(

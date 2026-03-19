@@ -8,7 +8,7 @@ This is a simplified, fast implementation focusing on efficiency.
 """
 
 import logging
-from typing import Iterable, Optional
+from typing import Iterable, Optional, cast
 
 import cv2
 import numpy as np
@@ -17,6 +17,7 @@ from numpy.typing import NDArray
 from sklearn.covariance import LedoitWolf
 from torchvision import models, transforms
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -131,6 +132,7 @@ class VisionDFM(BaseVisionDeepDetector):
 
         def get_activation(name):
             def hook(module, input, output):
+                del input, module
                 self.feature_maps[name] = output.detach()
 
             return hook
@@ -162,7 +164,12 @@ class VisionDFM(BaseVisionDeepDetector):
 
         return np.concatenate(features)
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionDFM":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionDFM":
         """
         Fit DFM on normal images (feature extraction only).
 
@@ -177,9 +184,10 @@ class VisionDFM(BaseVisionDeepDetector):
         -------
         self : VisionDFM
         """
+        del y
         logger.info("Fitting DFM detector (training-free)")
 
-        x_list = list(X)
+        x_list = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
@@ -226,7 +234,12 @@ class VisionDFM(BaseVisionDeepDetector):
         logger.info("DFM fitting completed")
         return self
 
-    def predict(self, X: Iterable[str], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -248,10 +261,17 @@ class VisionDFM(BaseVisionDeepDetector):
         if self.mean is None or self.inv_cov is None or not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        )
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[str], batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Compute anomaly scores using Mahalanobis distance."""
         # This detector scores one image at a time. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
@@ -263,7 +283,12 @@ class VisionDFM(BaseVisionDeepDetector):
         if self.mean is None or self.inv_cov is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        x_list = list(X)
+        x_list = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(x_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(x_list))

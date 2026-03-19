@@ -61,17 +61,18 @@ class CoreOCSVM:
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[0] == 0:
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
-        self.n_features_in_ = int(X.shape[1])
+        self.n_features_in_ = int(x.shape[1])
 
         if self.preprocessing:
             self.scaler_ = StandardScaler()
-            X_train = self.scaler_.fit_transform(X)
+            x_train = self.scaler_.fit_transform(x)
         else:
-            X_train = X
+            x_train = x
 
         # `nu` is a natural mapping of expected outlier fraction for OCSVM.
         nu = float(self.contamination) if self.nu is None else float(self.nu)
@@ -89,23 +90,23 @@ class CoreOCSVM:
             cache_size=self.cache_size,
             max_iter=self.max_iter,
         )
-        self.estimator_.fit(X_train)
+        self.estimator_.fit(x_train)
 
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.estimator_ is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(X.shape[1]) != int(self.n_features_in_):
-            raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if int(x.shape[1]) != int(self.n_features_in_):
+            raise ValueError(f"Expected {self.n_features_in_} features, got {x.shape[1]}")
 
         if self.preprocessing and self.scaler_ is not None:
-            x_eval = self.scaler_.transform(X)
+            x_eval = self.scaler_.transform(x)
         else:
-            x_eval = X
+            x_eval = x
 
         # sklearn: positive => inlier. We flip the sign.
         scores = -np.asarray(self.estimator_.decision_function(x_eval), dtype=np.float64).reshape(
@@ -207,8 +208,8 @@ class VisionOCSVM(BaseVisionDetector):
     def _build_detector(self):
         return CoreOCSVM(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

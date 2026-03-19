@@ -55,13 +55,13 @@ class CoreLOCI:
             return np.asarray([], dtype=np.float64)
         return np.sort(np.concatenate([vals, vals / float(self.alpha)])).astype(np.float64)
 
-    def _calculate_scores(self, X: np.ndarray) -> np.ndarray:
-        outlier_scores = np.zeros(X.shape[0], dtype=np.float64)
-        dist_matrix = squareform(pdist(X, metric="euclidean")).astype(np.float64)
+    def _calculate_scores(self, x: np.ndarray) -> np.ndarray:
+        outlier_scores = np.zeros(x.shape[0], dtype=np.float64)
+        dist_matrix = squareform(pdist(x, metric="euclidean")).astype(np.float64)
         max_dist = float(np.max(dist_matrix)) if dist_matrix.size else 0.0
         r_max = max_dist / float(self.alpha) if self.alpha != 0 else max_dist
 
-        for p_ix in range(X.shape[0]):
+        for p_ix in range(x.shape[0]):
             critical_values = self._critical_values(dist_matrix, p_ix, r_max)
             if critical_values.size == 0:
                 continue
@@ -88,16 +88,17 @@ class CoreLOCI:
 
         return outlier_scores
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        self.decision_scores_ = self._calculate_scores(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self.decision_scores_ = self._calculate_scores(x)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        return self._calculate_scores(X)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        return self._calculate_scores(x)
 
 
 @register_model(
@@ -159,8 +160,8 @@ class VisionLOCI(BaseVisionDetector):
     def _build_detector(self):
         return CoreLOCI(**self.detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

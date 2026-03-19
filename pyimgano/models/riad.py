@@ -21,7 +21,6 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
-from ..utils.random_state import check_random_state
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -33,18 +32,19 @@ class ImageDecomposer:
         self,
         n_splits: int = 16,
         mask_ratio: float = 0.5,
-        random_state: int | np.random.Generator | None = None,
+        random_state: Optional[int] = None,
     ):
         """Initialize decomposer.
 
         Args:
             n_splits: Number of splits (must be perfect square, e.g., 4, 9, 16).
             mask_ratio: Ratio of regions to mask.
+            random_state: Optional seed for reproducible masking.
         """
         self.n_splits = n_splits
         self.grid_size = int(np.sqrt(n_splits))
         self.mask_ratio = mask_ratio
-        self.rng = check_random_state(random_state)
+        self.rng = np.random.default_rng(random_state)
 
         if self.grid_size**2 != n_splits:
             raise ValueError("n_splits must be a perfect square")
@@ -229,10 +229,10 @@ class RIADDetector(BaseVisionDeepDetector):
         batch_size: int = 16,
         learning_rate: float = 0.0002,
         device: Optional[str] = None,
-        random_state: int | np.random.Generator | None = None,
+        random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
 
         self.n_splits = n_splits
         self.mask_ratio = mask_ratio
@@ -242,8 +242,8 @@ class RIADDetector(BaseVisionDeepDetector):
         self.learning_rate = learning_rate
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -254,32 +254,29 @@ class RIADDetector(BaseVisionDeepDetector):
         self._build_model()
 
         # Decomposer
-        self.decomposer = ImageDecomposer(
-            n_splits,
-            mask_ratio,
-            random_state=random_state,
-        )
+        self.decomposer = ImageDecomposer(n_splits, mask_ratio, random_state=random_state)
 
     def _build_model(self):
         """Build the RIAD model."""
         self.model = UNet(in_channels=3, out_channels=3).to(self.device)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None, **kwargs):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None, **kwargs):
         """Train the RIAD model.
 
         Args:
             X: Training images (N, H, W, C).
             y: Not used (unsupervised).
         """
+        del y, kwargs
         print("Training RIAD model...")
 
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         # Prepare training data
         train_data = []
 
-        for img in X:
+        for img in x:
             # Resize if needed
             if img.shape[:2] != self.image_size:
                 import cv2
@@ -292,20 +289,14 @@ class RIADDetector(BaseVisionDeepDetector):
             train_data.append((masked, target))
 
         # Create dataloader
-        masked_tensors = torch.stack([torch.from_numpy(m.transpose(2, 0, 1)) for m, _ in train_data])
-        target_tensors = torch.stack(
-            [torch.from_numpy(t.transpose(2, 0, 1)) for _, t in train_data]
-        )
+        x_masked = torch.stack([torch.from_numpy(m.transpose(2, 0, 1)) for m, _ in train_data])
+        x_target = torch.stack([torch.from_numpy(t.transpose(2, 0, 1)) for _, t in train_data])
 
-        dataset = TensorDataset(masked_tensors.float(), target_tensors.float())
+        dataset = TensorDataset(x_masked.float(), x_target.float())
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimizer and loss
-        optimizer = torch.optim.Adam(
-            self.model.parameters(),
-            lr=self.learning_rate,
-            weight_decay=0.0,
-        )
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=0.0)
         criterion = nn.MSELoss()
 
         # Training loop
@@ -338,7 +329,7 @@ class RIADDetector(BaseVisionDeepDetector):
         self.model.eval()
         print("Training completed!")
 
-    def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
+    def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -347,14 +338,15 @@ class RIADDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly scores.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        del kwargs
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         self.model.eval()
         scores = []
 
         with torch.no_grad():
-            for img in X:
+            for img in x:
                 # Resize if needed
                 if img.shape[:2] != self.image_size:
                     import cv2
@@ -377,7 +369,7 @@ class RIADDetector(BaseVisionDeepDetector):
 
         return np.array(scores)
 
-    def predict_anomaly_map(self, X: NDArray) -> list:
+    def predict_anomaly_map(self, x: NDArray) -> list:
         """Predict pixel-level anomaly maps.
 
         Args:
@@ -386,14 +378,14 @@ class RIADDetector(BaseVisionDeepDetector):
         Returns:
             List of anomaly maps.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         self.model.eval()
         anomaly_maps = []
 
         with torch.no_grad():
-            for img in X:
+            for img in x:
                 # Resize if needed
                 original_size = img.shape[:2]
                 if img.shape[:2] != self.image_size:

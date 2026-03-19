@@ -5,7 +5,7 @@ from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 
 def test_postprocess_preserves_shape():
     pp = AnomalyMapPostprocess(normalize=True, gaussian_sigma=1.0)
-    m = np.random.default_rng(0).random((32, 32)).astype("float32")
+    m = np.random.default_rng(0).random((32, 32), dtype=np.float32)
     out = pp(m)
     assert out.shape == m.shape
 

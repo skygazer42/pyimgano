@@ -25,6 +25,7 @@ import torch.nn as nn
 from numpy.typing import NDArray
 from sklearn.cluster import KMeans
 
+from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_dl import BaseVisionDeepDetector
 
 
@@ -243,22 +244,24 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return features[background_mask], features[foreground_mask]
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object):
         """Fit the detector on normal images.
 
         Args:
             X: Normal images [N, H, W, C]
             y: Ignored (unsupervised)
         """
+        del y
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Extract features
-        features = self._extract_features(X)  # [N, C, H, W]
+        features = self._extract_features(x_arr)  # [N, C, H, W]
 
-        N, C, _, _ = features.shape
+        n, c, _, _ = features.shape
 
         # Flatten spatial dimensions
         features_np = features.cpu().numpy()
-        features_flat = features_np.reshape(N, C, -1).transpose(0, 2, 1)  # [N, H*W, C]
-        features_flat = features_flat.reshape(-1, C)  # [N*H*W, C]
+        features_flat = features_np.reshape(n, c, -1).transpose(0, 2, 1)  # [N, H*W, C]
+        features_flat = features_flat.reshape(-1, c)  # [N*H*W, C]
 
         # Separate foreground and background
         background_features, _ = self._separate_foreground_background(features_flat)
@@ -274,7 +277,7 @@ class BGADDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -286,18 +289,20 @@ class BGADDetector(BaseVisionDeepDetector):
         if not self.fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        # Extract features
-        features = self._extract_features(X)  # [N, C, H, W]
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="predict_proba"))
 
-        N, C, _, _ = features.shape
+        # Extract features
+        features = self._extract_features(x_arr)  # [N, C, H, W]
+
+        n, c, _, _ = features.shape
 
         # Flatten
         features_np = features.cpu().numpy()
-        features_flat = features_np.reshape(N, C, -1).transpose(0, 2, 1)  # [N, H*W, C]
+        features_flat = features_np.reshape(n, c, -1).transpose(0, 2, 1)  # [N, H*W, C]
 
         # Compute anomaly scores for each image
         scores = []
-        for i in range(N):
+        for i in range(n):
             feat = features_flat[i]  # [H*W, C]
 
             # Normalize with background model
@@ -315,7 +320,7 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return np.array(scores)
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -327,21 +332,23 @@ class BGADDetector(BaseVisionDeepDetector):
         if not self.fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
+
         # Get image size
-        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        h_img, w_img = x_arr.shape[1:3] if x_arr.shape[-1] == 3 else x_arr.shape[2:4]
 
         # Extract features
-        features = self._extract_features(X)  # [N, C, H, W]
+        features = self._extract_features(x_arr)  # [N, C, H, W]
 
-        N, C, H, W = features.shape
+        n, c, h, w = features.shape
 
         # Flatten
         features_np = features.cpu().numpy()
-        features_flat = features_np.reshape(N, C, -1).transpose(0, 2, 1)  # [N, H*W, C]
+        features_flat = features_np.reshape(n, c, -1).transpose(0, 2, 1)  # [N, H*W, C]
 
         # Compute anomaly maps
         anomaly_maps = []
-        for i in range(N):
+        for i in range(n):
             feat = features_flat[i]  # [H*W, C]
 
             # Normalize with background model
@@ -354,7 +361,7 @@ class BGADDetector(BaseVisionDeepDetector):
             anomaly_scores = np.linalg.norm(z_scores, axis=1)
 
             # Reshape to spatial
-            anomaly_map = anomaly_scores.reshape(H, W)
+            anomaly_map = anomaly_scores.reshape(h, w)
 
             anomaly_maps.append(anomaly_map)
 
@@ -363,10 +370,10 @@ class BGADDetector(BaseVisionDeepDetector):
         # Upsample to image size
         from scipy.ndimage import gaussian_filter, zoom
 
-        upsampled_maps = np.zeros((N, height_img, width_img))
-        for i in range(N):
+        upsampled_maps = np.zeros((n, h_img, w_img))
+        for i in range(n):
             # Upsample
-            zoom_factors = (height_img / H, width_img / W)
+            zoom_factors = (h_img / h, w_img / w)
             upsampled = zoom(anomaly_maps[i], zoom_factors, order=1)
 
             # Smooth
@@ -376,7 +383,7 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return upsampled_maps
 
-    def predict(self, X: NDArray, threshold: Optional[float] = None) -> NDArray:
+    def predict(self, x: object = MISSING, threshold: Optional[float] = None, **kwargs: object) -> NDArray:
         """Predict anomaly labels.
 
         Args:
@@ -386,7 +393,7 @@ class BGADDetector(BaseVisionDeepDetector):
         Returns:
             Labels [N] (0=normal, 1=anomaly)
         """
-        scores = self.predict_proba(X)
+        scores = self.predict_proba(resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
 
         if threshold is None:
             # Auto threshold (could be improved with validation set)

@@ -232,7 +232,7 @@ def load_manifest_benchmark_split(
     missing_mask_policy_norm = str(missing_mask_policy).strip().lower()
     if missing_mask_policy_norm not in ("skip", "error"):
         raise ValueError(
-            "missing_mask_policy must be one of: skip, error. " f"Got: {missing_mask_policy!r}"
+            f"missing_mask_policy must be one of: skip, error. Got: {missing_mask_policy!r}"
         )
 
     load_masks_mode = load_masks
@@ -249,11 +249,11 @@ def load_manifest_benchmark_split(
 
     if policy.scope != "category":
         raise ValueError(
-            "Only split_policy.scope='category' is supported for v1. " f"Got: {policy.scope!r}."
+            f"Only split_policy.scope='category' is supported for v1. Got: {policy.scope!r}."
         )
     if policy.mode != "benchmark":
         raise ValueError(
-            "Only split_policy.mode='benchmark' is supported for v1. " f"Got: {policy.mode!r}."
+            f"Only split_policy.mode='benchmark' is supported for v1. Got: {policy.mode!r}."
         )
     frac = float(policy.test_normal_fraction)
     if not (0.0 <= frac <= 1.0):

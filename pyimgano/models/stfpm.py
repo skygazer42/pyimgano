@@ -11,7 +11,7 @@ Reference:
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union, cast
 
 import cv2
 import numpy as np
@@ -26,10 +26,31 @@ from torchvision import models, transforms
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+_MISSING = object()
+
+
 logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
-MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
+
+def _resolve_legacy_x_keyword(
+    x: object, kwargs: Dict[str, object], *, method_name: str
+) -> Iterable[ImageInput]:
+    """Accept legacy `X=` inputs while keeping lowercase local naming."""
+
+    legacy_x = kwargs.pop("X", _MISSING)
+    if kwargs:
+        unexpected = next(iter(kwargs))
+        raise TypeError(f"{method_name}() got an unexpected keyword argument {unexpected!r}")
+    if x is _MISSING:
+        if legacy_x is _MISSING:
+            raise TypeError(f"{method_name}() missing 1 required positional argument: 'x'")
+        return cast(Iterable[ImageInput], legacy_x)
+    if legacy_x is not _MISSING:
+        raise TypeError(f"{method_name}() got multiple values for argument 'x'")
+    return cast(Iterable[ImageInput], x)
 
 
 class ImagePathDataset(Dataset):
@@ -236,7 +257,12 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return features
 
-    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionSTFPM":
+    def fit(
+        self,
+        x: object = _MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionSTFPM":
         """
         Train student network to match teacher on normal images.
 
@@ -252,9 +278,11 @@ class VisionSTFPM(BaseVisionDeepDetector):
         self : VisionSTFPM
             Fitted detector
         """
+        del y
         logger.info("Training STFPM detector on normal images")
 
-        x_list = list(X)
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="fit")
+        x_list = list(x_iter)
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
@@ -278,7 +306,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
             epoch_loss = 0.0
             num_batches = 0
 
-            for batch_idx, (images, _) in enumerate(dataloader):
+            for images, _ in dataloader:
                 images = images.to(self.device)
 
                 # Extract features from teacher and student
@@ -326,7 +354,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return self
 
-    def _compute_normalization_stats(self, X: List[ImageInput]) -> None:
+    def _compute_normalization_stats(self, x: List[ImageInput]) -> None:
         """Compute mean and std of anomaly scores on training set."""
         logger.debug("Computing normalization statistics")
 
@@ -334,7 +362,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         scores = []
 
         with torch.no_grad():
-            for idx, img in enumerate(X[: min(100, len(X))]):  # Use subset for efficiency
+            for idx, img in enumerate(x[: min(100, len(x))]):  # Use subset for efficiency
                 try:
                     score = self._compute_anomaly_score(img)
                     scores.append(score)
@@ -406,7 +434,12 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return total_score
 
-    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = _MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -428,11 +461,15 @@ class VisionSTFPM(BaseVisionDeepDetector):
         if self.mean_scores is None or not hasattr(self, "threshold_"):
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
-        scores = self.decision_function(X)
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+        scores = self.decision_function(x_iter)
         return (scores >= self.threshold_).astype(int)
 
     def decision_function(
-        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+        self,
+        x: object = _MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
     ) -> NDArray:
         """
         Compute anomaly scores for test images.
@@ -459,7 +496,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         self.student.eval()
 
-        x_list = list(X)
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        x_list = list(x_iter)
         scores = np.zeros(len(x_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(x_list))
@@ -548,7 +586,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         return anomaly_map
 
-    def predict_anomaly_map(self, X: Iterable[ImageInput]) -> NDArray:
+    def predict_anomaly_map(self, x: object = _MISSING, **kwargs: object) -> NDArray:
         """Generate pixel-level anomaly maps for a batch of images."""
-        maps = [self.get_anomaly_map(path) for path in X]
+        x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        maps = [self.get_anomaly_map(path) for path in x_iter]
         return np.stack(maps)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Kernel PCA 异常检测器实现。"""
+"""Kernel PCA anomaly detector implementations."""
 
 from __future__ import annotations
 
@@ -8,13 +8,32 @@ from sklearn.decomposition import KernelPCA
 from sklearn.utils import check_array, check_random_state
 
 from ..utils.param_check import check_parameter
+from ._legacy_x import MISSING
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
 
 
+def _resolve_legacy_copy_x_keyword(
+    copy_x: object,
+    kwargs: dict[str, object],
+    *,
+    default: bool,
+    method_name: str,
+) -> bool:
+    legacy_copy_x = kwargs.pop("copy_X", MISSING)
+    if kwargs:
+        unexpected = next(iter(kwargs))
+        raise TypeError(f"{method_name}() got an unexpected keyword argument {unexpected!r}")
+    if copy_x is MISSING:
+        return bool(default if legacy_copy_x is MISSING else legacy_copy_x)
+    if legacy_copy_x is not MISSING:
+        raise TypeError(f"{method_name}() got multiple values for argument 'copy_x'")
+    return bool(copy_x)
+
+
 class _PyODKernelPCA(KernelPCA):
-    """轻量包装 sklearn KernelPCA 以暴露内部属性。"""
+    """Light wrapper around sklearn KernelPCA exposing internal helpers."""
 
     def __init__(
         self,
@@ -31,10 +50,18 @@ class _PyODKernelPCA(KernelPCA):
         tol=0,
         max_iter=None,
         remove_zero_eig=False,
-        copy_x=True,
+        copy_x: object = MISSING,
         n_jobs=None,
         random_state=None,
+        **kwargs,
     ) -> None:
+        copy_x_value = _resolve_legacy_copy_x_keyword(
+            copy_x,
+            kwargs,
+            default=True,
+            method_name="_PyODKernelPCA",
+        )
+        self.copy_x = copy_x_value
         super().__init__(
             n_components=n_components,
             kernel=kernel,
@@ -48,7 +75,7 @@ class _PyODKernelPCA(KernelPCA):
             tol=tol,
             max_iter=max_iter,
             remove_zero_eig=remove_zero_eig,
-            copy_X=copy_x,
+            copy_X=copy_x_value,
             n_jobs=n_jobs,
             random_state=check_random_state(random_state),
         )
@@ -65,10 +92,10 @@ class _PyODKernelPCA(KernelPCA):
 @register_model(
     "core_kpca",
     tags=("classical", "core", "features", "kernel", "projection"),
-    metadata={"description": "核心 Kernel PCA 异常检测器"},
+    metadata={"description": "Kernel PCA anomaly detector"},
 )
 class CoreKPCA(BaseDetector):
-    """Kernel PCA 异常检测器实现。"""
+    """Kernel PCA anomaly detector."""
 
     def __init__(
         self,
@@ -86,12 +113,19 @@ class CoreKPCA(BaseDetector):
         tol=0,
         max_iter=None,
         remove_zero_eig=False,
-        copy_x=True,
+        copy_x: object = MISSING,
         n_jobs=None,
         sampling=False,
         subset_size=20,
         random_state=None,
+        **kwargs,
     ) -> None:
+        copy_x_value = _resolve_legacy_copy_x_keyword(
+            copy_x,
+            kwargs,
+            default=True,
+            method_name="CoreKPCA",
+        )
         super().__init__(contamination=contamination)
         self.n_components = n_components
         self.n_selected_components = n_selected_components
@@ -105,7 +139,7 @@ class CoreKPCA(BaseDetector):
         self.tol = tol
         self.max_iter = max_iter
         self.remove_zero_eig = remove_zero_eig
-        self.copy_x = copy_x
+        self.copy_x = copy_x_value
         self.n_jobs = n_jobs
         self.sampling = sampling
         self.subset_size = subset_size
@@ -113,37 +147,36 @@ class CoreKPCA(BaseDetector):
         self.n_selected_components_ = None
         self.kpca = None
 
-    # ------------------------------------------------------------------
     def _check_subset_size(self, array: np.ndarray) -> int:
         n_samples = array.shape[0]
 
         if isinstance(self.subset_size, int):
             if 0 < self.subset_size <= n_samples:
-                return self.subset_size
-            raise ValueError(f"subset_size={self.subset_size} 必须位于 (0, {n_samples}] 内")
+                return int(self.subset_size)
+            raise ValueError(f"subset_size={self.subset_size} must be in (0, {n_samples}]")
 
         if isinstance(self.subset_size, float):
             if 0.0 < self.subset_size <= 1.0:
                 return max(1, int(self.subset_size * n_samples))
-            raise ValueError("subset_size 为浮点数时需位于 (0.0, 1.0]")
+            raise ValueError("subset_size as a float must be in (0.0, 1.0]")
 
-        raise TypeError("subset_size 仅支持 int 或 float")
+        raise TypeError("subset_size only supports int or float")
 
-    def fit(self, X, y=None):
-        X = check_array(X, copy=self.copy_x)
+    def fit(self, x, y=None):
+        x = check_array(x, copy=self.copy_x)
         self._set_n_classes(y)
 
         if self.sampling:
-            subset_size = self._check_subset_size(X)
-            indices = self.random_state.choice(X.shape[0], size=subset_size, replace=False)
-            X = X[indices, :]
+            subset_size = self._check_subset_size(x)
+            indices = self.random_state.choice(x.shape[0], size=subset_size, replace=False)
+            x = x[indices, :]
 
         if self.n_components is None:
-            n_components = X.shape[0]
+            n_components = x.shape[0]
         else:
             if self.n_components < 1:
-                raise ValueError("n_components 应 >= 1")
-            n_components = min(X.shape[0], self.n_components)
+                raise ValueError("n_components must be >= 1")
+            n_components = min(x.shape[0], self.n_components)
 
         if self.n_selected_components is None:
             self.n_selected_components_ = n_components
@@ -177,37 +210,36 @@ class CoreKPCA(BaseDetector):
             random_state=self.random_state,
         )
 
-        transformed = self.kpca.fit_transform(X)
+        transformed = self.kpca.fit_transform(x)
         transformed = transformed[:, : self.n_selected_components_]
 
         centerer = self.kpca.centerer
         kernel = self.kpca.kernel_callable
 
         potential = []
-        for sample in X:
+        for sample in x:
             potential.append(kernel(sample.reshape(1, -1)))
         potential = np.asarray(potential).squeeze()
         potential = potential - 2 * centerer.K_fit_rows_ + centerer.K_fit_all_
 
         self.decision_scores_ = potential - np.sum(np.square(transformed), axis=1)
         self._process_decision_scores()
-
         return self
 
-    def decision_function(self, X):
+    def decision_function(self, x):
         if self.kpca is None or self.n_selected_components_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        X = check_array(X)
+        x = check_array(x)
 
         kernel = self.kpca.kernel_callable
         centerer = self.kpca.centerer
 
-        gram_matrix = kernel(X, self.kpca.X_fit_)
-        transformed = self.kpca.transform(X)
+        gram_matrix = kernel(x, self.kpca.X_fit_)
+        transformed = self.kpca.transform(x)
         transformed = transformed[:, : self.n_selected_components_]
 
         potential = []
-        for sample in X:
+        for sample in x:
             potential.append(kernel(sample.reshape(1, -1)))
         potential = np.asarray(potential).squeeze()
 
@@ -220,10 +252,10 @@ class CoreKPCA(BaseDetector):
 @register_model(
     "vision_kpca",
     tags=("vision", "classical", "kernel"),
-    metadata={"description": "基于 Kernel PCA 的视觉异常检测器"},
+    metadata={"description": "Vision wrapper for Kernel PCA anomaly detection"},
 )
 class VisionKPCA(BaseVisionDetector):
-    """结合特征提取器的视觉版 Kernel PCA。"""
+    """Vision wrapper combining feature extraction with Kernel PCA."""
 
     def __init__(
         self,
@@ -242,12 +274,19 @@ class VisionKPCA(BaseVisionDetector):
         tol=0,
         max_iter=None,
         remove_zero_eig=False,
-        copy_x=True,
+        copy_x: object = MISSING,
         n_jobs=None,
         sampling=False,
         subset_size=20,
         random_state=None,
+        **kwargs,
     ) -> None:
+        copy_x_value = _resolve_legacy_copy_x_keyword(
+            copy_x,
+            kwargs,
+            default=True,
+            method_name="VisionKPCA",
+        )
         self.detector_params = {
             "contamination": contamination,
             "n_components": n_components,
@@ -262,7 +301,7 @@ class VisionKPCA(BaseVisionDetector):
             "tol": tol,
             "max_iter": max_iter,
             "remove_zero_eig": remove_zero_eig,
-            "copy_x": copy_x,
+            "copy_x": copy_x_value,
             "n_jobs": n_jobs,
             "sampling": sampling,
             "subset_size": subset_size,

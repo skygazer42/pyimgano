@@ -665,7 +665,7 @@ class ImageEnhancer:
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch")
-        F = require(
+        f = require(
             "torch.nn.functional", extra="torch", purpose="ImageEnhancer.gaussian_blur_torch"
         )
 
@@ -686,8 +686,8 @@ class ImageEnhancer:
         weight = k2.expand(c, 1, k, k).contiguous()
 
         pad = k // 2
-        x_pad = F.pad(x, (pad, pad, pad, pad), mode="reflect")
-        y = F.conv2d(x_pad, weight, groups=c)
+        x_pad = f.pad(x, (pad, pad, pad, pad), mode="reflect")
+        y = f.conv2d(x_pad, weight, groups=c)
         y = torch.clamp(y, 0.0, 1.0)
 
         out = y.squeeze(0).detach().cpu().numpy().transpose(1, 2, 0)

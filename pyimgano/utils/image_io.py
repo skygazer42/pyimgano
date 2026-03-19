@@ -271,7 +271,7 @@ class ImageWriter:
         self,
         image: NDArray,
         path: Union[str, Path],
-        image_format: Optional[str] = None,
+        file_format: Optional[str] = None,
         quality: Optional[int] = None,
         metadata: Optional[Dict] = None,
         **kwargs: Any,
@@ -285,7 +285,7 @@ class ImageWriter:
             Image array
         path : str or Path
             Output path
-        image_format : str, optional
+        file_format : str, optional
             Output format (auto-detected from extension if None)
         quality : int, optional
             Compression quality (format-specific)
@@ -293,19 +293,22 @@ class ImageWriter:
             Metadata to write
         """
         path = Path(path)
-        if image_format is None and "format" in kwargs:
-            image_format = kwargs.pop("format")
+        if "format" in kwargs:
+            if file_format is not None:
+                raise TypeError("write() got multiple values for output format")
+            file_format = kwargs.pop("format")
         if kwargs:
             unexpected = ", ".join(sorted(kwargs))
-            raise TypeError(f"Unexpected keyword arguments: {unexpected}")
+            raise TypeError(f"write() got unexpected keyword arguments: {unexpected}")
 
         # Auto-detect format from extension
-        if image_format is None:
-            image_format = path.suffix.lower().lstrip(".")
+        output_format = file_format
+        if output_format is None:
+            output_format = path.suffix.lower().lstrip(".")
 
         # Get quality setting
         if quality is None:
-            quality = self.QUALITY_PRESETS[self.quality_preset].get(image_format, 95)
+            quality = self.QUALITY_PRESETS[self.quality_preset].get(output_format, 95)
 
         # Ensure RGB for color images
         if HAS_OPENCV and len(image.shape) == 3 and image.shape[2] == 3:
@@ -314,11 +317,11 @@ class ImageWriter:
 
         # Write with appropriate backend
         if HAS_OPENCV:
-            if image_format == "jpeg" or image_format == "jpg":
+            if output_format == "jpeg" or output_format == "jpg":
                 params = [cv2.IMWRITE_JPEG_QUALITY, quality]
-            elif image_format == "png":
+            elif output_format == "png":
                 params = [cv2.IMWRITE_PNG_COMPRESSION, quality]
-            elif image_format == "webp":
+            elif output_format == "webp":
                 params = [cv2.IMWRITE_WEBP_QUALITY, quality]
             else:
                 params = []
@@ -331,20 +334,20 @@ class ImageWriter:
             pil_image = Image.fromarray(image)
 
             save_kwargs = {}
-            if image_format in ("jpeg", "jpg"):
+            if output_format in ("jpeg", "jpg"):
                 save_kwargs["quality"] = quality
                 save_kwargs["optimize"] = True
-            elif image_format == "png":
+            elif output_format == "png":
                 save_kwargs["compress_level"] = quality
-            elif image_format == "webp":
+            elif output_format == "webp":
                 save_kwargs["quality"] = quality
 
             # Add metadata
-            if self.preserve_metadata and metadata and "exif" in metadata:
+            if self.preserve_metadata and metadata and ("exif" in metadata):
                 # Convert EXIF dict back to bytes
                 pass  # Full implementation needed
 
-            pil_image.save(path, format=image_format.upper(), **save_kwargs)
+            pil_image.save(path, format=output_format.upper(), **save_kwargs)
 
         else:
             raise ImportError("Neither OpenCV nor PIL is available")

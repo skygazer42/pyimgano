@@ -8,7 +8,7 @@ def test_vision_padim_lite_smoke_on_vectors() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = [rng.normal(size=(10,)).astype(np.float32) for _ in range(80)]
+    x = [rng.normal(size=(10,)).astype(np.float32) for _ in range(80)]
 
     det = create_model(
         "vision_padim_lite",
@@ -16,9 +16,9 @@ def test_vision_padim_lite_smoke_on_vectors() -> None:
         contamination=0.1,
         robust=False,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)

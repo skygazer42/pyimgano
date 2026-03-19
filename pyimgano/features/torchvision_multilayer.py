@@ -48,8 +48,8 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="TorchvisionMultilayerExtractor")
-        F = require("torch.nn.functional", extra="torch", purpose="TorchvisionMultilayerExtractor")
-        T = require(
+        f = require("torch.nn.functional", extra="torch", purpose="TorchvisionMultilayerExtractor")
+        t = require(
             "torchvision.transforms", extra="torch", purpose="TorchvisionMultilayerExtractor"
         )
         fe = require(
@@ -79,11 +79,11 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
         else:
             mean = (0.485, 0.456, 0.406)
             std = (0.229, 0.224, 0.225)
-            transform = T.Compose(
+            transform = t.Compose(
                 [
-                    T.Resize((int(self.image_size), int(self.image_size))),
-                    T.ToTensor(),
-                    T.Normalize(mean=mean, std=std),
+                    t.Resize((int(self.image_size), int(self.image_size))),
+                    t.ToTensor(),
+                    t.Normalize(mean=mean, std=std),
                 ]
             )
 
@@ -91,7 +91,7 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
         self._transform = transform
         self._device = dev
         self._torch = torch
-        self._F = F
+        self._F = f
         self._nodes = nodes
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
@@ -106,7 +106,7 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
         assert self._torch is not None
 
         torch = self._torch
-        F = self._F
+        f = self._F
         nodes = self._nodes
 
         bs = max(1, int(self.batch_size))
@@ -126,7 +126,7 @@ class TorchvisionMultiLayerExtractor(BaseFeatureExtractor):
                 for n in nodes:
                     feat = out[n]
                     if feat.ndim == 4:
-                        feat = F.adaptive_avg_pool2d(feat, output_size=(1, 1))
+                        feat = f.adaptive_avg_pool2d(feat, output_size=(1, 1))
                         feat = torch.flatten(feat, start_dim=1)
                     elif feat.ndim > 2:
                         feat = torch.flatten(feat, start_dim=1)

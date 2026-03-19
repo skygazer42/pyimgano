@@ -24,12 +24,12 @@ def test_run_workbench_rejects_pixel_map_only_features_on_non_pixel_map_model(tm
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001 - test stub
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001 - test stub
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001 - test stub
-            items = list(X)
+        def decision_function(self, x):  # noqa: ANN001 - test stub
+            items = list(x)
             return np.zeros(len(items), dtype=np.float32)
 
     MODEL_REGISTRY.register(

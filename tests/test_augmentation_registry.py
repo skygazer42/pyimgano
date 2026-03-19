@@ -27,10 +27,18 @@ def test_color_jitter_pipeline_numpy_output():
     assert result.shape == (32, 32, 3)
 
 
+def test_random_rotation_pipeline_executes_without_name_error():
+    pipeline = build_augmentation_pipeline(["random_rotation"], return_type="numpy")
+    image = np.full((32, 32, 3), 128, dtype=np.uint8)
+    result = pipeline(image)
+    assert isinstance(result, np.ndarray)
+    assert result.shape == image.shape
+
+
 def test_mixup_cutmix_helpers():
     from pyimgano.utils.augmentation import cutmix_batch, mixup_batch
 
-    images = np.random.default_rng(0).random((4, 3, 16, 16)).astype(np.float32)
+    images = np.random.default_rng(0).random((4, 3, 16, 16), dtype=np.float32)
     labels = np.eye(4).astype(np.float32)
 
     mixed_images, mixed_labels, lam = mixup_batch(images, labels, alpha=0.4)

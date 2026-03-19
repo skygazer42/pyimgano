@@ -59,9 +59,10 @@ class CoreDBSCAN:
         self.decision_scores_: np.ndarray | None = None
         self._fitted: bool = False
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n = int(x.shape[0])
         if n == 0:
             raise ValueError("Training set cannot be empty")
         if self.eps <= 0.0:
@@ -69,7 +70,7 @@ class CoreDBSCAN:
         if self.min_samples < 1:
             raise ValueError("min_samples must be >= 1")
 
-        x_proc = X
+        x_proc = x
         if self.preprocessing:
             self.scaler_ = StandardScaler()
             x_proc = self.scaler_.fit_transform(x_proc)
@@ -98,7 +99,7 @@ class CoreDBSCAN:
 
         # Training scores: distance to nearest core sample.
         self._fitted = True
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
 
         # If DBSCAN labeled points as noise, boost their score slightly to reflect
         # the clustering outcome while keeping a continuous value.
@@ -108,15 +109,15 @@ class CoreDBSCAN:
 
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         if not bool(getattr(self, "_fitted", False)):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self.core_samples_ is None:
-            return np.ones((X.shape[0],), dtype=np.float64)
+            return np.ones((x.shape[0],), dtype=np.float64)
 
-        x_proc = X
+        x_proc = x
         if self.preprocessing:
             if self.scaler_ is None:
                 raise RuntimeError("Internal error: missing scaler")
@@ -135,7 +136,7 @@ class CoreDBSCAN:
     metadata={
         "description": "Core DBSCAN-inspired distance-to-core-set detector on feature matrices",
         "input": "features",
-        "paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "paper": "a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
         "year": 1996,
     },
 )
@@ -173,7 +174,7 @@ class CoreDBSCANModel(CoreFeatureDetector):
     tags=("vision", "classical", "clustering", "dbscan", "density"),
     metadata={
         "description": "Vision wrapper for DBSCAN-inspired distance-to-core-set baseline",
-        "paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "paper": "a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
         "year": 1996,
     },
 )
@@ -204,11 +205,11 @@ class VisionDBSCAN(BaseVisionDetector):
     def _build_detector(self):
         return CoreDBSCAN(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)
 
 
 @register_model(
@@ -217,7 +218,7 @@ class VisionDBSCAN(BaseVisionDetector):
     metadata={
         "description": "Structural-features DBSCAN-inspired anomaly baseline (modernized)",
         "legacy_name": True,
-        "paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "paper": "a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
         "year": 1996,
     },
     overwrite=True,

@@ -7,15 +7,16 @@ from pyimgano.robustness.benchmark import run_robustness_benchmark
 
 
 class _DummyMapDetector:
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
+        del x, y
         return self
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x):
+        items = list(x)
         return np.array([float(np.max(np.asarray(x))) for x in items], dtype=np.float64)
 
-    def predict_anomaly_map(self, X):
-        items = list(X)
+    def predict_anomaly_map(self, x):
+        items = list(x)
         maps = [np.asarray(x)[..., 0].astype(np.float32) for x in items]
         return np.stack(maps, axis=0)
 
@@ -67,13 +68,13 @@ def test_run_robustness_benchmark_schema_and_metrics() -> None:
     assert "identity" in report["corruptions"]
 
     clean_metrics = report["clean"]["results"]["pixel_metrics"]
-    assert clean_metrics["pixel_segf1"] == pytest.approx(1.0)
-    assert clean_metrics["bg_fpr"] == pytest.approx(0.0)
+    assert np.isclose(clean_metrics["pixel_segf1"], 1.0)
+    assert np.isclose(clean_metrics["bg_fpr"], 0.0)
 
     sev1 = report["corruptions"]["identity"]["severity_1"]["results"]["pixel_metrics"]
     sev3 = report["corruptions"]["identity"]["severity_3"]["results"]["pixel_metrics"]
-    assert sev1["pixel_segf1"] == pytest.approx(1.0)
-    assert sev3["pixel_segf1"] == pytest.approx(1.0)
+    assert np.isclose(sev1["pixel_segf1"], 1.0)
+    assert np.isclose(sev3["pixel_segf1"], 1.0)
 
 
 def test_run_robustness_benchmark_can_load_paths_for_corruptions(tmp_path) -> None:

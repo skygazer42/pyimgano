@@ -7,79 +7,63 @@ import numpy as np
 from pyimgano.models.protocols import normalize_anomaly_maps, normalize_scores
 
 
-def _stack_numpy_inputs(inputs: Sequence[Any]) -> np.ndarray:
-    return np.stack([np.asarray(x) for x in inputs], axis=0)
-
-
-def _call_decision_function_best_effort(detector: Any, inputs: Sequence[Any]) -> Any:
+def _stack_numpy_inputs(inputs: Sequence[Any]) -> np.ndarray | None:
+    if not inputs or not isinstance(inputs[0], np.ndarray):
+        return None
     try:
-        return detector.decision_function(inputs)
-    except Exception as exc:
-        if inputs and isinstance(inputs[0], np.ndarray):
-            try:
-                batch = _stack_numpy_inputs(inputs)
-            except Exception:
-                raise exc
-            try:
-                return detector.decision_function(batch)
-            except Exception:
-                raise exc
-        raise
-
-
-def _predict_maps_best_effort(detector: Any, inputs: Sequence[Any]) -> Any | None:
-    try:
-        return detector.predict_anomaly_map(inputs)
+        return np.stack([np.asarray(x) for x in inputs], axis=0)
     except Exception:
-        if inputs and isinstance(inputs[0], np.ndarray):
-            try:
-                batch = _stack_numpy_inputs(inputs)
-            except Exception:
-                return None
-            try:
-                return detector.predict_anomaly_map(batch)
-            except Exception:
-                return None
         return None
 
 
-def _coerce_map_batch(
+def _call_with_numpy_batch_fallback(callable_obj: Any, inputs: Sequence[Any]) -> Any:
+    try:
+        return callable_obj(inputs)
+    except Exception as exc:
+        batch = _stack_numpy_inputs(inputs)
+        if batch is None:
+            raise
+        try:
+            return callable_obj(batch)
+        except Exception:
+            raise exc
+
+
+def _call_decision_function_best_effort(detector: Any, inputs: Sequence[Any]) -> Any:
+    return _call_with_numpy_batch_fallback(detector.decision_function, inputs)
+
+
+def _normalize_extracted_maps(
     maps: Any,
     *,
     n_expected: int,
 ) -> list[np.ndarray | None] | None:
-    if maps is None:
+    try:
+        normalized = normalize_anomaly_maps(maps, n_expected=n_expected)
+    except Exception:
         return None
-    arr = np.asarray(maps)
-    if arr.ndim == 3 and arr.shape[0] == n_expected:
-        return [np.asarray(arr[i], dtype=np.float32) for i in range(arr.shape[0])]
-    return None
-
-
-def _extract_maps_with_single_item_api(
-    detector: Any,
-    inputs: Sequence[Any],
-) -> list[np.ndarray | None] | None:
-    out: list[np.ndarray | None] = []
-    for item in inputs:
-        try:
-            out.append(np.asarray(detector.get_anomaly_map(item), dtype=np.float32))
-        except Exception:
-            out.append(None)
-    if any(m is not None for m in out):
-        return out
-    return None
+    return [np.asarray(normalized[i], dtype=np.float32) for i in range(normalized.shape[0])]
 
 
 def extract_maps_best_effort(detector: Any, inputs: Sequence[Any]) -> list[np.ndarray | None] | None:
     if hasattr(detector, "predict_anomaly_map"):
-        maps = _predict_maps_best_effort(detector, inputs)
-        coerced = _coerce_map_batch(maps, n_expected=len(inputs))
-        if coerced is not None:
-            return coerced
+        try:
+            maps = _call_with_numpy_batch_fallback(detector.predict_anomaly_map, inputs)
+        except Exception:
+            maps = None
+        normalized = _normalize_extracted_maps(maps, n_expected=len(inputs))
+        if normalized is not None:
+            return normalized
 
     if hasattr(detector, "get_anomaly_map"):
-        return _extract_maps_with_single_item_api(detector, inputs)
+        out: list[np.ndarray | None] = []
+        for item in inputs:
+            try:
+                out.append(np.asarray(detector.get_anomaly_map(item), dtype=np.float32))
+            except Exception:
+                out.append(None)
+        if any(m is not None for m in out):
+            return out
 
     return None
 

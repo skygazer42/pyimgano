@@ -9,7 +9,7 @@ Uses realistic synthetic anomalies and feature selection mechanisms to improve
 anomaly detection performance and generalization.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from torch.utils.data import DataLoader, TensorDataset
 
-from ..utils.random_state import check_random_state
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -103,14 +103,14 @@ class AnomalyGenerator:
 
     def __init__(
         self,
-        anomaly_types: list | None = None,
-        random_state: int | np.random.Generator | None = None,
+        anomaly_types: Optional[list] = None,
+        random_state: Optional[int] = None,
     ):
         if anomaly_types is None:
             self.anomaly_types = ["perlin_noise", "cutpaste", "texture", "intensity", "blur"]
         else:
             self.anomaly_types = anomaly_types
-        self.rng = check_random_state(random_state)
+        self.rng = np.random.default_rng(random_state)
 
     def generate_anomaly(
         self, image: torch.Tensor, anomaly_type: Optional[str] = None
@@ -132,50 +132,51 @@ class AnomalyGenerator:
         mask : torch.Tensor
             Binary mask of anomaly region
         """
+        rng = self.rng
         if anomaly_type is None:
-            anomaly_type = str(self.rng.choice(self.anomaly_types))
+            anomaly_type = rng.choice(self.anomaly_types)
 
-        C, H, W = image.shape
+        c, h, w = image.shape
         anomalous_image = image.clone()
-        mask = torch.zeros(1, H, W, device=image.device)
+        mask = torch.zeros(1, h, w, device=image.device)
 
         # Random anomaly region
-        h_size = int(self.rng.integers(H // 8, H // 3))
-        w_size = int(self.rng.integers(W // 8, W // 3))
-        y = int(self.rng.integers(0, H - h_size))
-        x = int(self.rng.integers(0, W - w_size))
+        h_size = int(rng.integers(h // 8, h // 3))
+        w_size = int(rng.integers(w // 8, w // 3))
+        y = int(rng.integers(0, h - h_size))
+        x = int(rng.integers(0, w - w_size))
 
         if anomaly_type == "perlin_noise":
             # Perlin-like noise using multiple octaves
             noise = self._generate_perlin_noise((h_size, w_size))
             noise_tensor = torch.from_numpy(noise).float().to(image.device)
-            noise_tensor = noise_tensor.unsqueeze(0).expand(C, -1, -1)
+            noise_tensor = noise_tensor.unsqueeze(0).expand(c, -1, -1)
             anomalous_image[:, y : y + h_size, x : x + w_size] += noise_tensor * 0.5
 
         elif anomaly_type == "cutpaste":
             # Cut and paste from different location
-            src_y = int(self.rng.integers(0, H - h_size))
-            src_x = int(self.rng.integers(0, W - w_size))
+            src_y = int(rng.integers(0, h - h_size))
+            src_x = int(rng.integers(0, w - w_size))
             patch = image[:, src_y : src_y + h_size, src_x : src_x + w_size].clone()
             # Apply random rotation
-            angle = float(self.rng.uniform(-30, 30))
+            angle = float(rng.uniform(-30, 30))
             patch = self._rotate_patch(patch, angle)
             anomalous_image[:, y : y + h_size, x : x + w_size] = patch
 
         elif anomaly_type == "texture":
             # Random texture from uniform distribution
-            texture = torch.rand(C, h_size, w_size, device=image.device) * 2 - 1
+            texture = torch.rand(c, h_size, w_size, device=image.device) * 2 - 1
             anomalous_image[:, y : y + h_size, x : x + w_size] += texture * 0.3
 
         elif anomaly_type == "intensity":
             # Intensity change
-            factor = float(self.rng.uniform(0.3, 2.0))
+            factor = float(rng.uniform(0.3, 2.0))
             anomalous_image[:, y : y + h_size, x : x + w_size] *= factor
 
         elif anomaly_type == "blur":
             # Gaussian blur
             region = anomalous_image[:, y : y + h_size, x : x + w_size].cpu().numpy()
-            for c in range(C):
+            for c in range(c):
                 region[c] = gaussian_filter(region[c], sigma=3)
             anomalous_image[:, y : y + h_size, x : x + w_size] = torch.from_numpy(region).to(
                 image.device
@@ -260,8 +261,9 @@ class VisionRealNet(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(100, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((100, 224, 224, 3), dtype=np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3), dtype=np.float32)
     >>>
     >>> # Create and train detector
     >>> detector = VisionRealNet(epochs=30)
@@ -280,10 +282,10 @@ class VisionRealNet(BaseVisionDeepDetector):
         epochs: int = 40,
         anomaly_ratio: float = 0.5,
         device: str = "cuda",
-        random_state: Optional[int | np.random.Generator] = None,
+        random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.reduction = reduction
         self.learning_rate = learning_rate
@@ -292,29 +294,33 @@ class VisionRealNet(BaseVisionDeepDetector):
         self.anomaly_ratio = anomaly_ratio
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
-        self.rng = check_random_state(random_state)
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.feature_selectors_ = None
-        self.anomaly_generator_ = AnomalyGenerator(random_state=self.rng)
+        self.anomaly_generator_ = AnomalyGenerator(random_state=random_state)
         self.normal_features_ = []
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionRealNet":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionRealNet":
         """
         Fit the RealNet detector.
 
@@ -330,8 +336,10 @@ class VisionRealNet(BaseVisionDeepDetector):
         self : VisionRealNet
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -352,11 +360,7 @@ class VisionRealNet(BaseVisionDeepDetector):
         dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.feature_selectors_.parameters(),
-            lr=self.learning_rate,
-            weight_decay=0.0,
-        )
+        optimizer = torch.optim.Adam(self.feature_selectors_.parameters(), lr=self.learning_rate, weight_decay=0.0)
         criterion = nn.BCEWithLogitsLoss()
 
         self.feature_selectors_.train()
@@ -366,11 +370,11 @@ class VisionRealNet(BaseVisionDeepDetector):
 
             for (batch_images,) in dataloader:
                 batch_images = batch_images.to(self.device)
-                B = len(batch_images)
+                b = len(batch_images)
 
                 # Create mixed batch with synthetic anomalies
-                n_anomaly = int(B * self.anomaly_ratio)
-                labels = torch.zeros(B, device=self.device)
+                n_anomaly = int(b * self.anomaly_ratio)
+                labels = torch.zeros(b, device=self.device)
 
                 if n_anomaly > 0:
                     for i in range(n_anomaly):
@@ -433,7 +437,12 @@ class VisionRealNet(BaseVisionDeepDetector):
         for i in range(3):
             self.normal_features_[i] = torch.cat(self.normal_features_[i], dim=0)
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -451,10 +460,11 @@ class VisionRealNet(BaseVisionDeepDetector):
             raise NotImplementedError(
                 f"return_confidence is not implemented for {self.__class__.__name__}"
             )
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
 
         self.feature_selectors_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -484,10 +494,16 @@ class VisionRealNet(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
         if batch_size is None:
-            return self.predict(X)
+            return self.predict(x_array)
 
         batch_size_int = int(batch_size)
         if batch_size_int <= 0:
@@ -496,6 +512,6 @@ class VisionRealNet(BaseVisionDeepDetector):
         old_batch_size = self.batch_size
         try:
             self.batch_size = batch_size_int
-            return self.predict(X)
+            return self.predict(x_array)
         finally:
             self.batch_size = old_batch_size

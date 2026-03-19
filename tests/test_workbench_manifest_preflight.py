@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import math
 import json
+import math
 from pathlib import Path
 
 from pyimgano.workbench.config import WorkbenchConfig
@@ -180,6 +180,7 @@ def test_run_manifest_preflight_uses_category_batch_boundary(
         issues,
         issue_builder,
     ):
+        del issues, issue_builder
         calls.append(
             {
                 "categories": list(categories),
@@ -257,6 +258,7 @@ def test_run_manifest_preflight_uses_record_preflight_boundary(
     calls: list[str] = []
 
     def _fake_resolve_manifest_preflight_records(*, manifest_path, issues, issue_builder):  # noqa: ANN001
+        del issues, issue_builder
         calls.append(str(manifest_path))
         return {
             "records": [],

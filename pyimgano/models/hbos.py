@@ -74,36 +74,37 @@ class CoreHBOS:
         log_prob = -np.log(np.clip(probs, self.eps, 1.0))
         return edges.astype(np.float64, copy=False), log_prob.astype(np.float64, copy=False)
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[0] == 0:
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[0] == 0:
             raise ValueError("Training set cannot be empty")
 
-        self.n_features_in_ = int(X.shape[1])
+        self.n_features_in_ = int(x.shape[1])
         self._bin_edges = []
         self._bin_log_prob = []
         for j in range(self.n_features_in_):
-            edges, log_prob = self._fit_feature(X[:, j])
+            edges, log_prob = self._fit_feature(x[:, j])
             self._bin_edges.append(edges)
             self._bin_log_prob.append(log_prob)
 
-        self.decision_scores_ = np.asarray(self.decision_function(X), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._bin_edges is None or self._bin_log_prob is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(f"Expected {self.n_features_in_} features, got {X.shape[1]}")
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[1] != self.n_features_in_:
+            raise ValueError(f"Expected {self.n_features_in_} features, got {x.shape[1]}")
 
-        scores = np.zeros((X.shape[0],), dtype=np.float64)
+        scores = np.zeros((x.shape[0],), dtype=np.float64)
         for j in range(self.n_features_in_):
             edges = self._bin_edges[j]
             log_prob = self._bin_log_prob[j]
             # Map each value to a histogram bin index.
-            idx = np.searchsorted(edges, X[:, j], side="right") - 1
+            idx = np.searchsorted(edges, x[:, j], side="right") - 1
             idx = np.clip(idx, 0, log_prob.shape[0] - 1)
             scores += log_prob[idx]
         return scores.ravel()
@@ -178,8 +179,8 @@ class VisionHBOS(BaseVisionDetector):
     def _build_detector(self):
         return CoreHBOS(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

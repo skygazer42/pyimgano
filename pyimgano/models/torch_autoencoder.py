@@ -91,12 +91,13 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
             raise RuntimeError("device='cuda' requested but CUDA is not available")
         return torch.device(dev)
 
-    def _set_seed(self) -> None:
+    def _set_seed(self) -> int | None:
         if self.random_state is None:
-            return
+            return None
         torch = _require_torch()
         seed = int(self.random_state)
         torch.manual_seed(seed)
+        return seed
 
     def _build_model(self, n_features: int):
         _require_torch()
@@ -134,21 +135,21 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         return _AE()
 
     # ------------------------------------------------------------------
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
         del y
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
-        n, d = int(x_array.shape[0]), int(x_array.shape[1])
+        x_np = check_array(x, ensure_2d=True, dtype=np.float64)
+        n, d = int(x_np.shape[0]), int(x_np.shape[1])
         if n == 0:
             raise ValueError("Training set cannot be empty")
         self.n_features_in_ = int(d)
 
         if self.preprocessing:
             self.scaler_ = StandardScaler()
-            x_train = self.scaler_.fit_transform(x_array)
+            x_train = self.scaler_.fit_transform(x_np)
         else:
-            x_train = x_array
+            x_train = x_np
 
-        self._set_seed()
+        seed = self._set_seed()
         torch = _require_torch()
         import torch.nn.functional as F
         from torch.utils.data import DataLoader, TensorDataset
@@ -160,7 +161,17 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         x_t = torch.as_tensor(x_train, dtype=torch.float32)
         ds = TensorDataset(x_t)
         bs = max(1, int(self.batch_size))
-        loader = DataLoader(ds, batch_size=bs, shuffle=True, num_workers=0)
+        loader_generator = None
+        if seed is not None:
+            loader_generator = torch.Generator()
+            loader_generator.manual_seed(int(seed))
+        loader = DataLoader(
+            ds,
+            batch_size=bs,
+            shuffle=True,
+            num_workers=0,
+            generator=loader_generator,
+        )
 
         opt = torch.optim.Adam(
             model.parameters(), lr=float(self.lr), weight_decay=float(self.weight_decay)
@@ -177,23 +188,23 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
                 opt.step()
 
         self.model_ = model.eval()
-        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64).reshape(
+        self.decision_scores_ = np.asarray(self.decision_function(x_np), dtype=np.float64).reshape(
             -1
         )
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         if self.model_ is None or self.n_features_in_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
-        if int(x_array.shape[1]) != int(self.n_features_in_):
-            raise ValueError(f"Expected {self.n_features_in_} features, got {x_array.shape[1]}")
+        x_np = check_array(x, ensure_2d=True, dtype=np.float64)
+        if int(x_np.shape[1]) != int(self.n_features_in_):
+            raise ValueError(f"Expected {self.n_features_in_} features, got {x_np.shape[1]}")
 
         if self.preprocessing and self.scaler_ is not None:
-            x_eval = self.scaler_.transform(x_array)
+            x_eval = self.scaler_.transform(x_np)
         else:
-            x_eval = x_array
+            x_eval = x_np
 
         torch = _require_torch()
         import torch.nn.functional as F
@@ -296,11 +307,11 @@ class VisionTorchAutoencoder(BaseVisionDetector):
     def _build_detector(self):
         return _MLPAutoencoder(**self._detector_kwargs)
 
-    def fit(self, X: Iterable, y=None):  # noqa: ANN001, ANN201
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable, y=None):  # noqa: ANN001, ANN201
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
-        return super().decision_function(X)
+    def decision_function(self, x):  # noqa: ANN001, ANN201
+        return super().decision_function(x)
 
 
 @register_model(

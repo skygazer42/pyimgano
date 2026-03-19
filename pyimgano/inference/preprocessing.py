@@ -37,7 +37,7 @@ def _load_rgb_u8_hwc_from_path(
         img = Image.open(str(path)).convert("RGB")
         arr = np.asarray(img, dtype=np.uint8)
         if arr.ndim != 3 or arr.shape[2] != 3:
-            raise ValueError(f"Expected RGB image shape (H,W,3), got {arr.shape} for {path}")
+            raise ValueError(f"Expected RGB image shape (h,w,3), got {arr.shape} for {path}")
         return np.ascontiguousarray(arr)
 
 
@@ -185,7 +185,7 @@ class PreprocessingDetector:
             if arr.dtype != np.uint8:
                 raise TypeError(f"Expected uint8 numpy image input, got dtype={arr.dtype}")
             if arr.ndim != 3 or arr.shape[2] != 3:
-                raise ValueError(f"Expected image shape (H,W,3), got {arr.shape}")
+                raise ValueError(f"Expected image shape (h,w,3), got {arr.shape}")
             arr = np.ascontiguousarray(arr)
 
         knobs = self.illumination_contrast
@@ -193,11 +193,11 @@ class PreprocessingDetector:
             arr = np.asarray(apply_illumination_contrast(arr, knobs=knobs), dtype=np.uint8)
         return arr
 
-    def _preprocess_batch(self, X: Iterable[ImageInput]) -> list[NDArray[np.uint8]]:
-        return [self._preprocess_item(item) for item in X]
+    def _preprocess_batch(self, x: Iterable[ImageInput]) -> list[NDArray[np.uint8]]:
+        return [self._preprocess_item(item) for item in x]
 
-    def fit(self, X, y=None, **kwargs):  # noqa: ANN001 - sklearn-style boundary
-        batch = self._preprocess_batch(X)
+    def fit(self, x, y=None, **kwargs):  # noqa: ANN001 - sklearn-style boundary
+        batch = self._preprocess_batch(x)
         try:
             return self.detector.fit(batch, y=y, **kwargs)
         except TypeError:
@@ -213,14 +213,14 @@ class PreprocessingDetector:
                 raise exc
             return self.detector.decision_function(stacked)
 
-    def decision_function(self, X: Iterable[ImageInput]):  # noqa: ANN001 - sklearn-style boundary
-        batch = self._preprocess_batch(X)
+    def decision_function(self, x: Iterable[ImageInput]):  # noqa: ANN001 - sklearn-style boundary
+        batch = self._preprocess_batch(x)
         return self._call_decision_function(batch)
 
-    def predict_anomaly_map(self, X: Iterable[ImageInput]):  # noqa: ANN001 - optional protocol
+    def predict_anomaly_map(self, x: Iterable[ImageInput]):  # noqa: ANN001 - optional protocol
         if not hasattr(self.detector, "predict_anomaly_map"):
             raise AttributeError("Underlying detector has no predict_anomaly_map")
-        batch = self._preprocess_batch(X)
+        batch = self._preprocess_batch(x)
         try:
             return self.detector.predict_anomaly_map(batch)
         except Exception as exc:

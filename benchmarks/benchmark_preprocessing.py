@@ -17,17 +17,21 @@ import os
 import sys
 import time
 import warnings
-from typing import List
+from typing import Dict, List
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+
+PROCESSING_TIME_MS_LABEL = "Processing Time (ms)"
+
 
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pyimgano.preprocessing import (
     AdvancedImageEnhancer,
+    AugmentationPipeline,
     ImageEnhancer,
     get_heavy_augmentation,
     get_light_augmentation,
@@ -35,8 +39,6 @@ from pyimgano.preprocessing import (
 )
 
 warnings.filterwarnings("ignore")
-
-_PROCESSING_TIME_MS = "Processing Time (ms)"
 
 
 class BenchmarkResult:
@@ -304,7 +306,7 @@ def plot_benchmark_results(
         names = [r.operation_name for r in basic_valid]
         times = [r.avg_time * 1000 for r in basic_valid]
         axes[0].barh(names, times, color="skyblue")
-        axes[0].set_xlabel(_PROCESSING_TIME_MS)
+        axes[0].set_xlabel(PROCESSING_TIME_MS_LABEL)
         axes[0].set_title("Basic Preprocessing")
         axes[0].grid(axis="x", alpha=0.3)
 
@@ -313,7 +315,7 @@ def plot_benchmark_results(
         names = [r.operation_name for r in advanced_valid]
         times = [r.avg_time * 1000 for r in advanced_valid]
         axes[1].barh(names, times, color="lightgreen")
-        axes[1].set_xlabel(_PROCESSING_TIME_MS)
+        axes[1].set_xlabel(PROCESSING_TIME_MS_LABEL)
         axes[1].set_title("Advanced Operations")
         axes[1].grid(axis="x", alpha=0.3)
 
@@ -322,7 +324,7 @@ def plot_benchmark_results(
         names = [r.operation_name for r in aug_valid]
         times = [r.avg_time * 1000 for r in aug_valid]
         axes[2].barh(names, times, color="lightcoral")
-        axes[2].set_xlabel(_PROCESSING_TIME_MS)
+        axes[2].set_xlabel(PROCESSING_TIME_MS_LABEL)
         axes[2].set_title("Augmentation Pipelines")
         axes[2].grid(axis="x", alpha=0.3)
 

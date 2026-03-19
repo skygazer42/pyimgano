@@ -14,9 +14,9 @@ class MockFeatureExtractor:
     def __init__(self, n_features=50):
         self.n_features = n_features
 
-    def extract(self, X):
+    def extract(self, x):
         """Return mock features."""
-        n_samples = len(list(X)) if hasattr(X, "__len__") else 10
+        n_samples = len(list(x)) if hasattr(x, "__len__") else 10
         rng = np.random.default_rng(42)
         return rng.random((n_samples, self.n_features))
 

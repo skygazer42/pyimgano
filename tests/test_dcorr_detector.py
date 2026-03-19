@@ -6,12 +6,12 @@ def test_core_dcorr_fit_predict_smoke() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(60, 6))
+    x = rng.normal(size=(60, 6))
 
     det = create_model("core_dcorr", contamination=0.1, n_projections=3, random_state=0)
-    det.fit(X)
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)
@@ -25,7 +25,7 @@ def test_vision_dcorr_with_identity_extractor() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(1)
-    X = rng.normal(size=(50, 4))
+    x = rng.normal(size=(50, 4))
     det = create_model(
         "vision_dcorr",
         feature_extractor=IdentityExtractor(),
@@ -33,7 +33,7 @@ def test_vision_dcorr_with_identity_extractor() -> None:
         n_projections=2,
         random_state=1,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:7])
+    det.fit(x)
+    scores = det.decision_function(x[:7])
     assert scores.shape == (7,)
     assert np.all(np.isfinite(scores))

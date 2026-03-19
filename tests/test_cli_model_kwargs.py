@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 
@@ -111,7 +113,7 @@ def test_build_model_kwargs_does_not_override_user_values():
         auto_kwargs={"device": "cuda", "contamination": 0.1},
     )
     assert out["device"] == "cpu"
-    assert out["contamination"] == pytest.approx(0.1)
+    assert math.isclose(out["contamination"], 0.1)
 
 
 def test_cli_build_model_kwargs_delegates_to_cli_common(monkeypatch):
@@ -179,7 +181,7 @@ def test_cli_filters_auto_kwargs_for_strict_models(monkeypatch):
     model_kwargs = captured["model_kwargs"]
     assert "device" not in model_kwargs
     assert "pretrained" not in model_kwargs
-    assert model_kwargs["contamination"] == pytest.approx(0.2)
+    assert math.isclose(model_kwargs["contamination"], 0.2)
 
 
 def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
@@ -220,7 +222,7 @@ def test_cli_merges_checkpoint_path_for_anomalib_models(monkeypatch):
     model_kwargs = captured["model_kwargs"]
     assert model_kwargs["checkpoint_path"] == "/x.ckpt"
     assert model_kwargs["device"] == "cpu"
-    assert model_kwargs["contamination"] == pytest.approx(0.2)
+    assert math.isclose(model_kwargs["contamination"], 0.2)
     # The checkpoint wrapper doesn't accept `pretrained`, so the CLI should not pass it.
     assert "pretrained" not in model_kwargs
 
@@ -229,76 +231,90 @@ def test_cli_parser_accepts_preset_industrial_balanced():
     import pyimgano.cli as cli
 
     parser = cli._build_parser()
-    parser.parse_args(
-        [
-            "--dataset",
-            "mvtec",
-            "--root",
-            "/tmp",
-            "--category",
-            "bottle",
-            "--preset",
-            "industrial-balanced",
-        ]
-    )
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--preset",
+                "industrial-balanced",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
 
 
 def test_cli_parser_accepts_preset_industrial_fast():
     import pyimgano.cli as cli
 
     parser = cli._build_parser()
-    parser.parse_args(
-        [
-            "--dataset",
-            "mvtec",
-            "--root",
-            "/tmp",
-            "--category",
-            "bottle",
-            "--preset",
-            "industrial-fast",
-        ]
-    )
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--preset",
+                "industrial-fast",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
 
 
 def test_cli_parser_accepts_preset_industrial_accurate():
     import pyimgano.cli as cli
 
     parser = cli._build_parser()
-    parser.parse_args(
-        [
-            "--dataset",
-            "mvtec",
-            "--root",
-            "/tmp",
-            "--category",
-            "bottle",
-            "--preset",
-            "industrial-accurate",
-        ]
-    )
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--preset",
+                "industrial-accurate",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(f"parser should accept --preset, got SystemExit({exc.code})") from exc
 
 
 def test_cli_parser_accepts_pixel_segf1_threshold_strategy():
     import pyimgano.cli as cli
 
     parser = cli._build_parser()
-    parser.parse_args(
-        [
-            "--dataset",
-            "mvtec",
-            "--root",
-            "/tmp",
-            "--category",
-            "bottle",
-            "--pixel",
-            "--pixel-segf1",
-            "--pixel-threshold-strategy",
-            "normal_pixel_quantile",
-            "--pixel-normal-quantile",
-            "0.999",
-        ]
-    )
+    try:
+        parser.parse_args(
+            [
+                "--dataset",
+                "mvtec",
+                "--root",
+                "/tmp",
+                "--category",
+                "bottle",
+                "--pixel",
+                "--pixel-segf1",
+                "--pixel-threshold-strategy",
+                "normal_pixel_quantile",
+                "--pixel-normal-quantile",
+                "0.999",
+            ]
+        )
+    except SystemExit as exc:
+        raise AssertionError(
+            f"parser should accept segf1/threshold flags, got SystemExit({exc.code})"
+        ) from exc
 
 
 def test_resolve_preset_kwargs_patchcore_prefers_sklearn_when_no_faiss(monkeypatch):
@@ -327,7 +343,7 @@ def test_build_model_kwargs_user_overrides_preset_values():
         preset_kwargs={"coreset_sampling_ratio": 0.05, "n_neighbors": 5},
         auto_kwargs={"device": "cpu"},
     )
-    assert out["coreset_sampling_ratio"] == pytest.approx(0.2)
+    assert math.isclose(out["coreset_sampling_ratio"], 0.2)
     assert out["n_neighbors"] == 5
     assert out["device"] == "cpu"
 
@@ -368,7 +384,7 @@ def test_cli_applies_preset_for_patchcore(monkeypatch):
     assert captured["model"] == "vision_patchcore"
     model_kwargs = captured["model_kwargs"]
     assert model_kwargs["backbone"] == "resnet50"
-    assert model_kwargs["coreset_sampling_ratio"] == pytest.approx(0.05)
+    assert math.isclose(model_kwargs["coreset_sampling_ratio"], 0.05)
     assert model_kwargs["knn_backend"] == "sklearn"
 
 
@@ -378,7 +394,7 @@ def test_resolve_preset_kwargs_anomalydino_includes_balanced_defaults(monkeypatc
     monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_anomalydino")
     assert kwargs["knn_backend"] == "sklearn"
-    assert kwargs["coreset_sampling_ratio"] == pytest.approx(0.2)
+    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.2)
     assert kwargs["image_size"] == 448
 
 
@@ -388,8 +404,8 @@ def test_resolve_preset_kwargs_softpatch_includes_robust_defaults(monkeypatch):
     monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_softpatch")
     assert kwargs["knn_backend"] == "faiss"
-    assert kwargs["coreset_sampling_ratio"] == pytest.approx(0.2)
-    assert kwargs["train_patch_outlier_quantile"] == pytest.approx(0.1)
+    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.2)
+    assert math.isclose(kwargs["train_patch_outlier_quantile"], 0.1)
     assert kwargs["image_size"] == 448
 
 
@@ -443,7 +459,7 @@ def test_resolve_preset_kwargs_spade_includes_balanced_defaults():
     assert kwargs["backbone"] == "resnet50"
     assert kwargs["image_size"] == 256
     assert kwargs["k_neighbors"] == 50
-    assert kwargs["gaussian_sigma"] == pytest.approx(4.0)
+    assert math.isclose(kwargs["gaussian_sigma"], 4.0)
 
 
 def test_resolve_preset_kwargs_reverse_dist_alias_matches_reverse_distillation():
@@ -460,7 +476,7 @@ def test_resolve_preset_kwargs_fast_patchcore_includes_speed_defaults(monkeypatc
     monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-fast", "vision_patchcore")
     assert kwargs["backbone"] == "resnet50"
-    assert kwargs["coreset_sampling_ratio"] == pytest.approx(0.02)
+    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.02)
     assert kwargs["n_neighbors"] == 3
     assert kwargs["knn_backend"] == "sklearn"
 
@@ -471,7 +487,7 @@ def test_resolve_preset_kwargs_accurate_anomalydino_includes_accuracy_defaults(m
     monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-accurate", "vision_anomalydino")
     assert kwargs["knn_backend"] == "faiss"
-    assert kwargs["coreset_sampling_ratio"] == pytest.approx(0.5)
+    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.5)
     assert kwargs["image_size"] == 518
 
 

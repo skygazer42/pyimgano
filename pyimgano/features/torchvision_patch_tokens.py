@@ -52,7 +52,7 @@ class TorchvisionPatchTokensExtractor(BaseFeatureExtractor):
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="TorchvisionPatchTokensExtractor")
-        T = require(
+        t = require(
             "torchvision.transforms", extra="torch", purpose="TorchvisionPatchTokensExtractor"
         )
         fe = require(
@@ -76,11 +76,11 @@ class TorchvisionPatchTokensExtractor(BaseFeatureExtractor):
         else:
             mean = (0.485, 0.456, 0.406)
             std = (0.229, 0.224, 0.225)
-            transform = T.Compose(
+            transform = t.Compose(
                 [
-                    T.Resize((int(self.image_size), int(self.image_size))),
-                    T.ToTensor(),
-                    T.Normalize(mean=mean, std=std),
+                    t.Resize((int(self.image_size), int(self.image_size))),
+                    t.ToTensor(),
+                    t.Normalize(mean=mean, std=std),
                 ]
             )
 

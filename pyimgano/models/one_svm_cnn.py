@@ -10,7 +10,8 @@ from tqdm import tqdm
 
 from .registry import register_model
 
-CNN_FEATURE_EXTRACTION_PURPOSE = "one_class_cnn CNN feature extraction"
+ONE_CLASS_CNN_FEATURE_EXTRACTION = "one_class_cnn CNN feature extraction"
+
 
 
 @register_model(
@@ -19,13 +20,7 @@ CNN_FEATURE_EXTRACTION_PURPOSE = "one_class_cnn CNN feature extraction"
     metadata={"description": "基于多特征的一类 SVM 图像检测器"},
 )
 class ImageAnomalyDetector:
-    def __init__(
-        self,
-        feature_type="combined",
-        nu=0.05,
-        cnn_pretrained: bool = False,
-        random_state: int = 42,
-    ):
+    def __init__(self, feature_type="combined", nu=0.05, cnn_pretrained: bool = False):
         """
         初始化异常检测器
         feature_type: 'histogram', 'hog', 'combined', 'cnn'
@@ -33,10 +28,9 @@ class ImageAnomalyDetector:
         """
         self.feature_type = feature_type
         self.cnn_pretrained = bool(cnn_pretrained)
-        self.random_state = int(random_state)
         self.ocsvm = OneClassSVM(kernel="rbf", gamma="auto", nu=nu)
         self.scaler = StandardScaler()
-        self.pca = PCA(n_components=128, random_state=self.random_state)  # 降维到128维
+        self.pca = PCA(n_components=128, random_state=0)  # 降维到128维
         self.is_trained = False
 
     def extract_features(self, image_path):
@@ -119,12 +113,12 @@ class ImageAnomalyDetector:
         """使用预训练CNN提取特征（需要深度学习框架）"""
         from pyimgano.utils.optional_deps import require
 
-        torch = require("torch", extra="torch", purpose=CNN_FEATURE_EXTRACTION_PURPOSE)
+        torch = require("torch", extra="torch", purpose=ONE_CLASS_CNN_FEATURE_EXTRACTION)
         transforms = require(
-            "torchvision.transforms", extra="torch", purpose=CNN_FEATURE_EXTRACTION_PURPOSE
+            "torchvision.transforms", extra="torch", purpose=ONE_CLASS_CNN_FEATURE_EXTRACTION
         )
         models = require(
-            "torchvision.models", extra="torch", purpose=CNN_FEATURE_EXTRACTION_PURPOSE
+            "torchvision.models", extra="torch", purpose=ONE_CLASS_CNN_FEATURE_EXTRACTION
         )
 
         # 加载预训练模型
@@ -183,15 +177,15 @@ class ImageAnomalyDetector:
                 print(f"处理 {img_path} 时出错: {e}")
                 continue
 
-        X = np.array(features_list)
-        print(f"提取了 {X.shape[0]} 个样本的特征，每个样本 {X.shape[1]} 维")
+        x = np.array(features_list)
+        print(f"提取了 {x.shape[0]} 个样本的特征，每个样本 {x.shape[1]} 维")
 
         # 数据预处理
         print("标准化特征...")
-        x_scaled = self.scaler.fit_transform(X)
+        x_scaled = self.scaler.fit_transform(x)
 
         # PCA降维（可选，用于加速和去噪）
-        if X.shape[1] > 128:
+        if x.shape[1] > 128:
             print("PCA降维...")
             x_reduced = self.pca.fit_transform(x_scaled)
         else:

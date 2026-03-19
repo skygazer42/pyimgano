@@ -6,8 +6,8 @@ import numpy as np
 class _TupleOutputDetector:
     """Detector stub: decision_function returns (scores, maps)."""
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
-        items = list(X)
+    def decision_function(self, x):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             return np.zeros((0,), dtype=np.float32), np.zeros((0, 1, 1), dtype=np.float32)
 

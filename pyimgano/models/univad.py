@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .registry import register_model
 
 
@@ -99,8 +100,9 @@ class VisionUniVAD:
         layers = _extract_layers(self.feature_extractor, image)
         return _fuse_layers(layers, self.layer_weights)
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        items = list(cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("X must contain at least one support sample.")
         support_vectors = np.stack([self._vectorize(item) for item in items], axis=0)
@@ -111,15 +113,22 @@ class VisionUniVAD:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object):
+        items = list(
+            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = float(self.support_backend.score(self._vectorize(item)))
         return scores
 
-    def predict(self, X):
+    def predict(self, x: object = MISSING, **kwargs: object):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(
+            self.decision_function(
+                cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+            ),
+            dtype=np.float64,
+        )
         return (scores > float(self.threshold_)).astype(np.int64)

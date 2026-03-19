@@ -15,12 +15,12 @@ def test_workbench_runner_persists_seed_in_report_and_config(tmp_path):
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             if n == 0:
                 return np.asarray([], dtype=np.float32)
             return np.linspace(0.0, 1.0, num=n, dtype=np.float32)

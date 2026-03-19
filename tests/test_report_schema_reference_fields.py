@@ -19,15 +19,17 @@ def test_benchmark_report_includes_reference_context_when_present(tmp_path: Path
         def __init__(
             self, *, reference_dir=None, match_mode="basename", contamination=0.1, **kwargs
         ):  # noqa: ANN001
+            del contamination
             self.reference_dir = reference_dir
             self.match_mode = match_mode
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
+        def fit(self, x):  # noqa: ANN001
+            del x
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return [0.0 for _ in X]
+        def decision_function(self, x):  # noqa: ANN001
+            return [0.0 for _ in x]
 
     MODEL_REGISTRY.register(
         "test_reference_report_dummy",

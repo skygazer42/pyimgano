@@ -64,11 +64,12 @@ class CoreQMCD:
 
         self.decision_scores_: np.ndarray | None = None
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
 
         self._scaler = MinMaxScaler()
-        x_norm = self._scaler.fit_transform(X)
+        x_norm = self._scaler.fit_transform(x)
         self._fitted_data = x_norm.copy()
 
         scores = _wrap_around_discrepancy(x_norm, x_norm)
@@ -84,12 +85,12 @@ class CoreQMCD:
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).ravel()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None or self._scaler is None or self._fitted_data is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        x_norm = self._scaler.transform(X)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        x_norm = self._scaler.transform(x)
         scores = _wrap_around_discrepancy(self._fitted_data, x_norm)
         if self._is_flipped:
             scores = self.decision_scores_.max() + self.decision_scores_.min() - scores
@@ -140,8 +141,8 @@ class VisionQMCD(BaseVisionDetector):
     def _build_detector(self):
         return CoreQMCD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

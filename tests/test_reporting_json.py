@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+import pytest
 
 from pyimgano.reporting.report import save_jsonl_records, save_run_report
 

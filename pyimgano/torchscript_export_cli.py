@@ -15,10 +15,7 @@ def main(argv: list[str] | None = None) -> int:
         "--pretrained",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help=(
-            "Whether to use torchvision pretrained weights. Default: false (offline-safe). "
-            "When true, torchvision may download weights if not cached."
-        ),
+        help="Whether to use torchvision pretrained weights. Default: false (offline-safe). When true, torchvision may download weights if not cached.",
     )
     parser.add_argument(
         "--image-size",
@@ -41,10 +38,7 @@ def main(argv: list[str] | None = None) -> int:
         "--optimize",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help=(
-            "Apply TorchScript inference optimizations (freeze; best-effort). "
-            "Default: true"
-        ),
+        help="Apply TorchScript inference optimizations (freeze; best-effort). Default: true",
     )
     parser.add_argument(
         "--out",

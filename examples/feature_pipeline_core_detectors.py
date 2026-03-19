@@ -20,7 +20,7 @@ from pyimgano.models import create_model
 
 def main() -> None:
     rng = np.random.default_rng(0)
-    X = [rng.normal(size=(16,)).astype(np.float32) for _ in range(100)]
+    x = [rng.normal(size=(16,)).astype(np.float32) for _ in range(100)]
 
     pipe = create_model(
         "vision_feature_pipeline",
@@ -29,8 +29,8 @@ def main() -> None:
         core_detector="core_ecod",
         core_kwargs={},
     )
-    pipe.fit(X)
-    scores = pipe.decision_function(X[:5])
+    pipe.fit(x)
+    scores = pipe.decision_function(x[:5])
     print("scores:", scores)
 
 

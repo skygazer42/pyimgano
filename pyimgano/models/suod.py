@@ -40,16 +40,16 @@ class _ZScoreScaler:
     scale_: NDArray[np.float64]
 
     @classmethod
-    def fit(cls, X: NDArray[np.float64]) -> "_ZScoreScaler":
-        mu = np.mean(X, axis=0)
-        sigma = np.std(X, axis=0)
+    def fit(cls, x: NDArray[np.float64]) -> "_ZScoreScaler":
+        mu = np.mean(x, axis=0)
+        sigma = np.std(x, axis=0)
         sigma = np.where(sigma > 0.0, sigma, 1.0)
         return cls(
             mean_=mu.astype(np.float64, copy=False), scale_=sigma.astype(np.float64, copy=False)
         )
 
-    def transform(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        return (X - self.mean_) / self.scale_
+    def transform(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
+        return (x - self.mean_) / self.scale_
 
 
 def _combine(score_mat: NDArray[np.float64], combination: str) -> NDArray[np.float64]:
@@ -112,9 +112,10 @@ class CoreSUOD:
             CoreIForest(n_estimators=150, random_state=rs),
         ]
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples = int(X.shape[0])
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_samples = int(x.shape[0])
         if n_samples == 0:
             raise ValueError("Training set cannot be empty")
 
@@ -132,7 +133,7 @@ class CoreSUOD:
             decision = getattr(est, "decision_function", None)
             if not callable(fit) or not callable(decision):
                 raise TypeError("Each base estimator must implement fit() and decision_function()")
-            est.fit(X)
+            est.fit(x)
             scores = getattr(est, "decision_scores_", None)
             if scores is None:
                 raise RuntimeError("Base estimator did not set decision_scores_ during fit")
@@ -153,7 +154,7 @@ class CoreSUOD:
         )
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if (
             self.decision_scores_ is None
             or self._scaler is None
@@ -161,13 +162,13 @@ class CoreSUOD:
         ):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        n_samples = int(X.shape[0])
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        n_samples = int(x.shape[0])
 
         estimators = self._estimators_
         score_mat = np.zeros((n_samples, len(estimators)), dtype=np.float64)
         for i, est in enumerate(estimators):
-            score_mat[:, i] = np.asarray(est.decision_function(X), dtype=np.float64).reshape(-1)
+            score_mat[:, i] = np.asarray(est.decision_function(x), dtype=np.float64).reshape(-1)
 
         score_mat_norm = self._scaler.transform(score_mat)
         return _combine(score_mat_norm, self.combination).astype(np.float64, copy=False)
@@ -292,11 +293,11 @@ class VisionSUOD(BaseVisionDetector):
     def _build_detector(self):
         return CoreSUOD(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)
 
 
 @register_model(

@@ -5,14 +5,14 @@ def test_base_detector_can_use_pot_thresholding() -> None:
     from pyimgano.models.base_detector import BaseDetector
 
     class Dummy(BaseDetector):
-        def fit(self, X, y=None):  # noqa: ANN001
+        def fit(self, x, y=None):  # noqa: ANN001
             self._set_n_classes(y)
-            self.decision_scores_ = np.asarray(X, dtype=np.float64)
+            self.decision_scores_ = np.asarray(x, dtype=np.float64)
             self._process_decision_scores()
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.asarray(X, dtype=np.float64)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.asarray(x, dtype=np.float64)
 
     rng = np.random.default_rng(0)
     train_scores = rng.exponential(scale=1.0, size=500)

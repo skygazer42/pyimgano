@@ -13,6 +13,7 @@ import numpy as np
 from sklearn.utils.validation import check_array
 
 from ..utils.fitted import require_fitted
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
@@ -35,8 +36,12 @@ class CoreMahalanobis(BaseDetector):
         super().__init__(contamination=float(contamination))
         self.reg = float(reg)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        x_arr = check_array(
+            resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            ensure_2d=True,
+            dtype=np.float64,
+        )
         self._set_n_classes(y)
 
         if x_arr.shape[0] == 0:
@@ -58,12 +63,16 @@ class CoreMahalanobis(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
         require_fitted(self, ["mean_", "inv_cov_"])
         mu = np.asarray(self.mean_, dtype=np.float64)  # type: ignore[arg-type]
         inv = np.asarray(self.inv_cov_, dtype=np.float64)  # type: ignore[arg-type]
 
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            ensure_2d=True,
+            dtype=np.float64,
+        )
         if x_arr.shape[1] != mu.shape[0]:
             raise ValueError(f"Expected {mu.shape[0]} features, got {x_arr.shape[1]}")
 

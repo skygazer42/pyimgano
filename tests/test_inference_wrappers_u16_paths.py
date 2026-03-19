@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 
 def _write_gray_u16_png(path: Path, array: np.ndarray) -> None:
@@ -18,11 +19,12 @@ def _write_gray_u16_png(path: Path, array: np.ndarray) -> None:
 
 
 class _BatchOnlyMaxDetector:
-    def fit(self, X, y=None):  # noqa: ANN001 - test stub
+    def fit(self, x, y=None):  # noqa: ANN001 - test stub
+        del x, y
         return self
 
-    def decision_function(self, X):  # noqa: ANN001 - test stub
-        arr = np.asarray(X)
+    def decision_function(self, x):  # noqa: ANN001 - test stub
+        arr = np.asarray(x)
         if arr.ndim != 4:
             raise TypeError("expected batched ndarray (N,H,W,C)")
         return arr.reshape(arr.shape[0], -1).max(axis=1).astype(np.float32)
@@ -61,3 +63,4 @@ def test_preprocessing_detector_loads_u16_paths_with_u16_max(tmp_path: Path) -> 
     out = np.asarray(scores, dtype=np.float32).reshape(-1)
     assert out.shape == (1,)
     assert np.isclose(float(out[0]), 255.0)
+

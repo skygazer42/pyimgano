@@ -7,7 +7,7 @@ def test_legacy_kmeans_anomaly_is_still_registered_and_fittable() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(4)
-    X = rng.normal(size=(70, 5))
+    x = rng.normal(size=(70, 5))
 
     det = create_model(
         "kmeans_anomaly",
@@ -16,7 +16,7 @@ def test_legacy_kmeans_anomaly_is_still_registered_and_fittable() -> None:
         n_clusters=6,
         random_state=4,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
     assert scores.shape == (10,)
     assert np.all(np.isfinite(scores))

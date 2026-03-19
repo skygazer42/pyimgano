@@ -12,15 +12,15 @@ from pyimgano.services.infer_artifact_service import (
     DefectsArtifactConfig,
     DefectsArtifactConfigBuildRequest,
     InferArtifactOptions,
-    InferResultArtifactCliRequest,
     InferResultArtifactAssemblyRequest,
     InferResultArtifactBuildRequest,
+    InferResultArtifactCliRequest,
     InferResultArtifactRequest,
+    build_defects_artifact_config,
     build_infer_result_artifact_build_request_from_cli,
+    build_infer_result_artifact_request,
     build_infer_result_artifact_request_from_cli,
     build_infer_result_artifact_request_from_options,
-    build_defects_artifact_config,
-    build_infer_result_artifact_request,
     materialize_infer_result_artifacts,
 )
 

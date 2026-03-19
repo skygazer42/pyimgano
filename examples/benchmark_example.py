@@ -14,6 +14,7 @@ JPG_GLOB = "*.jpg"
 PNG_GLOB = "*.png"
 
 
+
 def main():
     """Run benchmark example."""
     print("=" * 60)
@@ -64,7 +65,7 @@ def main():
 
     # Create and run benchmark
     benchmark = AlgorithmBenchmark(algorithms)
-    _results = benchmark.run(
+    benchmark.run(
         train_images=train_images, test_images=test_images, test_labels=test_labels, verbose=True
     )
 

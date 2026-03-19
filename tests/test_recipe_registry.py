@@ -28,6 +28,7 @@ def test_recipe_registry_register_and_discover():
 
 def test_recipe_registry_duplicate_requires_overwrite():
     def _recipe(config: WorkbenchConfig):  # noqa: ANN001
+        del config
         return {"ok": True}
 
     RECIPE_REGISTRY.register(

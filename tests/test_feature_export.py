@@ -12,10 +12,10 @@ def test_extract_features_with_ids_preserves_order_and_shape(tmp_path) -> None: 
     )
 
     ext = create_feature_extractor("identity")
-    X = [np.array([1.0, 2.0], dtype=np.float32), np.array([3.0, 4.0], dtype=np.float32)]
+    x = [np.array([1.0, 2.0], dtype=np.float32), np.array([3.0, 4.0], dtype=np.float32)]
     ids = ["a", "b"]
 
-    export = extract_features_with_ids(ext, X, ids=ids)
+    export = extract_features_with_ids(ext, x, ids=ids)
     assert export.ids == ids
     assert export.features.shape == (2, 2)
     assert np.allclose(export.features, np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32))

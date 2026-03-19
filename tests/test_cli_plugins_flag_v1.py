@@ -10,6 +10,7 @@ def test_cli_plugins_flag_triggers_plugin_loading(monkeypatch) -> None:
     def _stub_load_plugins(
         *, groups=("pyimgano.plugins",), on_error="warn"
     ):  # noqa: ANN001, ANN201
+        del groups, on_error
         called["n"] += 1
         return []
 

@@ -13,8 +13,8 @@ class _ScoreOnly:
     def __init__(self):
         self.threshold_ = 0.5
 
-    def decision_function(self, X):
-        assert len(X) == 2
+    def decision_function(self, x):
+        assert len(x) == 2
         return np.asarray([0.1, 0.9], dtype=np.float32)
 
 
@@ -27,8 +27,8 @@ def test_infer_returns_scores_and_labels():
 
 def test_calibrate_threshold_sets_detector_threshold():
     class _Cal:
-        def decision_function(self, X):
-            assert len(X) == 2
+        def decision_function(self, x):
+            assert len(x) == 2
             return np.asarray([0.1, 0.9], dtype=np.float32)
 
     det = _Cal()
@@ -43,7 +43,8 @@ def test_results_to_jsonable_uses_stable_python_types():
         def __init__(self):
             self.threshold_ = 0.0
 
-        def decision_function(self, X):
+        def decision_function(self, x):
+            del x
             return np.asarray([1.0], dtype=np.float32)
 
         def get_anomaly_map(self, item):
@@ -184,7 +185,8 @@ def test_infer_applies_postprocess_to_maps_only():
         def __init__(self):
             self.threshold_ = 0.0
 
-        def decision_function(self, X):
+        def decision_function(self, x):
+            del x
             return np.asarray([1.0], dtype=np.float32)
 
         def get_anomaly_map(self, item):
@@ -208,14 +210,14 @@ def test_infer_supports_batch_only_detectors_for_numpy_inputs():
         def __init__(self):
             self.threshold_ = 0.0
 
-        def decision_function(self, X):
-            arr = np.asarray(X)
+        def decision_function(self, x):
+            arr = np.asarray(x)
             if arr.ndim != 4:
                 raise TypeError("expected batched ndarray (N,H,W,C)")
             return np.asarray([float(arr[0].max())], dtype=np.float32)
 
-        def predict_anomaly_map(self, X):
-            arr = np.asarray(X)
+        def predict_anomaly_map(self, x):
+            arr = np.asarray(x)
             if arr.ndim != 4:
                 raise TypeError("expected batched ndarray (N,H,W,C)")
             return arr[..., 0].astype(np.float32)
@@ -234,10 +236,10 @@ def test_infer_supports_batch_size_chunking_preserves_order() -> None:
         def __init__(self) -> None:
             self.threshold_ = 0.5
 
-        def decision_function(self, X):
+        def decision_function(self, x):
             # score = max pixel intensity (per image)
             scores: list[float] = []
-            for item in X:
+            for item in x:
                 arr = np.asarray(item)
                 scores.append(float(arr.max()) / 255.0)
             return np.asarray(scores, dtype=np.float32)
@@ -259,8 +261,8 @@ def test_infer_threads_u16_max_to_normalization() -> None:
         def __init__(self) -> None:
             self.threshold_ = 0.0
 
-        def decision_function(self, X):
-            items = list(X)
+        def decision_function(self, x):
+            items = list(x)
             scores: list[float] = []
             for item in items:
                 arr = np.asarray(item)
@@ -288,8 +290,8 @@ def test_infer_bgr_convenience_swaps_channels() -> None:
         def __init__(self) -> None:
             self.threshold_ = None
 
-        def decision_function(self, X):
-            items = list(X)
+        def decision_function(self, x):
+            items = list(x)
             assert len(items) == 1
             arr = np.asarray(items[0])
             # inference API always passes canonical RGB/u8/HWC for numpy inputs
@@ -305,7 +307,8 @@ def test_infer_bgr_convenience_swaps_channels() -> None:
 
 def test_infer_amp_is_best_effort() -> None:
     class _ScoreOnly:
-        def decision_function(self, X):
+        def decision_function(self, x):
+            del x
             return np.asarray([0.1], dtype=np.float32)
 
     imgs = [np.zeros((4, 4, 3), dtype=np.uint8)]
@@ -316,3 +319,4 @@ def test_infer_amp_is_best_effort() -> None:
     else:
         out = infer(_ScoreOnly(), imgs, input_format=ImageFormat.RGB_U8_HWC, amp=True)
     assert len(out) == 1
+

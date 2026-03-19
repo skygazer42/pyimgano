@@ -41,8 +41,8 @@ def test_train_cli_dry_run_applies_preprocessing_preset(tmp_path, capsys) -> Non
 def test_train_cli_dry_run_delegates_overrides_to_workbench_service(
     tmp_path, capsys, monkeypatch
 ) -> None:
-    from pyimgano.train_cli import main
     import pyimgano.services.workbench_service as workbench_service
+    from pyimgano.train_cli import main
 
     calls: list[str] = []
 
@@ -95,9 +95,8 @@ def test_train_cli_dry_run_delegates_overrides_to_workbench_service(
 def test_train_cli_dry_run_delegates_preprocessing_preset_to_workbench_service(
     tmp_path, capsys, monkeypatch
 ) -> None:
-    from pyimgano.train_cli import main
-
     import pyimgano.services.workbench_service as workbench_service
+    from pyimgano.train_cli import main
 
     calls: list[dict[str, object]] = []
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+import pyimgano.services.workbench_run_service as workbench_run_service
 from pyimgano.models.registry import create_model
 from pyimgano.services.infer_context_service import ConfigBackedInferContext
 from pyimgano.services.model_options import (
@@ -10,7 +11,6 @@ from pyimgano.services.model_options import (
     resolve_model_options,
     resolve_requested_model,
 )
-import pyimgano.services.workbench_run_service as workbench_run_service
 
 
 @dataclass(frozen=True)

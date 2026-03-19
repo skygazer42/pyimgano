@@ -34,32 +34,33 @@ class _CosineMahalanobisBackend:
         self._lw: LedoitWolf | None = None
         self.decision_scores_: np.ndarray | None = None
 
-    def _normalize_rows(self, X: np.ndarray) -> np.ndarray:
+    def _normalize_rows(self, x: np.ndarray) -> np.ndarray:
         if not self.normalize:
-            return np.asarray(X, dtype=np.float64)
-        norms = np.linalg.norm(X, axis=1, keepdims=True)
+            return np.asarray(x, dtype=np.float64)
+        norms = np.linalg.norm(x, axis=1, keepdims=True)
         norms = np.maximum(norms, float(self.eps))
-        return np.asarray(X / norms, dtype=np.float64)
+        return np.asarray(x / norms, dtype=np.float64)
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         if int(x_arr.shape[0]) == 0:
             raise ValueError("Training set cannot be empty")
 
-        Z = self._normalize_rows(x_arr)
+        z = self._normalize_rows(x_arr)
         lw = LedoitWolf(assume_centered=bool(self.assume_centered))
-        lw.fit(Z)
+        lw.fit(z)
         self._lw = lw
-        self.decision_scores_ = np.asarray(self.decision_function(Z), dtype=np.float64).reshape(-1)
+        self.decision_scores_ = np.asarray(self.decision_function(z), dtype=np.float64).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._lw is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        Z = self._normalize_rows(x_arr)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+        z = self._normalize_rows(x_arr)
         # sklearn returns squared Mahalanobis distances.
-        scores = self._lw.mahalanobis(Z)
+        scores = self._lw.mahalanobis(z)
         return np.asarray(scores, dtype=np.float64).reshape(-1)
 
 

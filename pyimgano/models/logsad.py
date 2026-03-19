@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .registry import register_model
 
 
@@ -86,8 +87,9 @@ class VisionLogSAD:
         self.decision_scores_: NDArray | None = None
         self.threshold_: float | None = None
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        items = list(cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("X must contain at least one support sample.")
         self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64)
@@ -101,8 +103,10 @@ class VisionLogSAD:
         total = self.visual_weight * visual_score + self.logic_weight * logic_score
         return float(total), anomaly_map
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object):
+        items = list(
+            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = self._score_item(item)[0]
@@ -111,15 +115,25 @@ class VisionLogSAD:
     def get_anomaly_map(self, image: Any) -> NDArray:
         return self._score_item(image)[1].astype(np.float32, copy=False)
 
-    def predict_anomaly_map(self, X: Iterable[Any]):
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object):
+        items = list(
+            cast(
+                Iterable[Any],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def predict(self, X):
+    def predict(self, x: object = MISSING, **kwargs: object):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(
+            self.decision_function(
+                cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+            ),
+            dtype=np.float64,
+        )
         return (scores > float(self.threshold_)).astype(np.int64)

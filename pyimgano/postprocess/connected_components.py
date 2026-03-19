@@ -53,6 +53,7 @@ def components_from_labels(
     scores: Sequence[float] | None = None,
 ) -> list[Component]:
     """Build a list of Component entries (excluding background label 0)."""
+    del labels
 
     out: list[Component] = []
     for lab in range(1, int(num_labels)):

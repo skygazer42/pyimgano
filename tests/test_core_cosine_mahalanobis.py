@@ -21,7 +21,7 @@ def test_core_cosine_mahalanobis_smoke_and_direction() -> None:
     # Normal embeddings: near +e1 direction (unit vectors with small noise).
     base = np.zeros((n_train, d), dtype=np.float64)
     base[:, 0] = 1.0
-    X_train = _unit_rows(base + 0.02 * rng.standard_normal(size=base.shape))
+    x_train = _unit_rows(base + 0.02 * rng.standard_normal(size=base.shape))
 
     # Inlier: +e1, Outlier: +e2 direction.
     x_inlier = _unit_rows(np.array([[1.0] + [0.0] * (d - 1)], dtype=np.float64))
@@ -33,7 +33,7 @@ def test_core_cosine_mahalanobis_smoke_and_direction() -> None:
         assume_centered=False,
         normalize=True,
     )
-    det.fit(X_train)
+    det.fit(x_train)
 
     scores = np.asarray(
         det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64

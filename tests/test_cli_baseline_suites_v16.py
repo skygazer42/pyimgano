@@ -251,8 +251,8 @@ def test_benchmark_cli_official_config_discovery_flags_are_mutually_exclusive(ca
 
 
 def test_benchmark_cli_suite_mode_delegates_to_benchmark_service(monkeypatch, capsys) -> None:
-    from pyimgano.cli import main as benchmark_main
     import pyimgano.services.benchmark_service as benchmark_service
+    from pyimgano.cli import main as benchmark_main
     from pyimgano.services.benchmark_service import PixelPostprocessConfig
 
     calls = []

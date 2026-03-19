@@ -11,11 +11,12 @@ def test_apply_tiling_passthrough_when_disabled():
 
 def test_apply_tiling_wraps_with_tiled_detector_and_aggregates_scores():
     class _DummyDetector:
-        def fit(self, X, y=None, **kwargs):  # noqa: ANN001, ANN003
+        def fit(self, x, y=None, **kwargs):  # noqa: ANN001, ANN003
+            del x, y, kwargs
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            items = list(X)
+        def decision_function(self, x):  # noqa: ANN001
+            items = list(x)
             scores = [float(np.asarray(item).mean()) for item in items]
             return np.asarray(scores, dtype=np.float32)
 

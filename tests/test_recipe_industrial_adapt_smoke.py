@@ -14,12 +14,12 @@ def test_recipe_industrial_adapt_smoke(tmp_path):
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             # Deterministic non-constant scores to avoid edge cases in metrics.
             if n == 0:
                 return np.asarray([], dtype=np.float32)

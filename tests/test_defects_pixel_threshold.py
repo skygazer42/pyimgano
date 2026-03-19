@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -13,7 +15,7 @@ def test_resolve_pixel_threshold_explicit_threshold_has_provenance() -> None:
         infer_config_pixel_threshold=None,
         calibration_maps=None,
     )
-    assert thr == pytest.approx(0.7)
+    assert math.isclose(thr, 0.7)
     assert prov["source"] == "explicit"
     assert prov["method"] == "fixed"
 
@@ -25,7 +27,7 @@ def test_resolve_pixel_threshold_fixed_strategy_can_use_infer_config_value() -> 
         infer_config_pixel_threshold=0.4,
         calibration_maps=None,
     )
-    assert thr == pytest.approx(0.4)
+    assert math.isclose(thr, 0.4)
     assert prov["source"] == "infer_config"
     assert prov["method"] == "fixed"
 
@@ -40,9 +42,9 @@ def test_resolve_pixel_threshold_quantile_has_q_and_calibration_count() -> None:
         calibration_maps=[m1, m2],
         pixel_normal_quantile=0.5,
     )
-    assert thr == pytest.approx(0.5)
+    assert math.isclose(thr, 0.5)
     assert prov["method"] == "normal_pixel_quantile"
-    assert prov["q"] == pytest.approx(0.5)
+    assert math.isclose(prov["q"], 0.5)
     assert prov["calibration_map_count"] == 2
 
 
@@ -59,7 +61,7 @@ def test_resolve_pixel_threshold_quantile_can_calibrate_inside_roi() -> None:
         pixel_normal_quantile=0.5,
         roi_xyxy_norm=None,
     )
-    assert float(thr_full) == pytest.approx(0.0)
+    assert math.isclose(float(thr_full), 0.0)
 
     thr_roi, prov_roi = resolve_pixel_threshold(
         pixel_threshold=None,
@@ -69,7 +71,7 @@ def test_resolve_pixel_threshold_quantile_can_calibrate_inside_roi() -> None:
         pixel_normal_quantile=0.5,
         roi_xyxy_norm=[0.25, 0.25, 0.75, 0.75],
     )
-    assert float(thr_roi) == pytest.approx(0.5)
+    assert math.isclose(float(thr_roi), 0.5)
     assert prov_roi["roi_used"] is True
     assert prov_roi["roi_pixel_count"] == 4
     assert prov_roi["calibration_pixel_count"] == 8

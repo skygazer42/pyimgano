@@ -41,8 +41,8 @@ def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(
         if name in {"vision_oddoneout", "vision_patchcore_lite_map"}:
             import numpy as np
 
-            X = np.zeros((2, 64, 64, 3), dtype=np.uint8)
-            det.fit(X)
+            x = np.zeros((2, 64, 64, 3), dtype=np.uint8)
+            det.fit(x)
 
     # Models that use torch.hub for foundation weights must require explicit opt-in.
     # By default they should fail-fast with a clear message instead of attempting a download.

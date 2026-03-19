@@ -18,14 +18,14 @@ def test_workbench_runner_writes_checkpoint_when_training_enabled(tmp_path):
             self.kwargs = dict(kwargs)
             self.fit_calls = 0
 
-        def fit(self, X, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
+        def fit(self, x, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
             self.fit_calls += 1
-            self.fit_inputs = list(X)
+            self.fit_inputs = list(x)
             self.fit_kwargs = {"epochs": epochs, "lr": lr}
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            n = len(list(X))
+        def decision_function(self, x):  # noqa: ANN001
+            n = len(list(x))
             if n == 0:
                 return np.asarray([], dtype=np.float32)
             return np.linspace(0.0, 1.0, num=n, dtype=np.float32)

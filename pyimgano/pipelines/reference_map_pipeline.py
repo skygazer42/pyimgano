@@ -16,10 +16,11 @@ This is intended as a base class for reference-based pixel-map detectors.
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal
+from typing import Any, Iterable, Literal, cast
 
 import numpy as np
 
+from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_detector import BaseDetector
 
 _Reduce = Literal["max", "mean", "topk_mean"]
@@ -170,8 +171,8 @@ class ReferenceMapPipeline(BaseDetector):
         raise ValueError("Unknown reduction mode")
 
     # ------------------------------------------------------------------
-    def fit(self, X: Iterable[Any], y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201 - sklearn-like API
+        items = list(cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -182,8 +183,15 @@ class ReferenceMapPipeline(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X: Iterable[Any]):  # noqa: ANN001, ANN201 - sklearn-like API
-        items = list(X)
+    def decision_function(
+        self, x: object = MISSING, **kwargs: object
+    ):  # noqa: ANN001, ANN201 - sklearn-like API
+        items = list(
+            cast(
+                Iterable[Any],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores: list[float] = []
         for it in items:
             amap = self.get_anomaly_map(it)

@@ -19,6 +19,7 @@ def test_fittable_feature_extractor_protocol_runtime_check() -> None:
 
     class Dummy:
         def fit(self, inputs, y=None):
+            del inputs, y
             return self
 
         def extract(self, inputs):

@@ -26,7 +26,7 @@ def test_core_models_fit_predict_smoke(model_name: str) -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(80, 8))
+    x = rng.normal(size=(80, 8))
 
     try:
         det = create_model(model_name, contamination=0.1)
@@ -36,9 +36,9 @@ def test_core_models_fit_predict_smoke(model_name: str) -> None:
         if "pyimgano[" in str(exc) or "Optional dependency" in str(exc):
             pytest.skip(str(exc))
         raise
-    det.fit(X)
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)

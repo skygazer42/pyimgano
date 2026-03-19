@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
+
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
-
-from pyimgano.recipes.registry import list_recipes, recipe_info
 import pyimgano.services.train_service as train_service
+from pyimgano.recipes.registry import list_recipes, recipe_info
 
 
 def _build_parser() -> argparse.ArgumentParser:

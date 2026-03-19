@@ -180,6 +180,7 @@ class AlgorithmBenchmark:
         verbose: bool,
     ) -> Dict:
         """Benchmark a single algorithm."""
+        del algo_name
         # Create model
         algo_config = dict(algo_config)  # avoid mutating the stored config
         model_name = algo_config.pop("model_name")

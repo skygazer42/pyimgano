@@ -13,6 +13,7 @@ def test_torchvision_conv_patch_embedder_smoke_offline_default(monkeypatch) -> N
     # Guardrail: even if torch.hub download helpers are present, the default
     # embedder config (pretrained=False) must not trigger them.
     def _fail(*args, **kwargs):  # noqa: ANN001, ANN201 - test helper
+        del args, kwargs
         raise AssertionError("unexpected weight download attempt")
 
     monkeypatch.setattr(torch.hub, "load_state_dict_from_url", _fail, raising=True)

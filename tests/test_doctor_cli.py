@@ -36,8 +36,8 @@ def test_doctor_cli_outputs_json(capsys) -> None:
 
 
 def test_doctor_cli_json_delegates_to_doctor_service(monkeypatch, capsys) -> None:
-    from pyimgano.doctor_cli import main
     import pyimgano.services.doctor_service as doctor_service
+    from pyimgano.doctor_cli import main
 
     monkeypatch.setattr(
         doctor_service,

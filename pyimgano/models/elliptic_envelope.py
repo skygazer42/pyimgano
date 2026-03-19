@@ -29,7 +29,7 @@ from .registry import register_model
 
 
 def _fit_covariance(
-    X: np.ndarray,
+    x: np.ndarray,
     *,
     robust: bool,
     support_fraction: Optional[float],
@@ -41,7 +41,7 @@ def _fit_covariance(
 
     if not robust:
         cov = EmpiricalCovariance(assume_centered=bool(assume_centered))
-        cov.fit(X)
+        cov.fit(x)
         return cov
 
     # Robust MCD can fail on degenerate/high-dim data. We fallback to empirical.
@@ -51,11 +51,11 @@ def _fit_covariance(
             random_state=random_state,
             assume_centered=bool(assume_centered),
         )
-        cov.fit(X)
+        cov.fit(x)
         return cov
     except Exception:
         cov = EmpiricalCovariance(assume_centered=bool(assume_centered))
-        cov.fit(X)
+        cov.fit(x)
         return cov
 
 
@@ -96,8 +96,8 @@ class CoreEllipticEnvelope(BaseDetector):
         self.assume_centered = bool(assume_centered)
         self.random_state = random_state
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         cov = _fit_covariance(
@@ -116,9 +116,9 @@ class CoreEllipticEnvelope(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like
         require_fitted(self, ["covariance_"])
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         cov = getattr(self, "covariance_")
         scores = np.asarray(cov.mahalanobis(x_arr), dtype=np.float64).reshape(-1)
         return scores

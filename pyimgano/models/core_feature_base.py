@@ -22,7 +22,7 @@ def _looks_like_torch_tensor(x: Any) -> bool:
     return bool(hasattr(x, "detach") and hasattr(x, "cpu") and hasattr(x, "numpy"))
 
 
-def _to_numpy_2d(X: Any) -> np.ndarray:
+def _to_numpy_2d(x: Any) -> np.ndarray:
     """Convert feature-matrix inputs to a 2D numpy array (best-effort).
 
     Supports:
@@ -31,13 +31,13 @@ def _to_numpy_2d(X: Any) -> np.ndarray:
     - array-like inputs convertible via `np.asarray`
     """
 
-    if isinstance(X, np.ndarray):
-        arr = X
+    if isinstance(x, np.ndarray):
+        arr = x
     else:
-        if _looks_like_torch_tensor(X):  # pragma: no cover - depends on torch being available
-            arr = X.detach().cpu().numpy()
+        if _looks_like_torch_tensor(x):  # pragma: no cover - depends on torch being available
+            arr = x.detach().cpu().numpy()
         else:
-            arr = np.asarray(X)
+            arr = np.asarray(x)
 
     arr = check_array(arr, ensure_2d=True, dtype=np.float64)
     return np.asarray(arr, dtype=np.float64)
@@ -47,7 +47,7 @@ class CoreFeatureDetector(BaseDetector):
     """Base class for `core_*` feature-matrix detectors.
 
     Subclasses implement `_build_detector()` which returns an object supporting:
-    - `.fit(X)` and `.decision_function(X) -> scores`
+    - `.fit(x)` and `.decision_function(x) -> scores`
     - optionally `.decision_scores_` after fitting
     """
 
@@ -59,21 +59,21 @@ class CoreFeatureDetector(BaseDetector):
     def _build_detector(self):  # noqa: ANN201 - generic backend object
         raise NotImplementedError
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        x_array = _to_numpy_2d(X)
-        self.detector.fit(x_array)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        x_np = _to_numpy_2d(x)
+        self.detector.fit(x_np)
 
         if hasattr(self.detector, "decision_scores_"):
             scores = np.asarray(
                 getattr(self.detector, "decision_scores_"), dtype=np.float64
             ).reshape(-1)
         else:
-            scores = np.asarray(self.detector.decision_function(x_array), dtype=np.float64).reshape(-1)
+            scores = np.asarray(self.detector.decision_function(x_np), dtype=np.float64).reshape(-1)
 
-        if scores.shape[0] != x_array.shape[0]:
+        if scores.shape[0] != x_np.shape[0]:
             raise ValueError(
                 "Detector decision_scores_ must have one score per training sample. "
-                f"Got {scores.shape[0]} for {x_array.shape[0]} samples."
+                f"Got {scores.shape[0]} for {x_np.shape[0]} samples."
             )
 
         self.decision_scores_ = scores
@@ -81,12 +81,12 @@ class CoreFeatureDetector(BaseDetector):
         self._set_n_classes(y)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
-        x_array = _to_numpy_2d(X)
-        scores = np.asarray(self.detector.decision_function(x_array), dtype=np.float64).reshape(-1)
-        if scores.shape[0] != x_array.shape[0]:
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
+        x_np = _to_numpy_2d(x)
+        scores = np.asarray(self.detector.decision_function(x_np), dtype=np.float64).reshape(-1)
+        if scores.shape[0] != x_np.shape[0]:
             raise ValueError(
                 "Detector decision_function must return one score per sample. "
-                f"Got {scores.shape[0]} for {x_array.shape[0]} samples."
+                f"Got {scores.shape[0]} for {x_np.shape[0]} samples."
             )
         return scores

@@ -40,6 +40,7 @@ def test_preflight_summary_dispatches_manifest_configs(
     calls: list[str] = []
 
     def _fake_run_manifest_preflight(*, config, issues, issue_builder):  # noqa: ANN001 - test seam
+        del issues, issue_builder
         calls.append(str(config.dataset.name))
         return {"summary_source": "manifest"}
 
@@ -85,6 +86,7 @@ def test_preflight_summary_dispatches_non_manifest_configs(
     calls: list[str] = []
 
     def _fake_run_non_manifest_preflight(*, config, issues, issue_builder):  # noqa: ANN001 - test seam
+        del issues, issue_builder
         calls.append(str(config.dataset.name))
         return {"summary_source": "non_manifest"}
 

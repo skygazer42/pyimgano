@@ -12,7 +12,7 @@ Reference:
 
 import logging
 import math
-from typing import Iterable, Optional
+from typing import Iterable, Optional, cast
 
 import cv2
 import numpy as np
@@ -24,11 +24,14 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
-logger = logging.getLogger(__name__)
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConditionalFlow(nn.Module):
@@ -207,7 +210,12 @@ class VisionCFlow(BaseVisionDeepDetector):
         )
         self.flow.to(self.device)
 
-    def fit(self, X: Iterable[str], y: Optional[NDArray] = None) -> "VisionCFlow":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionCFlow":
         """
         Train CFlow on normal images.
 
@@ -222,9 +230,10 @@ class VisionCFlow(BaseVisionDeepDetector):
         -------
         self : VisionCFlow
         """
+        del y
         logger.info("Training CFlow detector")
 
-        x_list = list(X)
+        x_list = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
@@ -258,12 +267,12 @@ class VisionCFlow(BaseVisionDeepDetector):
                 condition = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)
 
                 # Flatten spatial dimensions
-                B, C, H, W = features.shape
-                features_flat = features.permute(0, 2, 3, 1).reshape(B * H * W, C)
+                b, c, h, w = features.shape
+                features_flat = features.permute(0, 2, 3, 1).reshape(b * h * w, c)
 
                 # Repeat condition for all patches
-                condition_repeated = condition.unsqueeze(1).repeat(1, H * W, 1)
-                condition_repeated = condition_repeated.reshape(B * H * W, -1)
+                condition_repeated = condition.unsqueeze(1).repeat(1, h * w, 1)
+                condition_repeated = condition_repeated.reshape(b * h * w, -1)
 
                 # Flow forward
                 z, log_det = self.flow(features_flat, condition_repeated)
@@ -307,9 +316,9 @@ class VisionCFlow(BaseVisionDeepDetector):
         condition = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)  # (1, C)
 
         # Flatten features
-        B, C, H, W = features.shape
-        features_flat = features.permute(0, 2, 3, 1).reshape(B * H * W, C)
-        condition_repeated = condition.unsqueeze(1).repeat(1, H * W, 1).reshape(B * H * W, -1)
+        b, c, h, w = features.shape
+        features_flat = features.permute(0, 2, 3, 1).reshape(b * h * w, c)
+        condition_repeated = condition.unsqueeze(1).repeat(1, h * w, 1).reshape(b * h * w, -1)
 
         # Flow forward
         z, log_det = self.flow(features_flat, condition_repeated)
@@ -318,9 +327,14 @@ class VisionCFlow(BaseVisionDeepDetector):
         log_prob_prior = (-0.5 * z.pow(2) + const).sum(dim=-1)
         log_prob = log_prob_prior + log_det
 
-        return log_prob.view(B, H, W)
+        return log_prob.view(b, h, w)
 
-    def predict(self, X: Iterable[str], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -342,10 +356,17 @@ class VisionCFlow(BaseVisionDeepDetector):
         if not self._is_fitted or not hasattr(self, "threshold_"):
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        )
         return (scores >= self.threshold_).astype(int)
 
-    def decision_function(self, X: Iterable[str], batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Compute anomaly scores."""
         # This detector scores one image at a time. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
@@ -359,7 +380,12 @@ class VisionCFlow(BaseVisionDeepDetector):
 
         self.flow.eval()
 
-        x_list = list(X)
+        x_list = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(x_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(x_list))
@@ -401,7 +427,13 @@ class VisionCFlow(BaseVisionDeepDetector):
         anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
         return anomaly_map
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Generate pixel-level anomaly maps for a batch of images."""
-        maps = [self.get_anomaly_map(path) for path in X]
+        maps = [
+            self.get_anomaly_map(path)
+            for path in cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        ]
         return np.stack(maps)

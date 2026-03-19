@@ -14,7 +14,7 @@ Key Features:
 - Good localization performance
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -24,7 +24,7 @@ from numpy import ndarray as NDArray
 from scipy.spatial import cKDTree
 from torchvision import models
 
-from ..utils.random_state import check_random_state
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -155,10 +155,10 @@ class DifferNetDetector(BaseVisionDeepDetector):
         batch_size: int = 16,
         learning_rate: float = 0.001,
         device: Optional[str] = None,
-        random_state: int | np.random.Generator | None = None,
+        random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
 
         self.backbone_name = backbone
         self.pretrained = pretrained
@@ -169,10 +169,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.random_state = random_state
-        self.rng = check_random_state(random_state)
-
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        self.rng = np.random.default_rng(random_state)
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -214,31 +211,41 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     self.device
                 )
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None, **kwargs):
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ):
         """Fit the DifferNet detector.
 
         Args:
             X: Training images (N, H, W, C) or (N, C, H, W).
             y: Not used (unsupervised).
         """
+        legacy_kwargs = {}
+        if "X" in kwargs:
+            legacy_kwargs["X"] = kwargs.pop("X")
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit"))
+        del kwargs
         # Normalize to [0, 1]
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x_array.max() > 1.0:
+            x_array = x_array.astype(np.float32) / 255.0
 
         # Extract features and build memory bank
-        self._build_memory_bank(X)
+        self._build_memory_bank(x_array)
 
         # Train difference module if requested
         if self.train_difference:
-            self._train_difference_module(X)
+            self._train_difference_module(x_array)
 
-        self.decision_scores_ = np.asarray(self.predict_proba(X), dtype=np.float64).reshape(-1)
+        self.decision_scores_ = np.asarray(self.predict_proba(x_array), dtype=np.float64).reshape(-1)
         self._process_decision_scores()
         self._set_n_classes(y)
         self.fitted_ = True
         return self
 
-    def _build_memory_bank(self, X: NDArray):
+    def _build_memory_bank(self, x: NDArray):
         """Build memory bank of normal features.
 
         Args:
@@ -250,8 +257,8 @@ class DifferNetDetector(BaseVisionDeepDetector):
         features_dict = {"layer1": [], "layer2": [], "layer3": []}
 
         with torch.no_grad():
-            for i in range(0, len(X), self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, len(x), self.batch_size):
+                batch = x[i : i + self.batch_size]
                 batch_tensor = self._preprocess(batch).to(self.device)
 
                 # Extract multi-scale features
@@ -285,7 +292,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
 
         print(f"Memory bank built with {len(self.memory_bank['layer3'])} features")
 
-    def _train_difference_module(self, X: NDArray):
+    def _train_difference_module(self, x: NDArray):
         """Train the learnable difference module.
 
         Args:
@@ -294,29 +301,25 @@ class DifferNetDetector(BaseVisionDeepDetector):
         print("Training difference module...")
 
         # Create training data: pairs of (image, nn_image)
-        x_tensor = self._preprocess(X).to(self.device)
+        x_tensor = self._preprocess(x).to(self.device)
 
         # Extract all features
         with torch.no_grad():
             all_features = []
-            for i in range(0, len(X), self.batch_size):
+            for i in range(0, len(x), self.batch_size):
                 batch = x_tensor[i : i + self.batch_size]
                 features = self.feature_extractor(batch)
                 all_features.append([f.cpu() for f in features])
 
         # Training loop for each layer
         for layer_name, diff_module in self.diff_modules.items():
-            optimizer = torch.optim.Adam(
-                diff_module.parameters(),
-                lr=self.learning_rate,
-                weight_decay=0.0,
-            )
+            optimizer = torch.optim.Adam(diff_module.parameters(), lr=self.learning_rate, weight_decay=0.0)
             diff_module.train()
 
             for epoch in range(self.epochs):
                 epoch_loss = 0.0
 
-                for i in range(len(X)):
+                for i in range(len(x)):
                     # Get feature for current image
                     layer_idx = ["layer1", "layer2", "layer3"].index(layer_name)
                     feat_i = all_features[i // self.batch_size][layer_idx][i % self.batch_size].to(
@@ -324,7 +327,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     )
 
                     # Get random neighbor
-                    nn_idx = int(self.rng.integers(0, len(X)))
+                    nn_idx = int(self.rng.integers(0, len(x)))
                     feat_nn = all_features[nn_idx // self.batch_size][layer_idx][
                         nn_idx % self.batch_size
                     ].to(self.device)
@@ -344,12 +347,12 @@ class DifferNetDetector(BaseVisionDeepDetector):
                 if (epoch + 1) % 5 == 0:
                     print(
                         f"  Layer {layer_name} Epoch [{epoch+1}/{self.epochs}] "
-                        f"Loss: {epoch_loss/len(X):.6f}"
+                        f"Loss: {epoch_loss/len(x):.6f}"
                     )
 
             diff_module.eval()
 
-    def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
+    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -358,15 +361,22 @@ class DifferNetDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly scores.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        legacy_kwargs = {}
+        if "X" in kwargs:
+            legacy_kwargs["X"] = kwargs.pop("X")
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
+        )
+        del kwargs
+        if x_array.max() > 1.0:
+            x_array = x_array.astype(np.float32) / 255.0
 
         self.feature_extractor.eval()
         scores = []
 
         with torch.no_grad():
-            for i in range(0, len(X), self.batch_size):
-                batch = X[i : i + self.batch_size]
+            for i in range(0, len(x_array), self.batch_size):
+                batch = x_array[i : i + self.batch_size]
                 batch_tensor = self._preprocess(batch).to(self.device)
 
                 # Extract features
@@ -472,16 +482,24 @@ class DifferNetDetector(BaseVisionDeepDetector):
         return total_diff / 3.0
 
     # ------------------------------------------------------------------
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for scoring (BaseDetector semantics: higher => more anomalous)."""
         # DiffNet scores each input independently. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is not None:
             batch_size_int = int(batch_size)
             if batch_size_int <= 0:
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
-        return np.asarray(self.predict_proba(X), dtype=np.float64).reshape(-1)
+        return np.asarray(self.predict_proba(x_array), dtype=np.float64).reshape(-1)
 
     def _infer_image_hw(self, image: np.ndarray) -> tuple[int, int]:
         arr = np.asarray(image)
@@ -567,10 +585,13 @@ class DifferNetDetector(BaseVisionDeepDetector):
             return np.zeros((h_img, w_img), dtype=np.float32)
         return np.asarray(np.stack(maps, axis=0).mean(axis=0), dtype=np.float32)
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Return anomaly maps (N,H,W) for a batch of images."""
 
-        arr = np.asarray(X)
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        )
+        arr = np.asarray(x_array)
         if arr.ndim == 3:
             m = self.get_anomaly_map(arr)
             return np.asarray(m[None, ...], dtype=np.float32)

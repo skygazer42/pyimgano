@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,7 @@ def test_infer_config_resolves_checkpoint_relative_to_artifacts_dir(tmp_path: Pa
 
 
 def test_infer_config_category_selection_requires_flag_when_ambiguous(tmp_path: Path) -> None:
+    del tmp_path
     from pyimgano.inference.config import select_infer_category
 
     payload = {
@@ -47,6 +49,7 @@ def test_infer_config_category_selection_requires_flag_when_ambiguous(tmp_path: 
 def test_infer_config_category_selection_propagates_threshold_and_checkpoint(
     tmp_path: Path,
 ) -> None:
+    del tmp_path
     from pyimgano.inference.config import select_infer_category
 
     payload = {
@@ -64,8 +67,8 @@ def test_infer_config_category_selection_propagates_threshold_and_checkpoint(
     }
     out = select_infer_category(payload, category="cat")
     assert out["category"] == "cat"
-    assert out["threshold"] == pytest.approx(0.7)
-    assert out["threshold_provenance"]["quantile"] == pytest.approx(0.7)
+    assert math.isclose(out["threshold"], 0.7)
+    assert math.isclose(out["threshold_provenance"]["quantile"], 0.7)
     assert out["checkpoint"]["path"] == "checkpoints/cat/model.pt"
     assert "per_category" not in out
 

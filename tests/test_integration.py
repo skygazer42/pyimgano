@@ -132,7 +132,7 @@ class TestBenchmarkWorkflow:
         assert "ECOD" in results
         assert "COPOD" in results
 
-        for algo_name, result in results.items():
+        for result in results.values():
             assert result["success"]
             assert "auroc" in result
             assert "train_time" in result
@@ -292,16 +292,16 @@ def test_workbench_recipe_smoke_manifest(tmp_path: Path, recipe_name: str) -> No
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X, y=None, **kwargs):  # noqa: ANN001, ARG002 - test stub
-            self.fit_inputs = list(X)
+        def fit(self, x, y=None, **kwargs):  # noqa: ANN001, ARG002 - test stub
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001 - test stub
-            items = list(X)
+        def decision_function(self, x):  # noqa: ANN001 - test stub
+            items = list(x)
             return np.linspace(0.0, 1.0, num=len(items), dtype=np.float32)
 
-        def predict_anomaly_map(self, X):  # noqa: ANN001 - test stub
-            items = list(X)
+        def predict_anomaly_map(self, x):  # noqa: ANN001 - test stub
+            items = list(x)
             return np.zeros((len(items), 16, 16), dtype=np.float32)
 
     MODEL_REGISTRY.register(

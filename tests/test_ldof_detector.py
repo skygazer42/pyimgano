@@ -6,12 +6,12 @@ def test_core_ldof_fit_predict_smoke() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(80, 6))
+    x = rng.normal(size=(80, 6))
 
     det = create_model("core_ldof", contamination=0.1, n_neighbors=10)
-    det.fit(X)
-    scores = det.decision_function(X[:11])
-    preds = det.predict(X[:11])
+    det.fit(x)
+    scores = det.decision_function(x[:11])
+    preds = det.predict(x[:11])
 
     assert scores.shape == (11,)
     assert preds.shape == (11,)
@@ -25,14 +25,14 @@ def test_vision_ldof_with_identity_extractor() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(1)
-    X = rng.normal(size=(60, 3))
+    x = rng.normal(size=(60, 3))
     det = create_model(
         "vision_ldof",
         feature_extractor=IdentityExtractor(),
         contamination=0.2,
         n_neighbors=7,
     )
-    det.fit(X)
-    scores = det.decision_function(X[:5])
+    det.fit(x)
+    scores = det.decision_function(x[:5])
     assert scores.shape == (5,)
     assert np.all(np.isfinite(scores))

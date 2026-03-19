@@ -6,7 +6,6 @@ from typing import Any, Sequence
 
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
-import pyimgano.services.robustness_service as robustness_service
 from pyimgano.cli_common import merge_checkpoint_path, parse_model_kwargs
 from pyimgano.reporting.report import save_run_report
 from pyimgano.services.benchmark_service import PixelPostprocessConfig
@@ -137,21 +136,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional max number of test images evaluated (for quick runs)",
     )
-    parser.add_argument(
-        "--save-run",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Persist a robustness run directory with report/config/environment artifacts. Default: false",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=None,
-        help="Optional robustness run directory when --save-run is enabled, or to force persisted artifacts.",
-    )
     parser.add_argument("--output", default=None, help="Optional JSON output path")
     return parser
-
-
 def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
     return parse_model_kwargs(text)
 
@@ -164,7 +150,7 @@ def _merge_checkpoint_path(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    args = parser.parse_args(argv if argv is not None else None)
 
     try:
         # Ensure registry is populated.
@@ -172,7 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         import pyimgano.services.discovery_service as discovery_service
 
         if bool(args.list_models):
-            names = list(discovery_service.list_discovery_model_names())
+            names = discovery_service.list_discovery_model_names()
             return cli_listing.emit_listing(
                 names,
                 json_output=bool(args.json),
@@ -183,12 +169,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError(
                 "--dataset/--root/--category are required unless --list-models is used."
             )
+        from pyimgano.services.robustness_service import (
+            RobustnessRunRequest,
+            run_robustness_request,
+        )
+
         postprocess = PixelPostprocessConfig() if bool(args.pixel_postprocess) else None
         user_kwargs = _parse_model_kwargs(args.model_kwargs)
         user_kwargs = _merge_checkpoint_path(user_kwargs, checkpoint_path=args.checkpoint_path)
 
-        payload = robustness_service.run_robustness_request(
-            robustness_service.RobustnessRunRequest(
+        payload = run_robustness_request(
+            RobustnessRunRequest(
                 dataset=str(args.dataset),
                 root=str(args.root),
                 category=str(args.category),
@@ -211,8 +202,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed=int(args.seed),
                 limit_train=(int(args.limit_train) if args.limit_train is not None else None),
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
-                save_run=bool(args.save_run),
-                output_dir=(str(args.output_dir) if args.output_dir is not None else None),
             )
         )
 

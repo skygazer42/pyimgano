@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 
 def test_filter_small_components_removes_specks() -> None:

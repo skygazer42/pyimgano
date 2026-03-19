@@ -144,6 +144,7 @@ def _select_output_tensor(
 
 
 def _as_2d_embedding(torch, out_tensor):  # noqa: ANN001, ANN201 - torch is dynamic
+    del torch
     t = out_tensor
     if not hasattr(t, "ndim"):
         raise TypeError("Selected model output is not a tensor")

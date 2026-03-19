@@ -14,9 +14,10 @@ from numpy.typing import NDArray
 
 from .enhancer import ImageEnhancer, PreprocessingPipeline
 
-logger = logging.getLogger(__name__)
+PREPROCESSING_NOT_ENABLED_ERROR = "Preprocessing not enabled"
 
-PREPROCESSING_DISABLED_ERROR = "Preprocessing not enabled"
+
+logger = logging.getLogger(__name__)
 
 
 class PreprocessingMixin:
@@ -295,7 +296,7 @@ class PreprocessingMixin:
             Edge-detected image
         """
         if not self.preprocessing_enabled:
-            raise RuntimeError(PREPROCESSING_DISABLED_ERROR)
+            raise RuntimeError(PREPROCESSING_NOT_ENABLED_ERROR)
 
         if isinstance(image, str):
             image = cv2.imread(image)
@@ -323,7 +324,7 @@ class PreprocessingMixin:
             Blurred image
         """
         if not self.preprocessing_enabled:
-            raise RuntimeError(PREPROCESSING_DISABLED_ERROR)
+            raise RuntimeError(PREPROCESSING_NOT_ENABLED_ERROR)
 
         if isinstance(image, str):
             image = cv2.imread(image)
@@ -358,7 +359,7 @@ class PreprocessingMixin:
             Processed image
         """
         if not self.preprocessing_enabled:
-            raise RuntimeError(PREPROCESSING_DISABLED_ERROR)
+            raise RuntimeError(PREPROCESSING_NOT_ENABLED_ERROR)
 
         if isinstance(image, str):
             image = cv2.imread(image)
@@ -424,7 +425,7 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
         # Initialize preprocessing
         self.setup_preprocessing(enable=True, use_pipeline=True)
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
         """
         Fit detector with preprocessing.
 
@@ -439,15 +440,16 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
         -------
         self
         """
+        del y
         # Preprocess all training images
-        x_processed = self.preprocess_images(X)
+        x_processed = self.preprocess_images(x)
 
         # Your fitting logic here
         logger.info("Fitting on %d preprocessed images", len(x_processed))
 
         return self
 
-    def predict(self, X):
+    def predict(self, x):
         """
         Predict with preprocessing.
 
@@ -462,10 +464,9 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
             Anomaly scores
         """
         # Preprocess all test images
-        x_processed = self.preprocess_images(X)
+        x_processed = self.preprocess_images(x)
 
-        # Your prediction logic here
-        rng = np.random.default_rng(0)
-        scores = rng.random(len(x_processed))  # Placeholder
+        # Placeholder scores should stay deterministic and side-effect free.
+        scores = np.linspace(0.0, 1.0, num=len(x_processed), endpoint=False, dtype=np.float64)
 
         return scores

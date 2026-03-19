@@ -13,15 +13,18 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union, cast
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
-logger = logging.getLogger(__name__)
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
+
+logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - typing-only dependency
     from numpy.typing import NDArray
@@ -196,6 +199,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         def get_activation(name: str):
             def hook(module, input, output):
+                del input, module
                 self.feature_maps[name] = output.detach()
 
             return hook
@@ -236,7 +240,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             Extracted patch features
         """
         torch = self._torch
-        F = self._F
+        functional = self._F
 
         # Load and preprocess image
         img = self._load_image_rgb(image)
@@ -257,7 +261,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             if target_size is None:
                 target_size = (int(feat.shape[-2]), int(feat.shape[-1]))
             else:
-                feat = F.interpolate(feat, size=target_size, mode="bilinear", align_corners=False)
+                feat = functional.interpolate(feat, size=target_size, mode="bilinear", align_corners=False)
 
             features_list.append(feat)
 
@@ -362,7 +366,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         return features[selected_indices]
 
-    def fit(self, X: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPatchCore":
+    def fit(self, x: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPatchCore":
         """
         Fit PatchCore on normal training images.
 
@@ -378,12 +382,13 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self : VisionPatchCore
             Fitted detector
         """
+        del y
         np = self._np
         from .knn_index import build_knn_index
 
         logger.info("Fitting PatchCore detector on training images")
 
-        x_list = list(X)
+        x_list = list(x)
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
@@ -451,7 +456,12 @@ class VisionPatchCore(BaseVisionDeepDetector):
         logger.info("PatchCore training completed")
         return self
 
-    def predict(self, X: Iterable[ImageInput], return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict binary anomaly labels for test images.
 
@@ -473,11 +483,17 @@ class VisionPatchCore(BaseVisionDeepDetector):
         if self.memory_bank is None or self.nn_index is None or not hasattr(self, "threshold_"):
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
-        scores = self.decision_function(X)
+        x_iter = cast(
+            Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+        )
+        scores = self.decision_function(x_iter)
         return (scores >= self.threshold_).astype(int)
 
     def decision_function(
-        self, X: Iterable[ImageInput], batch_size: Optional[int] = None
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
     ) -> NDArray:
         """
         Compute anomaly scores for test images.
@@ -503,7 +519,11 @@ class VisionPatchCore(BaseVisionDeepDetector):
         if self.memory_bank is None or self.nn_index is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
-        x_list = list(X)
+        x_iter = cast(
+            Iterable[ImageInput],
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+        )
+        x_list = list(x_iter)
         scores = np.zeros(len(x_list))
 
         logger.info("Computing anomaly scores for %d images", len(x_list))

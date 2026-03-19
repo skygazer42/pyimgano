@@ -26,30 +26,10 @@ from sklearn.metrics import (
     roc_curve,
 )
 
+PIXEL_LABELS_AND_SCORES_REQUIRED_ERROR = "pixel_labels and pixel_scores must be non-empty."
+
+
 logger = logging.getLogger(__name__)
-
-_METRIC_PRECISION = "precision"
-_METRIC_RECALL = "recall"
-_PIXEL_LABELS_SCORES_EMPTY = "pixel_labels and pixel_scores must be non-empty."
-_PIXEL_LABELS_SCORES_SHAPE_MISMATCH = (
-    "pixel_labels and pixel_scores must have the same shape. "
-)
-
-
-def _validate_pixel_inputs(
-    pixel_labels: NDArray,
-    pixel_scores: NDArray,
-) -> tuple[NDArray, NDArray]:
-    labels = np.asarray(pixel_labels)
-    scores = np.asarray(pixel_scores)
-    if labels.size == 0 or scores.size == 0:
-        raise ValueError(_PIXEL_LABELS_SCORES_EMPTY)
-    if labels.shape != scores.shape:
-        raise ValueError(
-            f"{_PIXEL_LABELS_SCORES_SHAPE_MISMATCH}"
-            f"Got {labels.shape} != {scores.shape}."
-        )
-    return labels, scores
 
 
 def compute_auroc(
@@ -213,10 +193,10 @@ def find_optimal_threshold(
 
         return optimal_threshold, optimal_j
 
-    elif metric in [_METRIC_PRECISION, _METRIC_RECALL]:
+    elif metric in ["precision", "recall"]:
         precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
 
-        if metric == _METRIC_PRECISION:
+        if metric == "precision":
             optimal_idx = np.argmax(precisions[:-1])
             optimal_threshold = float(thresholds[optimal_idx])
             return optimal_threshold, float(precisions[optimal_idx])
@@ -227,7 +207,7 @@ def find_optimal_threshold(
 
     else:
         raise ValueError(
-            f"Unsupported metric: {metric}. " "Choose from 'f1', 'precision', 'recall', 'youden'"
+            f"Unsupported metric: {metric}. Choose from 'f1', 'precision', 'recall', 'youden'"
         )
 
 
@@ -275,8 +255,8 @@ def compute_classification_metrics(
     accuracy = (tp + tn) / (tp + tn + fp + fn)
 
     return {
-        _METRIC_PRECISION: float(precision),
-        _METRIC_RECALL: float(recall),
+        "precision": float(precision),
+        "recall": float(recall),
         "f1": float(f1),
         "specificity": float(specificity),
         "accuracy": float(accuracy),
@@ -356,8 +336,8 @@ def evaluate_detector(
 
     logger.info(
         "Classification metrics - Precision: %.4f, Recall: %.4f, F1: %.4f",
-        classification_metrics[_METRIC_PRECISION],
-        classification_metrics[_METRIC_RECALL],
+        classification_metrics["precision"],
+        classification_metrics["recall"],
         classification_metrics["f1"],
     )
 
@@ -443,7 +423,15 @@ def compute_pro_score(
     if int(num_thresholds) < 10:
         raise ValueError(f"num_thresholds must be >= 10. Got {num_thresholds}.")
 
-    pixel_labels_arr, pixel_scores_arr = _validate_pixel_inputs(pixel_labels, pixel_scores)
+    pixel_labels_arr = np.asarray(pixel_labels)
+    pixel_scores_arr = np.asarray(pixel_scores)
+    if pixel_labels_arr.size == 0 or pixel_scores_arr.size == 0:
+        raise ValueError(PIXEL_LABELS_AND_SCORES_REQUIRED_ERROR)
+    if pixel_labels_arr.shape != pixel_scores_arr.shape:
+        raise ValueError(
+            "pixel_labels and pixel_scores must have the same shape. "
+            f"Got {pixel_labels_arr.shape} != {pixel_scores_arr.shape}."
+        )
 
     labels_bin = (pixel_labels_arr > 0).astype(np.uint8, copy=False)
     scores = np.asarray(pixel_scores_arr, dtype=np.float64)
@@ -581,7 +569,15 @@ def compute_pixel_segf1(
       consistently across evaluation conditions (clean/corrupted, etc.).
     """
 
-    labels, scores = _validate_pixel_inputs(pixel_labels, pixel_scores)
+    labels = np.asarray(pixel_labels)
+    scores = np.asarray(pixel_scores)
+    if labels.size == 0 or scores.size == 0:
+        raise ValueError(PIXEL_LABELS_AND_SCORES_REQUIRED_ERROR)
+    if labels.shape != scores.shape:
+        raise ValueError(
+            "pixel_labels and pixel_scores must have the same shape. "
+            f"Got {labels.shape} != {scores.shape}."
+        )
 
     labels_bin = (labels > 0).astype(np.uint8, copy=False).ravel()
     scores_f = np.asarray(scores, dtype=np.float64).ravel()
@@ -612,7 +608,15 @@ def compute_bg_fpr(
     Background pixels are defined as GT==0 (non-anomalous).
     """
 
-    labels, scores = _validate_pixel_inputs(pixel_labels, pixel_scores)
+    labels = np.asarray(pixel_labels)
+    scores = np.asarray(pixel_scores)
+    if labels.size == 0 or scores.size == 0:
+        raise ValueError(PIXEL_LABELS_AND_SCORES_REQUIRED_ERROR)
+    if labels.shape != scores.shape:
+        raise ValueError(
+            "pixel_labels and pixel_scores must have the same shape. "
+            f"Got {labels.shape} != {scores.shape}."
+        )
 
     labels_bin = (labels > 0).astype(np.uint8, copy=False).ravel()
     bg = labels_bin == 0
@@ -695,8 +699,8 @@ def print_evaluation_summary(results: Dict) -> None:
     print(f"\nClassification Metrics (threshold={results['threshold']:.3f}):")
     print("-" * 42)
     metrics = results["metrics"]
-    print(f"Precision:           {metrics[_METRIC_PRECISION]:.4f}")
-    print(f"Recall (TPR):        {metrics[_METRIC_RECALL]:.4f}")
+    print(f"Precision:           {metrics['precision']:.4f}")
+    print(f"Recall (TPR):        {metrics['recall']:.4f}")
     print(f"F1-Score:            {metrics['f1']:.4f}")
     print(f"Specificity (TNR):   {metrics['specificity']:.4f}")
     print(f"Accuracy:            {metrics['accuracy']:.4f}")

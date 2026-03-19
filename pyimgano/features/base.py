@@ -16,6 +16,7 @@ class BaseFeatureExtractor(ABC):
     """
 
     def fit(self, inputs: Iterable[Any], y: Any | None = None) -> "BaseFeatureExtractor":
+        del inputs, y
         return self
 
     @abstractmethod

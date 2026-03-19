@@ -14,7 +14,7 @@ def test_check_random_state_int_is_deterministic() -> None:
     assert np.allclose(a, b)
 
 
-def test_check_random_state_pass_through() -> None:
+def test_check_random_state_pass_through_generator() -> None:
     from pyimgano.utils.random_state import check_random_state
 
     rs = np.random.default_rng(123)

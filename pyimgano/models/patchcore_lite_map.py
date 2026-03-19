@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+
+
 """PatchCore-lite-map: patch memory bank + kNN distance anomaly map.
 
 This is a pragmatic, industrial-friendly baseline inspired by PatchCore:
@@ -20,18 +23,17 @@ Default behavior is **offline-safe**:
 
 import math
 from dataclasses import dataclass
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyimgano.features.torchvision_conv_patch_embedder import TorchvisionConvPatchEmbedder
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .knn_index import KNNIndex, build_knn_index
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
-
-MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
 @dataclass
@@ -106,7 +108,7 @@ class VisionPatchCoreLiteMap:
         self.coreset_sampling_ratio = float(coreset_sampling_ratio)
         if not (0.0 < self.coreset_sampling_ratio <= 1.0):
             raise ValueError(
-                "coreset_sampling_ratio must be in (0, 1]. " f"Got {self.coreset_sampling_ratio}."
+                f"coreset_sampling_ratio must be in (0, 1]. Got {self.coreset_sampling_ratio}."
             )
         self.random_seed = int(random_seed)
 
@@ -149,8 +151,14 @@ class VisionPatchCoreLiteMap:
             original_size=(original_h, original_w),
         )
 
-    def fit(self, X: Iterable[Union[str, np.ndarray]], _y=None):
-        items = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            )
+        )
         if not items:
             raise ValueError("X must contain at least one training image.")
 
@@ -197,8 +205,13 @@ class VisionPatchCoreLiteMap:
         # PatchCore-style: distance to closest normal patch (or among k neighbors).
         return distances_np.min(axis=1)
 
-    def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             embedded = self._embed(item)
@@ -210,10 +223,15 @@ class VisionPatchCoreLiteMap:
             )
         return scores
 
-    def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
+            )
+        )
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -242,8 +260,13 @@ class VisionPatchCoreLiteMap:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)
 

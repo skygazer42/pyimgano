@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from pyimgano.workbench.manifest_category_selection import select_manifest_preflight_categories
 from pyimgano.workbench.config import WorkbenchConfig
+from pyimgano.workbench.manifest_category_selection import select_manifest_preflight_categories
 from pyimgano.workbench.manifest_preflight_categories import preflight_manifest_categories
 from pyimgano.workbench.manifest_preflight_report import build_manifest_preflight_report
 from pyimgano.workbench.manifest_record_preflight import resolve_manifest_preflight_records
-from pyimgano.workbench.manifest_split_policy import build_manifest_split_policy
 from pyimgano.workbench.manifest_source_validation import resolve_manifest_preflight_source
+from pyimgano.workbench.manifest_split_policy import build_manifest_split_policy
 
 
 def run_manifest_preflight(

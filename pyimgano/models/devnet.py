@@ -263,13 +263,14 @@ class DevNetDetector(BaseVisionDeepDetector):
             self.dropout,
         ).to(self.device)
 
-    def fit(self, X: NDArray, y: NDArray, **kwargs):
+    def fit(self, x: NDArray, y: NDArray, **kwargs):
         """Train the DevNet model.
 
         Args:
             X: Training images (N, H, W, C).
             y: Labels (0=normal, 1=anomaly). Must include both normal and anomaly samples.
         """
+        del kwargs
         if y is None or len(np.unique(y)) < 2:
             raise ValueError(
                 "DevNet requires labeled data with both normal (0) and anomaly (1) samples. "
@@ -280,8 +281,8 @@ class DevNetDetector(BaseVisionDeepDetector):
         print(f"  Normal samples: {(y == 0).sum()}")
         print(f"  Anomaly samples: {(y == 1).sum()}")
 
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         # Extract features
         print("Extracting features...")
@@ -289,7 +290,7 @@ class DevNetDetector(BaseVisionDeepDetector):
 
         features_list = []
         with torch.no_grad():
-            for img in X:
+            for img in x:
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
                 features = self.feature_extractor(img_tensor)
                 features_list.append(features.cpu())
@@ -299,9 +300,7 @@ class DevNetDetector(BaseVisionDeepDetector):
 
         # Create dataset
         dataset = TensorDataset(features, labels)
-        dataloader = DataLoader(
-            dataset, batch_size=self.batch_size, shuffle=True, num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimizer and loss
         optimizer = torch.optim.Adam(
@@ -341,7 +340,7 @@ class DevNetDetector(BaseVisionDeepDetector):
         self.scoring_model.eval()
         print("Training completed!")
 
-    def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
+    def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -350,8 +349,9 @@ class DevNetDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly scores.
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        del kwargs
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         self.feature_extractor.eval()
         self.scoring_model.eval()
@@ -359,7 +359,7 @@ class DevNetDetector(BaseVisionDeepDetector):
         scores = []
 
         with torch.no_grad():
-            for img in X:
+            for img in x:
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
 
                 # Extract features
@@ -393,7 +393,7 @@ class DevNetDetector(BaseVisionDeepDetector):
 
         return image
 
-    def get_feature_importance(self, X: NDArray) -> NDArray:
+    def get_feature_importance(self, x: NDArray) -> NDArray:
         """Get feature importance scores.
 
         Args:
@@ -402,8 +402,8 @@ class DevNetDetector(BaseVisionDeepDetector):
         Returns:
             Feature importance scores (D,).
         """
-        if X.max() > 1.0:
-            X = X.astype(np.float32) / 255.0
+        if x.max() > 1.0:
+            x = x.astype(np.float32) / 255.0
 
         self.feature_extractor.eval()
         self.scoring_model.eval()
@@ -411,7 +411,7 @@ class DevNetDetector(BaseVisionDeepDetector):
         # Extract features
         features_list = []
         with torch.no_grad():
-            for img in X:
+            for img in x:
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
                 features = self.feature_extractor(img_tensor)
                 features_list.append(features)

@@ -247,8 +247,19 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
             with torch.no_grad():
                 recon, _vq_loss = self.model(images, beta=float(self.cfg.beta_commit))  # type: ignore[operator]
                 err = F.mse_loss(recon, images, reduction="none")
-                # Mean over channels -> (H,W)
-                m = err.mean(dim=1)[0]
+                # Mean over channels -> (B,1,H,W)
+                map_tensor = err.mean(dim=1, keepdim=True)
+                if image_size is not None:
+                    out_h, out_w = int(image_size[0]), int(image_size[1])
+                    if out_h <= 0 or out_w <= 0:
+                        raise ValueError(f"image_size must contain positive integers, got {image_size!r}")
+                    map_tensor = F.interpolate(
+                        map_tensor,
+                        size=(out_h, out_w),
+                        mode="bilinear",
+                        align_corners=False,
+                    )
+                m = map_tensor[0, 0]
                 return m.detach().cpu().numpy().astype(np.float32)
 
         raise RuntimeError("No data produced for get_anomaly_map")

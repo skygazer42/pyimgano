@@ -69,7 +69,7 @@ def generate_image_data(
     # Normal images: Simple patterns
     normal_images = []
     for _ in range(n_normal):
-        img = rng.normal(loc=0.0, scale=0.1, size=(1, *image_size))
+        img = rng.standard_normal((1, *image_size)) * 0.1
         # Add structured patterns
         img[:, ::4, :] += 0.5
         img[:, :, ::4] += 0.5
@@ -78,7 +78,7 @@ def generate_image_data(
     # Anomalous images: Different patterns
     anomaly_images = []
     for _ in range(n_anomaly):
-        img = rng.normal(loc=0.0, scale=0.3, size=(1, *image_size))
+        img = rng.standard_normal((1, *image_size)) * 0.3
         # Add random structures
         img[:, ::3, :] += 1.0
         img[:, :, ::5] -= 1.0
@@ -104,14 +104,15 @@ def get_model_size(model: torch.nn.Module) -> float:
 def benchmark_algorithm(
     model_name: str,
     detector_params: dict,
-    X_train: np.ndarray,
-    _y_train: np.ndarray,
-    X_test: np.ndarray,
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_test: np.ndarray,
     y_test: np.ndarray,
     algorithm_name: str,
     epochs: int = 10,
 ) -> BenchmarkResult:
     """Benchmark a single deep learning algorithm."""
+    del y_train
     result = BenchmarkResult(algorithm_name)
 
     try:
@@ -133,7 +134,7 @@ def benchmark_algorithm(
 
         # Measure training time
         start_time = time.time()
-        detector.fit(X_train)
+        detector.fit(x_train)
         total_train_time = time.time() - start_time
 
         result.total_train_time = total_train_time
@@ -146,8 +147,8 @@ def benchmark_algorithm(
 
         # Measure inference time
         start_time = time.time()
-        scores = detector.decision_function(X_test)
-        inference_time = (time.time() - start_time) / len(X_test)
+        scores = detector.decision_function(x_test)
+        inference_time = (time.time() - start_time) / len(x_test)
 
         result.inference_time = inference_time
 
@@ -170,7 +171,7 @@ def benchmark_algorithm(
 
 
 def benchmark_autoencoder(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark Autoencoder-based methods."""
     print("\n" + "=" * 60)
@@ -178,7 +179,7 @@ def benchmark_autoencoder(
     print("=" * 60)
 
     results = []
-    input_dim = np.prod(X_train.shape[1:])
+    input_dim = np.prod(x_train.shape[1:])
 
     # DeepSVDD in autoencoder mode (reconstruction + SVDD distance)
     print("\n1. DeepSVDD (autoencoder mode)...")
@@ -194,9 +195,9 @@ def benchmark_autoencoder(
             "hidden_neurons": [128, 64, 32],
             "verbose": 0,
         },
-        X_train,
+        x_train,
         y_train,
-        X_test,
+        x_test,
         y_test,
         "DeepSVDD (AE mode)",
         epochs=10,
@@ -208,7 +209,7 @@ def benchmark_autoencoder(
 
 
 def benchmark_deep_svdd(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark Deep SVDD method."""
     print("\n" + "=" * 60)
@@ -216,7 +217,7 @@ def benchmark_deep_svdd(
     print("=" * 60)
 
     results = []
-    input_dim = np.prod(X_train.shape[1:])
+    input_dim = np.prod(x_train.shape[1:])
 
     print("\n1. Deep SVDD...")
     result = benchmark_algorithm(
@@ -229,9 +230,9 @@ def benchmark_deep_svdd(
             "verbose": 0,
             "contamination": 0.1,
         },
-        X_train,
+        x_train,
         y_train,
-        X_test,
+        x_test,
         y_test,
         "Deep SVDD",
         epochs=10,
@@ -326,15 +327,15 @@ def main():
 
     # Generate synthetic image data
     print("\nGenerating synthetic image dataset...")
-    X_train, y_train, X_test, y_test = generate_image_data(
+    x_train, y_train, x_test, y_test = generate_image_data(
         n_normal=500, n_anomaly=50, image_size=(64, 64)
     )
     print(f"Training set: {X_train.shape[0]} samples, shape: {X_train.shape}")
     print(f"Test set: {X_test.shape[0]} samples ({np.sum(y_test)} anomalies)")
 
     # Flatten images for detectors
-    x_train_flat = X_train.reshape(X_train.shape[0], -1)
-    x_test_flat = X_test.reshape(X_test.shape[0], -1)
+    x_train_flat = x_train.reshape(x_train.shape[0], -1)
+    x_test_flat = x_test.reshape(x_test.shape[0], -1)
 
     # Run benchmarks
     all_results = []

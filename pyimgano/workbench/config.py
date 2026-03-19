@@ -21,7 +21,6 @@ from pyimgano.workbench.config_types import (
     WorkbenchConfig,
 )
 
-
 WorkbenchConfigT = TypeVar("WorkbenchConfigT", bound=WorkbenchConfig)
 
 

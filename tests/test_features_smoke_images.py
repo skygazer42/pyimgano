@@ -48,20 +48,20 @@ def test_feature_extractors_smoke_on_vectors() -> None:
     from pyimgano.features import create_feature_extractor
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(50, 8))
+    x = rng.normal(size=(50, 8))
 
     identity = create_feature_extractor("identity")
-    out = identity.extract(X[:3])
+    out = identity.extract(x[:3])
     assert out.shape == (3, 8)
 
     scaler = create_feature_extractor("standard_scaler")
-    scaler.fit(X)
-    Z = scaler.extract(X[:5])
-    assert Z.shape == (5, 8)
-    assert np.all(np.isfinite(Z))
+    scaler.fit(x)
+    z = scaler.extract(x[:5])
+    assert z.shape == (5, 8)
+    assert np.all(np.isfinite(z))
 
     pca = create_feature_extractor("pca_projector", n_components=4, random_state=0)
-    pca.fit(X)
-    P = pca.extract(X[:7])
-    assert P.shape == (7, 4)
-    assert np.all(np.isfinite(P))
+    pca.fit(x)
+    p = pca.extract(x[:7])
+    assert p.shape == (7, 4)
+    assert np.all(np.isfinite(p))

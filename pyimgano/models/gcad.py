@@ -9,7 +9,7 @@ This method uses graph convolutional networks to model spatial relationships
 between image patches, enabling better anomaly localization.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -18,6 +18,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -203,8 +204,9 @@ class VisionGCAD(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(100, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((100, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create and train detector
     >>> detector = VisionGCAD(epochs=10)
@@ -227,7 +229,7 @@ class VisionGCAD(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.patch_size = patch_size
         self.hidden_dims = list(hidden_dims or [256, 128, 64])
@@ -238,27 +240,27 @@ class VisionGCAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.gcn_ = None
         self.memory_bank_ = None
         self.feature_dim_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
         # Convert to CHW format if needed
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
         # Normalize
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _extract_patches(self, features: torch.Tensor) -> Tuple[torch.Tensor, int, int]:
         """
@@ -278,24 +280,24 @@ class VisionGCAD(BaseVisionDeepDetector):
         w_patches : int
             Number of patches in width
         """
-        B, C, H, W = features.shape
+        batch_size, channels, height, width = features.shape
         p = self.patch_size
 
         # Ensure dimensions are divisible by patch_size
-        height_new = (H // p) * p
-        width_new = (W // p) * p
-        features = features[:, :, :height_new, :width_new]
+        height_trimmed = (height // p) * p
+        width_trimmed = (width // p) * p
+        features = features[:, :, :height_trimmed, :width_trimmed]
 
         # Extract patches
         patches = features.unfold(2, p, p).unfold(3, p, p)
         # (B, C, h_patches, w_patches, p, p)
 
-        h_patches = height_new // p
-        w_patches = width_new // p
+        h_patches = height_trimmed // p
+        w_patches = width_trimmed // p
 
         # Reshape to (B, num_patches, feature_dim)
         patches = patches.permute(0, 2, 3, 1, 4, 5).contiguous()
-        patches = patches.view(B, h_patches * w_patches, C * p * p)
+        patches = patches.view(batch_size, h_patches * w_patches, channels * p * p)
 
         return patches, h_patches, w_patches
 
@@ -315,31 +317,36 @@ class VisionGCAD(BaseVisionDeepDetector):
         adj : torch.Tensor
             Normalized adjacency matrix (B, N, N)
         """
-        B, N, F = features.shape
+        batch_size, num_nodes, feature_dim = features.shape
 
         # Compute pairwise distances
-        features_norm = features.view(B, N, 1, F)
-        dist = torch.sum((features_norm - features.view(B, 1, N, F)) ** 2, dim=-1)
+        features_norm = features.view(batch_size, num_nodes, 1, feature_dim)
+        dist = torch.sum((features_norm - features.view(batch_size, 1, num_nodes, feature_dim)) ** 2, dim=-1)
         # (B, N, N)
 
         # Find k nearest neighbors
-        _, indices = torch.topk(-dist, k=min(k + 1, N), dim=-1)
+        _, indices = torch.topk(-dist, k=min(k + 1, num_nodes), dim=-1)
         # (B, N, k+1) - includes self
 
         # Build adjacency matrix
-        adj = torch.zeros(B, N, N, device=features.device)
-        for b in range(B):
-            for i in range(N):
+        adj = torch.zeros(batch_size, num_nodes, num_nodes, device=features.device)
+        for b in range(batch_size):
+            for i in range(num_nodes):
                 adj[b, i, indices[b, i]] = 1.0
 
         # Normalize adjacency matrix (add self-loops and apply degree normalization)
-        adj = adj + torch.eye(N, device=features.device).unsqueeze(0)
+        adj = adj + torch.eye(num_nodes, device=features.device).unsqueeze(0)
         degree = adj.sum(dim=-1, keepdim=True).clamp(min=1)
         adj = adj / degree
 
         return adj
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionGCAD":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionGCAD":
         """
         Fit the GCAD detector.
 
@@ -355,8 +362,10 @@ class VisionGCAD(BaseVisionDeepDetector):
         self : VisionGCAD
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize feature extractor
         if self.feature_extractor_ is None:
@@ -378,11 +387,7 @@ class VisionGCAD(BaseVisionDeepDetector):
         dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(
-            self.gcn_.parameters(),
-            lr=self.learning_rate,
-            weight_decay=0.0,
-        )
+        optimizer = torch.optim.Adam(self.gcn_.parameters(), lr=self.learning_rate, weight_decay=0.0)
 
         self.gcn_.train()
 
@@ -422,14 +427,14 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         return self
 
-    def _build_memory_bank(self, X: torch.Tensor):
+    def _build_memory_bank(self, x: torch.Tensor):
         """Build memory bank from training data."""
         self.gcn_.eval()
         all_features = []
 
         with torch.no_grad():
-            for i in range(0, len(X), self.batch_size):
-                batch = X[i : i + self.batch_size].to(self.device)
+            for i in range(0, len(x), self.batch_size):
+                batch = x[i : i + self.batch_size].to(self.device)
 
                 # Extract and encode
                 features = self.feature_extractor_(batch)
@@ -441,7 +446,12 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         self.memory_bank_ = torch.cat(all_features, dim=0)
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -462,7 +472,8 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         self.gcn_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -492,10 +503,18 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         return np.array(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is None:
-            return self.predict(X)
+            return self.predict(x_array)
 
         batch_size_int = int(batch_size)
         if batch_size_int <= 0:
@@ -504,6 +523,6 @@ class VisionGCAD(BaseVisionDeepDetector):
         old_batch_size = self.batch_size
         try:
             self.batch_size = batch_size_int
-            return self.predict(X)
+            return self.predict(x_array)
         finally:
             self.batch_size = old_batch_size

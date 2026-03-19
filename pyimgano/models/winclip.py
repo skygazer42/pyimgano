@@ -139,6 +139,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         k_shot: int = 0,
         scales: Optional[List[float]] = None,
         device: Optional[str] = None,
+        random_state: Optional[int] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -153,11 +154,16 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         self.window_stride = window_stride
         self.k_shot = k_shot
         self.scales = list(scales or [1.0])
+        self.random_state = random_state
+        self.rng = np.random.default_rng(random_state)
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
+
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         # Default text prompts for anomaly detection
         if text_prompts is None:
@@ -220,34 +226,36 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         self.text_features_normal = normal_features.mean(dim=0, keepdim=True)
         self.text_features_anomaly = anomaly_features.mean(dim=0, keepdim=True)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None, **kwargs):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None, **kwargs):
         """Fit the detector (optional for few-shot learning).
 
         Args:
             X: Training images (N, H, W, C) - normal samples only.
             y: Not used.
         """
+        del y, kwargs
         if self.k_shot > 0:
             # Few-shot learning: store features from normal samples
-            if len(X) > self.k_shot:
+            if len(x) > self.k_shot:
                 # Sample k_shot examples
-                rng = np.random.default_rng(self.random_state)
-                indices = rng.choice(len(X), self.k_shot, replace=False)
-                X = X[indices]
+                indices = self.rng.choice(len(x), self.k_shot, replace=False)
+                x = x[indices]
 
             # Extract features
             self.few_shot_features = []
             with torch.no_grad():
-                for img in X:
+                for img in x:
                     img_tensor = self._preprocess_image(img).unsqueeze(0).to(self.device)
                     features = self.model.encode_image(img_tensor)
                     features = F.normalize(features, dim=-1)
                     self.few_shot_features.append(features)
 
             self.few_shot_features = torch.cat(self.few_shot_features, dim=0)
-        # Zero-shot mode does not need training-time state updates.
+        else:
+            # Zero-shot: no training needed
+            pass
 
-    def predict_proba(self, X: NDArray, **kwargs) -> NDArray:
+    def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -256,9 +264,10 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         Returns:
             Anomaly scores for each sample.
         """
+        del kwargs
         scores = []
 
-        for img in X:
+        for img in x:
             if self.window_size < min(img.shape[:2]):
                 # Use window-based scoring
                 score = self._score_with_windows(img)
@@ -270,7 +279,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
 
         return np.array(scores)
 
-    def predict_anomaly_map(self, X: NDArray) -> List[NDArray]:
+    def predict_anomaly_map(self, x: NDArray) -> List[NDArray]:
         """Predict pixel-level anomaly maps.
 
         Args:
@@ -281,7 +290,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         """
         anomaly_maps = []
 
-        for img in X:
+        for img in x:
             # Extract windows
             windows, positions = self.window_attention.extract_windows(img)
 
@@ -368,7 +377,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         pil_img = Image.fromarray(image)
         return self.preprocess(pil_img)
 
-    def multi_scale_predict(self, X: NDArray, scales: Optional[List[float]] = None) -> NDArray:
+    def multi_scale_predict(self, x: NDArray, scales: Optional[List[float]] = None) -> NDArray:
         """Multi-scale anomaly prediction.
 
         Args:
@@ -392,7 +401,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
                 import cv2
 
                 x_scaled = []
-                for img in X:
+                for img in x:
                     h, w = img.shape[:2]
                     # Be defensive: extremely small scales can truncate to 0, which OpenCV rejects.
                     new_h = max(1, int(round(h * scale_f)))
@@ -401,7 +410,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
                     x_scaled.append(img_scaled)
                 x_scaled = np.array(x_scaled)
             else:
-                x_scaled = X
+                x_scaled = x
 
             # Predict
             scores = self.predict_proba(x_scaled)

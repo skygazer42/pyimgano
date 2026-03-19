@@ -6,7 +6,6 @@ from typing import Any, Literal, Optional
 import numpy as np
 
 from pyimgano.utils.image_u8 import as_u8_image
-from pyimgano.utils.random_state import check_random_state
 
 from .blend import alpha_blend, poisson_blend
 from .masks import apply_roi_mask, ensure_u8_mask
@@ -82,7 +81,10 @@ class AnomalySynthesizer:
 
         img = as_u8_image(image_u8)
         if rng is None:
-            rng = check_random_state(seed if seed is None else int(seed))
+            if seed is None:
+                rng = np.random.default_rng()  # NOSONAR - intentionally non-deterministic when no seed
+            else:
+                rng = self.make_rng(int(seed))
 
         p = float(self.spec.probability)
         if p <= 0.0:

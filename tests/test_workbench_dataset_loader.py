@@ -7,7 +7,7 @@ import numpy as np
 from pyimgano.datasets.manifest import ManifestBenchmarkSplit
 from pyimgano.pipelines.mvtec_visa import BenchmarkSplit
 from pyimgano.workbench.config import WorkbenchConfig
-from pyimgano.workbench.dataset_loader import load_workbench_split, list_workbench_categories
+from pyimgano.workbench.dataset_loader import list_workbench_categories, load_workbench_split
 
 
 def test_load_workbench_split_manifest_paths_preserves_manifest_fields(

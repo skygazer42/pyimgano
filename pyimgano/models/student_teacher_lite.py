@@ -26,20 +26,15 @@ from .base_detector import BaseDetector
 from .registry import register_model
 
 
-def _ridge_solve(
-    student_embeddings: np.ndarray,
-    teacher_embeddings: np.ndarray,
-    *,
-    ridge: float,
-) -> np.ndarray:
+def _ridge_solve(student_features: np.ndarray, teacher_features: np.ndarray, *, ridge: float) -> np.ndarray:
     """Solve W = argmin ||S W - T||^2 + ridge ||W||^2."""
 
-    student = np.asarray(student_embeddings, dtype=np.float64)
-    teacher = np.asarray(teacher_embeddings, dtype=np.float64)
-    d = int(student.shape[1])
-    a_mat = student.T @ student + float(ridge) * np.eye(d, dtype=np.float64)
-    b_mat = student.T @ teacher
-    weights = np.linalg.solve(a_mat, b_mat)
+    student_features = np.asarray(student_features, dtype=np.float64)
+    teacher_features = np.asarray(teacher_features, dtype=np.float64)
+    d = int(student_features.shape[1])
+    lhs = student_features.T @ student_features + float(ridge) * np.eye(d, dtype=np.float64)
+    rhs = student_features.T @ teacher_features
+    weights = np.linalg.solve(lhs, rhs)
     return np.asarray(weights, dtype=np.float64)
 
 
@@ -75,8 +70,8 @@ class VisionStudentTeacherLite(BaseDetector):
         )
         self.ridge = float(ridge)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -88,38 +83,38 @@ class VisionStudentTeacherLite(BaseDetector):
         if isinstance(self.student_extractor, FittableFeatureExtractor):
             self.student_extractor.fit(items, y=y)
 
-        T = np.asarray(self.teacher_extractor.extract(items), dtype=np.float64)
-        S = np.asarray(self.student_extractor.extract(items), dtype=np.float64)
-        if T.ndim == 1:
-            T = T.reshape(-1, 1)
-        if S.ndim == 1:
-            S = S.reshape(-1, 1)
-        if T.shape[0] != S.shape[0]:
+        teacher_features = np.asarray(self.teacher_extractor.extract(items), dtype=np.float64)
+        student_features = np.asarray(self.student_extractor.extract(items), dtype=np.float64)
+        if teacher_features.ndim == 1:
+            teacher_features = teacher_features.reshape(-1, 1)
+        if student_features.ndim == 1:
+            student_features = student_features.reshape(-1, 1)
+        if teacher_features.shape[0] != student_features.shape[0]:
             raise ValueError("teacher and student extractors must return same number of rows")
 
-        W = _ridge_solve(S, T, ridge=float(self.ridge))
-        resid = T - (S @ W)
+        weights = _ridge_solve(student_features, teacher_features, ridge=float(self.ridge))
+        resid = teacher_features - (student_features @ weights)
         scores = np.linalg.norm(resid, axis=1)
 
-        self.W_ = W
+        self.W_ = weights
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).reshape(-1)
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["W_"])
-        items = list(X)
+        items = list(x)
         if not items:
             return np.zeros((0,), dtype=np.float64)
 
-        T = np.asarray(self.teacher_extractor.extract(items), dtype=np.float64)
-        S = np.asarray(self.student_extractor.extract(items), dtype=np.float64)
-        if T.ndim == 1:
-            T = T.reshape(-1, 1)
-        if S.ndim == 1:
-            S = S.reshape(-1, 1)
+        teacher_features = np.asarray(self.teacher_extractor.extract(items), dtype=np.float64)
+        student_features = np.asarray(self.student_extractor.extract(items), dtype=np.float64)
+        if teacher_features.ndim == 1:
+            teacher_features = teacher_features.reshape(-1, 1)
+        if student_features.ndim == 1:
+            student_features = student_features.reshape(-1, 1)
 
-        W = np.asarray(self.W_, dtype=np.float64)  # type: ignore[attr-defined]
-        resid = T - (S @ W)
+        weights = np.asarray(self.W_, dtype=np.float64)  # type: ignore[attr-defined]
+        resid = teacher_features - (student_features @ weights)
         scores = np.linalg.norm(resid, axis=1)
         return np.asarray(scores, dtype=np.float64).reshape(-1)

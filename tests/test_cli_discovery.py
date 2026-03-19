@@ -156,8 +156,8 @@ def test_cli_discovery_flags_are_mutually_exclusive(capsys):
 
 
 def test_cli_list_models_delegates_to_discovery_service(monkeypatch, capsys):
-    from pyimgano.cli import main
     import pyimgano.services.discovery_service as discovery_service
+    from pyimgano.cli import main
 
     monkeypatch.setattr(
         discovery_service,

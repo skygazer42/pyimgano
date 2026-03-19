@@ -14,6 +14,7 @@ import numpy as np
 from pyimgano.calibration.score_standardization import ScoreStandardizer
 from pyimgano.utils.fitted import require_fitted
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .registry import create_model, register_model
 
@@ -63,23 +64,24 @@ class VisionScoreStandardizer(BaseDetector):
             return spec(contamination=float(self.contamination), **dict(self.base_kwargs))
         return spec
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         base = self._build_base()
         fit = getattr(base, "fit", None)
         if not callable(fit):
             raise TypeError("base_detector must provide a .fit(X) method")
 
         try:
-            fit(X, y=y)
+            fit(x_value, y=y)
         except TypeError:
-            fit(X)
+            fit(x_value)
 
         if hasattr(base, "decision_scores_"):
             train_scores = np.asarray(getattr(base, "decision_scores_"), dtype=np.float64).reshape(
                 -1
             )
         else:
-            train_scores = np.asarray(base.decision_function(X), dtype=np.float64).reshape(-1)
+            train_scores = np.asarray(base.decision_function(x_value), dtype=np.float64).reshape(-1)
 
         std = ScoreStandardizer(method=str(self.method), eps=float(self.eps)).fit(train_scores)
         self.base_model_ = base
@@ -90,9 +92,10 @@ class VisionScoreStandardizer(BaseDetector):
         self._set_n_classes(y)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
         require_fitted(self, ["base_model_", "standardizer_"])
+        x_value = resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
         base = self.base_model_
         std: ScoreStandardizer = self.standardizer_  # type: ignore[assignment]
-        scores = np.asarray(base.decision_function(X), dtype=np.float64).reshape(-1)  # type: ignore[union-attr]
+        scores = np.asarray(base.decision_function(x_value), dtype=np.float64).reshape(-1)  # type: ignore[union-attr]
         return std.transform(scores)

@@ -12,18 +12,19 @@ class _BatchOnlyDummyDetector:
     This exercises the list-vs-batch fallback logic in `TiledDetector`.
     """
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
+        del x, y
         return self
 
-    def decision_function(self, X):
-        arr = np.asarray(X)
+    def decision_function(self, x):
+        arr = np.asarray(x)
         if arr.ndim != 4:
             raise TypeError("expected (N,H,W,C) batched ndarray")
         # score = max pixel value (across HWC)
         return arr.reshape(arr.shape[0], -1).max(axis=1).astype(np.float32)
 
-    def predict_anomaly_map(self, X):
-        arr = np.asarray(X)
+    def predict_anomaly_map(self, x):
+        arr = np.asarray(x)
         if arr.ndim != 4:
             raise TypeError("expected (N,H,W,C) batched ndarray")
         # map = first channel intensity
@@ -39,7 +40,7 @@ def test_tiled_detector_score_reduce_max() -> None:
 
     scores = tiled.decision_function([img])
     assert scores.shape == (1,)
-    assert float(scores[0]) == pytest.approx(255.0)
+    assert np.isclose(float(scores[0]), 255.0)
 
 
 def test_tiled_detector_stitches_maps() -> None:
@@ -52,8 +53,8 @@ def test_tiled_detector_stitches_maps() -> None:
     maps = tiled.predict_anomaly_map([img])
     assert maps.shape == (1, 6, 6)
     stitched = maps[0]
-    assert float(stitched[1:3, 4:6].max()) == pytest.approx(200.0)
-    assert float(stitched[:1, :].max()) == pytest.approx(0.0)
+    assert np.isclose(float(stitched[1:3, 4:6].max()), 200.0)
+    assert np.isclose(float(stitched[:1, :].max()), 0.0)
 
 
 def test_tiled_detector_stitches_maps_hann_window() -> None:
@@ -68,7 +69,7 @@ def test_tiled_detector_stitches_maps_hann_window() -> None:
     stitched = maps[0]
     # Windowed blending is float math; allow tiny numeric noise across platforms.
     assert np.isclose(float(stitched[1:3, 4:6].max()), 200.0, atol=1e-3)
-    assert float(stitched[:1, :].max()) == pytest.approx(0.0)
+    assert np.isclose(float(stitched[:1, :].max()), 0.0)
 
 
 def test_tiled_detector_stitches_maps_gaussian_window() -> None:
@@ -83,7 +84,7 @@ def test_tiled_detector_stitches_maps_gaussian_window() -> None:
     stitched = maps[0]
     # Windowed blending is float math; allow tiny numeric noise across platforms.
     assert np.isclose(float(stitched[1:3, 4:6].max()), 200.0, atol=1e-3)
-    assert float(stitched[:1, :].max()) == pytest.approx(0.0)
+    assert np.isclose(float(stitched[:1, :].max()), 0.0)
 
 
 def test_tiled_detector_caches_tile_coords(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -103,3 +104,4 @@ def test_tiled_detector_caches_tile_coords(monkeypatch: pytest.MonkeyPatch) -> N
     tiled.decision_function([img])
     tiled.decision_function([img])
     assert calls["count"] == 1
+

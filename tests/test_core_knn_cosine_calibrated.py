@@ -21,8 +21,8 @@ def test_core_knn_cosine_calibrated_rank_smoke_and_direction() -> None:
     # Train normals are near +e1 direction.
     base = np.zeros((n_train, d), dtype=np.float64)
     base[:, 0] = 1.0
-    X_train = base + 0.03 * rng.standard_normal(size=base.shape)
-    X_train = _unit_rows(X_train)
+    x_train = base + 0.03 * rng.standard_normal(size=base.shape)
+    x_train = _unit_rows(x_train)
 
     x_inlier = _unit_rows(np.array([[1.0] + [0.0] * (d - 1)], dtype=np.float64))
     x_outlier = _unit_rows(np.array([[-1.0] + [0.0] * (d - 1)], dtype=np.float64))
@@ -34,7 +34,7 @@ def test_core_knn_cosine_calibrated_rank_smoke_and_direction() -> None:
         knn_method="largest",
         method="rank",
     )
-    det.fit(X_train)
+    det.fit(x_train)
 
     scores = np.asarray(
         det.decision_function(np.concatenate([x_inlier, x_outlier], axis=0)), dtype=np.float64

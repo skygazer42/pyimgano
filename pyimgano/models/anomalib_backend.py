@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Optional, Sequence, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .registry import register_model
 
 
@@ -103,7 +104,7 @@ def _normalize_anomaly_map(anomaly_map) -> NDArray:
 
     if arr.ndim != 2:
         raise ValueError(
-            "anomalib anomaly_map must be 2D after normalization. " f"Got shape {tuple(arr.shape)}"
+            f"anomalib anomaly_map must be 2D after normalization. Got shape {tuple(arr.shape)}"
         )
 
     return np.asarray(arr, dtype=np.float32)
@@ -148,8 +149,9 @@ class VisionAnomalibCheckpoint:
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
-    def fit(self, X: Iterable[str], _y=None):
-        paths = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        paths = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not paths:
             raise ValueError("X must contain at least one training image path.")
 
@@ -157,18 +159,25 @@ class VisionAnomalibCheckpoint:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        paths = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(paths), dtype=np.float64)
         for i, path in enumerate(paths):
             pred = self._inferencer.predict(path)
             scores[i] = _extract_score_and_map(pred).score
         return scores
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        )
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
@@ -178,8 +187,13 @@ class VisionAnomalibCheckpoint:
             raise ValueError("anomalib prediction did not include an anomaly map")
         return _normalize_anomaly_map(extracted.anomaly_map)
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        paths: Sequence[str] = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        paths: Sequence[str] = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         maps = [self.get_anomaly_map(path) for path in paths]
         return np.stack(maps)
 

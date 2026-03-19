@@ -29,16 +29,16 @@ from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
 
 
-def _get_perplexity(distances: np.ndarray, beta: float) -> tuple[float, np.ndarray]:
+def _get_perplexity(d: np.ndarray, beta: float) -> tuple[float, np.ndarray]:
     """Compute entropy (H) and the unnormalized affinity row for a given beta."""
 
-    affinities = np.exp(-distances * beta)
-    affinity_sum = np.sum(affinities)
-    # numerical stability: affinity_sum can be extremely small in high beta regimes
-    if not np.isfinite(affinity_sum) or affinity_sum <= 0.0:
-        return float("nan"), affinities
-    entropy = float(np.log(affinity_sum) + beta * np.sum(distances * affinities) / affinity_sum)
-    return entropy, affinities
+    a = np.exp(-d * beta)
+    sum_a = np.sum(a)
+    # numerical stability: sumA can be extremely small in high beta regimes
+    if not np.isfinite(sum_a) or sum_a <= 0.0:
+        return float("nan"), a
+    h = float(np.log(sum_a) + beta * np.sum(d * a) / sum_a)
+    return h, a
 
 
 class CoreSOS:
@@ -59,44 +59,44 @@ class CoreSOS:
 
         self.decision_scores_: np.ndarray | None = None
 
-    def _x2d(self, X: np.ndarray) -> np.ndarray:
-        n, d = X.shape
+    def _x2d(self, x: np.ndarray) -> np.ndarray:
+        n, d = x.shape
         metric = self.metric.lower()
         if metric == "none":
             if n != d:
                 raise ValueError("If metric='none', X must be a square dissimilarity matrix.")
-            return X
+            return x
 
         if metric == "euclidean":
-            sum_x = np.sum(np.square(X), axis=1)
-            distances = np.sqrt(np.abs(np.add(np.add(-2 * np.dot(X, X.T), sum_x).T, sum_x)))
-            return distances
+            sum_x = np.sum(np.square(x), axis=1)
+            d = np.sqrt(np.abs(np.add(np.add(-2 * np.dot(x, x.T), sum_x).T, sum_x)))
+            return d
 
         # Fallback to scipy for other metrics (already a dependency of pyimgano).
         from scipy.spatial import distance  # type: ignore
 
-        return distance.squareform(distance.pdist(X, metric))
+        return distance.squareform(distance.pdist(x, metric))
 
-    def _d2a(self, distances: np.ndarray) -> np.ndarray:
-        n, _ = distances.shape
-        affinities = np.zeros((n, n), dtype=np.float64)
+    def _d2a(self, d: np.ndarray) -> np.ndarray:
+        n, _ = d.shape
+        a = np.zeros((n, n), dtype=np.float64)
         beta = np.ones((n,), dtype=np.float64)
-        log_perplexity = float(np.log(self.perplexity))
+        log_u = float(np.log(self.perplexity))
 
         for i in range(n):
             betamin = -np.inf
             betamax = np.inf
             mask = np.ones(n, dtype=bool)
             mask[i] = False
-            distances_i = distances[i, mask]
-            entropy, affinities_i = _get_perplexity(distances_i, float(beta[i]))
+            di = d[i, mask]
+            h, this_a = _get_perplexity(di, float(beta[i]))
 
-            entropy_diff = entropy - log_perplexity
+            hdiff = h - log_u
             tries = 0
-            while (np.isnan(entropy_diff) or abs(entropy_diff) > self.eps) and tries < 5000:
-                if np.isnan(entropy_diff):
+            while (np.isnan(hdiff) or abs(hdiff) > self.eps) and tries < 5000:
+                if np.isnan(hdiff):
                     beta[i] = beta[i] / 10.0
-                elif entropy_diff > 0:
+                elif hdiff > 0:
                     betamin = float(beta[i])
                     if np.isinf(betamax):
                         beta[i] = beta[i] * 2.0
@@ -109,52 +109,52 @@ class CoreSOS:
                     else:
                         beta[i] = (beta[i] + betamin) / 2.0
 
-                entropy, affinities_i = _get_perplexity(distances_i, float(beta[i]))
-                entropy_diff = entropy - log_perplexity
+                h, this_a = _get_perplexity(di, float(beta[i]))
+                hdiff = h - log_u
                 tries += 1
 
-            affinities[i, mask] = affinities_i.astype(np.float64, copy=False)
+            a[i, mask] = this_a.astype(np.float64, copy=False)
 
-        return affinities
+        return a
 
-    def _a2b(self, affinities: np.ndarray) -> np.ndarray:
-        row_sums = affinities.sum(axis=1, keepdims=True)
+    def _a2b(self, a: np.ndarray) -> np.ndarray:
+        row_sums = a.sum(axis=1, keepdims=True)
         # row_sums should be > 0, but guard anyway.
         row_sums = np.where(row_sums > 0.0, row_sums, 1.0)
-        return affinities / row_sums
+        return a / row_sums
 
-    def _b2o(self, binding_probs: np.ndarray) -> np.ndarray:
-        return np.prod(1.0 - binding_probs, axis=0)
+    def _b2o(self, b: np.ndarray) -> np.ndarray:
+        return np.prod(1.0 - b, axis=0)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        _ = y
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[0] < 2:
-            self.decision_scores_ = np.zeros(X.shape[0], dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[0] < 2:
+            self.decision_scores_ = np.zeros(x.shape[0], dtype=np.float64)
             return self
 
-        if not (1.0 <= self.perplexity <= float(X.shape[0] - 1)):
+        if not (1.0 <= self.perplexity <= float(x.shape[0] - 1)):
             raise ValueError(f"perplexity must be in [1, n_samples-1], got {self.perplexity}")
 
-        distances = self._x2d(X)
-        affinities = self._d2a(distances)
-        binding_probs = self._a2b(affinities)
-        outlier_prob = self._b2o(binding_probs)
+        d = self._x2d(x)
+        a = self._d2a(d)
+        b = self._a2b(a)
+        outlier_prob = self._b2o(b)
         self.decision_scores_ = np.asarray(outlier_prob, dtype=np.float64).ravel()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.decision_scores_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
-        X = check_array(X, ensure_2d=True, dtype=np.float64)
-        if X.shape[0] < 2:
-            return np.zeros(X.shape[0], dtype=np.float64)
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x.shape[0] < 2:
+            return np.zeros(x.shape[0], dtype=np.float64)
 
-        distances = self._x2d(X)
-        affinities = self._d2a(distances)
-        binding_probs = self._a2b(affinities)
-        outlier_prob = self._b2o(binding_probs)
+        d = self._x2d(x)
+        a = self._d2a(d)
+        b = self._a2b(a)
+        outlier_prob = self._b2o(b)
         return np.asarray(outlier_prob, dtype=np.float64).ravel()
 
 
@@ -227,8 +227,8 @@ class VisionSOS(BaseVisionDetector):
     def _build_detector(self):
         return CoreSOS(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

@@ -36,18 +36,18 @@ class _RCTNode:
 
 
 def _build_random_cut_tree(
-    X: np.ndarray,
+    x: np.ndarray,
     idxs: np.ndarray,
     *,
     max_depth: int,
-    rng: np.random.RandomState,
+    rng: np.random.Generator,
     depth: int = 0,
     max_tries: int = 8,
 ) -> _RCTNode:
     if idxs.size <= 1 or depth >= max_depth:
         return _RCTNode()
 
-    pts = X[idxs]
+    pts = x[idxs]
     lo = np.min(pts, axis=0)
     hi = np.max(pts, axis=0)
     ranges = hi - lo
@@ -67,10 +67,10 @@ def _build_random_cut_tree(
             split_dim=dim,
             split_val=cut,
             left=_build_random_cut_tree(
-                X, left_idxs, max_depth=max_depth, rng=rng, depth=depth + 1
+                x, left_idxs, max_depth=max_depth, rng=rng, depth=depth + 1
             ),
             right=_build_random_cut_tree(
-                X, right_idxs, max_depth=max_depth, rng=rng, depth=depth + 1
+                x, right_idxs, max_depth=max_depth, rng=rng, depth=depth + 1
             ),
         )
 
@@ -103,7 +103,7 @@ class CoreRRCF(BaseDetector):
         n_trees: int = 50,
         max_samples: int = 256,
         max_depth: int | None = None,
-        random_state: int | np.random.RandomState | None = None,
+        random_state: int | np.random.Generator | None = None,
     ) -> None:
         super().__init__(contamination=float(contamination))
         self.n_trees = int(n_trees)
@@ -111,20 +111,20 @@ class CoreRRCF(BaseDetector):
         self.max_depth = None if max_depth is None else int(max_depth)
         self.random_state = random_state
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
-        n = int(x_array.shape[0])
+        n = int(x_arr.shape[0])
         if n == 0:
-            raise ValueError("X must be non-empty")
+            raise ValueError("x must be non-empty")
         if self.n_trees <= 0:
             raise ValueError("n_trees must be > 0")
 
         sample_size = min(n, max(2, int(self.max_samples)))
         max_depth = self.max_depth
         if max_depth is None:
-            # A reasonable default for random partition trees.
+            # a reasonable default for random partition trees.
             max_depth = max(1, int(np.ceil(np.log2(sample_size))) + 1)
 
         rng = check_random_state(self.random_state)
@@ -135,29 +135,29 @@ class CoreRRCF(BaseDetector):
             else:
                 idxs = np.arange(n, dtype=np.int64)
             root = _build_random_cut_tree(
-                x_array, np.asarray(idxs, dtype=np.int64), max_depth=max_depth, rng=rng
+                x_arr, np.asarray(idxs, dtype=np.int64), max_depth=max_depth, rng=rng
             )
             forest.append(root)
 
         self._forest = forest
-        self._X_train = x_array
+        self._X_train = x_arr
 
-        self.decision_scores_ = np.asarray(self.decision_function(x_array), dtype=np.float64)
+        self.decision_scores_ = np.asarray(self.decision_function(x_arr), dtype=np.float64)
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["_forest"])
         forest: list[_RCTNode] = self._forest  # type: ignore[assignment]
 
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
-        if x_array.shape[0] == 0:
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+        if x_arr.shape[0] == 0:
             return np.zeros((0,), dtype=np.float64)
 
-        scores = np.zeros((x_array.shape[0],), dtype=np.float64)
+        scores = np.zeros((x_arr.shape[0],), dtype=np.float64)
         for t in forest:
             depths = np.asarray(
-                [_path_length(t, x_array[i]) for i in range(x_array.shape[0])], dtype=np.float64
+                [_path_length(t, x_arr[i]) for i in range(x_arr.shape[0])], dtype=np.float64
             )
             scores += 1.0 / (depths + 1.0)
         scores /= float(len(forest))
@@ -178,7 +178,7 @@ class VisionRRCF(BaseVisionDetector):
         n_trees: int = 50,
         max_samples: int = 256,
         max_depth: int | None = None,
-        random_state: int | np.random.RandomState | None = None,
+        random_state: int | np.random.Generator | None = None,
     ) -> None:
         self._detector_kwargs = {
             "contamination": float(contamination),

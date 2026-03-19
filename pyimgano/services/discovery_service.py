@@ -6,8 +6,8 @@ from pyimgano.presets.catalog import (
     list_model_preset_infos,
     list_model_presets,
     model_preset_info,
-    resolve_model_preset_filter_tags,
     resolve_model_preset,
+    resolve_model_preset_filter_tags,
 )
 
 
@@ -104,7 +104,7 @@ def build_sweep_info_payload(name: str) -> dict[str, Any]:
 
 
 def build_model_info_payload(name: str) -> dict[str, Any]:
-    from pyimgano.models.registry import model_info, materialize_model_constructor
+    from pyimgano.models.registry import materialize_model_constructor, model_info
 
     model_name = str(name)
     try:

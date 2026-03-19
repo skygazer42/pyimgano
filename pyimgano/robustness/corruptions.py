@@ -242,13 +242,13 @@ def apply_geo_jitter(
     dy = float(rng.uniform(-max_shift, max_shift) * h)
 
     center = ((w - 1) / 2.0, (h - 1) / 2.0)
-    M = cv2.getRotationMatrix2D(center, angle, scale)
-    M[0, 2] += dx
-    M[1, 2] += dy
+    m = cv2.getRotationMatrix2D(center, angle, scale)
+    m[0, 2] += dx
+    m[1, 2] += dy
 
     warped = cv2.warpAffine(
         arr,
-        M,
+        m,
         dsize=(w, h),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_REFLECT_101,
@@ -266,7 +266,7 @@ def apply_geo_jitter(
         mask_u8 = (mask_arr > 0).astype(np.uint8, copy=False)
         warped_mask = cv2.warpAffine(
             mask_u8,
-            M,
+            m,
             dsize=(w, h),
             flags=cv2.INTER_NEAREST,
             borderMode=cv2.BORDER_CONSTANT,

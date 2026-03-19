@@ -15,6 +15,9 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+MATPLOTLIB_UNAVAILABLE_ERROR = "Matplotlib is not available."
+
+
 try:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
@@ -26,9 +29,6 @@ except ImportError:
     Figure = None
 
 logger = logging.getLogger(__name__)
-
-_BBOX_TIGHT = "tight"
-_MATPLOTLIB_UNAVAILABLE = "Matplotlib is not available."
 
 
 def plot_anomaly_map(
@@ -76,7 +76,7 @@ def plot_anomaly_map(
     >>> plot_anomaly_map('test.jpg', anomaly_map)
     """
     if not MATPLOTLIB_AVAILABLE:
-        logger.error("%s Cannot create plots.", _MATPLOTLIB_UNAVAILABLE)
+        logger.error("Matplotlib is not available. Cannot create plots.")
         return None
 
     # Load image
@@ -135,7 +135,7 @@ def plot_anomaly_map(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches=_BBOX_TIGHT)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Figure saved to %s", save_path)
 
     if show:
@@ -177,7 +177,7 @@ def plot_roc_curve(
     >>> plot_roc_curve(y_true, y_scores, label='ECOD')
     """
     if not MATPLOTLIB_AVAILABLE:
-        logger.error(_MATPLOTLIB_UNAVAILABLE)
+        logger.error(MATPLOTLIB_UNAVAILABLE_ERROR)
         return None
 
     from sklearn.metrics import auc, roc_curve
@@ -200,7 +200,7 @@ def plot_roc_curve(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches=_BBOX_TIGHT)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("ROC curve saved to %s", save_path)
 
     if show:
@@ -237,7 +237,7 @@ def plot_precision_recall_curve(
     fig : matplotlib.figure.Figure or None
     """
     if not MATPLOTLIB_AVAILABLE:
-        logger.error(_MATPLOTLIB_UNAVAILABLE)
+        logger.error(MATPLOTLIB_UNAVAILABLE_ERROR)
         return None
 
     from sklearn.metrics import average_precision_score, precision_recall_curve
@@ -261,7 +261,7 @@ def plot_precision_recall_curve(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches=_BBOX_TIGHT)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("PR curve saved to %s", save_path)
 
     if show:
@@ -304,7 +304,7 @@ def plot_score_distribution(
     >>> plot_score_distribution(normal_scores, anomaly_scores)
     """
     if not MATPLOTLIB_AVAILABLE:
-        logger.error(_MATPLOTLIB_UNAVAILABLE)
+        logger.error(MATPLOTLIB_UNAVAILABLE_ERROR)
         return None
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -352,7 +352,7 @@ def plot_score_distribution(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches=_BBOX_TIGHT)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Score distribution saved to %s", save_path)
 
     if show:
@@ -395,7 +395,7 @@ def compare_detectors(
     >>> compare_detectors(test_labels, scores_dict)
     """
     if not MATPLOTLIB_AVAILABLE:
-        logger.error(_MATPLOTLIB_UNAVAILABLE)
+        logger.error(MATPLOTLIB_UNAVAILABLE_ERROR)
         return None
 
     from sklearn.metrics import auc, roc_curve
@@ -450,7 +450,7 @@ def compare_detectors(
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches=_BBOX_TIGHT)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
         logger.info("Comparison figure saved to %s", save_path)
 
     if show:

@@ -39,12 +39,12 @@ class StandardScalerExtractor(BaseFeatureExtractor):
         if isinstance(base, FittableFeatureExtractor):
             base.fit(items, y=y)
 
-        X = np.asarray(base.extract(items), dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        x = np.asarray(base.extract(items), dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
 
         scaler = StandardScaler(with_mean=self.with_mean, with_std=self.with_std)
-        scaler.fit(X)
+        scaler.fit(x)
         self._scaler = scaler
         return self
 
@@ -53,8 +53,8 @@ class StandardScalerExtractor(BaseFeatureExtractor):
             raise RuntimeError("StandardScalerExtractor is not fitted yet. Call fit() first.")
 
         items = list(inputs)
-        X = np.asarray(self.base_extractor.extract(items), dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        Z = self._scaler.transform(X)
-        return np.asarray(Z, dtype=np.float32)
+        x = np.asarray(self.base_extractor.extract(items), dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        z = self._scaler.transform(x)
+        return np.asarray(z, dtype=np.float32)

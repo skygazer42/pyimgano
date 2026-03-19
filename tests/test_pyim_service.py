@@ -4,8 +4,8 @@ from __future__ import annotations
 def test_collect_pyim_listing_payload_builds_typed_sections_before_payload_coercion(
     monkeypatch,
 ) -> None:
-    import pyimgano.discovery as discovery
     import pyimgano.datasets.converters as dataset_converters
+    import pyimgano.discovery as discovery
     import pyimgano.models.registry as model_registry
     import pyimgano.presets.catalog as preset_catalog
     import pyimgano.services.discovery_service as discovery_service

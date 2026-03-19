@@ -17,8 +17,8 @@ class _DummyDetector:
     def __init__(self) -> None:
         self.threshold_ = 0.5
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - test stub
-        return np.linspace(0.0, 1.0, num=len(X), dtype=np.float32)
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - test stub
+        return np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
 
 
 def test_infer_cli_can_list_models(capsys) -> None:
@@ -32,8 +32,8 @@ def test_infer_cli_can_list_models(capsys) -> None:
 
 
 def test_infer_cli_list_models_delegates_to_discovery_service(monkeypatch, capsys) -> None:
-    from pyimgano.infer_cli import main as infer_main
     import pyimgano.services.discovery_service as discovery_service
+    from pyimgano.infer_cli import main as infer_main
 
     monkeypatch.setattr(
         discovery_service,

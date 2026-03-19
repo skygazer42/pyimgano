@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Optional, Sequence, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from pyimgano.utils.optional_deps import require
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .registry import register_model
 
-_PATCHCORE_INSPECTION_BACKEND_PURPOSE = "patchcore-inspection backend detectors"
+PATCHCORE_INSPECTION_BACKEND_DETECTORS = "patchcore-inspection backend detectors"
+
 
 
 def _build_patchcore_inspection_model(
@@ -21,9 +23,9 @@ def _build_patchcore_inspection_model(
 ):
     # `patchcore-inspection` is an optional backend installed separately (VCS).
     # We still want missing dependency errors to be actionable.
-    require("torch", extra="torch", purpose=_PATCHCORE_INSPECTION_BACKEND_PURPOSE)
-    require("faiss", extra="faiss", purpose=_PATCHCORE_INSPECTION_BACKEND_PURPOSE)
-    require("patchcore", purpose=_PATCHCORE_INSPECTION_BACKEND_PURPOSE)
+    require("torch", extra="torch", purpose=PATCHCORE_INSPECTION_BACKEND_DETECTORS)
+    require("faiss", extra="faiss", purpose=PATCHCORE_INSPECTION_BACKEND_DETECTORS)
+    require("patchcore", purpose=PATCHCORE_INSPECTION_BACKEND_DETECTORS)
 
     import patchcore.common  # type: ignore[import-not-found]
     from patchcore.patchcore import PatchCore  # type: ignore[import-not-found]
@@ -169,8 +171,9 @@ class VisionPatchCoreInspectionCheckpoint:
 
         return _PredictResult(scores=scores, maps=maps)
 
-    def fit(self, X: Iterable[str], _y=None):
-        paths = list(X)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        del y
+        paths = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not paths:
             raise ValueError("X must contain at least one training image path.")
 
@@ -178,14 +181,21 @@ class VisionPatchCoreInspectionCheckpoint:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        paths = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         return self._predict(paths, return_maps=False).scores
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, x: object = MISSING, **kwargs: object) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        scores = self.decision_function(
+            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        )
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
@@ -193,8 +203,13 @@ class VisionPatchCoreInspectionCheckpoint:
         assert pred.maps is not None
         return pred.maps[0]
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        paths: Sequence[str] = list(X)
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        paths: Sequence[str] = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         pred = self._predict(paths, return_maps=True)
         assert pred.maps is not None
         return pred.maps

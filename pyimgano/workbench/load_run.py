@@ -11,7 +11,6 @@ from pyimgano.workbench.run_artifacts import (
     select_category_report,
 )
 
-
 __all__ = [
     "extract_threshold",
     "load_checkpoint_into_detector",

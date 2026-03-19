@@ -49,11 +49,11 @@ class NormalizeExtractor(BaseFeatureExtractor):
 
     def extract(self, inputs: Iterable[Any]) -> np.ndarray:
         items = list(inputs)
-        X = np.asarray(self.base_extractor.extract(items), dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        x = np.asarray(self.base_extractor.extract(items), dtype=np.float64)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
 
-        out = X
+        out = x
         p = self.power
         if p is not None:
             power_f = float(p)

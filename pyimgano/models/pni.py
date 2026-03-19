@@ -27,6 +27,7 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from sklearn.neighbors import KDTree
 
+from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_dl import BaseVisionDeepDetector
 
 
@@ -204,16 +205,15 @@ class PNIDetector(BaseVisionDeepDetector):
 
         self.fitted_ = False
 
-    def _extract_features(
-        self, images: NDArray
-    ) -> tuple[dict[str, NDArray], dict[str, torch.Tensor]]:
+    def _extract_features(self, images: NDArray) -> tuple[dict[str, NDArray], dict[str, torch.Tensor]]:
         """Extract multi-scale features from images.
 
         Args:
             images: Input images [N, H, W, C]
 
         Returns:
-            Dictionary of features at each level
+            flattened_features: Numpy features flattened over spatial dimensions at each level.
+            spatial_features: Raw spatial features at each level (torch tensors).
         """
         # Convert to tensor
         if not isinstance(images, torch.Tensor):
@@ -240,37 +240,39 @@ class PNIDetector(BaseVisionDeepDetector):
         flattened_features = {}
         for level, feat in features.items():
             # feat: [N, C, H, W]
-            N, C, H, W = feat.shape
+            n, c, h, w = feat.shape
             # Reshape to [N, C, H*W] -> [N, H*W, C] -> [N*H*W, C]
             feat_np = feat.cpu().numpy()
-            feat_reshaped = feat_np.reshape(N, C, H * W).transpose(0, 2, 1)  # [N, H*W, C]
+            feat_reshaped = feat_np.reshape(n, c, h * w).transpose(0, 2, 1)  # [N, H*W, C]
             flattened_features[level] = feat_reshaped
 
         return flattened_features, features  # Return both flattened and spatial
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object):
         """Fit the detector on normal images.
 
         Args:
             X: Normal images [N, H, W, C] or [N, C, H, W]
             y: Ignored (unsupervised)
         """
+        del y
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Extract features
-        flattened_features, _ = self._extract_features(X)
+        flattened_features, _ = self._extract_features(x_arr)
 
         # Build normality index at each level
         for level in self.feature_levels:
             # Combine all spatial locations into one big feature set
             features = flattened_features[level]  # [N, H*W, C]
-            N, HW, C = features.shape
-            features_flat = features.reshape(N * HW, C)  # [N*H*W, C]
+            n, hw, c = features.shape
+            features_flat = features.reshape(n * hw, c)  # [N*H*W, C]
 
             self.normality_indices[level].build_index(features_flat)
 
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -282,19 +284,21 @@ class PNIDetector(BaseVisionDeepDetector):
         if not self.fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="predict_proba"))
+
         # Extract features
-        flattened_features, _ = self._extract_features(X)
+        flattened_features, _ = self._extract_features(x_arr)
 
         # Compute scores at each level
         all_scores = []
         for idx, level in enumerate(self.feature_levels):
             features = flattened_features[level]  # [N, H*W, C]
-            N, HW, C = features.shape
-            features_flat = features.reshape(N * HW, C)
+            n, hw, c = features.shape
+            features_flat = features.reshape(n * hw, c)
 
             # Compute normality scores
             scores = self.normality_indices[level].compute_score(features_flat)
-            scores = scores.reshape(N, HW)  # [N, H*W]
+            scores = scores.reshape(n, hw)  # [N, H*W]
 
             # Aggregate spatial locations (max pooling for image-level score)
             image_scores = np.max(scores, axis=1)  # [N]
@@ -312,7 +316,7 @@ class PNIDetector(BaseVisionDeepDetector):
 
         return final_scores
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -324,11 +328,13 @@ class PNIDetector(BaseVisionDeepDetector):
         if not self.fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
-        # Extract features (spatial version)
-        flattened_features, spatial_features = self._extract_features(X)
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
 
-        N = X.shape[0] if isinstance(X, np.ndarray) else X.size(0)
-        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        # Extract features (spatial version)
+        flattened_features, spatial_features = self._extract_features(x_arr)
+
+        n = x_arr.shape[0]
+        h_img, w_img = x_arr.shape[1:3] if x_arr.shape[-1] == 3 else x_arr.shape[2:4]
 
         # Compute anomaly maps at each level
         anomaly_maps = []
@@ -336,17 +342,17 @@ class PNIDetector(BaseVisionDeepDetector):
             features = flattened_features[level]  # [N, H*W, C]
             spatial_feat = spatial_features[level]  # [N, C, H, W]
 
-            _, C, H, W = spatial_feat.shape
-            features_flat = features.reshape(-1, C)  # [N*H*W, C]
+            _, c, h, w = spatial_feat.shape
+            features_flat = features.reshape(-1, c)  # [N*H*W, C]
 
             # Compute scores
             scores = self.normality_indices[level].compute_score(features_flat)
-            scores = scores.reshape(N, H, W)  # [N, H, W]
+            scores = scores.reshape(n, h, w)  # [N, H, W]
 
             # Upsample to image size
             scores_tensor = torch.from_numpy(scores).unsqueeze(1).float()  # [N, 1, H, W]
             upsampled = F.interpolate(
-                scores_tensor, size=(height_img, width_img), mode="bilinear", align_corners=False
+                scores_tensor, size=(h_img, w_img), mode="bilinear", align_corners=False
             )
             upsampled = upsampled.squeeze(1).numpy()  # [N, H, W]
 
@@ -363,7 +369,7 @@ class PNIDetector(BaseVisionDeepDetector):
             final_maps = np.mean(anomaly_maps, axis=0)
 
         # Apply Gaussian smoothing
-        for i in range(N):
+        for i in range(n):
             final_maps[i] = gaussian_filter(final_maps[i], sigma=self.gaussian_sigma)
 
         return final_maps

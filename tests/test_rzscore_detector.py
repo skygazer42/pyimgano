@@ -6,12 +6,12 @@ def test_core_rzscore_fit_predict_smoke() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(0)
-    X = rng.normal(size=(80, 6))
+    x = rng.normal(size=(80, 6))
 
     det = create_model("core_rzscore", contamination=0.1, aggregation="mean")
-    det.fit(X)
-    scores = det.decision_function(X[:10])
-    preds = det.predict(X[:10])
+    det.fit(x)
+    scores = det.decision_function(x[:10])
+    preds = det.predict(x[:10])
 
     assert scores.shape == (10,)
     assert preds.shape == (10,)
@@ -25,14 +25,14 @@ def test_vision_rzscore_with_identity_extractor() -> None:
     from pyimgano.models import create_model
 
     rng = np.random.default_rng(1)
-    X = rng.normal(size=(50, 4))
+    x = rng.normal(size=(50, 4))
     det = create_model(
         "vision_rzscore",
         feature_extractor=IdentityExtractor(),
         contamination=0.2,
         aggregation="max",
     )
-    det.fit(X)
-    scores = det.decision_function(X[:7])
+    det.fit(x)
+    scores = det.decision_function(x[:7])
     assert scores.shape == (7,)
     assert np.all(np.isfinite(scores))

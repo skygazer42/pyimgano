@@ -10,7 +10,7 @@ CVPR 2025 "Odd-One-Out" neighbor comparison idea:
     score(x) = mean_k(dist(x, NN_k(train))) / mean_k(train_local_mean[NN_k(train)])
 
 Intuition:
-- A point is anomalous if it is further from its neighbors than those neighbors
+- a point is anomalous if it is further from its neighbors than those neighbors
   are from *their* neighbors (i.e., it is the "odd one out" locally).
 
 Design goals:
@@ -76,8 +76,9 @@ class _OddOneOutBackend:
             return distances.max(axis=1)
         raise ValueError("method must be one of {'mean', 'median', 'largest'}")
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        x = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        del y
+        x = check_array(x, ensure_2d=True, dtype=np.float64)
         x = self._normalize_rows(x)
 
         n_train = int(x.shape[0])
@@ -119,18 +120,18 @@ class _OddOneOutBackend:
         self.decision_scores_ = np.asarray(scores, dtype=np.float64).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like API
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self._k_effective is None or self._train_local_mean is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
         k = int(self._k_effective)
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         if k <= 0:
-            return np.zeros(int(x_array.shape[0]), dtype=np.float64)
+            return np.zeros(int(x_arr.shape[0]), dtype=np.float64)
         if self._nn is None:
             raise RuntimeError("Internal error: missing neighbor index")
 
-        x_array = self._normalize_rows(x_array)
-        dist, idx = self._nn.kneighbors(x_array, n_neighbors=k, return_distance=True)
+        x_arr = self._normalize_rows(x_arr)
+        dist, idx = self._nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)
         idx = np.asarray(idx, dtype=np.int64)
 

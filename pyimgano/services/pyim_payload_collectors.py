@@ -139,7 +139,6 @@ def _collect_defects_presets(_request: PyimListRequest) -> list[str]:
 
 def _collect_recipe_payloads(request: PyimListRequest) -> list[dict[str, Any]]:
     import pyimgano.recipes  # noqa: F401
-
     from pyimgano.recipes.registry import list_recipes as _list_recipes
     from pyimgano.recipes.registry import recipe_info as _recipe_info
 

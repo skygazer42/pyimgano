@@ -29,8 +29,8 @@ def save_detector(path: str | Path, detector: Any) -> None:
 
     if not is_pickle_safe_detector(detector):
         raise TypeError(
-            "Unsupported detector for pickle serialization. "
-            "Only classical vision detectors (BaseVisionDetector wrappers) are supported."
+            "Unsupported detector for pickle serialization. Only classical vision detectors "
+            "(BaseVisionDetector wrappers) are supported."
         )
 
     out_path = Path(path)
@@ -49,8 +49,7 @@ def load_detector(path: str | Path) -> Any:
 
     if not is_pickle_safe_detector(detector):
         raise TypeError(
-            "Loaded detector is not in the supported pickle-safe set. "
-            "Refuse to return it."
+            "Loaded detector is not in the supported pickle-safe set. Refuse to return it."
         )
 
     return detector

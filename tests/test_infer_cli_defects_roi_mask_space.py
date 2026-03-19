@@ -26,10 +26,11 @@ def test_infer_cli_roi_applies_to_regions_but_masks_can_be_full_or_roi(
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.zeros((len(list(X)),), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.zeros((len(list(x)),), dtype=np.float32)
 
         def get_anomaly_map(self, item):  # noqa: ANN001
+            del item
             return np.asarray(amap, dtype=np.float32)
 
     MODEL_REGISTRY.register(

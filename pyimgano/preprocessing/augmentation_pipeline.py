@@ -155,6 +155,7 @@ class RandomRotate(AugmentationTransform):
         self.angle_range = angle_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         angle = random.uniform(*self.angle_range)
         return rotate_image(image, angle)
 
@@ -167,6 +168,7 @@ class RandomFlip(AugmentationTransform):
         self.mode = mode
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return flip_image(image, self.mode)
 
 
@@ -181,6 +183,7 @@ class RandomScale(AugmentationTransform):
         self.keep_size = keep_size
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         scale = random.uniform(*self.scale_range)
         return scale_image(image, scale, scale, self.keep_size)
 
@@ -193,6 +196,7 @@ class RandomTranslate(AugmentationTransform):
         self.translate_range = translate_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         h, w = image.shape[:2]
         tx = int(random.uniform(*self.translate_range) * w)
         ty = int(random.uniform(*self.translate_range) * h)
@@ -207,6 +211,7 @@ class RandomShear(AugmentationTransform):
         self.shear_range = shear_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         shear_x = random.uniform(*self.shear_range)
         shear_y = random.uniform(*self.shear_range)
         return shear_image(image, shear_x, shear_y)
@@ -220,6 +225,7 @@ class RandomPerspective(AugmentationTransform):
         self.strength = strength
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return perspective_transform(image, self.strength)
 
 
@@ -241,6 +247,7 @@ class ColorJitter(AugmentationTransform):
         self.hue = hue
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return color_jitter(image, self.brightness, self.contrast, self.saturation, self.hue)
 
 
@@ -252,6 +259,7 @@ class GaussianNoise(AugmentationTransform):
         self.std_range = std_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         std = random.uniform(*self.std_range)
         return add_gaussian_noise(image, 0, std)
 
@@ -265,6 +273,7 @@ class SaltPepperNoise(AugmentationTransform):
         self.pepper_prob = pepper_prob
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return add_salt_pepper_noise(image, self.salt_prob, self.pepper_prob)
 
 
@@ -282,6 +291,7 @@ class MotionBlur(AugmentationTransform):
         self.angle_range = angle_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         kernel_size = random.randint(*self.kernel_size_range)  # NOSONAR - non-crypto RNG (data augmentation)
         if kernel_size % 2 == 0:
             kernel_size += 1
@@ -297,6 +307,7 @@ class DefocusBlur(AugmentationTransform):
         self.radius_range = radius_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         radius = random.randint(*self.radius_range)  # NOSONAR - non-crypto RNG (data augmentation)
         return defocus_blur(image, radius)
 
@@ -309,6 +320,7 @@ class RandomRain(AugmentationTransform):
         self.intensity_range = intensity_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         intensity = random.uniform(*self.intensity_range)
         return add_rain(image, intensity)
 
@@ -321,6 +333,7 @@ class RandomFog(AugmentationTransform):
         self.intensity_range = intensity_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         intensity = random.uniform(*self.intensity_range)
         return add_fog(image, intensity)
 
@@ -333,6 +346,7 @@ class RandomSnow(AugmentationTransform):
         self.intensity_range = intensity_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         intensity = random.uniform(*self.intensity_range)
         return add_snow(image, intensity)
 
@@ -351,6 +365,7 @@ class RandomShadow(AugmentationTransform):
         self.intensity_range = intensity_range
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         intensity = random.uniform(*self.intensity_range)
         return add_shadow(image, self.num_shadows, intensity)
 
@@ -371,6 +386,7 @@ class RandomCutout(AugmentationTransform):
         self.fill_value = fill_value
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return random_cutout(image, self.num_holes, self.hole_size, self.fill_value)
 
 
@@ -386,6 +402,7 @@ class GridMask(AugmentationTransform):
         self.fill_value = fill_value
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return grid_mask(image, self.grid_size, self.ratio, self.fill_value)
 
 
@@ -398,6 +415,7 @@ class ElasticTransform(AugmentationTransform):
         self.sigma = sigma
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
+        del kwargs
         return elastic_transform(image, self.alpha, self.sigma)
 
 

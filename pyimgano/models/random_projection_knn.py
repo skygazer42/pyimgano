@@ -66,22 +66,23 @@ class _RPkNNBackend:
     def _make_proj(self, d: int) -> np.ndarray:
         k = self._resolve_k(d)
         rng = np.random.default_rng(None if self.random_state is None else int(self.random_state))
-        W = rng.normal(0.0, 1.0, size=(d, k)).astype(np.float64)
+        projection = rng.normal(0.0, 1.0, size=(d, k)).astype(np.float64)
         # Scale to preserve variance roughly.
-        W = W / max(np.sqrt(float(k)), float(self.eps))
-        return W
+        projection = projection / max(np.sqrt(float(k)), float(self.eps))
+        return projection
 
-    def _project(self, X: np.ndarray) -> np.ndarray:
+    def _project(self, x: np.ndarray) -> np.ndarray:
         require_fitted(self, ["proj_"])
-        W = np.asarray(self.proj_, dtype=np.float64)  # type: ignore[arg-type]
-        return np.asarray(X @ W, dtype=np.float64)
+        projection = np.asarray(self.proj_, dtype=np.float64)  # type: ignore[arg-type]
+        return np.asarray(x @ projection, dtype=np.float64)
 
-    def fit(self, X, _y=None):  # noqa: ANN001, ANN201 - sklearn-like
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like
+        del y
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         d = int(x_arr.shape[1])
         self.proj_ = self._make_proj(d)
 
-        Z = x_arr @ self.proj_
+        z = x_arr @ self.proj_
 
         knn = CoreKNN(
             contamination=float(self.contamination),
@@ -91,17 +92,17 @@ class _RPkNNBackend:
             p=int(self.p),
             n_jobs=(1 if self.n_jobs is None else int(self.n_jobs)),
         )
-        knn.fit(Z)
+        knn.fit(z)
         self.backend_ = knn
         self.decision_scores_ = np.asarray(knn.decision_scores_, dtype=np.float64).reshape(-1)
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201 - sklearn-like
+    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like
         require_fitted(self, ["backend_", "proj_"])
-        x_arr = check_array(X, ensure_2d=True, dtype=np.float64)
-        Z = self._project(x_arr)
+        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
+        z = self._project(x_arr)
         knn: CoreKNN = self.backend_  # type: ignore[assignment]
-        return np.asarray(knn.decision_function(Z), dtype=np.float64).reshape(-1)
+        return np.asarray(knn.decision_function(z), dtype=np.float64).reshape(-1)
 
 
 @register_model(

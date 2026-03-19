@@ -8,7 +8,7 @@ Uses prototypical learning to create representative prototypes of normal
 patterns and detects anomalies based on distance to these prototypes.
 """
 
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
 import torch
@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 from sklearn.cluster import KMeans
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -121,8 +122,9 @@ class VisionPANDA(BaseVisionDeepDetector):
     >>> import numpy as np
     >>>
     >>> # Create sample data
-    >>> X_train = np.random.rand(100, 224, 224, 3).astype(np.float32)
-    >>> X_test = np.random.rand(20, 224, 224, 3).astype(np.float32)
+    >>> rng = np.random.default_rng(0)
+    >>> X_train = rng.random((100, 224, 224, 3)).astype(np.float32)
+    >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
     >>> # Create and train detector
     >>> detector = VisionPANDA(n_prototypes=10, epochs=20)
@@ -145,7 +147,7 @@ class VisionPANDA(BaseVisionDeepDetector):
         random_state: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(random_state=None, **kwargs)
+        super().__init__(**kwargs)
         self.backbone = backbone
         self.projection_dim = projection_dim
         self.n_prototypes = n_prototypes
@@ -156,25 +158,25 @@ class VisionPANDA(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if isinstance(random_state, (int, np.integer)):
-            torch.manual_seed(int(random_state))
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
         self.encoder_ = None
         self.prototypes_ = None
 
-    def _preprocess(self, X: NDArray) -> torch.Tensor:
+    def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
         # Convert to CHW format if needed
-        if X.shape[-1] == 3:
-            X = np.transpose(X, (0, 3, 1, 2))
+        if x.shape[-1] == 3:
+            x = np.transpose(x, (0, 3, 1, 2))
 
         # Normalize
-        X = X.astype(np.float32) / 255.0
+        x = x.astype(np.float32) / 255.0
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        X = (X - mean) / std
+        x = (x - mean) / std
 
-        return torch.from_numpy(X).float()
+        return torch.from_numpy(x).float()
 
     def _prototype_loss(self, embeddings: torch.Tensor, prototypes: torch.Tensor) -> torch.Tensor:
         """
@@ -239,7 +241,12 @@ class VisionPANDA(BaseVisionDeepDetector):
             torch.from_numpy(kmeans.cluster_centers_).float().to(self.device)
         )
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "VisionPANDA":
+    def fit(
+        self,
+        x: object = MISSING,
+        y: Optional[NDArray] = None,
+        **kwargs: object,
+    ) -> "VisionPANDA":
         """
         Fit the PANDA detector.
 
@@ -255,8 +262,10 @@ class VisionPANDA(BaseVisionDeepDetector):
         self : VisionPANDA
             Fitted detector
         """
+        del y
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
         # Preprocess
-        x_tensor = self._preprocess(X)
+        x_tensor = self._preprocess(x_array)
 
         # Initialize encoder
         if self.encoder_ is None:
@@ -273,9 +282,7 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         # Optimize both encoder and prototypes
         optimizer = torch.optim.Adam(
-            list(self.encoder_.parameters()) + [self.prototypes_],
-            lr=self.learning_rate,
-            weight_decay=0.0,
+            list(self.encoder_.parameters()) + [self.prototypes_], lr=self.learning_rate, weight_decay=0.0
         )
 
         self.encoder_.train()
@@ -309,7 +316,12 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return self
 
-    def predict(self, X: NDArray, return_confidence: bool = False) -> NDArray:
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
         """
         Predict anomaly scores.
 
@@ -330,7 +342,8 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         self.encoder_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+        x_tensor = self._preprocess(x_array)
         scores = []
 
         with torch.no_grad():
@@ -349,10 +362,18 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         return np.concatenate(scores)
 
-    def decision_function(self, X: NDArray, batch_size: Optional[int] = None) -> NDArray:
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         """Alias for predict."""
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is None:
-            return self.predict(X)
+            return self.predict(x_array)
 
         batch_size_int = int(batch_size)
         if batch_size_int <= 0:
@@ -361,11 +382,13 @@ class VisionPANDA(BaseVisionDeepDetector):
         old_batch_size = self.batch_size
         try:
             self.batch_size = batch_size_int
-            return self.predict(X)
+            return self.predict(x_array)
         finally:
             self.batch_size = old_batch_size
 
-    def get_prototype_assignments(self, X: NDArray) -> NDArray:
+    def get_prototype_assignments(
+        self, x: object = MISSING, **kwargs: object
+    ) -> NDArray:
         """
         Get prototype assignments for samples.
 
@@ -381,7 +404,10 @@ class VisionPANDA(BaseVisionDeepDetector):
         """
         self.encoder_.eval()
 
-        x_tensor = self._preprocess(X)
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="get_prototype_assignments")
+        )
+        x_tensor = self._preprocess(x_array)
         assignments = []
 
         with torch.no_grad():

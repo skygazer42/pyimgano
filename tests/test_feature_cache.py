@@ -25,11 +25,11 @@ def test_feature_cache_reuses_disk_features(tmp_path) -> None:
             return np.asarray(feats, dtype=np.float32)
 
     class _StubBackend:
-        def fit(self, X):  # noqa: ANN001, ANN201 - test helper
-            self.decision_scores_ = np.asarray(X).sum(axis=1)
+        def fit(self, x):  # noqa: ANN001, ANN201 - test helper
+            self.decision_scores_ = np.asarray(x).sum(axis=1)
 
-        def decision_function(self, X):  # noqa: ANN001, ANN201 - test helper
-            return np.asarray(X).sum(axis=1)
+        def decision_function(self, x):  # noqa: ANN001, ANN201 - test helper
+            return np.asarray(x).sum(axis=1)
 
     class _DummyDetector(BaseVisionDetector):
         def __init__(self, *, contamination=0.1, feature_extractor=None):  # noqa: ANN001

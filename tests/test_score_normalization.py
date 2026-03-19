@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 
 def test_minmax_in_0_1() -> None:
@@ -32,7 +33,7 @@ def test_rank01_ties_average_rank() -> None:
     x = np.array([1.0, 1.0, 2.0, 3.0])
     y = rank01(x)
     # The first two entries tie and should get the same rank.
-    assert float(y[0]) == float(y[1])
+    assert np.isclose(float(y[0]), float(y[1]))
 
 
 def test_zscore_finite() -> None:

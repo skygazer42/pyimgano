@@ -9,24 +9,24 @@ from pyimgano.utils import (
 
 
 def test_normalize_illumination_shapes():
-    image = np.random.default_rng(1).integers(0, 255, size=(64, 64), dtype=np.uint8)
+    image = np.random.default_rng(0).integers(0, 255, (64, 64), dtype=np.uint8)
     normalized = normalize_illumination(image)
     assert normalized.shape == image.shape
 
 
 def test_enhance_edges():
-    image = np.random.default_rng(2).integers(0, 255, size=(64, 64), dtype=np.uint8)
+    image = np.random.default_rng(1).integers(0, 255, (64, 64), dtype=np.uint8)
     edges = enhance_edges(image)
     assert edges.shape == image.shape
 
 
 def test_adaptive_threshold_binary():
-    image = np.random.default_rng(3).integers(0, 255, size=(64, 64), dtype=np.uint8)
+    image = np.random.default_rng(2).integers(0, 255, (64, 64), dtype=np.uint8)
     thresh = adaptive_threshold(image)
     assert set(np.unique(thresh)).issubset({0, 255})
 
 
 def test_default_defect_pipeline():
-    image = np.random.default_rng(4).integers(0, 255, size=(64, 64), dtype=np.uint8)
+    image = np.random.default_rng(3).integers(0, 255, (64, 64), dtype=np.uint8)
     mask = defect_preprocess_pipeline(image)
     assert mask.shape == image.shape

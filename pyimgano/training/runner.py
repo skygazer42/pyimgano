@@ -103,7 +103,7 @@ def _seed_everything(seed: int) -> None:
     import random
 
     random.seed(int(seed))
-    np.random.seed(int(seed))
+    np.random.mtrand._rand.seed(int(seed))
 
     try:
         import torch

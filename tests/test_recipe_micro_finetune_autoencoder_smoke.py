@@ -18,8 +18,8 @@ def test_recipe_micro_finetune_autoencoder_writes_checkpoint(tmp_path):
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001
+            self.fit_inputs = list(x)
             return self
 
         def save_checkpoint(self, path):  # noqa: ANN001 - test stub

@@ -31,7 +31,7 @@ def test_legacy_models_follow_base_detector_contract(model_name: str) -> None:
         from pyimgano.features.identity import IdentityExtractor
 
         rng = np.random.default_rng(0)
-        X = rng.normal(size=(80, 6))
+        x = rng.normal(size=(80, 6))
         extra = {}
         if model_name == "kmeans_anomaly":
             extra = {"n_clusters": 5, "random_state": 0}
@@ -48,9 +48,9 @@ def test_legacy_models_follow_base_detector_contract(model_name: str) -> None:
             contamination=0.2,
             **extra,
         )
-        det.fit(X)
-        scores = det.decision_function(X[:9])
-        preds = det.predict(X[:9])
+        det.fit(x)
+        scores = det.decision_function(x[:9])
+        preds = det.predict(x[:9])
 
     assert scores.shape[0] == preds.shape[0]
     assert np.all(np.isfinite(scores))

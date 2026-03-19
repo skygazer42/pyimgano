@@ -19,12 +19,14 @@ def test_workbench_detector_setup_builds_detector_tiling_and_preprocessing(monke
         return base_detector
 
     def _fake_apply_tiling(detector, tiling):  # noqa: ANN001
+        del tiling
         calls.append(("tiling", detector))
         assert detector is base_detector
         return tiled_detector
 
     class _FakePreprocessingDetector:
         def __init__(self, *, detector, illumination_contrast) -> None:  # noqa: ANN001
+            del illumination_contrast
             calls.append(("preprocessing", detector))
             assert detector is tiled_detector
             self.detector = wrapped_detector
@@ -64,10 +66,12 @@ def test_workbench_detector_setup_skips_preprocessing_when_not_configured(monkey
     tiled_detector = object()
 
     def _fake_create_workbench_detector(*, config):  # noqa: ANN001
+        del config
         calls.append("create")
         return base_detector
 
     def _fake_apply_tiling(detector, tiling):  # noqa: ANN001
+        del tiling
         calls.append("tiling")
         assert detector is base_detector
         return tiled_detector

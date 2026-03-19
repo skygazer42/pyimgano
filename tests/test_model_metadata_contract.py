@@ -25,8 +25,8 @@ def test_audit_metadata_contract_flags_missing_and_invalid_fields() -> None:
     registry = ModelRegistry()
 
     class _PixelModel:
-        def get_anomaly_map(self, X):  # noqa: ANN001, ANN201 - test helper
-            return X
+        def get_anomaly_map(self, x):  # noqa: ANN001, ANN201 - test helper
+            return x
 
     registry.register(
         "toy_pixel_model",

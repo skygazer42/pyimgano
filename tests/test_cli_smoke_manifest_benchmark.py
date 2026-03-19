@@ -20,12 +20,12 @@ def test_cli_manifest_benchmark_supports_meta_in_per_image_jsonl(tmp_path: Path)
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
 
-        def fit(self, X):  # noqa: ANN001
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
     MODEL_REGISTRY.register(
         "test_cli_manifest_benchmark_dummy_detector",

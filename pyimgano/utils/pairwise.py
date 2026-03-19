@@ -8,15 +8,15 @@ from __future__ import annotations
 import numpy as np
 
 
-def pairwise_distances_no_broadcast(X, Y):
-    """Row-wise Euclidean distance between matching rows of `X` and `Y`.
+def pairwise_distances_no_broadcast(x, y):
+    """Row-wise Euclidean distance between matching rows of `x` and `y`.
 
     This matches the typical use in reconstruction-error style detectors where
-    `X[i]` should be compared only to `Y[i]` (not all-pairs).
+    `x[i]` should be compared only to `y[i]` (not all-pairs).
 
     Parameters
     ----------
-    X, Y:
+    x, y:
         Array-like with the same shape `(n_samples, n_features)`.
 
     Returns
@@ -24,12 +24,12 @@ def pairwise_distances_no_broadcast(X, Y):
     distances : ndarray of shape (n_samples,)
     """
 
-    X = np.asarray(X)
-    Y = np.asarray(Y)
-    if X.shape != Y.shape:
-        raise ValueError(f"X and Y must have the same shape, got {X.shape} vs {Y.shape}")
-    if X.ndim != 2:
-        raise ValueError(f"Expected 2D arrays, got ndim={X.ndim}")
+    x = np.asarray(x)
+    y = np.asarray(y)
+    if x.shape != y.shape:
+        raise ValueError(f"x and y must have the same shape, got {x.shape} vs {y.shape}")
+    if x.ndim != 2:
+        raise ValueError(f"Expected 2D arrays, got ndim={x.ndim}")
 
-    diff = X - Y
+    diff = x - y
     return np.sqrt(np.sum(diff * diff, axis=1))

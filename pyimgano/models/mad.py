@@ -21,6 +21,7 @@ from typing import Literal, Optional
 import numpy as np
 from numpy.typing import NDArray
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseml import BaseVisionDetector
 from .core_feature_base import CoreFeatureDetector
 from .registry import register_model
@@ -49,8 +50,8 @@ class _RobustMADDetector:
         self.mad_: Optional[NDArray] = None
         self.decision_scores_: Optional[NDArray] = None
 
-    def fit(self, X: NDArray) -> "_RobustMADDetector":
-        x_arr = np.asarray(X, dtype=np.float64)
+    def fit(self, x: object = MISSING, **kwargs: object) -> "_RobustMADDetector":
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), dtype=np.float64)
         if x_arr.ndim != 2:
             raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
         if x_arr.shape[0] == 0:
@@ -65,11 +66,11 @@ class _RobustMADDetector:
         self.decision_scores_ = self.decision_function(x_arr)
         return self
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
         if self.median_ is None or self.mad_ is None:
             raise RuntimeError("Detector not fitted. Call fit() first.")
 
-        x_arr = np.asarray(X, dtype=np.float64)
+        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"), dtype=np.float64)
         if x_arr.ndim != 2:
             raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
         if x_arr.shape[1] != self.median_.shape[0]:

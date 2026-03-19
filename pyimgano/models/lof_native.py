@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from typing import Optional
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseml import BaseVisionDetector
 from .lof_core import CoreLOF
 from .registry import register_model
@@ -46,8 +47,8 @@ class VisionLOF(BaseVisionDetector):
     def _build_detector(self):
         return CoreLOF(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: object = MISSING, y=None, **kwargs: object):
+        return super().fit(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x: object = MISSING, **kwargs: object):
+        return super().decision_function(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))

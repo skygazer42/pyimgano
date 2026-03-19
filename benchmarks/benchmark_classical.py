@@ -20,7 +20,7 @@ import os
 import sys
 import time
 import warnings
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -65,10 +65,10 @@ def generate_synthetic_data(
     rng = np.random.default_rng(random_state)
 
     # Normal samples: multivariate Gaussian
-    normal_data = rng.normal(size=(n_normal, n_features)) * 0.5
+    normal_data = rng.standard_normal((n_normal, n_features)) * 0.5
 
     # Anomalous samples: outliers with larger variance
-    anomaly_data = rng.normal(size=(n_anomaly, n_features)) * 2.0
+    anomaly_data = rng.standard_normal((n_anomaly, n_features)) * 2.0
     anomaly_data += rng.uniform(-3, 3, size=(n_anomaly, n_features))
 
     # Combine data
@@ -90,13 +90,14 @@ def get_memory_usage() -> float:
 def benchmark_algorithm(
     model_name: str,
     detector_params: dict,
-    X_train: np.ndarray,
-    _y_train: np.ndarray,
-    X_test: np.ndarray,
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_test: np.ndarray,
     y_test: np.ndarray,
     algorithm_name: str,
 ) -> BenchmarkResult:
     """Benchmark a single algorithm."""
+    del y_train
     result = BenchmarkResult(algorithm_name)
 
     try:
@@ -117,7 +118,7 @@ def benchmark_algorithm(
         # Measure training time and memory
         mem_before = get_memory_usage()
         start_time = time.time()
-        detector.fit(X_train)
+        detector.fit(x_train)
         train_time = time.time() - start_time
         mem_after = get_memory_usage()
 
@@ -126,8 +127,8 @@ def benchmark_algorithm(
 
         # Measure inference time
         start_time = time.time()
-        scores = detector.decision_function(X_test)
-        inference_time = (time.time() - start_time) / len(X_test)
+        scores = detector.decision_function(x_test)
+        inference_time = (time.time() - start_time) / len(x_test)
 
         result.inference_time = inference_time
 
@@ -144,7 +145,7 @@ def benchmark_algorithm(
 
 
 def benchmark_statistical_methods(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark statistical anomaly detection methods."""
     print("\n" + "=" * 60)
@@ -155,13 +156,13 @@ def benchmark_statistical_methods(
 
     # MAD Detector
     print("\n1. MAD Detector...")
-    result = benchmark_algorithm("vision_mad", {}, X_train, y_train, X_test, y_test, "MAD")
+    result = benchmark_algorithm("vision_mad", {}, x_train, y_train, x_test, y_test, "MAD")
     results.append(result)
     print(f"   {result}")
 
     # HBOS (Histogram-based Outlier Score)
     print("\n2. HBOS (Histogram-based Outlier Score)...")
-    result = benchmark_algorithm("vision_hbos", {}, X_train, y_train, X_test, y_test, "HBOS")
+    result = benchmark_algorithm("vision_hbos", {}, x_train, y_train, x_test, y_test, "HBOS")
     results.append(result)
     print(f"   {result}")
 
@@ -169,7 +170,7 @@ def benchmark_statistical_methods(
 
 
 def benchmark_distance_methods(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark distance-based anomaly detection methods."""
     print("\n" + "=" * 60)
@@ -181,7 +182,7 @@ def benchmark_distance_methods(
     # KNN Detector
     print("\n1. KNN Detector (k=5)...")
     result = benchmark_algorithm(
-        "vision_knn", {"n_neighbors": 5}, X_train, y_train, X_test, y_test, "KNN"
+        "vision_knn", {"n_neighbors": 5}, x_train, y_train, x_test, y_test, "KNN"
     )
     results.append(result)
     print(f"   {result}")
@@ -189,7 +190,7 @@ def benchmark_distance_methods(
     # COF Detector
     print("\n2. COF Detector (k=20)...")
     result = benchmark_algorithm(
-        "vision_cof", {"n_neighbors": 20}, X_train, y_train, X_test, y_test, "COF"
+        "vision_cof", {"n_neighbors": 20}, x_train, y_train, x_test, y_test, "COF"
     )
     results.append(result)
     print(f"   {result}")
@@ -198,7 +199,7 @@ def benchmark_distance_methods(
 
 
 def benchmark_density_methods(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark density-based anomaly detection methods."""
     print("\n" + "=" * 60)
@@ -209,13 +210,13 @@ def benchmark_density_methods(
 
     # ECOD Detector
     print("\n1. ECOD Detector...")
-    result = benchmark_algorithm("vision_ecod", {}, X_train, y_train, X_test, y_test, "ECOD")
+    result = benchmark_algorithm("vision_ecod", {}, x_train, y_train, x_test, y_test, "ECOD")
     results.append(result)
     print(f"   {result}")
 
     # COPOD Detector
     print("\n2. COPOD Detector...")
-    result = benchmark_algorithm("vision_copod", {}, X_train, y_train, X_test, y_test, "COPOD")
+    result = benchmark_algorithm("vision_copod", {}, x_train, y_train, x_test, y_test, "COPOD")
     results.append(result)
     print(f"   {result}")
 
@@ -223,7 +224,7 @@ def benchmark_density_methods(
 
 
 def benchmark_isolation_methods(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray
 ) -> List[BenchmarkResult]:
     """Benchmark isolation-based anomaly detection methods."""
     print("\n" + "=" * 60)
@@ -235,7 +236,7 @@ def benchmark_isolation_methods(
     # Isolation Forest
     print("\n1. Isolation Forest (100 trees)...")
     result = benchmark_algorithm(
-        "vision_iforest", {"n_estimators": 100}, X_train, y_train, X_test, y_test, "IForest"
+        "vision_iforest", {"n_estimators": 100}, x_train, y_train, x_test, y_test, "IForest"
     )
     results.append(result)
     print(f"   {result}")
@@ -320,7 +321,7 @@ def main():
 
     # Generate synthetic data
     print("\nGenerating synthetic dataset...")
-    X_train, y_train, X_test, y_test = generate_synthetic_data(
+    x_train, y_train, x_test, y_test = generate_synthetic_data(
         n_normal=1000, n_anomaly=100, n_features=100
     )
     print(f"Training set: {X_train.shape[0]} samples")
@@ -329,10 +330,10 @@ def main():
     # Run benchmarks
     all_results = []
 
-    all_results.extend(benchmark_statistical_methods(X_train, y_train, X_test, y_test))
-    all_results.extend(benchmark_distance_methods(X_train, y_train, X_test, y_test))
-    all_results.extend(benchmark_density_methods(X_train, y_train, X_test, y_test))
-    all_results.extend(benchmark_isolation_methods(X_train, y_train, X_test, y_test))
+    all_results.extend(benchmark_statistical_methods(x_train, y_train, x_test, y_test))
+    all_results.extend(benchmark_distance_methods(x_train, y_train, x_test, y_test))
+    all_results.extend(benchmark_density_methods(x_train, y_train, x_test, y_test))
+    all_results.extend(benchmark_isolation_methods(x_train, y_train, x_test, y_test))
 
     # Print summary
     print("\n" + "=" * 60)

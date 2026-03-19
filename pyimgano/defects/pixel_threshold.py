@@ -16,7 +16,7 @@ def _stack_maps(calibration_maps: Iterable[np.ndarray]) -> np.ndarray:
     if any(m.shape != first_shape for m in maps):
         shapes = ", ".join(str(m.shape) for m in maps[:4])
         suffix = "" if len(maps) <= 4 else ", ..."
-        raise ValueError("All calibration_maps must have the same shape. " f"Got: {shapes}{suffix}")
+        raise ValueError(f"All calibration_maps must have the same shape. Got: {shapes}{suffix}")
     return np.stack(maps, axis=0)
 
 

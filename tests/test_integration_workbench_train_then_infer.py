@@ -13,10 +13,9 @@ def _write_png(path: Path) -> None:
 
 
 def test_builtin_recipe_delegates_to_workbench_service(monkeypatch) -> None:
+    import pyimgano.services.workbench_service as workbench_service
     from pyimgano.recipes.builtin.industrial_adapt import industrial_adapt
     from pyimgano.workbench.config import WorkbenchConfig
-
-    import pyimgano.services.workbench_service as workbench_service
 
     calls: list[dict[str, object]] = []
 
@@ -52,13 +51,13 @@ def test_integration_train_then_infer_from_run(tmp_path, capsys):
             self.kwargs = dict(kwargs)
             self.threshold_ = None
 
-        def fit(self, X, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
+        def fit(self, x, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
             _ = epochs, lr
-            self.fit_inputs = list(X)
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
         def save_checkpoint(self, path):  # noqa: ANN001 - test stub
             Path(path).write_text("ckpt", encoding="utf-8")
@@ -155,13 +154,13 @@ def test_integration_train_then_infer_from_run_manifest(tmp_path, capsys):
             self.kwargs = dict(kwargs)
             self.threshold_ = None
 
-        def fit(self, X, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
+        def fit(self, x, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
             _ = epochs, lr
-            self.fit_inputs = list(X)
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
         def save_checkpoint(self, path):  # noqa: ANN001 - test stub
             Path(path).write_text("ckpt", encoding="utf-8")
@@ -273,13 +272,13 @@ def test_integration_train_then_infer_infer_config_manifest(tmp_path, capsys):
             self.kwargs = dict(kwargs)
             self.threshold_ = None
 
-        def fit(self, X, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
+        def fit(self, x, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
             _ = epochs, lr
-            self.fit_inputs = list(X)
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
         def save_checkpoint(self, path):  # noqa: ANN001 - test stub
             Path(path).write_text("ckpt", encoding="utf-8")
@@ -388,9 +387,9 @@ def test_run_workbench_delegates_detector_creation_to_workbench_service(
 ):
     import cv2
 
+    import pyimgano.services.workbench_service as workbench_service
     from pyimgano.workbench.config import WorkbenchConfig
     from pyimgano.workbench.runner import run_workbench
-    import pyimgano.services.workbench_service as workbench_service
 
     root = tmp_path / "custom"
     for rel, value in [
@@ -408,12 +407,12 @@ def test_run_workbench_delegates_detector_creation_to_workbench_service(
         def __init__(self):
             self.threshold_ = None
 
-        def fit(self, X):  # noqa: ANN001 - test stub
-            self.fit_inputs = list(X)
+        def fit(self, x):  # noqa: ANN001 - test stub
+            self.fit_inputs = list(x)
             return self
 
-        def decision_function(self, X):  # noqa: ANN001
-            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+        def decision_function(self, x):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(x)), dtype=np.float32)
 
     calls: list[WorkbenchConfig] = []
 
@@ -453,3 +452,4 @@ def test_run_workbench_delegates_detector_creation_to_workbench_service(
     assert len(calls) == 1
     assert str(calls[0].model.name) == "vision_ecod"
     assert payload["threshold"] >= 0.0
+

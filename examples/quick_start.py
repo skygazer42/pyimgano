@@ -4,6 +4,7 @@ Quick Start Example for PyImgAno.
 This script demonstrates basic usage of PyImgAno for anomaly detection.
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,7 @@ from pyimgano import evaluate_detector, models
 
 JPG_GLOB = "*.jpg"
 PNG_GLOB = "*.png"
+
 
 
 def main():
@@ -73,7 +75,7 @@ def main():
     # Predict
     print("Running inference on test images...")
     scores = detector.decision_function(test_images)
-    predictions = detector.predict(test_images)
+    predictions = detector.predict(test_images)  # 0=normal, 1=anomaly
     print("✓ Inference complete\n")
 
     # Evaluate
