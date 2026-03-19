@@ -148,8 +148,8 @@ class VisionAnomalibCheckpoint:
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
 
-    def fit(self, X: Iterable[str], _y=None):
-        paths = list(X)
+    def fit(self, x: Iterable[str], _y=None):
+        paths = list(x)
         if not paths:
             raise ValueError("X must contain at least one training image path.")
 
@@ -157,18 +157,18 @@ class VisionAnomalibCheckpoint:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X: Iterable[str]) -> NDArray:
-        paths = list(X)
+    def decision_function(self, x: Iterable[str]) -> NDArray:
+        paths = list(x)
         scores = np.zeros(len(paths), dtype=np.float64)
         for i, path in enumerate(paths):
             pred = self._inferencer.predict(path)
             scores[i] = _extract_score_and_map(pred).score
         return scores
 
-    def predict(self, X: Iterable[str]) -> NDArray:
+    def predict(self, x: Iterable[str]) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        scores = self.decision_function(x)
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
@@ -178,8 +178,8 @@ class VisionAnomalibCheckpoint:
             raise ValueError("anomalib prediction did not include an anomaly map")
         return _normalize_anomaly_map(extracted.anomaly_map)
 
-    def predict_anomaly_map(self, X: Iterable[str]) -> NDArray:
-        paths: Sequence[str] = list(X)
+    def predict_anomaly_map(self, x: Iterable[str]) -> NDArray:
+        paths: Sequence[str] = list(x)
         maps = [self.get_anomaly_map(path) for path in paths]
         return np.stack(maps)
 

@@ -38,7 +38,7 @@ def test_train_cli_dry_run_manifest_validates_manifest_path_exists(tmp_path: Pat
         encoding="utf-8",
     )
 
-    code = main(["--config", str(cfg_path), "--dry-run"])
+    code = main(["--config", str(cfg_path), "--dry-run", "--json"])
     assert code == 2
     err = capsys.readouterr().err.lower()
     assert "manifest" in err
@@ -68,7 +68,7 @@ def test_train_cli_dry_run_manifest_succeeds_with_valid_manifest(tmp_path: Path,
         encoding="utf-8",
     )
 
-    code = main(["--config", str(cfg_path), "--dry-run"])
+    code = main(["--config", str(cfg_path), "--dry-run", "--json"])
     assert code == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["config"]["dataset"]["name"] == "manifest"

@@ -82,8 +82,8 @@ class CorePatchCoreOnline(BaseDetector):
         idx = rng.choice(n, size=max_n, replace=False).astype(np.int64, copy=False)
         self.memory_bank_ = np.asarray(self.memory_bank_[idx], dtype=np.float64)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_array = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         if int(x_array.shape[0]) == 0:
@@ -110,8 +110,8 @@ class CorePatchCoreOnline(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def partial_fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def partial_fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_array = check_array(x, ensure_2d=True, dtype=np.float64)
         if int(x_array.shape[0]) == 0:
             return self
 
@@ -125,9 +125,9 @@ class CorePatchCoreOnline(BaseDetector):
         self._rebuild_index()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["nn_"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(x, ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self.nn_  # type: ignore[assignment]
         dist, _ = nn.kneighbors(x_array, n_neighbors=1, return_distance=True)
         return np.asarray(dist[:, 0], dtype=np.float64).reshape(-1)
@@ -165,8 +165,8 @@ class VisionPatchCoreOnline(BaseVisionDetector):
     def _build_detector(self):
         return CorePatchCoreOnline(**self._detector_kwargs)
 
-    def partial_fit(self, X, y=None):  # noqa: ANN001, ANN201
-        feats = self.feature_extractor.extract(X)
+    def partial_fit(self, x, y=None):  # noqa: ANN001, ANN201
+        feats = self.feature_extractor.extract(x)
         pf = getattr(self.detector, "partial_fit", None)
         if not callable(pf):
             raise RuntimeError("Internal error: core detector does not support partial_fit")

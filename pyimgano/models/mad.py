@@ -49,8 +49,8 @@ class _RobustMADDetector:
         self.mad_: Optional[NDArray] = None
         self.decision_scores_: Optional[NDArray] = None
 
-    def fit(self, X: NDArray) -> "_RobustMADDetector":
-        x_arr = np.asarray(X, dtype=np.float64)
+    def fit(self, x: NDArray) -> "_RobustMADDetector":
+        x_arr = np.asarray(x, dtype=np.float64)
         if x_arr.ndim != 2:
             raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
         if x_arr.shape[0] == 0:
@@ -65,11 +65,11 @@ class _RobustMADDetector:
         self.decision_scores_ = self.decision_function(x_arr)
         return self
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, x: NDArray) -> NDArray:
         if self.median_ is None or self.mad_ is None:
             raise RuntimeError("Detector not fitted. Call fit() first.")
 
-        x_arr = np.asarray(X, dtype=np.float64)
+        x_arr = np.asarray(x, dtype=np.float64)
         if x_arr.ndim != 2:
             raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
         if x_arr.shape[1] != self.median_.shape[0]:

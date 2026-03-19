@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from pyimgano.train_progress import get_active_train_progress_reporter
 from pyimgano.workbench.aggregate_report import build_workbench_aggregate_report
 from pyimgano.workbench.category_execution import run_workbench_category
 from pyimgano.workbench.config import WorkbenchConfig
@@ -16,9 +17,12 @@ def run_all_workbench_categories(
     run_dir: Path | None,
 ) -> dict[str, Any]:
     categories = list_workbench_categories(config=config)
+    reporter = get_active_train_progress_reporter()
 
     per_category: dict[str, Any] = {}
-    for cat in categories:
+    total_categories = len(categories)
+    for index, cat in enumerate(categories, start=1):
+        reporter.on_category_start(category=str(cat), index=index, total=total_categories)
         per_category[str(cat)] = run_workbench_category(
             config=config,
             recipe_name=recipe_name,

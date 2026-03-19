@@ -86,8 +86,8 @@ class VisionLogSAD:
         self.decision_scores_: NDArray | None = None
         self.threshold_: float | None = None
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one support sample.")
         self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64)
@@ -101,8 +101,8 @@ class VisionLogSAD:
         total = self.visual_weight * visual_score + self.logic_weight * logic_score
         return float(total), anomaly_map
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x):
+        items = list(x)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = self._score_item(item)[0]
@@ -111,15 +111,15 @@ class VisionLogSAD:
     def get_anomaly_map(self, image: Any) -> NDArray:
         return self._score_item(image)[1].astype(np.float32, copy=False)
 
-    def predict_anomaly_map(self, X: Iterable[Any]):
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable[Any]):
+        items = list(x)
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(self.decision_function(x), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)

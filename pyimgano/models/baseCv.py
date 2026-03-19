@@ -120,7 +120,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             "Subclasses using BaseVisionDeepDetector.decision_function must implement evaluating_forward()."
         )
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
         """
         【特色功能 3: 重写 fit 方法以处理图像路径】
         使用正常的、无缺陷的图像数据来拟合检测器。
@@ -139,7 +139,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
         # 1. 构建模型
         self.model = self.build_model()
 
-        x_list = list(X)
+        x_list = list(x)
         if x_list and isinstance(x_list[0], np.ndarray):
             # Numpy-first industrial workflows: images already decoded in memory.
             train_dataset = VisionArrayDataset(images=x_list, transform=self.train_transform)
@@ -176,7 +176,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             import logging
 
             logging.getLogger(__name__).info("正在计算训练集上的异常分数...")
-        self.decision_scores_ = self.decision_function(X)
+        self.decision_scores_ = self.decision_function(x)
 
         # 6. 调用基类的方法来计算阈值和标签
         self._process_decision_scores()
@@ -184,7 +184,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
         self._set_n_classes(y)
         return self
 
-    def decision_function(self, X, batch_size=None):
+    def decision_function(self, x, batch_size=None):
         import numpy as np
 
         from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
@@ -193,7 +193,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
 
         current_batch_size = batch_size if batch_size is not None else self.batch_size
 
-        x_list = list(X)
+        x_list = list(x)
         if x_list and isinstance(x_list[0], np.ndarray):
             eval_dataset = VisionArrayDataset(images=x_list, transform=self.eval_transform)
         else:

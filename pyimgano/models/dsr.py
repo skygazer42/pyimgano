@@ -253,7 +253,7 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return np.array(anomaly_maps)
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None):
         """Fit the detector on normal images.
 
         For DSR, this computes statistics of normal spectral residuals
@@ -264,7 +264,7 @@ class DSRDetector(BaseVisionDeepDetector):
             y: Ignored (unsupervised)
         """
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x)
 
         # Compute anomaly maps for normal images
         anomaly_maps = self._compute_spectral_anomaly_map(features)
@@ -279,7 +279,7 @@ class DSRDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: NDArray) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -292,7 +292,7 @@ class DSRDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x)
 
         # Compute anomaly maps
         anomaly_maps = self._compute_spectral_anomaly_map(features)
@@ -308,7 +308,7 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return scores
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: NDArray) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -321,10 +321,10 @@ class DSRDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get original image size
-        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = x.shape[1:3] if x.shape[-1] == 3 else x.shape[2:4]
 
         # Extract features
-        features = self._extract_features(X)
+        features = self._extract_features(x)
 
         # Compute anomaly maps
         anomaly_maps = self._compute_spectral_anomaly_map(features)
@@ -348,7 +348,7 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return upsampled_maps
 
-    def predict(self, X: NDArray, threshold: Optional[float] = None) -> NDArray:
+    def predict(self, x: NDArray, threshold: Optional[float] = None) -> NDArray:
         """Predict anomaly labels.
 
         Args:
@@ -358,7 +358,7 @@ class DSRDetector(BaseVisionDeepDetector):
         Returns:
             Labels [N] (0=normal, 1=anomaly)
         """
-        scores = self.predict_proba(X)
+        scores = self.predict_proba(x)
 
         if threshold is None:
             # Use auto threshold from normal data

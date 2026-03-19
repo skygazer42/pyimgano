@@ -26,6 +26,7 @@ def test_train_cli_dry_run_applies_preprocessing_preset(tmp_path, capsys) -> Non
             "--config",
             str(cfg_path),
             "--dry-run",
+            "--json",
             "--preprocessing-preset",
             "illumination-contrast-balanced",
         ]
@@ -78,6 +79,7 @@ def test_train_cli_dry_run_delegates_overrides_to_workbench_service(
             "--config",
             str(cfg_path),
             "--dry-run",
+            "--json",
             "--preprocessing-preset",
             "illumination-contrast-balanced",
         ]
@@ -150,6 +152,7 @@ def test_train_cli_dry_run_delegates_preprocessing_preset_to_workbench_service(
             "--config",
             str(cfg_path),
             "--dry-run",
+            "--json",
             "--preprocessing-preset",
             "illumination-contrast-balanced",
         ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+import pyimgano.training.runner as training_runner_module
 from pyimgano.training.runner import micro_finetune
 
 
@@ -886,6 +887,57 @@ def test_micro_finetune_emits_callback_lifecycle_and_tracker_metrics():
     assert tracker.artifacts[0]["artifact"]["fit_kwargs_used"] == {"epochs": 2}
     assert tracker.closed is True
     assert out["fit_kwargs_used"] == {"epochs": 2}
+
+
+def test_micro_finetune_enriches_epoch_metrics_with_timing_and_rate(monkeypatch):
+    perf_counter_values = iter([10.0, 10.5, 16.5, 17.0])
+    monkeypatch.setattr(
+        training_runner_module.time,
+        "perf_counter",
+        lambda: next(perf_counter_values),
+    )
+
+    class _Detector:
+        def fit(self, X, *, epochs=None):  # noqa: ANN001 - test stub
+            self.train_count = len(list(X))
+            self.training_epochs_completed_ = int(epochs or 2)
+            self.training_loss_history_ = [0.9, 0.6]
+            self.training_lr_history_ = [0.01, 0.005]
+            return self
+
+    out = micro_finetune(
+        _Detector(),
+        ["a", "b", "c"],
+        fit_kwargs={"epochs": 2},
+    )
+
+    assert out["timing"] == {"fit_s": pytest.approx(6.0), "total_s": pytest.approx(7.0)}
+    assert out["epoch_metrics"] == [
+        {
+            "epoch": 1,
+            "metrics": {
+                "loss": 0.9,
+                "lr": 0.01,
+                "epoch_s": pytest.approx(3.0),
+                "elapsed_s": pytest.approx(3.0),
+                "eta_s": pytest.approx(3.0),
+                "train_items": pytest.approx(3.0),
+                "items_per_s": pytest.approx(1.0),
+            },
+        },
+        {
+            "epoch": 2,
+            "metrics": {
+                "loss": 0.6,
+                "lr": 0.005,
+                "epoch_s": pytest.approx(3.0),
+                "elapsed_s": pytest.approx(6.0),
+                "eta_s": pytest.approx(0.0),
+                "train_items": pytest.approx(3.0),
+                "items_per_s": pytest.approx(1.0),
+            },
+        },
+    ]
 
 
 def test_micro_finetune_reports_exception_to_callbacks_and_closes_tracker():

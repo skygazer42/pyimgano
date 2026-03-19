@@ -170,8 +170,8 @@ class _BaseSSIMMapDetector(BaseDetector):
         return _PreparedImage(orig_hw=orig_hw, rep_u8=np.asarray(rep, dtype=np.uint8))
 
     # ------------------------------------------------------------------
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -221,15 +221,15 @@ class _BaseSSIMMapDetector(BaseDetector):
             am = np.clip(am, 0.0, 1.0).astype(np.float32)
         return am
 
-    def predict_anomaly_map(self, X: Iterable) -> np.ndarray:  # noqa: ANN001, ANN201
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable) -> np.ndarray:  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(it) for it in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
-        items = list(X)
+    def decision_function(self, x):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             return np.zeros((0,), dtype=np.float64)
 

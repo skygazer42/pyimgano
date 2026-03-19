@@ -203,15 +203,15 @@ class _BasePixelStatsMapDetector(BaseDetector):
         return _Prepared(orig_hw=orig_hw, rep_u8=np.asarray(rep, dtype=np.uint8))
 
     # ------------------------------------------------------------------
-    def predict_anomaly_map(self, X: Iterable) -> np.ndarray:  # noqa: ANN001, ANN201
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable) -> np.ndarray:  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(it) for it in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
-        items = list(X)
+    def decision_function(self, x):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             return np.zeros((0,), dtype=np.float64)
         scores = np.zeros((len(items),), dtype=np.float64)
@@ -252,8 +252,8 @@ class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
         )
         self.mean_template_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201 - sklearn-like signature
-        items = list(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like signature
+        items = list(x)
         if not items:
             raise ValueError(_TRAINING_SET_EMPTY_ERROR)
 
@@ -335,8 +335,8 @@ class VisionPixelGaussianMapDetector(_BasePixelStatsMapDetector):
         self.mean_: np.ndarray | None = None
         self.std_: np.ndarray | None = None
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             raise ValueError(_TRAINING_SET_EMPTY_ERROR)
 
@@ -457,8 +457,8 @@ class VisionPixelMADMapDetector(_BasePixelStatsMapDetector):
         idx = rng.choice(len(items), size=max_n, replace=False)
         return [items[int(i)] for i in np.sort(idx)]
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items_all = list(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        items_all = list(x)
         if not items_all:
             raise ValueError(_TRAINING_SET_EMPTY_ERROR)
 

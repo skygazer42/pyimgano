@@ -139,8 +139,8 @@ class SSIMStructDetector(BaseDetector):
         gray = _resize(gray, size_hw=self.resize_hw)
         return _edges(gray, t1=self.canny_threshold1, t2=self.canny_threshold2)
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        items = list(X)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        items = list(x)
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -155,7 +155,7 @@ class SSIMStructDetector(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         if self.templates_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
@@ -164,7 +164,7 @@ class SSIMStructDetector(BaseDetector):
         skmetrics = require("skimage.metrics", extra="skimage", purpose="SSIM similarity metric")
         ssim = skmetrics.structural_similarity
 
-        items = list(X)
+        items = list(x)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, it in enumerate(items):
             img = self._load_and_preprocess(it)

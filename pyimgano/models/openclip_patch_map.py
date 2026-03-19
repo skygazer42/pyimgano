@@ -110,8 +110,8 @@ class VisionOpenCLIPPatchMap:
             patches = _l2_normalize(patches, axis=1, eps=float(self.eps))
         return patches, grid_shape, original_size
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one training image.")
 
@@ -138,11 +138,11 @@ class VisionOpenCLIPPatchMap:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - float(self.contamination)))
         return self
 
-    def decision_function(self, X):
+    def decision_function(self, x):
         if self.template_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
-        items = list(X)
+        items = list(x)
         scores = np.zeros(len(items), dtype=np.float64)
         tpl = np.asarray(self.template_, dtype=np.float32).reshape(-1)
         for i, item in enumerate(items):
@@ -158,10 +158,10 @@ class VisionOpenCLIPPatchMap:
             )
         return scores
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        scores = self.decision_function(X)
+        scores = self.decision_function(x)
         return (scores > float(self.threshold_)).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -191,8 +191,8 @@ class VisionOpenCLIPPatchMap:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X):
-        items = list(X)
+    def predict_anomaly_map(self, x):
+        items = list(x)
         maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
             raise ValueError("X must be non-empty")

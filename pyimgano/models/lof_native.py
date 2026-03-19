@@ -46,8 +46,8 @@ class VisionLOF(BaseVisionDetector):
     def _build_detector(self):
         return CoreLOF(**self._detector_kwargs)
 
-    def fit(self, X: Iterable[str], y=None):
-        return super().fit(X, y=y)
+    def fit(self, x: Iterable[str], y=None):
+        return super().fit(x, y=y)
 
-    def decision_function(self, X):
-        return super().decision_function(X)
+    def decision_function(self, x):
+        return super().decision_function(x)

@@ -248,7 +248,7 @@ class PNIDetector(BaseVisionDeepDetector):
 
         return flattened_features, features  # Return both flattened and spatial
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None):
         """Fit the detector on normal images.
 
         Args:
@@ -256,7 +256,7 @@ class PNIDetector(BaseVisionDeepDetector):
             y: Ignored (unsupervised)
         """
         # Extract features
-        flattened_features, _ = self._extract_features(X)
+        flattened_features, _ = self._extract_features(x)
 
         # Build normality index at each level
         for level in self.feature_levels:
@@ -270,7 +270,7 @@ class PNIDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: NDArray) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -283,7 +283,7 @@ class PNIDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Extract features
-        flattened_features, _ = self._extract_features(X)
+        flattened_features, _ = self._extract_features(x)
 
         # Compute scores at each level
         all_scores = []
@@ -312,7 +312,7 @@ class PNIDetector(BaseVisionDeepDetector):
 
         return final_scores
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: NDArray) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -325,9 +325,9 @@ class PNIDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Extract features (spatial version)
-        flattened_features, spatial_features = self._extract_features(X)
+        flattened_features, spatial_features = self._extract_features(x)
 
-        N = X.shape[0] if isinstance(X, np.ndarray) else X.size(0)
+        N = x.shape[0] if isinstance(x, np.ndarray) else x.size(0)
         height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
 
         # Compute anomaly maps at each level

@@ -51,8 +51,8 @@ class CorePatchCoreLite(BaseDetector):
         self.p = int(p)
         self.random_state = random_state
 
-    def fit(self, X, y=None):  # noqa: ANN001, ANN201
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+    def fit(self, x, y=None):  # noqa: ANN001, ANN201
+        x_array = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
 
         n = int(x_array.shape[0])
@@ -88,9 +88,9 @@ class CorePatchCoreLite(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X):  # noqa: ANN001, ANN201
+    def decision_function(self, x):  # noqa: ANN001, ANN201
         require_fitted(self, ["nn_"])
-        x_array = check_array(X, ensure_2d=True, dtype=np.float64)
+        x_array = check_array(x, ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self.nn_  # type: ignore[assignment]
         dist, _ = nn.kneighbors(x_array, n_neighbors=1, return_distance=True)
         return np.asarray(dist[:, 0], dtype=np.float64).reshape(-1)

@@ -6,6 +6,12 @@ import pyimgano.cli_output as cli_output
 
 from pyimgano.recipes.registry import list_recipes, recipe_info
 import pyimgano.services.train_service as train_service
+from pyimgano.train_cli_presentation import (
+    TrainConsoleReporter,
+    emit_dry_run_summary,
+    emit_preflight_summary,
+)
+from pyimgano.train_progress import use_train_progress_reporter
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -21,17 +27,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json",
         action="store_true",
-        help="When used with --list-recipes/--recipe-info, output JSON instead of text",
+        help="Emit machine-readable JSON for supported commands instead of human-readable text",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate and print the effective config JSON without running the recipe",
+        help="Validate and print the effective config without running the recipe",
     )
     parser.add_argument(
         "--preflight",
         action="store_true",
-        help="Validate dataset health and print a preflight JSON report without running the recipe",
+        help="Validate dataset health and print a preflight report without running the recipe",
     )
     parser.add_argument(
         "--export-infer-config",
@@ -116,17 +122,36 @@ def main(argv: list[str] | None = None) -> int:
             if bool(args.dry_run):
                 raise ValueError("--preflight and --dry-run are mutually exclusive.")
             payload = train_service.run_train_preflight_payload(request)
-            cli_output.emit_json(payload)
+            if bool(args.json):
+                cli_output.emit_json(payload)
+            else:
+                emit_preflight_summary(payload)
             issues = payload.get("preflight", {}).get("issues", [])
             has_error = any(str(issue.get("severity")) == "error" for issue in issues)
             return 2 if has_error else 0
 
         if bool(args.dry_run):
             payload = train_service.build_train_dry_run_payload(request)
-            return cli_output.emit_json(payload)
-        report = train_service.run_train_request(request)
+            if bool(args.json):
+                return cli_output.emit_json(payload)
+            emit_dry_run_summary(payload)
+            return 0
 
-        return cli_output.emit_json(report)
+        if bool(args.json):
+            report = train_service.run_train_request(request)
+            return cli_output.emit_json(report)
+
+        config = train_service.load_train_config(request)
+        reporter = TrainConsoleReporter()
+        reporter.on_run_start(config=config, request=request)
+        try:
+            with use_train_progress_reporter(reporter):
+                report = train_service.run_train_request(request)
+        except Exception as exc:
+            reporter.on_error(error=exc)
+            raise
+        reporter.on_run_end(report=report)
+        return 0
 
     except Exception as exc:  # noqa: BLE001 - CLI boundary
         cli_output.print_cli_error(exc)

@@ -10,6 +10,7 @@ from pyimgano.config import load_config
 from pyimgano.reporting.calibration_card import build_calibration_card_payload
 from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
 from pyimgano.reporting.report import save_run_report
+from pyimgano.train_progress import get_active_train_progress_reporter
 from pyimgano.workbench.config import WorkbenchConfig
 
 _INFER_CONFIG_FILENAME = "infer_config.json"
@@ -256,6 +257,7 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
     import pyimgano.services.workbench_service as workbench_service
     from pyimgano.recipes.registry import RECIPE_REGISTRY
 
+    reporter = get_active_train_progress_reporter()
     cfg = load_train_config(request)
     recipe = RECIPE_REGISTRY.get(cfg.recipe)
     report = recipe(cfg)
@@ -288,11 +290,16 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
             report=report,
         )
         save_run_report(infer_config_path, infer_config_payload)
+        reporter.on_artifact_written(kind="infer_config", path=str(infer_config_path))
         operator_contract_payload = infer_config_payload.get("operator_contract", None)
         if isinstance(operator_contract_payload, dict):
             save_run_report(
                 run_dir / "artifacts" / "operator_contract.json",
                 operator_contract_payload,
+            )
+            reporter.on_artifact_written(
+                kind="operator_contract",
+                path=str(run_dir / "artifacts" / "operator_contract.json"),
             )
         calibration_card_source = dict(report)
         prediction_payload = infer_config_payload.get("prediction", None)
@@ -307,6 +314,10 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
                 run_dir / "artifacts" / "calibration_card.json",
                 calibration_card_payload,
             )
+            reporter.on_artifact_written(
+                kind="calibration_card",
+                path=str(run_dir / "artifacts" / "calibration_card.json"),
+            )
 
     if bool(request.export_deploy_bundle):
         if infer_config_payload is None:
@@ -320,6 +331,7 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
         bundle_dir = _export_deploy_bundle(run_dir=run_dir, infer_config_payload=infer_config_payload)
         report = dict(report)
         report["deploy_bundle_dir"] = str(bundle_dir)
+        reporter.on_artifact_written(kind="deploy_bundle", path=str(bundle_dir))
 
     return report
 

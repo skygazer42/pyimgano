@@ -16,10 +16,12 @@ The API is intentionally small and geared toward the needs of this repository.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Any, Callable, Optional
 
 import numpy as np
 
+from pyimgano.train_progress import get_active_train_progress_reporter
 from .base_detector import BaseDetector
 
 
@@ -176,6 +178,35 @@ def _resolve_scheduler(
     raise ValueError(f"Unknown scheduler_name: {name!r}")
 
 
+def _infer_batch_item_count(batch_data: Any) -> int | None:
+    if isinstance(batch_data, dict):
+        for value in batch_data.values():
+            count = _infer_batch_item_count(value)
+            if count is not None:
+                return count
+        return None
+
+    if isinstance(batch_data, (list, tuple)):
+        for value in batch_data:
+            count = _infer_batch_item_count(value)
+            if count is not None:
+                return count
+        return None
+
+    shape = getattr(batch_data, "shape", None)
+    if shape is not None:
+        try:
+            if len(shape) > 0:
+                return int(shape[0])
+        except Exception:
+            pass
+
+    try:
+        return int(len(batch_data))
+    except Exception:
+        return None
+
+
 class BaseDeepLearningDetector(BaseDetector):
     """Base class for deep-learning detectors."""
 
@@ -248,6 +279,8 @@ class BaseDeepLearningDetector(BaseDetector):
         self.training_stop_reason_: str | None = None
         self.training_best_loss_: float | None = None
         self.training_loss_history_: list[float] = []
+        self.training_epoch_time_history_: list[float] = []
+        self.training_epoch_sample_counts_: list[int] = []
         self.training_ema_updates_: int = 0
         self.training_ema_applied_ = False
         self._ema_state: dict[str, Any] | None = None
@@ -467,11 +500,14 @@ class BaseDeepLearningDetector(BaseDetector):
         return True
 
     def train(self, train_loader) -> None:  # noqa: ANN001
+        reporter = get_active_train_progress_reporter()
         self.training_epochs_completed_ = 0
         self.training_steps_completed_ = 0
         self.training_stop_reason_ = None
         self.training_best_loss_ = None
         self.training_loss_history_ = []
+        self.training_epoch_time_history_ = []
+        self.training_epoch_sample_counts_ = []
         self.training_lr_history_ = []
         self.training_last_lr_ = None
         self.training_ema_updates_ = 0
@@ -486,13 +522,19 @@ class BaseDeepLearningDetector(BaseDetector):
         )
         min_delta = float(self.early_stopping_min_delta)
         stale_epochs = 0
+        elapsed_s = 0.0
 
         for _epoch in range(self.epoch_num):
             self._apply_warmup_lr(_epoch)
             if self.optimizer is not None and getattr(self.optimizer, "param_groups", None):
                 self.training_lr_history_.append(float(self.optimizer.param_groups[0]["lr"]))
             losses: list[float] = []
+            epoch_start = time.perf_counter()
+            epoch_sample_count = 0
             for batch_data in train_loader:
+                batch_items = _infer_batch_item_count(batch_data)
+                if batch_items is not None:
+                    epoch_sample_count += int(batch_items)
                 loss = self.training_forward(batch_data)
                 # training_forward may return floats or tuples; only require float for now.
                 losses.append(float(loss))
@@ -510,9 +552,33 @@ class BaseDeepLearningDetector(BaseDetector):
 
             mean_loss_epoch: float | None = None
             if losses:
+                epoch_s = float(time.perf_counter() - epoch_start)
+                elapsed_s += epoch_s
                 mean_loss = float(np.mean(losses))
                 mean_loss_epoch = mean_loss
                 self.training_loss_history_.append(mean_loss)
+                self.training_epoch_time_history_.append(epoch_s)
+                train_items = int(
+                    epoch_sample_count
+                    if epoch_sample_count > 0
+                    else (self.data_num if self.data_num is not None else 0)
+                )
+                self.training_epoch_sample_counts_.append(train_items)
+                metrics: dict[str, float] = {"loss": float(mean_loss)}
+                if self.training_lr_history_:
+                    metrics["lr"] = float(self.training_lr_history_[-1])
+                metrics["epoch_s"] = epoch_s
+                metrics["elapsed_s"] = elapsed_s
+                metrics["eta_s"] = float(max(self.epoch_num - int(_epoch + 1), 0)) * epoch_s
+                metrics["train_items"] = float(train_items)
+                if epoch_s > 0.0:
+                    metrics["items_per_s"] = float(train_items) / epoch_s
+                reporter.on_training_epoch(
+                    epoch=int(_epoch + 1),
+                    total_epochs=int(self.epoch_num),
+                    metrics=metrics,
+                    live=True,
+                )
                 best_loss = self.training_best_loss_
                 if best_loss is None or mean_loss < (best_loss - min_delta):
                     self.training_best_loss_ = mean_loss

@@ -107,8 +107,8 @@ class VisionAdaCLIP:
             )
         return prompts
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one support sample.")
 
@@ -130,15 +130,15 @@ class VisionAdaCLIP:
         normal_score = _cosine_similarity(feature, self.hybrid_prompts_["normal"])
         return float(anomaly_score - normal_score)
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x):
+        items = list(x)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = self._score_feature(_encode_image(self.clip_backend, item))
         return scores
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(self.decision_function(x), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)

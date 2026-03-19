@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from pyimgano.reporting.runs import build_workbench_run_paths
+from pyimgano.train_progress import get_active_train_progress_reporter
 from pyimgano.training.callbacks import MetricsLoggingCallback, ResourceProfilingCallback
 from pyimgano.training.tracking import create_training_tracker
 from pyimgano.workbench.config import WorkbenchConfig
@@ -240,6 +241,7 @@ def run_workbench_training(
     category: str,
     run_dir: str | Path | None,
 ) -> WorkbenchTrainingResult:
+    reporter = get_active_train_progress_reporter()
     if bool(getattr(config, "training", None) and config.training.enabled):
         from pyimgano.training.checkpointing import save_checkpoint
         from pyimgano.training.runner import micro_finetune
@@ -250,11 +252,23 @@ def run_workbench_training(
         )
         callbacks, callback_names = build_training_callbacks(config)
         tracker, tracker_meta = build_training_tracker(config=config, run_dir=run_dir)
+        fit_kwargs = build_training_fit_kwargs(config)
+        reporter.on_training_start(
+            category=str(category),
+            enabled=True,
+            fit_kwargs=fit_kwargs,
+            tracker_backend=(
+                str(tracker_meta.get("backend"))
+                if isinstance(tracker_meta, dict) and tracker_meta.get("backend") is not None
+                else getattr(config.training, "tracker_backend", None)
+            ),
+            callback_names=callback_names,
+        )
         training_report = micro_finetune(
             detector,
             train_inputs,
             seed=config.seed,
-            fit_kwargs=build_training_fit_kwargs(config),
+            fit_kwargs=fit_kwargs,
             callbacks=callbacks,
             tracker=tracker,
         )
@@ -286,6 +300,13 @@ def run_workbench_training(
             checkpoint_meta=checkpoint_meta,
         )
 
+    reporter.on_training_start(
+        category=str(category),
+        enabled=False,
+        fit_kwargs=None,
+        tracker_backend=None,
+        callback_names=[],
+    )
     detector.fit(train_inputs)
     return WorkbenchTrainingResult(
         detector=detector,

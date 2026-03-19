@@ -424,7 +424,7 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
         # Initialize preprocessing
         self.setup_preprocessing(enable=True, use_pipeline=True)
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
         """
         Fit detector with preprocessing.
 
@@ -440,14 +440,14 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
         self
         """
         # Preprocess all training images
-        x_processed = self.preprocess_images(X)
+        x_processed = self.preprocess_images(x)
 
         # Your fitting logic here
         logger.info("Fitting on %d preprocessed images", len(x_processed))
 
         return self
 
-    def predict(self, X):
+    def predict(self, x):
         """
         Predict with preprocessing.
 
@@ -462,7 +462,7 @@ class ExampleDetectorWithPreprocessing(PreprocessingMixin):
             Anomaly scores
         """
         # Preprocess all test images
-        x_processed = self.preprocess_images(X)
+        x_processed = self.preprocess_images(x)
 
         # Your prediction logic here
         rng = np.random.default_rng(0)

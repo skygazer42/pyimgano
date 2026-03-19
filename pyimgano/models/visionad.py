@@ -80,8 +80,8 @@ class VisionVisionAD:
         self.decision_scores_: NDArray | None = None
         self.threshold_: float | None = None
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one support sample.")
         embedded = [_call_embedder(self.embedder, item)[0] for item in items]
@@ -103,8 +103,8 @@ class VisionVisionAD:
             )
         return float(image_score), patch_scores_arr, grid_shape, original_size
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x):
+        items = list(x)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = self._score_item(item)[0]
@@ -116,15 +116,15 @@ class VisionVisionAD:
             raise ValueError("embedder must return grid/original metadata for anomaly maps.")
         return patch_scores.reshape(grid_shape).astype(np.float32, copy=False)
 
-    def predict_anomaly_map(self, X: Iterable[Any]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable[Any]) -> NDArray:
+        items = list(x)
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(self.decision_function(x), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)

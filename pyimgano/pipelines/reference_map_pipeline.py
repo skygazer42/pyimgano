@@ -170,8 +170,8 @@ class ReferenceMapPipeline(BaseDetector):
         raise ValueError("Unknown reduction mode")
 
     # ------------------------------------------------------------------
-    def fit(self, X: Iterable[Any], y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        items = list(X)
+    def fit(self, x: Iterable[Any], y=None):  # noqa: ANN001, ANN201 - sklearn-like API
+        items = list(x)
         if not items:
             raise ValueError("Training set cannot be empty")
 
@@ -182,8 +182,8 @@ class ReferenceMapPipeline(BaseDetector):
         self._process_decision_scores()
         return self
 
-    def decision_function(self, X: Iterable[Any]):  # noqa: ANN001, ANN201 - sklearn-like API
-        items = list(X)
+    def decision_function(self, x: Iterable[Any]):  # noqa: ANN001, ANN201 - sklearn-like API
+        items = list(x)
         scores: list[float] = []
         for it in items:
             amap = self.get_anomaly_map(it)

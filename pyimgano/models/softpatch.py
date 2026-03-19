@@ -154,8 +154,8 @@ class VisionSoftPatch:
             original_size=(original_h, original_w),
         )
 
-    def fit(self, X: Iterable[Union[str, np.ndarray]], _y=None):
-        items = list(X)
+    def fit(self, x: Iterable[Union[str, np.ndarray]], _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one training image.")
 
@@ -210,8 +210,8 @@ class VisionSoftPatch:
 
         return distances_np.min(axis=1)
 
-    def decision_function(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def decision_function(self, x: Iterable[Union[str, np.ndarray]]) -> NDArray:
+        items = list(x)
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             embedded = self._embed(item)
@@ -223,10 +223,10 @@ class VisionSoftPatch:
             )
         return scores
 
-    def predict(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
+    def predict(self, x: Iterable[Union[str, np.ndarray]]) -> NDArray:
         if self.threshold_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        scores = self.decision_function(X)
+        scores = self.decision_function(x)
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -255,7 +255,7 @@ class VisionSoftPatch:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X: Iterable[Union[str, np.ndarray]]) -> NDArray:
-        items = list(X)
+    def predict_anomaly_map(self, x: Iterable[Union[str, np.ndarray]]) -> NDArray:
+        items = list(x)
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)

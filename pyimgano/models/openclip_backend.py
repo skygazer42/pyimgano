@@ -549,8 +549,8 @@ class VisionOpenCLIPPromptScore:
 
         return patch_embeddings_np, (grid_h, grid_w), (original_h, original_w)
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one training image path.")
 
@@ -559,14 +559,14 @@ class VisionOpenCLIPPromptScore:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X):
+    def decision_function(self, x):
         self._ensure_text_features()
         if (
             self.text_features_normal is None or self.text_features_anomaly is None
         ):  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
-        items = list(X)
+        items = list(x)
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             patch_embeddings, _grid_shape, _original_size = self._embed(item)
@@ -583,10 +583,10 @@ class VisionOpenCLIPPromptScore:
             )
         return scores
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(X)
+        scores = self.decision_function(x)
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -622,8 +622,8 @@ class VisionOpenCLIPPromptScore:
         )
         return np.asarray(upsampled, dtype=np.float32)
 
-    def predict_anomaly_map(self, X):
-        items = list(X)
+    def predict_anomaly_map(self, x):
+        items = list(x)
         maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
             raise ValueError("X must be non-empty")
@@ -685,21 +685,21 @@ class VisionOpenCLIPPatchKNN:
         self._kwargs = dict(kwargs)
         self._core = VisionAnomalyDINO(embedder=embedder, device=str(device), **kwargs)
 
-    def fit(self, X, y=None):  # pragma: no cover - skeleton API
-        self._core.fit(X, y=y)
+    def fit(self, x, y=None):  # pragma: no cover - skeleton API
+        self._core.fit(x, y=y)
         return self
 
-    def decision_function(self, X):  # pragma: no cover - skeleton API
-        return self._core.decision_function(X)
+    def decision_function(self, x):  # pragma: no cover - skeleton API
+        return self._core.decision_function(x)
 
-    def predict(self, X):
-        return self._core.predict(X)
+    def predict(self, x):
+        return self._core.predict(x)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]):
         return self._core.get_anomaly_map(image)
 
-    def predict_anomaly_map(self, X):
-        return self._core.predict_anomaly_map(X)
+    def predict_anomaly_map(self, x):
+        return self._core.predict_anomaly_map(x)
 
     @property
     def decision_scores_(self):

@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 from pyimgano.training.callbacks import run_callback_hook
+from pyimgano.train_progress import get_active_train_progress_reporter
 from pyimgano.training.tracking import TrainingTracker
 
 
@@ -237,6 +238,12 @@ def _collect_detector_training_state(detector: Any) -> dict[str, Any]:
     if hasattr(detector, "training_loss_history_"):
         history = list(getattr(detector, "training_loss_history_"))
         state["loss_history"] = [float(v) for v in history]
+    if hasattr(detector, "training_epoch_time_history_"):
+        history = list(getattr(detector, "training_epoch_time_history_"))
+        state["epoch_time_history"] = [float(v) for v in history]
+    if hasattr(detector, "training_epoch_sample_counts_"):
+        history = list(getattr(detector, "training_epoch_sample_counts_"))
+        state["epoch_sample_counts"] = [int(v) for v in history]
     if hasattr(detector, "training_lr_history_"):
         history = list(getattr(detector, "training_lr_history_"))
         state["lr_history"] = [float(v) for v in history]
@@ -257,6 +264,30 @@ def _should_report_dataset_summary(
     validation_count: int,
 ) -> bool:
     return train_count_used != original_train_count or validation_count > 0
+
+
+def _coerce_float_history(values: Any) -> list[float | None]:
+    if not isinstance(values, list):
+        return []
+    out: list[float | None] = []
+    for value in values:
+        try:
+            out.append(float(value))
+        except Exception:
+            out.append(None)
+    return out
+
+
+def _coerce_int_history(values: Any) -> list[int | None]:
+    if not isinstance(values, list):
+        return []
+    out: list[int | None] = []
+    for value in values:
+        try:
+            out.append(int(value))
+        except Exception:
+            out.append(None)
+    return out
 
 
 def _call_tracker(
@@ -299,6 +330,8 @@ def _build_callback_context(
 def _emit_epoch_metrics(
     *,
     detector_training_state: Mapping[str, Any],
+    fit_s: float | None,
+    train_count: int,
     callbacks: Sequence[Any],
     callback_context: Mapping[str, Any],
     tracker: TrainingTracker | None,
@@ -306,6 +339,7 @@ def _emit_epoch_metrics(
     per_epoch_metrics: list[dict[str, Any]] = []
     callback_warnings: list[str] = []
     tracker_warnings: list[str] = []
+    reporter = get_active_train_progress_reporter()
 
     loss_history = detector_training_state.get("loss_history", None)
     if not isinstance(loss_history, list) or len(loss_history) == 0:
@@ -313,12 +347,49 @@ def _emit_epoch_metrics(
 
     lr_history_raw = detector_training_state.get("lr_history", None)
     lr_history = lr_history_raw if isinstance(lr_history_raw, list) else []
+    epoch_time_history = _coerce_float_history(detector_training_state.get("epoch_time_history"))
+    epoch_sample_counts = _coerce_int_history(detector_training_state.get("epoch_sample_counts"))
+    default_epoch_s = None
+    if fit_s is not None and len(loss_history) > 0:
+        default_epoch_s = float(fit_s) / float(len(loss_history))
+    elapsed_s = 0.0
+    total_epochs_raw = detector_training_state.get("epochs_completed", None)
+    total_epochs = (
+        int(total_epochs_raw)
+        if total_epochs_raw is not None
+        else int(len(loss_history))
+    )
 
     for idx, loss in enumerate(loss_history, start=1):
         metrics: dict[str, float] = {"loss": float(loss)}
         if idx <= len(lr_history):
             metrics["lr"] = float(lr_history[idx - 1])
-        per_epoch_metrics.append({"epoch": int(idx), "metrics": dict(metrics)})
+        report_metrics: dict[str, float] = dict(metrics)
+
+        epoch_s = (
+            epoch_time_history[idx - 1]
+            if idx <= len(epoch_time_history)
+            else None
+        )
+        if epoch_s is None:
+            epoch_s = default_epoch_s
+        if epoch_s is not None:
+            elapsed_s += float(epoch_s)
+            report_metrics["epoch_s"] = float(epoch_s)
+            report_metrics["elapsed_s"] = float(elapsed_s)
+            report_metrics["eta_s"] = float(max(total_epochs - idx, 0)) * float(epoch_s)
+
+        train_items = (
+            epoch_sample_counts[idx - 1]
+            if idx <= len(epoch_sample_counts)
+            else int(train_count)
+        )
+        if train_items is not None:
+            report_metrics["train_items"] = float(int(train_items))
+            if epoch_s is not None and float(epoch_s) > 0.0:
+                report_metrics["items_per_s"] = float(int(train_items)) / float(epoch_s)
+
+        per_epoch_metrics.append({"epoch": int(idx), "metrics": dict(report_metrics)})
         callback_warnings.extend(
             run_callback_hook(
                 callbacks,
@@ -336,6 +407,16 @@ def _emit_epoch_metrics(
         )
         if tracker_warning is not None:
             tracker_warnings.append(tracker_warning)
+        reporter.on_training_epoch(
+            epoch=int(idx),
+            total_epochs=(
+                int(detector_training_state.get("epochs_completed"))
+                if detector_training_state.get("epochs_completed") is not None
+                else len(loss_history)
+            ),
+            metrics=report_metrics,
+            live=False,
+        )
     return per_epoch_metrics, callback_warnings, tracker_warnings
 
 
@@ -470,6 +551,8 @@ def micro_finetune(
         report["detector_training_state"] = detector_training_state
     per_epoch_metrics, epoch_callback_warnings, epoch_tracker_warnings = _emit_epoch_metrics(
         detector_training_state=detector_training_state,
+        fit_s=fit_s,
+        train_count=len(train_inputs_used),
         callbacks=callbacks_used,
         callback_context=callback_context,
         tracker=tracker,

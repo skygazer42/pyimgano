@@ -35,6 +35,7 @@ class _PyODKernelPCA(KernelPCA):
         n_jobs=None,
         random_state=None,
     ) -> None:
+        self.copy_x = copy_x
         super().__init__(
             n_components=n_components,
             kernel=kernel,

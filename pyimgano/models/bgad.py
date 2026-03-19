@@ -243,7 +243,7 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return features[background_mask], features[foreground_mask]
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, x: NDArray, y: Optional[NDArray] = None):
         """Fit the detector on normal images.
 
         Args:
@@ -251,7 +251,7 @@ class BGADDetector(BaseVisionDeepDetector):
             y: Ignored (unsupervised)
         """
         # Extract features
-        features = self._extract_features(X)  # [N, C, H, W]
+        features = self._extract_features(x)  # [N, C, H, W]
 
         N, C, _, _ = features.shape
 
@@ -274,7 +274,7 @@ class BGADDetector(BaseVisionDeepDetector):
         self.fitted_ = True
         return self
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, x: NDArray) -> NDArray:
         """Compute anomaly scores for images.
 
         Args:
@@ -287,7 +287,7 @@ class BGADDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Extract features
-        features = self._extract_features(X)  # [N, C, H, W]
+        features = self._extract_features(x)  # [N, C, H, W]
 
         N, C, _, _ = features.shape
 
@@ -315,7 +315,7 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return np.array(scores)
 
-    def predict_anomaly_map(self, X: NDArray) -> NDArray:
+    def predict_anomaly_map(self, x: NDArray) -> NDArray:
         """Generate pixel-level anomaly maps.
 
         Args:
@@ -328,10 +328,10 @@ class BGADDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         # Get image size
-        height_img, width_img = X.shape[1:3] if X.shape[-1] == 3 else X.shape[2:4]
+        height_img, width_img = x.shape[1:3] if x.shape[-1] == 3 else x.shape[2:4]
 
         # Extract features
-        features = self._extract_features(X)  # [N, C, H, W]
+        features = self._extract_features(x)  # [N, C, H, W]
 
         N, C, H, W = features.shape
 
@@ -376,7 +376,7 @@ class BGADDetector(BaseVisionDeepDetector):
 
         return upsampled_maps
 
-    def predict(self, X: NDArray, threshold: Optional[float] = None) -> NDArray:
+    def predict(self, x: NDArray, threshold: Optional[float] = None) -> NDArray:
         """Predict anomaly labels.
 
         Args:
@@ -386,7 +386,7 @@ class BGADDetector(BaseVisionDeepDetector):
         Returns:
             Labels [N] (0=normal, 1=anomaly)
         """
-        scores = self.predict_proba(X)
+        scores = self.predict_proba(x)
 
         if threshold is None:
             # Auto threshold (could be improved with validation set)

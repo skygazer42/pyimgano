@@ -99,7 +99,7 @@ class BaseVisionDetector(BaseDetector):
         """
         pass
 
-    def fit(self, X, y=None):
+    def fit(self, x, y=None):
         """
         使用正常的、无缺陷的图像数据来拟合检测器。
 
@@ -115,10 +115,10 @@ class BaseVisionDetector(BaseDetector):
 
         # Optional: allow extractors to learn normalization/projection from the training set.
         if (not self._feature_extractor_fitted) and isinstance(extractor, FittableFeatureExtractor):
-            extractor.fit(X, y=y)
+            extractor.fit(x, y=y)
             self._feature_extractor_fitted = True
 
-        features = self.feature_extractor.extract(X)
+        features = self.feature_extractor.extract(x)
         # 2. 使用特征向量来训练内部的经典检测器
         self.detector.fit(features)
         # 3. 将训练分数同步到 self.decision_scores_，以便父类处理
@@ -130,8 +130,8 @@ class BaseVisionDetector(BaseDetector):
 
         return self
 
-    def decision_function(self, X):
+    def decision_function(self, x):
         # 1. 从新图像中提取特征
-        features = self.feature_extractor.extract(X)
+        features = self.feature_extractor.extract(x)
         # 2. 用训练好的经典检测器计算异常分数
         return self.detector.decision_function(features)

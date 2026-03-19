@@ -99,8 +99,8 @@ class VisionUniVAD:
         layers = _extract_layers(self.feature_extractor, image)
         return _fuse_layers(layers, self.layer_weights)
 
-    def fit(self, X, _y=None):
-        items = list(X)
+    def fit(self, x, _y=None):
+        items = list(x)
         if not items:
             raise ValueError("X must contain at least one support sample.")
         support_vectors = np.stack([self._vectorize(item) for item in items], axis=0)
@@ -111,15 +111,15 @@ class VisionUniVAD:
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def decision_function(self, X):
-        items = list(X)
+    def decision_function(self, x):
+        items = list(x)
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = float(self.support_backend.score(self._vectorize(item)))
         return scores
 
-    def predict(self, X):
+    def predict(self, x):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(self.decision_function(X), dtype=np.float64)
+        scores = np.asarray(self.decision_function(x), dtype=np.float64)
         return (scores > float(self.threshold_)).astype(np.int64)
