@@ -63,6 +63,7 @@ def _make_ready_bundle(
     *,
     include_manifest: bool = True,
     supports_pixel_outputs: bool = False,
+    runtime_policy: dict | None = None,
 ) -> Path:
     from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
 
@@ -154,10 +155,13 @@ def _make_ready_bundle(
     )
 
     if include_manifest:
+        manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+        if runtime_policy is not None:
+            manifest["runtime_policy"] = dict(runtime_policy)
         _write_json(
             bundle_dir,
             "bundle_manifest.json",
-            build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
+            manifest,
         )
 
     return bundle_dir
@@ -215,6 +219,43 @@ def test_bundle_cli_validate_reports_ready_bundle(tmp_path: Path, capsys) -> Non
     )
     assert payload["contract"]["bundle_type"] == "cpu-offline-qc"
     assert payload["contract"]["output_contract"]["primary_result_file"] == "results.jsonl"
+    assert payload["contract"]["runtime_policy"] == {
+        "batch_gates": {
+            "max_anomaly_rate": None,
+            "max_reject_rate": None,
+            "max_error_rate": None,
+            "min_processed": None,
+        }
+    }
+
+
+def test_bundle_cli_validate_reports_runtime_policy_from_manifest(tmp_path: Path, capsys) -> None:
+    from pyimgano.bundle_cli import main
+
+    bundle_dir = _make_ready_bundle(
+        tmp_path,
+        runtime_policy={
+            "batch_gates": {
+                "max_anomaly_rate": 0.2,
+                "max_reject_rate": None,
+                "max_error_rate": 0.01,
+                "min_processed": 20,
+            }
+        },
+    )
+
+    rc = main(["validate", str(bundle_dir), "--json"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["contract"]["runtime_policy"] == {
+        "batch_gates": {
+            "max_anomaly_rate": 0.2,
+            "max_reject_rate": None,
+            "max_error_rate": 0.01,
+            "min_processed": 20,
+        }
+    }
 
 
 def test_bundle_cli_validate_reports_missing_manifest_reason_code(tmp_path: Path, capsys) -> None:
@@ -411,6 +452,12 @@ def test_bundle_cli_run_reports_passing_batch_gate_summary(
             "max_error_rate": None,
             "min_processed": 2,
         },
+        "sources": {
+            "max_anomaly_rate": "cli",
+            "max_reject_rate": "unset",
+            "max_error_rate": "unset",
+            "min_processed": "cli",
+        },
         "failed_gates": [],
     }
 
@@ -542,7 +589,124 @@ def test_bundle_cli_run_blocks_when_reject_error_or_processed_batch_gates_fail(
             "max_error_rate": 0.2,
             "min_processed": 4,
         },
+        "sources": {
+            "max_anomaly_rate": "unset",
+            "max_reject_rate": "cli",
+            "max_error_rate": "cli",
+            "min_processed": "cli",
+        },
         "failed_gates": ["min_processed", "max_reject_rate", "max_error_rate"],
+    }
+
+
+def test_bundle_cli_run_uses_manifest_default_batch_gates_and_reports_sources(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    import pyimgano.infer_cli as infer_cli
+    from pyimgano.bundle_cli import main
+
+    bundle_dir = _make_ready_bundle(
+        tmp_path,
+        runtime_policy={
+            "batch_gates": {
+                "max_anomaly_rate": 0.49,
+                "max_reject_rate": None,
+                "max_error_rate": None,
+                "min_processed": None,
+            }
+        },
+    )
+    input_dir = tmp_path / "manifest_default_gate_inputs"
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+    output_dir = tmp_path / "manifest_default_gate_run"
+
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: _DummyDetector())
+
+    rc = main(
+        [
+            "run",
+            str(bundle_dir),
+            "--image-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--json",
+        ]
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "blocked"
+    assert payload["batch_verdict"] == "blocked"
+    assert payload["batch_gate_reason_codes"] == ["RUN_BATCH_ANOMALY_RATE_EXCEEDED"]
+    assert payload["batch_gate_summary"]["thresholds"] == {
+        "max_anomaly_rate": 0.49,
+        "max_reject_rate": None,
+        "max_error_rate": None,
+        "min_processed": None,
+    }
+    assert payload["batch_gate_summary"]["sources"] == {
+        "max_anomaly_rate": "bundle_manifest",
+        "max_reject_rate": "unset",
+        "max_error_rate": "unset",
+        "min_processed": "unset",
+    }
+
+
+def test_bundle_cli_run_cli_batch_gates_override_manifest_defaults(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    import pyimgano.infer_cli as infer_cli
+    from pyimgano.bundle_cli import main
+
+    bundle_dir = _make_ready_bundle(
+        tmp_path,
+        runtime_policy={
+            "batch_gates": {
+                "max_anomaly_rate": 0.49,
+                "max_reject_rate": None,
+                "max_error_rate": None,
+                "min_processed": 2,
+            }
+        },
+    )
+    input_dir = tmp_path / "manifest_override_gate_inputs"
+    _write_png(input_dir / "a.png")
+    _write_png(input_dir / "b.png")
+    output_dir = tmp_path / "manifest_override_gate_run"
+
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: _DummyDetector())
+
+    rc = main(
+        [
+            "run",
+            str(bundle_dir),
+            "--image-dir",
+            str(input_dir),
+            "--output-dir",
+            str(output_dir),
+            "--max-anomaly-rate",
+            "0.5",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "completed"
+    assert payload["batch_verdict"] == "pass"
+    assert payload["batch_gate_summary"]["thresholds"] == {
+        "max_anomaly_rate": 0.5,
+        "max_reject_rate": None,
+        "max_error_rate": None,
+        "min_processed": 2,
+    }
+    assert payload["batch_gate_summary"]["sources"] == {
+        "max_anomaly_rate": "cli",
+        "max_reject_rate": "unset",
+        "max_error_rate": "unset",
+        "min_processed": "bundle_manifest",
     }
 
 

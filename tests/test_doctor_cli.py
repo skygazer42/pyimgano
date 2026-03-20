@@ -1078,3 +1078,102 @@ def test_doctor_cli_deploy_bundle_reports_patchcore_inspection_artifact_audit(
     provider_audit = external_artifact_audit.get("audit")
     assert isinstance(provider_audit, dict)
     assert provider_audit.get("artifact_format_status") == "recognized"
+
+
+def test_doctor_cli_deploy_bundle_surfaces_runtime_policy_batch_gates(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
+
+    run_dir = tmp_path / "run"
+    bundle_dir = tmp_path / "deploy_bundle"
+
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "schema_version": 1,
+            "model": {"name": "vision_ecod", "model_kwargs": {}},
+        },
+    )
+
+    _write_json(bundle_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(bundle_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(bundle_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(
+        bundle_dir / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "a" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+    _write_json(
+        bundle_dir / "infer_config.json",
+        {
+            "schema_version": 1,
+            "model": {
+                "name": "vision_ecod",
+                "device": "cpu",
+                "pretrained": False,
+                "contamination": 0.1,
+                "model_kwargs": {},
+            },
+            "threshold": 0.5,
+            "artifact_quality": {
+                "status": "deployable",
+                "threshold_scope": "image",
+                "has_threshold_provenance": True,
+                "has_split_fingerprint": True,
+                "has_prediction_policy": False,
+                "has_operator_contract": False,
+                "has_deploy_bundle": True,
+                "has_bundle_manifest": True,
+                "required_bundle_artifacts_present": True,
+                "bundle_artifact_roles": {
+                    "infer_config": ["infer_config.json"],
+                    "report": ["report.json"],
+                    "config": ["config.json"],
+                    "environment": ["environment.json"],
+                    "calibration_card": ["calibration_card.json"],
+                },
+                "audit_refs": {"calibration_card": "calibration_card.json"},
+                "deploy_refs": {"bundle_manifest": "bundle_manifest.json"},
+            },
+        },
+    )
+
+    manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    manifest["runtime_policy"] = {
+        "batch_gates": {
+            "max_anomaly_rate": 0.05,
+            "max_reject_rate": 0.02,
+            "max_error_rate": 0.0,
+            "min_processed": 100,
+        }
+    }
+    _write_json(bundle_dir / "bundle_manifest.json", manifest)
+
+    rc = doctor_main(["--json", "--deploy-bundle", str(bundle_dir)])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    bundle_manifest = readiness.get("bundle_manifest")
+    assert isinstance(bundle_manifest, dict)
+    assert bundle_manifest.get("runtime_policy") == {
+        "batch_gates": {
+            "max_anomaly_rate": 0.05,
+            "max_reject_rate": 0.02,
+            "max_error_rate": 0.0,
+            "min_processed": 100,
+        }
+    }

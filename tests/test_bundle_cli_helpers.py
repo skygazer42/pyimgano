@@ -82,3 +82,35 @@ def test_build_batch_gate_summary_preserves_existing_contract_shape() -> None:
         },
         "failed_gates": ["min_processed", "max_reject_rate", "max_error_rate"],
     }
+
+
+def test_build_batch_gate_summary_includes_sources_when_present() -> None:
+    from pyimgano.bundle_cli_helpers import build_batch_gate_summary
+
+    summary = build_batch_gate_summary(
+        requested=True,
+        evaluated=True,
+        processed=2,
+        counts={"normal": 1, "anomalous": 1, "rejected": 0, "error": 0},
+        rates={"anomaly_rate": 0.5, "reject_rate": 0.0, "error_rate": 0.0},
+        thresholds={
+            "max_anomaly_rate": 0.5,
+            "max_reject_rate": None,
+            "max_error_rate": None,
+            "min_processed": 2,
+        },
+        sources={
+            "max_anomaly_rate": "cli",
+            "max_reject_rate": "unset",
+            "max_error_rate": "unset",
+            "min_processed": "bundle_manifest",
+        },
+        failed_gates=[],
+    )
+
+    assert summary["sources"] == {
+        "max_anomaly_rate": "cli",
+        "max_reject_rate": "unset",
+        "max_error_rate": "unset",
+        "min_processed": "bundle_manifest",
+    }

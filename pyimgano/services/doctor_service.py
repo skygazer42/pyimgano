@@ -259,7 +259,10 @@ def _bundle_manifest_validation_payload(
     bundle_dir: Path,
     check_hashes: bool,
 ) -> dict[str, Any]:
-    from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        normalize_deploy_bundle_runtime_policy,
+        validate_deploy_bundle_manifest,
+    )
 
     manifest_path = bundle_dir / "bundle_manifest.json"
     payload = {
@@ -267,6 +270,7 @@ def _bundle_manifest_validation_payload(
         "present": bool(manifest_path.is_file()),
         "valid": None,
         "errors": [],
+        "runtime_policy": normalize_deploy_bundle_runtime_policy(None),
     }
     if not manifest_path.is_file():
         payload["errors"] = ["missing_bundle_manifest"]
@@ -279,6 +283,9 @@ def _bundle_manifest_validation_payload(
         payload["errors"] = [str(exc)]
         return payload
 
+    payload["runtime_policy"] = normalize_deploy_bundle_runtime_policy(
+        manifest.get("runtime_policy", None)
+    )
     errors = validate_deploy_bundle_manifest(
         manifest,
         bundle_dir=bundle_dir,

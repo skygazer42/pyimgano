@@ -36,9 +36,10 @@ def build_batch_gate_summary(
     counts: Mapping[str, object],
     rates: Mapping[str, object],
     thresholds: Mapping[str, object],
+    sources: Mapping[str, object] | None = None,
     failed_gates: list[str],
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "requested": bool(requested),
         "evaluated": bool(evaluated),
         "processed": int(processed),
@@ -61,6 +62,14 @@ def build_batch_gate_summary(
         },
         "failed_gates": list(failed_gates),
     }
+    if sources is not None:
+        payload["sources"] = {
+            "max_anomaly_rate": sources.get("max_anomaly_rate"),
+            "max_reject_rate": sources.get("max_reject_rate"),
+            "max_error_rate": sources.get("max_error_rate"),
+            "min_processed": sources.get("min_processed"),
+        }
+    return payload
 
 
 __all__ = [

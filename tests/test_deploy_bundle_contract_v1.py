@@ -54,6 +54,14 @@ def test_build_deploy_bundle_manifest_emits_contract_v1_fields(tmp_path: Path) -
         "input_manifest.jsonl",
     ]
     assert manifest["output_contract"]["primary_result_file"] == "results.jsonl"
+    assert manifest["runtime_policy"] == {
+        "batch_gates": {
+            "max_anomaly_rate": None,
+            "max_reject_rate": None,
+            "max_error_rate": None,
+            "min_processed": None,
+        }
+    }
     assert manifest["threshold_summary"]["scope"] == "image"
     assert manifest["threshold_summary"]["has_threshold_provenance"] is True
     assert manifest["threshold_summary"]["has_split_fingerprint"] is True
@@ -95,6 +103,46 @@ def test_validate_deploy_bundle_manifest_rejects_tampered_threshold_summary(
     errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
 
     assert any("threshold_summary" in item for item in errors)
+
+
+def test_validate_deploy_bundle_manifest_rejects_invalid_runtime_policy_batch_gates(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    bundle_dir = tmp_path / "deploy_bundle"
+    _write_json(bundle_dir / "infer_config.json", {"threshold": 0.5})
+    _write_json(
+        bundle_dir / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
+    manifest["runtime_policy"] = {
+        "batch_gates": {
+            "max_anomaly_rate": 1.2,
+            "max_reject_rate": None,
+            "max_error_rate": None,
+            "min_processed": 0,
+        }
+    }
+
+    errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
+
+    assert any("runtime_policy.batch_gates.max_anomaly_rate" in item for item in errors)
+    assert any("runtime_policy.batch_gates.min_processed" in item for item in errors)
 
 
 def test_build_deploy_bundle_manifest_emits_optional_pixel_artifacts_when_supported(

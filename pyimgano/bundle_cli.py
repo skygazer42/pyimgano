@@ -28,8 +28,11 @@ from pyimgano.bundle_cli_helpers import (
 from pyimgano.datasets.manifest_tools import iter_manifest_rows
 from pyimgano.infer_cli_inputs import collect_image_paths
 from pyimgano.inference.validate_infer_config import validate_infer_config_file
-from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
-from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_handoff_report
+from pyimgano.reporting.deploy_bundle import (
+    normalize_deploy_bundle_runtime_policy,
+    validate_deploy_bundle_manifest,
+    validate_deploy_bundle_handoff_report,
+)
 from pyimgano.utils.security import FileHasher
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
@@ -59,6 +62,12 @@ _RUN_BATCH_GATE_REASON_CODE_MAP = {
     "max_error_rate": "RUN_BATCH_ERROR_RATE_EXCEEDED",
     "min_processed": "RUN_BATCH_MIN_PROCESSED_NOT_MET",
 }
+_BATCH_GATE_KEYS = (
+    "max_anomaly_rate",
+    "max_reject_rate",
+    "max_error_rate",
+    "min_processed",
+)
 
 
 def _parse_rate_arg(text: str) -> float:
@@ -429,7 +438,12 @@ def _collect_bundle_blocking_reasons(
 
 def _bundle_contract_payload(bundle_manifest: Mapping[str, Any]) -> dict[str, Any]:
     manifest_payload = bundle_manifest.get("payload")
-    return {
+    runtime_policy = (
+        normalize_deploy_bundle_runtime_policy(manifest_payload.get("runtime_policy", None))
+        if isinstance(manifest_payload, Mapping)
+        else normalize_deploy_bundle_runtime_policy(None)
+    )
+    contract = {
         "bundle_type": (
             str(manifest_payload.get("bundle_type"))
             if isinstance(manifest_payload, Mapping)
@@ -448,7 +462,9 @@ def _bundle_contract_payload(bundle_manifest: Mapping[str, Any]) -> dict[str, An
             and isinstance(manifest_payload.get("output_contract"), Mapping)
             else {}
         ),
+        "runtime_policy": runtime_policy,
     }
+    return contract
 
 
 def evaluate_bundle(
@@ -714,7 +730,7 @@ def _empty_result_summary() -> dict[str, int]:
     }
 
 
-def _batch_gate_thresholds(args: argparse.Namespace) -> dict[str, float | int | None]:
+def _cli_batch_gate_thresholds(args: argparse.Namespace) -> dict[str, float | int | None]:
     return {
         "max_anomaly_rate": (
             float(args.max_anomaly_rate)
@@ -735,6 +751,40 @@ def _batch_gate_thresholds(args: argparse.Namespace) -> dict[str, float | int | 
             int(args.min_processed) if getattr(args, "min_processed", None) is not None else None
         ),
     }
+
+
+def _manifest_batch_gate_thresholds(
+    runtime_policy: Mapping[str, Any] | None,
+) -> dict[str, float | int | None]:
+    normalized = normalize_deploy_bundle_runtime_policy(runtime_policy)
+    batch_gates = normalized.get("batch_gates", {})
+    if not isinstance(batch_gates, Mapping):
+        return {str(name): None for name in _BATCH_GATE_KEYS}
+    return {str(name): batch_gates.get(name, None) for name in _BATCH_GATE_KEYS}
+
+
+def _resolved_batch_gate_thresholds(
+    args: argparse.Namespace,
+    *,
+    runtime_policy: Mapping[str, Any] | None,
+) -> tuple[dict[str, float | int | None], dict[str, str]]:
+    cli_thresholds = _cli_batch_gate_thresholds(args)
+    manifest_thresholds = _manifest_batch_gate_thresholds(runtime_policy)
+    thresholds: dict[str, float | int | None] = {}
+    sources: dict[str, str] = {}
+    for name in _BATCH_GATE_KEYS:
+        cli_value = cli_thresholds.get(name, None)
+        manifest_value = manifest_thresholds.get(name, None)
+        if cli_value is not None:
+            thresholds[str(name)] = cli_value
+            sources[str(name)] = "cli"
+        elif manifest_value is not None:
+            thresholds[str(name)] = manifest_value
+            sources[str(name)] = "bundle_manifest"
+        else:
+            thresholds[str(name)] = None
+            sources[str(name)] = "unset"
+    return thresholds, sources
 
 
 def _safe_rate(numerator: int, denominator: int) -> float:
@@ -771,8 +821,9 @@ def _evaluate_batch_gates(
     processed: int,
     result_summary: Mapping[str, Any] | None,
     evaluated: bool,
+    runtime_policy: Mapping[str, Any] | None,
 ) -> tuple[dict[str, Any], str, list[str]]:
-    thresholds = _batch_gate_thresholds(args)
+    thresholds, sources = _resolved_batch_gate_thresholds(args, runtime_policy=runtime_policy)
     requested = any(value is not None for value in thresholds.values())
 
     counts = _empty_result_summary()
@@ -823,6 +874,7 @@ def _evaluate_batch_gates(
             counts=counts,
             rates=rates,
             thresholds=thresholds,
+            sources=sources,
             failed_gates=list(failed_gates),
         ),
         str(batch_verdict),
@@ -1002,12 +1054,15 @@ def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
     bundle_root = Path(str(args.bundle_dir))
     output_dir = Path(str(args.output_dir))
     bundle_validation = evaluate_bundle(bundle_root, check_hashes=bool(args.check_hashes))
+    contract = bundle_validation.get("contract", {})
+    runtime_policy = contract.get("runtime_policy", None) if isinstance(contract, Mapping) else None
     optional_artifacts = _resolved_optional_artifacts(args, output_dir=output_dir)
     batch_gate_summary, batch_verdict, batch_gate_reason_codes = _evaluate_batch_gates(
         args=args,
         processed=0,
         result_summary=None,
         evaluated=False,
+        runtime_policy=runtime_policy,
     )
 
     if not bool(bundle_validation.get("ready")):
@@ -1142,6 +1197,7 @@ def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
         processed=len(result_records),
         result_summary=result_summary,
         evaluated=True,
+        runtime_policy=runtime_policy,
     )
     status = "blocked" if batch_verdict == "blocked" else "completed"
     reason_codes = list(batch_gate_reason_codes if batch_verdict == "blocked" else [])

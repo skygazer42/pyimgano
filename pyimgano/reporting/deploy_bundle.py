@@ -78,6 +78,12 @@ _BUNDLE_ARTIFACT_PATHS = {
     "model_card": _MODEL_CARD_JSON,
     "weights_manifest": _WEIGHTS_MANIFEST_JSON,
 }
+_RUNTIME_POLICY_BATCH_GATE_KEYS = (
+    "max_anomaly_rate",
+    "max_reject_rate",
+    "max_error_rate",
+    "min_processed",
+)
 
 
 def _load_json_dict(path: Path) -> dict[str, Any]:
@@ -179,6 +185,123 @@ def _build_input_contract() -> dict[str, Any]:
         "supported_sources": ["image_dir", "single_image", "input_manifest.jsonl"],
         "record_fields": ["id", "image_path", "category", "meta"],
     }
+
+
+def default_deploy_bundle_runtime_policy() -> dict[str, Any]:
+    return {
+        "batch_gates": {str(name): None for name in _RUNTIME_POLICY_BATCH_GATE_KEYS},
+    }
+
+
+def _normalize_runtime_policy_batch_gate_value(name: str, value: Any) -> Any:
+    if value is None:
+        return None
+    if name == "min_processed":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int):
+            return int(value)
+        if isinstance(value, float) and float(value).is_integer():
+            return int(value)
+        return value
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return float(value)
+    return value
+
+
+def normalize_deploy_bundle_runtime_policy(value: Any) -> dict[str, Any]:
+    normalized = default_deploy_bundle_runtime_policy()
+    if not isinstance(value, Mapping):
+        return normalized
+
+    batch_gates = value.get("batch_gates", None)
+    if not isinstance(batch_gates, Mapping):
+        return normalized
+
+    normalized["batch_gates"] = {
+        str(name): _normalize_runtime_policy_batch_gate_value(
+            str(name),
+            batch_gates.get(name, None),
+        )
+        for name in _RUNTIME_POLICY_BATCH_GATE_KEYS
+    }
+    return normalized
+
+
+def _validate_runtime_policy_batch_gate_value(
+    key: str,
+    value: Any,
+    *,
+    field_name: str,
+) -> list[str]:
+    if value is None:
+        return []
+
+    if key == "min_processed":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return [f"{field_name} must be an integer greater than or equal to 1 or null."]
+        if isinstance(value, float) and not float(value).is_integer():
+            return [f"{field_name} must be an integer greater than or equal to 1 or null."]
+        if int(value) < 1:
+            return [f"{field_name} must be an integer greater than or equal to 1 or null."]
+        return []
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return [f"{field_name} must be a float between 0 and 1 or null."]
+    if not 0.0 <= float(value) <= 1.0:
+        return [f"{field_name} must be a float between 0 and 1 or null."]
+    return []
+
+
+def validate_deploy_bundle_runtime_policy(
+    value: Any,
+    *,
+    field_name: str = "runtime_policy",
+) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, Mapping):
+        return [f"{field_name} must be a JSON object/dict."]
+
+    errors: list[str] = []
+    for key in value.keys():
+        if key not in {"batch_gates"}:
+            errors.append(f"{field_name}.{key} is not supported.")
+
+    batch_gates = value.get("batch_gates", None)
+    if batch_gates is None:
+        return errors
+    if not isinstance(batch_gates, Mapping):
+        errors.append(f"{field_name}.batch_gates must be a JSON object/dict.")
+        return errors
+
+    for key in batch_gates.keys():
+        if key not in _RUNTIME_POLICY_BATCH_GATE_KEYS:
+            errors.append(f"{field_name}.batch_gates.{key} is not supported.")
+
+    for key in _RUNTIME_POLICY_BATCH_GATE_KEYS:
+        errors.extend(
+            _validate_runtime_policy_batch_gate_value(
+                str(key),
+                batch_gates.get(key, None),
+                field_name=f"{field_name}.batch_gates.{key}",
+            )
+        )
+    return errors
+
+
+def _build_runtime_policy(bundle_root: Path) -> dict[str, Any]:
+    existing_manifest = _load_json_mapping_if_present(bundle_root / "bundle_manifest.json")
+    runtime_policy = (
+        existing_manifest.get("runtime_policy", None)
+        if isinstance(existing_manifest, Mapping)
+        else None
+    )
+    if validate_deploy_bundle_runtime_policy(runtime_policy):
+        return default_deploy_bundle_runtime_policy()
+    return normalize_deploy_bundle_runtime_policy(runtime_policy)
 
 
 def _build_threshold_summary(bundle_root: Path) -> dict[str, Any]:
@@ -651,6 +774,7 @@ def build_deploy_bundle_manifest(
         "compatibility": _build_compatibility_payload(),
         "input_contract": _build_input_contract(),
         "output_contract": _build_output_contract(bundle_root),
+        "runtime_policy": _build_runtime_policy(bundle_root),
         "threshold_summary": _build_threshold_summary(bundle_root),
         "evaluation_summary": _build_evaluation_summary(bundle_root),
         "source_run": {
@@ -834,6 +958,12 @@ def validate_deploy_bundle_manifest(
         )
     )
     errors.extend(
+        validate_deploy_bundle_runtime_policy(
+            manifest.get("runtime_policy", None),
+            field_name="runtime_policy",
+        )
+    )
+    errors.extend(
         _validate_exact_mapping(
             manifest.get("threshold_summary", None),
             field_name="threshold_summary",
@@ -907,5 +1037,8 @@ __all__ = [
     "build_deploy_bundle_handoff_report",
     "build_deploy_bundle_manifest",
     "validate_deploy_bundle_handoff_report",
+    "default_deploy_bundle_runtime_policy",
+    "normalize_deploy_bundle_runtime_policy",
+    "validate_deploy_bundle_runtime_policy",
     "validate_deploy_bundle_manifest",
 ]
