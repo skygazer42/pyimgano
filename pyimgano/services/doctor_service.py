@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from pyimgano.presets.catalog import list_model_presets
 from pyimgano.services.discovery_service import (
@@ -284,6 +284,60 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _resolve_artifact_path(config_path: Path, raw_path: str) -> Path:
+    path = Path(str(raw_path).strip())
+    if path.is_absolute():
+        return path
+
+    candidates = [
+        (config_path.parent / path).resolve(),
+        (config_path.parent.parent / path).resolve(),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def _build_external_checkpoint_audit(infer_config_path: Path) -> dict[str, Any] | None:
+    if not infer_config_path.is_file():
+        return None
+
+    try:
+        payload = _load_json_dict(infer_config_path)
+    except Exception:
+        return None
+
+    model = payload.get("model")
+    if not isinstance(model, Mapping):
+        return None
+
+    model_name = str(model.get("name", "")).strip()
+    if model_name != "vision_patchcore_inspection_checkpoint":
+        return None
+
+    checkpoint_path = model.get("checkpoint_path")
+    if checkpoint_path is None and isinstance(model.get("model_kwargs"), Mapping):
+        checkpoint_path = model.get("model_kwargs", {}).get("checkpoint_path")
+
+    if checkpoint_path is None or not str(checkpoint_path).strip():
+        return {
+            "model": model_name,
+            "artifact_format": "patchcore-saved-model",
+            "artifact_format_status": "missing",
+            "checkpoint_version_sensitive": True,
+            "errors": ["checkpoint_path_missing_from_infer_config"],
+        }
+
+    from pyimgano.models.patchcore_inspection_backend import audit_patchcore_inspection_saved_model
+
+    resolved_path = _resolve_artifact_path(infer_config_path, str(checkpoint_path))
+    return {
+        "model": model_name,
+        **audit_patchcore_inspection_saved_model(str(resolved_path)),
+    }
+
+
 def _build_run_readiness(
     *,
     run_dir: str | Path,
@@ -309,13 +363,28 @@ def _build_run_readiness(
     else:
         status = "error"
 
-    return {
+    infer_config = acceptance.get("infer_config", {})
+    infer_config_path = None
+    if isinstance(infer_config, Mapping):
+        raw_path = infer_config.get("path")
+        if isinstance(raw_path, str) and raw_path.strip():
+            infer_config_path = Path(raw_path)
+    external_checkpoint_audit = (
+        _build_external_checkpoint_audit(infer_config_path)
+        if infer_config_path is not None
+        else None
+    )
+
+    payload = {
         "target_kind": "run",
         "path": str(Path(run_dir)),
         "status": str(status),
         "issues": issues,
         "acceptance": acceptance,
     }
+    if external_checkpoint_audit is not None:
+        payload["external_checkpoint_audit"] = external_checkpoint_audit
+    return payload
 
 
 def _bundle_manifest_validation_payload(
@@ -428,7 +497,9 @@ def _build_bundle_readiness(
     else:
         status = "ok"
 
-    return {
+    external_checkpoint_audit = _build_external_checkpoint_audit(bundle_root / "infer_config.json")
+
+    payload = {
         "target_kind": "deploy_bundle",
         "path": str(bundle_root),
         "status": str(status),
@@ -438,97 +509,373 @@ def _build_bundle_readiness(
         "infer_config": infer_payload,
         "weights_audit": weights_audit,
     }
+    if external_checkpoint_audit is not None:
+        payload["external_checkpoint_audit"] = external_checkpoint_audit
+    return payload
 
 
-def _append_recommendation(
+_DEFAULT_OBJECTIVE = "balanced"
+_DEFAULT_ALLOW_UPSTREAM = "native+wrapped"
+_DEFAULT_TOPK = 5
+_ALLOWED_OBJECTIVES = {"balanced", "latency", "localization"}
+_ALLOWED_UPSTREAM = {"native-only", "native+wrapped"}
+
+
+def _append_candidate_spec(
     out: list[dict[str, Any]],
     *,
-    preset_name: str,
+    ref: str,
     reasons: list[str],
 ) -> None:
-    from pyimgano.presets.catalog import resolve_model_preset
-
-    if any(str(item.get("preset")) == str(preset_name) for item in out if isinstance(item, dict)):
+    normalized_reasons = [str(item) for item in reasons if str(item).strip()]
+    for item in out:
+        if str(item.get("ref")) != str(ref):
+            continue
+        merged = list(item.get("reasons", []))
+        for reason in normalized_reasons:
+            if reason not in merged:
+                merged.append(reason)
+        item["reasons"] = merged
         return
-
-    preset = resolve_model_preset(preset_name)
-    if preset is None:
-        return
-
-    out.append(
-        {
-            "preset": str(preset.name),
-            "model": str(preset.model),
-            "optional": bool(preset.optional),
-            "requires_extras": list(preset.requires_extras),
-            "description": str(preset.description),
-            "reasons": [str(item) for item in reasons if str(item).strip()],
-        }
-    )
+    out.append({"ref": str(ref), "reasons": normalized_reasons})
 
 
-def _build_dataset_recommendations(dataset_profile: dict[str, Any]) -> list[dict[str, Any]]:
+def _normalize_objective(objective: str | None) -> str:
+    key = str(objective or _DEFAULT_OBJECTIVE).strip().lower()
+    if key not in _ALLOWED_OBJECTIVES:
+        raise ValueError(f"objective must be one of: {', '.join(sorted(_ALLOWED_OBJECTIVES))}")
+    return key
+
+
+def _normalize_allow_upstream(allow_upstream: str | None) -> str:
+    key = str(allow_upstream or _DEFAULT_ALLOW_UPSTREAM).strip().lower()
+    if key not in _ALLOWED_UPSTREAM:
+        raise ValueError(f"allow_upstream must be one of: {', '.join(sorted(_ALLOWED_UPSTREAM))}")
+    return key
+
+
+def _normalize_topk(topk: int | None) -> int:
+    value = int(_DEFAULT_TOPK if topk is None else topk)
+    if value < 1:
+        raise ValueError("topk must be >= 1")
+    return value
+
+
+def _build_dataset_candidate_specs(dataset_profile: dict[str, Any]) -> list[dict[str, Any]]:
     fewshot_risk = bool(dataset_profile.get("fewshot_risk"))
     pixel_ready = bool(dataset_profile.get("pixel_metrics_available"))
     multi_category = bool(dataset_profile.get("multi_category"))
 
     out: list[dict[str, Any]] = []
 
+    _append_candidate_spec(
+        out,
+        ref="industrial-structural-ecod",
+        reasons=["image_level_screening", "cpu_friendly_baseline"],
+    )
+    _append_candidate_spec(
+        out,
+        ref="industrial-embedding-core-balanced",
+        reasons=["default_balanced_recommendation", "shared_embedding_space"],
+    )
+
     if pixel_ready:
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-template-ncc-map",
+            ref="industrial-template-ncc-map",
             reasons=["pixel_metrics_available", "reference_inspection_baseline"],
         )
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-patchcore-lite-map",
+            ref="industrial-patchcore-lite-map",
             reasons=["pixel_metrics_available", "high_recall_pixel_map"],
         )
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-ssim-template-map",
+            ref="industrial-ssim-template-map",
             reasons=["pixel_metrics_available", "lightweight_similarity_map"],
         )
-    else:
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-structural-ecod",
-            reasons=["image_level_screening", "cpu_friendly_baseline"],
+            ref="vision_patchcore",
+            reasons=["pixel_metrics_available", "native_patchcore_reference"],
+        )
+        _append_candidate_spec(
+            out,
+            ref="vision_patchcore_anomalib",
+            reasons=["pixel_metrics_available", "upstream_parity_reference"],
+        )
+        _append_candidate_spec(
+            out,
+            ref="vision_patchcore_inspection_checkpoint",
+            reasons=["pixel_metrics_available", "upstream_saved_model_reference"],
         )
 
     if fewshot_risk:
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-pixel-mad-map",
+            ref="industrial-pixel-mad-map",
             reasons=["fewshot_risk", "robust_reference_baseline"],
         )
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-embedding-core-balanced",
+            ref="industrial-embedding-core-balanced",
             reasons=["fewshot_risk", "balanced_generalist_baseline"],
         )
 
     if multi_category:
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-embedding-core-balanced",
+            ref="industrial-embedding-core-balanced",
             reasons=["multi_category_dataset", "shared_embedding_space"],
         )
-        _append_recommendation(
+        _append_candidate_spec(
             out,
-            preset_name="industrial-reverse-distillation",
+            ref="industrial-reverse-distillation",
             reasons=["multi_category_dataset", "deep_generalization_baseline"],
         )
 
-    if not out:
-        _append_recommendation(
-            out,
-            preset_name="industrial-embedding-core-balanced",
-            reasons=["default_balanced_recommendation"],
-        )
+    return out
 
-    return out[:5]
+
+def _direct_model_required_extras(
+    *,
+    model_name: str,
+    deployment_profile: Mapping[str, Any],
+) -> list[str]:
+    upstream_project = str(deployment_profile.get("upstream_project", "native"))
+    tested_runtime = str(deployment_profile.get("tested_runtime", "numpy"))
+    out: list[str] = []
+    if upstream_project == "anomalib":
+        out.append("anomalib")
+    elif upstream_project == "patchcore_inspection":
+        out.extend(["torch", "faiss"])
+    elif tested_runtime == "torch":
+        out.append("torch")
+    elif tested_runtime == "onnxruntime":
+        out.append("onnx")
+    elif tested_runtime == "openvino":
+        out.append("openvino")
+
+    if model_name.endswith("_anomalib") and "anomalib" not in out:
+        out.append("anomalib")
+    return list(dict.fromkeys(out))
+
+
+def _build_recommendation_candidate(ref: str, reasons: list[str]) -> dict[str, Any] | None:
+    from pyimgano.models.registry import model_info
+    from pyimgano.presets.catalog import resolve_model_preset
+
+    preset = resolve_model_preset(ref)
+    if preset is not None:
+        info = model_info(str(preset.model))
+        requires_extras = list(preset.requires_extras)
+        candidate = {
+            "ref": str(ref),
+            "preset": str(preset.name),
+            "model": str(preset.model),
+            "optional": bool(preset.optional),
+            "requires_extras": requires_extras,
+            "description": str(preset.description),
+            "reasons": [str(item) for item in reasons if str(item).strip()],
+            "deployment_profile": dict(info.get("deployment_profile", {})),
+        }
+    else:
+        info = model_info(str(ref))
+        deployment_profile = dict(info.get("deployment_profile", {}))
+        requires_extras = _direct_model_required_extras(
+            model_name=str(ref),
+            deployment_profile=deployment_profile,
+        )
+        candidate = {
+            "ref": str(ref),
+            "preset": None,
+            "model": str(ref),
+            "optional": bool(requires_extras),
+            "requires_extras": requires_extras,
+            "description": f"Direct model recommendation: {ref}",
+            "reasons": [str(item) for item in reasons if str(item).strip()],
+            "deployment_profile": deployment_profile,
+        }
+
+    candidate["missing_extras"] = [
+        extra for extra in candidate["requires_extras"] if not extra_installed(str(extra))
+    ]
+    return candidate
+
+
+def _selection_score(
+    candidate: Mapping[str, Any],
+    *,
+    objective: str,
+    dataset_profile: Mapping[str, Any],
+) -> int:
+    profile = candidate.get("deployment_profile", {})
+    if not isinstance(profile, Mapping):
+        profile = {}
+    industrial_fit = profile.get("industrial_fit", {})
+    if not isinstance(industrial_fit, Mapping):
+        industrial_fit = {}
+
+    runtime_score = {"low": 30, "medium": 15, "high": 0}
+    memory_score = {"low": 15, "medium": 8, "high": 0}
+    runtime_hint = str(profile.get("runtime_cost_hint", "high"))
+    memory_hint = str(profile.get("memory_cost_hint", "high"))
+    has_checkpoint = bool(profile.get("artifact_requirements"))
+    upstream_project = str(profile.get("upstream_project", "native"))
+
+    if objective == "latency":
+        score = runtime_score.get(runtime_hint, 0) + memory_score.get(memory_hint, 0)
+        if not has_checkpoint:
+            score += 12
+        if bool(industrial_fit.get("reference_inspection")):
+            score += 10
+        if bool(industrial_fit.get("pixel_localization")) and bool(
+            dataset_profile.get("pixel_metrics_available")
+        ):
+            score += 4
+        if upstream_project == "native":
+            score += 4
+        return int(score)
+
+    if objective == "localization":
+        score = 0
+        if bool(dataset_profile.get("pixel_metrics_available")):
+            score += 25 if bool(industrial_fit.get("pixel_localization")) else 0
+        if bool(industrial_fit.get("reference_inspection")):
+            score += 10
+        if upstream_project == "native":
+            score += 3
+        return int(score)
+
+    score = 0
+    if bool(dataset_profile.get("pixel_metrics_available")) and bool(
+        industrial_fit.get("pixel_localization")
+    ):
+        score += 20
+    if bool(industrial_fit.get("reference_inspection")):
+        score += 12
+    if "fewshot_risk" in set(candidate.get("reasons", [])):
+        score += 8
+    if "multi_category_dataset" in set(candidate.get("reasons", [])):
+        score += 8
+    if not has_checkpoint:
+        score += 6
+    score += runtime_score.get(runtime_hint, 0) // 3
+    score += memory_score.get(memory_hint, 0) // 3
+    if upstream_project == "native":
+        score += 3
+    return int(score)
+
+
+def _build_recommendation_explanations(
+    recommendations: list[dict[str, Any]],
+    *,
+    objective: str,
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for rank, candidate in enumerate(recommendations, start=1):
+        profile = candidate.get("deployment_profile", {})
+        if not isinstance(profile, Mapping):
+            profile = {}
+        out.append(
+            {
+                "rank": int(rank),
+                "target": candidate.get("preset") or candidate.get("model"),
+                "objective": str(objective),
+                "upstream_project": profile.get("upstream_project"),
+                "runtime_cost_hint": profile.get("runtime_cost_hint"),
+                "summary": ", ".join(str(item) for item in candidate.get("reasons", [])[:3]),
+            }
+        )
+    return out
+
+
+def _build_dataset_recommendations(
+    dataset_profile: dict[str, Any],
+    *,
+    objective: str,
+    allow_upstream: str,
+    topk: int,
+) -> dict[str, Any]:
+    objective_key = _normalize_objective(objective)
+    upstream_key = _normalize_allow_upstream(allow_upstream)
+    topk_value = _normalize_topk(topk)
+
+    candidates: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+
+    for spec in _build_dataset_candidate_specs(dataset_profile):
+        candidate = _build_recommendation_candidate(
+            str(spec.get("ref")),
+            [str(item) for item in spec.get("reasons", [])],
+        )
+        if candidate is None:
+            continue
+
+        profile = candidate.get("deployment_profile", {})
+        if not isinstance(profile, Mapping):
+            profile = {}
+        upstream_project = str(profile.get("upstream_project", "native"))
+        rejection_reasons: list[str] = []
+        if upstream_key == "native-only" and upstream_project != "native":
+            rejection_reasons.append("upstream_disallowed:native-only")
+
+        for extra in candidate.get("missing_extras", []):
+            rejection_reasons.append(f"missing_extra:{extra}")
+
+        if rejection_reasons:
+            merged_reasons = list(candidate.get("reasons", []))
+            for reason in rejection_reasons:
+                if reason not in merged_reasons:
+                    merged_reasons.append(reason)
+            candidate["reasons"] = merged_reasons
+            rejected.append(candidate)
+            continue
+
+        candidate["selection_score"] = _selection_score(
+            candidate,
+            objective=objective_key,
+            dataset_profile=dataset_profile,
+        )
+        candidates.append(candidate)
+
+    candidates.sort(
+        key=lambda item: (
+            -int(item.get("selection_score", 0)),
+            str(item.get("preset") or item.get("model") or item.get("ref")),
+        )
+    )
+    recommendations = candidates[:topk_value]
+
+    upstream_counts = {"native": 0, "anomalib": 0, "patchcore_inspection": 0}
+    for candidate in [*recommendations, *rejected]:
+        profile = candidate.get("deployment_profile", {})
+        if not isinstance(profile, Mapping):
+            continue
+        upstream_project = str(profile.get("upstream_project", "native"))
+        upstream_counts[upstream_project] = upstream_counts.get(upstream_project, 0) + 1
+
+    return {
+        "selection_context": {
+            "objective": objective_key,
+            "allow_upstream": upstream_key,
+            "topk": int(topk_value),
+        },
+        "candidate_pool_summary": {
+            "total_candidates": int(len(candidates) + len(rejected)),
+            "eligible_count": int(len(candidates)),
+            "selected_count": int(len(recommendations)),
+            "rejected_count": int(len(rejected)),
+            "upstream_counts": upstream_counts,
+        },
+        "recommendations": recommendations,
+        "rejected_candidates": rejected,
+        "recommendation_explanations": _build_recommendation_explanations(
+            recommendations,
+            objective=objective_key,
+        ),
+    }
 
 
 def _build_dataset_target_payload(
@@ -537,6 +884,9 @@ def _build_dataset_target_payload(
     dataset: str,
     category: str | None,
     root_fallback: str | Path | None,
+    objective: str,
+    allow_upstream: str,
+    topk: int,
 ) -> dict[str, Any]:
     from pyimgano.datasets.inspection import profile_dataset_target
 
@@ -569,12 +919,23 @@ def _build_dataset_target_payload(
     else:
         status = "ok"
 
+    recommendation_payload = _build_dataset_recommendations(
+        dataset_profile,
+        objective=objective,
+        allow_upstream=allow_upstream,
+        topk=topk,
+    )
+
     return {
         "dataset_profile": dataset_profile,
         "task_profile": dict(profile_payload.get("task_profile", {})),
         "constraints": constraints,
         "evaluation_readiness": evaluation_readiness,
-        "recommendations": _build_dataset_recommendations(dataset_profile),
+        "selection_context": recommendation_payload["selection_context"],
+        "candidate_pool_summary": recommendation_payload["candidate_pool_summary"],
+        "recommendations": recommendation_payload["recommendations"],
+        "rejected_candidates": recommendation_payload["rejected_candidates"],
+        "recommendation_explanations": recommendation_payload["recommendation_explanations"],
         "readiness": {
             "target_kind": "dataset",
             "path": str(Path(dataset_target)),
@@ -597,6 +958,9 @@ def collect_doctor_payload(
     dataset: str = "auto",
     category: str | None = None,
     root_fallback: str | None = None,
+    objective: str = _DEFAULT_OBJECTIVE,
+    allow_upstream: str = _DEFAULT_ALLOW_UPSTREAM,
+    topk: int = _DEFAULT_TOPK,
     check_bundle_hashes: bool = False,
 ) -> dict[str, Any]:
     import pyimgano
@@ -713,6 +1077,9 @@ def collect_doctor_payload(
                 dataset=str(dataset),
                 category=(str(category) if category is not None else None),
                 root_fallback=(str(root_fallback) if root_fallback is not None else None),
+                objective=str(objective),
+                allow_upstream=str(allow_upstream),
+                topk=int(topk),
             )
         )
 

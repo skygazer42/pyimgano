@@ -313,3 +313,114 @@ def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
     presets = {str(item.get("preset")) for item in recommendations if isinstance(item, dict)}
     assert "industrial-template-ncc-map" in presets
     assert "industrial-patchcore-lite-map" in presets
+
+
+def test_doctor_cli_dataset_target_exposes_selection_context_and_rejections(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "train" / "normal" / "train_1.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    rc = doctor_main(
+        [
+            "--json",
+            "--dataset-target",
+            str(root),
+            "--objective",
+            "latency",
+            "--allow-upstream",
+            "native-only",
+            "--topk",
+            "2",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    selection_context = payload.get("selection_context")
+    assert isinstance(selection_context, dict)
+    assert selection_context.get("objective") == "latency"
+    assert selection_context.get("allow_upstream") == "native-only"
+    assert selection_context.get("topk") == 2
+
+    candidate_pool_summary = payload.get("candidate_pool_summary")
+    assert isinstance(candidate_pool_summary, dict)
+    assert candidate_pool_summary.get("selected_count") == 2
+    assert candidate_pool_summary.get("rejected_count", 0) >= 1
+
+    recommendations = payload.get("recommendations")
+    assert isinstance(recommendations, list)
+    assert len(recommendations) == 2
+    for item in recommendations:
+        assert item.get("deployment_profile", {}).get("upstream_project") == "native"
+
+    rejected = payload.get("rejected_candidates")
+    assert isinstance(rejected, list)
+    assert any(
+        item.get("deployment_profile", {}).get("upstream_project") != "native"
+        and "upstream_disallowed:native-only" in set(item.get("reasons", []))
+        for item in rejected
+        if isinstance(item, dict)
+    )
+
+    explanations = payload.get("recommendation_explanations")
+    assert isinstance(explanations, list)
+    assert explanations
+
+
+def test_doctor_cli_deploy_bundle_reports_patchcore_inspection_artifact_audit(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    checkpoint_dir = bundle_dir / "weights" / "patchcore_saved_model"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    (checkpoint_dir / "nnscorer_search_index.faiss").write_bytes(b"faiss")
+    (checkpoint_dir / "patchcore_params.pkl").write_bytes(b"params")
+
+    _write_json(
+        bundle_dir / "infer_config.json",
+        {
+            "model": {
+                "name": "vision_patchcore_inspection_checkpoint",
+                "checkpoint_path": "weights/patchcore_saved_model",
+                "model_kwargs": {},
+            },
+            "artifact_quality": {
+                "status": "deployable",
+                "threshold_scope": "image",
+                "has_threshold_provenance": True,
+                "has_split_fingerprint": True,
+                "has_prediction_policy": False,
+                "has_deploy_bundle": True,
+                "has_bundle_manifest": True,
+                "required_bundle_artifacts_present": False,
+                "bundle_artifact_roles": {},
+                "audit_refs": {"calibration_card": "calibration_card.json"},
+                "deploy_refs": {"bundle_manifest": "bundle_manifest.json"},
+            },
+        },
+    )
+
+    rc = doctor_main(["--json", "--deploy-bundle", str(bundle_dir)])
+    assert rc == 1
+
+    payload = json.loads(capsys.readouterr().out)
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    external_checkpoint_audit = readiness.get("external_checkpoint_audit")
+    assert isinstance(external_checkpoint_audit, dict)
+    assert external_checkpoint_audit.get("model") == "vision_patchcore_inspection_checkpoint"
+    assert external_checkpoint_audit.get("artifact_format_status") == "recognized"
+    assert external_checkpoint_audit.get("checkpoint_version_sensitive") is True

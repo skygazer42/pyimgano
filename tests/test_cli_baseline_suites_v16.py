@@ -30,6 +30,7 @@ def test_benchmark_cli_can_list_suites_text(capsys) -> None:
 
     out = capsys.readouterr().out.strip().splitlines()
     assert "industrial-ci" in out
+    assert "industrial-parity-v1" in out
     assert "industrial-v1" in out
     assert "industrial-v2" in out
     assert "industrial-v3" in out
@@ -45,6 +46,7 @@ def test_benchmark_cli_can_list_suites_json(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert isinstance(payload, list)
     assert "industrial-ci" in payload
+    assert "industrial-parity-v1" in payload
     assert "industrial-v2" in payload
     assert "industrial-v3" in payload
     assert "industrial-v4" in payload
@@ -168,6 +170,24 @@ def test_benchmark_cli_suite_info_outputs_json(capsys) -> None:
     assert payload["name"] == "industrial-ci"
     assert "entries" in payload
     assert "baselines" in payload
+
+
+def test_benchmark_cli_parity_suite_info_outputs_expected_entries(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--suite-info", "industrial-parity-v1", "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["name"] == "industrial-parity-v1"
+    entries = payload.get("entries", [])
+    assert isinstance(entries, list)
+    assert "industrial-template-ncc-map" in entries
+    assert "industrial-structural-ecod" in entries
+    assert "industrial-embedding-core-balanced" in entries
+    assert "vision_patchcore" in entries
+    assert "vision_patchcore_anomalib" in entries
+    assert "vision_patchcore_inspection_checkpoint" in entries
 
 
 def test_suite_info_includes_requires_extras_for_optional_baselines(capsys) -> None:
@@ -436,8 +456,9 @@ def test_benchmark_cli_suite_include_unknown_baseline_errors(tmp_path: Path, cap
 
 
 def test_benchmark_cli_suite_export_csv_writes_leaderboard(tmp_path: Path, capsys) -> None:
-    from pyimgano.cli import main as benchmark_main
     import json
+
+    from pyimgano.cli import main as benchmark_main
 
     root = tmp_path / "custom"
     _write_custom_dataset(root)

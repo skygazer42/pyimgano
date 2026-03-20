@@ -79,6 +79,24 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional root fallback for manifest-backed --dataset-target checks.",
     )
+    parser.add_argument(
+        "--objective",
+        default="balanced",
+        choices=["balanced", "latency", "localization"],
+        help="Recommendation objective for --dataset-target selection.",
+    )
+    parser.add_argument(
+        "--allow-upstream",
+        default="native+wrapped",
+        choices=["native-only", "native+wrapped"],
+        help="Whether dataset-target recommendations may include upstream checkpoint wrappers.",
+    )
+    parser.add_argument(
+        "--topk",
+        type=int,
+        default=5,
+        help="Maximum number of dataset-target recommendations to emit.",
+    )
     return parser
 
 
@@ -108,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
                 if getattr(args, "root_fallback", None) is not None
                 else None
             ),
+            objective=str(getattr(args, "objective", "balanced")),
+            allow_upstream=str(getattr(args, "allow_upstream", "native+wrapped")),
+            topk=int(getattr(args, "topk", 5)),
             check_bundle_hashes=bool(getattr(args, "check_bundle_hashes", False)),
         )
     except Exception as exc:  # noqa: BLE001 - CLI boundary
@@ -183,13 +204,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- pixel_metrics_available: {dataset_profile.get('pixel_metrics_available')}")
         print(f"- fewshot_risk: {dataset_profile.get('fewshot_risk')}")
 
+    selection_context = payload.get("selection_context")
+    if isinstance(selection_context, dict):
+        print("selection_context:")
+        print(f"- objective: {selection_context.get('objective')}")
+        print(f"- allow_upstream: {selection_context.get('allow_upstream')}")
+        print(f"- topk: {selection_context.get('topk')}")
+
     recommendations = payload.get("recommendations")
     if isinstance(recommendations, list) and recommendations:
         print("recommendations:")
         for item in recommendations:
             if not isinstance(item, dict):
                 continue
-            preset = item.get("preset")
+            preset = item.get("preset") or item.get("model")
             reasons = item.get("reasons", []) or []
             suffix = ""
             if reasons:

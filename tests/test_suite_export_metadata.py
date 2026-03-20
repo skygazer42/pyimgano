@@ -48,6 +48,7 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
                     "runtime_cost_hint": "high",
                     "memory_cost_hint": "high",
                     "artifact_requirements": ["checkpoint"],
+                    "upstream_project": "patchcore_inspection",
                     "industrial_fit": {"pixel_localization": True},
                 },
             }
@@ -83,6 +84,12 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
     assert metadata["deployment_summary"]["memory_cost_hints"] == {"high": 1}
     assert metadata["deployment_summary"]["artifact_requirements"] == ["checkpoint"]
     assert metadata["deployment_summary"]["pixel_localization_models"] == 1
+    assert metadata["upstream_coverage_summary"]["native"] == 0
+    assert metadata["upstream_coverage_summary"]["anomalib"] == 0
+    assert metadata["upstream_coverage_summary"]["patchcore_inspection"] == 1
+    assert metadata["benchmark_context"]["pixel_metrics_available"] is True
+    assert metadata["benchmark_context"]["multi_category"] is False
+    assert "checkpoint_models_require_artifact_governance" in metadata["constraint_warnings"]
     assert metadata["citation"]["project"] == "pyimgano"
     assert metadata["citation"]["benchmark_config_source"].endswith(".json")
     assert metadata["citation"]["benchmark_config_sha256"] == "a" * 64

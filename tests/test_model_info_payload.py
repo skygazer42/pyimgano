@@ -258,3 +258,37 @@ def test_model_info_exposes_industrial_deployment_hints() -> None:
     fewshot_profile = one_to_normal["deployment_profile"]
     assert fewshot_profile["training_regime"] == "few-shot"
     assert fewshot_profile["industrial_fit"]["few_shot_adaptation"] is True
+
+
+def test_model_info_exposes_upstream_and_runtime_deployment_profiles() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+    from pyimgano.models.registry import model_info
+
+    patchcore_native = model_info("vision_patchcore")
+    patchcore_anomalib = model_info("vision_patchcore_anomalib")
+    patchcore_inspection = model_info("vision_patchcore_inspection_checkpoint")
+
+    native_profile = patchcore_native["deployment_profile"]
+    assert native_profile["upstream_project"] == "native"
+    assert native_profile["artifact_format"] == "native-fit"
+    assert native_profile["tested_runtime"] == "torch"
+    assert native_profile["upstream_model_id"] == "vision_patchcore"
+    assert native_profile["benchmark_fit"]["pixel_benchmark_ready"] is True
+    assert native_profile["deployment_risks"] == ["large_memory_bank"]
+
+    anomalib_profile = patchcore_anomalib["deployment_profile"]
+    assert anomalib_profile["upstream_project"] == "anomalib"
+    assert anomalib_profile["artifact_format"] == "anomalib-checkpoint"
+    assert anomalib_profile["tested_runtime"] == "torch"
+    assert anomalib_profile["upstream_model_id"] == "patchcore"
+    assert anomalib_profile["benchmark_fit"]["pixel_benchmark_ready"] is True
+    assert "checkpoint_version_sensitive" in anomalib_profile["deployment_risks"]
+
+    inspection_profile = patchcore_inspection["deployment_profile"]
+    assert inspection_profile["upstream_project"] == "patchcore_inspection"
+    assert inspection_profile["artifact_format"] == "patchcore-saved-model"
+    assert inspection_profile["tested_runtime"] == "torch"
+    assert inspection_profile["upstream_model_id"] == "patchcore"
+    assert inspection_profile["benchmark_fit"]["pixel_benchmark_ready"] is True
+    assert "large_memory_bank" in inspection_profile["deployment_risks"]
+    assert "checkpoint_version_sensitive" in inspection_profile["deployment_risks"]

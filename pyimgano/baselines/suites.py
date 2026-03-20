@@ -44,6 +44,21 @@ def _default_suites() -> dict[str, BaselineSuite]:
                 "industrial-template-ncc-map",
             ),
         ),
+        "industrial-parity-v1": BaselineSuite(
+            name="industrial-parity-v1",
+            description=(
+                "Industrial parity reference suite spanning lightweight native baselines, "
+                "embedding-native defaults, native PatchCore, and upstream checkpoint wrappers."
+            ),
+            entries=(
+                "industrial-template-ncc-map",
+                "industrial-structural-ecod",
+                "industrial-embedding-core-balanced",
+                "vision_patchcore",
+                "vision_patchcore_anomalib",
+                "vision_patchcore_inspection_checkpoint",
+            ),
+        ),
         "industrial-v1": BaselineSuite(
             name="industrial-v1",
             description=(

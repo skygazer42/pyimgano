@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Optional, Sequence, cast
 
 import numpy as np
@@ -12,7 +13,48 @@ from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .registry import register_model
 
 PATCHCORE_INSPECTION_BACKEND_DETECTORS = "patchcore-inspection backend detectors"
+_PATCHCORE_INSPECTION_REQUIRED_FILES = (
+    "nnscorer_search_index.faiss",
+    "patchcore_params.pkl",
+)
 
+
+def audit_patchcore_inspection_saved_model(checkpoint_path: str) -> dict[str, object]:
+    root = Path(str(checkpoint_path))
+    present_files = [
+        name for name in _PATCHCORE_INSPECTION_REQUIRED_FILES if (root / name).is_file()
+    ]
+    missing_files = [
+        name for name in _PATCHCORE_INSPECTION_REQUIRED_FILES if name not in set(present_files)
+    ]
+
+    payload: dict[str, object] = {
+        "path": str(root),
+        "artifact_format": "patchcore-saved-model",
+        "artifact_format_status": "missing",
+        "checkpoint_version_sensitive": True,
+        "required_files": list(_PATCHCORE_INSPECTION_REQUIRED_FILES),
+        "present_files": present_files,
+        "missing_files": missing_files,
+        "errors": [],
+    }
+
+    if not root.exists():
+        payload["errors"] = ["checkpoint_path_missing"]
+        return payload
+
+    if not root.is_dir():
+        payload["artifact_format_status"] = "invalid"
+        payload["errors"] = ["checkpoint_path_not_directory"]
+        return payload
+
+    if missing_files:
+        payload["artifact_format_status"] = "partial"
+        payload["errors"] = ["missing_required_patchcore_saved_model_files"]
+        return payload
+
+    payload["artifact_format_status"] = "recognized"
+    return payload
 
 
 def _build_patchcore_inspection_model(

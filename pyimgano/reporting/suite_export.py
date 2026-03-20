@@ -502,6 +502,55 @@ def _build_deployment_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, An
     }
 
 
+def _build_upstream_coverage_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    summary = {"native": 0, "anomalib": 0, "patchcore_inspection": 0}
+    for row in rows:
+        profile = row.get("deployment_profile")
+        if not isinstance(profile, Mapping):
+            continue
+        upstream_project = _nonempty_str(profile.get("upstream_project")) or "native"
+        summary[upstream_project] = int(summary.get(upstream_project, 0)) + 1
+    return dict(sorted(summary.items(), key=lambda kv: kv[0]))
+
+
+def _build_benchmark_context(
+    *,
+    payload: Mapping[str, Any],
+    dataset_profile: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    profile = dict(dataset_profile or {})
+    benchmark_config = payload.get("benchmark_config")
+    benchmark_map = dict(benchmark_config) if isinstance(benchmark_config, Mapping) else {}
+    return {
+        "dataset": payload.get("dataset"),
+        "category": payload.get("category"),
+        "official_config": bool(benchmark_map.get("official")),
+        "benchmark_config_source": benchmark_map.get("source"),
+        "pixel_metrics_available": bool(profile.get("pixel_metrics_available")),
+        "fewshot_risk": bool(profile.get("fewshot_risk")),
+        "multi_category": bool(profile.get("multi_category")),
+    }
+
+
+def _build_constraint_warnings(
+    *,
+    dataset_profile: Mapping[str, Any] | None,
+    deployment_summary: Mapping[str, Any] | None,
+) -> list[str]:
+    warnings: list[str] = []
+    profile = dict(dataset_profile or {})
+    deployment = dict(deployment_summary or {})
+
+    artifact_requirements = deployment.get("artifact_requirements")
+    if isinstance(artifact_requirements, list) and "checkpoint" in set(artifact_requirements):
+        warnings.append("checkpoint_models_require_artifact_governance")
+    if bool(profile.get("fewshot_risk")):
+        warnings.append("fewshot_dataset_requires_calibration_guardrails")
+    if profile and not bool(profile.get("pixel_metrics_available")):
+        warnings.append("pixel_metrics_unavailable_limits_localization_claims")
+    return warnings
+
+
 def export_suite_tables(
     payload: Mapping[str, Any],
     output_dir: str | Path,
@@ -616,6 +665,15 @@ def export_suite_tables(
         else None
     )
     deployment_summary = _build_deployment_summary(rows_norm)
+    upstream_coverage_summary = _build_upstream_coverage_summary(rows_norm)
+    benchmark_context = _build_benchmark_context(
+        payload=payload,
+        dataset_profile=dataset_profile,
+    )
+    constraint_warnings = _build_constraint_warnings(
+        dataset_profile=dataset_profile,
+        deployment_summary=deployment_summary,
+    )
 
     metadata = {
         "suite": payload.get("suite"),
@@ -624,6 +682,9 @@ def export_suite_tables(
         "row_count": len(rows_norm),
         "dataset_profile": dataset_profile,
         "deployment_summary": deployment_summary,
+        "upstream_coverage_summary": upstream_coverage_summary,
+        "benchmark_context": benchmark_context,
+        "constraint_warnings": constraint_warnings,
         "benchmark_config": benchmark_config,
         "evaluation_contract": evaluation_contract,
         "environment_fingerprint_sha256": payload.get("environment_fingerprint_sha256"),

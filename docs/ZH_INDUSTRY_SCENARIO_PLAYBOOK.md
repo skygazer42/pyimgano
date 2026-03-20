@@ -318,6 +318,55 @@ pyimgano-infer \
 5. `infer-config` 推理
 6. 产出样例输入和样例输出
 
+如果这一步你还不确定先跑 native 基线还是参考 upstream 包装器，可以先让 `doctor` 按目标给一份候选：
+
+```bash
+pyimgano-doctor \
+  --dataset-target /path/to/dataset \
+  --objective latency \
+  --allow-upstream native-only \
+  --topk 2 \
+  --json
+```
+
+返回结果里会同时给出：
+
+- `selection_context`：这次选型是按什么目标筛的
+- `candidate_pool_summary`：候选池里 native / wrapper 的数量
+- `rejected_candidates`：哪些候选因为 upstream 策略或 extras 缺失被过滤掉
+
+如果你想做“native vs upstream wrapper”的并排参考，可以直接跑：
+
+```bash
+pyimgano-benchmark \
+  --dataset custom \
+  --root /path/to/dataset \
+  --category default \
+  --suite industrial-parity-v1 \
+  --device cpu
+```
+
+这个 suite 会同时带上：
+
+- 轻量模板基线
+- 轻量结构分数基线
+- `industrial-embedding-core-balanced`
+- native `vision_patchcore`
+- `vision_patchcore_anomalib`
+- `vision_patchcore_inspection_checkpoint`
+
+如果你接的是 `patchcore-inspection` 已训练好的 saved-model 目录，交付前也可以直接审一下 bundle：
+
+```bash
+pyimgano-doctor --deploy-bundle /path/to/deploy_bundle --json
+```
+
+结果里会额外出现 `external_checkpoint_audit`，用来提示：
+
+- 当前 artifact 是否被识别成 `patchcore-saved-model`
+- 关键文件是否齐全
+- 该 checkpoint 是否属于版本敏感型包装器
+
 ### 不建议一开始就做的事
 
 - 同时比较十几个模型

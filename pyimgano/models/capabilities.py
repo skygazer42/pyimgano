@@ -130,12 +130,130 @@ def _memory_cost_hint(
     return "low"
 
 
+def _upstream_project(
+    *,
+    tags: set[str],
+    metadata: Mapping[str, Any],
+) -> str:
+    backend = str(metadata.get("backend", "")).strip().lower()
+    weights_source = str(metadata.get("weights_source", "")).strip().lower()
+    if (
+        backend == "anomalib"
+        or "anomalib" in tags
+        or weights_source == "upstream-anomalib-checkpoint"
+    ):
+        return "anomalib"
+    if (
+        backend == "patchcore_inspection"
+        or "patchcore_inspection" in tags
+        or weights_source == "upstream-patchcore-inspection-checkpoint"
+    ):
+        return "patchcore_inspection"
+    return "native"
+
+
+def _artifact_format(
+    *,
+    tags: set[str],
+    metadata: Mapping[str, Any],
+    upstream_project: str,
+    requires_checkpoint: bool,
+) -> str:
+    weights_source = str(metadata.get("weights_source", "")).strip().lower()
+    if upstream_project == "anomalib":
+        return "anomalib-checkpoint"
+    if upstream_project == "patchcore_inspection":
+        return "patchcore-saved-model"
+    if weights_source == "local-exported-onnx" or "onnx" in tags:
+        return "onnx-file"
+    if weights_source == "local-exported-torchscript" or "torchscript" in tags:
+        return "torchscript-file"
+    if requires_checkpoint:
+        return "external-checkpoint"
+    return "native-fit"
+
+
+def _tested_runtime(
+    *,
+    tags: set[str],
+    metadata: Mapping[str, Any],
+    upstream_project: str,
+) -> str:
+    backend = str(metadata.get("backend", "")).strip().lower()
+    weights_source = str(metadata.get("weights_source", "")).strip().lower()
+    if weights_source == "local-exported-onnx" or "onnx" in tags:
+        return "onnxruntime"
+    if backend == "openvino" or "openvino" in tags:
+        return "openvino"
+    if "deep" in tags or upstream_project in {"anomalib", "patchcore_inspection"}:
+        return "torch"
+    return "numpy"
+
+
+def _upstream_model_id(
+    *,
+    entry_name: str,
+    tags: set[str],
+    family: Sequence[str],
+    metadata: Mapping[str, Any],
+    upstream_project: str,
+) -> str:
+    anomalib_model = metadata.get("anomalib_model")
+    if anomalib_model is not None and str(anomalib_model).strip():
+        return str(anomalib_model).strip()
+
+    family_set = {str(item) for item in family}
+    if upstream_project == "patchcore_inspection" and (
+        "patchcore" in family_set or "patchcore" in tags
+    ):
+        return "patchcore"
+
+    if upstream_project == "native":
+        return str(entry_name)
+
+    if family:
+        return str(family[0])
+    return str(entry_name)
+
+
+def _benchmark_fit(
+    *,
+    tags: set[str],
+    family: Sequence[str],
+    supports_pixel_map: bool,
+) -> dict[str, bool]:
+    family_set = {str(item) for item in family}
+    return {
+        "image_benchmark_ready": bool("vision" in tags),
+        "pixel_benchmark_ready": bool(supports_pixel_map),
+        "reference_benchmark_ready": bool("template" in family_set),
+        "multi_view_ready": bool("multiview" in tags or "multi_view" in family_set),
+    }
+
+
+def _deployment_risks(
+    *,
+    family: Sequence[str],
+    has_memory_bank: bool,
+    requires_checkpoint: bool,
+    upstream_project: str,
+) -> list[str]:
+    family_set = {str(item) for item in family}
+    out: list[str] = []
+    if has_memory_bank or "memory_bank" in family_set or "patchcore" in family_set:
+        out.append("large_memory_bank")
+    if requires_checkpoint and upstream_project in {"anomalib", "patchcore_inspection"}:
+        out.append("checkpoint_version_sensitive")
+    return out
+
+
 def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
     from pyimgano.models.metadata_contract import resolve_metadata_contract_payload
 
     _signature, accepted_kwargs, _accepts_var_kwargs = get_constructor_signature_info(
         entry.constructor
     )
+    metadata = dict(entry.metadata)
     tags = {str(tag).strip().lower() for tag in entry.tags}
     tuning_knobs = [
         name
@@ -186,6 +304,24 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
     )
     runtime_cost = _runtime_cost_hint(tags=tags, family=family, has_memory_bank=has_memory_bank)
     memory_cost = _memory_cost_hint(tags=tags, family=family, has_memory_bank=has_memory_bank)
+    upstream_project = _upstream_project(tags=tags, metadata=metadata)
+    artifact_format = _artifact_format(
+        tags=tags,
+        metadata=metadata,
+        upstream_project=upstream_project,
+        requires_checkpoint=bool(requires_checkpoint),
+    )
+    benchmark_fit = _benchmark_fit(
+        tags=tags,
+        family=family,
+        supports_pixel_map=bool(supports_pixel_map),
+    )
+    deployment_risks = _deployment_risks(
+        family=family,
+        has_memory_bank=has_memory_bank,
+        requires_checkpoint=bool(requires_checkpoint),
+        upstream_project=upstream_project,
+    )
 
     artifact_requirements: list[str] = []
     if requires_checkpoint:
@@ -203,6 +339,22 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
         },
         "runtime_cost_hint": runtime_cost,
         "memory_cost_hint": memory_cost,
+        "upstream_project": upstream_project,
+        "upstream_model_id": _upstream_model_id(
+            entry_name=str(entry.name),
+            tags=tags,
+            family=family,
+            metadata=metadata,
+            upstream_project=upstream_project,
+        ),
+        "tested_runtime": _tested_runtime(
+            tags=tags,
+            metadata=metadata,
+            upstream_project=upstream_project,
+        ),
+        "artifact_format": artifact_format,
+        "benchmark_fit": benchmark_fit,
+        "deployment_risks": deployment_risks,
         "export_support": {
             "checkpoint": bool(
                 requires_checkpoint

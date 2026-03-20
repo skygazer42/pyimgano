@@ -35,6 +35,7 @@ class _SuiteSplit:
     test_paths: list[str]
     test_labels: np.ndarray
     test_masks: np.ndarray | None
+    test_meta: list[Mapping[str, Any] | None] | None = None
     pixel_skip_reason: str | None = None
     split_fingerprint: dict[str, Any] | None = None
 
@@ -143,6 +144,7 @@ def _load_split(
             test_paths=list(ms.test_paths),
             test_labels=np.asarray(ms.test_labels),
             test_masks=(np.asarray(ms.test_masks) if ms.test_masks is not None else None),
+            test_meta=(list(ms.test_meta) if ms.test_meta is not None else None),
             pixel_skip_reason=ms.pixel_skip_reason,
             split_fingerprint=build_split_fingerprint(
                 train_inputs=list(ms.train_paths),
