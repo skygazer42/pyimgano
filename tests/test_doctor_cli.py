@@ -233,6 +233,8 @@ def test_doctor_cli_run_dir_readiness_outputs_json(tmp_path: Path, capsys) -> No
     assert readiness.get("status") == "warning"
     acceptance = readiness.get("acceptance")
     assert isinstance(acceptance, dict)
+    assert acceptance.get("acceptance_state") == "blocked"
+    assert "BUNDLE_REQUIRED_QUALITY_NOT_MET" in set(acceptance.get("reason_codes", []))
     assert acceptance.get("ready") is False
     assert "insufficient_quality_status" in set(readiness.get("issues", []))
 
@@ -378,6 +380,55 @@ def test_doctor_cli_dataset_target_exposes_selection_context_and_rejections(
     assert explanations
 
 
+def test_doctor_cli_dataset_target_selection_profile_reports_parity_candidates(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "train" / "normal" / "train_1.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    rc = doctor_main(
+        [
+            "--json",
+            "--dataset-target",
+            str(root),
+            "--selection-profile",
+            "benchmark-parity",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    selection_profile_summary = payload.get("selection_profile_summary")
+    assert isinstance(selection_profile_summary, dict)
+    assert selection_profile_summary.get("requested") == "benchmark-parity"
+    assert selection_profile_summary.get("applied") == "benchmark-parity"
+
+    selection_context = payload.get("selection_context")
+    assert isinstance(selection_context, dict)
+    assert selection_context.get("allow_upstream") == "native+wrapped"
+
+    parity_candidates = payload.get("parity_candidates")
+    assert isinstance(parity_candidates, list)
+    by_model = {
+        str(item.get("model")): item for item in parity_candidates if isinstance(item, dict)
+    }
+    assert "vision_patchcore" in by_model
+    assert "vision_patchcore_anomalib" in by_model
+    assert "vision_patchcore_inspection_checkpoint" in by_model
+    assert isinstance(by_model["vision_patchcore"].get("benchmark_reference_role"), str)
+    assert isinstance(by_model["vision_patchcore_anomalib"].get("missing_extras"), list)
+
+
 def test_doctor_cli_deploy_bundle_reports_patchcore_inspection_artifact_audit(
     tmp_path: Path, capsys
 ) -> None:
@@ -424,3 +475,11 @@ def test_doctor_cli_deploy_bundle_reports_patchcore_inspection_artifact_audit(
     assert external_checkpoint_audit.get("model") == "vision_patchcore_inspection_checkpoint"
     assert external_checkpoint_audit.get("artifact_format_status") == "recognized"
     assert external_checkpoint_audit.get("checkpoint_version_sensitive") is True
+
+    external_artifact_audit = readiness.get("external_artifact_audit")
+    assert isinstance(external_artifact_audit, dict)
+    assert external_artifact_audit.get("provider") == "patchcore_inspection_saved_model"
+    assert external_artifact_audit.get("artifact_kind") == "saved_model_directory"
+    provider_audit = external_artifact_audit.get("audit")
+    assert isinstance(provider_audit, dict)
+    assert provider_audit.get("artifact_format_status") == "recognized"

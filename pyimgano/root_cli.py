@@ -6,9 +6,9 @@ import importlib
 import sys
 from textwrap import dedent
 
-
 _COMMANDS: dict[str, tuple[str, str]] = {
     "benchmark": ("pyimgano.cli", "Benchmarking, suites, and benchmark discovery."),
+    "bundle": ("pyimgano.bundle_cli", "Deploy bundle validation and offline execution."),
     "infer": ("pyimgano.infer_cli", "Inference, deploy bundles, and model discovery."),
     "train": ("pyimgano.train_cli", "Workbench training and artifact export."),
     "runs": ("pyimgano.runs_cli", "Run indexing, comparison, and quality gates."),
@@ -56,6 +56,8 @@ def _help_text() -> str:
 
         industrial fast-path:
           pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
+          pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
+          pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json
           pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
           pyimgano runs quality runs/<run_dir> --require-status audited --json
           pyimgano runs acceptance runs/<run_dir> --require-status audited --json

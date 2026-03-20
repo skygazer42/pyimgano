@@ -102,6 +102,34 @@ the same acceptance entrypoint also works on the publication bundle:
 pyimgano-runs acceptance /path/to/suite_export --json
 ```
 
+## Offline Bundle Execution
+
+Once the bundle is exported and accepted, the same artifact can be validated and
+executed as a fixed offline QC package:
+
+```bash
+pyimgano bundle validate /path/to/run_dir/deploy_bundle --json
+
+pyimgano bundle run /path/to/run_dir/deploy_bundle \
+  --image-dir /path/to/lot_images \
+  --output-dir ./bundle_run \
+  --max-anomaly-rate 0.05 \
+  --max-reject-rate 0.02 \
+  --max-error-rate 0.00 \
+  --min-processed 100 \
+  --json
+```
+
+The bundle run contract is intentionally narrow:
+
+- `results.jsonl` is always written to `<output_dir>/results.jsonl`
+- `run_report.json` is always written to `<output_dir>/run_report.json`
+- `run_report.json` carries `batch_verdict`, `batch_gate_summary`,
+  `batch_gate_reason_codes`, and output digests for downstream automation
+- pixel outputs stay gated behind the bundle contract and only write to the fixed
+  locations `<output_dir>/masks`, `<output_dir>/overlays`, and
+  `<output_dir>/defects_regions.jsonl`
+
 If `pyimgano-runs quality` reports `deployable`, the run has the full audited
 artifact set including `infer_config.json`, `calibration_card.json`, and
 `bundle_manifest.json`. If the bundle also carries `model_card.json` or

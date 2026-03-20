@@ -710,3 +710,48 @@ def test_validate_infer_config_cli_reports_bundle_completeness_metadata(
     assert "trust_signal.file_refs_checked=true" in plain
     assert "trust_signal.has_required_bundle_artifacts=true" in plain
     assert "trust_signal.has_bundle_artifact_roles=true" in plain
+
+
+def test_validate_infer_config_cli_accepts_pixel_threshold_scope_for_bundle_contract(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    cfg = bundle_dir / "infer_config.json"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "defects": {"pixel_threshold": 0.5, "mask_format": "png"},
+                "artifact_quality": {
+                    "status": "deployable",
+                    "threshold_scope": "pixel",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_deploy_bundle": True,
+                    "has_bundle_manifest": True,
+                    "required_bundle_artifacts_present": True,
+                    "bundle_artifact_roles": {
+                        "infer_config": ["infer_config.json"],
+                        "report": ["report.json"],
+                        "config": ["config.json"],
+                        "environment": ["environment.json"],
+                    },
+                    "audit_refs": {"calibration_card": "calibration_card.json"},
+                    "deploy_refs": {"bundle_manifest": "bundle_manifest.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "calibration_card.json").write_text("{}", encoding="utf-8")
+    (bundle_dir / "bundle_manifest.json").write_text("{}", encoding="utf-8")
+
+    rc = main([str(cfg), "--json"])
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["artifact_quality"]["threshold_scope"] == "pixel"

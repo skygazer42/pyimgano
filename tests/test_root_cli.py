@@ -10,6 +10,7 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert rc == 0
     assert "pyimgano <command> [args...]" in out
     assert "benchmark" in out
+    assert "bundle" in out
     assert "infer" in out
     assert "train" in out
     assert "runs" in out
@@ -87,6 +88,23 @@ def test_root_cli_delegates_subcommand(monkeypatch):
 
     assert rc == 23
     assert calls == [("train", ["--dry-run", "--config", "cfg.json"])]
+
+
+def test_root_cli_delegates_bundle_subcommand(monkeypatch):
+    import pyimgano.root_cli as root_cli
+
+    calls = []
+
+    monkeypatch.setattr(
+        root_cli,
+        "_dispatch_command",
+        lambda name, argv: calls.append((name, list(argv))) or 31,
+    )
+
+    rc = root_cli.main(["bundle", "validate", "/tmp/deploy_bundle", "--json"])
+
+    assert rc == 31
+    assert calls == [("bundle", ["validate", "/tmp/deploy_bundle", "--json"])]
 
 
 def test_root_cli_help_subcommand_routes_to_subcommand_help(monkeypatch):

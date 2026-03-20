@@ -138,6 +138,7 @@ Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
 
 [project.scripts]
 pyimgano = "pyimgano.root_cli:main"
+pyimgano-bundle = "pyimgano.bundle_cli:main"
 pyimgano-benchmark = "pyimgano.cli:main"
 pyim = "pyimgano.pyim_cli:main"
 pyimgano-demo = "pyimgano.demo_cli:main"

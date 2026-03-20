@@ -1136,6 +1136,8 @@ def test_runs_cli_acceptance_uses_deploy_bundle_infer_config_when_present(tmp_pa
     assert rc == 0
     acceptance = out["acceptance"]
     assert acceptance["ready"] is True
+    assert acceptance["acceptance_state"] == "deployable"
+    assert acceptance["reason_codes"] == []
     assert acceptance["infer_config"]["selected_source"] == "deploy_bundle"
     assert acceptance["infer_config"]["path"].endswith("deploy_bundle/infer_config.json")
 

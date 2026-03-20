@@ -81,20 +81,26 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--objective",
-        default="balanced",
+        default=None,
         choices=["balanced", "latency", "localization"],
         help="Recommendation objective for --dataset-target selection.",
     )
     parser.add_argument(
         "--allow-upstream",
-        default="native+wrapped",
+        default=None,
         choices=["native-only", "native+wrapped"],
         help="Whether dataset-target recommendations may include upstream checkpoint wrappers.",
     )
     parser.add_argument(
+        "--selection-profile",
+        default=None,
+        choices=["balanced", "benchmark-parity", "cpu-screening", "deploy-readiness"],
+        help="Selection profile preset for --dataset-target recommendation and parity surfacing.",
+    )
+    parser.add_argument(
         "--topk",
         type=int,
-        default=5,
+        default=None,
         help="Maximum number of dataset-target recommendations to emit.",
     )
     return parser
@@ -126,9 +132,20 @@ def main(argv: list[str] | None = None) -> int:
                 if getattr(args, "root_fallback", None) is not None
                 else None
             ),
-            objective=str(getattr(args, "objective", "balanced")),
-            allow_upstream=str(getattr(args, "allow_upstream", "native+wrapped")),
-            topk=int(getattr(args, "topk", 5)),
+            objective=(
+                str(args.objective) if getattr(args, "objective", None) is not None else None
+            ),
+            allow_upstream=(
+                str(args.allow_upstream)
+                if getattr(args, "allow_upstream", None) is not None
+                else None
+            ),
+            selection_profile=(
+                str(args.selection_profile)
+                if getattr(args, "selection_profile", None) is not None
+                else None
+            ),
+            topk=(int(args.topk) if getattr(args, "topk", None) is not None else None),
             check_bundle_hashes=bool(getattr(args, "check_bundle_hashes", False)),
         )
     except Exception as exc:  # noqa: BLE001 - CLI boundary

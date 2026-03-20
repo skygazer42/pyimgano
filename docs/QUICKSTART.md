@@ -227,8 +227,17 @@ pyimgano train --config examples/configs/industrial_adapt_audited.json --export-
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano runs quality runs/<run_dir> --require-status audited --json
 pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
+pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --max-anomaly-rate 0.05 --max-reject-rate 0.02 --max-error-rate 0.00 --min-processed 100 --json
 pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
 ```
+
+`pyimgano bundle run` writes a fixed offline delivery contract under
+`<output-dir>/`: `results.jsonl`, `run_report.json`, and optional pixel
+artifacts when the bundle advertises pixel-output support. The JSON report
+includes `batch_verdict`, `batch_gate_summary`, and
+`batch_gate_reason_codes` so downstream QC automation can make one batch-level
+decision instead of re-parsing per-image rows.
 
 If the next step is a reproducible benchmark export instead of a single audited
 handoff, keep the umbrella CLI in the loop:

@@ -10,6 +10,8 @@ from pyimgano.weights.manifest import validate_weights_manifest_file
 from pyimgano.weights.model_card import validate_model_card_file
 
 DEPLOY_BUNDLE_SCHEMA_VERSION = 1
+_DEPLOY_BUNDLE_TYPE = "cpu-offline-qc"
+_DEPLOY_BUNDLE_STATUS = "draft"
 _REQUIRED_SOURCE_RUN_ARTIFACTS = ("report", "config", "environment", "infer_config")
 _REQUIRED_BUNDLE_ARTIFACTS = ("report", "config", "environment", "infer_config")
 
@@ -59,30 +61,184 @@ def _load_json_mapping_if_present(path: Path) -> dict[str, Any] | None:
     return dict(payload)
 
 
+def _nonempty_str(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text if text else None
+
+
+def _extract_split_fingerprint_sha256(payload: Mapping[str, Any]) -> str | None:
+    split_fingerprint = payload.get("split_fingerprint", None)
+    if not isinstance(split_fingerprint, Mapping):
+        return None
+    return _nonempty_str(split_fingerprint.get("sha256", None))
+
+
+def _extract_threshold_scope(payload: Mapping[str, Any]) -> str | None:
+    threshold_context = payload.get("threshold_context", None)
+    if isinstance(threshold_context, Mapping):
+        scope = _nonempty_str(threshold_context.get("scope", None))
+        if scope is not None:
+            return scope
+
+    artifact_quality = payload.get("artifact_quality", None)
+    if isinstance(artifact_quality, Mapping):
+        return _nonempty_str(artifact_quality.get("threshold_scope", None))
+    return None
+
+
+def _threshold_items(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    image_threshold = payload.get("image_threshold", None)
+    if isinstance(image_threshold, Mapping):
+        return [image_threshold]
+
+    per_category = payload.get("per_category", None)
+    if isinstance(per_category, Mapping):
+        return [item for item in per_category.values() if isinstance(item, Mapping)]
+    return []
+
+
+def _has_threshold_payload(payload: Mapping[str, Any]) -> bool:
+    return any(
+        isinstance(item.get("threshold", None), (int, float)) for item in _threshold_items(payload)
+    )
+
+
+def _has_threshold_provenance(payload: Mapping[str, Any]) -> bool:
+    return any(
+        isinstance(item.get("provenance", None), Mapping) for item in _threshold_items(payload)
+    )
+
+
+def _supports_pixel_outputs(infer_payload: Mapping[str, Any] | None) -> bool:
+    payload = dict(infer_payload or {})
+    artifact_quality = payload.get("artifact_quality", None)
+    if isinstance(artifact_quality, Mapping):
+        return _nonempty_str(artifact_quality.get("threshold_scope", None)) == "pixel"
+    return False
+
+
+def _build_compatibility_payload() -> dict[str, Any]:
+    import pyimgano
+
+    return {
+        "schema_family": "deploy-bundle",
+        "schema_version": int(DEPLOY_BUNDLE_SCHEMA_VERSION),
+        "pyimgano_version": str(getattr(pyimgano, "__version__", "")),
+        "cpu_only": True,
+    }
+
+
+def _build_input_contract() -> dict[str, Any]:
+    return {
+        "supported_sources": ["image_dir", "single_image", "input_manifest.jsonl"],
+        "record_fields": ["id", "image_path", "category", "meta"],
+    }
+
+
+def _build_threshold_summary(bundle_root: Path) -> dict[str, Any]:
+    calibration_card = _load_json_mapping_if_present(bundle_root / "calibration_card.json")
+    return {
+        "scope": (
+            _extract_threshold_scope(calibration_card)
+            if isinstance(calibration_card, Mapping)
+            else None
+        ),
+        "has_threshold": (
+            _has_threshold_payload(calibration_card)
+            if isinstance(calibration_card, Mapping)
+            else False
+        ),
+        "has_threshold_provenance": (
+            _has_threshold_provenance(calibration_card)
+            if isinstance(calibration_card, Mapping)
+            else False
+        ),
+        "has_split_fingerprint": (
+            _extract_split_fingerprint_sha256(calibration_card) is not None
+            if isinstance(calibration_card, Mapping)
+            else False
+        ),
+        "split_fingerprint_sha256": (
+            _extract_split_fingerprint_sha256(calibration_card)
+            if isinstance(calibration_card, Mapping)
+            else None
+        ),
+        "calibration_card_ref": (
+            "calibration_card.json" if (bundle_root / "calibration_card.json").is_file() else None
+        ),
+    }
+
+
+def _build_output_contract(bundle_root: Path) -> dict[str, Any]:
+    infer_payload = _load_json_mapping_if_present(bundle_root / "infer_config.json")
+    supports_pixel_outputs = _supports_pixel_outputs(infer_payload)
+    return {
+        "primary_result_file": "results.jsonl",
+        "batch_summary_file": "run_report.json",
+        "supports_pixel_outputs": supports_pixel_outputs,
+        "optional_artifacts": (
+            ["masks/", "overlays/", "defects_regions.jsonl"] if supports_pixel_outputs else []
+        ),
+    }
+
+
+def _build_evaluation_summary(bundle_root: Path) -> dict[str, Any]:
+    threshold_summary = _build_threshold_summary(bundle_root)
+    output_contract = _build_output_contract(bundle_root)
+    return {
+        "threshold_scope": threshold_summary.get("scope", None),
+        "split_fingerprint_sha256": threshold_summary.get("split_fingerprint_sha256", None),
+        "supports_image_decision": bool(
+            threshold_summary.get("has_threshold")
+            and threshold_summary.get("has_threshold_provenance")
+        ),
+        "supports_pixel_outputs": bool(output_contract.get("supports_pixel_outputs")),
+    }
+
+
 def _build_operator_contract_digests(
     *,
     source_root: Path,
     bundle_root: Path,
 ) -> dict[str, Any]:
-    source_contract = _load_json_mapping_if_present(source_root / "artifacts" / "operator_contract.json")
+    source_contract = _load_json_mapping_if_present(
+        source_root / "artifacts" / "operator_contract.json"
+    )
     bundle_contract = _load_json_mapping_if_present(bundle_root / "operator_contract.json")
     bundle_infer = _load_json_mapping_if_present(bundle_root / "infer_config.json")
     infer_contract = (
         dict(bundle_infer.get("operator_contract"))
-        if isinstance(bundle_infer, Mapping) and isinstance(bundle_infer.get("operator_contract"), Mapping)
+        if isinstance(bundle_infer, Mapping)
+        and isinstance(bundle_infer.get("operator_contract"), Mapping)
         else None
     )
 
-    source_sha = _canonical_json_sha256(source_contract) if isinstance(source_contract, Mapping) else None
-    bundle_sha = _canonical_json_sha256(bundle_contract) if isinstance(bundle_contract, Mapping) else None
-    infer_sha = _canonical_json_sha256(infer_contract) if isinstance(infer_contract, Mapping) else None
+    source_sha = (
+        _canonical_json_sha256(source_contract) if isinstance(source_contract, Mapping) else None
+    )
+    bundle_sha = (
+        _canonical_json_sha256(bundle_contract) if isinstance(bundle_contract, Mapping) else None
+    )
+    infer_sha = (
+        _canonical_json_sha256(infer_contract) if isinstance(infer_contract, Mapping) else None
+    )
     bundle_consistent = (
-        bool(bundle_sha is not None and infer_sha is not None and dict(infer_contract) == dict(bundle_contract))
+        bool(
+            bundle_sha is not None
+            and infer_sha is not None
+            and dict(infer_contract) == dict(bundle_contract)
+        )
         if (bundle_sha is not None or infer_sha is not None)
         else None
     )
     source_matches_bundle = (
-        bool(source_sha is not None and bundle_sha is not None and dict(source_contract) == dict(bundle_contract))
+        bool(
+            source_sha is not None
+            and bundle_sha is not None
+            and dict(source_contract) == dict(bundle_contract)
+        )
         if (source_sha is not None or bundle_sha is not None)
         else None
     )
@@ -146,7 +302,20 @@ def _build_artifact_roles(entries: list[dict[str, Any]]) -> dict[str, list[str]]
     }
 
 
-def _required_artifacts_present(refs: Mapping[str, Any], *, required_names: tuple[str, ...]) -> bool:
+def _build_artifact_digests(entries: list[dict[str, Any]]) -> dict[str, str]:
+    digests: dict[str, str] = {}
+    for entry in entries:
+        rel_path = _nonempty_str(entry.get("path", None))
+        sha256 = _nonempty_str(entry.get("sha256", None))
+        if rel_path is None or sha256 is None:
+            continue
+        digests[rel_path] = sha256
+    return dict(sorted(digests.items(), key=lambda item: item[0]))
+
+
+def _required_artifacts_present(
+    refs: Mapping[str, Any], *, required_names: tuple[str, ...]
+) -> bool:
     return all(str(name) in refs for name in required_names)
 
 
@@ -235,7 +404,9 @@ def _validate_operator_contract_digests(
     if not isinstance(value, Mapping):
         return ["operator_contract_digests must be a JSON object/dict."]
 
-    source_root = Path(source_run_dir) if isinstance(source_run_dir, str) and source_run_dir.strip() else None
+    source_root = (
+        Path(source_run_dir) if isinstance(source_run_dir, str) and source_run_dir.strip() else None
+    )
     source_available = bool(source_root is not None and source_root.exists())
     actual = _build_operator_contract_digests(
         source_root=(source_root if source_root is not None else bundle_root),
@@ -361,7 +532,11 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
                 "infer_config.operator_contract payload."
             )
 
-    if has_operator_contract_file and not has_infer_operator_contract and not has_operator_contract_flag:
+    if (
+        has_operator_contract_file
+        and not has_infer_operator_contract
+        and not has_operator_contract_flag
+    ):
         errors.append(
             "operator_contract.json exists but infer_config.json is missing operator_contract payload."
         )
@@ -379,7 +554,9 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
     return errors
 
 
-def build_deploy_bundle_manifest(*, bundle_dir: str | Path, source_run_dir: str | Path) -> dict[str, Any]:
+def build_deploy_bundle_manifest(
+    *, bundle_dir: str | Path, source_run_dir: str | Path
+) -> dict[str, Any]:
     bundle_root = Path(bundle_dir)
     source_root = Path(source_run_dir)
     env_path = source_root / "environment.json"
@@ -409,9 +586,17 @@ def build_deploy_bundle_manifest(*, bundle_dir: str | Path, source_run_dir: str 
             }
         )
     artifact_roles = _build_artifact_roles(entries)
+    artifact_digests = _build_artifact_digests(entries)
 
     return {
         "schema_version": int(DEPLOY_BUNDLE_SCHEMA_VERSION),
+        "bundle_type": _DEPLOY_BUNDLE_TYPE,
+        "status": _DEPLOY_BUNDLE_STATUS,
+        "compatibility": _build_compatibility_payload(),
+        "input_contract": _build_input_contract(),
+        "output_contract": _build_output_contract(bundle_root),
+        "threshold_summary": _build_threshold_summary(bundle_root),
+        "evaluation_summary": _build_evaluation_summary(bundle_root),
         "source_run": {
             "run_dir": str(source_root),
             "environment_fingerprint_sha256": env.get("fingerprint_sha256", None),
@@ -419,6 +604,7 @@ def build_deploy_bundle_manifest(*, bundle_dir: str | Path, source_run_dir: str 
         },
         "bundle_artifact_refs": bundle_artifact_refs,
         "artifact_roles": artifact_roles,
+        "artifact_digests": artifact_digests,
         "required_source_artifacts_present": _required_artifacts_present(
             source_artifact_refs,
             required_names=_REQUIRED_SOURCE_RUN_ARTIFACTS,
@@ -433,6 +619,37 @@ def build_deploy_bundle_manifest(*, bundle_dir: str | Path, source_run_dir: str 
         ),
         "entries": entries,
     }
+
+
+def _validate_exact_mapping(
+    value: Any,
+    *,
+    field_name: str,
+    expected: Mapping[str, Any],
+) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, Mapping):
+        return [f"{field_name} must be a JSON object/dict."]
+    if dict(value) != dict(expected):
+        return [f"{field_name} does not match computed bundle contract."]
+    return []
+
+
+def _validate_bundle_type(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if value != _DEPLOY_BUNDLE_TYPE:
+        return [f"bundle_type must be {_DEPLOY_BUNDLE_TYPE!r}."]
+    return []
+
+
+def _validate_bundle_status(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if value != _DEPLOY_BUNDLE_STATUS:
+        return [f"status must be {_DEPLOY_BUNDLE_STATUS!r}."]
+    return []
 
 
 def validate_deploy_bundle_manifest(
@@ -479,6 +696,7 @@ def validate_deploy_bundle_manifest(
                 if actual != expected:
                     errors.append(f"SHA256 mismatch for bundled file: {rel_path}")
     actual_roles = _build_artifact_roles(actual_entries)
+    actual_artifact_digests = _build_artifact_digests(entries)
 
     source_run = manifest.get("source_run", None)
     source_artifact_refs: Mapping[str, Any] = {}
@@ -500,6 +718,50 @@ def validate_deploy_bundle_manifest(
             )
 
     bundle_artifact_refs = manifest.get("bundle_artifact_refs", None)
+    errors.extend(_validate_bundle_type(manifest.get("bundle_type", None)))
+    errors.extend(_validate_bundle_status(manifest.get("status", None)))
+    errors.extend(
+        _validate_exact_mapping(
+            manifest.get("compatibility", None),
+            field_name="compatibility",
+            expected=_build_compatibility_payload(),
+        )
+    )
+    errors.extend(
+        _validate_exact_mapping(
+            manifest.get("input_contract", None),
+            field_name="input_contract",
+            expected=_build_input_contract(),
+        )
+    )
+    errors.extend(
+        _validate_exact_mapping(
+            manifest.get("output_contract", None),
+            field_name="output_contract",
+            expected=_build_output_contract(bundle_root),
+        )
+    )
+    errors.extend(
+        _validate_exact_mapping(
+            manifest.get("threshold_summary", None),
+            field_name="threshold_summary",
+            expected=_build_threshold_summary(bundle_root),
+        )
+    )
+    errors.extend(
+        _validate_exact_mapping(
+            manifest.get("evaluation_summary", None),
+            field_name="evaluation_summary",
+            expected=_build_evaluation_summary(bundle_root),
+        )
+    )
+    errors.extend(
+        _validate_exact_mapping(
+            manifest.get("artifact_digests", None),
+            field_name="artifact_digests",
+            expected=actual_artifact_digests,
+        )
+    )
     errors.extend(
         _validate_artifact_refs(
             bundle_artifact_refs,

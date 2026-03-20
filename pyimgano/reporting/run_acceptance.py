@@ -15,6 +15,12 @@ _QUALITY_STATUS_RANK = {
     "audited": 3,
     "deployable": 4,
 }
+_REASON_CODE_MAP = {
+    "insufficient_quality_status": "BUNDLE_REQUIRED_QUALITY_NOT_MET",
+    "missing_infer_config": "BUNDLE_MISSING_INFER_CONFIG",
+    "invalid_infer_config": "BUNDLE_INVALID_INFER_CONFIG",
+    "bundle_weights_not_ready": "BUNDLE_WEIGHTS_NOT_READY",
+}
 
 
 def _infer_config_validation_payload() -> dict[str, Any]:
@@ -91,7 +97,9 @@ def _bundle_weights_payload(run_dir: Path, *, check_bundle_hashes: bool) -> dict
             "trust_summary": {},
         }
 
-    metadata_present = any((bundle_dir / name).is_file() for name in ("model_card.json", "weights_manifest.json"))
+    metadata_present = any(
+        (bundle_dir / name).is_file() for name in ("model_card.json", "weights_manifest.json")
+    )
     if not metadata_present:
         return {
             "applicable": False,
@@ -113,6 +121,40 @@ def _bundle_weights_payload(run_dir: Path, *, check_bundle_hashes: bool) -> dict
     }
 
 
+def _acceptance_state(
+    *,
+    quality_status: str,
+    quality_rank: int,
+    required_rank: int,
+    infer_present: bool,
+    infer_valid: bool | None,
+    bundle_weights_applicable: bool,
+    bundle_weights_ready: bool | None,
+) -> str:
+    if not infer_present or infer_valid is False:
+        return "blocked"
+    if bundle_weights_applicable and bundle_weights_ready is not True:
+        return "blocked"
+
+    intrinsic_state = {
+        "reproducible": "draft",
+        "audited": "audited",
+        "deployable": "deployable",
+    }.get(str(quality_status), "blocked")
+    if quality_rank < required_rank:
+        return "blocked"
+    return intrinsic_state
+
+
+def _reason_codes(blocking_reasons: list[str]) -> list[str]:
+    out: list[str] = []
+    for reason in blocking_reasons:
+        code = _REASON_CODE_MAP.get(str(reason))
+        if code is not None and code not in out:
+            out.append(code)
+    return out
+
+
 def evaluate_run_acceptance(
     run_dir: str | Path,
     *,
@@ -121,9 +163,7 @@ def evaluate_run_acceptance(
 ) -> dict[str, Any]:
     root = Path(run_dir)
     if str(required_quality) not in {"reproducible", "audited", "deployable"}:
-        raise ValueError(
-            "required_quality must be one of: reproducible, audited, deployable"
-        )
+        raise ValueError("required_quality must be one of: reproducible, audited, deployable")
 
     quality = evaluate_run_quality(root, check_bundle_hashes=bool(check_bundle_hashes))
     infer_config = _evaluate_infer_config_validation(root)
@@ -143,10 +183,24 @@ def evaluate_run_acceptance(
         blocking_reasons.append("bundle_weights_not_ready")
 
     ready = len(blocking_reasons) == 0
+    acceptance_state = _acceptance_state(
+        quality_status=str(quality.get("status")),
+        quality_rank=quality_rank,
+        required_rank=required_rank,
+        infer_present=bool(infer_config.get("present")),
+        infer_valid=(infer_config.get("valid") if isinstance(infer_config, dict) else None),
+        bundle_weights_applicable=bool(bundle_weights.get("applicable")),
+        bundle_weights_ready=(
+            bundle_weights.get("ready") if isinstance(bundle_weights, dict) else None
+        ),
+    )
+    reason_codes = _reason_codes(blocking_reasons)
     return {
         "run_dir": str(root),
         "status": ("ready" if ready else "partial"),
         "ready": bool(ready),
+        "acceptance_state": acceptance_state,
+        "reason_codes": reason_codes,
         "required_quality": str(required_quality),
         "quality": quality,
         "infer_config": infer_config,

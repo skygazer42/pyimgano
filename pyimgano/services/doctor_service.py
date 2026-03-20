@@ -517,8 +517,35 @@ def _build_bundle_readiness(
 _DEFAULT_OBJECTIVE = "balanced"
 _DEFAULT_ALLOW_UPSTREAM = "native+wrapped"
 _DEFAULT_TOPK = 5
+_DEFAULT_SELECTION_PROFILE = "balanced"
 _ALLOWED_OBJECTIVES = {"balanced", "latency", "localization"}
 _ALLOWED_UPSTREAM = {"native-only", "native+wrapped"}
+_SELECTION_PROFILES = {
+    "balanced": {
+        "description": "Balanced native-first discovery with wrapped parity still visible.",
+        "objective": "balanced",
+        "allow_upstream": "native+wrapped",
+        "topk": 5,
+    },
+    "benchmark-parity": {
+        "description": "Surface native PatchCore and wrapper parity candidates for paper-style comparison.",
+        "objective": "localization",
+        "allow_upstream": "native+wrapped",
+        "topk": 5,
+    },
+    "cpu-screening": {
+        "description": "Prefer CPU-friendly native screening baselines and avoid upstream wrappers.",
+        "objective": "latency",
+        "allow_upstream": "native-only",
+        "topk": 3,
+    },
+    "deploy-readiness": {
+        "description": "Favor deployment-friendly native candidates with lower integration risk.",
+        "objective": "balanced",
+        "allow_upstream": "native-only",
+        "topk": 4,
+    },
+}
 
 
 def _append_candidate_spec(
@@ -559,6 +586,54 @@ def _normalize_topk(topk: int | None) -> int:
     if value < 1:
         raise ValueError("topk must be >= 1")
     return value
+
+
+def _normalize_selection_profile(selection_profile: str | None) -> str:
+    key = str(selection_profile or _DEFAULT_SELECTION_PROFILE).strip().lower()
+    if key not in _SELECTION_PROFILES:
+        raise ValueError(
+            f"selection_profile must be one of: {', '.join(sorted(_SELECTION_PROFILES))}"
+        )
+    return key
+
+
+def _resolve_selection_profile(
+    *,
+    selection_profile: str | None,
+    objective: str | None,
+    allow_upstream: str | None,
+    topk: int | None,
+) -> dict[str, Any]:
+    profile_key = _normalize_selection_profile(selection_profile)
+    profile_spec = _SELECTION_PROFILES[profile_key]
+    objective_key = _normalize_objective(
+        objective if objective is not None else str(profile_spec["objective"])
+    )
+    upstream_key = _normalize_allow_upstream(
+        allow_upstream if allow_upstream is not None else str(profile_spec["allow_upstream"])
+    )
+    topk_value = _normalize_topk(topk if topk is not None else int(profile_spec["topk"]))
+    return {
+        "profile": profile_key,
+        "objective": objective_key,
+        "allow_upstream": upstream_key,
+        "topk": int(topk_value),
+        "summary": {
+            "requested": profile_key,
+            "applied": profile_key,
+            "description": str(profile_spec["description"]),
+            "defaults": {
+                "objective": str(profile_spec["objective"]),
+                "allow_upstream": str(profile_spec["allow_upstream"]),
+                "topk": int(profile_spec["topk"]),
+            },
+            "explicit_overrides": {
+                "objective": objective is not None,
+                "allow_upstream": allow_upstream is not None,
+                "topk": topk is not None,
+            },
+        },
+    }
 
 
 def _build_dataset_candidate_specs(dataset_profile: dict[str, Any]) -> list[dict[str, Any]]:
@@ -701,7 +776,37 @@ def _build_recommendation_candidate(ref: str, reasons: list[str]) -> dict[str, A
     candidate["missing_extras"] = [
         extra for extra in candidate["requires_extras"] if not extra_installed(str(extra))
     ]
+    deployment_profile = candidate.get("deployment_profile", {})
+    if isinstance(deployment_profile, Mapping):
+        candidate["benchmark_reference_role"] = deployment_profile.get("benchmark_reference_role")
     return candidate
+
+
+def _parity_candidate_refs(selection_profile: str) -> list[str]:
+    if selection_profile == "cpu-screening":
+        return [
+            "industrial-template-ncc-map",
+            "industrial-structural-ecod",
+            "industrial-embedding-core-balanced",
+        ]
+    return [
+        "industrial-template-ncc-map",
+        "industrial-structural-ecod",
+        "vision_patchcore",
+        "vision_patchcore_anomalib",
+        "vision_patchcore_inspection_checkpoint",
+    ]
+
+
+def _build_parity_candidates(selection_profile: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for ref in _parity_candidate_refs(selection_profile):
+        candidate = _build_recommendation_candidate(ref, reasons=["benchmark_parity_candidate"])
+        if candidate is None:
+            continue
+        candidate["eligible"] = len(candidate.get("missing_extras", [])) == 0
+        out.append(candidate)
+    return out
 
 
 def _selection_score(
@@ -884,9 +989,10 @@ def _build_dataset_target_payload(
     dataset: str,
     category: str | None,
     root_fallback: str | Path | None,
-    objective: str,
-    allow_upstream: str,
-    topk: int,
+    objective: str | None,
+    allow_upstream: str | None,
+    selection_profile: str | None,
+    topk: int | None,
 ) -> dict[str, Any]:
     from pyimgano.datasets.inspection import profile_dataset_target
 
@@ -919,11 +1025,18 @@ def _build_dataset_target_payload(
     else:
         status = "ok"
 
-    recommendation_payload = _build_dataset_recommendations(
-        dataset_profile,
+    selection_profile_payload = _resolve_selection_profile(
+        selection_profile=selection_profile,
         objective=objective,
         allow_upstream=allow_upstream,
         topk=topk,
+    )
+
+    recommendation_payload = _build_dataset_recommendations(
+        dataset_profile,
+        objective=str(selection_profile_payload["objective"]),
+        allow_upstream=str(selection_profile_payload["allow_upstream"]),
+        topk=int(selection_profile_payload["topk"]),
     )
 
     return {
@@ -931,8 +1044,10 @@ def _build_dataset_target_payload(
         "task_profile": dict(profile_payload.get("task_profile", {})),
         "constraints": constraints,
         "evaluation_readiness": evaluation_readiness,
+        "selection_profile_summary": selection_profile_payload["summary"],
         "selection_context": recommendation_payload["selection_context"],
         "candidate_pool_summary": recommendation_payload["candidate_pool_summary"],
+        "parity_candidates": _build_parity_candidates(str(selection_profile_payload["profile"])),
         "recommendations": recommendation_payload["recommendations"],
         "rejected_candidates": recommendation_payload["rejected_candidates"],
         "recommendation_explanations": recommendation_payload["recommendation_explanations"],
@@ -958,9 +1073,10 @@ def collect_doctor_payload(
     dataset: str = "auto",
     category: str | None = None,
     root_fallback: str | None = None,
-    objective: str = _DEFAULT_OBJECTIVE,
-    allow_upstream: str = _DEFAULT_ALLOW_UPSTREAM,
-    topk: int = _DEFAULT_TOPK,
+    objective: str | None = None,
+    allow_upstream: str | None = None,
+    selection_profile: str | None = None,
+    topk: int | None = None,
     check_bundle_hashes: bool = False,
 ) -> dict[str, Any]:
     import pyimgano
@@ -1061,15 +1177,33 @@ def collect_doctor_payload(
         payload["accelerators"] = build_accelerator_checks()
 
     if run_dir is not None:
-        payload["readiness"] = _build_run_readiness(
+        readiness = _build_run_readiness(
             run_dir=str(run_dir),
             check_bundle_hashes=bool(check_bundle_hashes),
         )
+        external_checkpoint_audit = readiness.get("external_checkpoint_audit")
+        if isinstance(external_checkpoint_audit, Mapping):
+            readiness["external_artifact_audit"] = {
+                "provider": "patchcore_inspection_saved_model",
+                "artifact_kind": "saved_model_directory",
+                "model": external_checkpoint_audit.get("model"),
+                "audit": dict(external_checkpoint_audit),
+            }
+        payload["readiness"] = readiness
     if deploy_bundle is not None:
-        payload["readiness"] = _build_bundle_readiness(
+        readiness = _build_bundle_readiness(
             bundle_dir=str(deploy_bundle),
             check_bundle_hashes=bool(check_bundle_hashes),
         )
+        external_checkpoint_audit = readiness.get("external_checkpoint_audit")
+        if isinstance(external_checkpoint_audit, Mapping):
+            readiness["external_artifact_audit"] = {
+                "provider": "patchcore_inspection_saved_model",
+                "artifact_kind": "saved_model_directory",
+                "model": external_checkpoint_audit.get("model"),
+                "audit": dict(external_checkpoint_audit),
+            }
+        payload["readiness"] = readiness
     if dataset_target is not None:
         payload.update(
             _build_dataset_target_payload(
@@ -1077,9 +1211,12 @@ def collect_doctor_payload(
                 dataset=str(dataset),
                 category=(str(category) if category is not None else None),
                 root_fallback=(str(root_fallback) if root_fallback is not None else None),
-                objective=str(objective),
-                allow_upstream=str(allow_upstream),
-                topk=int(topk),
+                objective=(str(objective) if objective is not None else None),
+                allow_upstream=(str(allow_upstream) if allow_upstream is not None else None),
+                selection_profile=(
+                    str(selection_profile) if selection_profile is not None else None
+                ),
+                topk=(int(topk) if topk is not None else None),
             )
         )
 
