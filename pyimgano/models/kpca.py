@@ -77,7 +77,7 @@ class _PyODKernelPCA(KernelPCA):
             remove_zero_eig=remove_zero_eig,
             copy_X=copy_x_value,
             n_jobs=n_jobs,
-            random_state=check_random_state(random_state),
+            random_state=random_state,
         )
 
     @property

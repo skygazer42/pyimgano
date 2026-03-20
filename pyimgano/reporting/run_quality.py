@@ -58,6 +58,14 @@ def _validation_payload(rel_path: str) -> dict[str, Any]:
 
 
 def _extract_threshold_value(payload: Mapping[str, Any]) -> float | None:
+    postprocess = payload.get("postprocess", None)
+    if isinstance(postprocess, Mapping):
+        image_threshold = postprocess.get("image_threshold", None)
+        if isinstance(image_threshold, Mapping):
+            nested = image_threshold.get("threshold", None)
+            if isinstance(nested, (int, float)):
+                return float(nested)
+
     threshold = payload.get("threshold", None)
     if isinstance(threshold, (int, float)):
         return float(threshold)
@@ -69,6 +77,17 @@ def _extract_threshold_value(payload: Mapping[str, Any]) -> float | None:
             return float(nested)
 
     return None
+
+
+def _infer_declares_prediction_policy(payload: Mapping[str, Any]) -> bool:
+    if isinstance(payload.get("prediction", None), Mapping):
+        return True
+
+    postprocess = payload.get("postprocess", None)
+    if not isinstance(postprocess, Mapping):
+        return False
+
+    return isinstance(postprocess.get("review_policy", None), Mapping)
 
 
 def _extract_split_fingerprint_sha256(payload: Mapping[str, Any]) -> str | None:
@@ -154,9 +173,11 @@ def _evaluate_calibration_audit(
                     "Calibration audit warning: split_fingerprint mismatch between infer_config.json and calibration_card.json."
                 )
         elif infer_split_sha256 is not None:
-            warnings.append("Calibration audit warning: calibration_card.json is missing split_fingerprint metadata.")
+            warnings.append(
+                "Calibration audit warning: calibration_card.json is missing split_fingerprint metadata."
+            )
 
-        if isinstance(infer_payload.get("prediction", None), Mapping) and not bool(
+        if _infer_declares_prediction_policy(infer_payload) and not bool(
             payload["has_prediction_policy"]
         ):
             warnings.append(
@@ -503,7 +524,9 @@ def evaluate_run_quality(
             bundle_manifest_payload["valid"] = len(errors) == 0
             bundle_manifest_payload["errors"] = list(errors)
 
-    has_bundle_operator_contract = bool((root / "deploy_bundle" / "operator_contract.json").is_file())
+    has_bundle_operator_contract = bool(
+        (root / "deploy_bundle" / "operator_contract.json").is_file()
+    )
     bundle_operator_contract_digest_error_present = any(
         "operator_contract_digests" in str(item).lower()
         for item in bundle_manifest_payload["errors"]

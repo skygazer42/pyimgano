@@ -79,9 +79,7 @@ def test_validate_infer_config_cli_backfills_legacy_schema_version(tmp_path: Pat
     assert out["schema_version"] == 1
 
 
-def test_validate_infer_config_cli_rejects_future_schema_version(
-    tmp_path: Path, capsys
-) -> None:
+def test_validate_infer_config_cli_rejects_future_schema_version(tmp_path: Path, capsys) -> None:
     from pyimgano.validate_infer_config_cli import main
 
     cfg = tmp_path / "infer_config.json"
@@ -101,9 +99,7 @@ def test_validate_infer_config_cli_rejects_future_schema_version(
     assert "schema_version" in err
 
 
-def test_validate_infer_config_cli_rejects_bad_prediction_threshold(
-    tmp_path: Path, capsys
-) -> None:
+def test_validate_infer_config_cli_rejects_bad_prediction_threshold(tmp_path: Path, capsys) -> None:
     from pyimgano.validate_infer_config_cli import main
 
     cfg = tmp_path / "infer_config.json"
@@ -123,9 +119,7 @@ def test_validate_infer_config_cli_rejects_bad_prediction_threshold(
     assert "reject_confidence_below" in err
 
 
-def test_validate_infer_config_cli_rejects_bad_prediction_label(
-    tmp_path: Path, capsys
-) -> None:
+def test_validate_infer_config_cli_rejects_bad_prediction_label(tmp_path: Path, capsys) -> None:
     from pyimgano.validate_infer_config_cli import main
 
     cfg = tmp_path / "infer_config.json"
@@ -177,9 +171,158 @@ def test_validate_infer_config_cli_rejects_bad_artifact_quality_status(
     assert "artifact_quality.status" in err
 
 
-def test_validate_infer_config_cli_rejects_missing_audit_ref_file(
+def test_validate_infer_config_cli_accepts_top_level_postprocess_contract(
     tmp_path: Path, capsys
 ) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "defects": {"mask_format": "png"},
+                "postprocess": {
+                    "schema_version": 1,
+                    "threshold_scope": "image",
+                    "image_threshold": {
+                        "threshold": 0.42,
+                        "score_order": "higher_is_more_anomalous",
+                    },
+                    "pixel_threshold": {
+                        "enabled": True,
+                        "strategy": "normal_pixel_quantile",
+                        "threshold": None,
+                        "normal_quantile": 0.999,
+                    },
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": False,
+                        "reject_confidence_below": None,
+                        "reject_label": None,
+                    },
+                    "label_encoding": {"normal": 0, "anomalous": 1},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main([str(cfg), "--json", "--no-check-files"])
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["postprocess"]["image_threshold"]["threshold"] == 0.42
+
+
+def test_validate_infer_config_cli_reports_postprocess_contract_trust_signals(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "postprocess": {
+                    "schema_version": 1,
+                    "threshold_scope": "image",
+                    "image_threshold": {
+                        "threshold": 0.42,
+                        "score_order": "higher_is_more_anomalous",
+                    },
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.8,
+                        "reject_label": -5,
+                    },
+                    "label_encoding": {
+                        "normal": 0,
+                        "anomalous": 1,
+                        "rejected": -5,
+                    },
+                },
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_postprocess_contract": True,
+                    "audit_refs": {"calibration_card": "calibration_card.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "calibration_card.json").write_text("{}", encoding="utf-8")
+
+    rc = main([str(cfg), "--json"])
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    trust = out["validation_trust"]
+    assert trust["status"] == "trust-signaled"
+    assert trust["trust_signals"]["has_postprocess_contract"] is True
+    assert trust["trust_signals"]["has_postprocess_threshold"] is True
+    assert trust["trust_signals"]["has_postprocess_review_policy"] is True
+    assert trust["trust_signals"]["has_postprocess_label_encoding"] is True
+
+    rc = main([str(cfg)])
+
+    assert rc == 0
+    plain = capsys.readouterr().out.lower()
+    assert "trust_signal.has_postprocess_contract=true" in plain
+    assert "trust_signal.has_postprocess_threshold=true" in plain
+    assert "trust_signal.has_postprocess_review_policy=true" in plain
+    assert "trust_signal.has_postprocess_label_encoding=true" in plain
+
+
+def test_validate_infer_config_cli_degrades_incomplete_postprocess_contract(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.validate_infer_config_cli import main
+
+    cfg = tmp_path / "infer_config.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "model": {"name": "vision_patchcore", "model_kwargs": {}},
+                "postprocess": {
+                    "schema_version": 1,
+                    "threshold_scope": "image",
+                    "image_threshold": {
+                        "threshold": 0.42,
+                        "score_order": "higher_is_more_anomalous",
+                    },
+                },
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_postprocess_contract": True,
+                    "audit_refs": {"calibration_card": "calibration_card.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "calibration_card.json").write_text("{}", encoding="utf-8")
+
+    rc = main([str(cfg), "--json"])
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    trust = out["validation_trust"]
+    assert trust["status"] == "partial"
+    assert "missing_postprocess_review_policy" in trust["degraded_by"]
+    assert "missing_postprocess_label_encoding" in trust["degraded_by"]
+
+
+def test_validate_infer_config_cli_rejects_missing_audit_ref_file(tmp_path: Path, capsys) -> None:
     from pyimgano.validate_infer_config_cli import main
 
     run_dir = tmp_path / "run"
@@ -208,9 +351,7 @@ def test_validate_infer_config_cli_rejects_missing_audit_ref_file(
     assert "artifact_quality.audit_refs.calibration_card" in err
 
 
-def test_validate_infer_config_cli_rejects_missing_deploy_ref_file(
-    tmp_path: Path, capsys
-) -> None:
+def test_validate_infer_config_cli_rejects_missing_deploy_ref_file(tmp_path: Path, capsys) -> None:
     from pyimgano.validate_infer_config_cli import main
 
     bundle_dir = tmp_path / "deploy_bundle"

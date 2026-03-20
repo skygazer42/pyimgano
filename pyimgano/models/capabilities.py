@@ -34,6 +34,7 @@ class ModelCapabilities:
     supports_checkpoint: bool
     requires_checkpoint: bool
     supports_save_load: bool
+    supports_confidence: bool
 
 
 def _constructor_supports_numpy(constructor: Any) -> bool:
@@ -56,6 +57,74 @@ def _constructor_supports_pixel_map(constructor: Any) -> bool:
     return bool(
         hasattr(constructor, "predict_anomaly_map") or hasattr(constructor, "get_anomaly_map")
     )
+
+
+def _constructor_supports_confidence(constructor: Any) -> bool:
+    if hasattr(constructor, "predict_confidence"):
+        return True
+
+    if not isinstance(constructor, type):
+        return False
+
+    try:
+        from pyimgano.models.base_detector import BaseDetector
+    except Exception:
+        return False
+
+    try:
+        return issubclass(constructor, BaseDetector)
+    except TypeError:
+        return False
+
+
+def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
+    _signature, accepted_kwargs, _accepts_var_kwargs = get_constructor_signature_info(
+        entry.constructor
+    )
+    tuning_knobs = [
+        name
+        for name in (
+            "knn_backend",
+            "n_neighbors",
+            "k_neighbors",
+            "coreset_sampling_ratio",
+            "coreset_ratio",
+            "memory_bank_dtype",
+            "feature_projection_dim",
+            "memory_size",
+        )
+        if name in accepted_kwargs
+    ]
+    has_memory_bank = bool(
+        any(
+            knob in accepted_kwargs
+            for knob in (
+                "knn_backend",
+                "coreset_sampling_ratio",
+                "coreset_ratio",
+                "memory_bank_dtype",
+                "memory_size",
+            )
+        )
+    )
+
+    default_backend = None
+    if "knn_backend" in accepted_kwargs:
+        try:
+            from pyimgano.services.model_options import _default_knn_backend
+
+            default_backend = str(_default_knn_backend())
+        except Exception:
+            default_backend = None
+
+    return {
+        "memory_bank": {
+            "enabled": bool(has_memory_bank),
+            "backend_param": ("knn_backend" if "knn_backend" in accepted_kwargs else None),
+            "default_backend": default_backend,
+            "tuning_knobs": list(tuning_knobs),
+        }
+    }
 
 
 def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
@@ -87,6 +156,7 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
     )
 
     supports_save_load = bool("classical" in tags and not requires_checkpoint)
+    supports_confidence = _constructor_supports_confidence(entry.constructor)
 
     return ModelCapabilities(
         input_modes=tuple(input_modes),
@@ -94,4 +164,5 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
         supports_checkpoint=bool(supports_checkpoint),
         requires_checkpoint=bool(requires_checkpoint),
         supports_save_load=bool(supports_save_load),
+        supports_confidence=bool(supports_confidence),
     )

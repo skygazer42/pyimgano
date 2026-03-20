@@ -11,6 +11,17 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="pyimgano-doctor",
         description="Print environment and optional dependency availability for pyimgano.",
     )
+    readiness = parser.add_mutually_exclusive_group(required=False)
+    readiness.add_argument(
+        "--run-dir",
+        default=None,
+        help="Optional run directory to evaluate for deployment readiness.",
+    )
+    readiness.add_argument(
+        "--deploy-bundle",
+        default=None,
+        help="Optional deploy bundle directory to validate for deployment readiness.",
+    )
     parser.add_argument(
         "--json",
         action="store_true",
@@ -43,6 +54,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "onnxruntime providers, openvino devices)."
         ),
     )
+    parser.add_argument(
+        "--check-bundle-hashes",
+        action="store_true",
+        help="When evaluating run/bundle readiness, verify recorded bundle hashes when available.",
+    )
     return parser
 
 
@@ -54,6 +70,13 @@ def main(argv: list[str] | None = None) -> int:
             suites_to_check=args.suite,
             require_extras=args.require_extras,
             accelerators=bool(getattr(args, "accelerators", False)),
+            run_dir=(str(args.run_dir) if getattr(args, "run_dir", None) is not None else None),
+            deploy_bundle=(
+                str(args.deploy_bundle)
+                if getattr(args, "deploy_bundle", None) is not None
+                else None
+            ),
+            check_bundle_hashes=bool(getattr(args, "check_bundle_hashes", False)),
         )
     except Exception as exc:  # noqa: BLE001 - CLI boundary
         cli_output.print_cli_error(exc)
@@ -63,6 +86,9 @@ def main(argv: list[str] | None = None) -> int:
         rc = cli_output.emit_json(payload, indent=None)
         req = payload.get("require_extras")
         if isinstance(req, dict) and req.get("ok") is False:
+            return 1
+        readiness = payload.get("readiness")
+        if isinstance(readiness, dict) and str(readiness.get("status")) == "error":
             return 1
         return rc
 
@@ -105,6 +131,16 @@ def main(argv: list[str] | None = None) -> int:
             print(msg)
         else:
             print("require_extras: OK")
+
+    readiness = payload.get("readiness")
+    if isinstance(readiness, dict):
+        print("readiness:")
+        print(f"- target_kind: {readiness.get('target_kind')}")
+        print(f"- path: {readiness.get('path')}")
+        print(f"- status: {readiness.get('status')}")
+        issues = readiness.get("issues", []) or []
+        if issues:
+            print(f"- issues: {', '.join(str(item) for item in issues)}")
 
     accelerators = payload.get("accelerators")
     if isinstance(accelerators, dict) and accelerators:
@@ -174,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
             print(msg)
 
     if isinstance(req, dict) and req.get("ok") is False:
+        return 1
+    if isinstance(readiness, dict) and str(readiness.get("status")) == "error":
         return 1
     return 0
 

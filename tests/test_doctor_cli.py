@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_doctor_cli_outputs_json(capsys) -> None:
@@ -199,3 +205,72 @@ def test_doctor_cli_error_uses_cli_output_helper(monkeypatch) -> None:
     rc = doctor_cli.main([])
     assert rc == 1
     assert calls == [("broken-doctor", {})]
+
+
+def test_doctor_cli_run_dir_readiness_outputs_json(tmp_path: Path, capsys) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"run_dir": str(run_dir)})
+    _write_json(run_dir / "config.json", {"recipe": "industrial-adapt"})
+    _write_json(run_dir / "environment.json", {"python": "3.10"})
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "model": {"name": "vision_patchcore", "model_kwargs": {}},
+            "defects": {"mask_format": "png"},
+        },
+    )
+
+    rc = doctor_main(["--json", "--run-dir", str(run_dir)])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness.get("target_kind") == "run"
+    assert readiness.get("path") == str(run_dir)
+    assert readiness.get("status") == "warning"
+    acceptance = readiness.get("acceptance")
+    assert isinstance(acceptance, dict)
+    assert acceptance.get("ready") is False
+    assert "insufficient_quality_status" in set(readiness.get("issues", []))
+
+
+def test_doctor_cli_deploy_bundle_readiness_exits_nonzero_on_invalid_bundle(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    _write_json(
+        bundle_dir / "infer_config.json",
+        {
+            "model": {"name": "vision_patchcore", "model_kwargs": {}},
+            "artifact_quality": {
+                "status": "deployable",
+                "threshold_scope": "image",
+                "has_threshold_provenance": True,
+                "has_split_fingerprint": True,
+                "has_prediction_policy": False,
+                "has_deploy_bundle": True,
+                "has_bundle_manifest": True,
+                "required_bundle_artifacts_present": False,
+                "bundle_artifact_roles": {},
+                "audit_refs": {"calibration_card": "calibration_card.json"},
+                "deploy_refs": {"bundle_manifest": "bundle_manifest.json"},
+            },
+        },
+    )
+
+    rc = doctor_main(["--json", "--deploy-bundle", str(bundle_dir)])
+    assert rc == 1
+
+    payload = json.loads(capsys.readouterr().out)
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness.get("target_kind") == "deploy_bundle"
+    assert readiness.get("status") == "error"
+    issues = readiness.get("issues", [])
+    assert isinstance(issues, list)
+    assert issues

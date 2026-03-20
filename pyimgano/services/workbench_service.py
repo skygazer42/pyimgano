@@ -316,9 +316,7 @@ def build_infer_config_payload(
             "defects_enabled": bool(config.defects.enabled),
             "mask_format": str(config.defects.mask_format),
             "max_regions": (
-                int(config.defects.max_regions)
-                if config.defects.max_regions is not None
-                else None
+                int(config.defects.max_regions) if config.defects.max_regions is not None else None
             ),
             "max_regions_sort_by": str(config.defects.max_regions_sort_by),
         },
@@ -350,12 +348,49 @@ def build_infer_config_payload(
         },
     }
 
+    threshold_scope = "per_category" if "per_category" in report else "image"
+    postprocess_payload: dict[str, Any] = {
+        "schema_version": 1,
+        "threshold_scope": threshold_scope,
+        "image_threshold": {
+            "threshold": (
+                float(report["threshold"])
+                if isinstance(report.get("threshold"), (int, float))
+                else None
+            ),
+            "score_order": "higher_is_more_anomalous",
+            "provenance": (
+                dict(report["threshold_provenance"])
+                if isinstance(report.get("threshold_provenance"), Mapping)
+                else None
+            ),
+        },
+        "pixel_threshold": {
+            "enabled": bool(config.defects.enabled),
+            "strategy": str(config.defects.pixel_threshold_strategy),
+            "threshold": (
+                float(config.defects.pixel_threshold)
+                if config.defects.pixel_threshold is not None
+                else None
+            ),
+            "normal_quantile": float(config.defects.pixel_normal_quantile),
+        },
+        "map_postprocess": (
+            dict(config.adaptation.postprocess.__dict__)
+            if config.adaptation.postprocess is not None
+            else None
+        ),
+        "review_policy": dict(operator_contract_payload["review_policy"]),
+        "label_encoding": dict(operator_contract_payload["output_contract"]["label_encoding"]),
+    }
+
     out: dict[str, Any] = {
         "schema_version": int(INFER_CONFIG_SCHEMA_VERSION),
         "model": model_payload,
         "adaptation": adaptation_payload,
         "defects": defects_payload,
         "operator_contract": operator_contract_payload,
+        "postprocess": postprocess_payload,
     }
     if preprocessing_payload is not None:
         out["preprocessing"] = preprocessing_payload
@@ -363,7 +398,6 @@ def build_infer_config_payload(
         out["prediction"] = prediction_payload
 
     has_threshold_provenance = "threshold_provenance" in report
-    threshold_scope = "per_category" if "per_category" in report else "image"
     out["artifact_quality"] = {
         "status": ("audited" if has_threshold_provenance else "reproducible"),
         "threshold_scope": threshold_scope,
@@ -371,6 +405,7 @@ def build_infer_config_payload(
         "has_split_fingerprint": isinstance(report.get("split_fingerprint", None), Mapping),
         "has_prediction_policy": prediction_payload is not None,
         "has_operator_contract": True,
+        "has_postprocess_contract": True,
         "has_deploy_bundle": False,
         "has_bundle_manifest": False,
         "required_bundle_artifacts_present": False,

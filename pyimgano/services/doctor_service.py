@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import platform
 import sys
 from datetime import datetime, timezone
 from importlib import metadata
+from pathlib import Path
 from typing import Any
 
 from pyimgano.presets.catalog import list_model_presets
@@ -275,11 +277,177 @@ def build_accelerator_checks() -> dict[str, Any]:
     return checks
 
 
+def _load_json_dict(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in: {path}")
+    return payload
+
+
+def _build_run_readiness(
+    *,
+    run_dir: str | Path,
+    check_bundle_hashes: bool,
+) -> dict[str, Any]:
+    from pyimgano.reporting.run_acceptance import evaluate_run_acceptance
+
+    acceptance = evaluate_run_acceptance(
+        run_dir,
+        required_quality="audited",
+        check_bundle_hashes=bool(check_bundle_hashes),
+    )
+    quality = dict(acceptance.get("quality", {}))
+    issues = [str(item) for item in acceptance.get("blocking_reasons", []) if str(item)]
+    if bool(acceptance.get("ready")):
+        status = "audited-ready"
+    elif str(quality.get("status", "")).strip().lower() in {
+        "reproducible",
+        "audited",
+        "deployable",
+    }:
+        status = "warning"
+    else:
+        status = "error"
+
+    return {
+        "target_kind": "run",
+        "path": str(Path(run_dir)),
+        "status": str(status),
+        "issues": issues,
+        "acceptance": acceptance,
+    }
+
+
+def _bundle_manifest_validation_payload(
+    *,
+    bundle_dir: Path,
+    check_hashes: bool,
+) -> dict[str, Any]:
+    from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
+
+    manifest_path = bundle_dir / "bundle_manifest.json"
+    payload = {
+        "path": str(manifest_path),
+        "present": bool(manifest_path.is_file()),
+        "valid": None,
+        "errors": [],
+    }
+    if not manifest_path.is_file():
+        payload["errors"] = ["missing_bundle_manifest"]
+        return payload
+
+    try:
+        manifest = _load_json_dict(manifest_path)
+    except Exception as exc:  # noqa: BLE001 - diagnostics boundary
+        payload["valid"] = False
+        payload["errors"] = [str(exc)]
+        return payload
+
+    errors = validate_deploy_bundle_manifest(
+        manifest,
+        bundle_dir=bundle_dir,
+        check_hashes=bool(check_hashes),
+    )
+    payload["valid"] = len(errors) == 0
+    payload["errors"] = list(errors)
+    return payload
+
+
+def _bundle_infer_config_validation_payload(bundle_dir: Path) -> dict[str, Any]:
+    from pyimgano.inference.validate_infer_config import validate_infer_config_file
+
+    infer_path = bundle_dir / "infer_config.json"
+    payload = {
+        "path": str(infer_path),
+        "present": bool(infer_path.is_file()),
+        "valid": None,
+        "warnings": [],
+        "errors": [],
+        "trust_summary": {},
+    }
+    if not infer_path.is_file():
+        payload["errors"] = ["missing_infer_config"]
+        return payload
+
+    try:
+        validation = validate_infer_config_file(infer_path, check_files=True)
+    except Exception as exc:  # noqa: BLE001 - diagnostics boundary
+        payload["valid"] = False
+        payload["errors"] = [str(exc)]
+        return payload
+
+    payload["valid"] = True
+    payload["warnings"] = list(validation.warnings)
+    payload["trust_summary"] = dict(validation.trust_summary)
+    return payload
+
+
+def _build_bundle_readiness(
+    *,
+    bundle_dir: str | Path,
+    check_bundle_hashes: bool,
+) -> dict[str, Any]:
+    from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
+
+    bundle_root = Path(bundle_dir)
+    manifest_payload = _bundle_manifest_validation_payload(
+        bundle_dir=bundle_root,
+        check_hashes=bool(check_bundle_hashes),
+    )
+    infer_payload = _bundle_infer_config_validation_payload(bundle_root)
+    weights_audit = evaluate_bundle_weights_audit(
+        bundle_root,
+        check_hashes=bool(check_bundle_hashes),
+    )
+
+    issues: list[str] = []
+    warnings: list[str] = []
+
+    if manifest_payload.get("present") is not True:
+        issues.extend(str(item) for item in manifest_payload.get("errors", []))
+    elif manifest_payload.get("valid") is not True:
+        issues.extend(str(item) for item in manifest_payload.get("errors", []))
+
+    if infer_payload.get("present") is not True:
+        issues.extend(str(item) for item in infer_payload.get("errors", []))
+    elif infer_payload.get("valid") is not True:
+        issues.extend(str(item) for item in infer_payload.get("errors", []))
+    else:
+        warnings.extend(str(item) for item in infer_payload.get("warnings", []))
+
+    if bool(weights_audit.get("present")) and weights_audit.get("ready") is not True:
+        issues.append("bundle_weights_not_ready")
+        issues.extend(str(item) for item in weights_audit.get("errors", []))
+    else:
+        warnings.extend(str(item) for item in weights_audit.get("warnings", []))
+
+    if issues:
+        status = "error"
+    elif warnings:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "target_kind": "deploy_bundle",
+        "path": str(bundle_root),
+        "status": str(status),
+        "issues": list(dict.fromkeys(issues)),
+        "warnings": list(dict.fromkeys(warnings)),
+        "bundle_manifest": manifest_payload,
+        "infer_config": infer_payload,
+        "weights_audit": weights_audit,
+    }
+
+
 def collect_doctor_payload(
     *,
     suites_to_check: list[str] | None = None,
     require_extras: list[str] | None = None,
     accelerators: bool = False,
+    run_dir: str | None = None,
+    deploy_bundle: str | None = None,
+    check_bundle_hashes: bool = False,
 ) -> dict[str, Any]:
     import pyimgano
 
@@ -287,7 +455,9 @@ def collect_doctor_payload(
         check_module(module="numpy", dist="numpy", purpose="core numerical backend"),
         check_module(module="cv2", dist="opencv-python", purpose="image IO / preprocessing"),
         check_module(module="sklearn", dist="scikit-learn", purpose="classical ML baselines"),
-        check_module(module="torch", dist="torch", extra="torch", purpose="deep models / embeddings"),
+        check_module(
+            module="torch", dist="torch", extra="torch", purpose="deep models / embeddings"
+        ),
         check_module(
             module="torchvision",
             dist="torchvision",
@@ -375,6 +545,19 @@ def collect_doctor_payload(
 
     if bool(accelerators):
         payload["accelerators"] = build_accelerator_checks()
+
+    if run_dir is not None and deploy_bundle is not None:
+        raise ValueError("--run-dir and --deploy-bundle are mutually exclusive.")
+    if run_dir is not None:
+        payload["readiness"] = _build_run_readiness(
+            run_dir=str(run_dir),
+            check_bundle_hashes=bool(check_bundle_hashes),
+        )
+    if deploy_bundle is not None:
+        payload["readiness"] = _build_bundle_readiness(
+            bundle_dir=str(deploy_bundle),
+            check_bundle_hashes=bool(check_bundle_hashes),
+        )
 
     return payload
 

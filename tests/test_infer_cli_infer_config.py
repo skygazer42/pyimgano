@@ -247,6 +247,164 @@ def test_infer_cli_infer_config_emits_postprocess_summary_in_jsonl(
     }
 
 
+def test_infer_cli_infer_config_uses_top_level_postprocess_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    ckpt_dir = run_dir / "checkpoints" / "custom"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt_path = ckpt_dir / "model.pt"
+    ckpt_path.write_text("ckpt", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "adaptation": {
+                    "tiling": {
+                        "tile_size": 64,
+                        "stride": 32,
+                        "score_reduce": "topk_mean",
+                        "score_topk": 0.2,
+                        "map_reduce": "hann",
+                    },
+                    "postprocess": None,
+                    "save_maps": False,
+                },
+                "postprocess": {
+                    "schema_version": 1,
+                    "threshold_scope": "image",
+                    "image_threshold": {
+                        "threshold": 0.42,
+                        "score_order": "higher_is_more_anomalous",
+                    },
+                    "pixel_threshold": {
+                        "enabled": True,
+                        "strategy": "fixed",
+                        "threshold": 0.33,
+                        "normal_quantile": 0.95,
+                    },
+                    "map_postprocess": {
+                        "normalize": True,
+                        "normalize_method": "percentile",
+                        "percentile_range": [5, 95],
+                        "gaussian_sigma": 1.5,
+                    },
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.8,
+                        "reject_label": -5,
+                    },
+                    "label_encoding": {"normal": 0, "anomalous": 1, "rejected": -5},
+                },
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+
+    out_jsonl = tmp_path / "out.jsonl"
+
+    class _DummyMapDetector:
+        def __init__(self):
+            self.threshold_ = None
+            self.loaded = None
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            self.loaded = str(path)
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.asarray([0.1 for _ in X], dtype=np.float32)
+
+        def predict_confidence(self, X):  # noqa: ANN001
+            return np.asarray([0.9 for _ in X], dtype=np.float32)
+
+        def get_anomaly_map(self, item):  # noqa: ANN001
+            _ = item
+            m = np.zeros((4, 4), dtype=np.float32)
+            m[1:3, 1:3] = 1.0
+            return m
+
+    det = _DummyMapDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--infer-config",
+            str(infer_cfg_path),
+            "--input",
+            str(input_dir),
+            "--defects",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+    assert rc == 0
+    assert det.loaded == str(ckpt_path)
+    assert det.threshold_ == pytest.approx(0.42)
+
+    first = json.loads(out_jsonl.read_text(encoding="utf-8").strip().splitlines()[0])
+    assert first["postprocess_summary"] == {
+        "has_defects_payload": True,
+        "defects_payload_source": "infer_config",
+        "pixel_threshold_in_payload": True,
+        "pixel_threshold_strategy": "fixed",
+        "has_prediction_policy": True,
+        "prediction_policy": {
+            "reject_confidence_below": 0.8,
+            "reject_label": -5,
+        },
+        "has_tiling": True,
+        "tiling_summary": {
+            "tile_size": 64,
+            "stride": 32,
+            "score_reduce": "topk_mean",
+            "score_topk": 0.2,
+            "map_reduce": "hann",
+        },
+        "has_map_postprocess": True,
+        "map_postprocess_summary": {
+            "normalize": True,
+            "normalize_method": "percentile",
+            "percentile_range": [5.0, 95.0],
+            "gaussian_sigma": 1.5,
+            "morph_open_ksize": None,
+            "morph_close_ksize": None,
+            "component_threshold": None,
+            "min_component_area": None,
+        },
+        "maps_enabled_by_default": True,
+        "maps_requested": False,
+        "maps_enabled": True,
+        "runtime_postprocess_applied": True,
+        "runtime_postprocess_source": "infer_config",
+        "defects_enabled": True,
+        "pixel_threshold_resolved": True,
+        "pixel_threshold_source": "infer_config",
+    }
+
+
 def test_infer_cli_infer_config_delegates_context_loading(tmp_path: Path, monkeypatch) -> None:
     import pyimgano.services.infer_context_service as infer_context_service
 
@@ -543,9 +701,7 @@ def test_infer_cli_infer_config_delegates_runtime_plan_to_service(
     monkeypatch.setattr(
         infer_wrapper_service,
         "apply_infer_detector_wrappers",
-        lambda request: infer_wrapper_service.InferDetectorWrapperResult(
-            detector=request.detector
-        ),
+        lambda request: infer_wrapper_service.InferDetectorWrapperResult(detector=request.detector),
     )
 
     calls: list[object] = []
@@ -1763,4 +1919,3 @@ def test_infer_cli_infer_config_resolves_model_checkpoint_path_relative_to_confi
     kwargs = seen["kwargs"]
     assert isinstance(kwargs, dict)
     assert kwargs.get("checkpoint_path") == str(model_artifact.resolve())
-

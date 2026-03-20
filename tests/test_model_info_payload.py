@@ -202,6 +202,29 @@ def test_checkpoint_wrappers_expose_weights_source_defaults() -> None:
     torchscript_ckpt = model_info("vision_torchscript_ecod")
 
     assert anomalib_ckpt["metadata"]["weights_source"] == "upstream-anomalib-checkpoint"
-    assert inspection_ckpt["metadata"]["weights_source"] == "upstream-patchcore-inspection-checkpoint"
+    assert (
+        inspection_ckpt["metadata"]["weights_source"] == "upstream-patchcore-inspection-checkpoint"
+    )
     assert onnx_ckpt["metadata"]["weights_source"] == "local-exported-onnx"
     assert torchscript_ckpt["metadata"]["weights_source"] == "local-exported-torchscript"
+
+
+def test_model_info_exposes_confidence_and_memory_bank_profiles() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+    from pyimgano.models.registry import model_info
+
+    patchcore = model_info("vision_patchcore")
+    ecod = model_info("vision_ecod")
+
+    assert patchcore["capabilities"]["supports_confidence"] is True
+    assert ecod["capabilities"]["supports_confidence"] is True
+
+    patchcore_bank = patchcore["deployment_profile"]["memory_bank"]
+    assert patchcore_bank["enabled"] is True
+    assert patchcore_bank["backend_param"] == "knn_backend"
+    assert patchcore_bank["default_backend"] in {"faiss", "sklearn"}
+    assert "coreset_sampling_ratio" in patchcore_bank["tuning_knobs"]
+
+    ecod_bank = ecod["deployment_profile"]["memory_bank"]
+    assert ecod_bank["enabled"] is False
+    assert ecod_bank["tuning_knobs"] == []

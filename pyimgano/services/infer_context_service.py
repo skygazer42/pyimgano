@@ -177,9 +177,7 @@ def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBacke
     return ConfigBackedInferContext(
         model_name=str(context_payload["model_name"]),
         preset=(
-            str(context_payload["preset"])
-            if context_payload.get("preset") is not None
-            else None
+            str(context_payload["preset"]) if context_payload.get("preset") is not None else None
         ),
         device=str(context_payload["device"]),
         contamination=float(context_payload["contamination"]),
@@ -239,9 +237,7 @@ def _build_postprocess_summary(
         pixel_threshold_strategy = defects_payload.get("pixel_threshold_strategy", None)
         pixel_threshold_in_payload = defects_payload.get("pixel_threshold", None) is not None
 
-    prediction_summary = (
-        dict(prediction_payload) if isinstance(prediction_payload, dict) else None
-    )
+    prediction_summary = dict(prediction_payload) if isinstance(prediction_payload, dict) else None
 
     tiling_summary = None
     if isinstance(tiling_payload, dict):
@@ -252,9 +248,7 @@ def _build_postprocess_summary(
                 else None
             ),
             "stride": (
-                int(tiling_payload["stride"])
-                if tiling_payload.get("stride") is not None
-                else None
+                int(tiling_payload["stride"]) if tiling_payload.get("stride") is not None else None
             ),
             "score_reduce": (
                 str(tiling_payload["score_reduce"])
@@ -337,7 +331,9 @@ def prepare_from_run_context(request: FromRunInferContextRequest) -> ConfigBacke
     report = workbench_run_service.load_report_from_run(request.run_dir)
     _category_name, category_report = workbench_run_service.select_category_report(
         report,
-        category=(str(request.from_run_category) if request.from_run_category is not None else None),
+        category=(
+            str(request.from_run_category) if request.from_run_category is not None else None
+        ),
     )
 
     threshold = workbench_run_service.extract_threshold(category_report)
@@ -398,6 +394,49 @@ def _extract_defects_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
     return dict(defects_payload)
 
 
+def _extract_postprocess_contract_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    postprocess_payload = payload.get("postprocess", None)
+    if postprocess_payload is None:
+        return None
+    if not isinstance(postprocess_payload, dict):
+        raise ValueError("infer-config key 'postprocess' must be a JSON object/dict.")
+    return dict(postprocess_payload)
+
+
+def _merge_postprocess_contract_defects_payload(
+    defects_payload: dict[str, Any] | None,
+    *,
+    postprocess_contract_payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(postprocess_contract_payload, dict):
+        return defects_payload
+
+    pixel_threshold_payload = postprocess_contract_payload.get("pixel_threshold", None)
+    if pixel_threshold_payload is None:
+        return defects_payload
+    if not isinstance(pixel_threshold_payload, dict):
+        raise ValueError(
+            "infer-config key 'postprocess.pixel_threshold' must be a JSON object/dict."
+        )
+
+    merged = dict(defects_payload or {})
+    if "enabled" in pixel_threshold_payload:
+        enabled = pixel_threshold_payload.get("enabled", None)
+        merged["enabled"] = bool(enabled) if enabled is not None else None
+    if "strategy" in pixel_threshold_payload:
+        strategy = pixel_threshold_payload.get("strategy", None)
+        merged["pixel_threshold_strategy"] = str(strategy) if strategy is not None else None
+    if "threshold" in pixel_threshold_payload:
+        threshold = pixel_threshold_payload.get("threshold", None)
+        merged["pixel_threshold"] = float(threshold) if threshold is not None else None
+    if "normal_quantile" in pixel_threshold_payload:
+        normal_quantile = pixel_threshold_payload.get("normal_quantile", None)
+        merged["pixel_normal_quantile"] = (
+            float(normal_quantile) if normal_quantile is not None else None
+        )
+    return merged if merged else None
+
+
 def _normalize_prediction_payload(
     prediction_payload: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
@@ -424,6 +463,30 @@ def _extract_prediction_payload(payload: dict[str, Any]) -> dict[str, Any] | Non
     if not isinstance(prediction_payload, dict):
         raise ValueError("infer-config key 'prediction' must be a JSON object/dict.")
     return _normalize_prediction_payload(dict(prediction_payload))
+
+
+def _merge_postprocess_contract_prediction_payload(
+    prediction_payload: dict[str, Any] | None,
+    *,
+    postprocess_contract_payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(postprocess_contract_payload, dict):
+        return prediction_payload
+
+    review_policy_payload = postprocess_contract_payload.get("review_policy", None)
+    if review_policy_payload is None:
+        return prediction_payload
+    if not isinstance(review_policy_payload, dict):
+        raise ValueError("infer-config key 'postprocess.review_policy' must be a JSON object/dict.")
+
+    merged = dict(prediction_payload or {})
+    if "reject_confidence_below" in review_policy_payload:
+        merged["reject_confidence_below"] = review_policy_payload.get(
+            "reject_confidence_below", None
+        )
+    if "reject_label" in review_policy_payload:
+        merged["reject_label"] = review_policy_payload.get("reject_label", None)
+    return _normalize_prediction_payload(merged)
 
 
 def _extract_illumination_contrast_knobs(
@@ -459,6 +522,8 @@ def _extract_model_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _extract_adaptation_payload(
     payload: dict[str, Any],
+    *,
+    postprocess_contract_payload: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
     adaptation_payload = payload.get("adaptation", None)
     if adaptation_payload is None:
@@ -475,6 +540,15 @@ def _extract_adaptation_payload(
     postprocess_payload = adaptation_payload.get("postprocess", None)
     if isinstance(postprocess_payload, dict):
         infer_config_postprocess = dict(postprocess_payload)
+
+    if isinstance(postprocess_contract_payload, dict):
+        map_postprocess_payload = postprocess_contract_payload.get("map_postprocess", None)
+        if map_postprocess_payload is not None:
+            if not isinstance(map_postprocess_payload, dict):
+                raise ValueError(
+                    "infer-config key 'postprocess.map_postprocess' must be a JSON object/dict."
+                )
+            infer_config_postprocess = dict(map_postprocess_payload)
 
     return adaptation_payload, tiling_payload, infer_config_postprocess
 
@@ -543,8 +617,17 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
         category=(str(request.infer_category) if request.infer_category is not None else None),
     )
 
+    postprocess_contract_payload = _extract_postprocess_contract_payload(payload)
     defects_payload = _extract_defects_payload(payload)
+    defects_payload = _merge_postprocess_contract_defects_payload(
+        defects_payload,
+        postprocess_contract_payload=postprocess_contract_payload,
+    )
     prediction_payload = _extract_prediction_payload(payload)
+    prediction_payload = _merge_postprocess_contract_prediction_payload(
+        prediction_payload,
+        postprocess_contract_payload=postprocess_contract_payload,
+    )
     illumination_contrast_knobs = _extract_illumination_contrast_knobs(
         payload,
         parse_knobs=parse_illumination_contrast_knobs,
@@ -552,7 +635,8 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
     model_payload = _extract_model_payload(payload)
     model_name = model_payload.get("name", None)
     adaptation_payload, tiling_payload, infer_config_postprocess = _extract_adaptation_payload(
-        payload
+        payload,
+        postprocess_contract_payload=postprocess_contract_payload,
     )
 
     threshold = workbench_run_service.extract_threshold(payload)
@@ -581,9 +665,7 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
             "threshold": threshold,
             "defects_payload": defects_payload,
             "prediction_payload": prediction_payload,
-            "defects_payload_source": (
-                "infer_config" if defects_payload is not None else None
-            ),
+            "defects_payload_source": ("infer_config" if defects_payload is not None else None),
             "illumination_contrast_knobs": illumination_contrast_knobs,
             "tiling_payload": tiling_payload,
             "infer_config_postprocess": infer_config_postprocess,

@@ -145,6 +145,18 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     }
     assert payload["operator_contract"]["output_contract"] == output_contract
 
+    postprocess = payload["postprocess"]
+    assert postprocess["schema_version"] == 1
+    assert postprocess["threshold_scope"] == "image"
+    assert postprocess["image_threshold"]["threshold"] == pytest.approx(payload["threshold"])
+    assert postprocess["image_threshold"]["score_order"] == "higher_is_more_anomalous"
+    assert postprocess["image_threshold"]["provenance"]["source"] == "contamination"
+    assert postprocess["pixel_threshold"]["enabled"] is False
+    assert postprocess["pixel_threshold"]["strategy"] == "normal_pixel_quantile"
+    assert postprocess["pixel_threshold"]["threshold"] is None
+    assert postprocess["review_policy"] == operator_contract["review_policy"]
+    assert postprocess["label_encoding"] == output_contract["label_encoding"]
+
     calibration_card_path = out_dir / "artifacts" / "calibration_card.json"
     assert calibration_card_path.exists()
     calibration_card = json.loads(calibration_card_path.read_text(encoding="utf-8"))
@@ -154,7 +166,10 @@ def test_train_cli_export_infer_config_writes_artifact(tmp_path):
     assert calibration_card["prediction_policy"]["reject_label"] == -9
     assert calibration_card["image_threshold"]["threshold"] == pytest.approx(payload["threshold"])
     assert calibration_card["image_threshold"]["provenance"]["source"] == "contamination"
-    assert calibration_card["image_threshold"]["score_distribution"]["count"] == prov["score_summary"]["count"]
+    assert (
+        calibration_card["image_threshold"]["score_distribution"]["count"]
+        == prov["score_summary"]["count"]
+    )
 
     defects = payload["defects"]
     assert defects["enabled"] is False
@@ -362,8 +377,14 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     assert (bundle_dir / "infer_config.json").exists()
     bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
     bundle_manifest = json.loads((bundle_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
-    assert bundle_payload["artifact_quality"]["audit_refs"]["calibration_card"] == "calibration_card.json"
-    assert bundle_payload["artifact_quality"]["audit_refs"]["operator_contract"] == "operator_contract.json"
+    assert (
+        bundle_payload["artifact_quality"]["audit_refs"]["calibration_card"]
+        == "calibration_card.json"
+    )
+    assert (
+        bundle_payload["artifact_quality"]["audit_refs"]["operator_contract"]
+        == "operator_contract.json"
+    )
     assert bundle_payload["artifact_quality"]["has_deploy_bundle"] is True
     assert bundle_payload["artifact_quality"]["has_bundle_manifest"] is True
     assert (
@@ -374,7 +395,10 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
         bundle_payload["artifact_quality"]["bundle_artifact_roles"]
         == bundle_manifest["artifact_roles"]
     )
-    assert bundle_payload["artifact_quality"]["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
+    assert (
+        bundle_payload["artifact_quality"]["deploy_refs"]["bundle_manifest"]
+        == "bundle_manifest.json"
+    )
     assert bundle_manifest["source_run"]["artifact_refs"]["operator_contract"] == (
         "artifacts/operator_contract.json"
     )
@@ -564,7 +588,12 @@ def test_train_cli_export_deploy_bundle_stamps_infer_config_schema_version(tmp_p
     cfg = {
         "recipe": "test_export_deploy_bundle_schema_version_recipe",
         "dataset": {"name": "custom", "root": str(root), "category": "custom", "resize": [16, 16]},
-        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "model": {
+            "name": "vision_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
         "output": {"output_dir": str(out_dir), "save_run": True, "per_image_jsonl": False},
     }
     config_path = tmp_path / "cfg.json"
@@ -573,7 +602,9 @@ def test_train_cli_export_deploy_bundle_stamps_infer_config_schema_version(tmp_p
     code = main(["--config", str(config_path), "--export-deploy-bundle"])
     assert code == 0
 
-    payload = json.loads((out_dir / "deploy_bundle" / "infer_config.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (out_dir / "deploy_bundle" / "infer_config.json").read_text(encoding="utf-8")
+    )
     assert payload["schema_version"] == 1
 
 
@@ -610,7 +641,12 @@ def test_train_cli_export_deploy_bundle_writes_bundle_manifest(tmp_path):
     cfg = {
         "recipe": "test_export_deploy_bundle_manifest_recipe",
         "dataset": {"name": "custom", "root": str(root), "category": "custom", "resize": [16, 16]},
-        "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False, "contamination": 0.1},
+        "model": {
+            "name": "vision_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
         "output": {"output_dir": str(out_dir), "save_run": True, "per_image_jsonl": False},
     }
     config_path = tmp_path / "cfg.json"

@@ -241,9 +241,13 @@ def model_info(name: str) -> Dict[str, Any]:
     computed capabilities for convenience in CLI/workbench discovery.
     """
 
-    from pyimgano.models.capabilities import compute_model_capabilities
+    from pyimgano.models.capabilities import (
+        compute_model_capabilities,
+        compute_model_deployment_profile,
+    )
     from pyimgano.models.introspection import model_entry_info
 
+    materialize_model_constructor(name)
     entry = MODEL_REGISTRY.info(name)
     payload = model_entry_info(entry)
 
@@ -254,14 +258,17 @@ def model_info(name: str) -> Dict[str, Any]:
         "supports_checkpoint": bool(caps.supports_checkpoint),
         "requires_checkpoint": bool(caps.requires_checkpoint),
         "supports_save_load": bool(caps.supports_save_load),
+        "supports_confidence": bool(caps.supports_confidence),
     }
     payload["capabilities"] = caps_payload
+    payload["deployment_profile"] = compute_model_deployment_profile(entry)
     # Convenience top-level aliases (stable for CLI output).
     payload["input_modes"] = list(caps.input_modes)
     payload["supports_pixel_map"] = bool(caps.supports_pixel_map)
     payload["supports_checkpoint"] = bool(caps.supports_checkpoint)
     payload["requires_checkpoint"] = bool(caps.requires_checkpoint)
     payload["supports_save_load"] = bool(caps.supports_save_load)
+    payload["supports_confidence"] = bool(caps.supports_confidence)
     return payload
 
 

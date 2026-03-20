@@ -93,16 +93,27 @@ def select_category_report(
 
 
 def extract_threshold(report_payload: Mapping[str, Any]) -> float | None:
-    raw = report_payload.get("threshold", None)
-    if raw is None:
-        return None
-    try:
-        val = float(raw)
-    except Exception:
-        return None
-    if not np.isfinite(val):
-        return None
-    return float(val)
+    candidates: list[Any] = []
+
+    postprocess_payload = report_payload.get("postprocess", None)
+    if isinstance(postprocess_payload, Mapping):
+        image_threshold_payload = postprocess_payload.get("image_threshold", None)
+        if isinstance(image_threshold_payload, Mapping):
+            candidates.append(image_threshold_payload.get("threshold", None))
+
+    candidates.append(report_payload.get("threshold", None))
+
+    for raw in candidates:
+        if raw is None:
+            continue
+        try:
+            val = float(raw)
+        except Exception:
+            continue
+        if np.isfinite(val):
+            return float(val)
+
+    return None
 
 
 def resolve_checkpoint_path(

@@ -254,6 +254,167 @@ def _rank_table(rows: list[dict[str, Any]], *, key: str) -> list[dict[str, Any]]
     return sorted(rows, key=_sort_key)
 
 
+_SUITE_MATRIX_METRIC_CANDIDATES = (
+    "auroc",
+    "average_precision",
+    "pixel_auroc",
+    "pixel_average_precision",
+    "aupro",
+    "pixel_segf1",
+)
+
+
+def _resolve_payload_metric(payload: Mapping[str, Any], key: str) -> float | None:
+    results = payload.get("results")
+    if isinstance(results, Mapping):
+        direct = _safe_float(results.get(key))
+        if direct is not None:
+            return direct
+        pixel_metrics = results.get("pixel_metrics")
+        if isinstance(pixel_metrics, Mapping):
+            pixel_value = _safe_float(pixel_metrics.get(key))
+            if pixel_value is not None:
+                return pixel_value
+
+    mean_metrics = payload.get("mean_metrics")
+    if isinstance(mean_metrics, Mapping):
+        mean_value = _safe_float(mean_metrics.get(key))
+        if mean_value is not None:
+            return mean_value
+
+    return None
+
+
+def _resolve_payload_metric_std(payload: Mapping[str, Any], key: str) -> float | None:
+    std_metrics = payload.get("std_metrics")
+    if not isinstance(std_metrics, Mapping):
+        return None
+    return _safe_float(std_metrics.get(key))
+
+
+def _extract_per_category_metric_values(
+    payload: Mapping[str, Any],
+    *,
+    key: str,
+) -> dict[str, float | None] | None:
+    per_category = payload.get("per_category")
+    if not isinstance(per_category, Mapping):
+        return None
+
+    values: dict[str, float | None] = {}
+    for category, category_payload in per_category.items():
+        category_name = str(category)
+        if not isinstance(category_payload, Mapping):
+            values[category_name] = None
+            continue
+        values[category_name] = _resolve_payload_metric(category_payload, key)
+    return values
+
+
+def _build_suite_matrix(
+    *,
+    rows: Sequence[Mapping[str, Any]],
+    per_baseline: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    categories: list[str] = []
+    seen_categories: set[str] = set()
+    for row in rows:
+        payload = per_baseline.get(str(row.get("name", "")))
+        if not isinstance(payload, Mapping):
+            continue
+
+        raw_categories = payload.get("categories")
+        if isinstance(raw_categories, list):
+            for category in raw_categories:
+                category_name = str(category)
+                if category_name and category_name not in seen_categories:
+                    seen_categories.add(category_name)
+                    categories.append(category_name)
+            continue
+
+        per_category = payload.get("per_category")
+        if isinstance(per_category, Mapping):
+            for category in per_category.keys():
+                category_name = str(category)
+                if category_name and category_name not in seen_categories:
+                    seen_categories.add(category_name)
+                    categories.append(category_name)
+
+    if not categories:
+        return None
+
+    by_metric: dict[str, list[dict[str, Any]]] = {}
+    for metric_name in _SUITE_MATRIX_METRIC_CANDIDATES:
+        metric_rows: list[dict[str, Any]] = []
+        for row in rows:
+            payload = per_baseline.get(str(row.get("name", "")))
+            if not isinstance(payload, Mapping):
+                continue
+
+            values = _extract_per_category_metric_values(payload, key=str(metric_name))
+            if not isinstance(values, dict):
+                continue
+            if not any(value is not None for value in values.values()):
+                continue
+
+            metric_rows.append(
+                {
+                    "name": str(row.get("name", "")),
+                    "base_name": str(row.get("base_name", row.get("name", ""))),
+                    "variant": str(row.get("variant", "")),
+                    "mean": _resolve_payload_metric(payload, str(metric_name)),
+                    "std": _resolve_payload_metric_std(payload, str(metric_name)),
+                    "values": {
+                        category_name: values.get(category_name) for category_name in categories
+                    },
+                }
+            )
+
+        if metric_rows:
+            by_metric[str(metric_name)] = metric_rows
+
+    if not by_metric:
+        return None
+
+    return {
+        "scope": "per_category",
+        "categories": categories,
+        "metrics": list(by_metric.keys()),
+        "by_metric": by_metric,
+    }
+
+
+def _build_suite_split_fingerprint(
+    *,
+    split: _SuiteSplit,
+    input_mode: str,
+    limit_train: int | None,
+    limit_test: int | None,
+) -> dict[str, Any]:
+    train_inputs = list(split.train_paths)
+    test_inputs = list(split.test_paths)
+    test_labels = np.asarray(split.test_labels)
+    test_meta = list(split.test_meta) if split.test_meta is not None else None
+
+    if limit_train is not None:
+        train_inputs = train_inputs[: int(limit_train)]
+    if limit_test is not None:
+        lim = int(limit_test)
+        test_inputs = test_inputs[:lim]
+        test_labels = np.asarray(test_labels)[:lim]
+        if test_meta is not None:
+            test_meta = test_meta[:lim]
+
+    return build_split_fingerprint(
+        train_inputs=train_inputs,
+        calibration_inputs=[],
+        test_inputs=test_inputs,
+        test_labels=test_labels,
+        input_format=("rgb_u8_hwc" if str(input_mode) == "numpy" else None),
+        test_meta=test_meta,
+    )
+
+
 def _run_one_on_split(
     *,
     baseline: Baseline,
@@ -815,24 +976,22 @@ def run_baseline_suite(
 
                 per_baseline[variant_key] = payload
 
-                res = payload.get("results", {})
                 row = {
                     "name": variant_key,
                     "base_name": baseline_key,
                     "variant": str(variant_name),
                     "model": str(b.model),
                     "optional": bool(b.optional),
-                    "auroc": _safe_float(res.get("auroc")),
-                    "average_precision": _safe_float(res.get("average_precision")),
+                    "auroc": _resolve_payload_metric(payload, "auroc"),
+                    "average_precision": _resolve_payload_metric(payload, "average_precision"),
                 }
-                pixel_metrics = res.get("pixel_metrics")
-                if isinstance(pixel_metrics, Mapping):
-                    row["pixel_auroc"] = _safe_float(pixel_metrics.get("pixel_auroc"))
-                    row["pixel_average_precision"] = _safe_float(
-                        pixel_metrics.get("pixel_average_precision")
-                    )
-                    row["aupro"] = _safe_float(pixel_metrics.get("aupro"))
-                    row["pixel_segf1"] = _safe_float(pixel_metrics.get("pixel_segf1"))
+                row["pixel_auroc"] = _resolve_payload_metric(payload, "pixel_auroc")
+                row["pixel_average_precision"] = _resolve_payload_metric(
+                    payload,
+                    "pixel_average_precision",
+                )
+                row["aupro"] = _resolve_payload_metric(payload, "aupro")
+                row["pixel_segf1"] = _resolve_payload_metric(payload, "pixel_segf1")
 
                 if isinstance(payload.get("run_dir"), str):
                     row["run_dir"] = str(payload["run_dir"])
@@ -854,7 +1013,27 @@ def run_baseline_suite(
     if bool(pixel):
         summary["by_pixel_auroc"] = _rank_table(rows, key="pixel_auroc")
         summary["by_aupro"] = _rank_table(rows, key="aupro")
+    matrix_payload = _build_suite_matrix(rows=rows, per_baseline=per_baseline)
 
+    split_fingerprint_payload: dict[str, Any] | None = None
+    if split is not None:
+        split_fingerprint_payload = _build_suite_split_fingerprint(
+            split=split,
+            input_mode=str(input_mode),
+            limit_train=(int(limit_train) if limit_train is not None else None),
+            limit_test=(int(limit_test) if limit_test is not None else None),
+        )
+    else:
+        split_candidates: list[dict[str, Any]] = []
+        for item in per_baseline.values():
+            if not isinstance(item, Mapping):
+                continue
+            fp = item.get("split_fingerprint", None)
+            if isinstance(fp, Mapping) and isinstance(fp.get("sha256"), str):
+                split_candidates.append(dict(fp))
+        unique_sha = {str(item["sha256"]) for item in split_candidates}
+        if len(unique_sha) == 1 and split_candidates:
+            split_fingerprint_payload = split_candidates[0]
     payload: dict[str, Any] = {
         "suite": str(suite_obj.name),
         "suite_description": str(suite_obj.description),
@@ -878,8 +1057,10 @@ def run_baseline_suite(
         "summary": summary,
         "skipped": skipped,
     }
-    if split.split_fingerprint is not None:
-        payload["split_fingerprint"] = dict(split.split_fingerprint)
+    if matrix_payload is not None:
+        payload["matrix"] = matrix_payload
+    if split_fingerprint_payload is not None:
+        payload["split_fingerprint"] = split_fingerprint_payload
     payload = stamp_report_payload(payload)
 
     if suite_dir is not None:

@@ -70,9 +70,7 @@ def test_runs_cli_compare_json_is_informational_without_baseline(tmp_path, capsy
     assert out["summary"]["trust_checked"] is False
 
 
-def test_runs_cli_compare_json_emits_candidate_verdicts_and_blocking_reasons(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_json_emits_candidate_verdicts_and_blocking_reasons(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -292,11 +290,15 @@ def test_runs_cli_latest_json(tmp_path, capsys):
     older.mkdir()
     newer.mkdir()
     (older / "report.json").write_text(
-        json.dumps({"dataset": "mvtec", "model": "old", "timestamp_utc": "2026-03-17T09:00:00+00:00"}),
+        json.dumps(
+            {"dataset": "mvtec", "model": "old", "timestamp_utc": "2026-03-17T09:00:00+00:00"}
+        ),
         encoding="utf-8",
     )
     (newer / "report.json").write_text(
-        json.dumps({"dataset": "mvtec", "model": "new", "timestamp_utc": "2026-03-17T10:00:00+00:00"}),
+        json.dumps(
+            {"dataset": "mvtec", "model": "new", "timestamp_utc": "2026-03-17T10:00:00+00:00"}
+        ),
         encoding="utf-8",
     )
 
@@ -358,9 +360,7 @@ def test_runs_cli_latest_can_filter_by_same_robustness_protocol(tmp_path, capsys
                 "robustness": {
                     "corruption_mode": "full",
                     "clean": {"results": {"auroc": 0.95}},
-                    "corruptions": {
-                        "lighting": {"severity_1": {"results": {"auroc": 0.90}}}
-                    },
+                    "corruptions": {"lighting": {"severity_1": {"results": {"auroc": 0.90}}}},
                 },
             }
         ),
@@ -375,9 +375,7 @@ def test_runs_cli_latest_can_filter_by_same_robustness_protocol(tmp_path, capsys
                 "robustness": {
                     "corruption_mode": "full",
                     "clean": {"results": {"auroc": 0.94}},
-                    "corruptions": {
-                        "lighting": {"severity_1": {"results": {"auroc": 0.89}}}
-                    },
+                    "corruptions": {"lighting": {"severity_1": {"results": {"auroc": 0.89}}}},
                 },
             }
         ),
@@ -500,9 +498,7 @@ def test_runs_cli_list_can_filter_by_same_robustness_protocol(tmp_path, capsys):
                 "robustness": {
                     "corruption_mode": "full",
                     "clean": {"results": {"auroc": 0.95}},
-                    "corruptions": {
-                        "lighting": {"severity_1": {"results": {"auroc": 0.90}}}
-                    },
+                    "corruptions": {"lighting": {"severity_1": {"results": {"auroc": 0.90}}}},
                 },
             }
         ),
@@ -517,9 +513,7 @@ def test_runs_cli_list_can_filter_by_same_robustness_protocol(tmp_path, capsys):
                 "robustness": {
                     "corruption_mode": "full",
                     "clean": {"results": {"auroc": 0.94}},
-                    "corruptions": {
-                        "lighting": {"severity_1": {"results": {"auroc": 0.89}}}
-                    },
+                    "corruptions": {"lighting": {"severity_1": {"results": {"auroc": 0.89}}}},
                 },
             }
         ),
@@ -606,7 +600,9 @@ def test_runs_cli_latest_can_filter_by_min_quality(tmp_path, capsys):
     partial.mkdir()
     reproducible.mkdir()
     (partial / "report.json").write_text(
-        json.dumps({"dataset": "custom", "model": "partial", "timestamp_utc": "2026-03-18T10:20:00+00:00"}),
+        json.dumps(
+            {"dataset": "custom", "model": "partial", "timestamp_utc": "2026-03-18T10:20:00+00:00"}
+        ),
         encoding="utf-8",
     )
     (reproducible / "report.json").write_text(
@@ -729,7 +725,9 @@ def test_runs_cli_quality_fails_when_required_status_not_met(tmp_path, capsys):
     assert out["quality"]["status"] == "reproducible"
 
 
-def test_runs_cli_quality_fails_deployable_gate_when_bundle_weight_audit_is_invalid(tmp_path, capsys):
+def test_runs_cli_quality_fails_deployable_gate_when_bundle_weight_audit_is_invalid(
+    tmp_path, capsys
+):
     from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
     from pyimgano.runs_cli import main
 
@@ -967,6 +965,85 @@ def test_runs_cli_acceptance_json_ready_for_audited_run(tmp_path, capsys):
     assert acceptance["infer_config"]["selected_source"] == "artifacts"
     assert acceptance["bundle_weights"]["applicable"] is False
     assert acceptance["blocking_reasons"] == []
+
+
+def test_runs_cli_acceptance_json_includes_postprocess_contract_trust_signals(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "run_a"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts").mkdir()
+    (run_dir / "artifacts" / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model": {"name": "vision_ecod", "model_kwargs": {}},
+                "postprocess": {
+                    "schema_version": 1,
+                    "threshold_scope": "image",
+                    "image_threshold": {
+                        "threshold": 0.5,
+                        "score_order": "higher_is_more_anomalous",
+                    },
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.75,
+                        "reject_label": -9,
+                    },
+                    "label_encoding": {
+                        "normal": 0,
+                        "anomalous": 1,
+                        "rejected": -9,
+                    },
+                },
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_postprocess_contract": True,
+                    "audit_refs": {"calibration_card": "artifacts/calibration_card.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(run_dir), "--json"])
+    out = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    acceptance = out["acceptance"]
+    trust = acceptance["infer_config"]["trust_summary"]
+    assert acceptance["ready"] is True
+    assert trust["trust_signals"]["has_postprocess_contract"] is True
+    assert trust["trust_signals"]["has_postprocess_threshold"] is True
+    assert trust["trust_signals"]["has_postprocess_review_policy"] is True
+    assert trust["trust_signals"]["has_postprocess_label_encoding"] is True
 
 
 def test_runs_cli_acceptance_uses_deploy_bundle_infer_config_when_present(tmp_path, capsys):
@@ -1212,7 +1289,12 @@ def test_runs_cli_list_supports_robustness_kind(tmp_path, capsys):
     out = json.loads(capsys.readouterr().out)
     assert len(out["runs"]) == 1
     assert out["runs"][0]["kind"] == "robustness"
-    assert out["runs"][0]["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"] is True
+    assert (
+        out["runs"][0]["robustness_protocol"]["comparability_hints"][
+            "requires_same_corruption_protocol"
+        ]
+        is True
+    )
     assert out["runs"][0]["robustness_trust"]["status"] == "partial"
 
 
@@ -1340,7 +1422,10 @@ def test_runs_cli_compare_json_uses_robustness_contract(tmp_path, capsys):
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["evaluation_contract"]["primary_metric"] == "worst_corruption_auroc"
-    assert out["evaluation_contract"]["comparability_hints"]["requires_same_corruption_protocol"] is True
+    assert (
+        out["evaluation_contract"]["comparability_hints"]["requires_same_corruption_protocol"]
+        is True
+    )
     assert out["baseline_run"]["robustness_trust"]["status"] == "trust-signaled"
     assert out["metrics"]["worst_corruption_auroc"]["comparisons"][1]["status"] == "regressed"
 
@@ -1465,10 +1550,7 @@ def test_runs_cli_compare_can_fail_on_robustness_drop_regression(tmp_path, capsy
     assert rc == 1
     assert out["summary"]["total_regressions"] == 1
     assert out["metrics"]["worst_corruption_drop_auroc"]["direction"] == "lower_is_better"
-    assert (
-        out["metrics"]["worst_corruption_drop_auroc"]["comparisons"][1]["status"]
-        == "regressed"
-    )
+    assert out["metrics"]["worst_corruption_drop_auroc"]["comparisons"][1]["status"] == "regressed"
 
 
 def test_runs_cli_compare_json_emits_machine_readable_verdict_summary(tmp_path, capsys):
@@ -1539,9 +1621,7 @@ def test_runs_cli_compare_json_emits_machine_readable_verdict_summary(tmp_path, 
     assert out["summary"]["verdict"] == "blocked"
 
 
-def test_runs_cli_compare_json_emits_machine_readable_metric_and_trust_summary(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_json_emits_machine_readable_metric_and_trust_summary(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -1665,8 +1745,7 @@ def test_runs_cli_compare_can_fail_on_robustness_latency_regression(tmp_path, ca
     assert out["summary"]["total_regressions"] == 1
     assert out["metrics"]["worst_corruption_latency_ratio"]["direction"] == "lower_is_better"
     assert (
-        out["metrics"]["worst_corruption_latency_ratio"]["comparisons"][1]["status"]
-        == "regressed"
+        out["metrics"]["worst_corruption_latency_ratio"]["comparisons"][1]["status"] == "regressed"
     )
 
 
@@ -1967,9 +2046,7 @@ def test_runs_cli_compare_can_fail_on_operator_contract_incompatibility(tmp_path
     assert out["operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
 
 
-def test_runs_cli_compare_can_fail_on_bundle_operator_contract_incompatibility(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_can_fail_on_bundle_operator_contract_incompatibility(tmp_path, capsys):
     from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
     from pyimgano.runs_cli import main
 
@@ -2103,9 +2180,7 @@ def test_runs_cli_compare_can_fail_on_bundle_operator_contract_incompatibility(
     assert out["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
 
 
-def test_runs_cli_compare_plain_output_prints_robustness_protocol_mismatch_fields(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_robustness_protocol_mismatch_fields(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -2246,9 +2321,7 @@ def test_runs_cli_compare_plain_output_prints_robustness_protocol_baseline_summa
     assert "robustness_protocol_baseline.resize=256,256" in out
 
 
-def test_runs_cli_compare_plain_output_prints_split_environment_target_details(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_split_environment_target_details(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -2617,9 +2690,7 @@ def test_runs_cli_compare_plain_output_prints_bundle_operator_contract_incompati
     assert "--require-same-bundle-operator-contract" in out
 
 
-def test_runs_cli_compare_plain_output_prints_structured_run_briefs(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_structured_run_briefs(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -2677,9 +2748,7 @@ def test_runs_cli_compare_plain_output_prints_structured_run_briefs(
     assert out.count("bundle_operator_contract=missing") >= 2
 
 
-def test_runs_cli_compare_plain_output_prints_comparability_gate_summary(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_comparability_gate_summary(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -2737,9 +2806,7 @@ def test_runs_cli_compare_plain_output_prints_comparability_gate_summary(
     ) in out
 
 
-def test_runs_cli_compare_plain_output_prints_blocked_verdict_with_required_flags(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_blocked_verdict_with_required_flags(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -2798,9 +2865,7 @@ def test_runs_cli_compare_plain_output_prints_blocked_verdict_with_required_flag
     ) in out
 
 
-def test_runs_cli_compare_plain_output_prints_pass_verdict_when_all_gates_clear(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_pass_verdict_when_all_gates_clear(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -2842,9 +2907,7 @@ def test_runs_cli_compare_plain_output_prints_pass_verdict_when_all_gates_clear(
     assert "comparison_blocking_flags=none" in out
 
 
-def test_runs_cli_compare_plain_output_prints_candidate_verdicts_and_gates(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_candidate_verdicts_and_gates(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -3173,7 +3236,10 @@ def test_runs_cli_compare_json_blocks_candidate_missing_bundle_operator_contract
         "incompatible_gates": ["bundle_operator_contract:missing"],
         "blocking_reasons": ["operator_contract_bundle:missing"],
     }
-    assert out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "missing"
+    assert (
+        out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"]
+        == "missing"
+    )
 
 
 def test_runs_cli_compare_json_blocks_candidate_bundle_operator_contract_baseline_mismatch(
@@ -3333,7 +3399,9 @@ def test_runs_cli_compare_json_blocks_candidate_bundle_operator_contract_baselin
     assert out["summary"]["candidate_blocking_reasons"]["candidate"] == [
         "operator_contract_bundle:baseline_mismatch"
     ]
-    assert out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "valid"
+    assert (
+        out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "valid"
+    )
 
 
 def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_mismatch(
@@ -3480,16 +3548,21 @@ def test_runs_cli_compare_json_flags_candidate_bundle_operator_contract_digest_m
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["summary"]["candidate_verdicts"]["candidate"] == "blocked"
-    assert "operator_contract_bundle:mismatched" in out["summary"]["candidate_blocking_reasons"][
-        "candidate"
-    ]
-    assert "operator_contract_bundle:digest_mismatch" in out["summary"][
-        "candidate_blocking_reasons"
-    ]["candidate"]
-    assert out["summary"]["candidate_incompatibility_digest"]["candidate"]["incompatible_gates"] == [
-        "bundle_operator_contract:mismatched"
-    ]
-    assert out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "invalid"
+    assert (
+        "operator_contract_bundle:mismatched"
+        in out["summary"]["candidate_blocking_reasons"]["candidate"]
+    )
+    assert (
+        "operator_contract_bundle:digest_mismatch"
+        in out["summary"]["candidate_blocking_reasons"]["candidate"]
+    )
+    assert out["summary"]["candidate_incompatibility_digest"]["candidate"][
+        "incompatible_gates"
+    ] == ["bundle_operator_contract:mismatched"]
+    assert (
+        out["summary"]["candidate_bundle_operator_contract_digest_statuses"]["candidate"]
+        == "invalid"
+    )
 
     rc_plain = main(
         [
@@ -3626,9 +3699,7 @@ def test_runs_cli_compare_plain_output_prints_trusted_trust_gate_for_audited_bas
     assert "comparison_trust_reason=calibration_audit_consistent" in out
 
 
-def test_runs_cli_compare_plain_output_prints_trust_degradations_and_refs(
-    tmp_path, capsys
-):
+def test_runs_cli_compare_plain_output_prints_trust_degradations_and_refs(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     baseline = tmp_path / "baseline"
@@ -3951,7 +4022,10 @@ def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys
     assert "status=ready" in out
     assert "publication_ready=true" in out
     assert "trust_signal.has_benchmark_provenance=true" in out
-    assert "audit_ref.benchmark_config_source=benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json" in out
+    assert (
+        "audit_ref.benchmark_config_source=benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json"
+        in out
+    )
 
 
 def test_runs_cli_publication_returns_nonzero_for_partial_export(tmp_path, capsys):

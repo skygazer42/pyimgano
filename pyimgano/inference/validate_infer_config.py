@@ -127,11 +127,26 @@ def _resolve_infer_artifact_ref_path(
 
     tried = "\n".join(f"- {cand}" for cand in candidates)
     raise FileNotFoundError(
-        f"{field_name} not found.\n"
-        f"{field_name}={text!r}\n"
-        "Tried:\n"
-        f"{tried}"
+        f"{field_name} not found.\n" f"{field_name}={text!r}\n" "Tried:\n" f"{tried}"
     )
+
+
+def _has_mapping_member(payload: Mapping[str, Any] | None, key: str) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    return isinstance(payload.get(key, None), Mapping)
+
+
+def _build_postprocess_contract_signals(payload: Mapping[str, Any]) -> dict[str, bool]:
+    postprocess = payload.get("postprocess", None)
+    postprocess_map = postprocess if isinstance(postprocess, Mapping) else None
+    return {
+        "has_postprocess_contract": postprocess_map is not None,
+        "has_postprocess_threshold": _has_mapping_member(postprocess_map, "image_threshold"),
+        "has_postprocess_review_policy": _has_mapping_member(postprocess_map, "review_policy"),
+        "has_postprocess_label_encoding": _has_mapping_member(postprocess_map, "label_encoding"),
+        "has_postprocess_map_postprocess": _has_mapping_member(postprocess_map, "map_postprocess"),
+    }
 
 
 def _build_infer_config_trust_summary(
@@ -139,12 +154,14 @@ def _build_infer_config_trust_summary(
     *,
     check_files: bool,
 ) -> dict[str, Any]:
+    postprocess_signals = _build_postprocess_contract_signals(payload)
     artifact_quality = payload.get("artifact_quality", None)
     if not isinstance(artifact_quality, Mapping):
         return {
             "status": "partial",
             "trust_signals": {
                 "file_refs_checked": bool(check_files),
+                **postprocess_signals,
             },
             "degraded_by": ["missing_artifact_quality"],
             "audit_refs": {},
@@ -158,6 +175,7 @@ def _build_infer_config_trust_summary(
 
     trust_signals = {
         "file_refs_checked": bool(check_files),
+        **postprocess_signals,
         "has_threshold_provenance": bool(artifact_quality.get("has_threshold_provenance")),
         "has_split_fingerprint": bool(artifact_quality.get("has_split_fingerprint")),
         "has_prediction_policy": bool(artifact_quality.get("has_prediction_policy")),
@@ -185,6 +203,7 @@ def _build_infer_config_trust_summary(
         ),
     }
     degraded_by: list[str] = []
+    declares_postprocess_contract = bool(artifact_quality.get("has_postprocess_contract"))
     if audit_status in {"audited", "deployable"}:
         if not trust_signals["has_threshold_provenance"]:
             degraded_by.append("missing_threshold_provenance")
@@ -197,6 +216,15 @@ def _build_infer_config_trust_summary(
             and not trust_signals["has_operator_contract_ref"]
         ):
             degraded_by.append("missing_operator_contract_ref")
+        if declares_postprocess_contract or trust_signals["has_postprocess_contract"]:
+            if not trust_signals["has_postprocess_contract"]:
+                degraded_by.append("missing_postprocess_contract")
+            if not trust_signals["has_postprocess_threshold"]:
+                degraded_by.append("missing_postprocess_threshold")
+            if not trust_signals["has_postprocess_review_policy"]:
+                degraded_by.append("missing_postprocess_review_policy")
+            if not trust_signals["has_postprocess_label_encoding"]:
+                degraded_by.append("missing_postprocess_label_encoding")
     if audit_status == "deployable":
         if not trust_signals["has_deploy_bundle"]:
             degraded_by.append("missing_deploy_bundle")
@@ -603,7 +631,10 @@ def validate_infer_config_payload(
     if operator_contract_map is not None:
         operator_contract: dict[str, Any] = dict(operator_contract_map)
 
-        if "schema_version" in operator_contract and operator_contract["schema_version"] is not None:
+        if (
+            "schema_version" in operator_contract
+            and operator_contract["schema_version"] is not None
+        ):
             schema_version = _coerce_int(
                 operator_contract["schema_version"],
                 name="operator_contract.schema_version",
@@ -712,7 +743,10 @@ def validate_infer_config_payload(
         )
         if runtime_policy_map is not None:
             runtime_policy: dict[str, Any] = dict(runtime_policy_map)
-            if "defects_enabled" in runtime_policy and runtime_policy["defects_enabled"] is not None:
+            if (
+                "defects_enabled" in runtime_policy
+                and runtime_policy["defects_enabled"] is not None
+            ):
                 runtime_policy["defects_enabled"] = _coerce_bool(
                     runtime_policy["defects_enabled"],
                     name="operator_contract.runtime_policy.defects_enabled",
@@ -767,7 +801,10 @@ def validate_infer_config_payload(
                     )
                 output_contract["confidence_semantics"] = confidence_semantics
 
-            if "confidence_range" in output_contract and output_contract["confidence_range"] is not None:
+            if (
+                "confidence_range" in output_contract
+                and output_contract["confidence_range"] is not None
+            ):
                 confidence_range = output_contract["confidence_range"]
                 if not isinstance(confidence_range, (list, tuple)) or len(confidence_range) != 2:
                     raise ValueError(
@@ -787,7 +824,10 @@ def validate_infer_config_payload(
                     )
                 output_contract["confidence_range"] = [0.0, 1.0]
 
-            if "decision_values" in output_contract and output_contract["decision_values"] is not None:
+            if (
+                "decision_values" in output_contract
+                and output_contract["decision_values"] is not None
+            ):
                 decision_values = output_contract["decision_values"]
                 if not isinstance(decision_values, list):
                     raise ValueError(
@@ -914,6 +954,146 @@ def validate_infer_config_payload(
 
         normalized["operator_contract"] = operator_contract
 
+    postprocess_raw = normalized.get("postprocess", None)
+    postprocess_map = _optional_mapping(postprocess_raw, name="postprocess")
+    if postprocess_map is not None:
+        postprocess: dict[str, Any] = dict(postprocess_map)
+
+        if "schema_version" in postprocess and postprocess["schema_version"] is not None:
+            schema_version = _coerce_int(
+                postprocess["schema_version"], name="postprocess.schema_version"
+            )
+            if int(schema_version) != 1:
+                raise ValueError("infer-config postprocess.schema_version must be 1.")
+            postprocess["schema_version"] = int(schema_version)
+
+        if "threshold_scope" in postprocess and postprocess["threshold_scope"] is not None:
+            threshold_scope = str(postprocess["threshold_scope"]).strip().lower()
+            if threshold_scope not in _ALLOWED_ARTIFACT_QUALITY_SCOPE:
+                raise ValueError(
+                    "infer-config postprocess.threshold_scope must be one of: "
+                    f"{sorted(_ALLOWED_ARTIFACT_QUALITY_SCOPE)}"
+                )
+            postprocess["threshold_scope"] = threshold_scope
+
+        image_threshold_raw = postprocess.get("image_threshold", None)
+        image_threshold_map = _optional_mapping(
+            image_threshold_raw, name="postprocess.image_threshold"
+        )
+        if image_threshold_map is not None:
+            image_threshold: dict[str, Any] = dict(image_threshold_map)
+            if "threshold" in image_threshold and image_threshold["threshold"] is not None:
+                image_threshold["threshold"] = _coerce_float(
+                    image_threshold["threshold"],
+                    name="postprocess.image_threshold.threshold",
+                )
+            if "score_order" in image_threshold and image_threshold["score_order"] is not None:
+                score_order = str(image_threshold["score_order"]).strip().lower()
+                if score_order not in _ALLOWED_OUTPUT_SCORE_ORDER:
+                    raise ValueError(
+                        "infer-config postprocess.image_threshold.score_order must be one of: "
+                        f"{sorted(_ALLOWED_OUTPUT_SCORE_ORDER)}"
+                    )
+                image_threshold["score_order"] = score_order
+            provenance_raw = image_threshold.get("provenance", None)
+            if provenance_raw is not None:
+                _require_mapping(provenance_raw, name="postprocess.image_threshold.provenance")
+            postprocess["image_threshold"] = image_threshold
+
+        pixel_threshold_raw = postprocess.get("pixel_threshold", None)
+        pixel_threshold_map = _optional_mapping(
+            pixel_threshold_raw, name="postprocess.pixel_threshold"
+        )
+        if pixel_threshold_map is not None:
+            pixel_threshold: dict[str, Any] = dict(pixel_threshold_map)
+            if "enabled" in pixel_threshold and pixel_threshold["enabled"] is not None:
+                pixel_threshold["enabled"] = _coerce_bool(
+                    pixel_threshold["enabled"],
+                    name="postprocess.pixel_threshold.enabled",
+                )
+            if "strategy" in pixel_threshold and pixel_threshold["strategy"] is not None:
+                strategy = str(pixel_threshold["strategy"]).strip().lower()
+                if strategy not in _ALLOWED_PIXEL_THRESHOLD_STRATEGIES:
+                    raise ValueError(
+                        "infer-config postprocess.pixel_threshold.strategy must be one of: "
+                        f"{sorted(_ALLOWED_PIXEL_THRESHOLD_STRATEGIES)}"
+                    )
+                pixel_threshold["strategy"] = strategy
+            if "threshold" in pixel_threshold:
+                pixel_threshold["threshold"] = _coerce_optional_float(
+                    pixel_threshold["threshold"],
+                    name="postprocess.pixel_threshold.threshold",
+                )
+            if (
+                "normal_quantile" in pixel_threshold
+                and pixel_threshold["normal_quantile"] is not None
+            ):
+                normal_quantile = _coerce_float(
+                    pixel_threshold["normal_quantile"],
+                    name="postprocess.pixel_threshold.normal_quantile",
+                )
+                if not 0.0 < float(normal_quantile) < 1.0:
+                    raise ValueError(
+                        "infer-config postprocess.pixel_threshold.normal_quantile must be in (0,1)."
+                    )
+                pixel_threshold["normal_quantile"] = float(normal_quantile)
+            postprocess["pixel_threshold"] = pixel_threshold
+
+        map_postprocess_raw = postprocess.get("map_postprocess", None)
+        if map_postprocess_raw is not None:
+            _optional_mapping(map_postprocess_raw, name="postprocess.map_postprocess")
+
+        review_policy_raw = postprocess.get("review_policy", None)
+        if review_policy_raw is not None:
+            review_policy = dict(
+                _require_mapping(review_policy_raw, name="postprocess.review_policy")
+            )
+            if "review_on" in review_policy and review_policy["review_on"] is not None:
+                review_on = review_policy["review_on"]
+                if not isinstance(review_on, list):
+                    raise ValueError(
+                        "infer-config postprocess.review_policy.review_on must be a list of strings."
+                    )
+            if (
+                "confidence_gate_enabled" in review_policy
+                and review_policy["confidence_gate_enabled"] is not None
+            ):
+                review_policy["confidence_gate_enabled"] = _coerce_bool(
+                    review_policy["confidence_gate_enabled"],
+                    name="postprocess.review_policy.confidence_gate_enabled",
+                )
+            if "reject_confidence_below" in review_policy:
+                review_policy["reject_confidence_below"] = _coerce_optional_float(
+                    review_policy["reject_confidence_below"],
+                    name="postprocess.review_policy.reject_confidence_below",
+                )
+            if "reject_label" in review_policy:
+                review_policy["reject_label"] = _coerce_optional_int(
+                    review_policy["reject_label"],
+                    name="postprocess.review_policy.reject_label",
+                )
+            postprocess["review_policy"] = review_policy
+
+        label_encoding_raw = postprocess.get("label_encoding", None)
+        if label_encoding_raw is not None:
+            label_encoding = dict(
+                _require_mapping(label_encoding_raw, name="postprocess.label_encoding")
+            )
+            normalized_label_encoding: dict[str, int] = {}
+            for label_name, label_value in label_encoding.items():
+                key = str(label_name).strip()
+                if not key:
+                    raise ValueError(
+                        "infer-config postprocess.label_encoding keys must be non-empty."
+                    )
+                normalized_label_encoding[key] = _coerce_int(
+                    label_value,
+                    name=f"postprocess.label_encoding.{key}",
+                )
+            postprocess["label_encoding"] = normalized_label_encoding
+
+        normalized["postprocess"] = postprocess
+
     # Optional thresholds/checkpoint metadata. Validate types when present.
     if "threshold" in normalized and normalized["threshold"] is not None:
         normalized["threshold"] = _coerce_float(normalized["threshold"], name="threshold")
@@ -937,7 +1117,10 @@ def validate_infer_config_payload(
                 )
             artifact_quality["status"] = status
 
-        if "threshold_scope" in artifact_quality and artifact_quality["threshold_scope"] is not None:
+        if (
+            "threshold_scope" in artifact_quality
+            and artifact_quality["threshold_scope"] is not None
+        ):
             threshold_scope = str(artifact_quality["threshold_scope"]).strip().lower()
             if threshold_scope not in _ALLOWED_ARTIFACT_QUALITY_SCOPE:
                 raise ValueError(
@@ -951,6 +1134,7 @@ def validate_infer_config_payload(
             "has_split_fingerprint",
             "has_prediction_policy",
             "has_operator_contract",
+            "has_postprocess_contract",
             "has_deploy_bundle",
             "has_bundle_manifest",
             "required_bundle_artifacts_present",
@@ -978,10 +1162,7 @@ def validate_infer_config_payload(
                 for index, role_path in enumerate(role_paths):
                     text = _coerce_str(
                         role_path,
-                        name=(
-                            "artifact_quality.bundle_artifact_roles."
-                            f"{role_name}[{index}]"
-                        ),
+                        name=("artifact_quality.bundle_artifact_roles." f"{role_name}[{index}]"),
                     ).strip()
                     if not text:
                         raise ValueError(
@@ -1026,9 +1207,10 @@ def validate_infer_config_payload(
 
         if bool(artifact_quality.get("has_bundle_manifest", False)):
             deploy_refs = artifact_quality.get("deploy_refs", None)
-            if not isinstance(deploy_refs, Mapping) or not str(
-                deploy_refs.get("bundle_manifest", "")
-            ).strip():
+            if (
+                not isinstance(deploy_refs, Mapping)
+                or not str(deploy_refs.get("bundle_manifest", "")).strip()
+            ):
                 raise ValueError(
                     "infer-config artifact_quality.has_bundle_manifest=true requires "
                     "artifact_quality.deploy_refs.bundle_manifest."
@@ -1036,9 +1218,10 @@ def validate_infer_config_payload(
 
         if bool(artifact_quality.get("has_operator_contract", False)):
             audit_refs = artifact_quality.get("audit_refs", None)
-            if not isinstance(audit_refs, Mapping) or not str(
-                audit_refs.get("operator_contract", "")
-            ).strip():
+            if (
+                not isinstance(audit_refs, Mapping)
+                or not str(audit_refs.get("operator_contract", "")).strip()
+            ):
                 raise ValueError(
                     "infer-config artifact_quality.has_operator_contract=true requires "
                     "artifact_quality.audit_refs.operator_contract."

@@ -233,7 +233,9 @@ def _build_publication_artifact_quality(
     missing_required: list[str] = []
     if "leaderboard_metadata_json" not in written:
         _append_missing_required(missing_required, "leaderboard_metadata_json")
-    if not any(key.startswith("leaderboard_") and key != "leaderboard_metadata_json" for key in written):
+    if not any(
+        key.startswith("leaderboard_") and key != "leaderboard_metadata_json" for key in written
+    ):
         _append_missing_required(missing_required, "leaderboard_table")
     required_exported_digest_keys = [
         str(key) for key in written if str(key) != "leaderboard_metadata_json"
@@ -365,6 +367,80 @@ def _write_markdown_table(
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _sanitize_export_component(text: Any) -> str:
+    raw = str(text).strip().lower()
+    safe = "".join(ch if ch.isalnum() or ch in ("_", "-") else "_" for ch in raw)
+    safe = safe.strip("_")
+    return safe or "metric"
+
+
+def _export_category_matrix_tables(
+    payload: Mapping[str, Any],
+    out_dir: Path,
+    *,
+    formats: Sequence[str],
+) -> dict[str, str]:
+    matrix = payload.get("matrix")
+    if not isinstance(matrix, Mapping):
+        return {}
+    if str(matrix.get("scope", "")).strip().lower() != "per_category":
+        return {}
+
+    raw_categories = matrix.get("categories", [])
+    if not isinstance(raw_categories, list):
+        return {}
+    categories = [str(category) for category in raw_categories if str(category).strip()]
+    if not categories:
+        return {}
+
+    by_metric = matrix.get("by_metric", {})
+    if not isinstance(by_metric, Mapping):
+        return {}
+
+    written: dict[str, str] = {}
+    fmts = {str(f).strip().lower() for f in formats if str(f).strip()}
+
+    for metric_name, raw_rows in by_metric.items():
+        if not isinstance(raw_rows, list):
+            continue
+
+        metric_rows: list[dict[str, Any]] = []
+        for item in raw_rows:
+            if not isinstance(item, Mapping):
+                continue
+
+            values = item.get("values", {})
+            value_map = values if isinstance(values, Mapping) else {}
+            row: dict[str, Any] = {
+                "name": item.get("name"),
+                "base_name": item.get("base_name"),
+                "variant": item.get("variant"),
+                "mean": item.get("mean"),
+                "std": item.get("std"),
+            }
+            for category_name in categories:
+                row[category_name] = value_map.get(category_name)
+            metric_rows.append(row)
+
+        if not metric_rows:
+            continue
+
+        metric_slug = _sanitize_export_component(metric_name)
+        columns = ["name", "base_name", "variant", "mean", "std", *categories]
+
+        if "csv" in fmts:
+            csv_path = out_dir / f"category_matrix_{metric_slug}.csv"
+            _write_csv(csv_path, rows=metric_rows, columns=columns)
+            written[f"category_matrix_{metric_slug}_csv"] = str(csv_path)
+
+        if "md" in fmts or "markdown" in fmts:
+            md_path = out_dir / f"category_matrix_{metric_slug}.md"
+            _write_markdown_table(md_path, rows=metric_rows, columns=columns)
+            written[f"category_matrix_{metric_slug}_md"] = str(md_path)
+
+    return written
+
+
 def export_suite_tables(
     payload: Mapping[str, Any],
     output_dir: str | Path,
@@ -425,6 +501,8 @@ def export_suite_tables(
         written["best_by_baseline_md"] = str(best_md)
         written["skipped_md"] = str(skipped_md)
 
+    written.update(_export_category_matrix_tables(payload, out_dir, formats=formats))
+
     benchmark_config = payload.get("benchmark_config")
     split_fingerprint = _resolve_split_fingerprint(payload=payload, rows=rows_norm)
     citation = None
@@ -454,7 +532,9 @@ def export_suite_tables(
         comparability_hints=(
             dict(payload.get("evaluation_contract", {}).get("comparability_hints", {}))
             if isinstance(payload.get("evaluation_contract"), Mapping)
-            and isinstance(payload.get("evaluation_contract", {}).get("comparability_hints"), Mapping)
+            and isinstance(
+                payload.get("evaluation_contract", {}).get("comparability_hints"), Mapping
+            )
             else None
         ),
     )

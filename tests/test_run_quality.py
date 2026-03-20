@@ -102,7 +102,9 @@ def test_evaluate_run_quality_downgrades_invalid_calibration_card(tmp_path: Path
     assert quality["audited_complete"] is False
     assert quality["artifacts"]["calibration_card"]["present"] is True
     assert quality["artifacts"]["calibration_card"]["valid"] is False
-    assert any("image_threshold" in item for item in quality["artifacts"]["calibration_card"]["errors"])
+    assert any(
+        "image_threshold" in item for item in quality["artifacts"]["calibration_card"]["errors"]
+    )
 
 
 def test_evaluate_run_quality_reports_calibration_audit_warnings(tmp_path: Path) -> None:
@@ -161,6 +163,112 @@ def test_evaluate_run_quality_reports_calibration_audit_warnings(tmp_path: Path)
         "infer_config_json": "artifacts/infer_config.json",
         "calibration_card_json": "artifacts/calibration_card.json",
     }
+
+
+def test_evaluate_run_quality_reads_top_level_postprocess_threshold_contract(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "split_fingerprint": {"sha256": "f" * 64},
+            "postprocess": {
+                "schema_version": 1,
+                "threshold_scope": "image",
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "score_order": "higher_is_more_anomalous",
+                },
+                "review_policy": {
+                    "review_on": ["anomalous", "rejected_low_confidence"],
+                    "confidence_gate_enabled": True,
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+            },
+        },
+    )
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "prediction_policy": {
+                "reject_confidence_below": 0.75,
+                "reject_label": -9,
+            },
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    quality = evaluate_run_quality(run_dir)
+
+    assert quality["status"] == "audited"
+    audit = quality["calibration_audit"]
+    assert audit["matching_threshold"] is True
+    assert audit["matching_split_fingerprint"] is True
+    assert audit["has_threshold_context"] is True
+    assert audit["has_prediction_policy"] is True
+    assert audit["warnings"] == []
+
+
+def test_evaluate_run_quality_uses_top_level_review_policy_for_prediction_policy_warning(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.reporting.run_quality import evaluate_run_quality
+
+    run_dir = tmp_path / "run"
+    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(
+        run_dir / "artifacts" / "infer_config.json",
+        {
+            "split_fingerprint": {"sha256": "f" * 64},
+            "postprocess": {
+                "schema_version": 1,
+                "threshold_scope": "image",
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "score_order": "higher_is_more_anomalous",
+                },
+                "review_policy": {
+                    "review_on": ["anomalous", "rejected_low_confidence"],
+                    "confidence_gate_enabled": True,
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+            },
+        },
+    )
+    _write_json(
+        run_dir / "artifacts" / "calibration_card.json",
+        {
+            "schema_version": 1,
+            "split_fingerprint": {"sha256": "f" * 64},
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.5,
+                "provenance": {"method": "fixed", "source": "test"},
+            },
+        },
+    )
+
+    quality = evaluate_run_quality(run_dir)
+
+    audit = quality["calibration_audit"]
+    assert any("prediction_policy" in item for item in audit["warnings"])
+    assert "missing_prediction_policy" in quality["trust_summary"]["degraded_by"]
 
 
 def test_evaluate_run_quality_emits_trust_signals(tmp_path: Path) -> None:
@@ -470,7 +578,9 @@ def test_evaluate_run_quality_downgrades_invalid_bundle_model_card(tmp_path: Pat
     trust = quality["trust_summary"]
     assert "deploy_bundle_incomplete" in trust["status_reasons"]
     assert "invalid_bundle_weights_audit" in trust["degraded_by"]
-    assert trust["audit_refs"]["deploy_bundle_manifest_json"] == "deploy_bundle/bundle_manifest.json"
+    assert (
+        trust["audit_refs"]["deploy_bundle_manifest_json"] == "deploy_bundle/bundle_manifest.json"
+    )
 
 
 def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: Path) -> None:
@@ -617,7 +727,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: 
     assert "operator_contract_bundle_mismatch" in trust["degraded_by"]
 
 
-def test_evaluate_run_quality_flags_bundle_operator_contract_digest_mismatch(tmp_path: Path) -> None:
+def test_evaluate_run_quality_flags_bundle_operator_contract_digest_mismatch(
+    tmp_path: Path,
+) -> None:
     from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
     from pyimgano.reporting.run_quality import evaluate_run_quality
 

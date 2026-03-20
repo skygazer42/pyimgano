@@ -188,7 +188,9 @@ def test_prepare_from_run_context_applies_request_overrides_and_optional_payload
     assert context.warnings == ()
 
 
-def test_prepare_from_run_context_prefers_explicit_request_checkpoint_path(tmp_path, monkeypatch) -> None:
+def test_prepare_from_run_context_prefers_explicit_request_checkpoint_path(
+    tmp_path, monkeypatch
+) -> None:
     import pyimgano.services.infer_context_service as infer_context_service
 
     @dataclass(frozen=True)
@@ -420,6 +422,130 @@ def test_prepare_infer_config_context_builds_postprocess_summary(tmp_path) -> No
             "normalize_method": None,
             "percentile_range": None,
             "gaussian_sigma": 1.5,
+            "morph_open_ksize": None,
+            "morph_close_ksize": None,
+            "component_threshold": None,
+            "min_component_area": None,
+        },
+        "maps_enabled_by_default": True,
+    }
+
+
+def test_prepare_infer_config_context_prefers_top_level_postprocess_contract(tmp_path) -> None:
+    run_dir = tmp_path / "run"
+    artifacts = run_dir / "artifacts"
+    ckpt_dir = run_dir / "checkpoints" / "custom"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    (ckpt_dir / "model.pt").write_text("ckpt", encoding="utf-8")
+
+    infer_cfg_path = artifacts / "infer_config.json"
+    infer_cfg_path.write_text(
+        json.dumps(
+            {
+                "from_run": str(run_dir),
+                "category": "custom",
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                    "preset": None,
+                    "model_kwargs": {},
+                    "checkpoint_path": None,
+                },
+                "adaptation": {
+                    "tiling": {"tile_size": 32, "stride": 16},
+                    "postprocess": {"normalize": True, "gaussian_sigma": 1.5},
+                    "save_maps": False,
+                },
+                "defects": {
+                    "enabled": False,
+                    "pixel_threshold": 0.5,
+                    "pixel_threshold_strategy": "infer_config",
+                    "pixel_normal_quantile": 0.999,
+                },
+                "prediction": {
+                    "reject_confidence_below": 0.75,
+                    "reject_label": -9,
+                },
+                "postprocess": {
+                    "schema_version": 1,
+                    "threshold_scope": "image",
+                    "image_threshold": {
+                        "threshold": 0.42,
+                        "score_order": "higher_is_more_anomalous",
+                    },
+                    "pixel_threshold": {
+                        "enabled": True,
+                        "strategy": "fixed",
+                        "threshold": 0.33,
+                        "normal_quantile": 0.95,
+                    },
+                    "map_postprocess": {
+                        "normalize": False,
+                        "normalize_method": "minmax",
+                        "gaussian_sigma": 2.0,
+                    },
+                    "review_policy": {
+                        "review_on": ["anomalous", "rejected_low_confidence"],
+                        "confidence_gate_enabled": True,
+                        "reject_confidence_below": 0.8,
+                        "reject_label": -5,
+                    },
+                },
+                "threshold": 0.7,
+                "checkpoint": {"path": "checkpoints/custom/model.pt"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    context = prepare_infer_config_context(
+        InferConfigContextRequest(config_path=str(infer_cfg_path))
+    )
+
+    assert context.threshold == pytest.approx(0.42)
+    assert context.defects_payload == {
+        "enabled": True,
+        "pixel_threshold": 0.33,
+        "pixel_threshold_strategy": "fixed",
+        "pixel_normal_quantile": 0.95,
+    }
+    assert context.prediction_payload == {
+        "reject_confidence_below": 0.8,
+        "reject_label": -5,
+    }
+    assert context.infer_config_postprocess == {
+        "normalize": False,
+        "normalize_method": "minmax",
+        "gaussian_sigma": 2.0,
+    }
+    assert context.enable_maps_by_default is True
+    assert context.postprocess_summary == {
+        "has_defects_payload": True,
+        "defects_payload_source": "infer_config",
+        "pixel_threshold_in_payload": True,
+        "pixel_threshold_strategy": "fixed",
+        "has_prediction_policy": True,
+        "prediction_policy": {
+            "reject_confidence_below": 0.8,
+            "reject_label": -5,
+        },
+        "has_tiling": True,
+        "tiling_summary": {
+            "tile_size": 32,
+            "stride": 16,
+            "score_reduce": None,
+            "score_topk": None,
+            "map_reduce": None,
+        },
+        "has_map_postprocess": True,
+        "map_postprocess_summary": {
+            "normalize": False,
+            "normalize_method": "minmax",
+            "percentile_range": None,
+            "gaussian_sigma": 2.0,
             "morph_open_ksize": None,
             "morph_close_ksize": None,
             "component_threshold": None,

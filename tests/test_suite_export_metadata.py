@@ -1,5 +1,5 @@
-import json
 import hashlib
+import json
 
 
 def _write_run_artifacts(root):
@@ -61,7 +61,10 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
     assert metadata["publication_ready"] is True
     assert metadata["evaluation_contract"]["ranking_metric"] == "auroc"
     assert metadata["evaluation_contract"]["metric_directions"]["auroc"] == "higher_is_better"
-    assert metadata["evaluation_contract"]["comparability_hints"]["recommends_same_environment"] is True
+    assert (
+        metadata["evaluation_contract"]["comparability_hints"]["recommends_same_environment"]
+        is True
+    )
     assert metadata["exported_files"]["leaderboard_csv"].endswith("leaderboard.csv")
     assert metadata["exported_files"]["best_by_baseline_csv"].endswith("best_by_baseline.csv")
     assert metadata["exported_files"]["skipped_csv"].endswith("skipped.csv")
@@ -150,3 +153,87 @@ def test_export_suite_tables_requires_run_artifact_refs_for_publication_ready(tm
     assert "audit_digests.environment_json" in metadata["artifact_quality"]["missing_required"]
     assert metadata["artifact_quality"]["has_exported_file_digests"] is True
     assert metadata["publication_ready"] is False
+
+
+def test_export_suite_tables_writes_category_matrix_files(tmp_path):
+    from pyimgano.reporting.suite_export import export_suite_tables
+
+    _write_run_artifacts(tmp_path)
+    payload = {
+        "suite": "industrial-v4",
+        "dataset": "mvtec",
+        "category": "all",
+        "rows": [
+            {
+                "name": "baseline_a",
+                "base_name": "baseline_a",
+                "variant": "base",
+                "auroc": 0.8,
+                "average_precision": 0.7,
+                "run_dir": "runs/a",
+            }
+        ],
+        "matrix": {
+            "scope": "per_category",
+            "categories": ["bottle", "capsule"],
+            "metrics": ["auroc", "average_precision"],
+            "by_metric": {
+                "auroc": [
+                    {
+                        "name": "baseline_a",
+                        "base_name": "baseline_a",
+                        "variant": "base",
+                        "mean": 0.8,
+                        "std": 0.1,
+                        "values": {"bottle": 0.9, "capsule": 0.7},
+                    }
+                ],
+                "average_precision": [
+                    {
+                        "name": "baseline_a",
+                        "base_name": "baseline_a",
+                        "variant": "base",
+                        "mean": 0.7,
+                        "std": 0.05,
+                        "values": {"bottle": 0.75, "capsule": 0.65},
+                    }
+                ],
+            },
+        },
+        "split_fingerprint": {
+            "schema_version": 1,
+            "sha256": "b" * 64,
+            "train_count": 10,
+            "calibration_count": 0,
+            "test_count": 5,
+        },
+        "benchmark_config": {
+            "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+            "official": True,
+            "sha256": "a" * 64,
+        },
+        "environment_fingerprint_sha256": "f" * 64,
+    }
+
+    written = export_suite_tables(payload, tmp_path, formats=["csv"])
+    metadata = json.loads((tmp_path / "leaderboard_metadata.json").read_text(encoding="utf-8"))
+
+    assert written["category_matrix_auroc_csv"].endswith("category_matrix_auroc.csv")
+    assert written["category_matrix_average_precision_csv"].endswith(
+        "category_matrix_average_precision.csv"
+    )
+    assert (tmp_path / "category_matrix_auroc.csv").exists()
+    assert (tmp_path / "category_matrix_average_precision.csv").exists()
+    matrix_csv = (tmp_path / "category_matrix_auroc.csv").read_text(encoding="utf-8")
+    assert "bottle" in matrix_csv
+    assert "capsule" in matrix_csv
+    assert "baseline_a" in matrix_csv
+    assert metadata["exported_files"]["category_matrix_auroc_csv"].endswith(
+        "category_matrix_auroc.csv"
+    )
+    assert metadata["exported_files"]["category_matrix_average_precision_csv"].endswith(
+        "category_matrix_average_precision.csv"
+    )
+    assert metadata["exported_file_digests"]["category_matrix_auroc_csv"] == _sha256(
+        tmp_path / "category_matrix_auroc.csv"
+    )
