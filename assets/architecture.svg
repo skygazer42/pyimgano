@@ -50,25 +50,25 @@
     <!-- Input boxes -->
     <g transform="translate(16, 28)">
       <rect width="110" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
-      <text x="55" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">=Á Image Paths</text>
+      <text x="55" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">Image Paths</text>
     </g>
     <g transform="translate(140, 28)">
       <rect width="130" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
-      <text x="65" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">=" NumPy Arrays</text>
+      <text x="65" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">NumPy Arrays</text>
     </g>
     <g transform="translate(284, 28)">
       <rect width="130" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
-      <text x="65" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">=Ë JSONL Manifest</text>
+      <text x="65" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">JSONL Manifest</text>
     </g>
     <g transform="translate(428, 28)">
       <rect width="120" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
-      <text x="60" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1"><¥ Video Frames</text>
+      <text x="60" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#cbd5e1">Video Frames</text>
     </g>
 
     <!-- ImageFormat label -->
     <g transform="translate(600, 28)">
       <rect width="180" height="24" rx="12" fill="#38bdf820" stroke="#38bdf8" stroke-width="0.8"/>
-      <text x="90" y="16" text-anchor="middle" font-family="monospace" font-size="10" fill="#38bdf8">ImageFormat (RGB/BGR/&)</text>
+      <text x="90" y="16" text-anchor="middle" font-family="monospace" font-size="10" fill="#38bdf8">ImageFormat: RGB/BGR / HWC</text>
     </g>
   </g>
 
@@ -128,41 +128,41 @@
   <!-- ====== Row 3: Model Zoo ====== -->
   <g transform="translate(40, 225)">
     <rect width="800" height="85" rx="8" fill="#0f172a" stroke="#f472b6" stroke-width="0.8"/>
-    <text x="16" y="18" font-family="monospace" font-size="10" fill="#f472b6" font-weight="600">MODEL ZOO  120+ Detectors</text>
+    <text x="16" y="18" font-family="monospace" font-size="10" fill="#f472b6" font-weight="600">MODEL ZOO | 120+ Detectors</text>
 
     <!-- Classical -->
     <g transform="translate(16, 30)">
       <rect width="150" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
       <text x="75" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Classical</text>
-      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">ECOD · KNN · IF · PCA · LOF</text>
+      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">ECOD / KNN / IF / PCA / LOF</text>
     </g>
 
     <!-- Memory Bank -->
     <g transform="translate(180, 30)">
       <rect width="150" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
       <text x="75" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Memory Bank</text>
-      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">PatchCore · SPADE · PaDiM</text>
+      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">PatchCore / SPADE / PaDiM</text>
     </g>
 
     <!-- Student-Teacher -->
     <g transform="translate(344, 30)">
       <rect width="150" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
       <text x="75" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Student-Teacher</text>
-      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">STFPM · RD · EfficientAD</text>
+      <text x="75" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">STFPM / RD / EfficientAD</text>
     </g>
 
     <!-- Flow / Reconstruction -->
     <g transform="translate(508, 30)">
       <rect width="138" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
       <text x="69" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">Flow-based</text>
-      <text x="69" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">FastFlow · CFlow · CS</text>
+      <text x="69" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">FastFlow / CFlow / CS</text>
     </g>
 
     <!-- VLM / Other -->
     <g transform="translate(660, 30)">
       <rect width="126" height="44" rx="6" fill="#f472b610" stroke="#f472b640" stroke-width="0.5"/>
       <text x="63" y="16" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#f9a8d4" font-weight="600">VLM / Other</text>
-      <text x="63" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">WinCLIP · DINO</text>
+      <text x="63" y="34" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">WinCLIP / DINO</text>
     </g>
   </g>
 
@@ -176,31 +176,31 @@
 
     <g transform="translate(16, 30)">
       <rect width="120" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
-      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7"><¯ Anomaly Score</text>
+      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">Anomaly Score</text>
     </g>
     <g transform="translate(148, 30)">
       <rect width="120" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
-      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=ú Pixel Map</text>
+      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">Pixel Map</text>
     </g>
     <g transform="translate(280, 30)">
       <rect width="120" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
-      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=2 Defect Regions</text>
+      <text x="60" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">Defect Regions</text>
     </g>
     <g transform="translate(412, 30)">
       <rect width="100" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
-      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=Ä JSONL</text>
+      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">JSONL</text>
     </g>
     <g transform="translate(524, 30)">
       <rect width="100" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
-      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">=æ ONNX</text>
+      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">ONNX</text>
     </g>
     <g transform="translate(636, 30)">
       <rect width="100" height="26" rx="5" fill="#34d39915" stroke="#34d39940" stroke-width="0.5"/>
-      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">¡ OpenVINO</text>
+      <text x="50" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#6ee7b7">OpenVINO</text>
     </g>
     <g transform="translate(748, 30)">
       <rect width="80" height="26" rx="5" fill="#fb923c15" stroke="#fb923c40" stroke-width="0.5"/>
-      <text x="40" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#fdba74">=Ê Report</text>
+      <text x="40" y="17" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9" fill="#fdba74">Report</text>
     </g>
   </g>
 </svg>

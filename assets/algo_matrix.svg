@@ -29,100 +29,100 @@
     <rect x="4" y="40" width="4" height="32" rx="2" fill="#38bdf8"/>
     <text x="100" y="56" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">Statistical</text>
     <text x="100" y="68" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">24 models</text>
-    <text x="250" y="60" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">ECOD · COPOD · KDE · GMM · MCD</text>
-    <text x="420" y="60" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="60" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="600" y="60" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="670" y="60" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="750" y="60" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="820" y="60" text-anchor="middle" font-size="14" fill="#34d399"></text>
+    <text x="250" y="60" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">ECOD / COPOD / KDE / GMM / MCD</text>
+    <text x="420" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="600" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="670" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="750" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="820" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
 
     <!-- Row 2: Proximity -->
     <rect x="0" y="82" width="840" height="40" rx="4" fill="#1e293b20" stroke="#1e293b" stroke-width="0.5"/>
     <rect x="4" y="86" width="4" height="32" rx="2" fill="#818cf8"/>
     <text x="100" y="102" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">Proximity</text>
     <text x="100" y="114" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">18 models</text>
-    <text x="250" y="106" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">KNN · LOF · COF · ODIN · INNE</text>
-    <text x="420" y="106" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="106" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="600" y="106" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="670" y="106" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="750" y="106" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="820" y="106" text-anchor="middle" font-size="14" fill="#34d399"></text>
+    <text x="250" y="106" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">KNN / LOF / COF / ODIN / INNE</text>
+    <text x="420" y="106" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="106" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="600" y="106" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="670" y="106" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="750" y="106" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="820" y="106" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
 
     <!-- Row 3: Memory Bank -->
     <rect x="0" y="128" width="840" height="40" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="0.5"/>
     <rect x="4" y="132" width="4" height="32" rx="2" fill="#f472b6"/>
     <text x="100" y="148" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">Memory Bank</text>
     <text x="100" y="160" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">12 models</text>
-    <text x="250" y="152" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">PatchCore · PaDiM · SPADE · SoftPatch</text>
-    <text x="420" y="152" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="152" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="600" y="152" text-anchor="middle" font-size="14" fill="#fbbf24">³</text>
-    <text x="670" y="152" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="750" y="152" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="820" y="152" text-anchor="middle" font-size="14" fill="#34d399"></text>
+    <text x="250" y="152" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">PatchCore / PaDiM / SPADE / SoftPatch</text>
+    <text x="420" y="152" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="152" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="600" y="152" text-anchor="middle" font-family="monospace" font-size="14" fill="#fbbf24">~</text>
+    <text x="670" y="152" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="750" y="152" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="820" y="152" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
 
     <!-- Row 4: Student-Teacher -->
     <rect x="0" y="174" width="840" height="40" rx="4" fill="#1e293b20" stroke="#1e293b" stroke-width="0.5"/>
     <rect x="4" y="178" width="4" height="32" rx="2" fill="#fb923c"/>
     <text x="100" y="194" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">Student-Teacher</text>
     <text x="100" y="206" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">8 models</text>
-    <text x="250" y="198" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">STFPM · RD · EfficientAD · AST</text>
-    <text x="420" y="198" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="198" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="600" y="198" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="670" y="198" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="750" y="198" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="820" y="198" text-anchor="middle" font-size="14" fill="#34d399"></text>
+    <text x="250" y="198" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">STFPM / RD / EfficientAD / AST</text>
+    <text x="420" y="198" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="198" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="600" y="198" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="670" y="198" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="750" y="198" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="820" y="198" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
 
     <!-- Row 5: Flow-based -->
     <rect x="0" y="220" width="840" height="40" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="0.5"/>
     <rect x="4" y="224" width="4" height="32" rx="2" fill="#34d399"/>
     <text x="100" y="240" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">Flow-based</text>
     <text x="100" y="252" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">6 models</text>
-    <text x="250" y="244" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">FastFlow · CFlow · CS-Flow</text>
-    <text x="420" y="244" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="244" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="600" y="244" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="670" y="244" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="750" y="244" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="820" y="244" text-anchor="middle" font-size="14" fill="#34d399"></text>
+    <text x="250" y="244" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">FastFlow / CFlow / CS-Flow</text>
+    <text x="420" y="244" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="244" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="600" y="244" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="670" y="244" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="750" y="244" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="820" y="244" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
 
     <!-- Row 6: Reconstruction -->
     <rect x="0" y="266" width="840" height="40" rx="4" fill="#1e293b20" stroke="#1e293b" stroke-width="0.5"/>
     <rect x="4" y="270" width="4" height="32" rx="2" fill="#a78bfa"/>
     <text x="100" y="286" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">Reconstruction</text>
     <text x="100" y="298" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">10 models</text>
-    <text x="250" y="290" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">AE · VAE · DRAEM · MemSeg</text>
-    <text x="420" y="290" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="290" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="600" y="290" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="670" y="290" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="750" y="290" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="820" y="290" text-anchor="middle" font-size="14" fill="#fbbf24">³</text>
+    <text x="250" y="290" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">AE / VAE / DRAEM / MemSeg</text>
+    <text x="420" y="290" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="290" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="600" y="290" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="670" y="290" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="750" y="290" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="820" y="290" text-anchor="middle" font-family="monospace" font-size="14" fill="#fbbf24">~</text>
 
     <!-- Row 7: VLM -->
     <rect x="0" y="312" width="840" height="40" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="0.5"/>
     <rect x="4" y="316" width="4" height="32" rx="2" fill="#fbbf24"/>
     <text x="100" y="332" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#e2e8f0" font-weight="600">VLM / Zero-shot</text>
     <text x="100" y="344" text-anchor="middle" font-family="monospace" font-size="8" fill="#64748b">6 models</text>
-    <text x="250" y="336" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">WinCLIP · AnomalyDINO · PromptAD</text>
-    <text x="420" y="336" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="510" y="336" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="600" y="336" text-anchor="middle" font-size="14" fill="#475569"></text>
-    <text x="670" y="336" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="750" y="336" text-anchor="middle" font-size="14" fill="#34d399"></text>
-    <text x="820" y="336" text-anchor="middle" font-size="14" fill="#fbbf24">³</text>
+    <text x="250" y="336" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">WinCLIP / AnomalyDINO / PromptAD</text>
+    <text x="420" y="336" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="510" y="336" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="600" y="336" text-anchor="middle" font-family="monospace" font-size="14" fill="#475569">-</text>
+    <text x="670" y="336" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="750" y="336" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399">Y</text>
+    <text x="820" y="336" text-anchor="middle" font-family="monospace" font-size="14" fill="#fbbf24">~</text>
   </g>
 
   <!-- Legend -->
   <g transform="translate(20, 360)">
-    <text x="10" y="12" font-size="12" fill="#34d399"></text>
+    <text x="10" y="12" font-family="monospace" font-size="12" fill="#34d399">Y</text>
     <text x="26" y="12" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Full support</text>
-    <text x="110" y="12" font-size="12" fill="#fbbf24">³</text>
+    <text x="110" y="12" font-family="monospace" font-size="12" fill="#fbbf24">~</text>
     <text x="126" y="12" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Partial / model-dependent</text>
-    <text x="300" y="12" font-size="12" fill="#475569"></text>
+    <text x="300" y="12" font-family="monospace" font-size="12" fill="#475569">-</text>
     <text x="316" y="12" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Not applicable</text>
   </g>
 </svg>

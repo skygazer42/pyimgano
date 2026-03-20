@@ -13,44 +13,44 @@
   <g transform="translate(30, 20)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#38bdf830" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#38bdf815"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20">>à</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="18" fill="#38bdf8" font-weight="700">M</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="24" fill="#38bdf8" font-weight="800">120+</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Registered Models</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Classical · Deep · VLM</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Memory bank · Flow · Recon</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Classical / Deep / VLM</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Memory bank / Flow / Recon</text>
   </g>
 
   <!-- Card 2: Pixel -->
   <g transform="translate(240, 20)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#818cf830" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#818cf815"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20">=</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="15" fill="#818cf8" font-weight="700">PX</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#818cf8" font-weight="800">Pixel-level</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Anomaly Maps</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Defect masks · BBox regions</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Connected components · ROI</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Defect masks / BBox regions</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Connected components / ROI</text>
   </g>
 
   <!-- Card 3: CLI -->
   <g transform="translate(450, 20)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#34d39930" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#34d39915"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20">¡</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="14" fill="#34d399" font-weight="700">&gt;_</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#34d399" font-weight="800">Full CLI</text>
-    <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Train · Infer · Bench</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Reproducible runs · Reports</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">JSONL output · Comparison</text>
+    <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Train / Infer / Bench</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Reproducible runs / Reports</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">JSONL output / Comparison</text>
   </g>
 
   <!-- Card 4: Deploy -->
   <g transform="translate(660, 20)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#f472b630" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#f472b615"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20">=€</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="18" fill="#f472b6" font-weight="700">D</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#f472b6" font-weight="800">Deploy</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Production-ready</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">ONNX · OpenVINO · TorchScript</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Deploy bundles · Audit trail</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">ONNX / OpenVINO / TorchScript</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Deploy bundles / Audit trail</text>
   </g>
 
   <!-- Feature Cards - Row 2 -->
@@ -58,43 +58,43 @@
   <g transform="translate(30, 140)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#fb923c30" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#fb923c15"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20"><í</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="15" fill="#fb923c" font-weight="700">IO</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#fb923c" font-weight="800">Industrial</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">NumPy-first IO</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Hi-res tiling · Explicit formats</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">RGB/BGR · U8/U16/F32</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Hi-res tiling / Explicit formats</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">RGB/BGR / U8/U16/F32</text>
   </g>
 
   <!-- Card 6: Metrics -->
   <g transform="translate(240, 140)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#a78bfa30" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#a78bfa15"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20">=Ê</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="18" fill="#a78bfa" font-weight="700">%</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#a78bfa" font-weight="800">Metrics</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Image + Pixel level</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">AUROC · AP · AUPRO · F1</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Suites · Sweeps · Leaderboards</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">AUROC / AP / AUPRO / F1</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Suites / Sweeps / Leaderboards</text>
   </g>
 
   <!-- Card 7: Synthesis -->
   <g transform="translate(450, 140)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#f9731630" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#f9731615"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20"><¨</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="15" fill="#f97316" font-weight="700">FX</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#f97316" font-weight="800">Synthesis</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Anomaly Generation</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Perlin · CutPaste · Scratch</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Stain · Tape · Edge wear</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Perlin / CutPaste / Scratch</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Stain / Tape / Edge wear</text>
   </g>
 
   <!-- Card 8: Ecosystem -->
   <g transform="translate(660, 140)">
     <rect width="190" height="100" rx="10" fill="#1e293b" stroke="#22d3ee30" stroke-width="1"/>
     <rect x="16" y="16" width="36" height="36" rx="8" fill="#22d3ee15"/>
-    <text x="34" y="42" text-anchor="middle" font-size="20">=</text>
+    <text x="34" y="42" text-anchor="middle" font-family="monospace" font-size="18" fill="#22d3ee" font-weight="700">+</text>
     <text x="64" y="32" font-family="'Inter', sans-serif" font-size="16" fill="#22d3ee" font-weight="800">Ecosystem</text>
     <text x="64" y="48" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8">Backend integrations</text>
-    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Anomalib · OpenCLIP · FAISS</text>
-    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">PyTorch · scikit-learn · Numba</text>
+    <text x="16" y="78" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">Anomalib / OpenCLIP / FAISS</text>
+    <text x="16" y="90" font-family="'Inter', sans-serif" font-size="9" fill="#64748b">PyTorch / scikit-learn / Numba</text>
   </g>
 </svg>

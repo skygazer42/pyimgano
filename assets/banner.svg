@@ -65,31 +65,31 @@
 
     <!-- Detection label -->
     <rect x="0" y="108" width="100" height="18" rx="4" fill="#f472b6" opacity="0.15"/>
-    <text x="50" y="121" text-anchor="middle" font-family="monospace" font-size="10" fill="#f472b6" font-weight="600">ANOMALY ²</text>
+    <text x="50" y="121" text-anchor="middle" font-family="monospace" font-size="10" fill="#f472b6" font-weight="600">ANOMALY FLAG</text>
   </g>
 
   <!-- Center: Title -->
   <g transform="translate(450, 65)">
     <text x="0" y="0" text-anchor="middle" font-family="'SF Pro Display', 'Inter', system-ui, sans-serif" font-size="52" font-weight="800" fill="url(#accent)" letter-spacing="-1">pyimgano</text>
     <text x="0" y="36" text-anchor="middle" font-family="'SF Pro Display', 'Inter', system-ui, sans-serif" font-size="16" fill="#94a3b8" font-weight="400" letter-spacing="3">VISUAL ANOMALY DETECTION</text>
-    <text x="0" y="62" text-anchor="middle" font-family="'SF Pro Display', 'Inter', system-ui, sans-serif" font-size="13" fill="#64748b" font-weight="400" letter-spacing="1">Production-oriented · 120+ Models · Industrial Inspection</text>
+    <text x="0" y="62" text-anchor="middle" font-family="'SF Pro Display', 'Inter', system-ui, sans-serif" font-size="13" fill="#64748b" font-weight="400" letter-spacing="1">Production-oriented | 120+ Models | Industrial Inspection</text>
   </g>
 
   <!-- Right: Stats pills -->
   <g transform="translate(690, 50)">
     <!-- Pill 1 -->
     <rect x="0" y="0" width="140" height="28" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="16" y="19" font-family="monospace" font-size="11" fill="#38bdf8">Ï</text>
+    <text x="16" y="19" font-family="monospace" font-size="11" fill="#38bdf8">M</text>
     <text x="30" y="19" font-family="'Inter', system-ui, sans-serif" font-size="11" fill="#cbd5e1">120+ Models</text>
 
     <!-- Pill 2 -->
     <rect x="0" y="36" width="140" height="28" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="16" y="55" font-family="monospace" font-size="11" fill="#818cf8">Ï</text>
+    <text x="16" y="55" font-family="monospace" font-size="11" fill="#818cf8">P</text>
     <text x="30" y="55" font-family="'Inter', system-ui, sans-serif" font-size="11" fill="#cbd5e1">Image + Pixel</text>
 
     <!-- Pill 3 -->
     <rect x="0" y="72" width="140" height="28" rx="14" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-    <text x="16" y="91" font-family="monospace" font-size="11" fill="#f472b6">Ï</text>
+    <text x="16" y="91" font-family="monospace" font-size="11" fill="#f472b6">D</text>
     <text x="30" y="91" font-family="'Inter', system-ui, sans-serif" font-size="11" fill="#cbd5e1">Deploy-ready</text>
   </g>
 
