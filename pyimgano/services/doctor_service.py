@@ -440,6 +440,152 @@ def _build_bundle_readiness(
     }
 
 
+def _append_recommendation(
+    out: list[dict[str, Any]],
+    *,
+    preset_name: str,
+    reasons: list[str],
+) -> None:
+    from pyimgano.presets.catalog import resolve_model_preset
+
+    if any(str(item.get("preset")) == str(preset_name) for item in out if isinstance(item, dict)):
+        return
+
+    preset = resolve_model_preset(preset_name)
+    if preset is None:
+        return
+
+    out.append(
+        {
+            "preset": str(preset.name),
+            "model": str(preset.model),
+            "optional": bool(preset.optional),
+            "requires_extras": list(preset.requires_extras),
+            "description": str(preset.description),
+            "reasons": [str(item) for item in reasons if str(item).strip()],
+        }
+    )
+
+
+def _build_dataset_recommendations(dataset_profile: dict[str, Any]) -> list[dict[str, Any]]:
+    fewshot_risk = bool(dataset_profile.get("fewshot_risk"))
+    pixel_ready = bool(dataset_profile.get("pixel_metrics_available"))
+    multi_category = bool(dataset_profile.get("multi_category"))
+
+    out: list[dict[str, Any]] = []
+
+    if pixel_ready:
+        _append_recommendation(
+            out,
+            preset_name="industrial-template-ncc-map",
+            reasons=["pixel_metrics_available", "reference_inspection_baseline"],
+        )
+        _append_recommendation(
+            out,
+            preset_name="industrial-patchcore-lite-map",
+            reasons=["pixel_metrics_available", "high_recall_pixel_map"],
+        )
+        _append_recommendation(
+            out,
+            preset_name="industrial-ssim-template-map",
+            reasons=["pixel_metrics_available", "lightweight_similarity_map"],
+        )
+    else:
+        _append_recommendation(
+            out,
+            preset_name="industrial-structural-ecod",
+            reasons=["image_level_screening", "cpu_friendly_baseline"],
+        )
+
+    if fewshot_risk:
+        _append_recommendation(
+            out,
+            preset_name="industrial-pixel-mad-map",
+            reasons=["fewshot_risk", "robust_reference_baseline"],
+        )
+        _append_recommendation(
+            out,
+            preset_name="industrial-embedding-core-balanced",
+            reasons=["fewshot_risk", "balanced_generalist_baseline"],
+        )
+
+    if multi_category:
+        _append_recommendation(
+            out,
+            preset_name="industrial-embedding-core-balanced",
+            reasons=["multi_category_dataset", "shared_embedding_space"],
+        )
+        _append_recommendation(
+            out,
+            preset_name="industrial-reverse-distillation",
+            reasons=["multi_category_dataset", "deep_generalization_baseline"],
+        )
+
+    if not out:
+        _append_recommendation(
+            out,
+            preset_name="industrial-embedding-core-balanced",
+            reasons=["default_balanced_recommendation"],
+        )
+
+    return out[:5]
+
+
+def _build_dataset_target_payload(
+    *,
+    dataset_target: str | Path,
+    dataset: str,
+    category: str | None,
+    root_fallback: str | Path | None,
+) -> dict[str, Any]:
+    from pyimgano.datasets.inspection import profile_dataset_target
+
+    profile_payload = profile_dataset_target(
+        target=dataset_target,
+        dataset=str(dataset),
+        category=category,
+        root_fallback=root_fallback,
+    )
+    dataset_profile = dict(profile_payload.get("dataset_profile", {}))
+    evaluation_readiness = dict(profile_payload.get("evaluation_readiness", {}))
+    constraints = dict(profile_payload.get("constraints", {}))
+
+    issues: list[str] = [
+        str(item)
+        for item in evaluation_readiness.get("missing_requirements", [])
+        if str(item) != "pixel_metrics_unavailable"
+    ]
+    if bool(constraints.get("fewshot_risk")):
+        issues.append("fewshot_train_set")
+    if not bool(dataset_profile.get("pixel_metrics_available")):
+        issues.append("pixel_metrics_unavailable")
+
+    issues = list(dict.fromkeys(issues))
+
+    if not bool(evaluation_readiness.get("ready_for_image_metrics")):
+        status = "error"
+    elif issues:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "dataset_profile": dataset_profile,
+        "task_profile": dict(profile_payload.get("task_profile", {})),
+        "constraints": constraints,
+        "evaluation_readiness": evaluation_readiness,
+        "recommendations": _build_dataset_recommendations(dataset_profile),
+        "readiness": {
+            "target_kind": "dataset",
+            "path": str(Path(dataset_target)),
+            "status": str(status),
+            "issues": issues,
+            "dataset": profile_payload.get("dataset"),
+            "category": profile_payload.get("category"),
+        },
+    }
+
+
 def collect_doctor_payload(
     *,
     suites_to_check: list[str] | None = None,
@@ -447,6 +593,10 @@ def collect_doctor_payload(
     accelerators: bool = False,
     run_dir: str | None = None,
     deploy_bundle: str | None = None,
+    dataset_target: str | None = None,
+    dataset: str = "auto",
+    category: str | None = None,
+    root_fallback: str | None = None,
     check_bundle_hashes: bool = False,
 ) -> dict[str, Any]:
     import pyimgano
@@ -546,8 +696,6 @@ def collect_doctor_payload(
     if bool(accelerators):
         payload["accelerators"] = build_accelerator_checks()
 
-    if run_dir is not None and deploy_bundle is not None:
-        raise ValueError("--run-dir and --deploy-bundle are mutually exclusive.")
     if run_dir is not None:
         payload["readiness"] = _build_run_readiness(
             run_dir=str(run_dir),
@@ -557,6 +705,15 @@ def collect_doctor_payload(
         payload["readiness"] = _build_bundle_readiness(
             bundle_dir=str(deploy_bundle),
             check_bundle_hashes=bool(check_bundle_hashes),
+        )
+    if dataset_target is not None:
+        payload.update(
+            _build_dataset_target_payload(
+                dataset_target=str(dataset_target),
+                dataset=str(dataset),
+                category=(str(category) if category is not None else None),
+                root_fallback=(str(root_fallback) if root_fallback is not None else None),
+            )
         )
 
     return payload

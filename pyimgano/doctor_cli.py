@@ -22,6 +22,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional deploy bundle directory to validate for deployment readiness.",
     )
+    readiness.add_argument(
+        "--dataset-target",
+        default=None,
+        help="Optional dataset root or manifest to evaluate for industrial AD readiness.",
+    )
     parser.add_argument(
         "--json",
         action="store_true",
@@ -59,6 +64,21 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="When evaluating run/bundle readiness, verify recorded bundle hashes when available.",
     )
+    parser.add_argument(
+        "--dataset",
+        default="auto",
+        help="Dataset converter name, 'manifest', or 'auto' for --dataset-target.",
+    )
+    parser.add_argument(
+        "--category",
+        default=None,
+        help="Optional category for --dataset-target when the source layout is category-scoped.",
+    )
+    parser.add_argument(
+        "--root-fallback",
+        default=None,
+        help="Optional root fallback for manifest-backed --dataset-target checks.",
+    )
     return parser
 
 
@@ -74,6 +94,18 @@ def main(argv: list[str] | None = None) -> int:
             deploy_bundle=(
                 str(args.deploy_bundle)
                 if getattr(args, "deploy_bundle", None) is not None
+                else None
+            ),
+            dataset_target=(
+                str(args.dataset_target)
+                if getattr(args, "dataset_target", None) is not None
+                else None
+            ),
+            dataset=str(getattr(args, "dataset", "auto")),
+            category=(str(args.category) if getattr(args, "category", None) is not None else None),
+            root_fallback=(
+                str(args.root_fallback)
+                if getattr(args, "root_fallback", None) is not None
                 else None
             ),
             check_bundle_hashes=bool(getattr(args, "check_bundle_hashes", False)),
@@ -141,6 +173,28 @@ def main(argv: list[str] | None = None) -> int:
         issues = readiness.get("issues", []) or []
         if issues:
             print(f"- issues: {', '.join(str(item) for item in issues)}")
+
+    dataset_profile = payload.get("dataset_profile")
+    if isinstance(dataset_profile, dict):
+        print("dataset_profile:")
+        print(f"- total_records: {dataset_profile.get('total_records')}")
+        print(f"- train_count: {dataset_profile.get('train_count')}")
+        print(f"- test_count: {dataset_profile.get('test_count')}")
+        print(f"- pixel_metrics_available: {dataset_profile.get('pixel_metrics_available')}")
+        print(f"- fewshot_risk: {dataset_profile.get('fewshot_risk')}")
+
+    recommendations = payload.get("recommendations")
+    if isinstance(recommendations, list) and recommendations:
+        print("recommendations:")
+        for item in recommendations:
+            if not isinstance(item, dict):
+                continue
+            preset = item.get("preset")
+            reasons = item.get("reasons", []) or []
+            suffix = ""
+            if reasons:
+                suffix = f" ({', '.join(str(reason) for reason in reasons)})"
+            print(f"- {preset}{suffix}")
 
     accelerators = payload.get("accelerators")
     if isinstance(accelerators, dict) and accelerators:

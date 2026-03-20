@@ -77,10 +77,66 @@ def _constructor_supports_confidence(constructor: Any) -> bool:
         return False
 
 
+def _deployment_training_regime(
+    *,
+    tags: set[str],
+    family: Sequence[str],
+    supervision: str | None,
+    requires_checkpoint: bool,
+) -> str:
+    if requires_checkpoint:
+        return "checkpoint-wrapper"
+    if supervision is not None and str(supervision).strip():
+        return str(supervision).strip()
+    if "template" in {str(item) for item in family}:
+        return "reference-fit"
+    if "classical" in tags:
+        return "one-class-fit"
+    return "normal-only-fit"
+
+
+def _runtime_cost_hint(
+    *,
+    tags: set[str],
+    family: Sequence[str],
+    has_memory_bank: bool,
+) -> str:
+    family_set = {str(item) for item in family}
+    if (
+        "clip" in tags
+        or "filopp" in family_set
+        or "aaclip" in family_set
+        or "adaclip" in family_set
+    ):
+        return "high"
+    if has_memory_bank or "patchcore" in family_set:
+        return "high"
+    if "deep" in tags or "embeddings" in tags:
+        return "medium"
+    return "low"
+
+
+def _memory_cost_hint(
+    *,
+    tags: set[str],
+    family: Sequence[str],
+    has_memory_bank: bool,
+) -> str:
+    family_set = {str(item) for item in family}
+    if has_memory_bank or "memory_bank" in family_set or "patchcore" in family_set:
+        return "high"
+    if "deep" in tags or "embeddings" in tags:
+        return "medium"
+    return "low"
+
+
 def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
+    from pyimgano.models.metadata_contract import resolve_metadata_contract_payload
+
     _signature, accepted_kwargs, _accepts_var_kwargs = get_constructor_signature_info(
         entry.constructor
     )
+    tags = {str(tag).strip().lower() for tag in entry.tags}
     tuning_knobs = [
         name
         for name in (
@@ -117,13 +173,56 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
         except Exception:
             default_backend = None
 
+    contract = resolve_metadata_contract_payload(entry)
+    requires_checkpoint = bool(contract.get("requires_checkpoint"))
+    family = [str(item) for item in contract.get("family", []) if str(item).strip()]
+    supervision = contract.get("supervision")
+    supports_pixel_map = bool(contract.get("supports_pixel_map"))
+    training_regime = _deployment_training_regime(
+        tags=tags,
+        family=family,
+        supervision=(str(supervision) if supervision is not None else None),
+        requires_checkpoint=bool(requires_checkpoint),
+    )
+    runtime_cost = _runtime_cost_hint(tags=tags, family=family, has_memory_bank=has_memory_bank)
+    memory_cost = _memory_cost_hint(tags=tags, family=family, has_memory_bank=has_memory_bank)
+
+    artifact_requirements: list[str] = []
+    if requires_checkpoint:
+        artifact_requirements.append("checkpoint")
+
     return {
+        "family": family,
+        "training_regime": training_regime,
+        "industrial_fit": {
+            "pixel_localization": bool(supports_pixel_map),
+            "reference_inspection": bool("template" in set(family)),
+            "few_shot_adaptation": bool(str(supervision).strip() in {"few-shot", "zero-shot"}),
+            "checkpoint_dependent": bool(requires_checkpoint),
+            "memory_bank_retrieval": bool(has_memory_bank or "memory_bank" in set(family)),
+        },
+        "runtime_cost_hint": runtime_cost,
+        "memory_cost_hint": memory_cost,
+        "export_support": {
+            "checkpoint": bool(
+                requires_checkpoint
+                or "checkpoint_path" in accepted_kwargs
+                or bool(contract.get("weights_source"))
+            ),
+            "save_load": bool("classical" in tags and not requires_checkpoint),
+            "onnx": bool("onnx" in tags or contract.get("weights_source") == "local-exported-onnx"),
+            "torchscript": bool(
+                "torchscript" in tags
+                or contract.get("weights_source") == "local-exported-torchscript"
+            ),
+        },
+        "artifact_requirements": artifact_requirements,
         "memory_bank": {
             "enabled": bool(has_memory_bank),
             "backend_param": ("knn_backend" if "knn_backend" in accepted_kwargs else None),
             "default_backend": default_backend,
             "tuning_knobs": list(tuning_knobs),
-        }
+        },
     }
 
 

@@ -74,3 +74,5 @@ def test_run_baseline_suite_category_all_builds_matrix_and_uses_mean_metrics(
     assert auroc_rows[0]["values"]["capsule"] == pytest.approx(0.7)
     assert auroc_rows[0]["mean"] == pytest.approx(0.8)
     assert auroc_rows[0]["std"] == pytest.approx(0.1)
+    assert isinstance(rows[0].get("deployment_profile"), dict)
+    assert "runtime_cost_hint" in rows[0]["deployment_profile"]

@@ -69,3 +69,37 @@ def test_datasets_cli_detect_import_and_lint_custom_layout(tmp_path: Path, capsy
     assert linted["dataset"] == "manifest"
     assert linted["stats"]["total_records"] == 3
     assert linted["validation"]["record_count"] == 3
+
+
+def test_datasets_cli_profile_reports_industrial_dataset_profile(tmp_path: Path, capsys) -> None:
+    from pyimgano.datasets_cli import main as datasets_main
+
+    root = tmp_path / "custom"
+    _write_png(root / "train" / "normal" / "train_0.png")
+    _write_png(root / "test" / "normal" / "good_0.png")
+    _write_png(root / "test" / "anomaly" / "bad_0.png")
+    _write_png(root / "ground_truth" / "anomaly" / "bad_0_mask.png")
+
+    rc = datasets_main(["profile", str(root), "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dataset"] == "custom"
+    assert payload["source_kind"] == "converted_temp"
+
+    profile = payload["dataset_profile"]
+    assert profile["total_records"] == 3
+    assert profile["train_count"] == 1
+    assert profile["test_count"] == 2
+    assert profile["test_normal_count"] == 1
+    assert profile["test_anomaly_count"] == 1
+    assert profile["categories"] == ["custom"]
+    assert profile["category_count"] == 1
+    assert profile["has_masks"] is True
+    assert profile["pixel_metrics_available"] is True
+    assert profile["fewshot_risk"] is True
+    assert profile["multi_category"] is False
+
+    readiness = payload["evaluation_readiness"]
+    assert readiness["ready_for_image_metrics"] is True
+    assert readiness["ready_for_pixel_metrics"] is True

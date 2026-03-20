@@ -23,7 +23,35 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
         "suite": "industrial-v4",
         "dataset": "mvtec",
         "category": "bottle",
-        "rows": [{"name": "a", "auroc": 0.95, "run_dir": "runs/a"}],
+        "dataset_profile": {
+            "total_records": 15,
+            "train_count": 10,
+            "test_count": 5,
+            "test_normal_count": 2,
+            "test_anomaly_count": 3,
+            "categories": ["bottle"],
+            "category_count": 1,
+            "has_masks": True,
+            "pixel_metrics_available": True,
+            "fewshot_risk": False,
+            "multi_category": False,
+        },
+        "rows": [
+            {
+                "name": "a",
+                "model": "vision_patchcore_inspection_checkpoint",
+                "auroc": 0.95,
+                "run_dir": "runs/a",
+                "deployment_profile": {
+                    "family": ["patchcore", "memory_bank"],
+                    "training_regime": "checkpoint-wrapper",
+                    "runtime_cost_hint": "high",
+                    "memory_cost_hint": "high",
+                    "artifact_requirements": ["checkpoint"],
+                    "industrial_fit": {"pixel_localization": True},
+                },
+            }
+        ],
         "split_fingerprint": {
             "schema_version": 1,
             "sha256": "b" * 64,
@@ -48,6 +76,13 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
     assert metadata["benchmark_config"]["source"].endswith(".json")
     assert metadata["environment_fingerprint_sha256"] == "f" * 64
     assert metadata["split_fingerprint"]["sha256"] == "b" * 64
+    assert metadata["dataset_profile"]["pixel_metrics_available"] is True
+    assert metadata["deployment_summary"]["model_count"] == 1
+    assert metadata["deployment_summary"]["families"] == ["memory_bank", "patchcore"]
+    assert metadata["deployment_summary"]["runtime_cost_hints"] == {"high": 1}
+    assert metadata["deployment_summary"]["memory_cost_hints"] == {"high": 1}
+    assert metadata["deployment_summary"]["artifact_requirements"] == ["checkpoint"]
+    assert metadata["deployment_summary"]["pixel_localization_models"] == 1
     assert metadata["citation"]["project"] == "pyimgano"
     assert metadata["citation"]["benchmark_config_source"].endswith(".json")
     assert metadata["citation"]["benchmark_config_sha256"] == "a" * 64

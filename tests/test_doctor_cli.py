@@ -274,3 +274,42 @@ def test_doctor_cli_deploy_bundle_readiness_exits_nonzero_on_invalid_bundle(
     issues = readiness.get("issues", [])
     assert isinstance(issues, list)
     assert issues
+
+
+def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    # Keep the test CLI-level: the dataset target path should be sufficient.
+    rc = doctor_main(["--json", "--dataset-target", str(root)])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness.get("target_kind") == "dataset"
+    assert readiness.get("path") == str(root)
+    assert readiness.get("status") == "warning"
+    assert "fewshot_train_set" in set(readiness.get("issues", []))
+
+    dataset_profile = payload.get("dataset_profile")
+    assert isinstance(dataset_profile, dict)
+    assert dataset_profile.get("pixel_metrics_available") is True
+    assert dataset_profile.get("has_masks") is True
+
+    recommendations = payload.get("recommendations")
+    assert isinstance(recommendations, list)
+    presets = {str(item.get("preset")) for item in recommendations if isinstance(item, dict)}
+    assert "industrial-template-ncc-map" in presets
+    assert "industrial-patchcore-lite-map" in presets

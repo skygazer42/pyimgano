@@ -66,6 +66,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_lint.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
 
+    p_profile = sub.add_parser("profile", help="Summarize dataset readiness for industrial AD")
+    p_profile.add_argument("target", help="Manifest JSONL path or dataset root directory")
+    p_profile.add_argument(
+        "--dataset",
+        default="auto",
+        help="Dataset converter name, 'manifest', or 'auto' (default).",
+    )
+    p_profile.add_argument(
+        "--category",
+        default=None,
+        help="Optional category name for category-scoped datasets.",
+    )
+    p_profile.add_argument(
+        "--root-fallback",
+        default=None,
+        help="Optional root fallback for manifest file checks.",
+    )
+    p_profile.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+
     return parser
 
 
@@ -87,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
             detect_dataset_layout,
             import_dataset_to_manifest_payload,
             lint_dataset_target,
+            profile_dataset_target,
         )
 
         if args.cmd == "list":
@@ -153,6 +173,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"dataset: {payload.get('dataset')}")
             print(f"ok: {payload.get('ok')}")
             return 0 if bool(payload.get("ok")) else 1
+
+        if args.cmd == "profile":
+            payload = profile_dataset_target(
+                target=str(args.target),
+                dataset=str(args.dataset),
+                category=(str(args.category) if args.category is not None else None),
+                root_fallback=(str(args.root_fallback) if args.root_fallback is not None else None),
+            )
+            if bool(args.json):
+                print(json.dumps(payload, indent=2, sort_keys=True))
+                return 0
+
+            profile = payload.get("dataset_profile", {}) or {}
+            print(f"target: {payload.get('target')}")
+            print(f"dataset: {payload.get('dataset')}")
+            print(f"category: {payload.get('category')}")
+            print(f"total_records: {profile.get('total_records')}")
+            print(f"train_count: {profile.get('train_count')}")
+            print(f"test_count: {profile.get('test_count')}")
+            print(f"pixel_metrics_available: {profile.get('pixel_metrics_available')}")
+            return 0
 
         raise ValueError(f"Unknown command: {args.cmd!r}")
     except Exception as exc:  # noqa: BLE001 - CLI boundary

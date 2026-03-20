@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import math
+from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -441,6 +442,66 @@ def _export_category_matrix_tables(
     return written
 
 
+def _build_deployment_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+    families: set[str] = set()
+    training_regimes: set[str] = set()
+    artifact_requirements: set[str] = set()
+    runtime_cost_hints: Counter[str] = Counter()
+    memory_cost_hints: Counter[str] = Counter()
+    model_count = 0
+    pixel_localization_models = 0
+
+    for row in rows:
+        profile = row.get("deployment_profile")
+        if not isinstance(profile, Mapping):
+            continue
+
+        model_count += 1
+
+        raw_families = profile.get("family", [])
+        if isinstance(raw_families, list):
+            for item in raw_families:
+                family = _nonempty_str(item)
+                if family is not None:
+                    families.add(family)
+
+        regime = _nonempty_str(profile.get("training_regime"))
+        if regime is not None:
+            training_regimes.add(regime)
+
+        runtime_hint = _nonempty_str(profile.get("runtime_cost_hint"))
+        if runtime_hint is not None:
+            runtime_cost_hints[runtime_hint] += 1
+
+        memory_hint = _nonempty_str(profile.get("memory_cost_hint"))
+        if memory_hint is not None:
+            memory_cost_hints[memory_hint] += 1
+
+        raw_requirements = profile.get("artifact_requirements", [])
+        if isinstance(raw_requirements, list):
+            for item in raw_requirements:
+                requirement = _nonempty_str(item)
+                if requirement is not None:
+                    artifact_requirements.add(requirement)
+
+        industrial_fit = profile.get("industrial_fit", {})
+        if isinstance(industrial_fit, Mapping) and bool(industrial_fit.get("pixel_localization")):
+            pixel_localization_models += 1
+
+    if model_count <= 0:
+        return None
+
+    return {
+        "model_count": int(model_count),
+        "families": sorted(families),
+        "training_regimes": sorted(training_regimes),
+        "runtime_cost_hints": dict(sorted(runtime_cost_hints.items(), key=lambda kv: kv[0])),
+        "memory_cost_hints": dict(sorted(memory_cost_hints.items(), key=lambda kv: kv[0])),
+        "artifact_requirements": sorted(artifact_requirements),
+        "pixel_localization_models": int(pixel_localization_models),
+    }
+
+
 def export_suite_tables(
     payload: Mapping[str, Any],
     output_dir: str | Path,
@@ -549,12 +610,20 @@ def export_suite_tables(
         audit_digests=audit_digests,
         exported_file_digests=exported_file_digests,
     )
+    dataset_profile = (
+        dict(payload.get("dataset_profile", {}))
+        if isinstance(payload.get("dataset_profile"), Mapping)
+        else None
+    )
+    deployment_summary = _build_deployment_summary(rows_norm)
 
     metadata = {
         "suite": payload.get("suite"),
         "dataset": payload.get("dataset"),
         "category": payload.get("category"),
         "row_count": len(rows_norm),
+        "dataset_profile": dataset_profile,
+        "deployment_summary": deployment_summary,
         "benchmark_config": benchmark_config,
         "evaluation_contract": evaluation_contract,
         "environment_fingerprint_sha256": payload.get("environment_fingerprint_sha256"),

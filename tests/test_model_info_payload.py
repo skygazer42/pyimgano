@@ -228,3 +228,33 @@ def test_model_info_exposes_confidence_and_memory_bank_profiles() -> None:
     ecod_bank = ecod["deployment_profile"]["memory_bank"]
     assert ecod_bank["enabled"] is False
     assert ecod_bank["tuning_knobs"] == []
+
+
+def test_model_info_exposes_industrial_deployment_hints() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+    from pyimgano.models.registry import model_info
+
+    patchcore_checkpoint = model_info("vision_patchcore_inspection_checkpoint")
+    ssim_template = model_info("ssim_template_map")
+    one_to_normal = model_info("vision_one_to_normal")
+
+    checkpoint_profile = patchcore_checkpoint["deployment_profile"]
+    assert "patchcore" in checkpoint_profile["family"]
+    assert checkpoint_profile["training_regime"] == "checkpoint-wrapper"
+    assert checkpoint_profile["runtime_cost_hint"] == "high"
+    assert checkpoint_profile["memory_cost_hint"] == "high"
+    assert checkpoint_profile["artifact_requirements"] == ["checkpoint"]
+    assert checkpoint_profile["export_support"]["checkpoint"] is True
+    assert checkpoint_profile["industrial_fit"]["pixel_localization"] is True
+
+    template_profile = ssim_template["deployment_profile"]
+    assert "template" in template_profile["family"]
+    assert template_profile["training_regime"] == "reference-fit"
+    assert template_profile["runtime_cost_hint"] == "low"
+    assert template_profile["memory_cost_hint"] == "low"
+    assert template_profile["artifact_requirements"] == []
+    assert template_profile["industrial_fit"]["reference_inspection"] is True
+
+    fewshot_profile = one_to_normal["deployment_profile"]
+    assert fewshot_profile["training_regime"] == "few-shot"
+    assert fewshot_profile["industrial_fit"]["few_shot_adaptation"] is True

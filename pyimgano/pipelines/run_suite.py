@@ -311,6 +311,59 @@ def _extract_per_category_metric_values(
     return values
 
 
+def _best_effort_model_deployment_profile(model_name: str) -> dict[str, Any] | None:
+    try:
+        from pyimgano.models.registry import model_info
+
+        payload = model_info(str(model_name))
+    except Exception:
+        return None
+
+    profile = payload.get("deployment_profile")
+    if not isinstance(profile, Mapping):
+        return None
+    return dict(profile)
+
+
+def _best_effort_dataset_profile_payload(
+    *,
+    dataset: str,
+    root: str,
+    manifest_path: str | None,
+    category: str,
+) -> dict[str, Any] | None:
+    if str(category).strip().lower() == "all":
+        return None
+
+    target = str(root)
+    if str(dataset).strip().lower() == "manifest":
+        if manifest_path is None:
+            return None
+        target = str(manifest_path)
+
+    if not Path(target).exists():
+        return None
+
+    try:
+        from pyimgano.datasets.inspection import profile_dataset_target
+
+        payload = profile_dataset_target(
+            target=target,
+            dataset=str(dataset),
+            category=str(category),
+            root_fallback=(str(root) if manifest_path is not None else None),
+        )
+    except Exception:
+        return None
+
+    out: dict[str, Any] = {}
+    for key in ("dataset_profile", "task_profile", "constraints", "evaluation_readiness"):
+        value = payload.get(key)
+        if isinstance(value, Mapping):
+            out[key] = dict(value)
+    return out or None
+
+
 def _build_suite_matrix(
     *,
     rows: Sequence[Mapping[str, Any]],
@@ -992,6 +1045,9 @@ def run_baseline_suite(
                 )
                 row["aupro"] = _resolve_payload_metric(payload, "aupro")
                 row["pixel_segf1"] = _resolve_payload_metric(payload, "pixel_segf1")
+                deployment_profile = _best_effort_model_deployment_profile(str(b.model))
+                if deployment_profile is not None:
+                    row["deployment_profile"] = deployment_profile
 
                 if isinstance(payload.get("run_dir"), str):
                     row["run_dir"] = str(payload["run_dir"])
@@ -1061,6 +1117,14 @@ def run_baseline_suite(
         payload["matrix"] = matrix_payload
     if split_fingerprint_payload is not None:
         payload["split_fingerprint"] = split_fingerprint_payload
+    dataset_profile_payload = _best_effort_dataset_profile_payload(
+        dataset=str(dataset),
+        root=str(root),
+        manifest_path=(str(manifest_path) if manifest_path is not None else None),
+        category=str(category),
+    )
+    if dataset_profile_payload is not None:
+        payload.update(dataset_profile_payload)
     payload = stamp_report_payload(payload)
 
     if suite_dir is not None:

@@ -9,7 +9,7 @@ from pyimgano.datasets.converters import (
     get_dataset_converter,
     list_dataset_converters,
 )
-from pyimgano.datasets.manifest_tools import manifest_stats
+from pyimgano.datasets.manifest_tools import iter_manifest_rows, manifest_stats
 from pyimgano.datasets.manifest_validate import validate_manifest_file
 
 
@@ -30,6 +30,28 @@ def _candidate_payload(
         "requires_category": bool(requires_category),
         "manifest_path": (str(manifest_path) if manifest_path is not None else None),
     }
+
+
+def _normalize_optional_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _normalize_split(value: Any) -> str | None:
+    text = _normalize_optional_str(value)
+    return None if text is None else text.lower()
+
+
+def _normalize_label(value: Any) -> int | None:
+    text = _normalize_optional_str(value)
+    if text is None:
+        return None
+    try:
+        return int(text)
+    except Exception:
+        return None
 
 
 def _iter_dirs(root: Path) -> list[Path]:
@@ -273,6 +295,180 @@ def import_dataset_to_manifest_payload(
     }
 
 
+def _build_profile_sections(
+    *,
+    manifest_path: Path,
+    root_fallback: Path | None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    stats = manifest_stats(
+        manifest_path=manifest_path,
+        root_fallback=(str(root_fallback) if root_fallback is not None else None),
+    )
+
+    train_count = 0
+    validation_count = 0
+    test_count = 0
+    test_normal_count = 0
+    test_anomaly_count = 0
+
+    for row in iter_manifest_rows(manifest_path):
+        split = _normalize_split(row.get("split"))
+        label = _normalize_label(row.get("label"))
+
+        if split == "train":
+            train_count += 1
+        elif split == "validation":
+            validation_count += 1
+        elif split == "test":
+            test_count += 1
+            if label == 0:
+                test_normal_count += 1
+            elif label == 1:
+                test_anomaly_count += 1
+
+    categories = sorted(str(item) for item in dict(stats.get("category_counts", {})).keys())
+    has_masks = int(stats.get("mask_path_present_count", 0)) > 0
+    pixel_metrics_available = bool(has_masks and test_anomaly_count > 0)
+    fewshot_risk = int(train_count) < 16
+    multi_category = len(categories) > 1
+
+    dataset_profile = {
+        "total_records": int(stats.get("total_records", 0)),
+        "train_count": int(train_count),
+        "validation_count": int(validation_count),
+        "test_count": int(test_count),
+        "test_normal_count": int(test_normal_count),
+        "test_anomaly_count": int(test_anomaly_count),
+        "categories": categories,
+        "category_count": int(len(categories)),
+        "has_masks": bool(has_masks),
+        "pixel_metrics_available": bool(pixel_metrics_available),
+        "fewshot_risk": bool(fewshot_risk),
+        "tiling_recommended": False,
+        "multi_category": bool(multi_category),
+    }
+
+    task_profile = {
+        "train_split_present": bool(train_count > 0),
+        "test_split_present": bool(test_count > 0),
+        "normal_only_training": bool(train_count > 0),
+        "localization_ready": bool(pixel_metrics_available),
+    }
+
+    constraints = {
+        "fewshot_risk": bool(fewshot_risk),
+        "tiling_recommended": False,
+        "multi_category": bool(multi_category),
+    }
+
+    missing_requirements: list[str] = []
+    if train_count <= 0:
+        missing_requirements.append("missing_train_split")
+    if test_normal_count <= 0:
+        missing_requirements.append("missing_test_normal")
+    if test_anomaly_count <= 0:
+        missing_requirements.append("missing_test_anomaly")
+    if not pixel_metrics_available:
+        missing_requirements.append("pixel_metrics_unavailable")
+
+    evaluation_readiness = {
+        "ready_for_image_metrics": bool(
+            train_count > 0 and test_normal_count > 0 and test_anomaly_count > 0
+        ),
+        "ready_for_pixel_metrics": bool(pixel_metrics_available),
+        "missing_requirements": missing_requirements,
+    }
+
+    return dataset_profile, task_profile, constraints, evaluation_readiness, stats
+
+
+def profile_dataset_target(
+    *,
+    target: str | Path,
+    dataset: str = "auto",
+    category: str | None = None,
+    root_fallback: str | Path | None = None,
+) -> dict[str, Any]:
+    target_path = Path(target)
+    detection = (
+        detect_dataset_layout(target_path) if str(dataset).strip().lower() == "auto" else None
+    )
+    dataset_name = str(dataset).strip().lower()
+    if not dataset_name or dataset_name == "auto":
+        dataset_name = str(detection.get("detected")) if isinstance(detection, dict) else ""
+
+    if dataset_name == "manifest":
+        manifest_path = target_path
+        if target_path.is_dir():
+            manifest_path = Path(str(detection["candidates"][0]["manifest_path"]))
+        manifest_root = Path(root_fallback) if root_fallback is not None else manifest_path.parent
+        (
+            dataset_profile,
+            task_profile,
+            constraints,
+            evaluation_readiness,
+            stats,
+        ) = _build_profile_sections(
+            manifest_path=manifest_path,
+            root_fallback=manifest_root,
+        )
+        return {
+            "target": str(target_path),
+            "dataset": "manifest",
+            "category": (str(category) if category is not None else None),
+            "source_kind": "manifest",
+            "manifest_path": str(manifest_path),
+            "dataset_profile": dataset_profile,
+            "task_profile": task_profile,
+            "constraints": constraints,
+            "evaluation_readiness": evaluation_readiness,
+            "stats": stats,
+        }
+
+    if not dataset_name:
+        raise ValueError("Could not detect dataset layout for profile. Pass --dataset explicitly.")
+
+    resolved_category = _resolve_category(
+        dataset=dataset_name,
+        detection=detection,
+        category=category,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="pyimgano-datasets-profile-") as tmp_dir:
+        manifest_path = Path(tmp_dir) / "manifest.jsonl"
+        convert_dataset_to_manifest(
+            dataset=dataset_name,
+            root=target_path,
+            out_path=manifest_path,
+            category=resolved_category,
+            absolute_paths=False,
+            include_masks=True,
+        )
+        (
+            dataset_profile,
+            task_profile,
+            constraints,
+            evaluation_readiness,
+            stats,
+        ) = _build_profile_sections(
+            manifest_path=manifest_path,
+            root_fallback=target_path,
+        )
+
+    return {
+        "target": str(target_path),
+        "dataset": str(dataset_name),
+        "category": (str(resolved_category) if resolved_category is not None else None),
+        "source_kind": "converted_temp",
+        "manifest_path": None,
+        "dataset_profile": dataset_profile,
+        "task_profile": task_profile,
+        "constraints": constraints,
+        "evaluation_readiness": evaluation_readiness,
+        "stats": stats,
+    }
+
+
 def lint_dataset_target(
     *,
     target: str | Path,
@@ -299,7 +495,16 @@ def lint_dataset_target(
             check_files=True,
             category=category,
         )
-        stats = manifest_stats(manifest_path=manifest_path, root_fallback=manifest_root)
+        (
+            dataset_profile,
+            task_profile,
+            constraints,
+            evaluation_readiness,
+            stats,
+        ) = _build_profile_sections(
+            manifest_path=manifest_path,
+            root_fallback=manifest_root,
+        )
         return {
             "target": str(target_path),
             "dataset": "manifest",
@@ -308,6 +513,10 @@ def lint_dataset_target(
             "manifest_path": str(manifest_path),
             "ok": bool(validation.ok),
             "validation": validation.to_jsonable(),
+            "dataset_profile": dataset_profile,
+            "task_profile": task_profile,
+            "constraints": constraints,
+            "evaluation_readiness": evaluation_readiness,
             "stats": stats,
         }
 
@@ -335,7 +544,16 @@ def lint_dataset_target(
             check_files=True,
             category=resolved_category,
         )
-        stats = manifest_stats(manifest_path=manifest_path, root_fallback=target_path)
+        (
+            dataset_profile,
+            task_profile,
+            constraints,
+            evaluation_readiness,
+            stats,
+        ) = _build_profile_sections(
+            manifest_path=manifest_path,
+            root_fallback=target_path,
+        )
 
     return {
         "target": str(target_path),
@@ -345,6 +563,10 @@ def lint_dataset_target(
         "manifest_path": None,
         "ok": bool(validation.ok),
         "validation": validation.to_jsonable(),
+        "dataset_profile": dataset_profile,
+        "task_profile": task_profile,
+        "constraints": constraints,
+        "evaluation_readiness": evaluation_readiness,
         "stats": stats,
     }
 
@@ -354,4 +576,5 @@ __all__ = [
     "import_dataset_to_manifest_payload",
     "lint_dataset_target",
     "list_dataset_converters",
+    "profile_dataset_target",
 ]
