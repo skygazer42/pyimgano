@@ -637,37 +637,63 @@ def _contract_payload_sha256(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _numeric_metrics_from_mapping(
+    payload: Mapping[str, Any],
+    keys: Sequence[str],
+) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for key in keys:
+        value = payload.get(key, None)
+        if isinstance(value, (int, float)):
+            out[str(key)] = float(value)
+    return out
+
+
+def _row_metric_maxima(rows: Any, keys: Sequence[str]) -> dict[str, float]:
+    if not isinstance(rows, list):
+        return {}
+    metrics: dict[str, float] = {}
+    for key in keys:
+        vals = [
+            float(item[key])
+            for item in rows
+            if isinstance(item, dict) and isinstance(item.get(key), (int, float))
+        ]
+        if vals:
+            metrics[str(key)] = max(vals)
+    return metrics
+
+
 def _extract_metrics(report: dict[str, Any]) -> dict[str, float]:
     metrics: dict[str, float] = {}
     robustness_summary = report.get("robustness_summary", None)
-    if isinstance(robustness_summary, dict):
-        for key, value in robustness_summary.items():
-            if isinstance(value, (int, float)):
-                metrics[str(key)] = float(value)
+    if isinstance(robustness_summary, Mapping):
+        metrics.update(
+            {
+                str(key): float(value)
+                for key, value in robustness_summary.items()
+                if isinstance(value, (int, float))
+            }
+        )
 
     results = report.get("results", None)
-    if isinstance(results, dict):
-        for key in ("auroc", "average_precision"):
-            value = results.get(key, None)
-            if isinstance(value, (int, float)):
-                metrics[key] = float(value)
+    if isinstance(results, Mapping):
+        metrics.update(_numeric_metrics_from_mapping(results, ("auroc", "average_precision")))
         pixel = results.get("pixel_metrics", None)
-        if isinstance(pixel, dict):
-            for key in ("pixel_auroc", "pixel_average_precision", "aupro", "pixel_segf1"):
-                value = pixel.get(key, None)
-                if isinstance(value, (int, float)):
-                    metrics[key] = float(value)
+        if isinstance(pixel, Mapping):
+            metrics.update(
+                _numeric_metrics_from_mapping(
+                    pixel,
+                    ("pixel_auroc", "pixel_average_precision", "aupro", "pixel_segf1"),
+                )
+            )
 
-    rows = report.get("rows", None)
-    if isinstance(rows, list):
-        for key in ("auroc", "average_precision", "pixel_auroc", "aupro", "pixel_segf1"):
-            vals = [
-                float(item[key])
-                for item in rows
-                if isinstance(item, dict) and isinstance(item.get(key), (int, float))
-            ]
-            if vals:
-                metrics[key] = max(vals)
+    metrics.update(
+        _row_metric_maxima(
+            report.get("rows", None),
+            ("auroc", "average_precision", "pixel_auroc", "aupro", "pixel_segf1"),
+        )
+    )
 
     summary = report.get("summary", None)
     if isinstance(summary, dict):
@@ -972,6 +998,56 @@ def _extract_robustness_protocol_signature(run: Mapping[str, Any]) -> dict[str, 
     }
 
 
+def _robustness_protocol_row(
+    run: Mapping[str, Any],
+    *,
+    baseline_signature: Mapping[str, Any] | None,
+    checked: bool,
+    baseline_path_str: str | None,
+) -> tuple[dict[str, Any], str]:
+    signature = _extract_robustness_protocol_signature(run)
+    row: dict[str, Any] = {
+        "run_dir": run.get("run_dir"),
+        "run_dir_name": run.get("run_dir_name"),
+        "corruption_mode": (signature or {}).get("corruption_mode"),
+        "conditions": (signature or {}).get("conditions"),
+        "severities": (signature or {}).get("severities"),
+        "input_mode": (signature or {}).get("input_mode"),
+        "resize": (signature or {}).get("resize"),
+        "status": "unchecked",
+        "mismatch_fields": [],
+    }
+    if _is_baseline_run(run, baseline_path_str):
+        row["status"] = "baseline"
+        return row, "baseline"
+    if not checked:
+        return row, "unchecked"
+    if signature is None:
+        row["status"] = "missing"
+        return row, "missing"
+
+    missing_fields: list[str] = []
+    mismatch_fields: list[str] = []
+    for field in ("conditions", "corruption_mode", "input_mode", "resize", "severities"):
+        baseline_value = baseline_signature.get(field) if isinstance(baseline_signature, Mapping) else None
+        run_value = signature.get(field)
+        if baseline_value is None:
+            continue
+        if run_value is None:
+            missing_fields.append(str(field))
+        elif run_value != baseline_value:
+            mismatch_fields.append(str(field))
+
+    row["mismatch_fields"] = list(dict.fromkeys(missing_fields + mismatch_fields))
+    if mismatch_fields:
+        row["status"] = "mismatched"
+    elif missing_fields:
+        row["status"] = "missing"
+    else:
+        row["status"] = "matched"
+    return row, str(row["status"])
+
+
 def _build_robustness_protocol_comparison(
     runs: list[dict[str, Any]],
     *,
@@ -990,49 +1066,18 @@ def _build_robustness_protocol_comparison(
     missing_runs = 0
 
     for run in runs:
-        run_path = str(Path(str(run.get("run_dir"))).resolve())
-        signature = _extract_robustness_protocol_signature(run)
-        row: dict[str, Any] = {
-            "run_dir": run.get("run_dir"),
-            "run_dir_name": run.get("run_dir_name"),
-            "corruption_mode": (signature or {}).get("corruption_mode"),
-            "conditions": (signature or {}).get("conditions"),
-            "severities": (signature or {}).get("severities"),
-            "input_mode": (signature or {}).get("input_mode"),
-            "resize": (signature or {}).get("resize"),
-            "status": "unchecked",
-            "mismatch_fields": [],
-        }
-        is_baseline = baseline_path_str is not None and run_path == baseline_path_str
-        if is_baseline:
-            row["status"] = "baseline"
-        elif checked:
-            if signature is None:
-                row["status"] = "missing"
-                missing_runs += 1
-            else:
-                missing_fields: list[str] = []
-                mismatch_fields: list[str] = []
-                for field in ("conditions", "corruption_mode", "input_mode", "resize", "severities"):
-                    baseline_value = baseline_signature.get(field)
-                    run_value = signature.get(field)
-                    if baseline_value is None:
-                        continue
-                    if run_value is None:
-                        missing_fields.append(str(field))
-                    elif run_value != baseline_value:
-                        mismatch_fields.append(str(field))
-
-                row["mismatch_fields"] = list(dict.fromkeys(missing_fields + mismatch_fields))
-                if mismatch_fields:
-                    row["status"] = "mismatched"
-                    mismatched_runs += 1
-                elif missing_fields:
-                    row["status"] = "missing"
-                    missing_runs += 1
-                else:
-                    row["status"] = "matched"
-                    matched_runs += 1
+        row, status = _robustness_protocol_row(
+            run,
+            baseline_signature=baseline_signature,
+            checked=checked,
+            baseline_path_str=baseline_path_str,
+        )
+        matched_runs, mismatched_runs, missing_runs = _bump_counts(
+            status,
+            matched_runs=matched_runs,
+            mismatched_runs=mismatched_runs,
+            missing_runs=missing_runs,
+        )
         comparisons.append(row)
 
     return {
