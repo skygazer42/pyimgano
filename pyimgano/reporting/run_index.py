@@ -1291,6 +1291,50 @@ def _filter_same_robustness_protocol(
     ]
 
 
+def _load_run_summaries(root: Path) -> list[dict[str, Any]]:
+    return [
+        summarize_run_dir(path.parent)
+        for path in sorted(root.rglob(_REPORT_JSON))
+        if _is_top_level_report(path, root)
+    ]
+
+
+def _filter_query(items: list[dict[str, Any]], *, query: str | None) -> list[dict[str, Any]]:
+    if query is None:
+        return items
+    needle = str(query).strip().lower()
+    if not needle:
+        return items
+    return [
+        item
+        for item in items
+        if needle in str(item.get("run_dir_name", "")).lower()
+        or needle in str(item.get("model_or_suite", "")).lower()
+        or needle in str(item.get("category", "")).lower()
+    ]
+
+
+def _filter_min_quality(
+    items: list[dict[str, Any]],
+    *,
+    min_quality: str | None,
+) -> list[dict[str, Any]]:
+    if min_quality is None:
+        return items
+    minimum_rank = int(_QUALITY_STATUS_RANK.get(str(min_quality), -1))
+    return [
+        item
+        for item in items
+        if int(
+            _QUALITY_STATUS_RANK.get(
+                str(dict(item.get("artifact_quality", {})).get("status", "")),
+                -1,
+            )
+        )
+        >= minimum_rank
+    ]
+
+
 def latest_run_summary(
     root: str | Path,
     *,
@@ -1636,12 +1680,7 @@ def list_run_summaries(
     same_target_as: str | Path | None = None,
     same_robustness_protocol_as: str | Path | None = None,
 ) -> list[dict[str, Any]]:
-    base = Path(root)
-    items = [
-        summarize_run_dir(path.parent)
-        for path in sorted(base.rglob(_REPORT_JSON))
-        if _is_top_level_report(path, base)
-    ]
+    items = _load_run_summaries(Path(root))
     items = _apply_items_filter(
         items,
         value=kind,
@@ -1652,29 +1691,8 @@ def list_run_summaries(
         value=dataset,
         item_value=lambda item: item.get("dataset", ""),
     )
-    if query is not None:
-        needle = str(query).strip().lower()
-        if needle:
-            items = [
-                item
-                for item in items
-                if needle in str(item.get("run_dir_name", "")).lower()
-                or needle in str(item.get("model_or_suite", "")).lower()
-                or needle in str(item.get("category", "")).lower()
-            ]
-    if min_quality is not None:
-        minimum_rank = int(_QUALITY_STATUS_RANK.get(str(min_quality), -1))
-        items = [
-            item
-            for item in items
-            if int(
-                _QUALITY_STATUS_RANK.get(
-                    str(dict(item.get("artifact_quality", {})).get("status", "")),
-                    -1,
-                )
-            )
-            >= minimum_rank
-        ]
+    items = _filter_query(items, query=query)
+    items = _filter_min_quality(items, min_quality=min_quality)
     items = _filter_same_split(items, same_split_as=same_split_as)
     items = _filter_same_environment(items, same_environment_as=same_environment_as)
     items = _filter_same_target(items, same_target_as=same_target_as)
