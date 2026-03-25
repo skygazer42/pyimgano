@@ -164,7 +164,7 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
             "metadata_path": str(metadata_path),
             "status": "broken",
             "publication_ready": False,
-            "missing_required": ["leaderboard_metadata.json"],
+            "missing_required": [_LEADERBOARD_METADATA_JSON],
             "exported_files_present": {},
             "exported_file_digests": {},
             "artifact_quality": None,
@@ -191,7 +191,7 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
 
     exported_files = metadata.get("exported_files", None)
     exported_files_present: dict[str, bool] = {}
-    audit_refs: dict[str, str] = {"leaderboard_metadata_json": "leaderboard_metadata.json"}
+    audit_refs: dict[str, str] = {"leaderboard_metadata_json": _LEADERBOARD_METADATA_JSON}
     missing_required = list(declared_missing)
     resolved_exported_paths: dict[str, Path] = {}
     if isinstance(exported_files, dict):

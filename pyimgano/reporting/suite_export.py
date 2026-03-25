@@ -11,6 +11,8 @@ from typing import Any, Mapping, Sequence
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 
 _REPORT_JSON = "report.json"
+_CONFIG_JSON = "config.json"
+_ENVIRONMENT_JSON = "environment.json"
 _LEADERBOARD_METADATA_JSON = "leaderboard_metadata.json"
 
 
@@ -169,9 +171,9 @@ def _build_publication_audit_refs(
 ) -> dict[str, str]:
     refs: dict[str, str] = {}
     for key, filename in (
-        ("report_json", "report.json"),
-        ("config_json", "config.json"),
-        ("environment_json", "environment.json"),
+        ("report_json", _REPORT_JSON),
+        ("config_json", _CONFIG_JSON),
+        ("environment_json", _ENVIRONMENT_JSON),
     ):
         path = out_dir / filename
         if path.is_file():
@@ -198,9 +200,9 @@ def _build_publication_audit_digests(
 ) -> dict[str, str]:
     digests: dict[str, str] = {}
     for key, filename in (
-        ("report_json", "report.json"),
-        ("config_json", "config.json"),
-        ("environment_json", "environment.json"),
+        ("report_json", _REPORT_JSON),
+        ("config_json", _CONFIG_JSON),
+        ("environment_json", _ENVIRONMENT_JSON),
     ):
         path = out_dir / filename
         if path.is_file():
@@ -702,7 +704,7 @@ def export_suite_tables(
         "publication_ready": _publication_ready(artifact_quality),
         "exported_files": dict(written),
     }
-    metadata_path = out_dir / "leaderboard_metadata.json"
+    metadata_path = out_dir / _LEADERBOARD_METADATA_JSON
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
     written["leaderboard_metadata_json"] = metadata_path.relative_to(out_dir).as_posix()
     metadata["exported_files"] = dict(written)

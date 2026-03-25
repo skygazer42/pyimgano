@@ -174,14 +174,14 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
             rewritten_audit_refs = dict(audit_refs)
             if (
                 "calibration_card" in rewritten_audit_refs
-                and (bundle_dir / "calibration_card.json").is_file()
+                and (bundle_dir / _CALIBRATION_CARD_FILENAME).is_file()
             ):
-                rewritten_audit_refs["calibration_card"] = "calibration_card.json"
+                rewritten_audit_refs["calibration_card"] = _CALIBRATION_CARD_FILENAME
             if (
                 "operator_contract" in rewritten_audit_refs
-                and (bundle_dir / "operator_contract.json").is_file()
+                and (bundle_dir / _OPERATOR_CONTRACT_FILENAME).is_file()
             ):
-                rewritten_audit_refs["operator_contract"] = "operator_contract.json"
+                rewritten_audit_refs["operator_contract"] = _OPERATOR_CONTRACT_FILENAME
             artifact_quality["audit_refs"] = rewritten_audit_refs
         deploy_refs = artifact_quality.get("deploy_refs", None)
         rewritten_deploy_refs = dict(deploy_refs) if isinstance(deploy_refs, dict) else {}

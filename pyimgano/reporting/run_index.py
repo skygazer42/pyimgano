@@ -9,6 +9,7 @@ from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.reporting.run_quality import evaluate_run_quality
 
 _REPORT_JSON = "report.json"
+_ENVIRONMENT_JSON = "environment.json"
 from pyimgano.reporting.robustness_summary import (
     build_robustness_trust_summary,
     summarize_robustness_protocol,
@@ -868,11 +869,11 @@ def _extract_evaluation_contract(
 
 def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
     root = Path(run_dir)
-    report_path = root / "report.json"
+    report_path = root / _REPORT_JSON
     report = _load_json_dict(report_path)
     metrics = _extract_metrics(report)
 
-    env_path = root / "environment.json"
+    env_path = root / _ENVIRONMENT_JSON
     env = _load_json_dict(env_path) if env_path.exists() else {}
 
     kind = "workbench"
@@ -1399,7 +1400,7 @@ def list_run_summaries(
     base = Path(root)
     items = [
         summarize_run_dir(path.parent)
-        for path in sorted(base.rglob("report.json"))
+        for path in sorted(base.rglob(_REPORT_JSON))
         if _is_top_level_report(path, base)
     ]
     if kind is not None:

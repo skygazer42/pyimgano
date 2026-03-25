@@ -146,7 +146,7 @@ def _build_input_contract() -> dict[str, Any]:
 
 
 def _build_threshold_summary(bundle_root: Path) -> dict[str, Any]:
-    calibration_card = _load_json_mapping_if_present(bundle_root / "calibration_card.json")
+    calibration_card = _load_json_mapping_if_present(bundle_root / _CALIBRATION_CARD_JSON)
     return {
         "scope": (
             _extract_threshold_scope(calibration_card)
@@ -174,13 +174,13 @@ def _build_threshold_summary(bundle_root: Path) -> dict[str, Any]:
             else None
         ),
         "calibration_card_ref": (
-            "calibration_card.json" if (bundle_root / "calibration_card.json").is_file() else None
+            _CALIBRATION_CARD_JSON if (bundle_root / _CALIBRATION_CARD_JSON).is_file() else None
         ),
     }
 
 
 def _build_output_contract(bundle_root: Path) -> dict[str, Any]:
-    infer_payload = _load_json_mapping_if_present(bundle_root / "infer_config.json")
+    infer_payload = _load_json_mapping_if_present(bundle_root / _INFER_CONFIG_JSON)
     supports_pixel_outputs = _supports_pixel_outputs(infer_payload)
     return {
         "primary_result_file": "results.jsonl",
@@ -212,10 +212,10 @@ def _build_operator_contract_digests(
     bundle_root: Path,
 ) -> dict[str, Any]:
     source_contract = _load_json_mapping_if_present(
-        source_root / "artifacts" / "operator_contract.json"
+        source_root / "artifacts" / _OPERATOR_CONTRACT_JSON
     )
-    bundle_contract = _load_json_mapping_if_present(bundle_root / "operator_contract.json")
-    bundle_infer = _load_json_mapping_if_present(bundle_root / "infer_config.json")
+    bundle_contract = _load_json_mapping_if_present(bundle_root / _OPERATOR_CONTRACT_JSON)
+    bundle_infer = _load_json_mapping_if_present(bundle_root / _INFER_CONFIG_JSON)
     infer_contract = (
         dict(bundle_infer.get("operator_contract"))
         if isinstance(bundle_infer, Mapping)
@@ -261,21 +261,21 @@ def _build_operator_contract_digests(
 
 
 def _classify_entry(rel_path: str) -> str:
-    if rel_path == "infer_config.json":
+    if rel_path == _INFER_CONFIG_JSON:
         return "infer_config"
-    if rel_path == "calibration_card.json":
+    if rel_path == _CALIBRATION_CARD_JSON:
         return "calibration_card"
-    if rel_path == "operator_contract.json":
+    if rel_path == _OPERATOR_CONTRACT_JSON:
         return "operator_contract"
-    if rel_path == "model_card.json":
+    if rel_path == _MODEL_CARD_JSON:
         return "model_card"
-    if rel_path == "weights_manifest.json":
+    if rel_path == _WEIGHTS_MANIFEST_JSON:
         return "weights_manifest"
-    if rel_path == "report.json":
+    if rel_path == _REPORT_JSON:
         return "report"
-    if rel_path == "config.json":
+    if rel_path == _CONFIG_JSON:
         return "config"
-    if rel_path == "environment.json":
+    if rel_path == _ENVIRONMENT_JSON:
         return "environment"
     if rel_path.endswith(".pt") or rel_path.endswith(".pth") or rel_path.endswith(".onnx"):
         return "checkpoint"
@@ -451,7 +451,7 @@ def _validate_operator_contract_digests(
 def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> list[str]:
     errors: list[str] = []
 
-    manifest_path = bundle_root / "weights_manifest.json"
+    manifest_path = bundle_root / _WEIGHTS_MANIFEST_JSON
     manifest_ok = False
     if manifest_path.is_file():
         try:
@@ -461,12 +461,12 @@ def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> li
                 check_hashes=bool(check_hashes),
             )
         except Exception as exc:  # noqa: BLE001 - validation boundary
-            errors.append(f"weights_manifest.json: {exc}")
+            errors.append(f"{_WEIGHTS_MANIFEST_JSON}: {exc}")
         else:
-            errors.extend(f"weights_manifest.json: {item}" for item in report.errors)
+            errors.extend(f"{_WEIGHTS_MANIFEST_JSON}: {item}" for item in report.errors)
             manifest_ok = bool(report.ok)
 
-    model_card_path = bundle_root / "model_card.json"
+    model_card_path = bundle_root / _MODEL_CARD_JSON
     if model_card_path.is_file():
         try:
             report = validate_model_card_file(
@@ -476,9 +476,9 @@ def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> li
                 check_hashes=bool(check_hashes),
             )
         except Exception as exc:  # noqa: BLE001 - validation boundary
-            errors.append(f"model_card.json: {exc}")
+            errors.append(f"{_MODEL_CARD_JSON}: {exc}")
         else:
-            errors.extend(f"model_card.json: {item}" for item in report.errors)
+            errors.extend(f"{_MODEL_CARD_JSON}: {item}" for item in report.errors)
 
     return errors
 
@@ -486,24 +486,24 @@ def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> li
 def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
     errors: list[str] = []
 
-    infer_config_path = bundle_root / "infer_config.json"
+    infer_config_path = bundle_root / _INFER_CONFIG_JSON
     if not infer_config_path.is_file():
         return errors
 
     try:
         infer_payload = _load_json_dict(infer_config_path)
     except Exception as exc:  # noqa: BLE001 - validation boundary
-        errors.append(f"infer_config.json: {exc}")
+        errors.append(f"{_INFER_CONFIG_JSON}: {exc}")
         return errors
 
-    operator_contract_path = bundle_root / "operator_contract.json"
+    operator_contract_path = bundle_root / _OPERATOR_CONTRACT_JSON
     operator_contract_payload: dict[str, Any] | None = None
     has_operator_contract_file = operator_contract_path.is_file()
     if has_operator_contract_file:
         try:
             operator_contract_payload = _load_json_dict(operator_contract_path)
         except Exception as exc:  # noqa: BLE001 - validation boundary
-            errors.append(f"operator_contract.json: {exc}")
+            errors.append(f"{_OPERATOR_CONTRACT_JSON}: {exc}")
 
     artifact_quality = infer_payload.get("artifact_quality", None)
     has_operator_contract_flag = False
@@ -521,22 +521,22 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
         ref = audit_refs.get("operator_contract", None)
         if not isinstance(ref, str) or not str(ref).strip():
             errors.append(
-                "infer_config.json artifact_quality.has_operator_contract=true requires "
+                f"{_INFER_CONFIG_JSON} artifact_quality.has_operator_contract=true requires "
                 "artifact_quality.audit_refs.operator_contract."
             )
-        elif str(ref).strip() != "operator_contract.json":
+        elif str(ref).strip() != _OPERATOR_CONTRACT_JSON:
             errors.append(
-                "infer_config.json artifact_quality.audit_refs.operator_contract must point to "
-                "operator_contract.json inside deploy bundle."
+                f"{_INFER_CONFIG_JSON} artifact_quality.audit_refs.operator_contract must point to "
+                f"{_OPERATOR_CONTRACT_JSON} inside deploy bundle."
             )
         if not has_operator_contract_file:
             errors.append(
-                "infer_config.json artifact_quality.has_operator_contract=true requires "
-                "operator_contract.json in deploy bundle."
+                f"{_INFER_CONFIG_JSON} artifact_quality.has_operator_contract=true requires "
+                f"{_OPERATOR_CONTRACT_JSON} in deploy bundle."
             )
         if not has_infer_operator_contract:
             errors.append(
-                "infer_config.json artifact_quality.has_operator_contract=true requires "
+                f"{_INFER_CONFIG_JSON} artifact_quality.has_operator_contract=true requires "
                 "infer_config.operator_contract payload."
             )
 
@@ -546,7 +546,7 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
         and not has_operator_contract_flag
     ):
         errors.append(
-            "operator_contract.json exists but infer_config.json is missing operator_contract payload."
+            f"{_OPERATOR_CONTRACT_JSON} exists but {_INFER_CONFIG_JSON} is missing operator_contract payload."
         )
 
     if (
@@ -556,7 +556,7 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
     ):
         if dict(infer_operator_contract) != dict(operator_contract_payload):
             errors.append(
-                "operator_contract mismatch between infer_config.json and operator_contract.json."
+                f"operator_contract mismatch between {_INFER_CONFIG_JSON} and {_OPERATOR_CONTRACT_JSON}."
             )
 
     return errors

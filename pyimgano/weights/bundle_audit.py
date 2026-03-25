@@ -172,13 +172,13 @@ def evaluate_bundle_weights_audit(
         "errors": [],
         "status": "partial",
         "ready": False,
-        "model_card": _validation_payload("model_card.json"),
-        "weights_manifest": _validation_payload("weights_manifest.json"),
+        "model_card": _validation_payload(_MODEL_CARD_JSON),
+        "weights_manifest": _validation_payload(_WEIGHTS_MANIFEST_JSON),
         "trust_summary": {},
     }
 
-    manifest_path = bundle_root / "weights_manifest.json"
-    model_card_path = bundle_root / "model_card.json"
+    manifest_path = bundle_root / _WEIGHTS_MANIFEST_JSON
+    model_card_path = bundle_root / _MODEL_CARD_JSON
 
     manifest_present = manifest_path.is_file()
     model_card_present = model_card_path.is_file()
@@ -200,13 +200,13 @@ def evaluate_bundle_weights_audit(
         payload["weights_manifest"]["errors"] = list(manifest_report.errors)
         payload["weights_manifest"]["warnings"] = list(manifest_report.warnings)
         payload["warnings"].extend(
-            f"weights_manifest.json: {item}" for item in payload["weights_manifest"]["warnings"]
+            f"{_WEIGHTS_MANIFEST_JSON}: {item}" for item in payload["weights_manifest"]["warnings"]
         )
         payload["errors"].extend(
-            f"weights_manifest.json: {item}" for item in payload["weights_manifest"]["errors"]
+            f"{_WEIGHTS_MANIFEST_JSON}: {item}" for item in payload["weights_manifest"]["errors"]
         )
     else:
-        payload["missing_required"].append("weights_manifest.json")
+        payload["missing_required"].append(_WEIGHTS_MANIFEST_JSON)
 
     model_card_report = None
     model_card_valid = None
@@ -231,13 +231,13 @@ def evaluate_bundle_weights_audit(
             and model_card_assets["manifest"].get("ok", None) is True
         )
         payload["warnings"].extend(
-            f"model_card.json: {item}" for item in payload["model_card"]["warnings"]
+            f"{_MODEL_CARD_JSON}: {item}" for item in payload["model_card"]["warnings"]
         )
         payload["errors"].extend(
-            f"model_card.json: {item}" for item in payload["model_card"]["errors"]
+            f"{_MODEL_CARD_JSON}: {item}" for item in payload["model_card"]["errors"]
         )
     else:
-        payload["missing_required"].append("model_card.json")
+        payload["missing_required"].append(_MODEL_CARD_JSON)
 
     if bool(payload["present"]):
         payload["valid"] = bool(
