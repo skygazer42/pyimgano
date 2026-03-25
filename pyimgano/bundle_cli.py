@@ -299,71 +299,75 @@ def _run_exit_code(status: str) -> int:
     return 0 if str(status) == "completed" else 1
 
 
-def evaluate_bundle(
-    bundle_dir: str | Path,
-    *,
-    check_hashes: bool = False,
-) -> dict[str, Any]:
-    bundle_root = Path(bundle_dir)
-    infer_config = _evaluate_infer_config(bundle_root) if bundle_root.is_dir() else {}
-    bundle_manifest = (
-        _evaluate_bundle_manifest(bundle_root, check_hashes=bool(check_hashes))
-        if bundle_root.is_dir()
-        else {}
-    )
-    bundle_weights = (
-        _bundle_weights_payload(bundle_root, check_hashes=bool(check_hashes))
-        if bundle_root.is_dir()
-        else {
-            "applicable": False,
-            "bundle_dir": str(bundle_root),
-            "present": False,
-            "valid": None,
-            "ready": None,
-            "status": "not_applicable",
-            "missing_required": [],
-            "warnings": [],
-            "errors": [],
-            "trust_summary": {},
-        }
-    )
+def _default_bundle_weights_payload(bundle_root: Path) -> dict[str, Any]:
+    return {
+        "applicable": False,
+        "bundle_dir": str(bundle_root),
+        "present": False,
+        "valid": None,
+        "ready": None,
+        "status": "not_applicable",
+        "missing_required": [],
+        "warnings": [],
+        "errors": [],
+        "trust_summary": {},
+    }
 
+
+def _evaluate_bundle_artifacts(
+    bundle_root: Path,
+    *,
+    check_hashes: bool,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    if not bundle_root.is_dir():
+        return {}, {}, _default_bundle_weights_payload(bundle_root)
+    infer_config = _evaluate_infer_config(bundle_root)
+    bundle_manifest = _evaluate_bundle_manifest(bundle_root, check_hashes=bool(check_hashes))
+    bundle_weights = _bundle_weights_payload(bundle_root, check_hashes=bool(check_hashes))
+    return infer_config, bundle_manifest, bundle_weights
+
+
+def _collect_bundle_blocking_reasons(
+    *,
+    bundle_root: Path,
+    infer_config: Mapping[str, Any],
+    bundle_manifest: Mapping[str, Any],
+    bundle_weights: Mapping[str, Any],
+) -> tuple[list[str], str]:
     blocking_reasons: list[str] = []
     status = "partial"
 
     if not bundle_root.exists():
-        blocking_reasons.append("bundle_not_found")
-        status = "error"
-    elif not bundle_root.is_dir():
-        blocking_reasons.append("bundle_not_directory")
-        status = "error"
+        return ["bundle_not_found"], "error"
+    if not bundle_root.is_dir():
+        return ["bundle_not_directory"], "error"
+
+    if not bool(infer_config.get("present")):
+        blocking_reasons.append("missing_infer_config")
+    elif infer_config.get("valid") is not True:
+        blocking_reasons.append("invalid_infer_config")
+
+    if not bool(bundle_manifest.get("present")):
+        blocking_reasons.append("missing_manifest")
+    elif bundle_manifest.get("valid") is not True:
+        blocking_reasons.append("invalid_manifest")
     else:
-        if not bool(infer_config.get("present")):
-            blocking_reasons.append("missing_infer_config")
-        elif infer_config.get("valid") is not True:
-            blocking_reasons.append("invalid_infer_config")
+        manifest_payload = bundle_manifest.get("payload")
+        if (
+            isinstance(manifest_payload, Mapping)
+            and manifest_payload.get("required_bundle_artifacts_present") is not True
+        ):
+            blocking_reasons.append("required_artifacts_missing")
 
-        if not bool(bundle_manifest.get("present")):
-            blocking_reasons.append("missing_manifest")
-        elif bundle_manifest.get("valid") is not True:
-            blocking_reasons.append("invalid_manifest")
-        else:
-            manifest_payload = bundle_manifest.get("payload")
-            if (
-                isinstance(manifest_payload, Mapping)
-                and manifest_payload.get("required_bundle_artifacts_present") is not True
-            ):
-                blocking_reasons.append("required_artifacts_missing")
+    if bool(bundle_weights.get("applicable")) and bundle_weights.get("ready") is not True:
+        blocking_reasons.append("bundle_weights_not_ready")
 
-        if bool(bundle_weights.get("applicable")) and bundle_weights.get("ready") is not True:
-            blocking_reasons.append("bundle_weights_not_ready")
+    return blocking_reasons, status
 
-    ready = len(blocking_reasons) == 0
-    if ready:
-        status = "ready"
 
+def _bundle_contract_payload(bundle_manifest: Mapping[str, Any]) -> dict[str, Any]:
     manifest_payload = bundle_manifest.get("payload")
-    contract = {
+    return {
         "bundle_type": (
             str(manifest_payload.get("bundle_type"))
             if isinstance(manifest_payload, Mapping)
@@ -383,6 +387,30 @@ def evaluate_bundle(
             else {}
         ),
     }
+
+
+def evaluate_bundle(
+    bundle_dir: str | Path,
+    *,
+    check_hashes: bool = False,
+) -> dict[str, Any]:
+    bundle_root = Path(bundle_dir)
+    infer_config, bundle_manifest, bundle_weights = _evaluate_bundle_artifacts(
+        bundle_root,
+        check_hashes=bool(check_hashes),
+    )
+    blocking_reasons, status = _collect_bundle_blocking_reasons(
+        bundle_root=bundle_root,
+        infer_config=infer_config,
+        bundle_manifest=bundle_manifest,
+        bundle_weights=bundle_weights,
+    )
+
+    ready = len(blocking_reasons) == 0
+    if ready:
+        status = "ready"
+
+    contract = _bundle_contract_payload(bundle_manifest)
 
     return {
         "schema_version": int(_BUNDLE_VALIDATE_SCHEMA_VERSION),
