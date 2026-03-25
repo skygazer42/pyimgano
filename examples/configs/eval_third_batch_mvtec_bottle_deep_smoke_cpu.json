@@ -1,0 +1,27 @@
+{
+  "output_dir": "/data/pyimgano_eval/third_batch_mvtec_bottle_deep_smoke_cpu",
+  "datasets": [
+    {
+      "name": "mvtec",
+      "root": "/data/datasets/mvtec_bottle",
+      "categories": ["bottle"]
+    }
+  ],
+  "models": {
+    "include": [
+      "vision_padim_lite",
+      "vision_student_teacher_lite",
+      "vision_patchcore_lite_map"
+    ]
+  },
+  "runtime": {
+    "device": "cpu",
+    "pretrained": false,
+    "save_run": true,
+    "per_image_jsonl": true,
+    "continue_on_error": true
+  },
+  "artifact_audit": {
+    "enabled": false
+  }
+}

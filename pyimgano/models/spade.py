@@ -14,6 +14,7 @@ This implementation:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Iterable, Optional, Sequence, Tuple, Union, cast
 
 import cv2
@@ -325,7 +326,10 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
                     feat = self._align_features(feat)
 
                 distances, _ = self.kd_trees[level].query(feat, k=self.k_neighbors, workers=-1)
-                anomaly_scores = distances.mean(axis=1).astype(np.float32, copy=False)
+                distances_arr = np.asarray(distances, dtype=np.float32)
+                if distances_arr.ndim == 1:
+                    distances_arr = distances_arr.reshape(-1, 1)
+                anomaly_scores = distances_arr.mean(axis=1).astype(np.float32, copy=False)
                 anomaly_map = anomaly_scores.reshape(h, w)
 
                 anomaly_map_t = torch.from_numpy(anomaly_map).unsqueeze(0).unsqueeze(0)
@@ -346,3 +350,115 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
     def _align_features(self, features: NDArray) -> NDArray:
         norms = np.linalg.norm(features, axis=1, keepdims=True)
         return features / (norms + 1e-8)
+
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        self._check_fitted()
+
+        from pyimgano.models.serialization import save_model
+
+        feature_state = self.feature_extractor.state_dict()
+        normalized_feature_state = {}
+        for key, value in dict(feature_state).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                try:
+                    normalized_feature_state[str(key)] = detach().cpu()
+                    continue
+                except Exception:
+                    pass
+            normalized_feature_state[str(key)] = value
+
+        payload = {
+            "schema_version": 1,
+            "detector": "vision_spade",
+            "config": {
+                "contamination": float(self.contamination),
+                "backbone": str(self.backbone_name),
+                "pretrained": bool(self.pretrained),
+                "image_size": int(self.image_size),
+                "k_neighbors": int(self.k_neighbors),
+                "feature_levels": list(self.feature_levels),
+                "align_features": bool(self.align_features),
+                "gaussian_sigma": float(self.gaussian_sigma),
+                "device": str(self.device),
+            },
+            "state": {
+                "feature_extractor_state_dict": normalized_feature_state,
+                "memory_bank": {
+                    str(level): np.asarray(bank, dtype=np.float32)
+                    for level, bank in (self.memory_bank or {}).items()
+                },
+                "decision_scores_": (
+                    np.asarray(self.decision_scores_, dtype=np.float64)
+                    if getattr(self, "decision_scores_", None) is not None
+                    else None
+                ),
+                "threshold_": (
+                    float(self.threshold_) if getattr(self, "threshold_", None) is not None else None
+                ),
+                "labels_": (
+                    np.asarray(self.labels_, dtype=np.int64)
+                    if getattr(self, "labels_", None) is not None
+                    else None
+                ),
+            },
+        }
+        return save_model(payload, path)
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        from pyimgano.models.serialization import load_model
+
+        payload = load_model(path)
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid SPADE checkpoint payload: expected a dict.")
+        if str(payload.get("detector", "")) not in {"vision_spade", "spade"}:
+            raise ValueError("Invalid SPADE checkpoint payload: detector marker mismatch.")
+
+        config = dict(cast(dict[str, object], payload.get("config", {})))
+        self.contamination = float(config.get("contamination", self.contamination))
+        self.backbone_name = str(config.get("backbone", self.backbone_name))
+        self.pretrained = bool(config.get("pretrained", self.pretrained))
+        self.image_size = int(config.get("image_size", self.image_size))
+        self.k_neighbors = int(config.get("k_neighbors", self.k_neighbors))
+        self.feature_levels = tuple(config.get("feature_levels", self.feature_levels))
+        self.align_features = bool(config.get("align_features", self.align_features))
+        self.gaussian_sigma = float(config.get("gaussian_sigma", self.gaussian_sigma))
+
+        device_value = config.get("device", None)
+        if device_value is not None:
+            self.device = torch.device(str(device_value))
+
+        self.feature_extractor = DeepPyramidExtractor(
+            self.backbone_name,
+            pretrained=self.pretrained,
+        ).to(self.device)
+        self.feature_extractor.eval()
+
+        state = payload.get("state", None)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid SPADE checkpoint payload: missing state section.")
+
+        feature_state = state.get("feature_extractor_state_dict", None)
+        if isinstance(feature_state, dict):
+            self.feature_extractor.load_state_dict(dict(feature_state), strict=False)
+
+        memory_bank_payload = state.get("memory_bank", None)
+        if not isinstance(memory_bank_payload, dict):
+            raise ValueError("Invalid SPADE checkpoint payload: missing memory bank.")
+        self.memory_bank = {
+            str(level): np.asarray(bank, dtype=np.float32)
+            for level, bank in memory_bank_payload.items()
+        }
+        self.kd_trees = {level: cKDTree(bank) for level, bank in self.memory_bank.items()}
+
+        decision_scores = state.get("decision_scores_", None)
+        self.decision_scores_ = (
+            np.asarray(decision_scores, dtype=np.float64) if decision_scores is not None else None
+        )
+        threshold = state.get("threshold_", None)
+        self.threshold_ = float(threshold) if threshold is not None else None
+        labels = state.get("labels_", None)
+        if labels is not None:
+            self.labels_ = np.asarray(labels, dtype=np.int64)

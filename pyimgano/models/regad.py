@@ -62,11 +62,11 @@ class SpatialTransformerNetwork(nn.Module):
         """
         # Localization network
         xs = self.localization(x)
-        xs = xs.view(-1, 128 * 4 * 4)
+        xs = xs.reshape(-1, 128 * 4 * 4)
 
         # Compute transformation parameters
         theta = self.fc_loc(xs)
-        theta = theta.view(-1, 2, 3)
+        theta = theta.reshape(-1, 2, 3)
 
         # Generate sampling grid
         grid = F.affine_grid(theta, x.size(), align_corners=False)
@@ -95,7 +95,7 @@ class RegistrationNetwork(nn.Module):
 
             weights = ResNet18_Weights.IMAGENET1K_V1
             resnet = resnet18(weights=weights)
-            self.feature_channels = 512
+            self.feature_channels = 256
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 
@@ -251,8 +251,8 @@ class VisionRegAD(BaseVisionDeepDetector):
         mse_loss = F.mse_loss(registered, target)
 
         # Cosine similarity loss
-        registered_flat = registered.view(registered.size(0), -1)
-        target_flat = target.view(target.size(0), -1)
+        registered_flat = registered.reshape(registered.size(0), -1)
+        target_flat = target.reshape(target.size(0), -1)
 
         cos_sim = F.cosine_similarity(registered_flat, target_flat, dim=1)
         cos_loss = (1 - cos_sim).mean()

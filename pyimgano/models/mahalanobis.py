@@ -32,9 +32,11 @@ class CoreMahalanobis(BaseDetector):
         *,
         contamination: float = 0.1,
         reg: float = 1e-6,
+        max_features: int = 4096,
     ) -> None:
         super().__init__(contamination=float(contamination))
         self.reg = float(reg)
+        self.max_features = int(max_features)
 
     def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
         x_arr = check_array(
@@ -46,6 +48,15 @@ class CoreMahalanobis(BaseDetector):
 
         if x_arr.shape[0] == 0:
             raise ValueError("X must be non-empty")
+
+        n_features = int(x_arr.shape[1])
+        if n_features > self.max_features:
+            raise ValueError(
+                "Mahalanobis is not suitable for extremely high-dimensional features. "
+                f"Got n_features={n_features}, max_features={self.max_features}. "
+                "Use a lower-dimensional feature extractor (recommended) or "
+                "reduce dimensions before Mahalanobis (e.g., PCA / embeddings)."
+            )
 
         mu = np.mean(x_arr, axis=0)
         diff = x_arr - mu
@@ -93,10 +104,12 @@ class VisionMahalanobis(BaseVisionDetector):
         feature_extractor=None,
         contamination: float = 0.1,
         reg: float = 1e-6,
+        max_features: int = 4096,
     ) -> None:
         self._detector_kwargs = {
             "contamination": float(contamination),
             "reg": float(reg),
+            "max_features": int(max_features),
         }
         logger.debug("Initializing VisionMahalanobis with kwargs=%s", self._detector_kwargs)
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)

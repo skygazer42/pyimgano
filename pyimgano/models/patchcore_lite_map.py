@@ -23,6 +23,7 @@ Default behavior is **offline-safe**:
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -41,6 +42,67 @@ class _EmbeddedImage:
     patch_embeddings: NDArray
     grid_shape: Tuple[int, int]
     original_size: Tuple[int, int]
+
+
+def _embedder_to_payload(embedder: TorchvisionConvPatchEmbedder) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "type": "torchvision_conv_patch_embedder",
+        "config": {
+            "backbone": str(embedder.backbone),
+            "node": str(embedder.node),
+            "pretrained": bool(embedder.pretrained),
+            "device": str(embedder.device),
+            "input_color": str(embedder.input_color),
+            "image_size": int(embedder.image_size),
+            "normalize": bool(embedder.normalize),
+            "eps": float(embedder.eps),
+        },
+    }
+
+    model = getattr(embedder, "_model", None)
+    state_dict = getattr(model, "state_dict", None)
+    if model is not None and callable(state_dict):
+        raw_state = state_dict()
+        normalized_state: dict[str, object] = {}
+        for key, value in dict(raw_state).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                try:
+                    normalized_state[str(key)] = detach().cpu()
+                    continue
+                except Exception:
+                    pass
+            normalized_state[str(key)] = value
+        payload["model_state_dict"] = normalized_state
+
+    return payload
+
+
+def _embedder_from_payload(payload: dict[str, object]) -> TorchvisionConvPatchEmbedder:
+    if str(payload.get("type", "")) != "torchvision_conv_patch_embedder":
+        raise ValueError("Unsupported patch embedder checkpoint payload.")
+
+    config = dict(cast(dict[str, object], payload.get("config", {})))
+    embedder = TorchvisionConvPatchEmbedder(
+        backbone=str(config.get("backbone", "resnet18")),
+        node=str(config.get("node", "layer3")),
+        pretrained=bool(config.get("pretrained", False)),
+        device=str(config.get("device", "cpu")),
+        input_color=cast(str, config.get("input_color", "rgb")),
+        image_size=int(config.get("image_size", 224)),
+        normalize=bool(config.get("normalize", True)),
+        eps=float(config.get("eps", 1e-12)),
+    )
+
+    model_state = payload.get("model_state_dict", None)
+    if isinstance(model_state, dict):
+        embedder._ensure_ready()
+        model = getattr(embedder, "_model", None)
+        load_state_dict = getattr(model, "load_state_dict", None)
+        if callable(load_state_dict):
+            load_state_dict(dict(model_state), strict=False)
+    return embedder
 
 
 @register_model(
@@ -269,6 +331,94 @@ class VisionPatchCoreLiteMap:
         )
         maps = [self.get_anomaly_map(item) for item in items]
         return np.stack(maps)
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if self._memory_bank is None or self._knn_index is None or self._n_neighbors_fit is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+
+        if not isinstance(self.embedder, TorchvisionConvPatchEmbedder):
+            raise TypeError(
+                "PatchCore-lite-map checkpointing currently supports only "
+                "TorchvisionConvPatchEmbedder."
+            )
+
+        from pyimgano.models.serialization import save_model
+
+        payload = {
+            "schema_version": 1,
+            "detector": "vision_patchcore_lite_map",
+            "config": {
+                "contamination": float(self.contamination),
+                "pretrained": bool(self.pretrained),
+                "knn_backend": str(self.knn_backend),
+                "metric": str(self.metric),
+                "n_neighbors": int(self.n_neighbors),
+                "coreset_sampling_ratio": float(self.coreset_sampling_ratio),
+                "random_seed": int(self.random_seed),
+                "aggregation_method": str(self.aggregation_method),
+                "aggregation_topk": float(self.aggregation_topk),
+            },
+            "embedder": _embedder_to_payload(self.embedder),
+            "state": {
+                "memory_bank": np.asarray(self._memory_bank, dtype=np.float32),
+                "decision_scores_": (
+                    np.asarray(self.decision_scores_, dtype=np.float64)
+                    if self.decision_scores_ is not None
+                    else None
+                ),
+                "threshold_": (float(self.threshold_) if self.threshold_ is not None else None),
+                "n_neighbors_fit": int(self._n_neighbors_fit),
+            },
+        }
+        return save_model(payload, path)
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        from pyimgano.models.serialization import load_model
+
+        payload = load_model(path)
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid PatchCore-lite-map checkpoint payload: expected a dict.")
+        if str(payload.get("detector", "")) != "vision_patchcore_lite_map":
+            raise ValueError("Invalid PatchCore-lite-map checkpoint payload: detector marker mismatch.")
+
+        config = dict(cast(dict[str, object], payload.get("config", {})))
+        self.contamination = float(config.get("contamination", self.contamination))
+        self.pretrained = bool(config.get("pretrained", self.pretrained))
+        self.knn_backend = str(config.get("knn_backend", self.knn_backend))
+        self.metric = str(config.get("metric", self.metric))
+        self.n_neighbors = int(config.get("n_neighbors", self.n_neighbors))
+        self.coreset_sampling_ratio = float(
+            config.get("coreset_sampling_ratio", self.coreset_sampling_ratio)
+        )
+        self.random_seed = int(config.get("random_seed", self.random_seed))
+        self.aggregation_method = cast(AggregationMethod, config.get("aggregation_method", self.aggregation_method))
+        self.aggregation_topk = float(config.get("aggregation_topk", self.aggregation_topk))
+
+        embedder_payload = payload.get("embedder", None)
+        if not isinstance(embedder_payload, dict):
+            raise ValueError("Invalid PatchCore-lite-map checkpoint payload: missing embedder.")
+        self.embedder = _embedder_from_payload(embedder_payload)
+
+        state = payload.get("state", None)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid PatchCore-lite-map checkpoint payload: missing detector state.")
+
+        self._memory_bank = np.asarray(state["memory_bank"], dtype=np.float32)
+        self.decision_scores_ = (
+            np.asarray(state["decision_scores_"], dtype=np.float64)
+            if state.get("decision_scores_", None) is not None
+            else None
+        )
+        self.threshold_ = (
+            float(state["threshold_"]) if state.get("threshold_", None) is not None else None
+        )
+        self._n_neighbors_fit = int(state["n_neighbors_fit"])
+        self._knn_index = build_knn_index(
+            backend=self.knn_backend,
+            n_neighbors=self._n_neighbors_fit,
+            metric=str(self.metric),
+        )
+        self._knn_index.fit(self._memory_bank)
 
 
 __all__ = ["VisionPatchCoreLiteMap"]

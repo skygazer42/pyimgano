@@ -255,6 +255,11 @@ class WinCLIPDetector(BaseVisionDeepDetector):
             # Zero-shot: no training needed
             pass
 
+        self.decision_scores_ = np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
+        if self.decision_scores_.size > 0:
+            self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - float(self.contamination)))
+        return self
+
     def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
 
@@ -278,6 +283,21 @@ class WinCLIPDetector(BaseVisionDeepDetector):
             scores.append(score)
 
         return np.array(scores)
+
+    def decision_function(
+        self,
+        x: NDArray,
+        batch_size: int | None = None,
+        **kwargs,
+    ) -> NDArray:
+        del batch_size
+        return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
+
+    def predict(self, x: NDArray, **kwargs) -> NDArray:
+        if not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        scores = np.asarray(self.decision_function(x, **kwargs), dtype=np.float64).reshape(-1)
+        return (scores > float(self.threshold_)).astype(np.int64)
 
     def predict_anomaly_map(self, x: NDArray) -> List[NDArray]:
         """Predict pixel-level anomaly maps.

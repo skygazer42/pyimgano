@@ -1,0 +1,32 @@
+{
+  "output_dir": "/data/pyimgano_eval/second_batch_visa_candle_templates_manifest",
+  "datasets": [
+    {
+      "name": "manifest",
+      "root": "/data/datasets/candle",
+      "manifest_path": "/data/datasets/visa_candle_manifest.jsonl",
+      "categories": ["candle"]
+    }
+  ],
+  "models": {
+    "include": [
+      "vision_template_ncc_map",
+      "vision_phase_correlation_map",
+      "vision_pixel_gaussian_map",
+      "ssim_template",
+      "ssim_template_map",
+      "ssim_struct",
+      "ssim_struct_map"
+    ]
+  },
+  "runtime": {
+    "device": "cpu",
+    "pretrained": false,
+    "save_run": true,
+    "per_image_jsonl": true,
+    "continue_on_error": true
+  },
+  "artifact_audit": {
+    "enabled": false
+  }
+}

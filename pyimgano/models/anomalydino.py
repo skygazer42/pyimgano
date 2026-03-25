@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import pickle
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Protocol, Tuple, Union, cast
 
@@ -29,6 +31,75 @@ class _EmbeddedImage:
     patch_embeddings: NDArray
     grid_shape: Tuple[int, int]
     original_size: Tuple[int, int]
+
+
+def _embedder_to_checkpoint_payload(embedder: PatchEmbedder) -> dict[str, object]:
+    if isinstance(embedder, TorchHubDinoV2Embedder):
+        payload: dict[str, object] = {
+            "type": "torchhub_dinov2",
+            "config": {
+                "model_name": str(embedder.model_name),
+                "device": str(embedder.device),
+                "image_size": int(embedder.image_size),
+                "hub_repo": str(embedder.hub_repo),
+            },
+            "patch_size": (
+                int(embedder._patch_size) if getattr(embedder, "_patch_size", None) is not None else None
+            ),
+        }
+        model = getattr(embedder, "_model", None)
+        state_dict = getattr(model, "state_dict", None)
+        if model is not None and callable(state_dict):
+            raw_state = state_dict()
+            normalized_state: dict[str, object] = {}
+            for key, value in dict(raw_state).items():
+                detach = getattr(value, "detach", None)
+                cpu = getattr(value, "cpu", None)
+                if callable(detach) and callable(cpu):
+                    normalized_state[str(key)] = detach().cpu()
+                else:
+                    normalized_state[str(key)] = value
+            payload["model_state_dict"] = normalized_state
+        return payload
+
+    return {
+        "type": "pickle",
+        "blob": pickle.dumps(embedder, protocol=pickle.HIGHEST_PROTOCOL),
+    }
+
+
+def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedder:
+    payload_type = str(payload.get("type", ""))
+    if payload_type == "pickle":
+        blob = payload.get("blob", None)
+        if not isinstance(blob, (bytes, bytearray)):
+            raise ValueError("Invalid pickled embedder checkpoint payload.")
+        return cast(PatchEmbedder, pickle.loads(blob))
+
+    if payload_type != "torchhub_dinov2":
+        raise ValueError("Unsupported patch embedder checkpoint payload.")
+
+    config = dict(cast(dict[str, object], payload.get("config", {})))
+    embedder = TorchHubDinoV2Embedder(
+        model_name=str(config.get("model_name", "dinov2_vits14")),
+        device=str(config.get("device", "cpu")),
+        image_size=int(config.get("image_size", 518)),
+        hub_repo=str(config.get("hub_repo", "facebookresearch/dinov2")),
+    )
+
+    model_state = payload.get("model_state_dict", None)
+    if isinstance(model_state, dict):
+        embedder._ensure_loaded()
+        model = getattr(embedder, "_model", None)
+        load_state_dict = getattr(model, "load_state_dict", None)
+        if callable(load_state_dict):
+            load_state_dict(dict(model_state), strict=False)
+
+    patch_size = payload.get("patch_size", None)
+    if patch_size is not None:
+        embedder._patch_size = int(patch_size)
+
+    return embedder
 
 
 @register_model(
@@ -102,6 +173,56 @@ class VisionAnomalyDINO:
         self._memory_bank: Optional[NDArray] = None
         self._knn_index: Optional[KNNIndex] = None
         self._n_neighbors_fit: Optional[int] = None
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if self._memory_bank is None or self._knn_index is None or self._n_neighbors_fit is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+        if self.threshold_ is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="VisionAnomalyDINO checkpoint saving")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "embedder": _embedder_to_checkpoint_payload(self.embedder),
+                "memory_bank": np.asarray(self._memory_bank, dtype=np.float32),
+                "n_neighbors_fit": int(self._n_neighbors_fit),
+                "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
+                "threshold_": float(self.threshold_),
+            },
+            out_path,
+        )
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="VisionAnomalyDINO checkpoint loading")
+
+        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid VisionAnomalyDINO checkpoint payload.")
+
+        embedder_payload = state.get("embedder", None)
+        if not isinstance(embedder_payload, dict):
+            raise ValueError("VisionAnomalyDINO checkpoint is missing embedder payload.")
+        self.embedder = _embedder_from_checkpoint_payload(dict(embedder_payload))
+        self._memory_bank = np.asarray(state["memory_bank"], dtype=np.float32)
+        self._n_neighbors_fit = min(
+            int(state.get("n_neighbors_fit", self.n_neighbors)),
+            int(self._memory_bank.shape[0]),
+        )
+        self._knn_index = build_knn_index(
+            backend=self.knn_backend,
+            n_neighbors=self._n_neighbors_fit,
+        )
+        self._knn_index.fit(self._memory_bank)
+        self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        self.threshold_ = float(state["threshold_"])
 
     @property
     def memory_bank_size_(self) -> int:

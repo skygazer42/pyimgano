@@ -481,8 +481,8 @@ class VisionRealNet(BaseVisionDeepDetector):
                 batch_scores = []
                 for s, normal_f in zip([s1, s2, s3], self.normal_features_):
                     # Average distance to normal samples
-                    s_flat = s.view(s.size(0), -1).cpu()
-                    normal_flat = normal_f.view(normal_f.size(0), -1)
+                    s_flat = s.reshape(s.size(0), -1).cpu()
+                    normal_flat = normal_f.reshape(normal_f.size(0), -1)
 
                     dists = torch.cdist(s_flat, normal_flat[:100])  # Use subset for efficiency
                     min_dists = dists.min(dim=1)[0]

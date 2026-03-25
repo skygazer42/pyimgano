@@ -19,6 +19,15 @@ def test_registry_model_info_includes_capabilities_payload() -> None:
     assert info["supports_save_load"] == caps["supports_save_load"]
 
 
+def test_student_teacher_lite_does_not_claim_save_load_support() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+    from pyimgano.models.registry import model_info
+
+    info = model_info("vision_student_teacher_lite")
+    assert info["capabilities"]["supports_save_load"] is False
+    assert info["supports_save_load"] is False
+
+
 def test_core_models_are_reported_as_features_input_mode() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
     from pyimgano.models.registry import model_info

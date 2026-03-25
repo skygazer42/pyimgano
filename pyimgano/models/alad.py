@@ -318,7 +318,26 @@ class ALAD(BaseVisionDeepDetector):
         self.opt_disc = optim.Adam(disc_params, lr=self.learning_rate_disc, betas=(0.5, 0.999), weight_decay=0.0)
         self.opt_gen = optim.Adam(gen_params, lr=self.learning_rate_gen, betas=(0.5, 0.999), weight_decay=0.0)
 
-        return nn.Module()
+        return nn.ModuleList(
+            [
+                self.enc,
+                self.dec,
+                self.disc_xx,
+                self.img_feat,
+                self.disc_xz,
+                self.disc_zz,
+            ]
+        )
+
+    def _match_image_shape(self, image: torch.Tensor, *, target: torch.Tensor) -> torch.Tensor:
+        if image.shape[-2:] == target.shape[-2:]:
+            return image
+        return F.interpolate(
+            image,
+            size=target.shape[-2:],
+            mode="bilinear",
+            align_corners=False,
+        )
 
     def training_forward(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> float:
         """执行一个 batch 的对抗训练（判别器一步 + 生成器一步）。
@@ -344,6 +363,7 @@ class ALAD(BaseVisionDeepDetector):
         with torch.no_grad():
             x_gen_d = self.dec(z_real)
             z_gen_d = self.enc(x_real)
+            x_gen_d = self._match_image_shape(x_gen_d, target=x_real)
 
         # D_xz: (x, z_gen) 为真；(x_gen, z_real) 为假
         feat_x = self.img_feat(x_real)
@@ -381,6 +401,7 @@ class ALAD(BaseVisionDeepDetector):
 
         x_gen = self.dec(z_real)
         z_gen = self.enc(x_real)
+        x_gen = self._match_image_shape(x_gen, target=x_real)
 
         feat_x = self.img_feat(x_real)
         feat_x_gen = self.img_feat(x_gen)
@@ -435,6 +456,7 @@ class ALAD(BaseVisionDeepDetector):
         x = x.to(self.device)
         z = self.enc(x)
         x_hat = self.dec(z)
+        x_hat = self._match_image_shape(x_hat, target=x)
 
         # 使用 D_xx 的“真/伪”差异作为分数
         out_true_xx = self.disc_xx(x, x)

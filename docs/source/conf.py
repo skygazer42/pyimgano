@@ -61,7 +61,6 @@ autodoc_mock_imports = [
     "faiss",
     "open_clip",
     "open_clip_torch",
-    "mamba_ssm",
 ]
 
 # Napoleon settings for NumPy and Google docstrings

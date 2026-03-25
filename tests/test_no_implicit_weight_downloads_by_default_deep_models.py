@@ -46,7 +46,7 @@ def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(
 
     # Models that use torch.hub for foundation weights must require explicit opt-in.
     # By default they should fail-fast with a clear message instead of attempting a download.
-    for name in ["vision_anomalydino", "vision_superad", "vision_softpatch", "vision_mambaad"]:
+    for name in ["vision_anomalydino", "vision_superad", "vision_softpatch"]:
         try:
             _ = create_model(name, device="cpu")
         except Exception as exc:  # noqa: BLE001 - guardrail

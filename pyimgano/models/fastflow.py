@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from typing import Iterable, List, Sequence, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -62,13 +64,14 @@ class InvConv2d(nn.Module):
 
     def __init__(self, num_features: int) -> None:
         super().__init__()
-        weight = torch.qr(torch.randn(num_features, num_features))[0]
+        weight = torch.linalg.qr(torch.randn(num_features, num_features), mode="reduced").Q
         weight = weight.view(num_features, num_features, 1, 1)
         self.weight = nn.Parameter(weight)
 
     def _log_det(self) -> torch.Tensor:
         w = self.weight.squeeze(-1).squeeze(-1)
-        return torch.logdet(w)
+        _sign, log_abs_det = torch.linalg.slogdet(w)
+        return log_abs_det
 
     def forward(
         self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False
@@ -261,6 +264,80 @@ class FastFlow(BaseVisionDeepDetector):
             random_state=random_state,
             verbose=verbose,
         )
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if getattr(self, "model", None) is None or not hasattr(self, "feature_extractor"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        model_state_dict: dict[str, object] = {}
+        for key, value in dict(self.model.state_dict()).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                model_state_dict[str(key)] = detach().cpu()
+            else:
+                model_state_dict[str(key)] = value
+
+        feature_extractor_state_dict: dict[str, object] = {}
+        for key, value in dict(self.feature_extractor.state_dict()).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                feature_extractor_state_dict[str(key)] = detach().cpu()
+            else:
+                feature_extractor_state_dict[str(key)] = value
+
+        torch.save(
+            {
+                "model_state_dict": model_state_dict,
+                "feature_extractor_state_dict": feature_extractor_state_dict,
+                "decision_scores_": (
+                    None
+                    if getattr(self, "decision_scores_", None) is None
+                    else np.asarray(self.decision_scores_, dtype=np.float64)
+                ),
+                "threshold_": (
+                    None
+                    if getattr(self, "threshold_", None) is None
+                    else float(self.threshold_)
+                ),
+            },
+            out_path,
+        )
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid FastFlow checkpoint payload.")
+
+        if getattr(self, "model", None) is None or not hasattr(self, "feature_extractor"):
+            self.model = self.build_model()
+
+        model_state_dict = state.get("model_state_dict", None)
+        feature_extractor_state_dict = state.get("feature_extractor_state_dict", None)
+        if not isinstance(model_state_dict, dict) or not isinstance(feature_extractor_state_dict, dict):
+            raise ValueError("FastFlow checkpoint is missing required state_dict payloads.")
+
+        self.model.load_state_dict(dict(model_state_dict), strict=False)
+        self.feature_extractor.load_state_dict(dict(feature_extractor_state_dict), strict=False)
+        self.model.to(self.device)
+        self.feature_extractor.to(self.device)
+        self.model.eval()
+        self.feature_extractor.eval()
+        for module in self.model.modules():
+            if isinstance(module, ActNorm2d):
+                module.initialized = True
+
+        decision_scores = state.get("decision_scores_", None)
+        if decision_scores is not None:
+            self.decision_scores_ = np.asarray(decision_scores, dtype=np.float64)
+        threshold = state.get("threshold_", None)
+        if threshold is not None:
+            self.threshold_ = float(threshold)
 
     # ------------------------------------------------------------------
     def build_model(self):

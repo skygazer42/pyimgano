@@ -65,6 +65,22 @@ def test_capabilities_mark_classical_models_as_save_load_capable() -> None:
     assert caps.supports_save_load is True
 
 
+def test_capabilities_respect_explicit_save_load_override() -> None:
+    def _ctor() -> object:
+        return object()
+
+    registry = ModelRegistry()
+    registry.register(
+        "classical_override",
+        _ctor,
+        tags=["vision", "classical"],
+        metadata={"supports_save_load": False},
+    )
+
+    caps = compute_model_capabilities(registry.info("classical_override"))
+    assert caps.supports_save_load is False
+
+
 def test_capabilities_include_numpy_for_base_vision_detector_models() -> None:
     class _VisionModel(BaseVisionDetector):
         def __init__(self, *, contamination: float = 0.1, feature_extractor=None) -> None:

@@ -1,0 +1,31 @@
+{
+  "output_dir": "/data/pyimgano_eval/second_batch_btad_01_templates",
+  "datasets": [
+    {
+      "name": "btad",
+      "root": "/data/datasets/btad_root",
+      "categories": ["01"]
+    }
+  ],
+  "models": {
+    "include": [
+      "vision_template_ncc_map",
+      "vision_phase_correlation_map",
+      "vision_pixel_gaussian_map",
+      "ssim_template",
+      "ssim_template_map",
+      "ssim_struct",
+      "ssim_struct_map"
+    ]
+  },
+  "runtime": {
+    "device": "cpu",
+    "pretrained": false,
+    "save_run": true,
+    "per_image_jsonl": true,
+    "continue_on_error": true
+  },
+  "artifact_audit": {
+    "enabled": false
+  }
+}

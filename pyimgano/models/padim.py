@@ -15,6 +15,7 @@ Notes for this implementation:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -146,6 +147,82 @@ class VisionPaDiM(BaseVisionDeepDetector):
         self.means: Optional[NDArray] = None
         self.inv_covs: Optional[NDArray] = None
         self.patch_shape: Optional[Tuple[int, int]] = None
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        self._check_fitted()
+
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="VisionPaDiM checkpoint saving")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        raw_state = self.model.state_dict()
+        model_state_dict: dict[str, object] = {}
+        for key, value in dict(raw_state).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                model_state_dict[str(key)] = detach().cpu()
+            else:
+                model_state_dict[str(key)] = value
+
+        projection_state: dict[str, object] | None = None
+        if hasattr(self.random_projection, "components_"):
+            projection_state = {
+                "components_": np.asarray(self.random_projection.components_, dtype=np.float32),
+                "n_features_in_": int(self.random_projection.n_features_in_),
+                "n_components_": int(self.random_projection.components_.shape[0]),
+            }
+
+        torch.save(
+            {
+                "model_state_dict": model_state_dict,
+                "projection_state": projection_state,
+                "means": np.asarray(self.means, dtype=np.float32),
+                "inv_covs": np.asarray(self.inv_covs, dtype=np.float32),
+                "patch_shape": [int(v) for v in cast(tuple[int, int], self.patch_shape)],
+                "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
+                "threshold_": float(self.threshold_),
+            },
+            out_path,
+        )
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="VisionPaDiM checkpoint loading")
+
+        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid VisionPaDiM checkpoint payload.")
+
+        model_state_dict = state.get("model_state_dict", None)
+        if not isinstance(model_state_dict, dict):
+            raise ValueError("VisionPaDiM checkpoint is missing model_state_dict.")
+        self.model.load_state_dict(dict(model_state_dict), strict=False)
+        self.model.to(self.device)
+        self.model.eval()
+
+        projection_state = state.get("projection_state", None)
+        if isinstance(projection_state, dict) and projection_state.get("components_") is not None:
+            self.random_projection.components_ = np.asarray(
+                projection_state["components_"],
+                dtype=np.float32,
+            )
+            self.random_projection.n_features_in_ = int(projection_state["n_features_in_"])
+            self.random_projection.n_components_ = int(projection_state["n_components_"])
+
+        self.means = np.asarray(state["means"], dtype=np.float32)
+        self.inv_covs = np.asarray(state["inv_covs"], dtype=np.float32)
+        patch_shape = state.get("patch_shape", None)
+        if not isinstance(patch_shape, (list, tuple)) or len(patch_shape) != 2:
+            raise ValueError("VisionPaDiM checkpoint is missing patch_shape.")
+        self.patch_shape = (int(patch_shape[0]), int(patch_shape[1]))
+        self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        self.threshold_ = float(state["threshold_"])
 
     def _register_hooks(self) -> None:
         def get_activation(name: str):

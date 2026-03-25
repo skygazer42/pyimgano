@@ -22,6 +22,7 @@ from numpy import ndarray as NDArray
 from torchvision import models
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -324,7 +325,9 @@ class MemSegDetector(BaseVisionDeepDetector):
         legacy_kwargs = {}
         if "X" in kwargs:
             legacy_kwargs["X"] = kwargs.pop("X")
-        x_array = cast(NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit"))
+        x_array = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit")
+        )
         del y, kwargs
         print("Building MemSeg memory banks...")
 
@@ -360,8 +363,8 @@ class MemSegDetector(BaseVisionDeepDetector):
         legacy_kwargs = {}
         if "X" in kwargs:
             legacy_kwargs["X"] = kwargs.pop("X")
-        x_array = cast(
-            NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
+        x_array = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
         )
         del kwargs
         if x_array.max() > 1.0:
@@ -388,6 +391,15 @@ class MemSegDetector(BaseVisionDeepDetector):
 
         return np.array(scores)
 
+    def decision_function(
+        self,
+        x: object = MISSING,
+        batch_size: int | None = None,
+        **kwargs: object,
+    ) -> NDArray:
+        del batch_size
+        return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
+
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> List[NDArray]:
         """Predict pixel-level anomaly maps.
 
@@ -397,8 +409,8 @@ class MemSegDetector(BaseVisionDeepDetector):
         Returns:
             List of anomaly maps.
         """
-        x_array = cast(
-            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        x_array = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
         )
         if x_array.max() > 1.0:
             x_array = x_array.astype(np.float32) / 255.0

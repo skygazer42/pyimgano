@@ -58,22 +58,20 @@ def _make_instance_without_init(cls):
 
 
 def test_predict_return_confidence_raises_without_optional_deps():
-    VisionMambaAD = _import_attr_or_skip("pyimgano.models.mambaad", "VisionMambaAD")
     VisionPaDiM = _import_attr_or_skip("pyimgano.models.padim", "VisionPaDiM")
     VisionPatchCore = _import_attr_or_skip("pyimgano.models.patchcore", "VisionPatchCore")
 
-    for cls in (VisionMambaAD, VisionPaDiM, VisionPatchCore):
+    for cls in (VisionPaDiM, VisionPatchCore):
         inst = _make_instance_without_init(cls)
         with pytest.raises(NotImplementedError):
             cls.predict(inst, X=[], return_confidence=True)
 
 
 def test_decision_function_rejects_non_positive_batch_size():
-    VisionMambaAD = _import_attr_or_skip("pyimgano.models.mambaad", "VisionMambaAD")
     VisionPaDiM = _import_attr_or_skip("pyimgano.models.padim", "VisionPaDiM")
     VisionPatchCore = _import_attr_or_skip("pyimgano.models.patchcore", "VisionPatchCore")
 
-    for cls in (VisionMambaAD, VisionPaDiM, VisionPatchCore):
+    for cls in (VisionPaDiM, VisionPatchCore):
         inst = _make_instance_without_init(cls)
         with pytest.raises(ValueError):
             cls.decision_function(inst, X=[], batch_size=0)
@@ -82,15 +80,8 @@ def test_decision_function_rejects_non_positive_batch_size():
 def test_decision_function_accepts_positive_batch_size_on_empty_input():
     import numpy as np
 
-    VisionMambaAD = _import_attr_or_skip("pyimgano.models.mambaad", "VisionMambaAD")
     VisionPaDiM = _import_attr_or_skip("pyimgano.models.padim", "VisionPaDiM")
     VisionPatchCore = _import_attr_or_skip("pyimgano.models.patchcore", "VisionPatchCore")
-
-    # VisionMambaAD: empty input should short-circuit before touching heavy deps.
-    mamba = _make_instance_without_init(VisionMambaAD)
-    scores = VisionMambaAD.decision_function(mamba, X=[], batch_size=1)
-    assert isinstance(scores, np.ndarray)
-    assert scores.shape == (0,)
 
     # VisionPaDiM: avoid heavy deps by bypassing __init__ and setting fitted markers.
     padim = _make_instance_without_init(VisionPaDiM)

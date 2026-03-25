@@ -30,7 +30,6 @@ EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
     # Extras that imply torch.
     "clip": ("open_clip", "torch"),
     "anomalib": ("anomalib", "torch"),
-    "mamba": ("mamba_ssm", "torch"),
     # Meta-extras (allow `pyimgano-doctor --require-extras backends` style checks).
     "backends": ("anomalib", "faiss", "open_clip", "torch", "torchvision"),
 }

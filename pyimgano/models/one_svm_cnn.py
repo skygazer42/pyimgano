@@ -41,6 +41,18 @@ class ImageAnomalyDetector:
 
         self.pca.random_state = random_state
 
+    def _iter_image_paths(self, x):
+        if isinstance(x, (str, os.PathLike)):
+            raw = str(x)
+            if os.path.isdir(raw):
+                return sorted(
+                    os.path.join(raw, name)
+                    for name in os.listdir(raw)
+                    if name.endswith(".jpg") or name.endswith(".png")
+                )
+            return [raw]
+        return [str(item) for item in list(x)]
+
     def extract_features(self, image_path):
         """提取图像特征"""
         # 读取图像
@@ -166,11 +178,7 @@ class ImageAnomalyDetector:
         """训练模型"""
         print("开始提取特征...")
 
-        # 获取所有图片路径
-        image_paths = []
-        for filename in os.listdir(image_folder):
-            if filename.endswith(".jpg") or filename.endswith(".png"):
-                image_paths.append(os.path.join(image_folder, filename))
+        image_paths = self._iter_image_paths(image_folder)
 
         # 提取所有图片的特征
         features_list = []
@@ -195,6 +203,8 @@ class ImageAnomalyDetector:
         # PCA降维（可选，用于加速和去噪）
         if x.shape[1] > 128:
             print("PCA降维...")
+            max_components = max(1, min(128, x_scaled.shape[0], x_scaled.shape[1]))
+            self.pca = PCA(n_components=max_components, random_state=self.pca.random_state)
             x_reduced = self.pca.fit_transform(x_scaled)
         else:
             x_reduced = x_scaled
@@ -212,7 +222,7 @@ class ImageAnomalyDetector:
 
         return self
 
-    def predict(self, image_path):
+    def _predict_single(self, image_path):
         """预测单张图片是否异常"""
         if not self.is_trained:
             raise ValueError("模型尚未训练！")
@@ -245,6 +255,30 @@ class ImageAnomalyDetector:
             "confidence": abs(score - self.threshold_percentile_95),
         }
 
+    def fit(self, x, y=None):
+        del y
+        self.train(x)
+        return self
+
+    def decision_function(self, x):
+        image_paths = self._iter_image_paths(x)
+        scores = []
+        for image_path in image_paths:
+            result = self._predict_single(image_path)
+            scores.append(float(result["anomaly_score"]))
+        return np.asarray(scores, dtype=np.float64)
+
+    def predict(self, x):
+        if isinstance(x, (str, os.PathLike)) and os.path.isfile(str(x)):
+            return self._predict_single(str(x))
+
+        image_paths = self._iter_image_paths(x)
+        labels = []
+        for image_path in image_paths:
+            result = self._predict_single(image_path)
+            labels.append(0 if result["is_normal"] else 1)
+        return np.asarray(labels, dtype=np.int64)
+
     def batch_predict(self, test_folder):
         """批量预测"""
         results = []
@@ -253,7 +287,7 @@ class ImageAnomalyDetector:
             if filename.endswith(".jpg") or filename.endswith(".png"):
                 img_path = os.path.join(test_folder, filename)
                 try:
-                    result = self.predict(img_path)
+                    result = self._predict_single(img_path)
                     result["filename"] = filename
                     results.append(result)
                 except Exception as e:
