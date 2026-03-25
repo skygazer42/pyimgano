@@ -7,6 +7,8 @@ from typing import Any, Iterable, Mapping
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.reporting.run_quality import evaluate_run_quality
+
+_REPORT_JSON = "report.json"
 from pyimgano.reporting.robustness_summary import (
     build_robustness_trust_summary,
     summarize_robustness_protocol,
@@ -771,7 +773,7 @@ def _matches_target_signature(run: Mapping[str, Any], baseline: Mapping[str, Any
 def _resolve_report_path(run_dir: str | Path) -> Path:
     path = Path(run_dir)
     if path.is_dir():
-        return path / "report.json"
+        return path / _REPORT_JSON
     return path
 
 

@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+_INDUSTRIAL_FASTPATH_DOC = "docs/INDUSTRIAL_FASTPATH.md"
+_AUDITED_CONFIG_JSON = "industrial_adapt_audited.json"
+
 
 @dataclass(frozen=True)
 class AuditRule:
@@ -16,24 +19,24 @@ DEFAULT_RULES = (
     AuditRule(
         path="README.md",
         required=(
-            "docs/INDUSTRIAL_FASTPATH.md",
-            "industrial_adapt_audited.json",
+            _INDUSTRIAL_FASTPATH_DOC,
+            _AUDITED_CONFIG_JSON,
         ),
     ),
     AuditRule(
         path="docs/QUICKSTART.md",
         required=(
-            "docs/INDUSTRIAL_FASTPATH.md",
-            "industrial_adapt_audited.json",
+            _INDUSTRIAL_FASTPATH_DOC,
+            _AUDITED_CONFIG_JSON,
         ),
     ),
     AuditRule(
-        path="docs/INDUSTRIAL_FASTPATH.md",
+        path=_INDUSTRIAL_FASTPATH_DOC,
         required=(
             "infer_config.json",
             "calibration_card.json",
             "bundle_manifest.json",
-            "industrial_adapt_audited.json",
+            _AUDITED_CONFIG_JSON,
         ),
     ),
 )
