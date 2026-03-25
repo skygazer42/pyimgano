@@ -6,6 +6,9 @@ from typing import Any, Mapping
 from pyimgano.weights.manifest import validate_weights_manifest_file
 from pyimgano.weights.model_card import validate_model_card_file
 
+_MODEL_CARD_JSON = "model_card.json"
+_WEIGHTS_MANIFEST_JSON = "weights_manifest.json"
+
 
 def _nonempty_str(value: Any) -> str | None:
     if value is None:
@@ -140,8 +143,8 @@ def _build_bundle_trust_summary(
         "audit_refs": {
             key: value
             for key, value in {
-                "model_card_json": "model_card.json" if model_card_present else None,
-                "weights_manifest_json": "weights_manifest.json" if manifest_present else None,
+                "model_card_json": _MODEL_CARD_JSON if model_card_present else None,
+                "weights_manifest_json": _WEIGHTS_MANIFEST_JSON if manifest_present else None,
             }.items()
             if value is not None
         },

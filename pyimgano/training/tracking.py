@@ -6,6 +6,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Mapping, Protocol
 
+_EMPTY_ARTIFACT_NAME_MSG = "artifact name must be non-empty"
+
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -90,7 +92,7 @@ class JsonlTracker:
     def log_artifact(self, name: str, artifact: Any) -> None:
         artifact_name = str(name).strip()
         if not artifact_name:
-            raise ValueError("artifact name must be non-empty")
+            raise ValueError(_EMPTY_ARTIFACT_NAME_MSG)
         target = self.artifacts_dir / artifact_name
         target.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(artifact, (bytes, bytearray)):
@@ -177,7 +179,7 @@ class WandbTracker:
     def log_artifact(self, name: str, artifact: Any) -> None:
         target = Path(name).name
         if not target:
-            raise ValueError("artifact name must be non-empty")
+            raise ValueError(_EMPTY_ARTIFACT_NAME_MSG)
         artifact_dir = Path(".wandb-artifacts")
         artifact_dir.mkdir(parents=True, exist_ok=True)
         artifact_path = artifact_dir / target
@@ -244,7 +246,7 @@ class MlflowTracker:
     def log_artifact(self, name: str, artifact: Any) -> None:
         artifact_name = Path(str(name).strip()).name
         if not artifact_name:
-            raise ValueError("artifact name must be non-empty")
+            raise ValueError(_EMPTY_ARTIFACT_NAME_MSG)
 
         with TemporaryDirectory(prefix="pyimgano-mlflow-artifact-") as temp_dir:
             artifact_path = Path(temp_dir) / artifact_name

@@ -37,3 +37,13 @@ def test_sonar_project_excludes_non_runtime_paths_from_duplication() -> None:
     assert "docs/**" in exclusions
     assert "examples/**" in exclusions
     assert ".github/**" in exclusions
+
+
+def test_sonar_project_ignores_test_and_example_issues() -> None:
+    props = _read_properties()
+
+    assert props["sonar.issue.ignore.multicriteria"] == "tests_all,examples_all"
+    assert props["sonar.issue.ignore.multicriteria.tests_all.ruleKey"] == "*"
+    assert props["sonar.issue.ignore.multicriteria.tests_all.resourceKey"] == "tests/**/*"
+    assert props["sonar.issue.ignore.multicriteria.examples_all.ruleKey"] == "*"
+    assert props["sonar.issue.ignore.multicriteria.examples_all.resourceKey"] == "examples/**/*"

@@ -12,27 +12,35 @@ from pyimgano.weights.model_card import validate_model_card_file
 DEPLOY_BUNDLE_SCHEMA_VERSION = 1
 _DEPLOY_BUNDLE_TYPE = "cpu-offline-qc"
 _DEPLOY_BUNDLE_STATUS = "draft"
+_REPORT_JSON = "report.json"
+_CONFIG_JSON = "config.json"
+_ENVIRONMENT_JSON = "environment.json"
+_INFER_CONFIG_JSON = "infer_config.json"
+_CALIBRATION_CARD_JSON = "calibration_card.json"
+_OPERATOR_CONTRACT_JSON = "operator_contract.json"
+_MODEL_CARD_JSON = "model_card.json"
+_WEIGHTS_MANIFEST_JSON = "weights_manifest.json"
 _REQUIRED_SOURCE_RUN_ARTIFACTS = ("report", "config", "environment", "infer_config")
 _REQUIRED_BUNDLE_ARTIFACTS = ("report", "config", "environment", "infer_config")
 
 _SOURCE_RUN_ARTIFACT_PATHS = {
-    "report": "report.json",
-    "config": "config.json",
-    "environment": "environment.json",
-    "infer_config": "artifacts/infer_config.json",
-    "calibration_card": "artifacts/calibration_card.json",
-    "operator_contract": "artifacts/operator_contract.json",
+    "report": _REPORT_JSON,
+    "config": _CONFIG_JSON,
+    "environment": _ENVIRONMENT_JSON,
+    "infer_config": f"artifacts/{_INFER_CONFIG_JSON}",
+    "calibration_card": f"artifacts/{_CALIBRATION_CARD_JSON}",
+    "operator_contract": f"artifacts/{_OPERATOR_CONTRACT_JSON}",
 }
 
 _BUNDLE_ARTIFACT_PATHS = {
-    "report": "report.json",
-    "config": "config.json",
-    "environment": "environment.json",
-    "infer_config": "infer_config.json",
-    "calibration_card": "calibration_card.json",
-    "operator_contract": "operator_contract.json",
-    "model_card": "model_card.json",
-    "weights_manifest": "weights_manifest.json",
+    "report": _REPORT_JSON,
+    "config": _CONFIG_JSON,
+    "environment": _ENVIRONMENT_JSON,
+    "infer_config": _INFER_CONFIG_JSON,
+    "calibration_card": _CALIBRATION_CARD_JSON,
+    "operator_contract": _OPERATOR_CONTRACT_JSON,
+    "model_card": _MODEL_CARD_JSON,
+    "weights_manifest": _WEIGHTS_MANIFEST_JSON,
 }
 
 

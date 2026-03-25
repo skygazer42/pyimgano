@@ -524,13 +524,13 @@ _SELECTION_PROFILES = {
     "balanced": {
         "description": "Balanced native-first discovery with wrapped parity still visible.",
         "objective": "balanced",
-        "allow_upstream": "native+wrapped",
+        "allow_upstream": _DEFAULT_ALLOW_UPSTREAM,
         "topk": 5,
     },
     "benchmark-parity": {
         "description": "Surface native PatchCore and wrapper parity candidates for paper-style comparison.",
         "objective": "localization",
-        "allow_upstream": "native+wrapped",
+        "allow_upstream": _DEFAULT_ALLOW_UPSTREAM,
         "topk": 5,
     },
     "cpu-screening": {

@@ -14,6 +14,8 @@ from pyimgano.train_progress import get_active_train_progress_reporter
 from pyimgano.workbench.config import WorkbenchConfig
 
 _INFER_CONFIG_FILENAME = "infer_config.json"
+_CALIBRATION_CARD_FILENAME = "calibration_card.json"
+_OPERATOR_CONTRACT_FILENAME = "operator_contract.json"
 
 
 @dataclass(frozen=True)
@@ -97,13 +99,13 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         if src.exists():
             shutil.copy2(src, bundle_dir / name)
 
-    calibration_card_src = run_dir / "artifacts" / "calibration_card.json"
+    calibration_card_src = run_dir / "artifacts" / _CALIBRATION_CARD_FILENAME
     if calibration_card_src.exists():
-        shutil.copy2(calibration_card_src, bundle_dir / "calibration_card.json")
+        shutil.copy2(calibration_card_src, bundle_dir / _CALIBRATION_CARD_FILENAME)
 
-    operator_contract_src = run_dir / "artifacts" / "operator_contract.json"
+    operator_contract_src = run_dir / "artifacts" / _OPERATOR_CONTRACT_FILENAME
     if operator_contract_src.exists():
-        shutil.copy2(operator_contract_src, bundle_dir / "operator_contract.json")
+        shutil.copy2(operator_contract_src, bundle_dir / _OPERATOR_CONTRACT_FILENAME)
 
     def _resolve_path(raw: str) -> Path:
         path = Path(raw)

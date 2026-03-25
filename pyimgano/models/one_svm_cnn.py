@@ -51,7 +51,7 @@ class ImageAnomalyDetector:
                     if name.endswith(".jpg") or name.endswith(".png")
                 )
             return [raw]
-        return [str(item) for item in list(x)]
+        return [str(item) for item in x]
 
     def extract_features(self, image_path):
         """提取图像特征"""

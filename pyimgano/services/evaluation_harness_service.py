@@ -66,7 +66,7 @@ def load_evaluation_harness_request(path: str | Path) -> EvaluationHarnessReques
             ),
             categories=_as_tuple_str(item.get("categories")),
         )
-        for item in list(raw.get("datasets", []))
+        for item in raw.get("datasets", ())
     )
     if not datasets:
         raise ValueError("evaluation harness config requires a non-empty datasets list.")
@@ -138,17 +138,17 @@ def collect_dataset_inventory(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for target in targets:
-        categories = (
-            list(target.categories)
-            if target.categories is not None
-            else list_dataset_categories_payload(
+        manifest_path = (
+            str(target.manifest_path) if target.manifest_path is not None else None
+        )
+        if target.categories is not None:
+            categories = list(target.categories)
+        else:
+            categories = list_dataset_categories_payload(
                 dataset=str(target.name),
                 root=str(target.root),
-                manifest_path=(
-                    str(target.manifest_path) if target.manifest_path is not None else None
-                ),
+                manifest_path=manifest_path,
             )
-        )
         rows.append(
             {
                 "dataset": str(target.name),
@@ -180,7 +180,7 @@ def build_evaluation_matrix(
             blocking_reasons.append("external_artifact_required")
 
         for dataset_row in dataset_inventory:
-            for category in list(dataset_row.get("categories", [])):
+            for category in dataset_row.get("categories", ()):
                 blocked = bool(blocking_reasons)
                 matrix.append(
                     {

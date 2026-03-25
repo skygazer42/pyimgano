@@ -319,6 +319,22 @@ def test_bundle_cli_run_reports_passing_batch_gate_summary(
     }
 
 
+def test_rewrite_results_jsonl_rejects_path_outside_output_dir(tmp_path: Path) -> None:
+    from pyimgano.bundle_cli import _rewrite_results_jsonl
+
+    output_dir = tmp_path / "bundle_run"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    results_path = tmp_path / "outside.jsonl"
+    results_path.write_text('{"score": 0.1, "label": 0}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="results.jsonl path must stay within output_dir"):
+        _rewrite_results_jsonl(
+            output_dir=output_dir,
+            results_path=results_path,
+            input_records=[{"id": "a.png", "image_path": "a.png"}],
+        )
+
+
 def test_bundle_cli_run_blocks_when_batch_anomaly_rate_exceeds_gate(
     tmp_path: Path, capsys, monkeypatch
 ) -> None:

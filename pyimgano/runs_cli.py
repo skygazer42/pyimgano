@@ -32,6 +32,8 @@ _CANDIDATE_COMPARABILITY_GATES_ORDER = (
     "operator_contract",
     "bundle_operator_contract",
 )
+_JSON_OUTPUT_HELP = "Emit JSON output."
+_MISSING_REQUIRED_PREFIX = "missing_required="
 
 
 def _format_metric_value(value: object) -> str | None:
@@ -333,7 +335,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional run directory whose robustness protocol must match.",
     )
-    p_list.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_list.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
 
     p_latest = sub.add_parser("latest", help="Show the latest saved top-level run under a root.")
     p_latest.add_argument("--root", default="runs", help="Root directory to scan. Default: runs")
@@ -375,7 +377,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional run directory whose robustness protocol must match.",
     )
-    p_latest.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_latest.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
 
     p_compare = sub.add_parser("compare", help="Compare one or more saved runs.")
     p_compare.add_argument("run_dirs", nargs="+", help="Run directories to compare.")
@@ -436,7 +438,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "operator contract."
         ),
     )
-    p_compare.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_compare.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
 
     p_quality = sub.add_parser("quality", help="Inspect artifact completeness for a saved run.")
     p_quality.add_argument("run_dir", help="Run directory to inspect.")
@@ -451,7 +453,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Return exit code 1 unless the run quality reaches at least this status.",
     )
-    p_quality.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_quality.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
 
     p_acceptance = sub.add_parser(
         "acceptance",
@@ -472,14 +474,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default="audited",
         help="Minimum run quality required before the run acceptance gate can pass. Ignored for suite exports. Default: audited",
     )
-    p_acceptance.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_acceptance.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
 
     p_publication = sub.add_parser(
         "publication",
         help="Inspect suite publication readiness for an export directory.",
     )
     p_publication.add_argument("path", help="Suite export directory or leaderboard_metadata.json path.")
-    p_publication.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_publication.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
     return parser
 
 
@@ -1079,7 +1081,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"ref={key}:{value}")
             missing_required = list(quality.get("missing_required", []))
             if missing_required:
-                print("missing_required=" + ", ".join(str(item) for item in missing_required))
+                print(_MISSING_REQUIRED_PREFIX + ", ".join(str(item) for item in missing_required))
                 return 1
             if not bool(meets_required_status):
                 return 1
@@ -1117,7 +1119,7 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"audit_ref.{key}={value}")
                 missing_required = list(publication.get("missing_required", []))
                 if missing_required:
-                    print("missing_required=" + ", ".join(str(item) for item in missing_required))
+                    print(_MISSING_REQUIRED_PREFIX + ", ".join(str(item) for item in missing_required))
                 invalid_declared = list(publication.get("invalid_declared", []))
                 if invalid_declared:
                     print("invalid_declared=" + ", ".join(str(item) for item in invalid_declared))
@@ -1173,7 +1175,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"audit_ref.{key}={value}")
             missing_required = list(publication.get("missing_required", []))
             if missing_required:
-                print("missing_required=" + ", ".join(str(item) for item in missing_required))
+                print(_MISSING_REQUIRED_PREFIX + ", ".join(str(item) for item in missing_required))
                 return 1
             return 0
 

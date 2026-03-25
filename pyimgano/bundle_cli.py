@@ -523,10 +523,20 @@ def _resolve_input_records(args: argparse.Namespace) -> tuple[list[dict[str, Any
 
 def _rewrite_results_jsonl(
     *,
+    output_dir: Path,
     results_path: Path,
     input_records: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    rows = [line for line in results_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    output_root = output_dir.resolve(strict=False)
+    resolved_results_path = results_path.resolve(strict=False)
+    try:
+        resolved_results_path.relative_to(output_root)
+    except ValueError as exc:
+        raise ValueError("results.jsonl path must stay within output_dir") from exc
+
+    rows = [
+        line for line in resolved_results_path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
     if len(rows) != len(input_records):
         raise RuntimeError(
             "results.jsonl record count does not match resolved input count. "
@@ -544,7 +554,7 @@ def _rewrite_results_jsonl(
         record["meta"] = input_record.get("meta")
         rewritten.append(record)
 
-    results_path.write_text(
+    resolved_results_path.write_text(
         "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rewritten),
         encoding="utf-8",
     )
@@ -1005,7 +1015,11 @@ def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
         _write_run_report(report, output_dir=output_dir)
         return report
 
-    result_records = _rewrite_results_jsonl(results_path=results_path, input_records=input_records)
+    result_records = _rewrite_results_jsonl(
+        output_dir=output_dir,
+        results_path=results_path,
+        input_records=input_records,
+    )
     result_summary = _result_summary(result_records)
     batch_gate_summary, batch_verdict, batch_gate_reason_codes = _evaluate_batch_gates(
         args=args,

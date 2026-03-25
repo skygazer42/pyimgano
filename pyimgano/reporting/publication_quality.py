@@ -8,6 +8,8 @@ from typing import Any
 from pyimgano.weights.manifest import validate_weights_manifest_file
 from pyimgano.weights.model_card import validate_model_card_file
 
+_LEADERBOARD_METADATA_JSON = "leaderboard_metadata.json"
+
 
 def _load_json_dict(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -19,7 +21,7 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
 def _resolve_metadata_path(path: str | Path) -> Path:
     candidate = Path(path).resolve(strict=False)
     if candidate.is_dir():
-        return (candidate / "leaderboard_metadata.json").resolve(strict=False)
+        return (candidate / _LEADERBOARD_METADATA_JSON).resolve(strict=False)
     return candidate
 
 

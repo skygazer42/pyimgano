@@ -493,11 +493,13 @@ class TrainConsoleReporter(TrainProgressReporter):
         alignments = ">>>>><"
         if show_pixel:
             headers.append("Pixel")
-            values.append(
-                "-"
-                if pixel_metrics_enabled is None
-                else ("on" if pixel_metrics_enabled else "off")
-            )
+            if pixel_metrics_enabled is None:
+                pixel_value = "-"
+            elif pixel_metrics_enabled:
+                pixel_value = "on"
+            else:
+                pixel_value = "off"
+            values.append(pixel_value)
             widths.append(6)
             alignments += "<"
         self._emit_metric_table(

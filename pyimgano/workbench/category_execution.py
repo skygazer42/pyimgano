@@ -49,6 +49,13 @@ def run_workbench_category(
     pixel_skip_reason = split.pixel_skip_reason
     test_meta = split.test_meta
     input_format = split.input_format
+    if pixel_skip_reason is not None:
+        pixel_metrics_reason = str(pixel_skip_reason)
+    elif test_masks is None:
+        pixel_metrics_reason = "No ground-truth test masks available."
+    else:
+        pixel_metrics_reason = None
+
     reporter.on_dataset_loaded(
         category=str(category),
         train_count=int(len(train_inputs)),
@@ -56,11 +63,7 @@ def run_workbench_category(
         test_count=int(len(test_inputs)),
         anomaly_count=int(np.sum(test_labels == 1)),
         pixel_metrics_enabled=bool(test_masks is not None and pixel_skip_reason is None),
-        pixel_metrics_reason=(
-            str(pixel_skip_reason)
-            if pixel_skip_reason is not None
-            else ("No ground-truth test masks available." if test_masks is None else None)
-        ),
+        pixel_metrics_reason=pixel_metrics_reason,
     )
 
     detector = build_workbench_runtime_detector(config=config)

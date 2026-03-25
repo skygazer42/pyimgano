@@ -567,11 +567,12 @@ class BaseDeepLearningDetector(BaseDetector):
                 mean_loss_epoch = mean_loss
                 self.training_loss_history_.append(mean_loss)
                 self.training_epoch_time_history_.append(epoch_s)
-                train_items = int(
-                    epoch_sample_count
-                    if epoch_sample_count > 0
-                    else (self.data_num if self.data_num is not None else 0)
-                )
+                if epoch_sample_count > 0:
+                    train_items = int(epoch_sample_count)
+                elif self.data_num is not None:
+                    train_items = int(self.data_num)
+                else:
+                    train_items = 0
                 self.training_epoch_sample_counts_.append(train_items)
                 metrics: dict[str, float] = {"loss": float(mean_loss)}
                 if self.training_lr_history_:

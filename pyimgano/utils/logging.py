@@ -99,7 +99,7 @@ def configure_logging(
     logger.setLevel(_coerce_level(level=level, verbose=verbose))
 
     if force:
-        for handler in list(logger.handlers):
+        for handler in tuple(logger.handlers):
             logger.removeHandler(handler)
 
     handlers: list[logging.Handler] = []

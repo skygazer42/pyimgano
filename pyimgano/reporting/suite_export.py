@@ -10,6 +10,9 @@ from typing import Any, Mapping, Sequence
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 
+_REPORT_JSON = "report.json"
+_LEADERBOARD_METADATA_JSON = "leaderboard_metadata.json"
+
 
 def _format_cell(value: Any) -> str:
     if value is None:
@@ -124,7 +127,7 @@ def _load_run_report(run_dir: Any) -> Mapping[str, Any] | None:
     if path_text is None:
         return None
 
-    report_path = Path(path_text) / "report.json"
+    report_path = Path(path_text) / _REPORT_JSON
     if not report_path.is_file():
         return None
 

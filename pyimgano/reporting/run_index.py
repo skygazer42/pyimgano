@@ -343,7 +343,7 @@ def _build_candidate_incompatibility_digest(
         if not isinstance(verdict, str) or not verdict:
             verdict = "pass"
         reasons_raw = candidate_blocking_reasons.get(name, [])
-        reasons = [str(reason) for reason in list(reasons_raw) if str(reason)]
+        reasons = [str(reason) for reason in reasons_raw if str(reason)]
         gate_states = candidate_comparability_gates.get(name, None)
         gate_map = dict(gate_states) if isinstance(gate_states, Mapping) else {}
         incompatible_gates: list[str] = []
@@ -1625,14 +1625,17 @@ def compare_run_summaries(
         if bool(baseline_checked)
         else []
     )
+    if bool(baseline_checked):
+        regression_gate = "clean" if int(total_regressions) == 0 else "regressed"
+        verdict = "pass" if not blocking_flags else "blocked"
+    else:
+        regression_gate = "unchecked"
+        verdict = "informational"
+
     summary = {
         "baseline_checked": bool(baseline_checked),
         "total_regressions": int(total_regressions),
-        "regression_gate": (
-            ("clean" if int(total_regressions) == 0 else "regressed")
-            if bool(baseline_checked)
-            else "unchecked"
-        ),
+        "regression_gate": regression_gate,
         "comparability_gates": {
             "split": _comparability_gate_status(split_summary),
             "environment": _comparability_gate_status(environment_summary),
@@ -1644,11 +1647,7 @@ def compare_run_summaries(
             ),
         },
         "blocking_flags": blocking_flags,
-        "verdict": (
-            ("pass" if not blocking_flags else "blocked")
-            if bool(baseline_checked)
-            else "informational"
-        ),
+        "verdict": verdict,
     }
     trust_comparison = _build_trust_comparison(baseline_summary)
     evaluation_contract = build_evaluation_contract(
