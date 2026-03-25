@@ -737,6 +737,53 @@ def _direct_model_required_extras(
     return list(dict.fromkeys(out))
 
 
+_BENCHMARK_REFERENCE_ROLE_BY_REASON = {
+    "reference_inspection_baseline": "reference_inspection_baseline",
+    "cpu_friendly_baseline": "cpu_friendly_baseline",
+    "default_balanced_recommendation": "balanced_generalist_recommendation",
+    "shared_embedding_space": "shared_embedding_space",
+    "high_recall_pixel_map": "high_recall_pixel_map",
+    "lightweight_similarity_map": "lightweight_similarity_map",
+    "native_patchcore_reference": "native_patchcore_reference",
+    "upstream_parity_reference": "upstream_parity_reference",
+    "upstream_saved_model_reference": "upstream_saved_model_reference",
+    "robust_reference_baseline": "robust_reference_baseline",
+    "balanced_generalist_baseline": "balanced_generalist_baseline",
+    "deep_generalization_baseline": "deep_generalization_baseline",
+}
+
+_BENCHMARK_REFERENCE_ROLE_BY_REF = {
+    "industrial-template-ncc-map": "reference_inspection_baseline",
+    "industrial-structural-ecod": "cpu_friendly_baseline",
+    "industrial-embedding-core-balanced": "balanced_generalist_baseline",
+    "industrial-patchcore-lite-map": "high_recall_pixel_map",
+    "industrial-ssim-template-map": "lightweight_similarity_map",
+    "industrial-pixel-mad-map": "robust_reference_baseline",
+    "industrial-reverse-distillation": "deep_generalization_baseline",
+    "vision_patchcore": "native_patchcore_reference",
+    "vision_patchcore_anomalib": "upstream_parity_reference",
+    "vision_patchcore_inspection_checkpoint": "upstream_saved_model_reference",
+}
+
+
+def _resolve_benchmark_reference_role(
+    *,
+    ref: str,
+    reasons: list[str],
+    deployment_profile: Mapping[str, Any],
+) -> str | None:
+    role = deployment_profile.get("benchmark_reference_role")
+    if isinstance(role, str) and role.strip():
+        return role.strip()
+
+    for reason in reasons:
+        mapped = _BENCHMARK_REFERENCE_ROLE_BY_REASON.get(str(reason))
+        if mapped is not None:
+            return mapped
+
+    return _BENCHMARK_REFERENCE_ROLE_BY_REF.get(str(ref))
+
+
 def _build_recommendation_candidate(ref: str, reasons: list[str]) -> dict[str, Any] | None:
     from pyimgano.models.registry import model_info
     from pyimgano.presets.catalog import resolve_model_preset
@@ -778,7 +825,11 @@ def _build_recommendation_candidate(ref: str, reasons: list[str]) -> dict[str, A
     ]
     deployment_profile = candidate.get("deployment_profile", {})
     if isinstance(deployment_profile, Mapping):
-        candidate["benchmark_reference_role"] = deployment_profile.get("benchmark_reference_role")
+        candidate["benchmark_reference_role"] = _resolve_benchmark_reference_role(
+            ref=str(ref),
+            reasons=[str(item) for item in reasons if str(item).strip()],
+            deployment_profile=deployment_profile,
+        )
     return candidate
 
 

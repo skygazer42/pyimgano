@@ -314,7 +314,69 @@ def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
     assert isinstance(recommendations, list)
     presets = {str(item.get("preset")) for item in recommendations if isinstance(item, dict)}
     assert "industrial-template-ncc-map" in presets
-    assert "industrial-patchcore-lite-map" in presets
+    assert "industrial-structural-ecod" in presets
+    assert (
+        {
+            "industrial-patchcore-lite-map",
+            "industrial-ssim-template-map",
+            "industrial-pixel-mad-map",
+        }
+        & presets
+    )
+
+
+def test_doctor_cli_dataset_target_recommendations_expose_reference_roles(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "train" / "normal" / "train_1.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    rc = doctor_main(
+        [
+            "--json",
+            "--dataset-target",
+            str(root),
+            "--allow-upstream",
+            "native-only",
+            "--topk",
+            "4",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    recommendations = payload.get("recommendations")
+    assert isinstance(recommendations, list)
+
+    by_preset = {
+        str(item.get("preset")): item for item in recommendations if isinstance(item, dict)
+    }
+    assert (
+        by_preset["industrial-template-ncc-map"].get("benchmark_reference_role")
+        == "reference_inspection_baseline"
+    )
+    assert (
+        by_preset["industrial-structural-ecod"].get("benchmark_reference_role")
+        == "cpu_friendly_baseline"
+    )
+    assert (
+        by_preset["industrial-pixel-mad-map"].get("benchmark_reference_role")
+        == "robust_reference_baseline"
+    )
+    assert (
+        by_preset["industrial-ssim-template-map"].get("benchmark_reference_role")
+        == "lightweight_similarity_map"
+    )
 
 
 def test_doctor_cli_dataset_target_exposes_selection_context_and_rejections(
@@ -422,11 +484,70 @@ def test_doctor_cli_dataset_target_selection_profile_reports_parity_candidates(
     by_model = {
         str(item.get("model")): item for item in parity_candidates if isinstance(item, dict)
     }
+    assert by_model["vision_template_ncc_map"].get("benchmark_reference_role") == (
+        "reference_inspection_baseline"
+    )
+    assert by_model["vision_feature_pipeline"].get("benchmark_reference_role") == (
+        "cpu_friendly_baseline"
+    )
     assert "vision_patchcore" in by_model
     assert "vision_patchcore_anomalib" in by_model
     assert "vision_patchcore_inspection_checkpoint" in by_model
-    assert isinstance(by_model["vision_patchcore"].get("benchmark_reference_role"), str)
+    assert by_model["vision_patchcore"].get("benchmark_reference_role") == (
+        "native_patchcore_reference"
+    )
+    assert by_model["vision_patchcore_anomalib"].get("benchmark_reference_role") == (
+        "upstream_parity_reference"
+    )
+    assert by_model["vision_patchcore_inspection_checkpoint"].get("benchmark_reference_role") == (
+        "upstream_saved_model_reference"
+    )
     assert isinstance(by_model["vision_patchcore_anomalib"].get("missing_extras"), list)
+
+
+def test_doctor_cli_cpu_screening_profile_reports_balanced_parity_role(
+    tmp_path: Path, capsys
+) -> None:
+    from pyimgano.doctor_cli import main as doctor_main
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "train" / "normal" / "train_1.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    rc = doctor_main(
+        [
+            "--json",
+            "--dataset-target",
+            str(root),
+            "--selection-profile",
+            "cpu-screening",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    parity_candidates = payload.get("parity_candidates")
+    assert isinstance(parity_candidates, list)
+
+    by_model = {
+        str(item.get("model")): item for item in parity_candidates if isinstance(item, dict)
+    }
+    assert by_model["vision_template_ncc_map"].get("benchmark_reference_role") == (
+        "reference_inspection_baseline"
+    )
+    assert by_model["vision_feature_pipeline"].get("benchmark_reference_role") == (
+        "cpu_friendly_baseline"
+    )
+    assert by_model["vision_embedding_core"].get("benchmark_reference_role") == (
+        "balanced_generalist_baseline"
+    )
 
 
 def test_doctor_cli_deploy_bundle_reports_patchcore_inspection_artifact_audit(
