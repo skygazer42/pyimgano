@@ -4,6 +4,52 @@ import numpy as np
 import pytest
 
 
+_OPTIONAL_IMPORT_ROOTS = {
+    "anomalib",
+    "faiss",
+    "mamba_ssm",
+    "open_clip",
+    "open_clip_torch",
+    "patchcore",
+    "skimage",
+    "torch",
+    "torchvision",
+}
+
+
+def _is_optional_dependency_error(exc: ModuleNotFoundError) -> bool:
+    name = getattr(exc, "name", "") or ""
+    root = str(name).split(".", 1)[0]
+    return root in _OPTIONAL_IMPORT_ROOTS
+
+
+def _import_attr_or_skip(module_path: str, attr_name: str):
+    try:
+        module = __import__(module_path, fromlist=[attr_name])
+    except ModuleNotFoundError as exc:
+        if _is_optional_dependency_error(exc):
+            pytest.skip(f"optional dependency missing for {module_path}: {exc.name}")
+        raise
+    return getattr(module, attr_name)
+
+
+def _import_attr_param(module_path: str, attr_name: str, *values, id: str):
+    try:
+        module = __import__(module_path, fromlist=[attr_name])
+    except ModuleNotFoundError as exc:
+        if _is_optional_dependency_error(exc):
+            return pytest.param(
+                None,
+                *values,
+                id=id,
+                marks=pytest.mark.skip(
+                    reason=f"optional dependency missing for {module_path}: {exc.name}"
+                ),
+            )
+        raise
+    return pytest.param(getattr(module, attr_name), *values, id=id)
+
+
 def _make_instance_without_init(cls):
     # Many vision detectors pull optional heavy deps (e.g., torch) during __init__.
     # For these interface-level tests we bypass __init__ and only exercise the
@@ -12,9 +58,9 @@ def _make_instance_without_init(cls):
 
 
 def test_predict_return_confidence_raises_without_optional_deps():
-    from pyimgano.models.mambaad import VisionMambaAD
-    from pyimgano.models.padim import VisionPaDiM
-    from pyimgano.models.patchcore import VisionPatchCore
+    VisionMambaAD = _import_attr_or_skip("pyimgano.models.mambaad", "VisionMambaAD")
+    VisionPaDiM = _import_attr_or_skip("pyimgano.models.padim", "VisionPaDiM")
+    VisionPatchCore = _import_attr_or_skip("pyimgano.models.patchcore", "VisionPatchCore")
 
     for cls in (VisionMambaAD, VisionPaDiM, VisionPatchCore):
         inst = _make_instance_without_init(cls)
@@ -23,9 +69,9 @@ def test_predict_return_confidence_raises_without_optional_deps():
 
 
 def test_decision_function_rejects_non_positive_batch_size():
-    from pyimgano.models.mambaad import VisionMambaAD
-    from pyimgano.models.padim import VisionPaDiM
-    from pyimgano.models.patchcore import VisionPatchCore
+    VisionMambaAD = _import_attr_or_skip("pyimgano.models.mambaad", "VisionMambaAD")
+    VisionPaDiM = _import_attr_or_skip("pyimgano.models.padim", "VisionPaDiM")
+    VisionPatchCore = _import_attr_or_skip("pyimgano.models.patchcore", "VisionPatchCore")
 
     for cls in (VisionMambaAD, VisionPaDiM, VisionPatchCore):
         inst = _make_instance_without_init(cls)
@@ -36,9 +82,9 @@ def test_decision_function_rejects_non_positive_batch_size():
 def test_decision_function_accepts_positive_batch_size_on_empty_input():
     import numpy as np
 
-    from pyimgano.models.mambaad import VisionMambaAD
-    from pyimgano.models.padim import VisionPaDiM
-    from pyimgano.models.patchcore import VisionPatchCore
+    VisionMambaAD = _import_attr_or_skip("pyimgano.models.mambaad", "VisionMambaAD")
+    VisionPaDiM = _import_attr_or_skip("pyimgano.models.padim", "VisionPaDiM")
+    VisionPatchCore = _import_attr_or_skip("pyimgano.models.patchcore", "VisionPatchCore")
 
     # VisionMambaAD: empty input should short-circuit before touching heavy deps.
     mamba = _make_instance_without_init(VisionMambaAD)
@@ -111,324 +157,315 @@ def _assert_signature_contains(method, *expected: str) -> None:
 @pytest.mark.parametrize(
     ("cls", "method_names"),
     [
-        pytest.param(
-            __import__("pyimgano.models.anomalydino", fromlist=["VisionAnomalyDINO"]).VisionAnomalyDINO,
+        _import_attr_param(
+            "pyimgano.models.anomalydino",
+            "VisionAnomalyDINO",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="anomalydino",
         ),
-        pytest.param(
-            __import__("pyimgano.models.softpatch", fromlist=["VisionSoftPatch"]).VisionSoftPatch,
+        _import_attr_param(
+            "pyimgano.models.softpatch",
+            "VisionSoftPatch",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="softpatch",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.anomalib_backend", fromlist=["VisionAnomalibCheckpoint"]
-            ).VisionAnomalibCheckpoint,
+        _import_attr_param(
+            "pyimgano.models.anomalib_backend",
+            "VisionAnomalibCheckpoint",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="anomalib-backend",
         ),
-        pytest.param(
-            __import__("pyimgano.models.visionad", fromlist=["VisionVisionAD"]).VisionVisionAD,
+        _import_attr_param(
+            "pyimgano.models.visionad",
+            "VisionVisionAD",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="visionad",
         ),
-        pytest.param(
-            __import__("pyimgano.models.filopp", fromlist=["VisionFiLoPP"]).VisionFiLoPP,
+        _import_attr_param(
+            "pyimgano.models.filopp",
+            "VisionFiLoPP",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="filopp",
         ),
-        pytest.param(
-            __import__("pyimgano.models.logsad", fromlist=["VisionLogSAD"]).VisionLogSAD,
+        _import_attr_param(
+            "pyimgano.models.logsad",
+            "VisionLogSAD",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="logsad",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.one_to_normal", fromlist=["VisionOneToNormal"]
-            ).VisionOneToNormal,
+        _import_attr_param(
+            "pyimgano.models.one_to_normal",
+            "VisionOneToNormal",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="one-to-normal",
         ),
-        pytest.param(
-            __import__("pyimgano.models.superad", fromlist=["VisionSuperAD"]).VisionSuperAD,
+        _import_attr_param(
+            "pyimgano.models.superad",
+            "VisionSuperAD",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="superad",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.pixel_stats_map",
-                fromlist=[
-                    "_BasePixelStatsMapDetector",
-                    "VisionPixelMeanAbsDiffMapDetector",
-                    "VisionPixelGaussianMapDetector",
-                    "VisionPixelMADMapDetector",
-                ],
-            )._BasePixelStatsMapDetector,
+        _import_attr_param(
+            "pyimgano.models.pixel_stats_map",
+            "_BasePixelStatsMapDetector",
             ("decision_function", "predict_anomaly_map"),
             id="pixel-stats-base",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.pixel_stats_map", fromlist=["VisionPixelMeanAbsDiffMapDetector"]
-            ).VisionPixelMeanAbsDiffMapDetector,
+        _import_attr_param(
+            "pyimgano.models.pixel_stats_map",
+            "VisionPixelMeanAbsDiffMapDetector",
             ("fit",),
             id="pixel-mean",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.pixel_stats_map", fromlist=["VisionPixelGaussianMapDetector"]
-            ).VisionPixelGaussianMapDetector,
+        _import_attr_param(
+            "pyimgano.models.pixel_stats_map",
+            "VisionPixelGaussianMapDetector",
             ("fit",),
             id="pixel-gaussian",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.pixel_stats_map", fromlist=["VisionPixelMADMapDetector"]
-            ).VisionPixelMADMapDetector,
+        _import_attr_param(
+            "pyimgano.models.pixel_stats_map",
+            "VisionPixelMADMapDetector",
             ("fit",),
             id="pixel-mad",
         ),
-        pytest.param(
-            __import__("pyimgano.models.aaclip", fromlist=["VisionAAClip"]).VisionAAClip,
+        _import_attr_param(
+            "pyimgano.models.aaclip",
+            "VisionAAClip",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="aaclip",
         ),
-        pytest.param(
-            __import__("pyimgano.models.adaclip", fromlist=["VisionAdaCLIP"]).VisionAdaCLIP,
+        _import_attr_param(
+            "pyimgano.models.adaclip",
+            "VisionAdaCLIP",
             ("fit", "decision_function", "predict"),
             id="adaclip",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.openclip_patch_map", fromlist=["VisionOpenCLIPPatchMap"]
-            ).VisionOpenCLIPPatchMap,
+        _import_attr_param(
+            "pyimgano.models.openclip_patch_map",
+            "VisionOpenCLIPPatchMap",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="openclip-patch-map",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.patch_embedding_core_map", fromlist=["VisionPatchEmbeddingCoreMap"]
-            ).VisionPatchEmbeddingCoreMap,
+        _import_attr_param(
+            "pyimgano.models.patch_embedding_core_map",
+            "VisionPatchEmbeddingCoreMap",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="patch-embedding-core-map",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.patchcore_inspection_backend",
-                fromlist=["VisionPatchCoreInspectionCheckpoint"],
-            ).VisionPatchCoreInspectionCheckpoint,
+        _import_attr_param(
+            "pyimgano.models.patchcore_inspection_backend",
+            "VisionPatchCoreInspectionCheckpoint",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="patchcore-inspection-backend",
         ),
-        pytest.param(
-            __import__("pyimgano.models.univad", fromlist=["VisionUniVAD"]).VisionUniVAD,
+        _import_attr_param(
+            "pyimgano.models.univad",
+            "VisionUniVAD",
             ("fit", "decision_function", "predict"),
             id="univad",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.patchcore_lite_map", fromlist=["VisionPatchCoreLiteMap"]
-            ).VisionPatchCoreLiteMap,
+        _import_attr_param(
+            "pyimgano.models.patchcore_lite_map",
+            "VisionPatchCoreLiteMap",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="patchcore-lite-map",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.patchcore_lite", fromlist=["CorePatchCoreLite"]
-            ).CorePatchCoreLite,
+        _import_attr_param(
+            "pyimgano.models.patchcore_lite",
+            "CorePatchCoreLite",
             ("fit", "decision_function"),
             id="patchcore-lite-core",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.patchcore_online",
-                fromlist=["CorePatchCoreOnline", "VisionPatchCoreOnline"],
-            ).CorePatchCoreOnline,
+        _import_attr_param(
+            "pyimgano.models.patchcore_online",
+            "CorePatchCoreOnline",
             ("fit", "partial_fit", "decision_function"),
             id="patchcore-online-core",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.patchcore_online",
-                fromlist=["CorePatchCoreOnline", "VisionPatchCoreOnline"],
-            ).VisionPatchCoreOnline,
+        _import_attr_param(
+            "pyimgano.models.patchcore_online",
+            "VisionPatchCoreOnline",
             ("partial_fit",),
             id="patchcore-online-vision",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.core_score_standardizer", fromlist=["CoreScoreStandardizer"]
-            ).CoreScoreStandardizer,
+        _import_attr_param(
+            "pyimgano.models.core_score_standardizer",
+            "CoreScoreStandardizer",
             ("fit", "decision_function"),
             id="core-score-standardizer",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.vision_score_standardizer", fromlist=["VisionScoreStandardizer"]
-            ).VisionScoreStandardizer,
+        _import_attr_param(
+            "pyimgano.models.vision_score_standardizer",
+            "VisionScoreStandardizer",
             ("fit", "decision_function"),
             id="vision-score-standardizer",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.pipelines.reference_map_pipeline", fromlist=["ReferenceMapPipeline"]
-            ).ReferenceMapPipeline,
+        _import_attr_param(
+            "pyimgano.pipelines.reference_map_pipeline",
+            "ReferenceMapPipeline",
             ("fit", "decision_function"),
             id="reference-map-pipeline",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.preprocessing.mixin", fromlist=["ExampleDetectorWithPreprocessing"]
-            ).ExampleDetectorWithPreprocessing,
+        _import_attr_param(
+            "pyimgano.preprocessing.mixin",
+            "ExampleDetectorWithPreprocessing",
             ("fit", "predict"),
             id="example-preprocessing-detector",
         ),
-        pytest.param(
-            __import__("pyimgano.models.ssim", fromlist=["SSIMTemplateDetector"]).SSIMTemplateDetector,
+        _import_attr_param(
+            "pyimgano.models.ssim",
+            "SSIMTemplateDetector",
             ("fit", "decision_function"),
             id="ssim-template",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.ssim_map", fromlist=["SSIMTemplateMapDetector"]
-            ).SSIMTemplateMapDetector,
+        _import_attr_param(
+            "pyimgano.models.ssim_map",
+            "SSIMTemplateMapDetector",
             ("fit", "predict_anomaly_map", "decision_function"),
             id="ssim-template-map",
         ),
-        pytest.param(
-            __import__("pyimgano.models.ssim_map", fromlist=["SSIMStructMapDetector"]).SSIMStructMapDetector,
+        _import_attr_param(
+            "pyimgano.models.ssim_map",
+            "SSIMStructMapDetector",
             ("fit", "predict_anomaly_map", "decision_function"),
             id="ssim-struct-map",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.ssim_struct", fromlist=["SSIMStructDetector"]
-            ).SSIMStructDetector,
+        _import_attr_param(
+            "pyimgano.models.ssim_struct",
+            "SSIMStructDetector",
             ("fit", "decision_function"),
             id="ssim-struct",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.template_ncc_map", fromlist=["VisionTemplateNCCMapDetector"]
-            ).VisionTemplateNCCMapDetector,
+        _import_attr_param(
+            "pyimgano.models.template_ncc_map",
+            "VisionTemplateNCCMapDetector",
             ("fit", "predict_anomaly_map", "decision_function"),
             id="template-ncc-map",
         ),
-        pytest.param(
-            __import__("pyimgano.models.hst", fromlist=["CoreHST"]).CoreHST,
+        _import_attr_param(
+            "pyimgano.models.hst",
+            "CoreHST",
             ("fit", "decision_function"),
             id="core-hst",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.knn_degree", fromlist=["CoreKNNGraphDegree"]
-            ).CoreKNNGraphDegree,
+        _import_attr_param(
+            "pyimgano.models.knn_degree",
+            "CoreKNNGraphDegree",
             ("fit", "decision_function"),
             id="core-knn-degree",
         ),
-        pytest.param(
-            __import__("pyimgano.models.loop", fromlist=["CoreLoOP"]).CoreLoOP,
+        _import_attr_param(
+            "pyimgano.models.loop",
+            "CoreLoOP",
             ("fit", "decision_function"),
             id="core-loop",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.mahalanobis", fromlist=["CoreMahalanobis"]
-            ).CoreMahalanobis,
+        _import_attr_param(
+            "pyimgano.models.mahalanobis",
+            "CoreMahalanobis",
             ("fit", "decision_function"),
             id="core-mahalanobis",
         ),
-        pytest.param(
-            __import__("pyimgano.models.odin", fromlist=["CoreODIN"]).CoreODIN,
+        _import_attr_param(
+            "pyimgano.models.odin",
+            "CoreODIN",
             ("fit", "decision_function"),
             id="core-odin",
         ),
-        pytest.param(
-            __import__("pyimgano.models.sod", fromlist=["CoreSOD"]).CoreSOD,
+        _import_attr_param(
+            "pyimgano.models.sod",
+            "CoreSOD",
             ("fit", "decision_function"),
             id="core-sod",
         ),
-        pytest.param(
-            __import__("pyimgano.models.sod", fromlist=["VisionSOD"]).VisionSOD,
+        _import_attr_param(
+            "pyimgano.models.sod",
+            "VisionSOD",
             ("fit", "decision_function"),
             id="vision-sod",
         ),
-        pytest.param(
-            __import__("pyimgano.models.baseml", fromlist=["BaseVisionDetector"]).BaseVisionDetector,
+        _import_attr_param(
+            "pyimgano.models.baseml",
+            "BaseVisionDetector",
             ("fit", "decision_function"),
             id="base-vision-detector",
         ),
-        pytest.param(
-            __import__("pyimgano.models.baseCv", fromlist=["BaseVisionDeepDetector"]).BaseVisionDeepDetector,
+        _import_attr_param(
+            "pyimgano.models.baseCv",
+            "BaseVisionDeepDetector",
             ("fit", "decision_function"),
             id="base-vision-deep-detector",
         ),
-        pytest.param(
-            __import__("pyimgano.models.lof_native", fromlist=["VisionLOF"]).VisionLOF,
+        _import_attr_param(
+            "pyimgano.models.lof_native",
+            "VisionLOF",
             ("fit", "decision_function"),
             id="vision-lof",
         ),
-        pytest.param(
-            __import__("pyimgano.models.fastflow", fromlist=["FastFlow"]).FastFlow,
+        _import_attr_param(
+            "pyimgano.models.fastflow",
+            "FastFlow",
             ("fit",),
             id="fastflow",
         ),
-        pytest.param(
-            __import__("pyimgano.models.bgad", fromlist=["BGADDetector"]).BGADDetector,
+        _import_attr_param(
+            "pyimgano.models.bgad",
+            "BGADDetector",
             ("fit", "predict_proba", "predict_anomaly_map", "predict"),
             id="bgad",
         ),
-        pytest.param(
-            __import__("pyimgano.models.dsr", fromlist=["DSRDetector"]).DSRDetector,
+        _import_attr_param(
+            "pyimgano.models.dsr",
+            "DSRDetector",
             ("fit", "predict_proba", "predict_anomaly_map", "predict"),
             id="dsr",
         ),
-        pytest.param(
-            __import__("pyimgano.models.pni", fromlist=["PNIDetector"]).PNIDetector,
+        _import_attr_param(
+            "pyimgano.models.pni",
+            "PNIDetector",
             ("fit", "predict_proba", "predict_anomaly_map"),
             id="pni",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.histogram_comparison", fromlist=["HistogramComparison"]
-            ).HistogramComparison,
+        _import_attr_param(
+            "pyimgano.models.histogram_comparison",
+            "HistogramComparison",
             ("fit", "predict", "predict_label"),
             id="histogram-comparison",
         ),
-        pytest.param(
-            __import__("pyimgano.models.hog_svm", fromlist=["HOG_SVM"]).HOG_SVM,
+        _import_attr_param(
+            "pyimgano.models.hog_svm",
+            "HOG_SVM",
             ("fit", "predict", "predict_label"),
             id="hog-svm",
         ),
-        pytest.param(
-            __import__("pyimgano.models.lbp", fromlist=["LBP"]).LBP,
+        _import_attr_param(
+            "pyimgano.models.lbp",
+            "LBP",
             ("fit", "predict", "predict_label"),
             id="lbp",
         ),
-        pytest.param(
-            __import__("pyimgano.models.mad", fromlist=["CoreMAD"]).CoreMAD,
+        _import_attr_param(
+            "pyimgano.models.mad",
+            "CoreMAD",
             ("fit", "decision_function"),
             id="core-mad",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.template_matching", fromlist=["TemplateMatching"]
-            ).TemplateMatching,
+        _import_attr_param(
+            "pyimgano.models.template_matching",
+            "TemplateMatching",
             ("fit", "predict", "predict_label"),
             id="template-matching",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.openclip_backend", fromlist=["VisionOpenCLIPPromptScore"]
-            ).VisionOpenCLIPPromptScore,
+        _import_attr_param(
+            "pyimgano.models.openclip_backend",
+            "VisionOpenCLIPPromptScore",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="openclip-promptscore",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.openclip_backend", fromlist=["VisionOpenCLIPPatchKNN"]
-            ).VisionOpenCLIPPatchKNN,
+        _import_attr_param(
+            "pyimgano.models.openclip_backend",
+            "VisionOpenCLIPPatchKNN",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="openclip-patchknn",
         ),
@@ -442,32 +479,37 @@ def test_non_torch_detectors_use_lowercase_x_signatures(cls, method_names):
 @pytest.mark.parametrize(
     ("target", "expected", "legacy"),
     [
-        pytest.param(
-            __import__("pyimgano.models.kpca", fromlist=["_PyODKernelPCA"])._PyODKernelPCA,
+        _import_attr_param(
+            "pyimgano.models.kpca",
+            "_PyODKernelPCA",
             "copy_x",
             "copy_X",
             id="pyod-kpca-copy-x",
         ),
-        pytest.param(
-            __import__("pyimgano.models.kpca", fromlist=["CoreKPCA"]).CoreKPCA,
+        _import_attr_param(
+            "pyimgano.models.kpca",
+            "CoreKPCA",
             "copy_x",
             "copy_X",
             id="core-kpca-copy-x",
         ),
-        pytest.param(
-            __import__("pyimgano.models.kpca", fromlist=["VisionKPCA"]).VisionKPCA,
+        _import_attr_param(
+            "pyimgano.models.kpca",
+            "VisionKPCA",
             "copy_x",
             "copy_X",
             id="vision-kpca-copy-x",
         ),
-        pytest.param(
-            __import__("pyimgano.models.rgraph", fromlist=["VisionRGraph"]).VisionRGraph,
+        _import_attr_param(
+            "pyimgano.models.rgraph",
+            "VisionRGraph",
             "fit_intercept_lr",
             "fit_intercept_LR",
             id="vision-rgraph-fit-intercept-lr",
         ),
-        pytest.param(
-            __import__("pyimgano.models.spc", fromlist=["SPC"]).SPC,
+        _import_attr_param(
+            "pyimgano.models.spc",
+            "SPC",
             "l_value",
             "L",
             id="spc-l-value",
@@ -608,39 +650,39 @@ def test_dcorr_projection_state_legacy_field_aliases_remain_available() -> None:
 @pytest.mark.parametrize(
     ("method", "expected"),
     [
-        pytest.param(
-            __import__(
-                "pyimgano.models.histogram_comparison",
-                fromlist=["HistogramComparison"],
-            ).HistogramComparison.get_params,
+        _import_attr_param(
+            "pyimgano.models.histogram_comparison",
+            "HistogramComparison",
             ("self", "deep"),
             id="histogram-comparison-get-params",
         ),
-        pytest.param(
-            __import__("pyimgano.models.hog_svm", fromlist=["HOG_SVM"]).HOG_SVM.get_params,
+        _import_attr_param(
+            "pyimgano.models.hog_svm",
+            "HOG_SVM",
             ("self", "deep"),
             id="hog-svm-get-params",
         ),
-        pytest.param(
-            __import__("pyimgano.models.lbp", fromlist=["LBP"]).LBP.get_params,
+        _import_attr_param(
+            "pyimgano.models.lbp",
+            "LBP",
             ("self", "deep"),
             id="lbp-get-params",
         ),
-        pytest.param(
-            __import__("pyimgano.models.spc", fromlist=["SPC"]).SPC.predict,
+        _import_attr_param(
+            "pyimgano.models.spc",
+            "SPC",
             ("self", "x", "return_confidence"),
             id="spc-predict-return-confidence",
         ),
-        pytest.param(
-            __import__("pyimgano.models.spc", fromlist=["SPC"]).SPC.get_params,
+        _import_attr_param(
+            "pyimgano.models.spc",
+            "SPC",
             ("self", "deep"),
             id="spc-get-params",
         ),
-        pytest.param(
-            __import__(
-                "pyimgano.models.template_matching",
-                fromlist=["TemplateMatching"],
-            ).TemplateMatching.get_params,
+        _import_attr_param(
+            "pyimgano.models.template_matching",
+            "TemplateMatching",
             ("self", "deep"),
             id="template-matching-get-params",
         ),
@@ -649,7 +691,10 @@ def test_dcorr_projection_state_legacy_field_aliases_remain_available() -> None:
 def test_sonar_signature_compat_methods_expose_expected_optional_params(
     method, expected: tuple[str, ...]
 ) -> None:
-    _assert_signature_contains(method, *expected)
+    target = method
+    if inspect.isclass(method):
+        target = method.get_params if expected == ("self", "deep") else method.predict
+    _assert_signature_contains(target, *expected)
 
 
 def test_knn_internal_train_matrix_legacy_alias_maps_to_lowercase_field() -> None:
@@ -679,7 +724,9 @@ def test_sklearn_knn_index_legacy_backend_class_alias_maps_to_lowercase_field() 
 
 
 def test_anomalydino_embedder_legacy_image_alias_maps_to_lowercase_field() -> None:
-    from pyimgano.models.anomalydino import TorchHubDinoV2Embedder
+    TorchHubDinoV2Embedder = _import_attr_or_skip(
+        "pyimgano.models.anomalydino", "TorchHubDinoV2Embedder"
+    )
 
     embedder = TorchHubDinoV2Embedder()
 
