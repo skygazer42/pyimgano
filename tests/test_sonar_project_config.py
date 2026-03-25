@@ -42,8 +42,27 @@ def test_sonar_project_excludes_non_runtime_paths_from_duplication() -> None:
 def test_sonar_project_ignores_test_and_example_issues() -> None:
     props = _read_properties()
 
-    assert props["sonar.issue.ignore.multicriteria"] == "tests_all,examples_all"
-    assert props["sonar.issue.ignore.multicriteria.tests_all.ruleKey"] == "*"
-    assert props["sonar.issue.ignore.multicriteria.tests_all.resourceKey"] == "tests/**/*"
-    assert props["sonar.issue.ignore.multicriteria.examples_all.ruleKey"] == "*"
-    assert props["sonar.issue.ignore.multicriteria.examples_all.resourceKey"] == "examples/**/*"
+    keys = props["sonar.issue.ignore.multicriteria"].split(",")
+    expected = {
+        ("tests_float_eq", "python:S1244", "tests/**/*"),
+        ("tests_name_style", "python:S117", "tests/**/*"),
+        ("tests_rng", "python:S5754", "tests/**/*"),
+        ("tests_param_count", "python:S107", "tests/**/*"),
+        ("tests_path_taint", "pythonsecurity:S2083", "tests/**/*"),
+        ("tests_same_branch", "python:S3923", "tests/**/*"),
+        ("tests_regex_complexity", "python:S1542", "tests/**/*"),
+        ("tests_runtime_bug", "pythonbugs:S6466", "tests/**/*"),
+        ("examples_complexity", "python:S3776", "examples/**/*"),
+        ("examples_comment_code", "python:S125", "examples/**/*"),
+        ("examples_literals", "python:S1192", "examples/**/*"),
+        ("examples_unused", "python:S1481", "examples/**/*"),
+    }
+    seen = {
+        (
+            key,
+            props[f"sonar.issue.ignore.multicriteria.{key}.ruleKey"],
+            props[f"sonar.issue.ignore.multicriteria.{key}.resourceKey"],
+        )
+        for key in keys
+    }
+    assert expected.issubset(seen)
