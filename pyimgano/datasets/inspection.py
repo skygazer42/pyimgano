@@ -248,10 +248,11 @@ def _resolve_category(
 
     candidates = detection.get("candidates", [])
     if isinstance(candidates, list):
+        dataset_name = str(dataset)
         for item in candidates:
             if not isinstance(item, dict):
                 continue
-            if str(item.get("name", "")) != str(dataset):
+            if str(item.get("name", "")) != dataset_name:
                 continue
             cats = item.get("category_candidates", [])
             if isinstance(cats, list) and len(cats) == 1:

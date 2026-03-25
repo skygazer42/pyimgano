@@ -297,6 +297,43 @@ def _write_dataset_inventory(path: Path, rows: Sequence[Mapping[str, Any]]) -> N
     save_run_report(path, {"datasets": list(rows)})
 
 
+def _append_artifact_row(
+    artifact_rows: list[dict[str, Any]],
+    *,
+    row: Mapping[str, Any],
+    audit_payload: Mapping[str, Any] | None,
+) -> None:
+    if audit_payload is None:
+        return
+    artifact_rows.append(
+        {
+            "model": str(row["model"]),
+            "dataset": str(row["dataset"]),
+            "category": str(row["category"]),
+            **dict(audit_payload),
+        }
+    )
+
+
+def _execute_matrix_row(
+    row: dict[str, Any],
+    request: EvaluationHarnessRequest,
+    *,
+    artifact_rows: list[dict[str, Any]],
+) -> str:
+    benchmark_payload = _run_benchmark_for_entry(row, request)
+    row["benchmark"] = dict(benchmark_payload)
+    row["status"] = str(benchmark_payload.get("status", "ok"))
+
+    if bool(row["planned_evaluations"]["artifact_audit"]):
+        _append_artifact_row(
+            artifact_rows,
+            row=row,
+            audit_payload=_run_artifact_audit_for_entry(row, request),
+        )
+    return str(row["status"])
+
+
 def run_evaluation_harness(request: EvaluationHarnessRequest) -> dict[str, Any]:
     output_dir = Path(str(request.output_dir))
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -324,10 +361,12 @@ def run_evaluation_harness(request: EvaluationHarnessRequest) -> dict[str, Any]:
             continue
 
         try:
-            benchmark_payload = _run_benchmark_for_entry(row, request)
-            row["benchmark"] = dict(benchmark_payload)
-            row["status"] = str(benchmark_payload.get("status", "ok"))
-            if row["status"] == "ok":
+            status = _execute_matrix_row(
+                row,
+                request,
+                artifact_rows=artifact_rows,
+            )
+            if status == "ok":
                 succeeded += 1
             else:
                 failed += 1
@@ -338,18 +377,6 @@ def run_evaluation_harness(request: EvaluationHarnessRequest) -> dict[str, Any]:
             if not bool(request.continue_on_error):
                 raise
             continue
-
-        if bool(row["planned_evaluations"]["artifact_audit"]):
-            audit_payload = _run_artifact_audit_for_entry(row, request)
-            if audit_payload is not None:
-                artifact_rows.append(
-                    {
-                        "model": str(row["model"]),
-                        "dataset": str(row["dataset"]),
-                        "category": str(row["category"]),
-                        **dict(audit_payload),
-                    }
-                )
 
     model_inventory_path = output_dir / "model_inventory.jsonl"
     dataset_inventory_path = output_dir / "dataset_inventory.json"

@@ -420,20 +420,17 @@ def _merge_postprocess_contract_defects_payload(
         )
 
     merged = dict(defects_payload or {})
-    if "enabled" in pixel_threshold_payload:
-        enabled = pixel_threshold_payload.get("enabled", None)
-        merged["enabled"] = bool(enabled) if enabled is not None else None
-    if "strategy" in pixel_threshold_payload:
-        strategy = pixel_threshold_payload.get("strategy", None)
-        merged["pixel_threshold_strategy"] = str(strategy) if strategy is not None else None
-    if "threshold" in pixel_threshold_payload:
-        threshold = pixel_threshold_payload.get("threshold", None)
-        merged["pixel_threshold"] = float(threshold) if threshold is not None else None
-    if "normal_quantile" in pixel_threshold_payload:
-        normal_quantile = pixel_threshold_payload.get("normal_quantile", None)
-        merged["pixel_normal_quantile"] = (
-            float(normal_quantile) if normal_quantile is not None else None
-        )
+    scalar_mappings = (
+        ("enabled", "enabled", bool),
+        ("strategy", "pixel_threshold_strategy", str),
+        ("threshold", "pixel_threshold", float),
+        ("normal_quantile", "pixel_normal_quantile", float),
+    )
+    for source_key, target_key, cast_value in scalar_mappings:
+        if source_key not in pixel_threshold_payload:
+            continue
+        value = pixel_threshold_payload.get(source_key, None)
+        merged[target_key] = cast_value(value) if value is not None else None
     return merged if merged else None
 
 
