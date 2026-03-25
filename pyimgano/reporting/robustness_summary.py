@@ -23,6 +23,44 @@ def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _normalized_string_mapping(payload: Mapping[str, Any] | None) -> dict[str, str]:
+    return {
+        str(key): str(value)
+        for key, value in (payload.items() if isinstance(payload, Mapping) else ())
+        if isinstance(value, str) and value.strip()
+    }
+
+
+def _resolve_audit_artifact_path(ref: str, audit_root: Path) -> Path:
+    artifact_path = Path(ref)
+    if artifact_path.is_absolute():
+        return artifact_path
+    return audit_root / artifact_path
+
+
+def _audit_material_status(
+    key: str,
+    *,
+    refs: Mapping[str, str],
+    digests: Mapping[str, str],
+    audit_root: Path,
+) -> tuple[bool, bool, list[str]]:
+    ref = refs.get(key)
+    if ref is None:
+        return False, False, [f"missing_audit_ref.{key}"]
+
+    artifact_path = _resolve_audit_artifact_path(ref, audit_root)
+    if not artifact_path.is_file():
+        return False, False, [f"missing_audit_artifact.{key}"]
+
+    digest = digests.get(key)
+    if digest is None:
+        return True, False, [f"missing_audit_digest.{key}"]
+    if _file_sha256(artifact_path) != digest:
+        return True, False, [f"audit_digest_mismatch.{key}"]
+    return True, True, []
+
+
 def _safe_float(value: Any) -> float | None:
     try:
         out = float(value)
@@ -306,16 +344,8 @@ def _normalized_robustness_audit_materials(
     audit_digests: Mapping[str, Any] | None,
     audit_root: Path | None,
 ) -> tuple[dict[str, str], dict[str, str], list[str]]:
-    refs = {
-        str(key): str(value)
-        for key, value in (audit_refs.items() if isinstance(audit_refs, Mapping) else ())
-        if isinstance(value, str) and value.strip()
-    }
-    digests = {
-        str(key): str(value)
-        for key, value in (audit_digests.items() if isinstance(audit_digests, Mapping) else ())
-        if isinstance(value, str) and value.strip()
-    }
+    refs = _normalized_string_mapping(audit_refs)
+    digests = _normalized_string_mapping(audit_digests)
     if audit_root is None or not (refs or digests):
         return refs, digests, []
 
@@ -324,31 +354,15 @@ def _normalized_robustness_audit_materials(
     degraded_by: list[str] = []
     audit_keys = list(dict.fromkeys([*refs.keys(), *digests.keys()]))
     for key in audit_keys:
-        ref = refs.get(key)
-        if ref is None:
-            has_audit_refs = False
-            has_audit_digests = False
-            degraded_by.append(f"missing_audit_ref.{key}")
-            continue
-
-        artifact_path = Path(ref)
-        if not artifact_path.is_absolute():
-            artifact_path = audit_root / artifact_path
-        if not artifact_path.is_file():
-            has_audit_refs = False
-            has_audit_digests = False
-            degraded_by.append(f"missing_audit_artifact.{key}")
-            continue
-
-        digest = digests.get(key)
-        if digest is None:
-            has_audit_digests = False
-            degraded_by.append(f"missing_audit_digest.{key}")
-            continue
-
-        if _file_sha256(artifact_path) != digest:
-            has_audit_digests = False
-            degraded_by.append(f"audit_digest_mismatch.{key}")
+        refs_ok, digests_ok, issues = _audit_material_status(
+            key,
+            refs=refs,
+            digests=digests,
+            audit_root=audit_root,
+        )
+        has_audit_refs = has_audit_refs and refs_ok
+        has_audit_digests = has_audit_digests and digests_ok
+        degraded_by.extend(issues)
 
     if not has_audit_refs:
         refs = {}

@@ -232,10 +232,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
 
     def _apply_bundle_manifest_metadata(
         payload: dict[str, Any], manifest: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> None:
         artifact_quality = payload.get("artifact_quality", None)
         if not isinstance(artifact_quality, dict):
-            return payload
+            return
         artifact_quality["required_bundle_artifacts_present"] = bool(
             manifest.get("required_bundle_artifacts_present", False)
         )
@@ -243,11 +243,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         artifact_quality["bundle_artifact_roles"] = (
             dict(artifact_roles) if isinstance(artifact_roles, dict) else {}
         )
-        return payload
 
     save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
     bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
-    bundle_payload = _apply_bundle_manifest_metadata(bundle_payload, bundle_manifest)
+    _apply_bundle_manifest_metadata(bundle_payload, bundle_manifest)
     save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
     bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
     save_run_report(bundle_dir / "bundle_manifest.json", bundle_manifest)

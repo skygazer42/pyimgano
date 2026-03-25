@@ -480,6 +480,28 @@ def _trust_status_reasons(
     return status_reasons
 
 
+def _append_unique_reason(degraded_by: list[str], reason: str) -> None:
+    if reason not in degraded_by:
+        degraded_by.append(reason)
+
+
+def _warning_degradation_reasons(warnings: Sequence[str]) -> list[str]:
+    degraded_by: list[str] = []
+    for warning in warnings:
+        text = str(warning).lower()
+        if "threshold_context" in text:
+            _append_unique_reason(degraded_by, "missing_threshold_context")
+        if "split_fingerprint" in text:
+            _append_unique_reason(degraded_by, "missing_split_fingerprint")
+        if "prediction_policy" in text:
+            _append_unique_reason(degraded_by, "missing_prediction_policy")
+        if "threshold mismatch" in text:
+            _append_unique_reason(degraded_by, "threshold_mismatch")
+        if "operator contract" in text:
+            _append_unique_reason(degraded_by, "operator_contract_mismatch")
+    return degraded_by
+
+
 def _trust_degraded_by(
     *,
     missing_required: Sequence[str],
@@ -490,22 +512,9 @@ def _trust_degraded_by(
     has_bundle_operator_contract_error: bool,
     has_bundle_operator_contract_digest_error: bool,
 ) -> list[str]:
-    degraded_by: list[str] = []
+    degraded_by = _warning_degradation_reasons(warnings)
     if missing_required:
         degraded_by.append("missing_required_artifacts")
-
-    for warning in warnings:
-        text = str(warning).lower()
-        if "threshold_context" in text and "missing_threshold_context" not in degraded_by:
-            degraded_by.append("missing_threshold_context")
-        if "split_fingerprint" in text and "missing_split_fingerprint" not in degraded_by:
-            degraded_by.append("missing_split_fingerprint")
-        if "prediction_policy" in text and "missing_prediction_policy" not in degraded_by:
-            degraded_by.append("missing_prediction_policy")
-        if "threshold mismatch" in text and "threshold_mismatch" not in degraded_by:
-            degraded_by.append("threshold_mismatch")
-        if "operator contract" in text and "operator_contract_mismatch" not in degraded_by:
-            degraded_by.append("operator_contract_mismatch")
 
     if bundle_manifest.get("present") and bundle_manifest.get("valid") is False:
         degraded_by.append("invalid_bundle_manifest")

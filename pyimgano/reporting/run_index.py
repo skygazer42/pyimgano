@@ -323,6 +323,292 @@ _CANDIDATE_COMPARABILITY_GATE_ORDER = (
 )
 
 
+def _candidate_comparability_defaults() -> dict[str, str]:
+    return {
+        gate_name: "unchecked"
+        for gate_name in _CANDIDATE_COMPARABILITY_GATE_ORDER
+    }
+
+
+def _candidate_summary_state(
+    candidate_names: list[str],
+) -> tuple[dict[str, list[str]], dict[str, dict[str, str]], dict[str, str]]:
+    return (
+        {name: [] for name in candidate_names},
+        {name: _candidate_comparability_defaults() for name in candidate_names},
+        {name: "unavailable" for name in candidate_names},
+    )
+
+
+def _set_candidate_gate(
+    candidate_gates: Mapping[str, dict[str, str]],
+    *,
+    run_dir_name: object,
+    gate_name: str,
+    status: str,
+) -> None:
+    if not isinstance(run_dir_name, str) or not run_dir_name or not status:
+        return
+    if run_dir_name not in candidate_gates:
+        return
+    candidate_gates[run_dir_name][gate_name] = status
+
+
+def _apply_simple_candidate_comparison(
+    *,
+    reasons_by_name: dict[str, list[str]],
+    candidate_gates: dict[str, dict[str, str]],
+    comparison: Mapping[str, Any],
+    gate_name: str,
+    reason_prefix: str,
+) -> None:
+    for row in comparison.get("comparisons", []):
+        if not isinstance(row, Mapping):
+            continue
+        run_dir_name = row.get("run_dir_name", None)
+        status = str(row.get("status", ""))
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name=gate_name,
+            status=status,
+        )
+        if status in {"mismatched", "missing"}:
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason=f"{reason_prefix}:{status}",
+            )
+
+
+def _apply_target_candidate_comparison(
+    *,
+    reasons_by_name: dict[str, list[str]],
+    candidate_gates: dict[str, dict[str, str]],
+    target_comparison: Mapping[str, Any],
+) -> None:
+    for row in target_comparison.get("comparisons", []):
+        if not isinstance(row, Mapping):
+            continue
+        run_dir_name = row.get("run_dir_name", None)
+        row_status = str(row.get("status", ""))
+        dataset_status = str(row.get("dataset_status", ""))
+        category_status = str(row.get("category_status", ""))
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="target",
+            status=row_status,
+        )
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="target_dataset",
+            status=dataset_status,
+        )
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="target_category",
+            status=category_status,
+        )
+        if dataset_status in {"mismatched", "missing"}:
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason=f"target.dataset:{dataset_status}",
+            )
+        if category_status in {"mismatched", "missing"}:
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason=f"target.category:{category_status}",
+            )
+
+
+def _robustness_protocol_mismatch_reasons(row: Mapping[str, Any]) -> list[str]:
+    status = str(row.get("status", ""))
+    if status == "missing":
+        return ["robustness_protocol:missing"]
+    if status != "mismatched":
+        return []
+    mismatch_fields = row.get("mismatch_fields", None)
+    if not isinstance(mismatch_fields, list) or not mismatch_fields:
+        return ["robustness_protocol:mismatched"]
+    return [
+        f"robustness_protocol.{field_name}:mismatched"
+        for field_name in (str(field) for field in mismatch_fields)
+        if field_name
+    ]
+
+
+def _apply_robustness_protocol_candidate_comparison(
+    *,
+    reasons_by_name: dict[str, list[str]],
+    candidate_gates: dict[str, dict[str, str]],
+    robustness_protocol_comparison: Mapping[str, Any],
+) -> None:
+    for row in robustness_protocol_comparison.get("comparisons", []):
+        if not isinstance(row, Mapping):
+            continue
+        run_dir_name = row.get("run_dir_name", None)
+        status = str(row.get("status", ""))
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="robustness_protocol",
+            status=status,
+        )
+        for reason in _robustness_protocol_mismatch_reasons(row):
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason=reason,
+            )
+
+
+def _iter_candidate_runs(
+    runs: list[dict[str, Any]],
+    *,
+    baseline_path_str: str,
+) -> Iterable[dict[str, Any]]:
+    for run in runs:
+        if _is_baseline_run(run, baseline_path_str):
+            continue
+        yield run
+
+
+def _baseline_contract_payload(
+    *,
+    baseline_path_str: str,
+    contract_status: str | None,
+    bundle: bool,
+) -> dict[str, Any] | None:
+    if str(contract_status or "").strip().lower() != "consistent":
+        return None
+    return _load_operator_contract_payload(baseline_path_str, bundle=bundle)
+
+
+def _apply_operator_contract_candidates(
+    *,
+    reasons_by_name: dict[str, list[str]],
+    candidate_gates: dict[str, dict[str, str]],
+    runs: list[dict[str, Any]],
+    baseline_path_str: str,
+    baseline_operator_contract_status: str | None,
+    baseline_operator_contract_payload: Mapping[str, Any] | None,
+) -> None:
+    if str(baseline_operator_contract_status or "").strip().lower() != "consistent":
+        return
+    for run in _iter_candidate_runs(runs, baseline_path_str=baseline_path_str):
+        run_dir_name = run.get("run_dir_name", None)
+        status = str(run.get("operator_contract_status", "missing") or "missing").strip().lower()
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="operator_contract",
+            status=status,
+        )
+        if status in {"missing", "mismatched"}:
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason=f"operator_contract:{status}",
+            )
+            continue
+        if status != "consistent" or not isinstance(baseline_operator_contract_payload, Mapping):
+            continue
+        candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=False)
+        if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
+            baseline_operator_contract_payload
+        ):
+            _set_candidate_gate(
+                candidate_gates,
+                run_dir_name=run_dir_name,
+                gate_name="operator_contract",
+                status="mismatched",
+            )
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason="operator_contract:baseline_mismatch",
+            )
+            continue
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="operator_contract",
+            status="matched",
+        )
+
+
+def _apply_bundle_operator_contract_candidates(
+    *,
+    reasons_by_name: dict[str, list[str]],
+    candidate_gates: dict[str, dict[str, str]],
+    candidate_bundle_digest_statuses: dict[str, str],
+    runs: list[dict[str, Any]],
+    baseline_path_str: str,
+    baseline_bundle_operator_contract_status: str | None,
+    baseline_bundle_operator_contract_payload: Mapping[str, Any] | None,
+) -> None:
+    if str(baseline_bundle_operator_contract_status or "").strip().lower() != "consistent":
+        return
+    for run in _iter_candidate_runs(runs, baseline_path_str=baseline_path_str):
+        run_dir_name = run.get("run_dir_name", None)
+        status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="bundle_operator_contract",
+            status=status,
+        )
+        if isinstance(run_dir_name, str) and run_dir_name in candidate_bundle_digest_statuses:
+            candidate_bundle_digest_statuses[run_dir_name] = _run_bundle_operator_contract_digest_status(
+                run
+            )
+        if status in {"missing", "mismatched"}:
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason=f"operator_contract_bundle:{status}",
+            )
+            if (
+                status == "mismatched"
+                and "operator_contract_bundle_digest_mismatch" in _run_trust_degraded_by(run)
+            ):
+                _append_candidate_reason(
+                    reasons_by_name,
+                    run_dir_name=run_dir_name,
+                    reason="operator_contract_bundle:digest_mismatch",
+                )
+            continue
+        if status != "consistent" or not isinstance(baseline_bundle_operator_contract_payload, Mapping):
+            continue
+        candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=True)
+        if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
+            baseline_bundle_operator_contract_payload
+        ):
+            _set_candidate_gate(
+                candidate_gates,
+                run_dir_name=run_dir_name,
+                gate_name="bundle_operator_contract",
+                status="mismatched",
+            )
+            _append_candidate_reason(
+                reasons_by_name,
+                run_dir_name=run_dir_name,
+                reason="operator_contract_bundle:baseline_mismatch",
+            )
+            continue
+        _set_candidate_gate(
+            candidate_gates,
+            run_dir_name=run_dir_name,
+            gate_name="bundle_operator_contract",
+            status="matched",
+        )
+
+
 def _build_candidate_incompatibility_digest(
     *,
     candidate_verdicts: Mapping[str, Any],
@@ -409,32 +695,18 @@ def _build_candidate_blocking_summary(
         }
 
     candidate_names = _candidate_run_dir_names(runs, baseline_path_str=baseline_path_str)
-    reasons_by_name: dict[str, list[str]] = {name: [] for name in candidate_names}
-    candidate_gates: dict[str, dict[str, str]] = {
-        name: {
-            "split": "unchecked",
-            "environment": "unchecked",
-            "target": "unchecked",
-            "target_dataset": "unchecked",
-            "target_category": "unchecked",
-            "robustness_protocol": "unchecked",
-            "operator_contract": "unchecked",
-            "bundle_operator_contract": "unchecked",
-        }
-        for name in candidate_names
-    }
-    candidate_bundle_digest_statuses: dict[str, str] = {
-        name: "unavailable" for name in candidate_names
-    }
-    baseline_operator_contract_payload = (
-        _load_operator_contract_payload(baseline_path_str, bundle=False)
-        if str(baseline_operator_contract_status or "").strip().lower() == "consistent"
-        else None
+    reasons_by_name, candidate_gates, candidate_bundle_digest_statuses = _candidate_summary_state(
+        candidate_names
     )
-    baseline_bundle_operator_contract_payload = (
-        _load_operator_contract_payload(baseline_path_str, bundle=True)
-        if str(baseline_bundle_operator_contract_status or "").strip().lower() == "consistent"
-        else None
+    baseline_operator_contract_payload = _baseline_contract_payload(
+        baseline_path_str=baseline_path_str,
+        contract_status=baseline_operator_contract_status,
+        bundle=False,
+    )
+    baseline_bundle_operator_contract_payload = _baseline_contract_payload(
+        baseline_path_str=baseline_path_str,
+        contract_status=baseline_bundle_operator_contract_status,
+        bundle=True,
     )
 
     for row in primary_metric_info.get("comparisons", []):
@@ -448,167 +720,47 @@ def _build_candidate_blocking_summary(
                 reason=f"primary_metric:{status}",
             )
 
-    for row in split_comparison.get("comparisons", []):
-        if not isinstance(row, Mapping):
-            continue
-        run_dir_name = row.get("run_dir_name", None)
-        status = str(row.get("status", ""))
-        if isinstance(run_dir_name, str) and run_dir_name in candidate_gates and status:
-            candidate_gates[run_dir_name]["split"] = status
-        if status in {"mismatched", "missing"}:
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason=f"split:{status}",
-            )
-
-    for row in environment_comparison.get("comparisons", []):
-        if not isinstance(row, Mapping):
-            continue
-        run_dir_name = row.get("run_dir_name", None)
-        status = str(row.get("status", ""))
-        if isinstance(run_dir_name, str) and run_dir_name in candidate_gates and status:
-            candidate_gates[run_dir_name]["environment"] = status
-        if status in {"mismatched", "missing"}:
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason=f"environment:{status}",
-            )
-
-    for row in target_comparison.get("comparisons", []):
-        if not isinstance(row, Mapping):
-            continue
-        run_dir_name = row.get("run_dir_name", None)
-        row_status = str(row.get("status", ""))
-        dataset_status = str(row.get("dataset_status", ""))
-        category_status = str(row.get("category_status", ""))
-        if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-            if row_status:
-                candidate_gates[run_dir_name]["target"] = row_status
-            if dataset_status:
-                candidate_gates[run_dir_name]["target_dataset"] = dataset_status
-            if category_status:
-                candidate_gates[run_dir_name]["target_category"] = category_status
-        if dataset_status in {"mismatched", "missing"}:
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason=f"target.dataset:{dataset_status}",
-            )
-        if category_status in {"mismatched", "missing"}:
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason=f"target.category:{category_status}",
-            )
-
-    for row in robustness_protocol_comparison.get("comparisons", []):
-        if not isinstance(row, Mapping):
-            continue
-        run_dir_name = row.get("run_dir_name", None)
-        status = str(row.get("status", ""))
-        if isinstance(run_dir_name, str) and run_dir_name in candidate_gates and status:
-            candidate_gates[run_dir_name]["robustness_protocol"] = status
-        if status == "missing":
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason="robustness_protocol:missing",
-            )
-            continue
-        if status != "mismatched":
-            continue
-        mismatch_fields = row.get("mismatch_fields", None)
-        if isinstance(mismatch_fields, list) and mismatch_fields:
-            for field in mismatch_fields:
-                field_name = str(field)
-                if field_name:
-                    _append_candidate_reason(
-                        reasons_by_name,
-                        run_dir_name=run_dir_name,
-                        reason=f"robustness_protocol.{field_name}:mismatched",
-                    )
-        else:
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason="robustness_protocol:mismatched",
-            )
-
-    if str(baseline_operator_contract_status or "").strip().lower() == "consistent":
-        for run in runs:
-            run_path = str(Path(str(run.get("run_dir"))).resolve())
-            if baseline_path_str is not None and run_path == baseline_path_str:
-                continue
-            run_dir_name = run.get("run_dir_name", None)
-            status = str(run.get("operator_contract_status", "missing") or "missing").strip().lower()
-            if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-                candidate_gates[run_dir_name]["operator_contract"] = status
-            if status in {"missing", "mismatched"}:
-                _append_candidate_reason(
-                    reasons_by_name,
-                    run_dir_name=run_dir_name,
-                    reason=f"operator_contract:{status}",
-                )
-            elif status == "consistent" and isinstance(baseline_operator_contract_payload, Mapping):
-                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=False)
-                if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
-                    baseline_operator_contract_payload
-                ):
-                    if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-                        candidate_gates[run_dir_name]["operator_contract"] = "mismatched"
-                    _append_candidate_reason(
-                        reasons_by_name,
-                        run_dir_name=run_dir_name,
-                        reason="operator_contract:baseline_mismatch",
-                    )
-                elif isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-                    candidate_gates[run_dir_name]["operator_contract"] = "matched"
-
-    if str(baseline_bundle_operator_contract_status or "").strip().lower() == "consistent":
-        for run in runs:
-            run_path = str(Path(str(run.get("run_dir"))).resolve())
-            if baseline_path_str is not None and run_path == baseline_path_str:
-                continue
-            run_dir_name = run.get("run_dir_name", None)
-            status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
-            if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-                candidate_gates[run_dir_name]["bundle_operator_contract"] = status
-                candidate_bundle_digest_statuses[run_dir_name] = (
-                    _run_bundle_operator_contract_digest_status(run)
-                )
-            if status in {"missing", "mismatched"}:
-                _append_candidate_reason(
-                    reasons_by_name,
-                    run_dir_name=run_dir_name,
-                    reason=f"operator_contract_bundle:{status}",
-                )
-                if status == "mismatched":
-                    degraded_by = _run_trust_degraded_by(run)
-                    if "operator_contract_bundle_digest_mismatch" in degraded_by:
-                        _append_candidate_reason(
-                            reasons_by_name,
-                            run_dir_name=run_dir_name,
-                            reason="operator_contract_bundle:digest_mismatch",
-                        )
-            elif status == "consistent" and isinstance(
-                baseline_bundle_operator_contract_payload,
-                Mapping,
-            ):
-                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=True)
-                if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
-                    baseline_bundle_operator_contract_payload
-                ):
-                    if isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-                        candidate_gates[run_dir_name]["bundle_operator_contract"] = "mismatched"
-                    _append_candidate_reason(
-                        reasons_by_name,
-                        run_dir_name=run_dir_name,
-                        reason="operator_contract_bundle:baseline_mismatch",
-                    )
-                elif isinstance(run_dir_name, str) and run_dir_name in candidate_gates:
-                    candidate_gates[run_dir_name]["bundle_operator_contract"] = "matched"
+    _apply_simple_candidate_comparison(
+        reasons_by_name=reasons_by_name,
+        candidate_gates=candidate_gates,
+        comparison=split_comparison,
+        gate_name="split",
+        reason_prefix="split",
+    )
+    _apply_simple_candidate_comparison(
+        reasons_by_name=reasons_by_name,
+        candidate_gates=candidate_gates,
+        comparison=environment_comparison,
+        gate_name="environment",
+        reason_prefix="environment",
+    )
+    _apply_target_candidate_comparison(
+        reasons_by_name=reasons_by_name,
+        candidate_gates=candidate_gates,
+        target_comparison=target_comparison,
+    )
+    _apply_robustness_protocol_candidate_comparison(
+        reasons_by_name=reasons_by_name,
+        candidate_gates=candidate_gates,
+        robustness_protocol_comparison=robustness_protocol_comparison,
+    )
+    _apply_operator_contract_candidates(
+        reasons_by_name=reasons_by_name,
+        candidate_gates=candidate_gates,
+        runs=runs,
+        baseline_path_str=baseline_path_str,
+        baseline_operator_contract_status=baseline_operator_contract_status,
+        baseline_operator_contract_payload=baseline_operator_contract_payload,
+    )
+    _apply_bundle_operator_contract_candidates(
+        reasons_by_name=reasons_by_name,
+        candidate_gates=candidate_gates,
+        candidate_bundle_digest_statuses=candidate_bundle_digest_statuses,
+        runs=runs,
+        baseline_path_str=baseline_path_str,
+        baseline_bundle_operator_contract_status=baseline_bundle_operator_contract_status,
+        baseline_bundle_operator_contract_payload=baseline_bundle_operator_contract_payload,
+    )
 
     candidate_verdicts = {
         name: ("blocked" if reasons_by_name.get(name, []) else "pass")
@@ -998,6 +1150,36 @@ def _extract_robustness_protocol_signature(run: Mapping[str, Any]) -> dict[str, 
     }
 
 
+def _compare_robustness_protocol_fields(
+    signature: Mapping[str, Any],
+    baseline_signature: Mapping[str, Any] | None,
+) -> tuple[list[str], list[str]]:
+    missing_fields: list[str] = []
+    mismatch_fields: list[str] = []
+    for field in ("conditions", "corruption_mode", "input_mode", "resize", "severities"):
+        baseline_value = baseline_signature.get(field) if isinstance(baseline_signature, Mapping) else None
+        if baseline_value is None:
+            continue
+        run_value = signature.get(field)
+        if run_value is None:
+            missing_fields.append(str(field))
+        elif run_value != baseline_value:
+            mismatch_fields.append(str(field))
+    return missing_fields, mismatch_fields
+
+
+def _robustness_protocol_status(
+    *,
+    missing_fields: list[str],
+    mismatch_fields: list[str],
+) -> str:
+    if mismatch_fields:
+        return "mismatched"
+    if missing_fields:
+        return "missing"
+    return "matched"
+
+
 def _robustness_protocol_row(
     run: Mapping[str, Any],
     *,
@@ -1026,25 +1208,15 @@ def _robustness_protocol_row(
         row["status"] = "missing"
         return row, "missing"
 
-    missing_fields: list[str] = []
-    mismatch_fields: list[str] = []
-    for field in ("conditions", "corruption_mode", "input_mode", "resize", "severities"):
-        baseline_value = baseline_signature.get(field) if isinstance(baseline_signature, Mapping) else None
-        run_value = signature.get(field)
-        if baseline_value is None:
-            continue
-        if run_value is None:
-            missing_fields.append(str(field))
-        elif run_value != baseline_value:
-            mismatch_fields.append(str(field))
-
+    missing_fields, mismatch_fields = _compare_robustness_protocol_fields(
+        signature,
+        baseline_signature,
+    )
     row["mismatch_fields"] = list(dict.fromkeys(missing_fields + mismatch_fields))
-    if mismatch_fields:
-        row["status"] = "mismatched"
-    elif missing_fields:
-        row["status"] = "missing"
-    else:
-        row["status"] = "matched"
+    row["status"] = _robustness_protocol_status(
+        missing_fields=missing_fields,
+        mismatch_fields=mismatch_fields,
+    )
     return row, str(row["status"])
 
 
@@ -1501,11 +1673,9 @@ def _primary_metric_summary_fields(
     bundle_operator_contract_comparison: Mapping[str, Any],
     candidate_blocking_summary: Mapping[str, Any],
 ) -> None:
-    primary_metric_name = evaluation_contract.get("primary_metric", None)
-    primary_metric_info = (
-        dict(metrics.get(primary_metric_name, {}))
-        if isinstance(primary_metric_name, str) and primary_metric_name in metrics
-        else {}
+    primary_metric_name, primary_metric_info = _primary_metric_details(
+        evaluation_contract,
+        metrics,
     )
     summary["primary_metric"] = (
         primary_metric_name
@@ -1529,12 +1699,45 @@ def _primary_metric_summary_fields(
         if bool(primary_metric_info)
         else None
     )
+    primary_metric_statuses, primary_metric_deltas = _primary_metric_candidate_maps(
+        primary_metric_info
+    )
+    summary["primary_metric_statuses"] = primary_metric_statuses
+    summary["primary_metric_deltas"] = primary_metric_deltas
+    _apply_trust_contract_summary_fields(
+        summary,
+        trust_comparison=trust_comparison,
+        operator_contract_comparison=operator_contract_comparison,
+        bundle_operator_contract_comparison=bundle_operator_contract_comparison,
+    )
+    _apply_candidate_blocking_summary_fields(
+        summary,
+        candidate_blocking_summary=candidate_blocking_summary,
+    )
+    summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
+        candidate_verdicts=summary["candidate_verdicts"],
+        candidate_blocking_reasons=summary["candidate_blocking_reasons"],
+        candidate_comparability_gates=summary["candidate_comparability_gates"],
+    )
+
+
+def _primary_metric_details(
+    evaluation_contract: Mapping[str, Any],
+    metrics: Mapping[str, Mapping[str, Any]],
+) -> tuple[str | None, dict[str, Any]]:
+    primary_metric_name = evaluation_contract.get("primary_metric", None)
+    if not isinstance(primary_metric_name, str) or primary_metric_name not in metrics:
+        return None, {}
+    return primary_metric_name, dict(metrics.get(primary_metric_name, {}))
+
+
+def _primary_metric_candidate_maps(
+    primary_metric_info: Mapping[str, Any],
+) -> tuple[dict[str, str], dict[str, float]]:
     primary_metric_statuses: dict[str, str] = {}
     primary_metric_deltas: dict[str, float] = {}
     for row in primary_metric_info.get("comparisons", []):
-        if not isinstance(row, Mapping):
-            continue
-        if str(row.get("status")) == "baseline":
+        if not isinstance(row, Mapping) or str(row.get("status")) == "baseline":
             continue
         run_dir_name = row.get("run_dir_name", None)
         if not isinstance(run_dir_name, str) or not run_dir_name:
@@ -1545,8 +1748,16 @@ def _primary_metric_summary_fields(
         delta = row.get("delta_vs_baseline", None)
         if isinstance(delta, (int, float)):
             primary_metric_deltas[run_dir_name] = float(delta)
-    summary["primary_metric_statuses"] = primary_metric_statuses
-    summary["primary_metric_deltas"] = primary_metric_deltas
+    return primary_metric_statuses, primary_metric_deltas
+
+
+def _apply_trust_contract_summary_fields(
+    summary: dict[str, Any],
+    *,
+    trust_comparison: Mapping[str, Any],
+    operator_contract_comparison: Mapping[str, Any],
+    bundle_operator_contract_comparison: Mapping[str, Any],
+) -> None:
     summary["trust_checked"] = bool(trust_comparison.get("checked"))
     summary["trust_gate"] = trust_comparison.get("gate", None)
     summary["trust_status"] = trust_comparison.get("status", None)
@@ -1579,6 +1790,13 @@ def _primary_metric_summary_fields(
     summary["bundle_operator_contract_digests_valid"] = bool(
         trust_comparison.get("bundle_operator_contract_digests_valid", False)
     )
+
+
+def _apply_candidate_blocking_summary_fields(
+    summary: dict[str, Any],
+    *,
+    candidate_blocking_summary: Mapping[str, Any],
+) -> None:
     summary["candidate_verdicts"] = dict(candidate_blocking_summary["candidate_verdicts"])
     summary["candidate_blocking_reasons"] = dict(
         candidate_blocking_summary["candidate_blocking_reasons"]
@@ -1588,11 +1806,6 @@ def _primary_metric_summary_fields(
     )
     summary["candidate_bundle_operator_contract_digest_statuses"] = dict(
         candidate_blocking_summary["candidate_bundle_operator_contract_digest_statuses"]
-    )
-    summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
-        candidate_verdicts=summary["candidate_verdicts"],
-        candidate_blocking_reasons=summary["candidate_blocking_reasons"],
-        candidate_comparability_gates=summary["candidate_comparability_gates"],
     )
 
 
@@ -1989,9 +2202,6 @@ def compare_run_summaries(
         baseline_summary=baseline_summary,
         metric=metric,
     )
-
-    metrics: dict[str, dict[str, Any]] = {}
-    total_regressions = 0
     baseline_path_str = (
         str(Path(baseline_run_dir).resolve()) if baseline_run_dir is not None else None
     )
@@ -2006,95 +2216,23 @@ def compare_run_summaries(
     robustness_protocol_comparison = comparisons["robustness_protocol_comparison"]
     operator_contract_comparison = comparisons["operator_contract_comparison"]
     bundle_operator_contract_comparison = comparisons["bundle_operator_contract_comparison"]
-    for name in metric_names:
-        info, regressions = _metric_info(
-            name,
-            runs=runs,
-            baseline_summary=baseline_summary,
-            baseline_path_str=baseline_path_str,
-        )
-        if info is None:
-            continue
-        metrics[name] = info
-        total_regressions += int(regressions)
-
-    split_summary = dict(split_comparison.get("summary", {}))
-    environment_summary = dict(environment_comparison.get("summary", {}))
-    target_summary = dict(target_comparison.get("summary", {}))
-    robustness_protocol_summary = dict(robustness_protocol_comparison.get("summary", {}))
-    operator_contract_summary = dict(operator_contract_comparison.get("summary", {}))
-    bundle_operator_contract_summary = dict(bundle_operator_contract_comparison.get("summary", {}))
-    baseline_checked = baseline_summary is not None
-    blocking_flags = (
-        _compare_blocking_flags(
-            total_regressions=total_regressions,
-            split_summary=split_summary,
-            environment_summary=environment_summary,
-            target_summary=target_summary,
-            robustness_protocol_summary=robustness_protocol_summary,
-            operator_contract_summary=operator_contract_summary,
-            bundle_operator_contract_summary=bundle_operator_contract_summary,
-        )
-        if bool(baseline_checked)
-        else []
+    metrics, total_regressions = _collect_metric_infos(
+        metric_names,
+        runs=runs,
+        baseline_summary=baseline_summary,
+        baseline_path_str=baseline_path_str,
     )
-    if bool(baseline_checked):
-        regression_gate = "clean" if int(total_regressions) == 0 else "regressed"
-        verdict = "pass" if not blocking_flags else "blocked"
-    else:
-        regression_gate = "unchecked"
-        verdict = "informational"
-
-    summary = {
-        "baseline_checked": bool(baseline_checked),
-        "total_regressions": int(total_regressions),
-        "regression_gate": regression_gate,
-        "comparability_gates": {
-            "split": _comparability_gate_status(split_summary),
-            "environment": _comparability_gate_status(environment_summary),
-            "target": _comparability_gate_status(target_summary),
-            "robustness_protocol": _comparability_gate_status(robustness_protocol_summary),
-            "operator_contract": _comparability_gate_status(operator_contract_summary),
-            "bundle_operator_contract": _comparability_gate_status(
-                bundle_operator_contract_summary
-            ),
-        },
-        "blocking_flags": blocking_flags,
-        "verdict": verdict,
-    }
+    comparison_summaries = _comparison_summary_maps(comparisons)
+    baseline_checked = baseline_summary is not None
+    summary = _build_compare_summary(
+        baseline_checked=bool(baseline_checked),
+        total_regressions=total_regressions,
+        comparison_summaries=comparison_summaries,
+    )
     trust_comparison = _build_trust_comparison(baseline_summary)
-    evaluation_contract = build_evaluation_contract(
-        metric_names=metric_names,
-        primary_metric=(
-            str(baseline_summary.get("evaluation_contract", {}).get("primary_metric"))
-            if isinstance(baseline_summary, Mapping)
-            and isinstance(baseline_summary.get("evaluation_contract"), Mapping)
-            and baseline_summary.get("evaluation_contract", {}).get("primary_metric") is not None
-            else "auroc"
-        ),
-        ranking_metric=(
-            str(baseline_summary.get("evaluation_contract", {}).get("ranking_metric"))
-            if isinstance(baseline_summary, Mapping)
-            and isinstance(baseline_summary.get("evaluation_contract"), Mapping)
-            and baseline_summary.get("evaluation_contract", {}).get("ranking_metric") is not None
-            else "auroc"
-        ),
-        pixel_metrics_enabled=(
-            baseline_summary.get("evaluation_contract", {}).get("pixel_metrics_enabled")
-            if isinstance(baseline_summary, Mapping)
-            and isinstance(baseline_summary.get("evaluation_contract"), Mapping)
-            else None
-        ),
-        comparability_hints=(
-            dict(baseline_summary.get("evaluation_contract", {}).get("comparability_hints", {}))
-            if isinstance(baseline_summary, Mapping)
-            and isinstance(baseline_summary.get("evaluation_contract"), Mapping)
-            and isinstance(
-                baseline_summary.get("evaluation_contract", {}).get("comparability_hints"),
-                Mapping,
-            )
-            else None
-        ),
+    evaluation_contract = _build_summary_evaluation_contract(
+        metric_names,
+        baseline_summary=baseline_summary,
     )
     primary_metric_name = evaluation_contract.get("primary_metric", None)
     primary_metric_info = (
@@ -2105,17 +2243,13 @@ def compare_run_summaries(
     candidate_blocking_summary = _build_candidate_blocking_summary(
         runs=runs,
         baseline_path_str=baseline_path_str,
-        baseline_operator_contract_status=(
-            str(baseline_summary.get("operator_contract_status"))
-            if isinstance(baseline_summary, Mapping)
-            and baseline_summary.get("operator_contract_status") is not None
-            else None
+        baseline_operator_contract_status=_baseline_summary_status(
+            baseline_summary,
+            key="operator_contract_status",
         ),
-        baseline_bundle_operator_contract_status=(
-            str(baseline_summary.get("bundle_operator_contract_status"))
-            if isinstance(baseline_summary, Mapping)
-            and baseline_summary.get("bundle_operator_contract_status") is not None
-            else None
+        baseline_bundle_operator_contract_status=_baseline_summary_status(
+            baseline_summary,
+            key="bundle_operator_contract_status",
         ),
         primary_metric_info=primary_metric_info,
         split_comparison=split_comparison,
@@ -2147,6 +2281,140 @@ def compare_run_summaries(
         "evaluation_contract": evaluation_contract,
         "summary": summary,
     }
+
+
+def _collect_metric_infos(
+    metric_names: list[str],
+    *,
+    runs: list[dict[str, Any]],
+    baseline_summary: dict[str, Any] | None,
+    baseline_path_str: str | None,
+) -> tuple[dict[str, dict[str, Any]], int]:
+    metrics: dict[str, dict[str, Any]] = {}
+    total_regressions = 0
+    for name in metric_names:
+        info, regressions = _metric_info(
+            name,
+            runs=runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+        )
+        if info is None:
+            continue
+        metrics[name] = info
+        total_regressions += int(regressions)
+    return metrics, total_regressions
+
+
+def _comparison_summary_maps(
+    comparisons: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    return {
+        "split": dict(comparisons["split_comparison"].get("summary", {})),
+        "environment": dict(comparisons["environment_comparison"].get("summary", {})),
+        "target": dict(comparisons["target_comparison"].get("summary", {})),
+        "robustness_protocol": dict(
+            comparisons["robustness_protocol_comparison"].get("summary", {})
+        ),
+        "operator_contract": dict(comparisons["operator_contract_comparison"].get("summary", {})),
+        "bundle_operator_contract": dict(
+            comparisons["bundle_operator_contract_comparison"].get("summary", {})
+        ),
+    }
+
+
+def _build_compare_summary(
+    *,
+    baseline_checked: bool,
+    total_regressions: int,
+    comparison_summaries: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    blocking_flags = (
+        _compare_blocking_flags(
+            total_regressions=total_regressions,
+            split_summary=comparison_summaries["split"],
+            environment_summary=comparison_summaries["environment"],
+            target_summary=comparison_summaries["target"],
+            robustness_protocol_summary=comparison_summaries["robustness_protocol"],
+            operator_contract_summary=comparison_summaries["operator_contract"],
+            bundle_operator_contract_summary=comparison_summaries["bundle_operator_contract"],
+        )
+        if baseline_checked
+        else []
+    )
+    regression_gate = (
+        "clean"
+        if baseline_checked and int(total_regressions) == 0
+        else "regressed"
+        if baseline_checked
+        else "unchecked"
+    )
+    verdict = (
+        "pass"
+        if baseline_checked and not blocking_flags
+        else "blocked"
+        if baseline_checked
+        else "informational"
+    )
+    return {
+        "baseline_checked": baseline_checked,
+        "total_regressions": int(total_regressions),
+        "regression_gate": regression_gate,
+        "comparability_gates": {
+            gate_name: _comparability_gate_status(summary)
+            for gate_name, summary in comparison_summaries.items()
+        },
+        "blocking_flags": blocking_flags,
+        "verdict": verdict,
+    }
+
+
+def _baseline_evaluation_contract(
+    baseline_summary: Mapping[str, Any] | None,
+) -> Mapping[str, Any]:
+    if not isinstance(baseline_summary, Mapping):
+        return {}
+    value = baseline_summary.get("evaluation_contract", {})
+    return value if isinstance(value, Mapping) else {}
+
+
+def _build_summary_evaluation_contract(
+    metric_names: list[str],
+    *,
+    baseline_summary: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    baseline_contract = _baseline_evaluation_contract(baseline_summary)
+    comparability_hints = baseline_contract.get("comparability_hints", None)
+    return build_evaluation_contract(
+        metric_names=metric_names,
+        primary_metric=(
+            str(baseline_contract.get("primary_metric"))
+            if baseline_contract.get("primary_metric") is not None
+            else "auroc"
+        ),
+        ranking_metric=(
+            str(baseline_contract.get("ranking_metric"))
+            if baseline_contract.get("ranking_metric") is not None
+            else "auroc"
+        ),
+        pixel_metrics_enabled=baseline_contract.get("pixel_metrics_enabled"),
+        comparability_hints=(
+            dict(comparability_hints)
+            if isinstance(comparability_hints, Mapping)
+            else None
+        ),
+    )
+
+
+def _baseline_summary_status(
+    baseline_summary: Mapping[str, Any] | None,
+    *,
+    key: str,
+) -> str | None:
+    if not isinstance(baseline_summary, Mapping):
+        return None
+    value = baseline_summary.get(key)
+    return str(value) if value is not None else None
 
 
 __all__ = [

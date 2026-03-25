@@ -118,6 +118,41 @@ def _nonempty_str(value: Any) -> str | None:
     return text if text else None
 
 
+def _extend_string_set(values: Any, target: set[str]) -> None:
+    if not isinstance(values, list):
+        return
+    for item in values:
+        text = _nonempty_str(item)
+        if text is not None:
+            target.add(text)
+
+
+def _count_profile_hint(profile: Mapping[str, Any], key: str, counts: Counter[str]) -> None:
+    hint = _nonempty_str(profile.get(key))
+    if hint is not None:
+        counts[hint] += 1
+
+
+def _update_deployment_summary_counts(
+    profile: Mapping[str, Any],
+    *,
+    families: set[str],
+    training_regimes: set[str],
+    artifact_requirements: set[str],
+    runtime_cost_hints: Counter[str],
+    memory_cost_hints: Counter[str],
+) -> bool:
+    _extend_string_set(profile.get("family", []), families)
+    regime = _nonempty_str(profile.get("training_regime"))
+    if regime is not None:
+        training_regimes.add(regime)
+    _count_profile_hint(profile, "runtime_cost_hint", runtime_cost_hints)
+    _count_profile_hint(profile, "memory_cost_hint", memory_cost_hints)
+    _extend_string_set(profile.get("artifact_requirements", []), artifact_requirements)
+    industrial_fit = profile.get("industrial_fit", {})
+    return isinstance(industrial_fit, Mapping) and bool(industrial_fit.get("pixel_localization"))
+
+
 def _split_fingerprint_sha256(split_fingerprint: Any) -> str | None:
     if not isinstance(split_fingerprint, Mapping):
         return None
@@ -601,35 +636,14 @@ def _build_deployment_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, An
             continue
 
         model_count += 1
-
-        raw_families = profile.get("family", [])
-        if isinstance(raw_families, list):
-            for item in raw_families:
-                family = _nonempty_str(item)
-                if family is not None:
-                    families.add(family)
-
-        regime = _nonempty_str(profile.get("training_regime"))
-        if regime is not None:
-            training_regimes.add(regime)
-
-        runtime_hint = _nonempty_str(profile.get("runtime_cost_hint"))
-        if runtime_hint is not None:
-            runtime_cost_hints[runtime_hint] += 1
-
-        memory_hint = _nonempty_str(profile.get("memory_cost_hint"))
-        if memory_hint is not None:
-            memory_cost_hints[memory_hint] += 1
-
-        raw_requirements = profile.get("artifact_requirements", [])
-        if isinstance(raw_requirements, list):
-            for item in raw_requirements:
-                requirement = _nonempty_str(item)
-                if requirement is not None:
-                    artifact_requirements.add(requirement)
-
-        industrial_fit = profile.get("industrial_fit", {})
-        if isinstance(industrial_fit, Mapping) and bool(industrial_fit.get("pixel_localization")):
+        if _update_deployment_summary_counts(
+            profile,
+            families=families,
+            training_regimes=training_regimes,
+            artifact_requirements=artifact_requirements,
+            runtime_cost_hints=runtime_cost_hints,
+            memory_cost_hints=memory_cost_hints,
+        ):
             pixel_localization_models += 1
 
     if model_count <= 0:

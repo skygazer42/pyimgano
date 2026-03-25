@@ -1242,6 +1242,11 @@ def test_compare_run_summaries_emits_informational_summary_without_baseline(tmp_
     assert summary["blocking_flags"] == []
     assert summary["verdict"] == "informational"
     assert summary["trust_checked"] is False
+    assert summary["candidate_verdicts"] == {}
+    assert summary["candidate_blocking_reasons"] == {}
+    assert summary["candidate_comparability_gates"] == {}
+    assert summary["candidate_bundle_operator_contract_digest_statuses"] == {}
+    assert summary["candidate_incompatibility_digest"] == {}
 
 
 def test_compare_run_summaries_emits_candidate_verdicts_and_blocking_reasons(tmp_path):
