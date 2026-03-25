@@ -125,7 +125,7 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
         optimizer_name == "sgd"
         and optimizer_nesterov is True
         and optimizer_dampening is not None
-        and optimizer_dampening != 0.0
+        and optimizer_dampening > 0.0
     ):
         raise ValueError(
             "training.optimizer_dampening must be 0 when optimizer_name=sgd and optimizer_nesterov=true"

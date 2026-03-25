@@ -12,6 +12,8 @@ from pyimgano.datasets.converters import (
 from pyimgano.datasets.manifest_tools import iter_manifest_rows, manifest_stats
 from pyimgano.datasets.manifest_validate import validate_manifest_file
 
+MANIFEST_JSONL_NAME = "manifest.jsonl"
+
 
 def _candidate_payload(
     *,
@@ -124,12 +126,12 @@ def _detect_manifest_candidate(target: Path) -> dict[str, Any] | None:
             manifest_path=str(target),
         )
 
-    manifest_file = target / "manifest.jsonl"
+    manifest_file = target / MANIFEST_JSONL_NAME
     if manifest_file.is_file():
         return _candidate_payload(
             name="manifest",
             confidence=0.99,
-            reasons=["directory contains manifest.jsonl"],
+            reasons=[f"directory contains {MANIFEST_JSONL_NAME}"],
             manifest_path=str(manifest_file),
         )
     return None
@@ -435,7 +437,7 @@ def profile_dataset_target(
     )
 
     with tempfile.TemporaryDirectory(prefix="pyimgano-datasets-profile-") as tmp_dir:
-        manifest_path = Path(tmp_dir) / "manifest.jsonl"
+        manifest_path = Path(tmp_dir) / MANIFEST_JSONL_NAME
         convert_dataset_to_manifest(
             dataset=dataset_name,
             root=target_path,
@@ -529,7 +531,7 @@ def lint_dataset_target(
         category=category,
     )
     with tempfile.TemporaryDirectory(prefix="pyimgano-datasets-lint-") as tmp_dir:
-        manifest_path = Path(tmp_dir) / "manifest.jsonl"
+        manifest_path = Path(tmp_dir) / MANIFEST_JSONL_NAME
         convert_dataset_to_manifest(
             dataset=dataset_name,
             root=target_path,

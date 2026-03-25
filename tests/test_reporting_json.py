@@ -56,3 +56,17 @@ def test_save_jsonl_records(tmp_path):
 
     parsed1 = json.loads(lines[1])
     assert parsed1["nested"]["arr"] == [1, 2, 3]
+
+
+def test_save_run_report_rejects_parent_traversal_output(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValueError, match="path traversal"):
+        save_run_report("../escape.json", {"ok": True})
+
+
+def test_save_jsonl_records_rejects_parent_traversal_output(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValueError, match="path traversal"):
+        save_jsonl_records("../escape.jsonl", [{"ok": True}])

@@ -244,6 +244,18 @@ def test_evaluate_publication_quality_blocks_missing_run_artifact_refs_even_when
     assert quality["trust_signals"]["has_run_artifact_refs"] is False
 
 
+def test_evaluate_publication_quality_rejects_run_artifact_refs_outside_export_root(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.reporting.publication_quality import _resolve_exported_path
+
+    export_dir = tmp_path / "suite_export"
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    assert _resolve_exported_path(export_dir, "../outside/report.json") is None
+    assert _resolve_exported_path(export_dir, "../../escape.json") is None
+
+
 def test_evaluate_publication_quality_blocks_mismatched_run_artifact_digest(
     tmp_path: Path,
 ) -> None:

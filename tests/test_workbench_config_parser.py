@@ -151,6 +151,23 @@ def test_config_parse_primitives_preserve_validation_behavior() -> None:
         _parse_resize([0, 16], default=(256, 256))
 
 
+def test_training_config_rejects_nonzero_dampening_with_nesterov_enabled() -> None:
+    top = {
+        "training": {
+            "enabled": True,
+            "optimizer_name": "sgd",
+            "optimizer_nesterov": True,
+            "optimizer_dampening": 0.1,
+        }
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="training.optimizer_dampening must be 0 when optimizer_name=sgd and optimizer_nesterov=true",
+    ):
+        _parse_training_config(top)
+
+
 def test_config_section_parsers_build_compatible_sections() -> None:
     top = {
         "seed": 5,

@@ -17,9 +17,9 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
 
 
 def _resolve_metadata_path(path: str | Path) -> Path:
-    candidate = Path(path)
+    candidate = Path(path).resolve(strict=False)
     if candidate.is_dir():
-        return candidate / "leaderboard_metadata.json"
+        return (candidate / "leaderboard_metadata.json").resolve(strict=False)
     return candidate
 
 
@@ -27,9 +27,15 @@ def _resolve_exported_path(root: Path, raw: Any) -> Path | None:
     if not isinstance(raw, str) or not raw:
         return None
     path = Path(raw)
-    if path.is_absolute():
-        return path
-    return root / path
+    if ".." in path.parts:
+        return None
+    root_resolved = root.resolve(strict=False)
+    candidate = path.resolve(strict=False) if path.is_absolute() else (root_resolved / path).resolve(strict=False)
+    try:
+        candidate.relative_to(root_resolved)
+    except ValueError:
+        return None
+    return candidate
 
 
 def _display_exported_path(root: Path, raw: Any) -> str | None:

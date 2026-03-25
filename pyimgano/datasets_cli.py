@@ -5,6 +5,8 @@ import json
 import sys
 from typing import Any
 
+JSON_STDOUT_HELP = "Emit JSON payload to stdout"
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-datasets")
@@ -12,15 +14,15 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_list = sub.add_parser("list", help="List available dataset→manifest converters")
-    p_list.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+    p_list.add_argument("--json", action="store_true", help=JSON_STDOUT_HELP)
 
     p_info = sub.add_parser("info", help="Show details for one converter")
     p_info.add_argument("name", help="Converter name (e.g. custom, mvtec_ad2)")
-    p_info.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+    p_info.add_argument("--json", action="store_true", help=JSON_STDOUT_HELP)
 
     p_detect = sub.add_parser("detect", help="Best-effort detect a dataset layout or manifest")
     p_detect.add_argument("path", help="Dataset root directory or manifest JSONL file")
-    p_detect.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+    p_detect.add_argument("--json", action="store_true", help=JSON_STDOUT_HELP)
 
     p_import = sub.add_parser("import", help="Convert a dataset layout into a JSONL manifest")
     p_import.add_argument("--root", required=True, help="Dataset root directory")
@@ -45,7 +47,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include ground-truth mask references when the source layout exposes them.",
     )
-    p_import.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+    p_import.add_argument("--json", action="store_true", help=JSON_STDOUT_HELP)
 
     p_lint = sub.add_parser("lint", help="Validate a manifest or dataset root")
     p_lint.add_argument("target", help="Manifest JSONL path or dataset root directory")
@@ -64,7 +66,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional root fallback for manifest file checks.",
     )
-    p_lint.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+    p_lint.add_argument("--json", action="store_true", help=JSON_STDOUT_HELP)
 
     p_profile = sub.add_parser("profile", help="Summarize dataset readiness for industrial AD")
     p_profile.add_argument("target", help="Manifest JSONL path or dataset root directory")
@@ -83,7 +85,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional root fallback for manifest file checks.",
     )
-    p_profile.add_argument("--json", action="store_true", help="Emit JSON payload to stdout")
+    p_profile.add_argument("--json", action="store_true", help=JSON_STDOUT_HELP)
 
     return parser
 

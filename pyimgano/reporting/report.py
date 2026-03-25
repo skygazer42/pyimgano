@@ -10,6 +10,15 @@ from pyimgano.utils.jsonable import to_jsonable
 REPORT_SCHEMA_VERSION = 1
 
 
+def _resolve_output_path(path: str | Path) -> Path:
+    raw = Path(path)
+    if ".." in raw.parts:
+        raise ValueError("path traversal is not allowed for report outputs")
+    if raw.is_absolute():
+        return raw.resolve(strict=False)
+    return (Path.cwd() / raw).resolve(strict=False)
+
+
 def stamp_report_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Attach run-level metadata to report payloads without changing their shape."""
 
@@ -27,7 +36,7 @@ def stamp_report_payload(payload: dict[str, Any]) -> dict[str, Any]:
 def save_run_report(path: str | Path, results: dict) -> None:
     """Save a run result dict as JSON (converting numpy types)."""
 
-    out_path = Path(path)
+    out_path = _resolve_output_path(path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload = to_jsonable(results)
@@ -40,7 +49,7 @@ def save_jsonl_records(path: str | Path, records: list[dict]) -> None:
     Each item in `records` must be JSON-serializable after converting numpy types.
     """
 
-    out_path = Path(path)
+    out_path = _resolve_output_path(path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", encoding="utf-8") as f:

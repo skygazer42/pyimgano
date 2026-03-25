@@ -34,19 +34,21 @@ def audit_registry(*, limit: int | None = None) -> list[str]:
         try:
             info = model_info(name)
             json.dumps(to_jsonable(info))
-        except ModuleNotFoundError as exc:
-            root = _optional_missing_root(exc)
-            if root is not None and extra_for_root_module(root) is not None:
-                continue
-            issues.append(f"{name}: {exc}")
         except ImportError as exc:
-            root = _optional_missing_root(exc)
-            if root is not None and extra_for_root_module(root) is not None:
+            if _should_skip_optional_dependency_error(exc, extra_for_root_module):
                 continue
             issues.append(f"{name}: {exc}")
         except Exception as exc:  # noqa: BLE001 - tool boundary
             issues.append(f"{name}: {exc}")
     return issues
+
+
+def _should_skip_optional_dependency_error(
+    exc: ImportError,
+    extra_for_root_module,
+) -> bool:
+    root = _optional_missing_root(exc)
+    return root is not None and extra_for_root_module(root) is not None
 
 
 def _optional_missing_root(exc: ImportError) -> str | None:

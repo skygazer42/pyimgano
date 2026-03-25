@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 
@@ -489,6 +490,26 @@ def test_bundle_cli_run_input_manifest_preserves_contract_fields(
     assert rows[0]["image_path"] == "a.png"
     assert rows[0]["category"] == "bottle"
     assert rows[0]["meta"] == {"station": "L1"}
+
+
+def test_bundle_cli_rejects_manifest_image_paths_outside_manifest_root(tmp_path: Path) -> None:
+    from pyimgano.bundle_cli import _resolve_manifest_image_path
+
+    source_dir = tmp_path / "manifest_inputs"
+    outside_dir = tmp_path / "outside"
+    _write_png(outside_dir / "evil.png")
+    manifest_path = source_dir / "input_manifest.jsonl"
+    _write_jsonl(
+        manifest_path,
+        [
+            {
+                "id": "sample-evil",
+                "image_path": "../outside/evil.png",
+            }
+        ],
+    )
+    with pytest.raises((FileNotFoundError, ValueError), match="image_path|path traversal"):
+        _resolve_manifest_image_path("../outside/evil.png", manifest_path=manifest_path)
 
 
 def test_bundle_cli_run_rejects_pixel_exports_when_bundle_contract_disallows_them(

@@ -431,12 +431,28 @@ def _default_input_record(
 
 def _resolve_manifest_image_path(image_path: str, *, manifest_path: Path) -> str:
     path = Path(str(image_path))
+    manifest_root = manifest_path.parent.resolve()
+    if ".." in path.parts:
+        raise ValueError(f"Manifest image_path contains path traversal: {image_path!r}")
     if path.is_absolute():
-        if not path.exists():
-            raise FileNotFoundError(f"Manifest image_path not found: {path}")
-        return str(path)
+        candidate = path.resolve()
+        try:
+            candidate.relative_to(manifest_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"Manifest image_path escapes manifest directory: {image_path!r}"
+            ) from exc
+        if not candidate.exists():
+            raise FileNotFoundError(f"Manifest image_path not found: {candidate}")
+        return str(candidate)
 
-    candidate = (manifest_path.parent / path).resolve()
+    candidate = (manifest_root / path).resolve()
+    try:
+        candidate.relative_to(manifest_root)
+    except ValueError as exc:
+        raise ValueError(
+            f"Manifest image_path escapes manifest directory: {image_path!r}"
+        ) from exc
     if candidate.exists():
         return str(candidate)
     raise FileNotFoundError(

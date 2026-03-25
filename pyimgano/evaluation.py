@@ -63,7 +63,7 @@ def compute_auroc(
     y_scores = np.asarray(y_scores).ravel()
 
     if y_true.size == 0 or y_scores.size == 0:
-        raise ValueError("y_true and y_scores must be non-empty.")
+        raise ValueError(PIXEL_LABELS_AND_SCORES_REQUIRED_ERROR.replace("pixel_labels and pixel_scores", "y_true and y_scores"))
     if y_true.shape[0] != y_scores.shape[0]:
         raise ValueError(
             "y_true and y_scores must have the same length. "
@@ -115,7 +115,7 @@ def compute_average_precision(
     y_scores = np.asarray(y_scores).ravel()
 
     if y_true.size == 0 or y_scores.size == 0:
-        raise ValueError("y_true and y_scores must be non-empty.")
+        raise ValueError(PIXEL_LABELS_AND_SCORES_REQUIRED_ERROR.replace("pixel_labels and pixel_scores", "y_true and y_scores"))
     if y_true.shape[0] != y_scores.shape[0]:
         raise ValueError(
             "y_true and y_scores must have the same length. "
