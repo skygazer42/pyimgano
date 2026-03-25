@@ -120,73 +120,27 @@ def _evaluate_calibration_audit(
     }
     warnings: list[str] = []
 
-    infer_payload: dict[str, Any] | None = None
-    if infer_config_present:
-        infer_path = root / "artifacts" / "infer_config.json"
-        try:
-            infer_payload = _load_json_dict(infer_path)
-        except Exception as exc:  # noqa: BLE001 - reporting boundary
-            warnings.append(f"Failed to inspect infer_config.json for calibration audit: {exc}")
+    infer_payload = _load_optional_audit_payload(
+        root / "artifacts" / "infer_config.json",
+        label="infer_config.json",
+        enabled=bool(infer_config_present),
+        warnings=warnings,
+    )
+    calibration_payload = _load_optional_audit_payload(
+        root / "artifacts" / "calibration_card.json",
+        label="calibration_card.json",
+        enabled=bool(calibration_present and calibration_valid is not False),
+        warnings=warnings,
+    )
 
-    calibration_payload: dict[str, Any] | None = None
-    if calibration_present and calibration_valid is not False:
-        calibration_path = root / "artifacts" / "calibration_card.json"
-        try:
-            calibration_payload = _load_json_dict(calibration_path)
-        except Exception as exc:  # noqa: BLE001 - reporting boundary
-            warnings.append(f"Failed to inspect calibration_card.json for calibration audit: {exc}")
-
-    if isinstance(calibration_payload, Mapping):
-        payload["has_threshold_context"] = isinstance(
-            calibration_payload.get("threshold_context", None), Mapping
-        )
-        payload["has_split_fingerprint"] = (
-            _extract_split_fingerprint_sha256(calibration_payload) is not None
-        )
-        payload["has_prediction_policy"] = isinstance(
-            calibration_payload.get("prediction_policy", None),
-            Mapping,
-        )
-
-    if (
-        calibration_valid is True
-        and isinstance(infer_payload, Mapping)
-        and isinstance(calibration_payload, Mapping)
-    ):
-        infer_threshold = _extract_threshold_value(infer_payload)
-        calibration_threshold = _extract_threshold_value(calibration_payload)
-        if infer_threshold is not None and calibration_threshold is not None:
-            matches = abs(float(infer_threshold) - float(calibration_threshold)) <= 1e-12
-            payload["matching_threshold"] = bool(matches)
-            if not matches:
-                warnings.append(
-                    "Calibration audit warning: threshold mismatch between infer_config.json and calibration_card.json."
-                )
-
-        infer_split_sha256 = _extract_split_fingerprint_sha256(infer_payload)
-        calibration_split_sha256 = _extract_split_fingerprint_sha256(calibration_payload)
-        if infer_split_sha256 is not None and calibration_split_sha256 is not None:
-            matches = infer_split_sha256 == calibration_split_sha256
-            payload["matching_split_fingerprint"] = bool(matches)
-            if not matches:
-                warnings.append(
-                    "Calibration audit warning: split_fingerprint mismatch between infer_config.json and calibration_card.json."
-                )
-        elif infer_split_sha256 is not None:
-            warnings.append(
-                "Calibration audit warning: calibration_card.json is missing split_fingerprint metadata."
-            )
-
-        if _infer_declares_prediction_policy(infer_payload) and not bool(
-            payload["has_prediction_policy"]
-        ):
-            warnings.append(
-                "Calibration audit warning: calibration_card.json is missing prediction_policy metadata."
-            )
-        if not bool(payload["has_threshold_context"]):
-            warnings.append(
-                "Calibration audit warning: calibration_card.json is missing threshold_context metadata."
-            )
+    _populate_calibration_payload_flags(payload, calibration_payload)
+    _append_calibration_comparison_warnings(
+        payload,
+        warnings,
+        calibration_valid=calibration_valid,
+        infer_payload=infer_payload,
+        calibration_payload=calibration_payload,
+    )
 
     payload["warnings"] = warnings
     return payload
@@ -353,8 +307,6 @@ def _build_trust_summary(
     has_bundle_operator_contract_error: bool,
     has_bundle_operator_contract_digest_error: bool,
 ) -> dict[str, Any]:
-    status_reasons: list[str] = []
-    degraded_by: list[str] = []
     trust_signals = {
         "has_core_artifacts": bool(core_complete),
         "has_infer_config": bool(artifacts.get("infer_config", {}).get("present")),
@@ -376,7 +328,134 @@ def _build_trust_summary(
         "has_bundle_weights_audit": bool(weights_audit.get("present")),
         "has_valid_bundle_weights_audit": bool(weights_audit.get("valid") is True),
     }
+    status_reasons = _trust_status_reasons(
+        artifacts=artifacts,
+        core_complete=core_complete,
+        audited_complete=audited_complete,
+        deployable_complete=deployable_complete,
+        warnings=warnings,
+        operator_contract_audit=operator_contract_audit,
+        weights_audit=weights_audit,
+    )
+    degraded_by = _trust_degraded_by(
+        missing_required=missing_required,
+        warnings=warnings,
+        bundle_manifest=bundle_manifest,
+        weights_audit=weights_audit,
+        operator_contract_audit=operator_contract_audit,
+        has_bundle_operator_contract_error=has_bundle_operator_contract_error,
+        has_bundle_operator_contract_digest_error=has_bundle_operator_contract_digest_error,
+    )
+    status = _trust_status(
+        artifacts=artifacts,
+        core_complete=core_complete,
+        audited_complete=audited_complete,
+        degraded_by=degraded_by,
+    )
 
+    return {
+        "status": status,
+        "trust_signals": trust_signals,
+        "status_reasons": list(dict.fromkeys(str(item) for item in status_reasons)),
+        "degraded_by": list(dict.fromkeys(str(item) for item in degraded_by)),
+        "audit_refs": _build_audit_refs(artifacts=artifacts, weights_audit=weights_audit),
+    }
+
+
+def _load_optional_audit_payload(
+    path: Path,
+    *,
+    label: str,
+    enabled: bool,
+    warnings: list[str],
+) -> dict[str, Any] | None:
+    if not enabled:
+        return None
+    try:
+        return _load_json_dict(path)
+    except Exception as exc:  # noqa: BLE001 - reporting boundary
+        warnings.append(f"Failed to inspect {label} for calibration audit: {exc}")
+        return None
+
+
+def _populate_calibration_payload_flags(
+    payload: dict[str, Any],
+    calibration_payload: Mapping[str, Any] | None,
+) -> None:
+    if not isinstance(calibration_payload, Mapping):
+        return
+    payload["has_threshold_context"] = isinstance(
+        calibration_payload.get("threshold_context", None), Mapping
+    )
+    payload["has_split_fingerprint"] = (
+        _extract_split_fingerprint_sha256(calibration_payload) is not None
+    )
+    payload["has_prediction_policy"] = isinstance(
+        calibration_payload.get("prediction_policy", None),
+        Mapping,
+    )
+
+
+def _append_calibration_comparison_warnings(
+    payload: dict[str, Any],
+    warnings: list[str],
+    *,
+    calibration_valid: bool | None,
+    infer_payload: Mapping[str, Any] | None,
+    calibration_payload: Mapping[str, Any] | None,
+) -> None:
+    if (
+        calibration_valid is not True
+        or not isinstance(infer_payload, Mapping)
+        or not isinstance(calibration_payload, Mapping)
+    ):
+        return
+
+    infer_threshold = _extract_threshold_value(infer_payload)
+    calibration_threshold = _extract_threshold_value(calibration_payload)
+    if infer_threshold is not None and calibration_threshold is not None:
+        matches = abs(float(infer_threshold) - float(calibration_threshold)) <= 1e-12
+        payload["matching_threshold"] = bool(matches)
+        if not matches:
+            warnings.append(
+                "Calibration audit warning: threshold mismatch between infer_config.json and calibration_card.json."
+            )
+
+    infer_split_sha256 = _extract_split_fingerprint_sha256(infer_payload)
+    calibration_split_sha256 = _extract_split_fingerprint_sha256(calibration_payload)
+    if infer_split_sha256 is not None and calibration_split_sha256 is not None:
+        matches = infer_split_sha256 == calibration_split_sha256
+        payload["matching_split_fingerprint"] = bool(matches)
+        if not matches:
+            warnings.append(
+                "Calibration audit warning: split_fingerprint mismatch between infer_config.json and calibration_card.json."
+            )
+    elif infer_split_sha256 is not None:
+        warnings.append(
+            "Calibration audit warning: calibration_card.json is missing split_fingerprint metadata."
+        )
+
+    if _infer_declares_prediction_policy(infer_payload) and not bool(payload["has_prediction_policy"]):
+        warnings.append(
+            "Calibration audit warning: calibration_card.json is missing prediction_policy metadata."
+        )
+    if not bool(payload["has_threshold_context"]):
+        warnings.append(
+            "Calibration audit warning: calibration_card.json is missing threshold_context metadata."
+        )
+
+
+def _trust_status_reasons(
+    *,
+    artifacts: Mapping[str, Mapping[str, Any]],
+    core_complete: bool,
+    audited_complete: bool,
+    deployable_complete: bool,
+    warnings: Sequence[str],
+    operator_contract_audit: Mapping[str, Any],
+    weights_audit: Mapping[str, Any],
+) -> list[str]:
+    status_reasons: list[str] = []
     if bool(core_complete):
         status_reasons.append("core_artifacts_present")
     if bool(audited_complete):
@@ -398,6 +477,20 @@ def _build_trust_summary(
         status_reasons.append("deploy_bundle_incomplete")
     if warnings:
         status_reasons.append("warnings_present")
+    return status_reasons
+
+
+def _trust_degraded_by(
+    *,
+    missing_required: Sequence[str],
+    warnings: Sequence[str],
+    bundle_manifest: Mapping[str, Any],
+    weights_audit: Mapping[str, Any],
+    operator_contract_audit: Mapping[str, Any],
+    has_bundle_operator_contract_error: bool,
+    has_bundle_operator_contract_digest_error: bool,
+) -> list[str]:
+    degraded_by: list[str] = []
     if missing_required:
         degraded_by.append("missing_required_artifacts")
 
@@ -428,24 +521,24 @@ def _build_trust_summary(
         degraded_by.append("operator_contract_bundle_mismatch")
     if bool(has_bundle_operator_contract_digest_error):
         degraded_by.append("operator_contract_bundle_digest_mismatch")
+    return degraded_by
 
+
+def _trust_status(
+    *,
+    artifacts: Mapping[str, Mapping[str, Any]],
+    core_complete: bool,
+    audited_complete: bool,
+    degraded_by: Sequence[str],
+) -> str:
     report_present = bool(artifacts.get("report", {}).get("present"))
     if not report_present:
-        status = "broken"
-    elif not bool(core_complete):
-        status = "partial"
-    elif bool(audited_complete) and not degraded_by:
-        status = "trust-signaled"
-    else:
-        status = "partial"
-
-    return {
-        "status": status,
-        "trust_signals": trust_signals,
-        "status_reasons": list(dict.fromkeys(str(item) for item in status_reasons)),
-        "degraded_by": list(dict.fromkeys(str(item) for item in degraded_by)),
-        "audit_refs": _build_audit_refs(artifacts=artifacts, weights_audit=weights_audit),
-    }
+        return "broken"
+    if not bool(core_complete):
+        return "partial"
+    if bool(audited_complete) and not degraded_by:
+        return "trust-signaled"
+    return "partial"
 
 
 def evaluate_run_quality(
