@@ -1100,6 +1100,56 @@ def _resolve_contract_status(run: Mapping[str, Any], *, key: str) -> str:
     return "missing"
 
 
+def _operator_contract_row(
+    run: Mapping[str, Any],
+    *,
+    baseline_payload: Mapping[str, Any] | None,
+    baseline_contract_sha256: str | None,
+    baseline_path_str: str | None,
+    checked: bool,
+    status_key: str,
+    bundle: bool,
+) -> tuple[dict[str, Any], str]:
+    run_status = _resolve_contract_status(run, key=status_key)
+    row: dict[str, Any] = {
+        "run_dir": run.get("run_dir"),
+        "run_dir_name": run.get("run_dir_name"),
+        "contract_status": run_status,
+        "contract_sha256": None,
+        "status": "unchecked",
+    }
+    if _is_baseline_run(run, baseline_path_str):
+        row["status"] = "baseline"
+        row["contract_sha256"] = baseline_contract_sha256
+        return row, "baseline"
+    if not checked:
+        return row, "unchecked"
+    if run_status == "missing":
+        row["status"] = "missing"
+        return row, "missing"
+    if run_status != "consistent":
+        row["status"] = "mismatched"
+        row["mismatch_reason"] = f"candidate_{run_status}"
+        candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
+        if isinstance(candidate_payload, Mapping):
+            row["contract_sha256"] = _contract_payload_sha256(candidate_payload)
+        return row, "mismatched"
+
+    candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
+    if not isinstance(candidate_payload, Mapping):
+        row["status"] = "missing"
+        return row, "missing"
+
+    candidate_contract_sha256 = _contract_payload_sha256(candidate_payload)
+    row["contract_sha256"] = candidate_contract_sha256
+    if dict(candidate_payload) != dict(baseline_payload):
+        row["status"] = "mismatched"
+        row["mismatch_reason"] = "baseline_mismatch"
+        return row, "mismatched"
+    row["status"] = "matched"
+    return row, "matched"
+
+
 def _build_operator_contract_comparison(
     runs: list[dict[str, Any]],
     *,
@@ -1130,45 +1180,21 @@ def _build_operator_contract_comparison(
     missing_runs = 0
 
     for run in runs:
-        run_path = str(Path(str(run.get("run_dir"))).resolve())
-        run_status = _resolve_contract_status(run, key=status_key)
-        row: dict[str, Any] = {
-            "run_dir": run.get("run_dir"),
-            "run_dir_name": run.get("run_dir_name"),
-            "contract_status": run_status,
-            "contract_sha256": None,
-            "status": "unchecked",
-        }
-        is_baseline = baseline_path_str is not None and run_path == baseline_path_str
-        if is_baseline:
-            row["status"] = "baseline"
-            row["contract_sha256"] = baseline_contract_sha256
-        elif checked:
-            if run_status == "missing":
-                row["status"] = "missing"
-                missing_runs += 1
-            elif run_status != "consistent":
-                row["status"] = "mismatched"
-                mismatched_runs += 1
-                row["mismatch_reason"] = f"candidate_{run_status}"
-                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
-                if isinstance(candidate_payload, Mapping):
-                    row["contract_sha256"] = _contract_payload_sha256(candidate_payload)
-            else:
-                candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=bundle)
-                if not isinstance(candidate_payload, Mapping):
-                    row["status"] = "missing"
-                    missing_runs += 1
-                else:
-                    candidate_contract_sha256 = _contract_payload_sha256(candidate_payload)
-                    row["contract_sha256"] = candidate_contract_sha256
-                    if dict(candidate_payload) != dict(baseline_payload):
-                        row["status"] = "mismatched"
-                        mismatched_runs += 1
-                        row["mismatch_reason"] = "baseline_mismatch"
-                    else:
-                        row["status"] = "matched"
-                        matched_runs += 1
+        row, status = _operator_contract_row(
+            run,
+            baseline_payload=baseline_payload,
+            baseline_contract_sha256=baseline_contract_sha256,
+            baseline_path_str=baseline_path_str,
+            checked=checked,
+            status_key=status_key,
+            bundle=bundle,
+        )
+        matched_runs, mismatched_runs, missing_runs = _bump_counts(
+            status,
+            matched_runs=matched_runs,
+            mismatched_runs=mismatched_runs,
+            missing_runs=missing_runs,
+        )
         comparisons.append(row)
 
     return {
@@ -1183,6 +1209,86 @@ def _build_operator_contract_comparison(
             "incompatible_runs": int(mismatched_runs + missing_runs),
         },
     }
+
+
+def _apply_items_filter(
+    items: list[dict[str, Any]],
+    *,
+    value: str | None,
+    item_value: callable,
+) -> list[dict[str, Any]]:
+    if value is None:
+        return items
+    needle = str(value).strip().lower()
+    return [item for item in items if str(item_value(item)).lower() == needle]
+
+
+def _filter_same_split(
+    items: list[dict[str, Any]],
+    *,
+    same_split_as: str | Path | None,
+) -> list[dict[str, Any]]:
+    if same_split_as is None:
+        return items
+    target_report = _load_report_for_run_dir(same_split_as)
+    target_sha256 = _extract_split_fingerprint_sha256(target_report)
+    if target_sha256 is None:
+        return []
+    return [
+        item
+        for item in items
+        if str(item.get("split_fingerprint_sha256", "")) == str(target_sha256)
+    ]
+
+
+def _filter_same_environment(
+    items: list[dict[str, Any]],
+    *,
+    same_environment_as: str | Path | None,
+) -> list[dict[str, Any]]:
+    if same_environment_as is None:
+        return items
+    target_summary = summarize_run_dir(same_environment_as)
+    target_fingerprint = _extract_environment_fingerprint_sha256(target_summary)
+    if target_fingerprint is None:
+        return []
+    return [
+        item
+        for item in items
+        if _extract_environment_fingerprint_sha256(item) == target_fingerprint
+    ]
+
+
+def _filter_same_target(
+    items: list[dict[str, Any]],
+    *,
+    same_target_as: str | Path | None,
+) -> list[dict[str, Any]]:
+    if same_target_as is None:
+        return items
+    target_summary = summarize_run_dir(same_target_as)
+    target_signature = _extract_target_signature(target_summary)
+    if target_signature is None:
+        return []
+    return [item for item in items if _matches_target_signature(item, target_signature)]
+
+
+def _filter_same_robustness_protocol(
+    items: list[dict[str, Any]],
+    *,
+    same_robustness_protocol_as: str | Path | None,
+) -> list[dict[str, Any]]:
+    if same_robustness_protocol_as is None:
+        return items
+    target_summary = summarize_run_dir(same_robustness_protocol_as)
+    target_signature = _extract_robustness_protocol_signature(target_summary)
+    if target_signature is None:
+        return []
+    return [
+        item
+        for item in items
+        if _extract_robustness_protocol_signature(item) == target_signature
+    ]
 
 
 def latest_run_summary(
@@ -1536,12 +1642,16 @@ def list_run_summaries(
         for path in sorted(base.rglob(_REPORT_JSON))
         if _is_top_level_report(path, base)
     ]
-    if kind is not None:
-        kind_norm = str(kind).strip().lower()
-        items = [item for item in items if str(item.get("kind", "")).lower() == kind_norm]
-    if dataset is not None:
-        dataset_norm = str(dataset).strip().lower()
-        items = [item for item in items if str(item.get("dataset", "")).lower() == dataset_norm]
+    items = _apply_items_filter(
+        items,
+        value=kind,
+        item_value=lambda item: item.get("kind", ""),
+    )
+    items = _apply_items_filter(
+        items,
+        value=dataset,
+        item_value=lambda item: item.get("dataset", ""),
+    )
     if query is not None:
         needle = str(query).strip().lower()
         if needle:
@@ -1565,46 +1675,13 @@ def list_run_summaries(
             )
             >= minimum_rank
         ]
-    if same_split_as is not None:
-        target_report = _load_report_for_run_dir(same_split_as)
-        target_sha256 = _extract_split_fingerprint_sha256(target_report)
-        if target_sha256 is None:
-            items = []
-        else:
-            items = [
-                item
-                for item in items
-                if str(item.get("split_fingerprint_sha256", "")) == str(target_sha256)
-            ]
-    if same_environment_as is not None:
-        target_summary = summarize_run_dir(same_environment_as)
-        target_fingerprint = _extract_environment_fingerprint_sha256(target_summary)
-        if target_fingerprint is None:
-            items = []
-        else:
-            items = [
-                item
-                for item in items
-                if _extract_environment_fingerprint_sha256(item) == target_fingerprint
-            ]
-    if same_target_as is not None:
-        target_summary = summarize_run_dir(same_target_as)
-        target_signature = _extract_target_signature(target_summary)
-        if target_signature is None:
-            items = []
-        else:
-            items = [item for item in items if _matches_target_signature(item, target_signature)]
-    if same_robustness_protocol_as is not None:
-        target_summary = summarize_run_dir(same_robustness_protocol_as)
-        target_signature = _extract_robustness_protocol_signature(target_summary)
-        if target_signature is None:
-            items = []
-        else:
-            items = [
-                item
-                for item in items
-                if _extract_robustness_protocol_signature(item) == target_signature
-            ]
+    items = _filter_same_split(items, same_split_as=same_split_as)
+    items = _filter_same_environment(items, same_environment_as=same_environment_as)
+    items = _filter_same_target(items, same_target_as=same_target_as)
+    items = _filter_same_robustness_protocol(
+        items,
+        same_robustness_protocol_as=same_robustness_protocol_as,
+    )
     items.sort(
         key=lambda item: (
             str(item.get("timestamp_utc") or ""),
