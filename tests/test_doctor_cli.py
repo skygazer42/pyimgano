@@ -9,6 +9,15 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _force_reference_only_recommendations(monkeypatch) -> None:
+    import pyimgano.services.doctor_service as doctor_service
+
+    def _fake_extra_installed(extra: str) -> bool:
+        return str(extra) not in {"torch", "anomalib", "faiss"}
+
+    monkeypatch.setattr(doctor_service, "extra_installed", _fake_extra_installed)
+
+
 def test_doctor_cli_outputs_json(capsys) -> None:
     from pyimgano.doctor_cli import main as doctor_main
 
@@ -279,9 +288,11 @@ def test_doctor_cli_deploy_bundle_readiness_exits_nonzero_on_invalid_bundle(
 
 
 def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys, monkeypatch
 ) -> None:
     from pyimgano.doctor_cli import main as doctor_main
+
+    _force_reference_only_recommendations(monkeypatch)
 
     root = tmp_path / "custom"
     (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
@@ -326,9 +337,11 @@ def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
 
 
 def test_doctor_cli_dataset_target_recommendations_expose_reference_roles(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys, monkeypatch
 ) -> None:
     from pyimgano.doctor_cli import main as doctor_main
+
+    _force_reference_only_recommendations(monkeypatch)
 
     root = tmp_path / "custom"
     (root / "train" / "normal").mkdir(parents=True, exist_ok=True)

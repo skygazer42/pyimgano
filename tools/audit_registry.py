@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ def audit_registry(*, limit: int | None = None) -> list[str]:
     _ensure_repo_root_on_sys_path()
     import pyimgano.models as models
     from pyimgano.models.registry import model_info
+    from pyimgano.utils.extras import extra_for_root_module
     from pyimgano.utils.jsonable import to_jsonable
 
     issues: list[str] = []
@@ -32,9 +34,38 @@ def audit_registry(*, limit: int | None = None) -> list[str]:
         try:
             info = model_info(name)
             json.dumps(to_jsonable(info))
+        except ModuleNotFoundError as exc:
+            root = _optional_missing_root(exc)
+            if root is not None and extra_for_root_module(root) is not None:
+                continue
+            issues.append(f"{name}: {exc}")
+        except ImportError as exc:
+            root = _optional_missing_root(exc)
+            if root is not None and extra_for_root_module(root) is not None:
+                continue
+            issues.append(f"{name}: {exc}")
         except Exception as exc:  # noqa: BLE001 - tool boundary
             issues.append(f"{name}: {exc}")
     return issues
+
+
+def _optional_missing_root(exc: ImportError) -> str | None:
+    name = str(getattr(exc, "name", "") or "").strip()
+    if name:
+        return name.split(".", 1)[0]
+
+    message = str(exc)
+    quoted = re.findall(r"'([^']+)'", message)
+    for candidate in quoted:
+        root = str(candidate).strip().split(".", 1)[0]
+        if root:
+            return root
+
+    no_module = re.search(r"No module named ['\"]([^'\"]+)['\"]", message)
+    if no_module is not None:
+        return str(no_module.group(1)).split(".", 1)[0]
+
+    return None
 
 
 def audit_registry_metadata(*, limit: int | None = None) -> dict[str, Any]:
