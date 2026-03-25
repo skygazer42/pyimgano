@@ -1,0 +1,35 @@
+{
+  "output_dir": "/data/pyimgano_eval/first_batch_mvtec_bottle",
+  "datasets": [
+    {
+      "name": "mvtec",
+      "root": "/data/datasets/mvtec_bottle",
+      "categories": ["bottle"]
+    }
+  ],
+  "models": {
+    "include": [
+      "vision_ecod",
+      "vision_copod",
+      "vision_iforest",
+      "vision_knn",
+      "vision_pca",
+      "vision_mahalanobis",
+      "vision_dtc",
+      "vision_rzscore",
+      "vision_pca_md",
+      "vision_pixel_mean_absdiff_map",
+      "vision_pixel_mad_map"
+    ]
+  },
+  "runtime": {
+    "device": "cpu",
+    "pretrained": false,
+    "save_run": true,
+    "per_image_jsonl": true,
+    "continue_on_error": true
+  },
+  "artifact_audit": {
+    "enabled": false
+  }
+}

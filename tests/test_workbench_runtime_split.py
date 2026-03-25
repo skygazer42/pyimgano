@@ -84,3 +84,41 @@ def test_workbench_runtime_split_preserves_full_split_without_limits(tmp_path: P
     assert prepared.input_format == "rgb_u8_hwc"
     assert prepared.test_masks is None
     assert prepared.test_meta is None
+
+
+def test_workbench_runtime_split_creates_disjoint_calibration_holdout_when_reused() -> None:
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "seed": 123,
+            "dataset": {
+                "name": "custom",
+                "root": "/tmp/data",
+                "category": "custom",
+            },
+            "model": {"name": "vision_ecod"},
+            "output": {"save_run": False},
+        }
+    )
+
+    shared = ["train_a.png", "train_b.png", "train_c.png", "train_d.png", "train_e.png"]
+    split = WorkbenchSplit(
+        train_inputs=list(shared),
+        calibration_inputs=list(shared),
+        test_inputs=["test.png"],
+        test_labels=np.asarray([0], dtype=np.int64),
+        test_masks=None,
+        input_format=None,
+        pixel_skip_reason=None,
+        test_meta=None,
+    )
+
+    prepared_a = prepare_workbench_runtime_split(config=cfg, split=split)
+    prepared_b = prepare_workbench_runtime_split(config=cfg, split=split)
+
+    assert prepared_a.train_inputs == prepared_b.train_inputs
+    assert prepared_a.calibration_inputs == prepared_b.calibration_inputs
+    assert set(prepared_a.train_inputs).isdisjoint(set(prepared_a.calibration_inputs))
+    assert sorted(prepared_a.train_inputs + prepared_a.calibration_inputs) == sorted(shared)
+    assert len(prepared_a.calibration_inputs) == 1
+    assert len(prepared_a.train_inputs) == 4

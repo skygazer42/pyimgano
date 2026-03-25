@@ -9,6 +9,7 @@ _BENCHMARK_SERVICE = "pyimgano.services.benchmark_service"
 _DATASET_SPLIT_SERVICE = "pyimgano.services.dataset_split_service"
 _DISCOVERY_SERVICE = "pyimgano.services.discovery_service"
 _DOCTOR_SERVICE = "pyimgano.services.doctor_service"
+_EVALUATION_HARNESS_SERVICE = "pyimgano.services.evaluation_harness_service"
 _INFERENCE_SERVICE = "pyimgano.services.inference_service"
 _INFER_ARTIFACT_SERVICE = "pyimgano.services.infer_artifact_service"
 _INFER_CONTEXT_SERVICE = "pyimgano.services.infer_context_service"
@@ -35,10 +36,12 @@ _SERVICE_EXPORT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("ConfigBackedInferLoadResult", _INFER_LOAD_SERVICE),
             ("ContinueOnErrorInferRequest", _INFER_CONTINUE_SERVICE),
             ("ContinueOnErrorInferResult", _INFER_CONTINUE_SERVICE),
+            ("DatasetEvaluationTarget", _EVALUATION_HARNESS_SERVICE),
             ("DefectsArtifactConfig", _INFER_ARTIFACT_SERVICE),
             ("DefectsArtifactConfigBuildRequest", _INFER_ARTIFACT_SERVICE),
             ("DirectInferLoadRequest", _INFER_LOAD_SERVICE),
             ("DirectInferLoadResult", _INFER_LOAD_SERVICE),
+            ("EvaluationHarnessRequest", _EVALUATION_HARNESS_SERVICE),
             ("InferErrorRecordRequest", _INFER_OUTPUT_SERVICE),
             ("InferArtifactOptions", _INFER_ARTIFACT_SERVICE),
             ("InferDetectorWrapperRequest", _INFER_WRAPPER_SERVICE),
@@ -65,6 +68,7 @@ _SERVICE_EXPORT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("SuiteRunRequest", _BENCHMARK_SERVICE),
             ("TrainRunRequest", _TRAIN_SERVICE),
             ("WorkbenchThresholdCalibration", _WORKBENCH_SERVICE),
+            ("ArtifactAuditConfig", _EVALUATION_HARNESS_SERVICE),
         ),
     ),
     (
@@ -91,6 +95,7 @@ _SERVICE_EXPORT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("build_model_info_payload", _DISCOVERY_SERVICE),
             ("build_model_preset_info_payload", _DISCOVERY_SERVICE),
             ("build_pixel_postprocess", _BENCHMARK_SERVICE),
+            ("build_evaluation_matrix", _EVALUATION_HARNESS_SERVICE),
             ("build_accelerator_checks", _DOCTOR_SERVICE),
             ("build_infer_config_payload", _WORKBENCH_SERVICE),
             ("build_require_extras_check", _DOCTOR_SERVICE),
@@ -106,10 +111,13 @@ _SERVICE_EXPORT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("calibrate_workbench_threshold", _WORKBENCH_SERVICE),
             ("check_module", _DOCTOR_SERVICE),
             ("collect_doctor_payload", _DOCTOR_SERVICE),
+            ("collect_dataset_inventory", _EVALUATION_HARNESS_SERVICE),
+            ("collect_model_inventory", _EVALUATION_HARNESS_SERVICE),
             ("collect_pyim_listing_payload", _PYIM_SERVICE),
             ("create_workbench_detector", _WORKBENCH_SERVICE),
             ("iter_inference_records", _INFERENCE_SERVICE),
             ("load_benchmark_style_split", _DATASET_SPLIT_SERVICE),
+            ("load_evaluation_harness_request", _EVALUATION_HARNESS_SERVICE),
             ("materialize_infer_result_artifacts", _INFER_ARTIFACT_SERVICE),
             ("open_infer_output_targets", _INFER_OUTPUT_SERVICE),
             ("prepare_infer_runtime_plan", _INFER_RUNTIME_SERVICE),
@@ -138,6 +146,7 @@ _SERVICE_EXPORT_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("resolve_preprocessing_preset_payload", _WORKBENCH_SERVICE),
             ("run_inference", _INFERENCE_SERVICE),
             ("run_benchmark_request", _BENCHMARK_SERVICE),
+            ("run_evaluation_harness", _EVALUATION_HARNESS_SERVICE),
             ("run_robustness_request", _ROBUSTNESS_SERVICE),
             ("run_suite_request", _BENCHMARK_SERVICE),
             ("run_train_preflight_payload", _TRAIN_SERVICE),

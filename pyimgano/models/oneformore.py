@@ -66,7 +66,7 @@ class ContinualDiffusion(nn.Module):
         self.time_mlp = nn.Sequential(
             nn.Linear(1, hidden_channels),
             nn.SiLU(),
-            nn.Linear(hidden_channels, hidden_channels),
+            nn.Linear(hidden_channels, hidden_channels * 4),
         )
 
     def _make_block(self, in_ch: int, out_ch: int) -> nn.Module:
@@ -457,7 +457,11 @@ class VisionOneForMore(BaseVisionDeepDetector):
 
                 # Compute reconstruction error across multiple timesteps
                 reconstruction_errors = []
-                sample_timesteps = [100, 300, 500, 700, 900]
+                sample_timesteps = [
+                    max(0, min(self.num_timesteps - 1, t_val))
+                    for t_val in [100, 300, 500, 700, 900]
+                ]
+                sample_timesteps = list(dict.fromkeys(sample_timesteps))
 
                 for t_val in sample_timesteps:
                     t = torch.full((len(batch),), t_val, device=self.device)

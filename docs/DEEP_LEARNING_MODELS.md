@@ -232,39 +232,6 @@ anomaly_map = detector.get_anomaly_map(test_images[0])
 
 ---
 
-### 3.5 MambaAD (NeurIPS 2024) ⭐ NEW
-
-**Sequence-model reconstruction on frozen patch embeddings**
-
-`vision_mambaad` follows a practical MambaAD-style workflow:
-- extract fixed-grid patch embeddings (default: DINOv2)
-- train a small Mamba SSM to reconstruct normal patch patterns
-- use reconstruction error for image scores + pixel anomaly maps
-
-```python
-from pyimgano.models import create_model
-
-# Requires:
-#   pip install "pyimgano[mamba]"
-detector = create_model(
-    "vision_mambaad",
-    device="cuda",   # or "cpu"
-    epochs=5,
-    batch_size=8,
-    lr=1e-3,
-)
-
-detector.fit(train_images)
-scores = detector.decision_function(test_images)
-anomaly_map = detector.get_anomaly_map(test_images[0])
-```
-
-**When to Use:**
-- You want a learnable detector that can model long-range patch dependencies
-- You need pixel-level maps but prefer a reconstruction-style training loop
-
----
-
 ### 4. STFPM (BMVC 2021)
 
 **Student-Teacher feature pyramid matching**

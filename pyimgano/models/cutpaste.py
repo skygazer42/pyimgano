@@ -26,6 +26,7 @@ from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models
 
+from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -330,6 +331,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
             y: Not used (unsupervised).
         """
         del y, kwargs
+        x = coerce_rgb_image_batch(x)
         # Normalize to [0, 1] if needed
         if x.max() > 1.0:
             x = x.astype(np.float32) / 255.0
@@ -437,6 +439,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
             Anomaly scores for each sample.
         """
         del kwargs
+        x = coerce_rgb_image_batch(x)
         if x.max() > 1.0:
             x = x.astype(np.float32) / 255.0
 
@@ -460,6 +463,10 @@ class CutPasteDetector(BaseVisionDeepDetector):
                 scores.append(dist)
 
         return np.concatenate(scores)
+
+    def decision_function(self, x: NDArray, batch_size: int | None = None, **kwargs) -> NDArray:
+        del batch_size
+        return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
 
     def _get_transform(self):
         """Get data transform."""

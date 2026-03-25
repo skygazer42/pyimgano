@@ -1,0 +1,32 @@
+{
+  "output_dir": "/data/pyimgano_eval/third_batch_mvtec_bottle_deep_cpu",
+  "datasets": [
+    {
+      "name": "mvtec",
+      "root": "/data/datasets/mvtec_bottle",
+      "categories": ["bottle"]
+    }
+  ],
+  "models": {
+    "include": [
+      "vision_patchcore",
+      "vision_patchcore_lite_map",
+      "vision_padim",
+      "vision_spade",
+      "vision_fastflow",
+      "vision_draem",
+      "vision_student_teacher_lite",
+      "vision_softpatch"
+    ]
+  },
+  "runtime": {
+    "device": "cpu",
+    "pretrained": false,
+    "save_run": true,
+    "per_image_jsonl": true,
+    "continue_on_error": true
+  },
+  "artifact_audit": {
+    "enabled": false
+  }
+}

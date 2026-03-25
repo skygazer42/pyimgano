@@ -148,7 +148,7 @@ class VisionAE1SVM(BaseVisionDeepDetector):
         # 将通用参数 (lr, epoch_num, contamination 等) 传递给父类
         super(VisionAE1SVM, self).__init__(**kwargs)
 
-    def _build_model(self):
+    def build_model(self):
         """定义模型结构。"""
         n_features = self.image_shape[0] * self.image_shape[1] * self.image_shape[2]
         model = InnerAE1SVM(
@@ -165,45 +165,25 @@ class VisionAE1SVM(BaseVisionDeepDetector):
         )
         return model
 
-    def _train_loop(self, train_loader):
-        """定义训练逻辑。"""
-        for epoch in range(self.epoch_num):
-            overall_loss = []
-            for images, _ in train_loader:
-                images = images.to(self.device).float()
+    def training_forward(self, batch_data):
+        images, _ = batch_data
+        images = images.to(self.device).float()
 
-                # 前向传播
-                reconstructions, rff_features = self.model(images)
+        reconstructions, rff_features = self.model(images)
+        recon_loss = self.criterion(images, reconstructions)
+        svm_scores = self.model.svm_decision_function(rff_features)
+        svm_loss = torch.mean(torch.clamp(1 - svm_scores, min=0))
+        loss = self.alpha * recon_loss + svm_loss
 
-                # 计算组合损失 (这部分是 AE1SVM 的核心)
-                recon_loss = self.criterion(images, reconstructions)
-                svm_scores = self.model.svm_decision_function(rff_features)
-                svm_loss = torch.mean(torch.clamp(1 - svm_scores, min=0))
-                loss = self.alpha * recon_loss + svm_loss
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
-                # 反向传播与优化
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+        return loss.detach().item()
 
-                overall_loss.append(loss.detach().item())
-
-            if self.verbose > 1:
-                print(f"Epoch {epoch + 1}/{self.epoch_num}, Loss: {np.mean(overall_loss):.4f}")
-
-    def _evaluate_loop(self, data_loader):
-        """【定义评估逻辑，返回异常分数。"""
-        all_scores = []
-        self.model.eval()  # 基类会自动处理 .train() 和 .eval()，但这里写明更清晰
-        with torch.no_grad():
-            for images, _ in data_loader:
-                images_gpu = images.to(self.device).float()
-                reconstructions, _ = self.model(images_gpu)
-
-                # 计算重构误差作为分数
-                scores = pairwise_distances_no_broadcast(
-                    images.numpy().reshape(images.shape[0], -1),
-                    reconstructions.cpu().numpy().reshape(images.shape[0], -1),
-                )
-                all_scores.extend(scores)
-        return all_scores
+    def evaluating_forward(self, batch_data):
+        images, _ = batch_data
+        images = images.to(self.device).float()
+        reconstructions, _ = self.model(images)
+        diffs = (images - reconstructions).reshape(images.shape[0], -1)
+        return torch.sqrt(torch.sum(diffs * diffs, dim=1) + 1e-12)

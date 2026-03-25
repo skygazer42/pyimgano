@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 
 def test_core_mahalanobis_fit_predict_smoke() -> None:
@@ -36,3 +37,14 @@ def test_vision_mahalanobis_with_identity_extractor() -> None:
     scores = det.decision_function(x[:7])
     assert scores.shape == (7,)
     assert np.all(np.isfinite(scores))
+
+
+def test_core_mahalanobis_rejects_extremely_high_dimensional_features() -> None:
+    import pyimgano.models  # noqa: F401
+    from pyimgano.models import create_model
+
+    x = np.zeros((4, 5000), dtype=np.float64)
+    det = create_model("core_mahalanobis", contamination=0.1, reg=1e-6)
+
+    with pytest.raises(ValueError, match="not suitable for extremely high-dimensional features"):
+        det.fit(x)

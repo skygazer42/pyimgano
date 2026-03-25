@@ -322,6 +322,12 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
         requires_checkpoint=bool(requires_checkpoint),
         upstream_project=upstream_project,
     )
+    explicit_save_load = contract.get("supports_save_load", None)
+    supports_save_load = (
+        bool(explicit_save_load)
+        if explicit_save_load is not None
+        else bool("classical" in tags and not requires_checkpoint)
+    )
 
     artifact_requirements: list[str] = []
     if requires_checkpoint:
@@ -361,7 +367,7 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
                 or "checkpoint_path" in accepted_kwargs
                 or bool(contract.get("weights_source"))
             ),
-            "save_load": bool("classical" in tags and not requires_checkpoint),
+            "save_load": bool(supports_save_load),
             "onnx": bool("onnx" in tags or contract.get("weights_source") == "local-exported-onnx"),
             "torchscript": bool(
                 "torchscript" in tags
@@ -406,7 +412,12 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
         requires_checkpoint or accepts_var_kwargs or ("checkpoint_path" in accepted_kwargs)
     )
 
-    supports_save_load = bool("classical" in tags and not requires_checkpoint)
+    explicit_save_load = entry.metadata.get("supports_save_load", None)
+    supports_save_load = (
+        bool(explicit_save_load)
+        if explicit_save_load is not None
+        else bool("classical" in tags and not requires_checkpoint)
+    )
     supports_confidence = _constructor_supports_confidence(entry.constructor)
 
     return ModelCapabilities(

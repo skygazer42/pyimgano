@@ -5,6 +5,7 @@ from typing import Any, Iterable
 import numpy as np
 from numpy.typing import NDArray
 
+from ._image_batch import coerce_rgb_image_batch
 from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
@@ -107,11 +108,9 @@ class VisionAnoGenAdapter:
 
     def fit(self, x, y=None):
         del y
-        items = list(x)
-        if not items:
+        self.support_images_ = list(coerce_rgb_image_batch(x).astype(np.float32, copy=False))
+        if not self.support_images_:
             raise ValueError("X must contain at least one support image.")
-
-        self.support_images_ = [_as_float_array(item) for item in items]
         first_shape = self.support_images_[0].shape
         for arr in self.support_images_[1:]:
             if arr.shape != first_shape:
@@ -163,7 +162,7 @@ class VisionAnoGenAdapter:
     def decision_function(self, x):
         if self.support_prototype_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
-        items = list(x)
+        items = list(coerce_rgb_image_batch(x).astype(np.float32, copy=False))
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):
             scores[i] = self._score_with_backend(_as_float_array(item))
@@ -173,7 +172,7 @@ class VisionAnoGenAdapter:
         return self._default_score_map(_as_float_array(image))
 
     def predict_anomaly_map(self, x: Iterable[Any]) -> NDArray:
-        items = list(x)
+        items = list(coerce_rgb_image_batch(x).astype(np.float32, copy=False))
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(item) for item in items]

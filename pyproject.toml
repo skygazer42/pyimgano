@@ -95,10 +95,6 @@ clip = [
     "pyimgano[torch]",
     "open_clip_torch>=2.0.0",
 ]
-mamba = [
-    "pyimgano[torch]",
-    "mamba-ssm>=2.0.0",
-]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -140,6 +136,7 @@ Changelog = "https://github.com/skygazer42/pyimgano/blob/main/CHANGELOG.md"
 pyimgano = "pyimgano.root_cli:main"
 pyimgano-bundle = "pyimgano.bundle_cli:main"
 pyimgano-benchmark = "pyimgano.cli:main"
+pyimgano-evaluate = "pyimgano.evaluate_cli:main"
 pyim = "pyimgano.pyim_cli:main"
 pyimgano-demo = "pyimgano.demo_cli:main"
 pyimgano-infer = "pyimgano.infer_cli:main"

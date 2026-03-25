@@ -12,6 +12,7 @@ Reference:
 
 import logging
 import os
+from pathlib import Path
 from typing import Dict, Iterable, Optional, Union, cast
 
 import cv2
@@ -255,6 +256,50 @@ class VisionDRAEM(BaseVisionDeepDetector):
             batch_size,
             device,
         )
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if not self._is_fitted or not hasattr(self, "threshold_"):
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        raw_state = self.model.state_dict()
+        model_state_dict: dict[str, object] = {}
+        for key, value in dict(raw_state).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                model_state_dict[str(key)] = detach().cpu()
+            else:
+                model_state_dict[str(key)] = value
+
+        torch.save(
+            {
+                "model_state_dict": model_state_dict,
+                "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
+                "threshold_": float(self.threshold_),
+                "is_fitted": True,
+            },
+            out_path,
+        )
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid VisionDRAEM checkpoint payload.")
+
+        model_state_dict = state.get("model_state_dict", None)
+        if not isinstance(model_state_dict, dict):
+            raise ValueError("VisionDRAEM checkpoint is missing model_state_dict.")
+
+        self.model.load_state_dict(dict(model_state_dict), strict=False)
+        self.model.to(self.device)
+        self.model.eval()
+        self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        self.threshold_ = float(state["threshold_"])
+        self._is_fitted = bool(state.get("is_fitted", True))
 
     def fit(
         self,

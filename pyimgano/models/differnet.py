@@ -25,6 +25,7 @@ from scipy.spatial import cKDTree
 from torchvision import models
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -226,7 +227,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
         legacy_kwargs = {}
         if "X" in kwargs:
             legacy_kwargs["X"] = kwargs.pop("X")
-        x_array = cast(NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit"))
+        x_array = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit")
+        )
         del kwargs
         # Normalize to [0, 1]
         if x_array.max() > 1.0:
@@ -364,8 +367,8 @@ class DifferNetDetector(BaseVisionDeepDetector):
         legacy_kwargs = {}
         if "X" in kwargs:
             legacy_kwargs["X"] = kwargs.pop("X")
-        x_array = cast(
-            NDArray, resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
+        x_array = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
         )
         del kwargs
         if x_array.max() > 1.0:
@@ -491,8 +494,8 @@ class DifferNetDetector(BaseVisionDeepDetector):
         """Alias for scoring (BaseDetector semantics: higher => more anomalous)."""
         # DiffNet scores each input independently. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
-        x_array = cast(
-            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        x_array = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
         )
         if batch_size is not None:
             batch_size_int = int(batch_size)
@@ -588,10 +591,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Return anomaly maps (N,H,W) for a batch of images."""
 
-        x_array = cast(
-            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
-        )
-        arr = np.asarray(x_array)
+        arr = coerce_rgb_image_batch(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
         if arr.ndim == 3:
             m = self.get_anomaly_map(arr)
             return np.asarray(m[None, ...], dtype=np.float32)

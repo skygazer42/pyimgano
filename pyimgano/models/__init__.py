@@ -165,9 +165,6 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     # Foundation-style PoC models (safe to import; weights are loaded lazily at runtime)
     "anomalydino",
     "superad",
-    # Optional foundation + sequence modeling
-    "mambaad",
-    "snarm",
     # Parallel 2026Q1 expansion placeholders
     "visionad",
     "univad",

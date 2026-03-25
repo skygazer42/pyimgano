@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -269,6 +270,7 @@ class RIADDetector(BaseVisionDeepDetector):
         """
         del y, kwargs
         print("Training RIAD model...")
+        x = coerce_rgb_image_batch(x)
 
         if x.max() > 1.0:
             x = x.astype(np.float32) / 255.0
@@ -339,6 +341,7 @@ class RIADDetector(BaseVisionDeepDetector):
             Anomaly scores.
         """
         del kwargs
+        x = coerce_rgb_image_batch(x)
         if x.max() > 1.0:
             x = x.astype(np.float32) / 255.0
 
@@ -368,6 +371,10 @@ class RIADDetector(BaseVisionDeepDetector):
                 scores.append(score)
 
         return np.array(scores)
+
+    def decision_function(self, x: NDArray, batch_size: int | None = None, **kwargs) -> NDArray:
+        del batch_size
+        return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
 
     def predict_anomaly_map(self, x: NDArray) -> list:
         """Predict pixel-level anomaly maps.

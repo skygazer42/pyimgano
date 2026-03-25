@@ -186,7 +186,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_lscp_spec` | vision, classical, ensemble, lscp |  |  | LSCP ensemble with JSON-friendly base-detector specs | `pyimgano/models/lscp.py` |
 | `vision_mad` | vision, classical, mad, robust, baseline |  |  | Multivariate MAD robust baseline (median + MAD robust z-score) | `pyimgano/models/mad.py` |
 | `vision_mahalanobis` | vision, classical, distance, gaussian |  |  | Vision Mahalanobis baseline (mean + covariance) | `pyimgano/models/mahalanobis.py` |
-| `vision_mambaad` | vision, deep, mambaad, mamba, ssm, numpy, pixel_map | 2024 |  | MambaAD-style patch embedding reconstruction with Mamba SSM (NeurIPS 2024) | `pyimgano/models/mambaad.py` |
 | `vision_mcd` | vision, classical, statistical, mcd, robust | 1999 |  | MCD - Robust covariance-based outlier detector (MinCovDet backend) | `pyimgano/models/mcd.py` |
 | `vision_memseg` | vision, deep, memseg, memory, segmentation, pixel_map | 2022 |  | MemSeg - memory-guided anomaly segmentation (ICCV 2022-style) | `pyimgano/models/memseg.py` |
 | `vision_mst_outlier` | vision, classical, graph, mst |  |  | Vision wrapper for MST-based outlier detector | `pyimgano/models/mst_outlier.py` |

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Iterable, Optional, Tuple, Union, cast
 
@@ -8,7 +9,12 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
-from .anomalydino import PatchEmbedder, TorchHubDinoV2Embedder
+from .anomalydino import (
+    PatchEmbedder,
+    TorchHubDinoV2Embedder,
+    _embedder_from_checkpoint_payload,
+    _embedder_to_checkpoint_payload,
+)
 from .knn_index import KNNIndex, build_knn_index
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
@@ -126,6 +132,58 @@ class VisionSoftPatch:
         self._knn_index: Optional[KNNIndex] = None
         self._n_neighbors_fit: Optional[int] = None
         self.filtered_patches_: int = 0
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if self._memory_bank is None or self._knn_index is None or self._n_neighbors_fit is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+        if self.threshold_ is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="VisionSoftPatch checkpoint saving")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "embedder": _embedder_to_checkpoint_payload(self.embedder),
+                "memory_bank": np.asarray(self._memory_bank, dtype=np.float32),
+                "n_neighbors_fit": int(self._n_neighbors_fit),
+                "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
+                "threshold_": float(self.threshold_),
+                "filtered_patches_": int(self.filtered_patches_),
+            },
+            out_path,
+        )
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="VisionSoftPatch checkpoint loading")
+
+        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid VisionSoftPatch checkpoint payload.")
+
+        embedder_payload = state.get("embedder", None)
+        if not isinstance(embedder_payload, dict):
+            raise ValueError("VisionSoftPatch checkpoint is missing embedder payload.")
+        self.embedder = _embedder_from_checkpoint_payload(dict(embedder_payload))
+        self._memory_bank = np.asarray(state["memory_bank"], dtype=np.float32)
+        self._n_neighbors_fit = min(
+            int(state.get("n_neighbors_fit", self.n_neighbors)),
+            int(self._memory_bank.shape[0]),
+        )
+        self._knn_index = build_knn_index(
+            backend=self.knn_backend,
+            n_neighbors=self._n_neighbors_fit,
+        )
+        self._knn_index.fit(self._memory_bank)
+        self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        self.threshold_ = float(state["threshold_"])
+        self.filtered_patches_ = int(state.get("filtered_patches_", 0))
 
     @property
     def memory_bank_size_(self) -> int:

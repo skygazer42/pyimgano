@@ -327,6 +327,7 @@ class VisionCFlow(BaseVisionDeepDetector):
         log_prob_prior = (-0.5 * z.pow(2) + const).sum(dim=-1)
         log_prob = log_prob_prior + log_det
 
+        log_prob = torch.nan_to_num(log_prob, nan=-1e6, posinf=1e6, neginf=-1e6)
         return log_prob.view(b, h, w)
 
     def predict(

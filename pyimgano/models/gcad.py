@@ -245,6 +245,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         self.feature_extractor_ = None
         self.gcn_ = None
+        self.reconstruction_head_ = None
         self.memory_bank_ = None
         self.feature_dim_ = None
 
@@ -382,12 +383,21 @@ class VisionGCAD(BaseVisionDeepDetector):
             self.gcn_ = GCNEncoder(
                 input_dim=self.feature_dim_, hidden_dims=self.hidden_dims, dropout=0.3
             ).to(self.device)
+        if self.reconstruction_head_ is None:
+            self.reconstruction_head_ = nn.Linear(
+                int(self.hidden_dims[-1]),
+                int(self.feature_dim_),
+            ).to(self.device)
 
         # Training
         dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(self.gcn_.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            list(self.gcn_.parameters()) + list(self.reconstruction_head_.parameters()),
+            lr=self.learning_rate,
+            weight_decay=0.0,
+        )
 
         self.gcn_.train()
 
@@ -407,9 +417,10 @@ class VisionGCAD(BaseVisionDeepDetector):
 
                 # Forward through GCN
                 encoded = self.gcn_(patches, adj)
+                reconstructed = self.reconstruction_head_(encoded)
 
                 # Self-supervised loss: reconstruction
-                loss = F.mse_loss(encoded, patches)
+                loss = F.mse_loss(reconstructed, patches)
 
                 # Backward
                 optimizer.zero_grad()

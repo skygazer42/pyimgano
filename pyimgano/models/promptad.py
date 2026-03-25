@@ -283,7 +283,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         if self.prompt_learner_ is None:
             self.prompt_learner_ = VisualPromptLearner(
                 num_prompts=self.num_prompts,
-                prompt_dim=min(feature_dim, self.prompt_dim),
+                prompt_dim=feature_dim,
                 context_length=self.context_length,
             ).to(self.device)
 

@@ -13,12 +13,14 @@ Reference:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple, Union, cast
 
 from pyimgano.utils.optional_deps import require
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .knn_index import build_knn_index
 from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
@@ -167,6 +169,95 @@ class VisionPatchCore(BaseVisionDeepDetector):
             device,
             str(self.feature_projection_dim),
         )
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if self.memory_bank is None or self.nn_index is None or not hasattr(self, "threshold_"):
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="PatchCore checkpoint saving")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        raw_state = self.model.state_dict()
+        model_state_dict: dict[str, object] = {}
+        for key, value in dict(raw_state).items():
+            detach = getattr(value, "detach", None)
+            cpu = getattr(value, "cpu", None)
+            if callable(detach) and callable(cpu):
+                model_state_dict[str(key)] = detach().cpu()
+            else:
+                model_state_dict[str(key)] = value
+
+        projection_state: dict[str, object] | None = None
+        if self._projection is not None and hasattr(self._projection, "components_"):
+            projection_state = {
+                "components_": self._np.asarray(self._projection.components_, dtype=self._np.float32),
+                "n_features_in_": int(self._projection.n_features_in_),
+                "n_components_": int(self._projection.components_.shape[0]),
+            }
+
+        torch.save(
+            {
+                "model_state_dict": model_state_dict,
+                "memory_bank": self._np.asarray(self.memory_bank, dtype=self._np.float32),
+                "decision_scores_": self._np.asarray(self.decision_scores_, dtype=self._np.float64),
+                "threshold_": float(self.threshold_),
+                "n_neighbors_fit": int(self.n_neighbors),
+                "projection_state": projection_state,
+            },
+            out_path,
+        )
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        from sklearn.random_projection import GaussianRandomProjection
+
+        from pyimgano.utils.optional_deps import require
+
+        torch = require("torch", extra="torch", purpose="PatchCore checkpoint loading")
+
+        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid VisionPatchCore checkpoint payload.")
+
+        model_state_dict = state.get("model_state_dict", None)
+        if not isinstance(model_state_dict, dict):
+            raise ValueError("VisionPatchCore checkpoint is missing model_state_dict.")
+        self.model.load_state_dict(dict(model_state_dict), strict=False)
+        self.model.to(self.device)
+        self.model.eval()
+
+        projection_state = state.get("projection_state", None)
+        self._projection = None
+        if isinstance(projection_state, dict) and projection_state.get("components_") is not None:
+            self._projection = GaussianRandomProjection(
+                n_components=int(projection_state["n_components_"]),
+                random_state=int(self.random_seed),
+            )
+            self._projection.components_ = self._np.asarray(
+                projection_state["components_"],
+                dtype=self._np.float32,
+            )
+            self._projection.n_features_in_ = int(projection_state["n_features_in_"])
+            self._projection.n_components_ = int(projection_state["n_components_"])
+
+        self.memory_bank = self._np.asarray(state["memory_bank"], dtype=self._np.float32)
+        self._n_neighbors_fit = min(
+            int(state.get("n_neighbors_fit", self.n_neighbors)),
+            int(self.memory_bank.shape[0]),
+        )
+        self.nn_index = build_knn_index(
+            backend=self.knn_backend,
+            n_neighbors=self._n_neighbors_fit,
+            metric="euclidean",
+            n_jobs=-1,
+        )
+        self.nn_index.fit(self._np.asarray(self.memory_bank, dtype=self._np.float32))
+        self.decision_scores_ = self._np.asarray(state["decision_scores_"], dtype=self._np.float64)
+        self.threshold_ = float(state["threshold_"])
 
     def _build_model(self) -> None:
         """Build feature extraction backbone."""

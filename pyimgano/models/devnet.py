@@ -60,7 +60,7 @@ class DeviationLoss(nn.Module):
         normal_mask = labels == 0
         anomaly_mask = labels == 1
 
-        loss = 0.0
+        loss = scores.sum() * 0.0
 
         # For normal samples: minimize score
         if normal_mask.sum() > 0:
@@ -339,6 +339,11 @@ class DevNetDetector(BaseVisionDeepDetector):
 
         self.scoring_model.eval()
         print("Training completed!")
+        self.decision_scores_ = np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
+        self._process_decision_scores()
+        self._set_n_classes(y)
+        self.fitted_ = True
+        return self
 
     def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
@@ -371,6 +376,15 @@ class DevNetDetector(BaseVisionDeepDetector):
                 scores.append(score.item())
 
         return np.array(scores)
+
+    def decision_function(
+        self,
+        x: NDArray,
+        batch_size: Optional[int] = None,
+        **kwargs,
+    ) -> NDArray:
+        del batch_size, kwargs
+        return np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
 
     def _preprocess(self, image: NDArray) -> torch.Tensor:
         """Preprocess image.
