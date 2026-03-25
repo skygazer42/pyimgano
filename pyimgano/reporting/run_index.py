@@ -1177,6 +1177,60 @@ def _metric_direction(name: str) -> str:
     return "higher_is_better"
 
 
+def _resolved_run_dir(run: Mapping[str, Any]) -> str:
+    return str(Path(str(run.get("run_dir"))).resolve())
+
+
+def _is_baseline_run(run: Mapping[str, Any], baseline_path_str: str | None) -> bool:
+    return baseline_path_str is not None and _resolved_run_dir(run) == baseline_path_str
+
+
+def _bump_counts(
+    status: str,
+    *,
+    matched_runs: int,
+    mismatched_runs: int,
+    missing_runs: int,
+) -> tuple[int, int, int]:
+    if status == "matched":
+        matched_runs += 1
+    elif status == "mismatched":
+        mismatched_runs += 1
+    elif status == "missing":
+        missing_runs += 1
+    return matched_runs, mismatched_runs, missing_runs
+
+
+def _split_comparison_row(
+    run: Mapping[str, Any],
+    *,
+    baseline_sha256: str | None,
+    checked: bool,
+    baseline_path_str: str | None,
+) -> tuple[dict[str, Any], str]:
+    run_sha256 = run.get("split_fingerprint_sha256", None)
+    row: dict[str, Any] = {
+        "run_dir": run.get("run_dir"),
+        "run_dir_name": run.get("run_dir_name"),
+        "split_fingerprint_sha256": (
+            str(run_sha256) if isinstance(run_sha256, str) and run_sha256 else None
+        ),
+        "status": "unchecked",
+    }
+    if _is_baseline_run(run, baseline_path_str):
+        row["status"] = "baseline"
+        return row, "baseline"
+    if not checked:
+        return row, "unchecked"
+    if row["split_fingerprint_sha256"] is None:
+        row["status"] = "missing"
+    elif row["split_fingerprint_sha256"] == baseline_sha256:
+        row["status"] = "matched"
+    else:
+        row["status"] = "mismatched"
+    return row, str(row["status"])
+
+
 def _build_split_comparison(
     runs: list[dict[str, Any]],
     *,
@@ -1195,29 +1249,18 @@ def _build_split_comparison(
     mismatched_runs = 0
     missing_runs = 0
     for run in runs:
-        run_path = str(Path(str(run.get("run_dir"))).resolve())
-        run_sha256 = run.get("split_fingerprint_sha256", None)
-        row: dict[str, Any] = {
-            "run_dir": run.get("run_dir"),
-            "run_dir_name": run.get("run_dir_name"),
-            "split_fingerprint_sha256": (
-                str(run_sha256) if isinstance(run_sha256, str) and run_sha256 else None
-            ),
-            "status": "unchecked",
-        }
-        is_baseline = baseline_path_str is not None and run_path == baseline_path_str
-        if is_baseline:
-            row["status"] = "baseline"
-        elif checked:
-            if row["split_fingerprint_sha256"] is None:
-                row["status"] = "missing"
-                missing_runs += 1
-            elif row["split_fingerprint_sha256"] == baseline_sha256:
-                row["status"] = "matched"
-                matched_runs += 1
-            else:
-                row["status"] = "mismatched"
-                mismatched_runs += 1
+        row, status = _split_comparison_row(
+            run,
+            baseline_sha256=baseline_sha256,
+            checked=checked,
+            baseline_path_str=baseline_path_str,
+        )
+        matched_runs, mismatched_runs, missing_runs = _bump_counts(
+            status,
+            matched_runs=matched_runs,
+            mismatched_runs=mismatched_runs,
+            missing_runs=missing_runs,
+        )
         comparisons.append(row)
 
     return {
@@ -1243,6 +1286,54 @@ def _match_status(actual: Any, expected: Any) -> str:
     return "mismatched"
 
 
+def _target_comparison_row(
+    run: Mapping[str, Any],
+    *,
+    baseline_dataset: str | None,
+    baseline_category: str | None,
+    dataset_checked: bool,
+    category_checked: bool,
+    checked: bool,
+    baseline_path_str: str | None,
+) -> tuple[dict[str, Any], str]:
+    run_dataset = run.get("dataset", None)
+    run_category = run.get("category", None)
+    dataset_status = _match_status(run_dataset, baseline_dataset)
+    category_status = _match_status(run_category, baseline_category)
+
+    row: dict[str, Any] = {
+        "run_dir": run.get("run_dir"),
+        "run_dir_name": run.get("run_dir_name"),
+        "dataset": (str(run_dataset) if isinstance(run_dataset, str) and run_dataset else None),
+        "category": (str(run_category) if isinstance(run_category, str) and run_category else None),
+        "dataset_status": dataset_status,
+        "category_status": category_status,
+        "status": "unchecked",
+    }
+
+    if _is_baseline_run(run, baseline_path_str):
+        row["status"] = "baseline"
+        return row, "baseline"
+    if not checked:
+        return row, "unchecked"
+
+    statuses = [
+        status
+        for status, is_checked in (
+            (dataset_status, dataset_checked),
+            (category_status, category_checked),
+        )
+        if is_checked
+    ]
+    if any(status == "mismatched" for status in statuses):
+        row["status"] = "mismatched"
+    elif any(status == "missing" for status in statuses):
+        row["status"] = "missing"
+    else:
+        row["status"] = "matched"
+    return row, str(row["status"])
+
+
 def _build_target_comparison(
     runs: list[dict[str, Any]],
     *,
@@ -1266,43 +1357,21 @@ def _build_target_comparison(
     mismatched_runs = 0
     missing_runs = 0
     for run in runs:
-        run_path = str(Path(str(run.get("run_dir"))).resolve())
-        run_dataset = run.get("dataset", None)
-        run_category = run.get("category", None)
-        dataset_status = _match_status(run_dataset, baseline_dataset)
-        category_status = _match_status(run_category, baseline_category)
-
-        row: dict[str, Any] = {
-            "run_dir": run.get("run_dir"),
-            "run_dir_name": run.get("run_dir_name"),
-            "dataset": (str(run_dataset) if isinstance(run_dataset, str) and run_dataset else None),
-            "category": (str(run_category) if isinstance(run_category, str) and run_category else None),
-            "dataset_status": dataset_status,
-            "category_status": category_status,
-            "status": "unchecked",
-        }
-
-        is_baseline = baseline_path_str is not None and run_path == baseline_path_str
-        if is_baseline:
-            row["status"] = "baseline"
-        elif checked:
-            statuses = [
-                status
-                for status, is_checked in (
-                    (dataset_status, dataset_checked),
-                    (category_status, category_checked),
-                )
-                if is_checked
-            ]
-            if any(status == "mismatched" for status in statuses):
-                row["status"] = "mismatched"
-                mismatched_runs += 1
-            elif any(status == "missing" for status in statuses):
-                row["status"] = "missing"
-                missing_runs += 1
-            else:
-                row["status"] = "matched"
-                matched_runs += 1
+        row, status = _target_comparison_row(
+            run,
+            baseline_dataset=baseline_dataset,
+            baseline_category=baseline_category,
+            dataset_checked=dataset_checked,
+            category_checked=category_checked,
+            checked=checked,
+            baseline_path_str=baseline_path_str,
+        )
+        matched_runs, mismatched_runs, missing_runs = _bump_counts(
+            status,
+            matched_runs=matched_runs,
+            mismatched_runs=mismatched_runs,
+            missing_runs=missing_runs,
+        )
         comparisons.append(row)
 
     return {
@@ -1318,6 +1387,38 @@ def _build_target_comparison(
             "incompatible_runs": int(mismatched_runs + missing_runs),
         },
     }
+
+
+def _environment_comparison_row(
+    run: Mapping[str, Any],
+    *,
+    baseline_fingerprint: str | None,
+    checked: bool,
+    baseline_path_str: str | None,
+) -> tuple[dict[str, Any], str]:
+    run_fingerprint = run.get("environment_fingerprint_sha256", None)
+    row: dict[str, Any] = {
+        "run_dir": run.get("run_dir"),
+        "run_dir_name": run.get("run_dir_name"),
+        "environment_fingerprint_sha256": (
+            str(run_fingerprint)
+            if isinstance(run_fingerprint, str) and run_fingerprint
+            else None
+        ),
+        "status": "unchecked",
+    }
+    if _is_baseline_run(run, baseline_path_str):
+        row["status"] = "baseline"
+        return row, "baseline"
+    if not checked:
+        return row, "unchecked"
+    if row["environment_fingerprint_sha256"] is None:
+        row["status"] = "missing"
+    elif row["environment_fingerprint_sha256"] == baseline_fingerprint:
+        row["status"] = "matched"
+    else:
+        row["status"] = "mismatched"
+    return row, str(row["status"])
 
 
 def _build_environment_comparison(
@@ -1338,31 +1439,18 @@ def _build_environment_comparison(
     mismatched_runs = 0
     missing_runs = 0
     for run in runs:
-        run_path = str(Path(str(run.get("run_dir"))).resolve())
-        run_fingerprint = run.get("environment_fingerprint_sha256", None)
-        row: dict[str, Any] = {
-            "run_dir": run.get("run_dir"),
-            "run_dir_name": run.get("run_dir_name"),
-            "environment_fingerprint_sha256": (
-                str(run_fingerprint)
-                if isinstance(run_fingerprint, str) and run_fingerprint
-                else None
-            ),
-            "status": "unchecked",
-        }
-        is_baseline = baseline_path_str is not None and run_path == baseline_path_str
-        if is_baseline:
-            row["status"] = "baseline"
-        elif checked:
-            if row["environment_fingerprint_sha256"] is None:
-                row["status"] = "missing"
-                missing_runs += 1
-            elif row["environment_fingerprint_sha256"] == baseline_fingerprint:
-                row["status"] = "matched"
-                matched_runs += 1
-            else:
-                row["status"] = "mismatched"
-                mismatched_runs += 1
+        row, status = _environment_comparison_row(
+            run,
+            baseline_fingerprint=baseline_fingerprint,
+            checked=checked,
+            baseline_path_str=baseline_path_str,
+        )
+        matched_runs, mismatched_runs, missing_runs = _bump_counts(
+            status,
+            matched_runs=matched_runs,
+            mismatched_runs=mismatched_runs,
+            missing_runs=missing_runs,
+        )
         comparisons.append(row)
 
     return {
