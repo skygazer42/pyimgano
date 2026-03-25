@@ -1335,6 +1335,267 @@ def _filter_min_quality(
     ]
 
 
+def _compare_metric_names(
+    runs: Sequence[Mapping[str, Any]],
+    *,
+    baseline_summary: Mapping[str, Any] | None,
+    metric: str | None,
+) -> list[str]:
+    metric_names = sorted(
+        {
+            key
+            for run in ([baseline_summary] if baseline_summary is not None else []) + list(runs)
+            for key, value in dict(run.get("metrics", {})).items()
+            if isinstance(value, (int, float))
+        }
+    )
+    if metric is not None:
+        metric_names = [name for name in metric_names if name == str(metric)]
+    return metric_names
+
+
+def _metric_comparison_row(
+    run: Mapping[str, Any],
+    *,
+    baseline_value: float | None,
+    baseline_path_str: str | None,
+    name: str,
+    direction: str,
+) -> tuple[dict[str, Any], int]:
+    value = run.get("metrics", {}).get(name, None)
+    row: dict[str, Any] = {
+        "run_dir": run.get("run_dir"),
+        "run_dir_name": run.get("run_dir_name"),
+        "value": (float(value) if isinstance(value, (int, float)) else None),
+        "delta_vs_baseline": None,
+        "status": "missing",
+    }
+    if _is_baseline_run(run, baseline_path_str):
+        row["status"] = "baseline"
+        row["delta_vs_baseline"] = 0.0
+        return row, 0
+    if not isinstance(value, (int, float)) or baseline_value is None:
+        return row, 0
+
+    delta = round(float(value) - float(baseline_value), 12)
+    row["delta_vs_baseline"] = delta
+    if direction == "higher_is_better":
+        if delta < 0.0:
+            row["status"] = "regressed"
+            return row, 1
+        if delta > 0.0:
+            row["status"] = "improved"
+        else:
+            row["status"] = "unchanged"
+        return row, 0
+
+    if delta > 0.0:
+        row["status"] = "regressed"
+        return row, 1
+    if delta < 0.0:
+        row["status"] = "improved"
+    else:
+        row["status"] = "unchanged"
+    return row, 0
+
+
+def _metric_info(
+    name: str,
+    *,
+    runs: Sequence[Mapping[str, Any]],
+    baseline_summary: Mapping[str, Any] | None,
+    baseline_path_str: str | None,
+) -> tuple[dict[str, Any] | None, int]:
+    values = [
+        float(run["metrics"][name])
+        for run in runs
+        if isinstance(run.get("metrics", {}).get(name), (int, float))
+    ]
+    if not values:
+        return None, 0
+
+    info: dict[str, Any] = {
+        "values": values,
+        "min": min(values),
+        "max": max(values),
+    }
+    direction = _metric_direction(name)
+    info["direction"] = direction
+
+    if baseline_summary is None:
+        return info, 0
+
+    baseline_value_raw = baseline_summary.get("metrics", {}).get(name, None)
+    baseline_value = (
+        float(baseline_value_raw) if isinstance(baseline_value_raw, (int, float)) else None
+    )
+    info["baseline"] = baseline_value
+    comparisons: list[dict[str, Any]] = []
+    regressions = 0
+    for run in runs:
+        row, row_regressions = _metric_comparison_row(
+            run,
+            baseline_value=baseline_value,
+            baseline_path_str=baseline_path_str,
+            name=name,
+            direction=direction,
+        )
+        comparisons.append(row)
+        regressions += int(row_regressions)
+    info["comparisons"] = comparisons
+    info["regression_count"] = int(regressions)
+    return info, regressions
+
+
+def _comparison_blocks(
+    runs: list[dict[str, Any]],
+    *,
+    baseline_summary: dict[str, Any] | None,
+    baseline_path_str: str | None,
+) -> dict[str, Any]:
+    return {
+        "split_comparison": _build_split_comparison(
+            runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+        ),
+        "environment_comparison": _build_environment_comparison(
+            runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+        ),
+        "target_comparison": _build_target_comparison(
+            runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+        ),
+        "robustness_protocol_comparison": _build_robustness_protocol_comparison(
+            runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+        ),
+        "operator_contract_comparison": _build_operator_contract_comparison(
+            runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+            status_key="operator_contract_status",
+            bundle=False,
+        ),
+        "bundle_operator_contract_comparison": _build_operator_contract_comparison(
+            runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+            status_key="bundle_operator_contract_status",
+            bundle=True,
+        ),
+    }
+
+
+def _primary_metric_summary_fields(
+    summary: dict[str, Any],
+    *,
+    evaluation_contract: Mapping[str, Any],
+    metrics: Mapping[str, Mapping[str, Any]],
+    trust_comparison: Mapping[str, Any],
+    operator_contract_comparison: Mapping[str, Any],
+    bundle_operator_contract_comparison: Mapping[str, Any],
+    candidate_blocking_summary: Mapping[str, Any],
+) -> None:
+    primary_metric_name = evaluation_contract.get("primary_metric", None)
+    primary_metric_info = (
+        dict(metrics.get(primary_metric_name, {}))
+        if isinstance(primary_metric_name, str) and primary_metric_name in metrics
+        else {}
+    )
+    summary["primary_metric"] = (
+        primary_metric_name
+        if isinstance(primary_metric_name, str)
+        and primary_metric_name
+        and bool(primary_metric_info)
+        else None
+    )
+    summary["primary_metric_direction"] = (
+        primary_metric_info.get("direction")
+        if isinstance(primary_metric_info.get("direction"), str)
+        else None
+    )
+    summary["primary_metric_baseline"] = (
+        float(primary_metric_info["baseline"])
+        if isinstance(primary_metric_info.get("baseline"), (int, float))
+        else None
+    )
+    summary["primary_metric_total_regressions"] = (
+        int(primary_metric_info.get("regression_count", 0))
+        if bool(primary_metric_info)
+        else None
+    )
+    primary_metric_statuses: dict[str, str] = {}
+    primary_metric_deltas: dict[str, float] = {}
+    for row in primary_metric_info.get("comparisons", []):
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("status")) == "baseline":
+            continue
+        run_dir_name = row.get("run_dir_name", None)
+        if not isinstance(run_dir_name, str) or not run_dir_name:
+            continue
+        status = row.get("status", None)
+        if isinstance(status, str) and status:
+            primary_metric_statuses[run_dir_name] = status
+        delta = row.get("delta_vs_baseline", None)
+        if isinstance(delta, (int, float)):
+            primary_metric_deltas[run_dir_name] = float(delta)
+    summary["primary_metric_statuses"] = primary_metric_statuses
+    summary["primary_metric_deltas"] = primary_metric_deltas
+    summary["trust_checked"] = bool(trust_comparison.get("checked"))
+    summary["trust_gate"] = trust_comparison.get("gate", None)
+    summary["trust_status"] = trust_comparison.get("status", None)
+    summary["trust_reason"] = trust_comparison.get("reason", None)
+    summary["operator_contract_gate"] = _comparability_gate_status(
+        dict(operator_contract_comparison.get("summary", {}))
+    )
+    summary["bundle_operator_contract_gate"] = _comparability_gate_status(
+        dict(bundle_operator_contract_comparison.get("summary", {}))
+    )
+    summary["operator_contract_baseline_sha256"] = operator_contract_comparison.get(
+        "baseline_contract_sha256",
+        None,
+    )
+    summary["bundle_operator_contract_baseline_sha256"] = bundle_operator_contract_comparison.get(
+        "baseline_contract_sha256",
+        None,
+    )
+    summary["operator_contract_status"] = trust_comparison.get("operator_contract_status", None)
+    summary["operator_contract_consistent"] = bool(
+        trust_comparison.get("operator_contract_consistent", False)
+    )
+    summary["bundle_operator_contract_status"] = trust_comparison.get(
+        "bundle_operator_contract_status",
+        None,
+    )
+    summary["bundle_operator_contract_consistent"] = bool(
+        trust_comparison.get("bundle_operator_contract_consistent", False)
+    )
+    summary["bundle_operator_contract_digests_valid"] = bool(
+        trust_comparison.get("bundle_operator_contract_digests_valid", False)
+    )
+    summary["candidate_verdicts"] = dict(candidate_blocking_summary["candidate_verdicts"])
+    summary["candidate_blocking_reasons"] = dict(
+        candidate_blocking_summary["candidate_blocking_reasons"]
+    )
+    summary["candidate_comparability_gates"] = dict(
+        candidate_blocking_summary["candidate_comparability_gates"]
+    )
+    summary["candidate_bundle_operator_contract_digest_statuses"] = dict(
+        candidate_blocking_summary["candidate_bundle_operator_contract_digest_statuses"]
+    )
+    summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
+        candidate_verdicts=summary["candidate_verdicts"],
+        candidate_blocking_reasons=summary["candidate_blocking_reasons"],
+        candidate_comparability_gates=summary["candidate_comparability_gates"],
+    )
+
+
 def latest_run_summary(
     root: str | Path,
     *,
@@ -1723,118 +1984,39 @@ def compare_run_summaries(
     baseline_summary = (
         summarize_run_dir(baseline_run_dir) if baseline_run_dir is not None else None
     )
-    metric_names = sorted(
-        {
-            key
-            for run in ([baseline_summary] if baseline_summary is not None else []) + runs
-            for key, value in dict(run.get("metrics", {})).items()
-            if isinstance(value, (int, float))
-        }
+    metric_names = _compare_metric_names(
+        runs,
+        baseline_summary=baseline_summary,
+        metric=metric,
     )
-    if metric is not None:
-        metric_names = [name for name in metric_names if name == str(metric)]
 
     metrics: dict[str, dict[str, Any]] = {}
     total_regressions = 0
     baseline_path_str = (
         str(Path(baseline_run_dir).resolve()) if baseline_run_dir is not None else None
     )
-    split_comparison = _build_split_comparison(
+    comparisons = _comparison_blocks(
         runs,
         baseline_summary=baseline_summary,
         baseline_path_str=baseline_path_str,
     )
-    environment_comparison = _build_environment_comparison(
-        runs,
-        baseline_summary=baseline_summary,
-        baseline_path_str=baseline_path_str,
-    )
-    target_comparison = _build_target_comparison(
-        runs,
-        baseline_summary=baseline_summary,
-        baseline_path_str=baseline_path_str,
-    )
-    robustness_protocol_comparison = _build_robustness_protocol_comparison(
-        runs,
-        baseline_summary=baseline_summary,
-        baseline_path_str=baseline_path_str,
-    )
-    operator_contract_comparison = _build_operator_contract_comparison(
-        runs,
-        baseline_summary=baseline_summary,
-        baseline_path_str=baseline_path_str,
-        status_key="operator_contract_status",
-        bundle=False,
-    )
-    bundle_operator_contract_comparison = _build_operator_contract_comparison(
-        runs,
-        baseline_summary=baseline_summary,
-        baseline_path_str=baseline_path_str,
-        status_key="bundle_operator_contract_status",
-        bundle=True,
-    )
+    split_comparison = comparisons["split_comparison"]
+    environment_comparison = comparisons["environment_comparison"]
+    target_comparison = comparisons["target_comparison"]
+    robustness_protocol_comparison = comparisons["robustness_protocol_comparison"]
+    operator_contract_comparison = comparisons["operator_contract_comparison"]
+    bundle_operator_contract_comparison = comparisons["bundle_operator_contract_comparison"]
     for name in metric_names:
-        values = [
-            float(run["metrics"][name])
-            for run in runs
-            if isinstance(run.get("metrics", {}).get(name), (int, float))
-        ]
-        if values:
-            info: dict[str, Any] = {
-                "values": values,
-                "min": min(values),
-                "max": max(values),
-            }
-            direction = _metric_direction(name)
-            info["direction"] = direction
-
-            if baseline_summary is not None:
-                baseline_value = baseline_summary.get("metrics", {}).get(name, None)
-                info["baseline"] = (
-                    float(baseline_value) if isinstance(baseline_value, (int, float)) else None
-                )
-                comparisons: list[dict[str, Any]] = []
-                regressions = 0
-                for run in runs:
-                    value = run.get("metrics", {}).get(name, None)
-                    row: dict[str, Any] = {
-                        "run_dir": run.get("run_dir"),
-                        "run_dir_name": run.get("run_dir_name"),
-                        "value": (float(value) if isinstance(value, (int, float)) else None),
-                        "delta_vs_baseline": None,
-                        "status": "missing",
-                    }
-
-                    run_path = str(Path(str(run.get("run_dir"))).resolve())
-                    is_baseline = baseline_path_str is not None and run_path == baseline_path_str
-                    if is_baseline:
-                        row["status"] = "baseline"
-                        row["delta_vs_baseline"] = 0.0
-                    elif isinstance(value, (int, float)) and isinstance(baseline_value, (int, float)):
-                        delta = round(float(value) - float(baseline_value), 12)
-                        row["delta_vs_baseline"] = delta
-                        if direction == "higher_is_better":
-                            if delta < 0.0:
-                                row["status"] = "regressed"
-                                regressions += 1
-                            elif delta > 0.0:
-                                row["status"] = "improved"
-                            else:
-                                row["status"] = "unchanged"
-                        elif direction == "lower_is_better":
-                            if delta > 0.0:
-                                row["status"] = "regressed"
-                                regressions += 1
-                            elif delta < 0.0:
-                                row["status"] = "improved"
-                            else:
-                                row["status"] = "unchanged"
-                    comparisons.append(row)
-                info["comparisons"] = comparisons
-                info["regression_count"] = int(regressions)
-                total_regressions += int(regressions)
-
-            metrics[name] = info
+        info, regressions = _metric_info(
+            name,
+            runs=runs,
+            baseline_summary=baseline_summary,
+            baseline_path_str=baseline_path_str,
+        )
+        if info is None:
+            continue
+        metrics[name] = info
+        total_regressions += int(regressions)
 
     split_summary = dict(split_comparison.get("summary", {}))
     environment_summary = dict(environment_comparison.get("summary", {}))
@@ -1941,90 +2123,14 @@ def compare_run_summaries(
         target_comparison=target_comparison,
         robustness_protocol_comparison=robustness_protocol_comparison,
     )
-    summary["primary_metric"] = (
-        primary_metric_name
-        if isinstance(primary_metric_name, str)
-        and primary_metric_name
-        and bool(primary_metric_info)
-        else None
-    )
-    summary["primary_metric_direction"] = (
-        primary_metric_info.get("direction")
-        if isinstance(primary_metric_info.get("direction"), str)
-        else None
-    )
-    summary["primary_metric_baseline"] = (
-        float(primary_metric_info["baseline"])
-        if isinstance(primary_metric_info.get("baseline"), (int, float))
-        else None
-    )
-    summary["primary_metric_total_regressions"] = (
-        int(primary_metric_info.get("regression_count", 0))
-        if bool(primary_metric_info)
-        else None
-    )
-    primary_metric_statuses: dict[str, str] = {}
-    primary_metric_deltas: dict[str, float] = {}
-    for row in primary_metric_info.get("comparisons", []):
-        if not isinstance(row, Mapping):
-            continue
-        if str(row.get("status")) == "baseline":
-            continue
-        run_dir_name = row.get("run_dir_name", None)
-        if not isinstance(run_dir_name, str) or not run_dir_name:
-            continue
-        status = row.get("status", None)
-        if isinstance(status, str) and status:
-            primary_metric_statuses[run_dir_name] = status
-        delta = row.get("delta_vs_baseline", None)
-        if isinstance(delta, (int, float)):
-            primary_metric_deltas[run_dir_name] = float(delta)
-    summary["primary_metric_statuses"] = primary_metric_statuses
-    summary["primary_metric_deltas"] = primary_metric_deltas
-    summary["trust_checked"] = bool(trust_comparison.get("checked"))
-    summary["trust_gate"] = trust_comparison.get("gate", None)
-    summary["trust_status"] = trust_comparison.get("status", None)
-    summary["trust_reason"] = trust_comparison.get("reason", None)
-    summary["operator_contract_gate"] = _comparability_gate_status(operator_contract_summary)
-    summary["bundle_operator_contract_gate"] = _comparability_gate_status(
-        bundle_operator_contract_summary
-    )
-    summary["operator_contract_baseline_sha256"] = operator_contract_comparison.get(
-        "baseline_contract_sha256",
-        None,
-    )
-    summary["bundle_operator_contract_baseline_sha256"] = bundle_operator_contract_comparison.get(
-        "baseline_contract_sha256",
-        None,
-    )
-    summary["operator_contract_status"] = trust_comparison.get("operator_contract_status", None)
-    summary["operator_contract_consistent"] = bool(
-        trust_comparison.get("operator_contract_consistent", False)
-    )
-    summary["bundle_operator_contract_status"] = trust_comparison.get(
-        "bundle_operator_contract_status",
-        None,
-    )
-    summary["bundle_operator_contract_consistent"] = bool(
-        trust_comparison.get("bundle_operator_contract_consistent", False)
-    )
-    summary["bundle_operator_contract_digests_valid"] = bool(
-        trust_comparison.get("bundle_operator_contract_digests_valid", False)
-    )
-    summary["candidate_verdicts"] = dict(candidate_blocking_summary["candidate_verdicts"])
-    summary["candidate_blocking_reasons"] = dict(
-        candidate_blocking_summary["candidate_blocking_reasons"]
-    )
-    summary["candidate_comparability_gates"] = dict(
-        candidate_blocking_summary["candidate_comparability_gates"]
-    )
-    summary["candidate_bundle_operator_contract_digest_statuses"] = dict(
-        candidate_blocking_summary["candidate_bundle_operator_contract_digest_statuses"]
-    )
-    summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
-        candidate_verdicts=summary["candidate_verdicts"],
-        candidate_blocking_reasons=summary["candidate_blocking_reasons"],
-        candidate_comparability_gates=summary["candidate_comparability_gates"],
+    _primary_metric_summary_fields(
+        summary,
+        evaluation_contract=evaluation_contract,
+        metrics=metrics,
+        trust_comparison=trust_comparison,
+        operator_contract_comparison=operator_contract_comparison,
+        bundle_operator_contract_comparison=bundle_operator_contract_comparison,
+        candidate_blocking_summary=candidate_blocking_summary,
     )
 
     return {
