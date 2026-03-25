@@ -246,17 +246,12 @@ def _resolve_category(
     if not isinstance(detection, dict):
         raise ValueError(f"dataset={dataset!r} requires --category")
 
-    candidates = detection.get("candidates", [])
-    if isinstance(candidates, list):
-        dataset_name = str(dataset)
-        for item in candidates:
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("name", "")) != dataset_name:
-                continue
-            cats = item.get("category_candidates", [])
-            if isinstance(cats, list) and len(cats) == 1:
-                return str(cats[0])
+    candidate = _single_detected_category_candidate(
+        dataset=str(dataset),
+        candidates=detection.get("candidates", []),
+    )
+    if candidate is not None:
+        return candidate
 
     raise ValueError(f"dataset={dataset!r} requires --category")
 
@@ -308,26 +303,12 @@ def _build_profile_sections(
         root_fallback=(str(root_fallback) if root_fallback is not None else None),
     )
 
-    train_count = 0
-    validation_count = 0
-    test_count = 0
-    test_normal_count = 0
-    test_anomaly_count = 0
-
-    for row in iter_manifest_rows(manifest_path):
-        split = _normalize_split(row.get("split"))
-        label = _normalize_label(row.get("label"))
-
-        if split == "train":
-            train_count += 1
-        elif split == "validation":
-            validation_count += 1
-        elif split == "test":
-            test_count += 1
-            if label == 0:
-                test_normal_count += 1
-            elif label == 1:
-                test_anomaly_count += 1
+    counts = _count_manifest_splits(manifest_path)
+    train_count = counts["train_count"]
+    validation_count = counts["validation_count"]
+    test_count = counts["test_count"]
+    test_normal_count = counts["test_normal_count"]
+    test_anomaly_count = counts["test_anomaly_count"]
 
     categories = sorted(str(item) for item in dict(stats.get("category_counts", {})).keys())
     has_masks = int(stats.get("mask_path_present_count", 0)) > 0
@@ -383,6 +364,53 @@ def _build_profile_sections(
     }
 
     return dataset_profile, task_profile, constraints, evaluation_readiness, stats
+
+
+def _single_detected_category_candidate(
+    *,
+    dataset: str,
+    candidates: Any,
+) -> str | None:
+    if not isinstance(candidates, list):
+        return None
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("name", "")) != str(dataset):
+            continue
+        category_candidates = item.get("category_candidates", [])
+        if isinstance(category_candidates, list) and len(category_candidates) == 1:
+            return str(category_candidates[0])
+    return None
+
+
+def _count_manifest_splits(manifest_path: Path) -> dict[str, int]:
+    counts = {
+        "train_count": 0,
+        "validation_count": 0,
+        "test_count": 0,
+        "test_normal_count": 0,
+        "test_anomaly_count": 0,
+    }
+    for row in iter_manifest_rows(manifest_path):
+        split = _normalize_split(row.get("split"))
+        label = _normalize_label(row.get("label"))
+
+        if split == "train":
+            counts["train_count"] += 1
+            continue
+        if split == "validation":
+            counts["validation_count"] += 1
+            continue
+        if split != "test":
+            continue
+
+        counts["test_count"] += 1
+        if label == 0:
+            counts["test_normal_count"] += 1
+        elif label == 1:
+            counts["test_anomaly_count"] += 1
+    return counts
 
 
 def profile_dataset_target(
