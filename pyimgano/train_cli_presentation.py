@@ -159,6 +159,112 @@ def _format_live_token(label: str, value: str, *, width: int) -> str:
     return f"{label} {str(value):>{width}}"
 
 
+def _training_epoch_live_line(
+    *,
+    category: str,
+    epoch: int,
+    total_epochs: int | None,
+    loss: str,
+    lr: str,
+    train_count: str,
+    eta_s: str,
+    items_per_s: str,
+) -> str:
+    total_epochs_int = int(total_epochs) if total_epochs is not None else None
+    percent = (
+        int(round((int(epoch) / total_epochs_int) * 100))
+        if total_epochs_int not in (None, 0)
+        else 0
+    )
+    progress_bar = _format_progress_bar(int(epoch), total_epochs_int, width=10)
+    return (
+        f"[TRAIN {category}] "
+        f"{percent:>3}%|{progress_bar}| "
+        f"{int(epoch)}/{total_epochs_int if total_epochs_int is not None else '?'} "
+        f"{_format_live_token('loss', loss, width=6)} "
+        f"{_format_live_token('lr', lr, width=6)} "
+        f"{_format_live_token('n', train_count, width=3)} "
+        f"{_format_live_token('eta', eta_s, width=4)} "
+        f"{_format_live_token('ips', items_per_s, width=4)}"
+    )
+
+
+def _training_end_bits(report_map: Mapping[str, Any]) -> list[str]:
+    timing = dict(report_map.get("timing", {}))
+    detector_state = dict(report_map.get("detector_training_state", {}))
+    line_bits = ["stage=training_complete"]
+    epochs_completed = detector_state.get("epochs_completed", None)
+    if epochs_completed is not None:
+        line_bits.append(f"epochs={int(epochs_completed)}")
+    steps_completed = detector_state.get("steps_completed", None)
+    if steps_completed is not None:
+        line_bits.append(f"steps={int(steps_completed)}")
+    fit_s_raw = _safe_float(timing.get("fit_s"))
+    fit_s = None if fit_s_raw is None else f"{fit_s_raw:.3f}"
+    if fit_s is not None:
+        line_bits.append(f"fit_s={fit_s}")
+    if fit_s_raw is not None and epochs_completed not in (None, 0):
+        line_bits.append(f"epoch_s={fit_s_raw / int(epochs_completed):.3f}")
+    best_loss = _format_float(detector_state.get("best_loss"), digits=4)
+    if best_loss is not None:
+        line_bits.append(f"best_loss={best_loss}")
+    last_lr = _format_float(detector_state.get("last_lr"), digits=4)
+    if last_lr is not None:
+        line_bits.append(f"last_lr={last_lr}")
+    stop_reason = detector_state.get("stop_reason", None)
+    if stop_reason is not None:
+        line_bits.append(f"stop_reason={stop_reason}")
+    return line_bits
+
+
+def _run_end_metric_bits(report: Mapping[str, Any]) -> list[str]:
+    bits: list[str] = []
+    mean_metrics = report.get("mean_metrics", None)
+    if isinstance(mean_metrics, Mapping):
+        for key in ("auroc", "average_precision"):
+            value = _format_float(mean_metrics.get(key))
+            if value is not None:
+                bits.append(f"mean_{key}={value}")
+        return bits
+
+    results = report.get("results", None)
+    if not isinstance(results, Mapping):
+        return bits
+    for key in ("auroc", "average_precision"):
+        value = _format_float(results.get(key))
+        if value is not None:
+            bits.append(f"{key}={value}")
+    return bits
+
+
+def _run_end_artifact_lines(
+    *,
+    run_dir: str | None,
+    per_image_jsonl: bool,
+    categories: Sequence[str],
+    artifacts: Mapping[str, str],
+) -> list[tuple[str, str]]:
+    if run_dir is None:
+        return []
+
+    artifact_lines: list[tuple[str, str]] = []
+    for kind, rel_path in (
+        ("report", "report.json"),
+        ("config", "config.json"),
+        ("environment", "environment.json"),
+    ):
+        candidate = Path(run_dir) / rel_path
+        if candidate.exists():
+            artifact_lines.append((kind, str(candidate)))
+    if per_image_jsonl and len(categories) == 1:
+        candidate = Path(run_dir) / "categories" / categories[0] / "per_image.jsonl"
+        if candidate.exists():
+            artifact_lines.append(("per_image", str(candidate)))
+    for kind, path in artifacts.items():
+        artifact_lines.append((kind, str(path)))
+    return artifact_lines
+
+
 def _resolve_run_relative_path(path: Any, *, run_dir: str | None) -> str:
     raw = str(path)
     if not raw:
@@ -594,24 +700,18 @@ class TrainConsoleReporter(TrainProgressReporter):
         eta_s = _format_duration(metrics.get("eta_s")) or "-"
         items_per_s = _format_rate(metrics.get("items_per_s")) or "-"
         if live:
-            total_epochs_int = int(total_epochs) if total_epochs is not None else None
-            percent = (
-                int(round((int(epoch) / total_epochs_int) * 100))
-                if total_epochs_int not in (None, 0)
-                else 0
+            self._emit_live_line(
+                _training_epoch_live_line(
+                    category=category,
+                    epoch=int(epoch),
+                    total_epochs=total_epochs,
+                    loss=loss,
+                    lr=lr,
+                    train_count=train_count,
+                    eta_s=eta_s,
+                    items_per_s=items_per_s,
+                )
             )
-            progress_bar = _format_progress_bar(int(epoch), total_epochs_int, width=10)
-            live_line = (
-                f"[TRAIN {category}] "
-                f"{percent:>3}%|{progress_bar}| "
-                f"{int(epoch)}/{total_epochs_int if total_epochs_int is not None else '?'} "
-                f"{_format_live_token('loss', loss, width=6)} "
-                f"{_format_live_token('lr', lr, width=6)} "
-                f"{_format_live_token('n', train_count, width=3)} "
-                f"{_format_live_token('eta', eta_s, width=4)} "
-                f"{_format_live_token('ips', items_per_s, width=4)}"
-            )
-            self._emit_live_line(live_line)
             return
 
         self._emit_line(
@@ -636,30 +736,7 @@ class TrainConsoleReporter(TrainProgressReporter):
         checkpoint_meta: Mapping[str, Any] | None = None,
     ) -> None:
         report_map = dict(report) if isinstance(report, Mapping) else {}
-        timing = dict(report_map.get("timing", {}))
-        detector_state = dict(report_map.get("detector_training_state", {}))
-        line_bits = ["stage=training_complete"]
-        epochs_completed = detector_state.get("epochs_completed", None)
-        if epochs_completed is not None:
-            line_bits.append(f"epochs={int(epochs_completed)}")
-        steps_completed = detector_state.get("steps_completed", None)
-        if steps_completed is not None:
-            line_bits.append(f"steps={int(steps_completed)}")
-        fit_s_raw = _safe_float(timing.get("fit_s"))
-        fit_s = None if fit_s_raw is None else f"{fit_s_raw:.3f}"
-        if fit_s is not None:
-            line_bits.append(f"fit_s={fit_s}")
-        if fit_s_raw is not None and epochs_completed not in (None, 0):
-            line_bits.append(f"epoch_s={fit_s_raw / int(epochs_completed):.3f}")
-        best_loss = _format_float(detector_state.get("best_loss"), digits=4)
-        if best_loss is not None:
-            line_bits.append(f"best_loss={best_loss}")
-        last_lr = _format_float(detector_state.get("last_lr"), digits=4)
-        if last_lr is not None:
-            line_bits.append(f"last_lr={last_lr}")
-        stop_reason = detector_state.get("stop_reason", None)
-        if stop_reason is not None:
-            line_bits.append(f"stop_reason={stop_reason}")
+        line_bits = _training_end_bits(report_map)
         self._emit_line(f"{_format_badge('DONE', str(category))} " + " ".join(line_bits))
         if isinstance(checkpoint_meta, Mapping) and checkpoint_meta.get("path"):
             checkpoint_path = _resolve_run_relative_path(
@@ -737,35 +814,15 @@ class TrainConsoleReporter(TrainProgressReporter):
         bits = ["status=done"]
         if self._run_dir is not None:
             bits.append(f"save_dir={self._run_dir}")
-        mean_metrics = report.get("mean_metrics", None)
-        if isinstance(mean_metrics, Mapping):
-            for key in ("auroc", "average_precision"):
-                value = _format_float(mean_metrics.get(key))
-                if value is not None:
-                    bits.append(f"mean_{key}={value}")
-        elif isinstance(report.get("results"), Mapping):
-            results = dict(report.get("results", {}))
-            for key in ("auroc", "average_precision"):
-                value = _format_float(results.get(key))
-                if value is not None:
-                    bits.append(f"{key}={value}")
+        bits.extend(_run_end_metric_bits(report))
         self._emit_line(f"{_format_badge('DONE')} " + " ".join(bits))
         if self._run_dir is not None:
-            artifact_lines: list[tuple[str, str]] = []
-            for kind, rel_path in (
-                ("report", "report.json"),
-                ("config", "config.json"),
-                ("environment", "environment.json"),
-            ):
-                candidate = Path(self._run_dir) / rel_path
-                if candidate.exists():
-                    artifact_lines.append((kind, str(candidate)))
-            if self._per_image_jsonl and len(self._categories) == 1:
-                candidate = Path(self._run_dir) / "categories" / self._categories[0] / "per_image.jsonl"
-                if candidate.exists():
-                    artifact_lines.append(("per_image", str(candidate)))
-            for kind, path in self._artifacts.items():
-                artifact_lines.append((kind, str(path)))
+            artifact_lines = _run_end_artifact_lines(
+                run_dir=self._run_dir,
+                per_image_jsonl=self._per_image_jsonl,
+                categories=self._categories,
+                artifacts=self._artifacts,
+            )
             if artifact_lines:
                 seen: set[tuple[str, str]] = set()
                 for kind, path in artifact_lines:
