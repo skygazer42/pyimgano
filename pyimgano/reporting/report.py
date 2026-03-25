@@ -40,7 +40,8 @@ def save_run_report(path: str | Path, results: dict) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload = to_jsonable(results)
-    out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    with out_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
 
 
 def save_jsonl_records(path: str | Path, records: list[dict]) -> None:

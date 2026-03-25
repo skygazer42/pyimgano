@@ -554,10 +554,10 @@ def _rewrite_results_jsonl(
         record["meta"] = input_record.get("meta")
         rewritten.append(record)
 
-    resolved_results_path.write_text(
-        "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rewritten),
-        encoding="utf-8",
-    )
+    with resolved_results_path.open("w", encoding="utf-8") as handle:
+        for row in rewritten:
+            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True))
+            handle.write("\n")
     return rewritten
 
 
