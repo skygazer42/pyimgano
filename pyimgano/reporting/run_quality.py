@@ -541,13 +541,9 @@ def _trust_status(
     return "partial"
 
 
-def evaluate_run_quality(
-    run_dir: str | Path,
-    *,
-    check_bundle_hashes: bool = False,
-) -> dict[str, Any]:
-    root = Path(run_dir)
-
+def _artifact_inventory(
+    root: Path,
+) -> tuple[dict[str, dict[str, Any]], list[str], list[str]]:
     artifacts: dict[str, dict[str, Any]] = {}
     missing_required: list[str] = []
     missing_optional: list[str] = []
@@ -563,63 +559,75 @@ def evaluate_run_quality(
             artifact_payload["valid"] = None
             artifact_payload["errors"] = []
         artifacts[spec.name] = artifact_payload
-        if not present:
-            if spec.required:
-                missing_required.append(spec.rel_path)
-            else:
-                missing_optional.append(spec.rel_path)
-
-    calibration_valid = None
-    if bool(artifacts["calibration_card"]["present"]):
-        calibration_path = root / "artifacts" / "calibration_card.json"
-        try:
-            calibration_payload = _load_json_dict(calibration_path)
-        except Exception as exc:  # noqa: BLE001 - reporting boundary
-            artifacts["calibration_card"]["valid"] = False
-            artifacts["calibration_card"]["errors"] = [str(exc)]
-            calibration_valid = False
+        if present:
+            continue
+        if spec.required:
+            missing_required.append(spec.rel_path)
         else:
-            errors = validate_calibration_card_payload(calibration_payload)
-            artifacts["calibration_card"]["valid"] = len(errors) == 0
-            artifacts["calibration_card"]["errors"] = list(errors)
-            calibration_valid = len(errors) == 0
+            missing_optional.append(spec.rel_path)
+    return artifacts, missing_required, missing_optional
 
-    calibration_audit = _evaluate_calibration_audit(
-        root=root,
-        infer_config_present=bool(artifacts["infer_config"]["present"]),
-        calibration_present=bool(artifacts["calibration_card"]["present"]),
-        calibration_valid=calibration_valid,
-    )
-    operator_contract_audit = _evaluate_operator_contract_audit(
-        root=root,
-        infer_config_present=bool(artifacts["infer_config"]["present"]),
-        operator_contract_present=bool(artifacts["operator_contract"]["present"]),
-    )
 
+def _calibration_artifact_status(
+    root: Path,
+    *,
+    artifacts: Mapping[str, dict[str, Any]],
+) -> bool | None:
+    if not bool(artifacts["calibration_card"]["present"]):
+        return None
+
+    calibration_path = root / "artifacts" / "calibration_card.json"
+    try:
+        calibration_payload = _load_json_dict(calibration_path)
+    except Exception as exc:  # noqa: BLE001 - reporting boundary
+        artifacts["calibration_card"]["valid"] = False
+        artifacts["calibration_card"]["errors"] = [str(exc)]
+        return False
+
+    errors = validate_calibration_card_payload(calibration_payload)
+    artifacts["calibration_card"]["valid"] = len(errors) == 0
+    artifacts["calibration_card"]["errors"] = list(errors)
+    return len(errors) == 0
+
+
+def _bundle_manifest_status(
+    root: Path,
+    *,
+    artifacts: Mapping[str, Mapping[str, Any]],
+    check_bundle_hashes: bool,
+) -> dict[str, Any]:
     bundle_manifest_payload = {
         "present": bool(artifacts["deploy_bundle_manifest"]["present"]),
         "valid": None,
         "errors": [],
     }
-    if bool(artifacts["deploy_bundle_manifest"]["present"]):
-        manifest_path = root / "deploy_bundle" / "bundle_manifest.json"
-        try:
-            manifest = _load_json_dict(manifest_path)
-        except Exception as exc:  # noqa: BLE001 - reporting boundary
-            bundle_manifest_payload["valid"] = False
-            bundle_manifest_payload["errors"] = [str(exc)]
-        else:
-            errors = validate_deploy_bundle_manifest(
-                manifest,
-                bundle_dir=root / "deploy_bundle",
-                check_hashes=bool(check_bundle_hashes),
-            )
-            bundle_manifest_payload["valid"] = len(errors) == 0
-            bundle_manifest_payload["errors"] = list(errors)
+    if not bool(artifacts["deploy_bundle_manifest"]["present"]):
+        return bundle_manifest_payload
 
-    has_bundle_operator_contract = bool(
-        (root / "deploy_bundle" / "operator_contract.json").is_file()
+    manifest_path = root / "deploy_bundle" / "bundle_manifest.json"
+    try:
+        manifest = _load_json_dict(manifest_path)
+    except Exception as exc:  # noqa: BLE001 - reporting boundary
+        bundle_manifest_payload["valid"] = False
+        bundle_manifest_payload["errors"] = [str(exc)]
+        return bundle_manifest_payload
+
+    errors = validate_deploy_bundle_manifest(
+        manifest,
+        bundle_dir=root / "deploy_bundle",
+        check_hashes=bool(check_bundle_hashes),
     )
+    bundle_manifest_payload["valid"] = len(errors) == 0
+    bundle_manifest_payload["errors"] = list(errors)
+    return bundle_manifest_payload
+
+
+def _bundle_operator_contract_flags(
+    root: Path,
+    *,
+    bundle_manifest_payload: Mapping[str, Any],
+) -> tuple[bool, bool, bool, bool, bool]:
+    has_bundle_operator_contract = bool((root / "deploy_bundle" / "operator_contract.json").is_file())
     bundle_operator_contract_digest_error_present = any(
         "operator_contract_digests" in str(item).lower()
         for item in bundle_manifest_payload["errors"]
@@ -637,6 +645,70 @@ def evaluate_run_quality(
         bool(has_bundle_operator_contract)
         and bool(bundle_manifest_payload.get("present"))
         and not bool(bundle_operator_contract_digest_error_present)
+    )
+    return (
+        has_bundle_operator_contract,
+        has_bundle_operator_contract_consistent,
+        has_bundle_operator_contract_digests_valid,
+        bundle_operator_contract_error_present,
+        bundle_operator_contract_digest_error_present,
+    )
+
+
+def _quality_status_and_score(
+    *,
+    report_present: bool,
+    core_complete: bool,
+    audited_complete: bool,
+    deployable_complete: bool,
+) -> tuple[str, float]:
+    if deployable_complete:
+        return "deployable", 1.0
+    if audited_complete:
+        return "audited", 0.75
+    if core_complete:
+        return "reproducible", 0.5
+    if report_present:
+        return "partial", 0.25
+    return "broken", 0.0
+
+
+def evaluate_run_quality(
+    run_dir: str | Path,
+    *,
+    check_bundle_hashes: bool = False,
+) -> dict[str, Any]:
+    root = Path(run_dir)
+
+    artifacts, missing_required, missing_optional = _artifact_inventory(root)
+    calibration_valid = _calibration_artifact_status(root, artifacts=artifacts)
+
+    calibration_audit = _evaluate_calibration_audit(
+        root=root,
+        infer_config_present=bool(artifacts["infer_config"]["present"]),
+        calibration_present=bool(artifacts["calibration_card"]["present"]),
+        calibration_valid=calibration_valid,
+    )
+    operator_contract_audit = _evaluate_operator_contract_audit(
+        root=root,
+        infer_config_present=bool(artifacts["infer_config"]["present"]),
+        operator_contract_present=bool(artifacts["operator_contract"]["present"]),
+    )
+
+    bundle_manifest_payload = _bundle_manifest_status(
+        root,
+        artifacts=artifacts,
+        check_bundle_hashes=bool(check_bundle_hashes),
+    )
+    (
+        has_bundle_operator_contract,
+        has_bundle_operator_contract_consistent,
+        has_bundle_operator_contract_digests_valid,
+        bundle_operator_contract_error_present,
+        bundle_operator_contract_digest_error_present,
+    ) = _bundle_operator_contract_flags(
+        root,
+        bundle_manifest_payload=bundle_manifest_payload,
     )
 
     weights_audit = _evaluate_bundle_weights_audit(
@@ -662,22 +734,12 @@ def evaluate_run_quality(
         and bundle_manifest_payload["valid"] is True
         and bool(bundle_weights_valid)
     )
-
-    if deployable_complete:
-        status = "deployable"
-        score = 1.0
-    elif audited_complete:
-        status = "audited"
-        score = 0.75
-    elif core_complete:
-        status = "reproducible"
-        score = 0.5
-    elif report_present:
-        status = "partial"
-        score = 0.25
-    else:
-        status = "broken"
-        score = 0.0
+    status, score = _quality_status_and_score(
+        report_present=report_present,
+        core_complete=core_complete,
+        audited_complete=audited_complete,
+        deployable_complete=deployable_complete,
+    )
 
     warnings = list(calibration_audit["warnings"])
     warnings.extend(str(item) for item in operator_contract_audit["warnings"])
