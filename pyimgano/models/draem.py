@@ -26,6 +26,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import safe_torch_load
 from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
@@ -277,7 +278,10 @@ class VisionDRAEM(BaseVisionDeepDetector):
         torch.save(
             {
                 "model_state_dict": model_state_dict,
-                "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
+                "decision_scores_": torch.as_tensor(
+                    np.asarray(self.decision_scores_, dtype=np.float64),
+                    dtype=torch.float64,
+                ),
                 "threshold_": float(self.threshold_),
                 "is_fitted": True,
             },
@@ -286,7 +290,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
         return out_path
 
     def load_checkpoint(self, path: str | Path) -> None:
-        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        state = safe_torch_load(path, map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionDRAEM checkpoint payload.")
 

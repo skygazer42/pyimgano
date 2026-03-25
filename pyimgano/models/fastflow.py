@@ -16,6 +16,7 @@ from torchvision import models
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import safe_torch_load
 from .registry import register_model
 
 # ---------------------------------------------------------------------------
@@ -297,7 +298,10 @@ class FastFlow(BaseVisionDeepDetector):
                 "decision_scores_": (
                     None
                     if getattr(self, "decision_scores_", None) is None
-                    else np.asarray(self.decision_scores_, dtype=np.float64)
+                    else torch.as_tensor(
+                        np.asarray(self.decision_scores_, dtype=np.float64),
+                        dtype=torch.float64,
+                    )
                 ),
                 "threshold_": (
                     None
@@ -310,7 +314,7 @@ class FastFlow(BaseVisionDeepDetector):
         return out_path
 
     def load_checkpoint(self, path: str | Path) -> None:
-        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        state = safe_torch_load(path, map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid FastFlow checkpoint payload.")
 

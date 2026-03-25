@@ -207,13 +207,14 @@ def _build_publication_audit_digests(
 
 def _build_exported_file_digests(
     *,
+    out_dir: Path,
     written: Mapping[str, str],
 ) -> dict[str, str]:
     digests: dict[str, str] = {}
     for key, raw_path in written.items():
         if str(key) == "leaderboard_metadata_json":
             continue
-        path = Path(raw_path)
+        path = out_dir / str(raw_path)
         if path.is_file():
             digests[str(key)] = _file_sha256(path)
     return digests
@@ -432,12 +433,12 @@ def _export_category_matrix_tables(
         if "csv" in fmts:
             csv_path = out_dir / f"category_matrix_{metric_slug}.csv"
             _write_csv(csv_path, rows=metric_rows, columns=columns)
-            written[f"category_matrix_{metric_slug}_csv"] = str(csv_path)
+            written[f"category_matrix_{metric_slug}_csv"] = csv_path.relative_to(out_dir).as_posix()
 
         if "md" in fmts or "markdown" in fmts:
             md_path = out_dir / f"category_matrix_{metric_slug}.md"
             _write_markdown_table(md_path, rows=metric_rows, columns=columns)
-            written[f"category_matrix_{metric_slug}_md"] = str(md_path)
+            written[f"category_matrix_{metric_slug}_md"] = md_path.relative_to(out_dir).as_posix()
 
     return written
 
@@ -566,6 +567,7 @@ def export_suite_tables(
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = out_dir.resolve(strict=False)
 
     rows = payload.get("rows", [])
     if not isinstance(rows, list):
@@ -596,9 +598,9 @@ def export_suite_tables(
         _write_csv(leaderboard_csv, rows=rows_norm, columns=_LEADERBOARD_COLUMNS)
         _write_csv(best_csv, rows=best_by_baseline, columns=_LEADERBOARD_COLUMNS)
         _write_csv(skipped_csv, rows=skipped_rows, columns=["name", "status", "reason"])
-        written["leaderboard_csv"] = str(leaderboard_csv)
-        written["best_by_baseline_csv"] = str(best_csv)
-        written["skipped_csv"] = str(skipped_csv)
+        written["leaderboard_csv"] = leaderboard_csv.relative_to(out_dir).as_posix()
+        written["best_by_baseline_csv"] = best_csv.relative_to(out_dir).as_posix()
+        written["skipped_csv"] = skipped_csv.relative_to(out_dir).as_posix()
 
     if "md" in fmts or "markdown" in fmts:
         leaderboard_md = out_dir / "leaderboard.md"
@@ -607,9 +609,9 @@ def export_suite_tables(
         _write_markdown_table(leaderboard_md, rows=rows_norm, columns=_LEADERBOARD_COLUMNS)
         _write_markdown_table(best_md, rows=best_by_baseline, columns=_LEADERBOARD_COLUMNS)
         _write_markdown_table(skipped_md, rows=skipped_rows, columns=["name", "status", "reason"])
-        written["leaderboard_md"] = str(leaderboard_md)
-        written["best_by_baseline_md"] = str(best_md)
-        written["skipped_md"] = str(skipped_md)
+        written["leaderboard_md"] = leaderboard_md.relative_to(out_dir).as_posix()
+        written["best_by_baseline_md"] = best_md.relative_to(out_dir).as_posix()
+        written["skipped_md"] = skipped_md.relative_to(out_dir).as_posix()
 
     written.update(_export_category_matrix_tables(payload, out_dir, formats=formats))
 
@@ -628,7 +630,7 @@ def export_suite_tables(
         benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
     )
     audit_digests = _build_publication_audit_digests(out_dir=out_dir)
-    exported_file_digests = _build_exported_file_digests(written=written)
+    exported_file_digests = _build_exported_file_digests(out_dir=out_dir, written=written)
 
     evaluation_contract = build_evaluation_contract(
         metric_names=_collect_metric_names(rows_norm),
@@ -699,7 +701,7 @@ def export_suite_tables(
     }
     metadata_path = out_dir / "leaderboard_metadata.json"
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
-    written["leaderboard_metadata_json"] = str(metadata_path)
+    written["leaderboard_metadata_json"] = metadata_path.relative_to(out_dir).as_posix()
     metadata["exported_files"] = dict(written)
     metadata["artifact_quality"] = _build_publication_artifact_quality(
         written=written,

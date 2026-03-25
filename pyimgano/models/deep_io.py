@@ -49,15 +49,31 @@ def save_deep_detector(
     return p
 
 
-def load_deep_detector(detector: Any, path: str | Path, *, map_location: str | None = "cpu") -> Any:
-    """Load a saved `state_dict` into `detector.model` (best-effort)."""
+def safe_torch_load(path: str | Path, *, map_location: str | None = "cpu") -> Any:
+    """Load a torch checkpoint in weights-only mode."""
 
     torch = _require_torch()
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"Checkpoint not found: {p}")
 
-    payload = torch.load(str(p), map_location=map_location)
+    try:
+        return torch.load(str(p), map_location=map_location, weights_only=True)
+    except TypeError as exc:
+        raise RuntimeError(
+            "Safe checkpoint loading requires a torch build that supports "
+            "`torch.load(..., weights_only=True)`."
+        ) from exc
+
+
+def load_deep_detector(detector: Any, path: str | Path, *, map_location: str | None = "cpu") -> Any:
+    """Load a saved `state_dict` into `detector.model` (best-effort)."""
+
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {p}")
+
+    payload = safe_torch_load(p, map_location=map_location)
     if not isinstance(payload, dict) or "state_dict" not in payload:
         raise ValueError("Invalid checkpoint payload; expected dict with key 'state_dict'.")
 
@@ -83,4 +99,4 @@ def load_deep_detector(detector: Any, path: str | Path, *, map_location: str | N
     return detector
 
 
-__all__ = ["save_deep_detector", "load_deep_detector"]
+__all__ = ["save_deep_detector", "safe_torch_load", "load_deep_detector"]

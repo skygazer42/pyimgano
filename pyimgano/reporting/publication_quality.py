@@ -26,11 +26,16 @@ def _resolve_metadata_path(path: str | Path) -> Path:
 def _resolve_exported_path(root: Path, raw: Any) -> Path | None:
     if not isinstance(raw, str) or not raw:
         return None
-    path = Path(raw)
-    if ".." in path.parts:
-        return None
     root_resolved = root.resolve(strict=False)
-    candidate = path.resolve(strict=False) if path.is_absolute() else (root_resolved / path).resolve(strict=False)
+    path = Path(raw)
+    if path.is_absolute():
+        try:
+            path = path.relative_to(root_resolved)
+        except ValueError:
+            return None
+    if path.is_absolute() or ".." in path.parts:
+        return None
+    candidate = (root_resolved / path).resolve(strict=False)
     try:
         candidate.relative_to(root_resolved)
     except ValueError:
@@ -43,7 +48,7 @@ def _display_exported_path(root: Path, raw: Any) -> str | None:
     if resolved is None:
         return None
     try:
-        return str(resolved.relative_to(root))
+        return str(resolved.relative_to(root.resolve(strict=False)))
     except Exception:
         return str(resolved)
 

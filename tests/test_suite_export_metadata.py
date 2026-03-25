@@ -110,9 +110,10 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
     assert metadata["exported_files"]["leaderboard_csv"].endswith("leaderboard.csv")
     assert metadata["exported_files"]["best_by_baseline_csv"].endswith("best_by_baseline.csv")
     assert metadata["exported_files"]["skipped_csv"].endswith("skipped.csv")
-    assert metadata["exported_files"]["leaderboard_metadata_json"].endswith(
-        "leaderboard_metadata.json"
-    )
+    assert metadata["exported_files"]["leaderboard_csv"] == "leaderboard.csv"
+    assert metadata["exported_files"]["best_by_baseline_csv"] == "best_by_baseline.csv"
+    assert metadata["exported_files"]["skipped_csv"] == "skipped.csv"
+    assert metadata["exported_files"]["leaderboard_metadata_json"] == "leaderboard_metadata.json"
     assert metadata["exported_file_digests"]["leaderboard_csv"] == _sha256(
         tmp_path / "leaderboard.csv"
     )
