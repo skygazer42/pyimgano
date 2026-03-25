@@ -33,6 +33,26 @@ def _safe_float(value: Any) -> float | None:
     return float(out)
 
 
+def _iter_corruption_payloads(report: Mapping[str, Any]):
+    corruptions = report.get("corruptions", None)
+    if not isinstance(corruptions, Mapping):
+        return
+    for condition_name, by_severity in corruptions.items():
+        if not isinstance(by_severity, Mapping):
+            continue
+        for severity_name, sev_payload in by_severity.items():
+            if not isinstance(sev_payload, Mapping):
+                continue
+            yield str(condition_name), str(severity_name), sev_payload
+
+
+def _iter_corruption_results(report: Mapping[str, Any]):
+    for _condition_name, _severity_name, sev_payload in _iter_corruption_payloads(report):
+        results = sev_payload.get("results", None)
+        if isinstance(results, Mapping):
+            yield results
+
+
 def _extract_robustness_metric_values(
     report: dict[str, Any],
     *,
@@ -51,24 +71,14 @@ def _extract_robustness_metric_values(
                     clean_value = _safe_float(pixel_metrics.get(pixel_key, None))
 
     corruption_values: list[float] = []
-    corruptions = report.get("corruptions", None)
-    if isinstance(corruptions, dict):
-        for by_severity in corruptions.values():
-            if not isinstance(by_severity, dict):
-                continue
-            for sev_payload in by_severity.values():
-                if not isinstance(sev_payload, dict):
-                    continue
-                results = sev_payload.get("results", None)
-                if not isinstance(results, dict):
-                    continue
-                value = _safe_float(results.get(image_key, None))
-                if value is None and pixel_key is not None:
-                    pixel_metrics = results.get("pixel_metrics", None)
-                    if isinstance(pixel_metrics, dict):
-                        value = _safe_float(pixel_metrics.get(pixel_key, None))
-                if value is not None:
-                    corruption_values.append(float(value))
+    for results in _iter_corruption_results(report):
+        value = _safe_float(results.get(image_key, None))
+        if value is None and pixel_key is not None:
+            pixel_metrics = results.get("pixel_metrics", None)
+            if isinstance(pixel_metrics, Mapping):
+                value = _safe_float(pixel_metrics.get(pixel_key, None))
+        if value is not None:
+            corruption_values.append(float(value))
     return clean_value, corruption_values
 
 
@@ -79,17 +89,10 @@ def _extract_latency_values(report: dict[str, Any]) -> tuple[float | None, list[
         clean_latency = _safe_float(clean.get("latency_ms_per_image", None))
 
     corruption_latencies: list[float] = []
-    corruptions = report.get("corruptions", None)
-    if isinstance(corruptions, dict):
-        for by_severity in corruptions.values():
-            if not isinstance(by_severity, dict):
-                continue
-            for sev_payload in by_severity.values():
-                if not isinstance(sev_payload, dict):
-                    continue
-                value = _safe_float(sev_payload.get("latency_ms_per_image", None))
-                if value is not None:
-                    corruption_latencies.append(float(value))
+    for _condition_name, _severity_name, sev_payload in _iter_corruption_payloads(report):
+        value = _safe_float(sev_payload.get("latency_ms_per_image", None))
+        if value is not None:
+            corruption_latencies.append(float(value))
     return clean_latency, corruption_latencies
 
 
@@ -100,18 +103,9 @@ def _has_report_metrics(report: Mapping[str, Any]) -> bool:
         if isinstance(results, Mapping) and results:
             return True
 
-    corruptions = report.get("corruptions", None)
-    if not isinstance(corruptions, Mapping):
-        return False
-    for by_severity in corruptions.values():
-        if not isinstance(by_severity, Mapping):
-            continue
-        for sev_payload in by_severity.values():
-            if not isinstance(sev_payload, Mapping):
-                continue
-            results = sev_payload.get("results", None)
-            if isinstance(results, Mapping) and results:
-                return True
+    for results in _iter_corruption_results(report):
+        if results:
+            return True
     return False
 
 
@@ -126,25 +120,23 @@ def summarize_robustness_protocol(report: dict[str, Any]) -> dict[str, Any]:
         conditions.append("clean")
         condition_count += 1
 
-    corruptions = report.get("corruptions", None)
     corruption_names: list[str] = []
-    if isinstance(corruptions, dict):
-        for condition_name, by_severity in sorted(corruptions.items()):
-            if not isinstance(by_severity, dict):
-                continue
-            corruption_names.append(str(condition_name))
-            conditions.append(str(condition_name))
-            for severity_name, sev_payload in by_severity.items():
-                if not isinstance(sev_payload, dict):
-                    continue
-                condition_count += 1
-                text = str(severity_name)
-                if text.startswith("severity_"):
-                    text = text.split("_", 1)[1]
-                try:
-                    severities.add(int(text))
-                except Exception:
-                    continue
+    seen_conditions: set[str] = set()
+    corruption_names: list[str] = []
+    for condition_name, severity_name, _sev_payload in _iter_corruption_payloads(report):
+        if condition_name not in seen_conditions:
+            seen_conditions.add(condition_name)
+            corruption_names.append(condition_name)
+        condition_count += 1
+        text = severity_name
+        if text.startswith("severity_"):
+            text = text.split("_", 1)[1]
+        try:
+            severities.add(int(text))
+        except Exception:
+            continue
+
+    conditions.extend(sorted(corruption_names))
 
     return {
         "corruption_mode": report.get("corruption_mode", None),
@@ -227,20 +219,56 @@ def build_robustness_trust_summary(
     audit_digests: Mapping[str, Any] | None = None,
     audit_root: Path | None = None,
 ) -> dict[str, Any]:
-    protocol = (
-        dict(robustness_protocol)
-        if isinstance(robustness_protocol, Mapping)
-        else summarize_robustness_protocol(dict(report))
+    protocol = _normalized_robustness_protocol(report, robustness_protocol)
+    summary = _normalized_robustness_summary(report, robustness_summary)
+    trust_signals = _robustness_trust_signals(report, protocol, summary)
+    refs, digests, audit_degraded_by = _normalized_robustness_audit_materials(
+        audit_refs=audit_refs,
+        audit_digests=audit_digests,
+        audit_root=audit_root,
     )
-    summary = (
-        dict(robustness_summary)
-        if isinstance(robustness_summary, Mapping)
-        else summarize_robustness_report(dict(report))
-    )
+    trust_signals["has_audit_refs"] = bool(refs)
+    trust_signals["has_audit_digests"] = bool(digests)
 
+    status_reasons = _robustness_status_reasons(trust_signals)
+    degraded_by = _robustness_degraded_by(trust_signals, audit_degraded_by)
+    status = _robustness_trust_status(trust_signals, degraded_by)
+
+    return {
+        "status": status,
+        "status_reasons": list(dict.fromkeys(str(item) for item in status_reasons)),
+        "trust_signals": trust_signals,
+        "degraded_by": list(dict.fromkeys(str(item) for item in degraded_by)),
+        "audit_refs": refs,
+        "audit_digests": digests,
+    }
+
+
+def _normalized_robustness_protocol(
+    report: Mapping[str, Any],
+    robustness_protocol: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if isinstance(robustness_protocol, Mapping):
+        return dict(robustness_protocol)
+    return summarize_robustness_protocol(dict(report))
+
+
+def _normalized_robustness_summary(
+    report: Mapping[str, Any],
+    robustness_summary: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if isinstance(robustness_summary, Mapping):
+        return dict(robustness_summary)
+    return summarize_robustness_report(dict(report))
+
+
+def _robustness_trust_signals(
+    report: Mapping[str, Any],
+    protocol: Mapping[str, Any],
+    summary: Mapping[str, Any],
+) -> dict[str, bool]:
     corruption_count = int(protocol.get("corruption_count", 0) or 0)
     severity_count = int(protocol.get("severity_count", 0) or 0)
-    has_clean_baseline = bool(protocol.get("has_clean_baseline"))
     raw_corruption_mode = str(protocol.get("corruption_mode", "") or "").strip().lower()
     full_corruption_mode = raw_corruption_mode == "full" or (
         raw_corruption_mode == "" and corruption_count > 0
@@ -257,70 +285,79 @@ def build_robustness_trust_summary(
     )
     clean_latency, corruption_latencies = _extract_latency_values(dict(report))
     has_latency_profile = bool(
-        summary_has_latency
-        or clean_latency is not None
-        or bool(corruption_latencies)
+        summary_has_latency or clean_latency is not None or bool(corruption_latencies)
     )
-
-    refs: dict[str, str] = {}
-    if isinstance(audit_refs, Mapping):
-        for key, value in audit_refs.items():
-            if isinstance(value, str) and value.strip():
-                refs[str(key)] = str(value)
-
-    digests: dict[str, str] = {}
-    if isinstance(audit_digests, Mapping):
-        for key, value in audit_digests.items():
-            if isinstance(value, str) and value.strip():
-                digests[str(key)] = str(value)
-
-    has_audit_refs = bool(refs)
-    has_audit_digests = bool(digests)
-
-    audit_degraded_by: list[str] = []
-    if audit_root is not None and (refs or digests):
-        audit_keys = list(dict.fromkeys([*refs.keys(), *digests.keys()]))
-        has_audit_refs = bool(audit_keys)
-        has_audit_digests = bool(audit_keys)
-        for key in audit_keys:
-            ref = refs.get(key)
-            if ref is None:
-                has_audit_refs = False
-                has_audit_digests = False
-                audit_degraded_by.append(f"missing_audit_ref.{key}")
-                continue
-
-            artifact_path = Path(ref)
-            if not artifact_path.is_absolute():
-                artifact_path = audit_root / artifact_path
-            if not artifact_path.is_file():
-                has_audit_refs = False
-                has_audit_digests = False
-                audit_degraded_by.append(f"missing_audit_artifact.{key}")
-                continue
-
-            digest = digests.get(key)
-            if digest is None:
-                has_audit_digests = False
-                audit_degraded_by.append(f"missing_audit_digest.{key}")
-                continue
-
-            if _file_sha256(artifact_path) != digest:
-                has_audit_digests = False
-                audit_degraded_by.append(f"audit_digest_mismatch.{key}")
-
-    trust_signals = {
-        "has_clean_baseline": bool(has_clean_baseline),
+    return {
+        "has_clean_baseline": bool(protocol.get("has_clean_baseline")),
         "has_corruption_conditions": bool(corruption_count > 0),
         "has_summary_metrics": bool(has_summary_metrics),
         "has_latency_profile": bool(has_latency_profile),
         "has_severity_schedule": bool(severity_count > 0),
         "full_corruption_mode": bool(full_corruption_mode),
         "has_comparability_hints": isinstance(protocol.get("comparability_hints"), Mapping),
-        "has_audit_refs": bool(has_audit_refs),
-        "has_audit_digests": bool(has_audit_digests),
+        "has_audit_refs": False,
+        "has_audit_digests": False,
     }
 
+
+def _normalized_robustness_audit_materials(
+    *,
+    audit_refs: Mapping[str, Any] | None,
+    audit_digests: Mapping[str, Any] | None,
+    audit_root: Path | None,
+) -> tuple[dict[str, str], dict[str, str], list[str]]:
+    refs = {
+        str(key): str(value)
+        for key, value in (audit_refs.items() if isinstance(audit_refs, Mapping) else ())
+        if isinstance(value, str) and value.strip()
+    }
+    digests = {
+        str(key): str(value)
+        for key, value in (audit_digests.items() if isinstance(audit_digests, Mapping) else ())
+        if isinstance(value, str) and value.strip()
+    }
+    if audit_root is None or not (refs or digests):
+        return refs, digests, []
+
+    has_audit_refs = True
+    has_audit_digests = True
+    degraded_by: list[str] = []
+    audit_keys = list(dict.fromkeys([*refs.keys(), *digests.keys()]))
+    for key in audit_keys:
+        ref = refs.get(key)
+        if ref is None:
+            has_audit_refs = False
+            has_audit_digests = False
+            degraded_by.append(f"missing_audit_ref.{key}")
+            continue
+
+        artifact_path = Path(ref)
+        if not artifact_path.is_absolute():
+            artifact_path = audit_root / artifact_path
+        if not artifact_path.is_file():
+            has_audit_refs = False
+            has_audit_digests = False
+            degraded_by.append(f"missing_audit_artifact.{key}")
+            continue
+
+        digest = digests.get(key)
+        if digest is None:
+            has_audit_digests = False
+            degraded_by.append(f"missing_audit_digest.{key}")
+            continue
+
+        if _file_sha256(artifact_path) != digest:
+            has_audit_digests = False
+            degraded_by.append(f"audit_digest_mismatch.{key}")
+
+    if not has_audit_refs:
+        refs = {}
+    if not has_audit_digests:
+        digests = {}
+    return refs, digests, degraded_by
+
+
+def _robustness_status_reasons(trust_signals: Mapping[str, bool]) -> list[str]:
     status_reasons: list[str] = []
     if trust_signals["has_clean_baseline"]:
         status_reasons.append("clean_baseline_present")
@@ -336,7 +373,13 @@ def build_robustness_trust_summary(
         status_reasons.append("comparability_hints_present")
     if trust_signals["full_corruption_mode"]:
         status_reasons.append("full_corruption_mode")
+    return status_reasons
 
+
+def _robustness_degraded_by(
+    trust_signals: Mapping[str, bool],
+    audit_degraded_by: Sequence[str],
+) -> list[str]:
     degraded_by: list[str] = []
     if not trust_signals["has_clean_baseline"]:
         degraded_by.append("missing_clean_baseline")
@@ -352,23 +395,19 @@ def build_robustness_trust_summary(
         degraded_by.append("missing_comparability_hints")
     if not trust_signals["full_corruption_mode"]:
         degraded_by.append("clean_only_mode")
-    degraded_by.extend(audit_degraded_by)
+    degraded_by.extend(str(item) for item in audit_degraded_by)
+    return degraded_by
 
+
+def _robustness_trust_status(
+    trust_signals: Mapping[str, bool],
+    degraded_by: Sequence[str],
+) -> str:
     if not trust_signals["has_clean_baseline"]:
-        status = "broken"
-    elif degraded_by:
-        status = "partial"
-    else:
-        status = "trust-signaled"
-
-    return {
-        "status": status,
-        "status_reasons": list(dict.fromkeys(str(item) for item in status_reasons)),
-        "trust_signals": trust_signals,
-        "degraded_by": list(dict.fromkeys(str(item) for item in degraded_by)),
-        "audit_refs": refs,
-        "audit_digests": digests,
-    }
+        return "broken"
+    if degraded_by:
+        return "partial"
+    return "trust-signaled"
 
 
 __all__ = [
