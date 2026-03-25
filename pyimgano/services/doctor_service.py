@@ -866,13 +866,7 @@ def _selection_score(
     objective: str,
     dataset_profile: Mapping[str, Any],
 ) -> int:
-    profile = candidate.get("deployment_profile", {})
-    if not isinstance(profile, Mapping):
-        profile = {}
-    industrial_fit = profile.get("industrial_fit", {})
-    if not isinstance(industrial_fit, Mapping):
-        industrial_fit = {}
-
+    profile, industrial_fit = _selection_score_inputs(candidate)
     runtime_score = {"low": 30, "medium": 15, "high": 0}
     memory_score = {"low": 15, "medium": 8, "high": 0}
     runtime_hint = str(profile.get("runtime_cost_hint", "high"))
@@ -881,29 +875,102 @@ def _selection_score(
     upstream_project = str(profile.get("upstream_project", "native"))
 
     if objective == "latency":
-        score = runtime_score.get(runtime_hint, 0) + memory_score.get(memory_hint, 0)
-        if not has_checkpoint:
-            score += 12
-        if bool(industrial_fit.get("reference_inspection")):
-            score += 10
-        if bool(industrial_fit.get("pixel_localization")) and bool(
-            dataset_profile.get("pixel_metrics_available")
-        ):
-            score += 4
-        if upstream_project == "native":
-            score += 4
-        return int(score)
+        return _latency_selection_score(
+            runtime_score=runtime_score,
+            memory_score=memory_score,
+            runtime_hint=runtime_hint,
+            memory_hint=memory_hint,
+            has_checkpoint=has_checkpoint,
+            upstream_project=upstream_project,
+            industrial_fit=industrial_fit,
+            dataset_profile=dataset_profile,
+        )
 
     if objective == "localization":
-        score = 0
-        if bool(dataset_profile.get("pixel_metrics_available")):
-            score += 25 if bool(industrial_fit.get("pixel_localization")) else 0
-        if bool(industrial_fit.get("reference_inspection")):
-            score += 10
-        if upstream_project == "native":
-            score += 3
-        return int(score)
+        return _localization_selection_score(
+            industrial_fit=industrial_fit,
+            dataset_profile=dataset_profile,
+            upstream_project=upstream_project,
+        )
 
+    return _balanced_selection_score(
+        candidate=candidate,
+        runtime_score=runtime_score,
+        memory_score=memory_score,
+        runtime_hint=runtime_hint,
+        memory_hint=memory_hint,
+        has_checkpoint=has_checkpoint,
+        upstream_project=upstream_project,
+        industrial_fit=industrial_fit,
+        dataset_profile=dataset_profile,
+    )
+
+
+def _selection_score_inputs(
+    candidate: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    profile = candidate.get("deployment_profile", {})
+    if not isinstance(profile, Mapping):
+        profile = {}
+    industrial_fit = profile.get("industrial_fit", {})
+    if not isinstance(industrial_fit, Mapping):
+        industrial_fit = {}
+    return profile, industrial_fit
+
+
+def _latency_selection_score(
+    *,
+    runtime_score: Mapping[str, int],
+    memory_score: Mapping[str, int],
+    runtime_hint: str,
+    memory_hint: str,
+    has_checkpoint: bool,
+    upstream_project: str,
+    industrial_fit: Mapping[str, Any],
+    dataset_profile: Mapping[str, Any],
+) -> int:
+    score = runtime_score.get(runtime_hint, 0) + memory_score.get(memory_hint, 0)
+    if not has_checkpoint:
+        score += 12
+    if bool(industrial_fit.get("reference_inspection")):
+        score += 10
+    if bool(industrial_fit.get("pixel_localization")) and bool(
+        dataset_profile.get("pixel_metrics_available")
+    ):
+        score += 4
+    if upstream_project == "native":
+        score += 4
+    return int(score)
+
+
+def _localization_selection_score(
+    *,
+    industrial_fit: Mapping[str, Any],
+    dataset_profile: Mapping[str, Any],
+    upstream_project: str,
+) -> int:
+    score = 0
+    if bool(dataset_profile.get("pixel_metrics_available")):
+        score += 25 if bool(industrial_fit.get("pixel_localization")) else 0
+    if bool(industrial_fit.get("reference_inspection")):
+        score += 10
+    if upstream_project == "native":
+        score += 3
+    return int(score)
+
+
+def _balanced_selection_score(
+    *,
+    candidate: Mapping[str, Any],
+    runtime_score: Mapping[str, int],
+    memory_score: Mapping[str, int],
+    runtime_hint: str,
+    memory_hint: str,
+    has_checkpoint: bool,
+    upstream_project: str,
+    industrial_fit: Mapping[str, Any],
+    dataset_profile: Mapping[str, Any],
+) -> int:
     score = 0
     if bool(dataset_profile.get("pixel_metrics_available")) and bool(
         industrial_fit.get("pixel_localization")
@@ -969,23 +1036,15 @@ def _build_dataset_recommendations(
         if candidate is None:
             continue
 
-        profile = candidate.get("deployment_profile", {})
-        if not isinstance(profile, Mapping):
-            profile = {}
-        upstream_project = str(profile.get("upstream_project", "native"))
-        rejection_reasons: list[str] = []
-        if upstream_key == "native-only" and upstream_project != "native":
-            rejection_reasons.append("upstream_disallowed:native-only")
-
-        for extra in candidate.get("missing_extras", []):
-            rejection_reasons.append(f"missing_extra:{extra}")
-
+        rejection_reasons = _recommendation_rejection_reasons(
+            candidate,
+            upstream_key=upstream_key,
+        )
         if rejection_reasons:
-            merged_reasons = list(candidate.get("reasons", []))
-            for reason in rejection_reasons:
-                if reason not in merged_reasons:
-                    merged_reasons.append(reason)
-            candidate["reasons"] = merged_reasons
+            candidate["reasons"] = _merge_recommendation_reasons(
+                candidate.get("reasons", []),
+                rejection_reasons,
+            )
             rejected.append(candidate)
             continue
 
@@ -1005,12 +1064,7 @@ def _build_dataset_recommendations(
     recommendations = candidates[:topk_value]
 
     upstream_counts = {"native": 0, "anomalib": 0, "patchcore_inspection": 0}
-    for candidate in [*recommendations, *rejected]:
-        profile = candidate.get("deployment_profile", {})
-        if not isinstance(profile, Mapping):
-            continue
-        upstream_project = str(profile.get("upstream_project", "native"))
-        upstream_counts[upstream_project] = upstream_counts.get(upstream_project, 0) + 1
+    _count_recommendation_upstreams(upstream_counts, [*recommendations, *rejected])
 
     return {
         "selection_context": {
@@ -1032,6 +1086,46 @@ def _build_dataset_recommendations(
             objective=objective_key,
         ),
     }
+
+
+def _recommendation_rejection_reasons(
+    candidate: Mapping[str, Any],
+    *,
+    upstream_key: str,
+) -> list[str]:
+    profile = candidate.get("deployment_profile", {})
+    if not isinstance(profile, Mapping):
+        profile = {}
+    upstream_project = str(profile.get("upstream_project", "native"))
+    rejection_reasons: list[str] = []
+    if upstream_key == "native-only" and upstream_project != "native":
+        rejection_reasons.append("upstream_disallowed:native-only")
+    for extra in candidate.get("missing_extras", []):
+        rejection_reasons.append(f"missing_extra:{extra}")
+    return rejection_reasons
+
+
+def _merge_recommendation_reasons(
+    existing: Any,
+    new_reasons: Sequence[str],
+) -> list[str]:
+    merged = [str(item) for item in existing if str(item)]
+    for reason in new_reasons:
+        if reason not in merged:
+            merged.append(reason)
+    return merged
+
+
+def _count_recommendation_upstreams(
+    upstream_counts: dict[str, int],
+    candidates: Sequence[Mapping[str, Any]],
+) -> None:
+    for candidate in candidates:
+        profile = candidate.get("deployment_profile", {})
+        if not isinstance(profile, Mapping):
+            continue
+        upstream_project = str(profile.get("upstream_project", "native"))
+        upstream_counts[upstream_project] = upstream_counts.get(upstream_project, 0) + 1
 
 
 def _build_dataset_target_payload(
@@ -1228,33 +1322,19 @@ def collect_doctor_payload(
         payload["accelerators"] = build_accelerator_checks()
 
     if run_dir is not None:
-        readiness = _build_run_readiness(
-            run_dir=str(run_dir),
-            check_bundle_hashes=bool(check_bundle_hashes),
+        payload["readiness"] = _doctor_readiness_payload(
+            _build_run_readiness(
+                run_dir=str(run_dir),
+                check_bundle_hashes=bool(check_bundle_hashes),
+            )
         )
-        external_checkpoint_audit = readiness.get("external_checkpoint_audit")
-        if isinstance(external_checkpoint_audit, Mapping):
-            readiness["external_artifact_audit"] = {
-                "provider": "patchcore_inspection_saved_model",
-                "artifact_kind": "saved_model_directory",
-                "model": external_checkpoint_audit.get("model"),
-                "audit": dict(external_checkpoint_audit),
-            }
-        payload["readiness"] = readiness
     if deploy_bundle is not None:
-        readiness = _build_bundle_readiness(
-            bundle_dir=str(deploy_bundle),
-            check_bundle_hashes=bool(check_bundle_hashes),
+        payload["readiness"] = _doctor_readiness_payload(
+            _build_bundle_readiness(
+                bundle_dir=str(deploy_bundle),
+                check_bundle_hashes=bool(check_bundle_hashes),
+            )
         )
-        external_checkpoint_audit = readiness.get("external_checkpoint_audit")
-        if isinstance(external_checkpoint_audit, Mapping):
-            readiness["external_artifact_audit"] = {
-                "provider": "patchcore_inspection_saved_model",
-                "artifact_kind": "saved_model_directory",
-                "model": external_checkpoint_audit.get("model"),
-                "audit": dict(external_checkpoint_audit),
-            }
-        payload["readiness"] = readiness
     if dataset_target is not None:
         payload.update(
             _build_dataset_target_payload(
@@ -1272,6 +1352,19 @@ def collect_doctor_payload(
         )
 
     return payload
+
+
+def _doctor_readiness_payload(readiness: Mapping[str, Any]) -> dict[str, Any]:
+    readiness_payload = dict(readiness)
+    external_checkpoint_audit = readiness_payload.get("external_checkpoint_audit")
+    if isinstance(external_checkpoint_audit, Mapping):
+        readiness_payload["external_artifact_audit"] = {
+            "provider": "patchcore_inspection_saved_model",
+            "artifact_kind": "saved_model_directory",
+            "model": external_checkpoint_audit.get("model"),
+            "audit": dict(external_checkpoint_audit),
+        }
+    return readiness_payload
 
 
 __all__ = [
