@@ -225,6 +225,81 @@ def _build_exported_file_digests(
     return digests
 
 
+def _required_publication_export_keys(written: Mapping[str, str]) -> list[str]:
+    keys = [str(key) for key in written if str(key) != "leaderboard_metadata_json"]
+    return keys
+
+
+def _benchmark_publication_provenance(
+    benchmark_config: Mapping[str, Any] | None,
+    missing_required: list[str],
+) -> tuple[str | None, str | None, Mapping[str, Any] | None, bool]:
+    benchmark_source = None
+    benchmark_sha256 = None
+    benchmark_trust_summary = None
+    if not isinstance(benchmark_config, Mapping):
+        _append_missing_required(missing_required, "benchmark_config")
+        return None, None, None, False
+
+    benchmark_source = _nonempty_str(benchmark_config.get("source"))
+    benchmark_sha256 = _nonempty_str(benchmark_config.get("sha256"))
+    if benchmark_source is None:
+        _append_missing_required(missing_required, "benchmark_config.source")
+    if benchmark_sha256 is None:
+        _append_missing_required(missing_required, "benchmark_config.sha256")
+    raw_trust_summary = benchmark_config.get("trust_summary")
+    if isinstance(raw_trust_summary, Mapping):
+        benchmark_trust_summary = raw_trust_summary
+    has_official_benchmark_config = bool(benchmark_config.get("official"))
+    return (
+        benchmark_source,
+        benchmark_sha256,
+        benchmark_trust_summary,
+        has_official_benchmark_config,
+    )
+
+
+def _mapping_has_required_keys(
+    value: Mapping[str, Any] | None,
+    *,
+    required_keys: Sequence[str],
+    prefix: str,
+    missing_required: list[str],
+) -> bool:
+    if not isinstance(value, Mapping):
+        for key in required_keys:
+            _append_missing_required(missing_required, f"{prefix}.{key}")
+        return False
+
+    ok = True
+    for key in required_keys:
+        if _nonempty_str(value.get(key)) is None:
+            _append_missing_required(missing_required, f"{prefix}.{key}")
+            ok = False
+    return ok
+
+
+def _has_exported_file_digests(
+    exported_file_digests: Mapping[str, Any] | None,
+    *,
+    required_keys: Sequence[str],
+    missing_required: list[str],
+) -> bool:
+    if not required_keys:
+        return False
+    if not isinstance(exported_file_digests, Mapping):
+        for key in required_keys:
+            _append_missing_required(missing_required, f"exported_file_digests.{key}")
+        return False
+
+    ok = True
+    for key in required_keys:
+        if _nonempty_str(exported_file_digests.get(key)) is None:
+            _append_missing_required(missing_required, f"exported_file_digests.{key}")
+            ok = False
+    return ok
+
+
 def _build_publication_artifact_quality(
     *,
     written: Mapping[str, str],
@@ -244,25 +319,14 @@ def _build_publication_artifact_quality(
         key.startswith("leaderboard_") and key != "leaderboard_metadata_json" for key in written
     ):
         _append_missing_required(missing_required, "leaderboard_table")
-    required_exported_digest_keys = [
-        str(key) for key in written if str(key) != "leaderboard_metadata_json"
-    ]
+    required_exported_digest_keys = _required_publication_export_keys(written)
 
-    benchmark_source = None
-    benchmark_sha256 = None
-    benchmark_trust_summary = None
-    if not isinstance(benchmark_config, Mapping):
-        _append_missing_required(missing_required, "benchmark_config")
-    else:
-        benchmark_source = _nonempty_str(benchmark_config.get("source"))
-        benchmark_sha256 = _nonempty_str(benchmark_config.get("sha256"))
-        if benchmark_source is None:
-            _append_missing_required(missing_required, "benchmark_config.source")
-        if benchmark_sha256 is None:
-            _append_missing_required(missing_required, "benchmark_config.sha256")
-        raw_trust_summary = benchmark_config.get("trust_summary")
-        if isinstance(raw_trust_summary, Mapping):
-            benchmark_trust_summary = raw_trust_summary
+    (
+        benchmark_source,
+        benchmark_sha256,
+        benchmark_trust_summary,
+        has_official_benchmark_config,
+    ) = _benchmark_publication_provenance(benchmark_config, missing_required)
 
     environment_sha256 = _nonempty_str(environment_fingerprint_sha256)
     if environment_sha256 is None:
@@ -280,37 +344,23 @@ def _build_publication_artifact_quality(
     if not has_benchmark_citation:
         _append_missing_required(missing_required, "citation")
 
-    has_run_artifact_refs = True
-    if not isinstance(audit_refs, Mapping):
-        has_run_artifact_refs = False
-    else:
-        for key in ("report_json", "config_json", "environment_json"):
-            if _nonempty_str(audit_refs.get(key)) is None:
-                _append_missing_required(missing_required, f"audit_refs.{key}")
-                has_run_artifact_refs = False
-
-    has_run_artifact_digests = True
-    if not isinstance(audit_digests, Mapping):
-        has_run_artifact_digests = False
-    else:
-        for key in ("report_json", "config_json", "environment_json"):
-            if _nonempty_str(audit_digests.get(key)) is None:
-                _append_missing_required(missing_required, f"audit_digests.{key}")
-                has_run_artifact_digests = False
-
-    has_exported_file_digests = bool(required_exported_digest_keys)
-    if not isinstance(exported_file_digests, Mapping):
-        has_exported_file_digests = False
-        for key in required_exported_digest_keys:
-            _append_missing_required(missing_required, f"exported_file_digests.{key}")
-    else:
-        for key in required_exported_digest_keys:
-            if _nonempty_str(exported_file_digests.get(key)) is None:
-                _append_missing_required(missing_required, f"exported_file_digests.{key}")
-                has_exported_file_digests = False
-
-    has_official_benchmark_config = bool(
-        isinstance(benchmark_config, Mapping) and benchmark_config.get("official")
+    required_audit_keys = ("report_json", "config_json", "environment_json")
+    has_run_artifact_refs = _mapping_has_required_keys(
+        audit_refs,
+        required_keys=required_audit_keys,
+        prefix="audit_refs",
+        missing_required=missing_required,
+    )
+    has_run_artifact_digests = _mapping_has_required_keys(
+        audit_digests,
+        required_keys=required_audit_keys,
+        prefix="audit_digests",
+        missing_required=missing_required,
+    )
+    has_exported_file_digests = _has_exported_file_digests(
+        exported_file_digests,
+        required_keys=required_exported_digest_keys,
+        missing_required=missing_required,
     )
     has_benchmark_provenance = bool(
         has_official_benchmark_config and benchmark_source and benchmark_sha256
@@ -349,6 +399,66 @@ def _publication_ready(artifact_quality: Mapping[str, Any]) -> bool:
     )
 
 
+def _skipped_rows(skipped_payload: Any) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if not isinstance(skipped_payload, Mapping):
+        return rows
+    for name, item in skipped_payload.items():
+        if not isinstance(item, Mapping):
+            continue
+        rows.append(
+            {
+                "name": str(name),
+                "status": str(item.get("status", "")),
+                "reason": str(item.get("reason", "")),
+            }
+        )
+    return rows
+
+
+def _write_primary_suite_tables(
+    written: dict[str, str],
+    *,
+    out_dir: Path,
+    rows: Sequence[Mapping[str, Any]],
+    best_by_baseline: Sequence[Mapping[str, Any]],
+    skipped_rows: Sequence[Mapping[str, Any]],
+    fmts: set[str],
+) -> None:
+    if "csv" in fmts:
+        leaderboard_csv = out_dir / "leaderboard.csv"
+        skipped_csv = out_dir / "skipped.csv"
+        best_csv = out_dir / "best_by_baseline.csv"
+        _write_csv(leaderboard_csv, rows=rows, columns=_LEADERBOARD_COLUMNS)
+        _write_csv(best_csv, rows=best_by_baseline, columns=_LEADERBOARD_COLUMNS)
+        _write_csv(skipped_csv, rows=skipped_rows, columns=["name", "status", "reason"])
+        written["leaderboard_csv"] = leaderboard_csv.relative_to(out_dir).as_posix()
+        written["best_by_baseline_csv"] = best_csv.relative_to(out_dir).as_posix()
+        written["skipped_csv"] = skipped_csv.relative_to(out_dir).as_posix()
+
+    if "md" in fmts or "markdown" in fmts:
+        leaderboard_md = out_dir / "leaderboard.md"
+        skipped_md = out_dir / "skipped.md"
+        best_md = out_dir / "best_by_baseline.md"
+        _write_markdown_table(leaderboard_md, rows=rows, columns=_LEADERBOARD_COLUMNS)
+        _write_markdown_table(best_md, rows=best_by_baseline, columns=_LEADERBOARD_COLUMNS)
+        _write_markdown_table(skipped_md, rows=skipped_rows, columns=["name", "status", "reason"])
+        written["leaderboard_md"] = leaderboard_md.relative_to(out_dir).as_posix()
+        written["best_by_baseline_md"] = best_md.relative_to(out_dir).as_posix()
+        written["skipped_md"] = skipped_md.relative_to(out_dir).as_posix()
+
+
+def _suite_citation(benchmark_config: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(benchmark_config, Mapping) or not bool(benchmark_config.get("official")):
+        return None
+    return {
+        "project": "pyimgano",
+        "benchmark_config_source": benchmark_config.get("source"),
+        "benchmark_config_sha256": benchmark_config.get("sha256"),
+        "publication_guide": "docs/BENCHMARK_PUBLICATION.md",
+    }
+
+
 def _write_csv(path: Path, *, rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
@@ -381,6 +491,62 @@ def _sanitize_export_component(text: Any) -> str:
     return safe or "metric"
 
 
+def _category_matrix_categories(matrix: Mapping[str, Any]) -> list[str]:
+    raw_categories = matrix.get("categories", [])
+    if not isinstance(raw_categories, list):
+        return []
+    return [str(category) for category in raw_categories if str(category).strip()]
+
+
+def _category_metric_rows(
+    raw_rows: Any,
+    *,
+    categories: Sequence[str],
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_rows, list):
+        return []
+    metric_rows: list[dict[str, Any]] = []
+    for item in raw_rows:
+        if not isinstance(item, Mapping):
+            continue
+        values = item.get("values", {})
+        value_map = values if isinstance(values, Mapping) else {}
+        row: dict[str, Any] = {
+            "name": item.get("name"),
+            "base_name": item.get("base_name"),
+            "variant": item.get("variant"),
+            "mean": item.get("mean"),
+            "std": item.get("std"),
+        }
+        for category_name in categories:
+            row[category_name] = value_map.get(category_name)
+        metric_rows.append(row)
+    return metric_rows
+
+
+def _write_category_matrix_metric(
+    written: dict[str, str],
+    *,
+    out_dir: Path,
+    metric_name: str,
+    metric_rows: Sequence[Mapping[str, Any]],
+    categories: Sequence[str],
+    fmts: set[str],
+) -> None:
+    metric_slug = _sanitize_export_component(metric_name)
+    columns = ["name", "base_name", "variant", "mean", "std", *categories]
+
+    if "csv" in fmts:
+        csv_path = out_dir / f"category_matrix_{metric_slug}.csv"
+        _write_csv(csv_path, rows=metric_rows, columns=columns)
+        written[f"category_matrix_{metric_slug}_csv"] = csv_path.relative_to(out_dir).as_posix()
+
+    if "md" in fmts or "markdown" in fmts:
+        md_path = out_dir / f"category_matrix_{metric_slug}.md"
+        _write_markdown_table(md_path, rows=metric_rows, columns=columns)
+        written[f"category_matrix_{metric_slug}_md"] = md_path.relative_to(out_dir).as_posix()
+
+
 def _export_category_matrix_tables(
     payload: Mapping[str, Any],
     out_dir: Path,
@@ -393,10 +559,7 @@ def _export_category_matrix_tables(
     if str(matrix.get("scope", "")).strip().lower() != "per_category":
         return {}
 
-    raw_categories = matrix.get("categories", [])
-    if not isinstance(raw_categories, list):
-        return {}
-    categories = [str(category) for category in raw_categories if str(category).strip()]
+    categories = _category_matrix_categories(matrix)
     if not categories:
         return {}
 
@@ -408,42 +571,17 @@ def _export_category_matrix_tables(
     fmts = {str(f).strip().lower() for f in formats if str(f).strip()}
 
     for metric_name, raw_rows in by_metric.items():
-        if not isinstance(raw_rows, list):
-            continue
-
-        metric_rows: list[dict[str, Any]] = []
-        for item in raw_rows:
-            if not isinstance(item, Mapping):
-                continue
-
-            values = item.get("values", {})
-            value_map = values if isinstance(values, Mapping) else {}
-            row: dict[str, Any] = {
-                "name": item.get("name"),
-                "base_name": item.get("base_name"),
-                "variant": item.get("variant"),
-                "mean": item.get("mean"),
-                "std": item.get("std"),
-            }
-            for category_name in categories:
-                row[category_name] = value_map.get(category_name)
-            metric_rows.append(row)
-
+        metric_rows = _category_metric_rows(raw_rows, categories=categories)
         if not metric_rows:
             continue
-
-        metric_slug = _sanitize_export_component(metric_name)
-        columns = ["name", "base_name", "variant", "mean", "std", *categories]
-
-        if "csv" in fmts:
-            csv_path = out_dir / f"category_matrix_{metric_slug}.csv"
-            _write_csv(csv_path, rows=metric_rows, columns=columns)
-            written[f"category_matrix_{metric_slug}_csv"] = csv_path.relative_to(out_dir).as_posix()
-
-        if "md" in fmts or "markdown" in fmts:
-            md_path = out_dir / f"category_matrix_{metric_slug}.md"
-            _write_markdown_table(md_path, rows=metric_rows, columns=columns)
-            written[f"category_matrix_{metric_slug}_md"] = md_path.relative_to(out_dir).as_posix()
+        _write_category_matrix_metric(
+            written,
+            out_dir=out_dir,
+            metric_name=str(metric_name),
+            metric_rows=metric_rows,
+            categories=categories,
+            fmts=fmts,
+        )
 
     return written
 
@@ -579,57 +717,24 @@ def export_suite_tables(
         rows = []
     rows_norm: list[Mapping[str, Any]] = [r for r in rows if isinstance(r, Mapping)]
     best_by_baseline = _best_by_baseline(rows_norm, key=str(best_metric))
-
-    skipped_payload = payload.get("skipped", {})
-    skipped_rows: list[dict[str, Any]] = []
-    if isinstance(skipped_payload, Mapping):
-        for name, item in skipped_payload.items():
-            if isinstance(item, Mapping):
-                skipped_rows.append(
-                    {
-                        "name": str(name),
-                        "status": str(item.get("status", "")),
-                        "reason": str(item.get("reason", "")),
-                    }
-                )
+    skipped_rows = _skipped_rows(payload.get("skipped", {}))
 
     written: dict[str, str] = {}
     fmts = {str(f).strip().lower() for f in formats if str(f).strip()}
-
-    if "csv" in fmts:
-        leaderboard_csv = out_dir / "leaderboard.csv"
-        skipped_csv = out_dir / "skipped.csv"
-        best_csv = out_dir / "best_by_baseline.csv"
-        _write_csv(leaderboard_csv, rows=rows_norm, columns=_LEADERBOARD_COLUMNS)
-        _write_csv(best_csv, rows=best_by_baseline, columns=_LEADERBOARD_COLUMNS)
-        _write_csv(skipped_csv, rows=skipped_rows, columns=["name", "status", "reason"])
-        written["leaderboard_csv"] = leaderboard_csv.relative_to(out_dir).as_posix()
-        written["best_by_baseline_csv"] = best_csv.relative_to(out_dir).as_posix()
-        written["skipped_csv"] = skipped_csv.relative_to(out_dir).as_posix()
-
-    if "md" in fmts or "markdown" in fmts:
-        leaderboard_md = out_dir / "leaderboard.md"
-        skipped_md = out_dir / "skipped.md"
-        best_md = out_dir / "best_by_baseline.md"
-        _write_markdown_table(leaderboard_md, rows=rows_norm, columns=_LEADERBOARD_COLUMNS)
-        _write_markdown_table(best_md, rows=best_by_baseline, columns=_LEADERBOARD_COLUMNS)
-        _write_markdown_table(skipped_md, rows=skipped_rows, columns=["name", "status", "reason"])
-        written["leaderboard_md"] = leaderboard_md.relative_to(out_dir).as_posix()
-        written["best_by_baseline_md"] = best_md.relative_to(out_dir).as_posix()
-        written["skipped_md"] = skipped_md.relative_to(out_dir).as_posix()
+    _write_primary_suite_tables(
+        written,
+        out_dir=out_dir,
+        rows=rows_norm,
+        best_by_baseline=best_by_baseline,
+        skipped_rows=skipped_rows,
+        fmts=fmts,
+    )
 
     written.update(_export_category_matrix_tables(payload, out_dir, formats=formats))
 
     benchmark_config = payload.get("benchmark_config")
     split_fingerprint = _resolve_split_fingerprint(payload=payload, rows=rows_norm)
-    citation = None
-    if isinstance(benchmark_config, Mapping) and bool(benchmark_config.get("official")):
-        citation = {
-            "project": "pyimgano",
-            "benchmark_config_source": benchmark_config.get("source"),
-            "benchmark_config_sha256": benchmark_config.get("sha256"),
-            "publication_guide": "docs/BENCHMARK_PUBLICATION.md",
-        }
+    citation = _suite_citation(benchmark_config)
     audit_refs = _build_publication_audit_refs(
         out_dir=out_dir,
         benchmark_config=(benchmark_config if isinstance(benchmark_config, Mapping) else None),
