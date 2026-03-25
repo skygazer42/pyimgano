@@ -3,10 +3,14 @@ import inspect
 import numpy as np
 import pytest
 
-# These tests are only meaningful (and importable) when torch is installed.
+# These tests are only meaningful when the full torch vision stack is available.
+# Some local environments expose a namespace-only `torch` without `torch.nn` or
+# `torchvision`, which is not sufficient for importing the tested model modules.
 # The SonarCloud workflow installs `pyimgano[torch]` to cover new-code guards
 # added in torch-based detectors without forcing torch on all CI workflows.
 pytest.importorskip("torch")
+pytest.importorskip("torch.nn")
+pytest.importorskip("torchvision")
 
 
 def _make_instance_without_init(cls):

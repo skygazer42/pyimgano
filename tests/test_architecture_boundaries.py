@@ -1023,6 +1023,11 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
         "doctor_service.py": {
             "pyimgano.services.discovery_service",
         },
+        "evaluation_harness_service.py": {
+            "pyimgano.services.benchmark_service",
+            "pyimgano.services.discovery_service",
+            "pyimgano.services.train_service",
+        },
         "infer_artifact_service.py": set(),
         "infer_context_service.py": {
             "pyimgano.services.workbench_run_service",

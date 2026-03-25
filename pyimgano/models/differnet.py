@@ -494,8 +494,15 @@ class DifferNetDetector(BaseVisionDeepDetector):
         """Alias for scoring (BaseDetector semantics: higher => more anomalous)."""
         # DiffNet scores each input independently. Keep `batch_size` for
         # interface compatibility with BaseDeepLearningDetector.
+        resolved_x = resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        if isinstance(resolved_x, (list, tuple)) and len(resolved_x) == 0:
+            if batch_size is not None:
+                batch_size_int = int(batch_size)
+                if batch_size_int <= 0:
+                    raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+            return np.asarray([], dtype=np.float64)
         x_array = coerce_rgb_image_batch(
-            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+            resolved_x
         )
         if batch_size is not None:
             batch_size_int = int(batch_size)

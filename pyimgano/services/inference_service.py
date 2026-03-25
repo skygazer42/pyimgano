@@ -262,7 +262,7 @@ def iter_inference_records(
 
             labels: Optional[np.ndarray]
             if threshold is not None:
-                labels = (scores >= float(threshold)).astype(int)
+                labels = (scores > float(threshold)).astype(int)
             else:
                 labels = None
 

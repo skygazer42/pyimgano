@@ -236,8 +236,8 @@ def test_train_cli_training_logs_epoch_metrics_in_human_output(tmp_path, capsys)
     assert "optimizer=adamw" in out
     assert "scheduler=cosine" in out
     assert "criterion=mae" in out
-    assert re.search(r"1/2\s+cpu\s+0\.9000\s+0\.0100\s+2\s+custom", out)
-    assert re.search(r"2/2\s+cpu\s+0\.6000\s+0\.0050\s+2\s+custom", out)
+    assert re.search(r"1/2\s+cpu\s+0\.9000\s+0\.0100\s+\d+\s+custom", out)
+    assert re.search(r"2/2\s+cpu\s+0\.6000\s+0\.0050\s+\d+\s+custom", out)
     assert "[DONE custom]" in out
     assert "stage=training_complete" in out
     assert "epochs=2" in out

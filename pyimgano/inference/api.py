@@ -493,7 +493,7 @@ def infer_iter(
 
             labels: Optional[np.ndarray]
             if threshold is not None:
-                labels = (scores >= float(threshold)).astype(int)
+                labels = (scores > float(threshold)).astype(int)
             else:
                 labels = None
 
