@@ -449,37 +449,19 @@ def _validate_operator_contract_digests(
 
 
 def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> list[str]:
-    errors: list[str] = []
-
     manifest_path = bundle_root / _WEIGHTS_MANIFEST_JSON
-    manifest_ok = False
-    if manifest_path.is_file():
-        try:
-            report = validate_weights_manifest_file(
-                manifest_path=manifest_path,
-                check_files=True,
-                check_hashes=bool(check_hashes),
-            )
-        except Exception as exc:  # noqa: BLE001 - validation boundary
-            errors.append(f"{_WEIGHTS_MANIFEST_JSON}: {exc}")
-        else:
-            errors.extend(f"{_WEIGHTS_MANIFEST_JSON}: {item}" for item in report.errors)
-            manifest_ok = bool(report.ok)
-
     model_card_path = bundle_root / _MODEL_CARD_JSON
-    if model_card_path.is_file():
-        try:
-            report = validate_model_card_file(
-                model_card_path,
-                manifest_path=(manifest_path if manifest_ok else None),
-                check_files=True,
-                check_hashes=bool(check_hashes),
-            )
-        except Exception as exc:  # noqa: BLE001 - validation boundary
-            errors.append(f"{_MODEL_CARD_JSON}: {exc}")
-        else:
-            errors.extend(f"{_MODEL_CARD_JSON}: {item}" for item in report.errors)
-
+    errors, manifest_ok = _weight_manifest_validation_errors(
+        manifest_path=manifest_path,
+        check_hashes=bool(check_hashes),
+    )
+    errors.extend(
+        _model_card_validation_errors(
+            model_card_path=model_card_path,
+            manifest_path=(manifest_path if manifest_ok else None),
+            check_hashes=bool(check_hashes),
+        )
+    )
     return errors
 
 
@@ -490,33 +472,129 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
     if not infer_config_path.is_file():
         return errors
 
-    try:
-        infer_payload = _load_json_dict(infer_config_path)
-    except Exception as exc:  # noqa: BLE001 - validation boundary
-        errors.append(f"{_INFER_CONFIG_JSON}: {exc}")
+    infer_payload = _load_optional_json_with_errors(
+        infer_config_path,
+        label=_INFER_CONFIG_JSON,
+        errors=errors,
+    )
+    if infer_payload is None:
         return errors
 
     operator_contract_path = bundle_root / _OPERATOR_CONTRACT_JSON
-    operator_contract_payload: dict[str, Any] | None = None
+    operator_contract_payload = _load_optional_json_with_errors(
+        operator_contract_path,
+        label=_OPERATOR_CONTRACT_JSON,
+        errors=errors,
+    )
+
     has_operator_contract_file = operator_contract_path.is_file()
-    if has_operator_contract_file:
-        try:
-            operator_contract_payload = _load_json_dict(operator_contract_path)
-        except Exception as exc:  # noqa: BLE001 - validation boundary
-            errors.append(f"{_OPERATOR_CONTRACT_JSON}: {exc}")
-
-    artifact_quality = infer_payload.get("artifact_quality", None)
-    has_operator_contract_flag = False
-    audit_refs: dict[str, Any] = {}
-    if isinstance(artifact_quality, Mapping):
-        has_operator_contract_flag = bool(artifact_quality.get("has_operator_contract", False))
-        audit_refs_raw = artifact_quality.get("audit_refs", None)
-        if isinstance(audit_refs_raw, Mapping):
-            audit_refs = dict(audit_refs_raw)
-
+    has_operator_contract_flag, audit_refs = _operator_contract_audit_state(infer_payload)
     infer_operator_contract = infer_payload.get("operator_contract", None)
     has_infer_operator_contract = isinstance(infer_operator_contract, Mapping)
 
+    _append_operator_contract_presence_errors(
+        errors,
+        audit_refs=audit_refs,
+        has_operator_contract_flag=has_operator_contract_flag,
+        has_operator_contract_file=has_operator_contract_file,
+        has_infer_operator_contract=has_infer_operator_contract,
+    )
+
+    if (
+        has_operator_contract_file
+        and has_infer_operator_contract
+        and isinstance(operator_contract_payload, Mapping)
+        and dict(infer_operator_contract) != dict(operator_contract_payload)
+    ):
+        errors.append(
+            f"operator_contract mismatch between {_INFER_CONFIG_JSON} and {_OPERATOR_CONTRACT_JSON}."
+        )
+
+    return errors
+
+
+def _weight_manifest_validation_errors(
+    *,
+    manifest_path: Path,
+    check_hashes: bool,
+) -> tuple[list[str], bool]:
+    errors: list[str] = []
+    if not manifest_path.is_file():
+        return errors, False
+
+    try:
+        report = validate_weights_manifest_file(
+            manifest_path=manifest_path,
+            check_files=True,
+            check_hashes=bool(check_hashes),
+        )
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        errors.append(f"{_WEIGHTS_MANIFEST_JSON}: {exc}")
+        return errors, False
+
+    errors.extend(f"{_WEIGHTS_MANIFEST_JSON}: {item}" for item in report.errors)
+    return errors, bool(report.ok)
+
+
+def _model_card_validation_errors(
+    *,
+    model_card_path: Path,
+    manifest_path: Path | None,
+    check_hashes: bool,
+) -> list[str]:
+    errors: list[str] = []
+    if not model_card_path.is_file():
+        return errors
+
+    try:
+        report = validate_model_card_file(
+            model_card_path,
+            manifest_path=manifest_path,
+            check_files=True,
+            check_hashes=bool(check_hashes),
+        )
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        errors.append(f"{_MODEL_CARD_JSON}: {exc}")
+        return errors
+
+    errors.extend(f"{_MODEL_CARD_JSON}: {item}" for item in report.errors)
+    return errors
+
+
+def _load_optional_json_with_errors(
+    path: Path,
+    *,
+    label: str,
+    errors: list[str],
+) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        return _load_json_dict(path)
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        errors.append(f"{label}: {exc}")
+        return None
+
+
+def _operator_contract_audit_state(
+    infer_payload: Mapping[str, Any],
+) -> tuple[bool, dict[str, Any]]:
+    artifact_quality = infer_payload.get("artifact_quality", None)
+    if not isinstance(artifact_quality, Mapping):
+        return False, {}
+    audit_refs_raw = artifact_quality.get("audit_refs", None)
+    audit_refs = dict(audit_refs_raw) if isinstance(audit_refs_raw, Mapping) else {}
+    return bool(artifact_quality.get("has_operator_contract", False)), audit_refs
+
+
+def _append_operator_contract_presence_errors(
+    errors: list[str],
+    *,
+    audit_refs: Mapping[str, Any],
+    has_operator_contract_flag: bool,
+    has_operator_contract_file: bool,
+    has_infer_operator_contract: bool,
+) -> None:
     if has_operator_contract_flag:
         ref = audit_refs.get("operator_contract", None)
         if not isinstance(ref, str) or not str(ref).strip():
@@ -548,18 +626,6 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
         errors.append(
             f"{_OPERATOR_CONTRACT_JSON} exists but {_INFER_CONFIG_JSON} is missing operator_contract payload."
         )
-
-    if (
-        has_operator_contract_file
-        and has_infer_operator_contract
-        and isinstance(operator_contract_payload, Mapping)
-    ):
-        if dict(infer_operator_contract) != dict(operator_contract_payload):
-            errors.append(
-                f"operator_contract mismatch between {_INFER_CONFIG_JSON} and {_OPERATOR_CONTRACT_JSON}."
-            )
-
-    return errors
 
 
 def build_deploy_bundle_manifest(
