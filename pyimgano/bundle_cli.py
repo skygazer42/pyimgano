@@ -461,60 +461,72 @@ def _resolve_manifest_image_path(image_path: str, *, manifest_path: Path) -> str
     )
 
 
+def _records_from_paths(
+    paths: Sequence[str | Path],
+    *,
+    source_root: Path | None,
+    kind: str,
+    empty_message: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if not paths:
+        raise ValueError(empty_message)
+    records = [
+        _default_input_record(
+            resolved_path=str(path),
+            image_path=str(path),
+            source_root=source_root,
+        )
+        for path in paths
+    ]
+    return records, {"kind": kind, "count": len(records)}
+
+
+def _manifest_row_to_input_record(row: Mapping[str, Any], *, manifest_path: Path) -> dict[str, Any]:
+    meta = row.get("meta")
+    if meta is not None and not isinstance(meta, Mapping):
+        raise ValueError("input_manifest.jsonl field 'meta' must be an object/dict.")
+    raw_id = row.get("id")
+    record_id = None
+    if raw_id is not None and str(raw_id).strip():
+        record_id = str(raw_id).strip()
+    return _default_input_record(
+        resolved_path=_resolve_manifest_image_path(
+            str(row["image_path"]),
+            manifest_path=manifest_path,
+        ),
+        image_path=str(row["image_path"]),
+        source_root=None,
+        category=(str(row["category"]) if row.get("category") is not None else None),
+        meta=(dict(meta) if isinstance(meta, Mapping) else None),
+        record_id=record_id,
+    )
+
+
 def _resolve_input_records(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if getattr(args, "image_dir", None) is not None:
         source_root = Path(str(args.image_dir))
-        paths = infer_cli._collect_image_paths(str(source_root))
-        if not paths:
-            raise ValueError("No input images found in --image-dir.")
-        records = [
-            _default_input_record(
-                resolved_path=str(path),
-                image_path=str(path),
-                source_root=source_root,
-            )
-            for path in paths
-        ]
-        return records, {"kind": "image_dir", "count": len(records)}
+        return _records_from_paths(
+            infer_cli._collect_image_paths(str(source_root)),
+            source_root=source_root,
+            kind="image_dir",
+            empty_message="No input images found in --image-dir.",
+        )
 
     if getattr(args, "image", None) is not None:
         path = Path(str(args.image))
-        paths = infer_cli._collect_image_paths(str(path))
-        if not paths:
-            raise ValueError("No input images found in --image.")
-        records = [
-            _default_input_record(
-                resolved_path=str(paths[0]),
-                image_path=str(paths[0]),
-                source_root=None,
-            )
-        ]
+        records, _summary = _records_from_paths(
+            infer_cli._collect_image_paths(str(path))[:1],
+            source_root=None,
+            kind="single_image",
+            empty_message="No input images found in --image.",
+        )
         return records, {"kind": "single_image", "count": 1}
 
     manifest_path = Path(str(args.input_manifest))
-    records: list[dict[str, Any]] = []
-    for row in iter_manifest_rows(manifest_path):
-        meta = row.get("meta")
-        if meta is not None and not isinstance(meta, Mapping):
-            raise ValueError("input_manifest.jsonl field 'meta' must be an object/dict.")
-        raw_id = row.get("id")
-        record_id = None
-        if raw_id is not None and str(raw_id).strip():
-            record_id = str(raw_id).strip()
-        resolved_input_path = _resolve_manifest_image_path(
-            str(row["image_path"]),
-            manifest_path=manifest_path,
-        )
-        records.append(
-            _default_input_record(
-                resolved_path=resolved_input_path,
-                image_path=str(row["image_path"]),
-                source_root=None,
-                category=(str(row["category"]) if row.get("category") is not None else None),
-                meta=(dict(meta) if isinstance(meta, Mapping) else None),
-                record_id=record_id,
-            )
-        )
+    records = [
+        _manifest_row_to_input_record(row, manifest_path=manifest_path)
+        for row in iter_manifest_rows(manifest_path)
+    ]
 
     if not records:
         raise ValueError("No input records found in --input-manifest.")
@@ -625,6 +637,26 @@ def _safe_rate(numerator: int, denominator: int) -> float:
     return float(numerator) / float(denominator)
 
 
+def _append_failed_gate(
+    failed_gates: list[str],
+    reason_codes: list[str],
+    *,
+    gate_name: str,
+) -> None:
+    failed_gates.append(gate_name)
+    reason_codes.append(_RUN_BATCH_GATE_REASON_CODE_MAP[gate_name])
+
+
+def _determine_batch_verdict(*, requested: bool, evaluated: bool, failed_gates: Sequence[str]) -> str:
+    if not requested:
+        return "not_requested"
+    if not evaluated:
+        return "not_evaluated"
+    if failed_gates:
+        return "blocked"
+    return "pass"
+
+
 def _evaluate_batch_gates(
     *,
     args: argparse.Namespace,
@@ -655,32 +687,25 @@ def _evaluate_batch_gates(
     if evaluated and requested:
         min_processed = thresholds.get("min_processed")
         if min_processed is not None and int(processed) < int(min_processed):
-            failed_gates.append("min_processed")
-            reason_codes.append(_RUN_BATCH_GATE_REASON_CODE_MAP["min_processed"])
+            _append_failed_gate(failed_gates, reason_codes, gate_name="min_processed")
 
         max_anomaly_rate = thresholds.get("max_anomaly_rate")
         if max_anomaly_rate is not None and float(rates["anomaly_rate"]) > float(max_anomaly_rate):
-            failed_gates.append("max_anomaly_rate")
-            reason_codes.append(_RUN_BATCH_GATE_REASON_CODE_MAP["max_anomaly_rate"])
+            _append_failed_gate(failed_gates, reason_codes, gate_name="max_anomaly_rate")
 
         max_reject_rate = thresholds.get("max_reject_rate")
         if max_reject_rate is not None and float(rates["reject_rate"]) > float(max_reject_rate):
-            failed_gates.append("max_reject_rate")
-            reason_codes.append(_RUN_BATCH_GATE_REASON_CODE_MAP["max_reject_rate"])
+            _append_failed_gate(failed_gates, reason_codes, gate_name="max_reject_rate")
 
         max_error_rate = thresholds.get("max_error_rate")
         if max_error_rate is not None and float(rates["error_rate"]) > float(max_error_rate):
-            failed_gates.append("max_error_rate")
-            reason_codes.append(_RUN_BATCH_GATE_REASON_CODE_MAP["max_error_rate"])
+            _append_failed_gate(failed_gates, reason_codes, gate_name="max_error_rate")
 
-    if not requested:
-        batch_verdict = "not_requested"
-    elif not evaluated:
-        batch_verdict = "not_evaluated"
-    elif failed_gates:
-        batch_verdict = "blocked"
-    else:
-        batch_verdict = "pass"
+    batch_verdict = _determine_batch_verdict(
+        requested=bool(requested),
+        evaluated=bool(evaluated),
+        failed_gates=failed_gates,
+    )
 
     return (
         {
