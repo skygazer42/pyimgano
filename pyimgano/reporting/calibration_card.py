@@ -158,60 +158,76 @@ def validate_calibration_card_payload(payload: Mapping[str, Any]) -> list[str]:
 
     image_threshold = payload.get("image_threshold", None)
     per_category = payload.get("per_category", None)
+    _validate_threshold_sections(errors, image_threshold=image_threshold, per_category=per_category)
+    _validate_split_fingerprint(errors, payload.get("split_fingerprint", None))
+    _validate_threshold_context(errors, payload.get("threshold_context", None))
+    _validate_prediction_policy(errors, payload.get("prediction_policy", None))
+    return errors
+
+
+def _validate_threshold_sections(
+    errors: list[str],
+    *,
+    image_threshold: Any,
+    per_category: Any,
+) -> None:
     if not isinstance(image_threshold, Mapping) and not isinstance(per_category, Mapping):
         errors.append("Calibration card must provide image_threshold or per_category.")
     elif isinstance(image_threshold, Mapping):
         errors.extend(_validate_threshold_payload(image_threshold, name="image_threshold"))
 
-    if per_category is not None:
-        if not isinstance(per_category, Mapping):
-            errors.append("per_category must be a JSON object/dict.")
-        elif len(per_category) == 0:
-            errors.append("per_category must not be empty.")
-        else:
-            for name, item in per_category.items():
-                errors.extend(
-                    _validate_threshold_payload(item, name=f"per_category[{name!r}]")
-                )
+    if per_category is None:
+        return
+    if not isinstance(per_category, Mapping):
+        errors.append("per_category must be a JSON object/dict.")
+        return
+    if len(per_category) == 0:
+        errors.append("per_category must not be empty.")
+        return
+    for name, item in per_category.items():
+        errors.extend(_validate_threshold_payload(item, name=f"per_category[{name!r}]"))
 
-    split_fingerprint = payload.get("split_fingerprint", None)
-    if split_fingerprint is not None:
-        if not isinstance(split_fingerprint, Mapping):
-            errors.append("split_fingerprint must be a JSON object/dict.")
-        else:
-            sha256 = split_fingerprint.get("sha256", None)
-            if not isinstance(sha256, str) or not sha256.strip():
-                errors.append("split_fingerprint.sha256 must be a non-empty string.")
 
-    threshold_context = payload.get("threshold_context", None)
-    if threshold_context is not None:
-        if not isinstance(threshold_context, Mapping):
-            errors.append("threshold_context must be a JSON object/dict.")
-        else:
-            scope = threshold_context.get("scope", None)
-            if not isinstance(scope, str) or scope not in {"image", "per_category"}:
-                errors.append("threshold_context.scope must be 'image' or 'per_category'.")
-            category_count = threshold_context.get("category_count", None)
-            if category_count is not None and not isinstance(category_count, (int, float)):
-                errors.append("threshold_context.category_count must be numeric.")
+def _validate_split_fingerprint(errors: list[str], split_fingerprint: Any) -> None:
+    if split_fingerprint is None:
+        return
+    if not isinstance(split_fingerprint, Mapping):
+        errors.append("split_fingerprint must be a JSON object/dict.")
+        return
+    sha256 = split_fingerprint.get("sha256", None)
+    if not isinstance(sha256, str) or not sha256.strip():
+        errors.append("split_fingerprint.sha256 must be a non-empty string.")
 
-    prediction_policy = payload.get("prediction_policy", None)
-    if prediction_policy is not None:
-        if not isinstance(prediction_policy, Mapping):
-            errors.append("prediction_policy must be a JSON object/dict.")
-        else:
-            reject_confidence_below = prediction_policy.get("reject_confidence_below", None)
-            if reject_confidence_below is not None:
-                if not isinstance(reject_confidence_below, (int, float)):
-                    errors.append("prediction_policy.reject_confidence_below must be numeric.")
-                elif not (0.0 < float(reject_confidence_below) <= 1.0):
-                    errors.append(
-                        "prediction_policy.reject_confidence_below must be in (0,1]."
-                    )
-            reject_label = prediction_policy.get("reject_label", None)
-            if reject_label is not None and not isinstance(reject_label, int):
-                errors.append("prediction_policy.reject_label must be an integer.")
-    return errors
+
+def _validate_threshold_context(errors: list[str], threshold_context: Any) -> None:
+    if threshold_context is None:
+        return
+    if not isinstance(threshold_context, Mapping):
+        errors.append("threshold_context must be a JSON object/dict.")
+        return
+    scope = threshold_context.get("scope", None)
+    if not isinstance(scope, str) or scope not in {"image", "per_category"}:
+        errors.append("threshold_context.scope must be 'image' or 'per_category'.")
+    category_count = threshold_context.get("category_count", None)
+    if category_count is not None and not isinstance(category_count, (int, float)):
+        errors.append("threshold_context.category_count must be numeric.")
+
+
+def _validate_prediction_policy(errors: list[str], prediction_policy: Any) -> None:
+    if prediction_policy is None:
+        return
+    if not isinstance(prediction_policy, Mapping):
+        errors.append("prediction_policy must be a JSON object/dict.")
+        return
+    reject_confidence_below = prediction_policy.get("reject_confidence_below", None)
+    if reject_confidence_below is not None:
+        if not isinstance(reject_confidence_below, (int, float)):
+            errors.append("prediction_policy.reject_confidence_below must be numeric.")
+        elif not (0.0 < float(reject_confidence_below) <= 1.0):
+            errors.append("prediction_policy.reject_confidence_below must be in (0,1].")
+    reject_label = prediction_policy.get("reject_label", None)
+    if reject_label is not None and not isinstance(reject_label, int):
+        errors.append("prediction_policy.reject_label must be an integer.")
 
 
 __all__ = [

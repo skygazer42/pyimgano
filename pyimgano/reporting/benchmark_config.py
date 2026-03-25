@@ -78,16 +78,13 @@ def validate_benchmark_config_payload(payload: Any) -> list[str]:
             errors.append("Benchmark config resize must be a 2-item list [H, W].")
 
     dataset_name = str(dataset).lower() if dataset is not None else ""
-    if dataset_name == "manifest":
-        if payload.get("manifest_path", None) in (None, ""):
-            errors.append("Manifest benchmark config requires key: manifest_path")
-        if payload.get("root", None) in (None, ""):
-            errors.append("Manifest benchmark config requires key: root")
-    elif dataset is not None and payload.get("root", None) in (None, ""):
-        errors.append("Benchmark config requires key: root")
-
-    if suite is not None and payload.get("category", None) in (None, "") and dataset_name != "custom":
-        errors.append("Suite benchmark config requires key: category for non-custom datasets")
+    _validate_benchmark_dataset_inputs(payload, errors, dataset=dataset, dataset_name=dataset_name)
+    _validate_benchmark_category_requirement(
+        payload,
+        errors,
+        dataset_name=dataset_name,
+        suite=suite,
+    )
 
     return errors
 
@@ -114,21 +111,7 @@ def _build_benchmark_config_trust_summary(
         "has_evaluation_contract": isinstance(evaluation_contract, Mapping),
     }
 
-    degraded_by: list[str] = []
-    if errors:
-        degraded_by.append("invalid_config")
-    if not trust_signals["is_official"]:
-        degraded_by.append("not_official")
-    if not trust_signals["has_source_path"]:
-        degraded_by.append("missing_source_path")
-    if not trust_signals["has_sha256"]:
-        degraded_by.append("missing_sha256")
-    if not trust_signals["has_dataset"]:
-        degraded_by.append("missing_dataset")
-    if not trust_signals["has_suite_or_model"]:
-        degraded_by.append("missing_suite_or_model")
-    if not trust_signals["has_evaluation_contract"]:
-        degraded_by.append("missing_evaluation_contract")
+    degraded_by = _benchmark_config_degraded_by(trust_signals, errors)
 
     if errors:
         status = "broken"
@@ -147,6 +130,62 @@ def _build_benchmark_config_trust_summary(
         "degraded_by": degraded_by,
         "audit_refs": audit_refs,
     }
+
+
+def _validate_benchmark_dataset_inputs(
+    payload: Mapping[str, Any],
+    errors: list[str],
+    *,
+    dataset: Any,
+    dataset_name: str,
+) -> None:
+    root_missing = payload.get("root", None) in (None, "")
+    if dataset_name == "manifest":
+        if payload.get("manifest_path", None) in (None, ""):
+            errors.append("Manifest benchmark config requires key: manifest_path")
+        if root_missing:
+            errors.append("Manifest benchmark config requires key: root")
+        return
+    if dataset is not None and root_missing:
+        errors.append("Benchmark config requires key: root")
+
+
+def _validate_benchmark_category_requirement(
+    payload: Mapping[str, Any],
+    errors: list[str],
+    *,
+    dataset_name: str,
+    suite: Any,
+) -> None:
+    if suite is None:
+        return
+    if payload.get("category", None) not in (None, ""):
+        return
+    if dataset_name == "custom":
+        return
+    errors.append("Suite benchmark config requires key: category for non-custom datasets")
+
+
+def _benchmark_config_degraded_by(
+    trust_signals: Mapping[str, bool],
+    errors: list[str],
+) -> list[str]:
+    degraded_by: list[str] = []
+    if errors:
+        degraded_by.append("invalid_config")
+    if not trust_signals["is_official"]:
+        degraded_by.append("not_official")
+    if not trust_signals["has_source_path"]:
+        degraded_by.append("missing_source_path")
+    if not trust_signals["has_sha256"]:
+        degraded_by.append("missing_sha256")
+    if not trust_signals["has_dataset"]:
+        degraded_by.append("missing_dataset")
+    if not trust_signals["has_suite_or_model"]:
+        degraded_by.append("missing_suite_or_model")
+    if not trust_signals["has_evaluation_contract"]:
+        degraded_by.append("missing_evaluation_contract")
+    return degraded_by
 
 
 def describe_benchmark_config(spec: str | Path) -> dict[str, Any]:
