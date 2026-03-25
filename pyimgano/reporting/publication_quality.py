@@ -108,41 +108,20 @@ def _evaluate_declared_weight_artifacts(
     if not isinstance(exported_files, dict):
         return invalid_declared, payload
 
-    manifest_path = _resolve_exported_path(root, exported_files.get("weights_manifest_json"))
-    manifest_ok = False
-    if manifest_path is not None and manifest_path.is_file():
-        payload["present"] = True
-        payload["weights_manifest"]["present"] = True
-        payload["weights_manifest"]["path"] = str(manifest_path)
-        report = validate_weights_manifest_file(
-            manifest_path=manifest_path,
-            check_files=False,
-            check_hashes=False,
-        )
-        payload["weights_manifest"]["valid"] = bool(report.ok)
-        payload["weights_manifest"]["errors"] = list(report.errors)
-        payload["weights_manifest"]["warnings"] = list(report.warnings)
-        if not report.ok:
-            invalid_declared.append("weights_manifest_json")
-        manifest_ok = bool(report.ok)
-
-    model_card_path = _resolve_exported_path(root, exported_files.get("model_card_json"))
-    if model_card_path is not None and model_card_path.is_file():
-        payload["present"] = True
-        payload["model_card"]["present"] = True
-        payload["model_card"]["path"] = str(model_card_path)
-        report = validate_model_card_file(
-            model_card_path,
-            manifest_path=(manifest_path if manifest_ok else None),
-            check_files=False,
-            check_hashes=False,
-        )
-        payload["model_card"]["valid"] = bool(report.ok)
-        payload["model_card"]["errors"] = list(report.errors)
-        payload["model_card"]["warnings"] = list(report.warnings)
-        if not report.ok:
-            invalid_declared.append("model_card_json")
-        payload["cross_checked"] = bool(manifest_ok)
+    manifest_path, manifest_ok = _evaluate_declared_manifest(
+        root,
+        exported_files=exported_files,
+        payload=payload,
+        invalid_declared=invalid_declared,
+    )
+    _evaluate_declared_model_card(
+        root,
+        exported_files=exported_files,
+        payload=payload,
+        invalid_declared=invalid_declared,
+        manifest_path=(manifest_path if manifest_ok else None),
+        manifest_ok=manifest_ok,
+    )
 
     if bool(payload["present"]):
         valid = True
@@ -153,6 +132,65 @@ def _evaluate_declared_weight_artifacts(
         payload["valid"] = bool(valid)
 
     return invalid_declared, payload
+
+
+def _evaluate_declared_manifest(
+    root: Path,
+    *,
+    exported_files: dict[str, Any],
+    payload: dict[str, Any],
+    invalid_declared: list[str],
+) -> tuple[Path | None, bool]:
+    manifest_path = _resolve_exported_path(root, exported_files.get("weights_manifest_json"))
+    manifest_ok = False
+    if manifest_path is None or not manifest_path.is_file():
+        return manifest_path, manifest_ok
+
+    payload["present"] = True
+    payload["weights_manifest"]["present"] = True
+    payload["weights_manifest"]["path"] = str(manifest_path)
+    report = validate_weights_manifest_file(
+        manifest_path=manifest_path,
+        check_files=False,
+        check_hashes=False,
+    )
+    payload["weights_manifest"]["valid"] = bool(report.ok)
+    payload["weights_manifest"]["errors"] = list(report.errors)
+    payload["weights_manifest"]["warnings"] = list(report.warnings)
+    if not report.ok:
+        invalid_declared.append("weights_manifest_json")
+    manifest_ok = bool(report.ok)
+    return manifest_path, manifest_ok
+
+
+def _evaluate_declared_model_card(
+    root: Path,
+    *,
+    exported_files: dict[str, Any],
+    payload: dict[str, Any],
+    invalid_declared: list[str],
+    manifest_path: Path | None,
+    manifest_ok: bool,
+) -> None:
+    model_card_path = _resolve_exported_path(root, exported_files.get("model_card_json"))
+    if model_card_path is None or not model_card_path.is_file():
+        return
+
+    payload["present"] = True
+    payload["model_card"]["present"] = True
+    payload["model_card"]["path"] = str(model_card_path)
+    report = validate_model_card_file(
+        model_card_path,
+        manifest_path=manifest_path,
+        check_files=False,
+        check_hashes=False,
+    )
+    payload["model_card"]["valid"] = bool(report.ok)
+    payload["model_card"]["errors"] = list(report.errors)
+    payload["model_card"]["warnings"] = list(report.warnings)
+    if not report.ok:
+        invalid_declared.append("model_card_json")
+    payload["cross_checked"] = bool(manifest_ok)
 
 
 def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
