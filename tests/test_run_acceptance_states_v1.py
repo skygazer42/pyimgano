@@ -4,17 +4,24 @@ import json
 from pathlib import Path
 
 
-def _write_json(path: Path, payload: dict) -> None:
+def _resolve_test_path(root: Path, rel_path: str) -> Path:
+    root_resolved = root.resolve()
+    path = (root_resolved / rel_path).resolve()
+    path.relative_to(root_resolved)
+    return path
+
+
+def _write_json(root: Path, rel_path: str, payload: dict) -> None:
+    path = _resolve_test_path(root, rel_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def _make_audited_run(run_dir: Path) -> None:
-    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
-    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
-    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(
-        run_dir / "artifacts" / "infer_config.json",
+    _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(run_dir, "artifacts/infer_config.json",
         {
             "schema_version": 1,
             "model": {"name": "vision_ecod", "model_kwargs": {}},
@@ -22,8 +29,7 @@ def _make_audited_run(run_dir: Path) -> None:
             "split_fingerprint": {"sha256": "f" * 64},
         },
     )
-    _write_json(
-        run_dir / "artifacts" / "calibration_card.json",
+    _write_json(run_dir, "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -55,8 +61,7 @@ def test_evaluate_run_acceptance_reports_deployable_acceptance_state(tmp_path: P
     run_dir = tmp_path / "run"
     _make_audited_run(run_dir)
     bundle_dir = run_dir / "deploy_bundle"
-    _write_json(
-        bundle_dir / "infer_config.json",
+    _write_json(bundle_dir, "infer_config.json",
         {
             "schema_version": 1,
             "model": {"name": "vision_ecod", "model_kwargs": {}},
@@ -76,11 +81,10 @@ def test_evaluate_run_acceptance_reports_deployable_acceptance_state(tmp_path: P
             },
         },
     )
-    _write_json(bundle_dir / "report.json", {"dataset": "custom"})
-    _write_json(bundle_dir / "config.json", {"config": {"dataset": "custom"}})
-    _write_json(bundle_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(
-        bundle_dir / "calibration_card.json",
+    _write_json(bundle_dir, "report.json", {"dataset": "custom"})
+    _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
+    _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(bundle_dir, "calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -91,8 +95,7 @@ def test_evaluate_run_acceptance_reports_deployable_acceptance_state(tmp_path: P
             },
         },
     )
-    _write_json(
-        bundle_dir / "bundle_manifest.json",
+    _write_json(bundle_dir, "bundle_manifest.json",
         build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
     )
 
@@ -108,9 +111,9 @@ def test_evaluate_run_acceptance_reports_blocked_reason_code_for_missing_infer_c
     from pyimgano.reporting.run_acceptance import evaluate_run_acceptance
 
     run_dir = tmp_path / "run"
-    _write_json(run_dir / "report.json", {"dataset": "custom", "model": "vision_ecod"})
-    _write_json(run_dir / "config.json", {"config": {"dataset": "custom"}})
-    _write_json(run_dir / "environment.json", {"fingerprint_sha256": "f" * 64})
+    _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
+    _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
 
     acceptance = evaluate_run_acceptance(run_dir, required_quality="audited")
 

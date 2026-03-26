@@ -542,6 +542,64 @@ def _apply_operator_contract_candidates(
         )
 
 
+def _set_bundle_operator_contract_candidate_state(
+    candidate_gates: dict[str, dict[str, str]],
+    candidate_bundle_digest_statuses: dict[str, str],
+    *,
+    run_dir_name: object,
+    status: str,
+    run: Mapping[str, Any],
+) -> None:
+    _set_candidate_gate(
+        candidate_gates,
+        run_dir_name=run_dir_name,
+        gate_name="bundle_operator_contract",
+        status=status,
+    )
+    if isinstance(run_dir_name, str) and run_dir_name in candidate_bundle_digest_statuses:
+        candidate_bundle_digest_statuses[run_dir_name] = _run_bundle_operator_contract_digest_status(
+            run
+        )
+
+
+def _append_bundle_operator_contract_status_reasons(
+    reasons_by_name: dict[str, list[str]],
+    *,
+    run_dir_name: object,
+    status: str,
+    run: Mapping[str, Any],
+) -> bool:
+    if status not in {"missing", "mismatched"}:
+        return False
+    _append_candidate_reason(
+        reasons_by_name,
+        run_dir_name=run_dir_name,
+        reason=f"operator_contract_bundle:{status}",
+    )
+    if (
+        status == "mismatched"
+        and "operator_contract_bundle_digest_mismatch" in _run_trust_degraded_by(run)
+    ):
+        _append_candidate_reason(
+            reasons_by_name,
+            run_dir_name=run_dir_name,
+            reason="operator_contract_bundle:digest_mismatch",
+        )
+    return True
+
+
+def _bundle_operator_contract_payload_matches(
+    run: Mapping[str, Any],
+    *,
+    baseline_bundle_operator_contract_payload: Mapping[str, Any],
+) -> bool:
+    candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=True)
+    return not (
+        isinstance(candidate_payload, Mapping)
+        and dict(candidate_payload) != dict(baseline_bundle_operator_contract_payload)
+    )
+
+
 def _apply_bundle_operator_contract_candidates(
     *,
     reasons_by_name: dict[str, list[str]],
@@ -557,37 +615,25 @@ def _apply_bundle_operator_contract_candidates(
     for run in _iter_candidate_runs(runs, baseline_path_str=baseline_path_str):
         run_dir_name = run.get("run_dir_name", None)
         status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
-        _set_candidate_gate(
+        _set_bundle_operator_contract_candidate_state(
             candidate_gates,
+            candidate_bundle_digest_statuses,
             run_dir_name=run_dir_name,
-            gate_name="bundle_operator_contract",
             status=status,
+            run=run,
         )
-        if isinstance(run_dir_name, str) and run_dir_name in candidate_bundle_digest_statuses:
-            candidate_bundle_digest_statuses[run_dir_name] = _run_bundle_operator_contract_digest_status(
-                run
-            )
-        if status in {"missing", "mismatched"}:
-            _append_candidate_reason(
-                reasons_by_name,
-                run_dir_name=run_dir_name,
-                reason=f"operator_contract_bundle:{status}",
-            )
-            if (
-                status == "mismatched"
-                and "operator_contract_bundle_digest_mismatch" in _run_trust_degraded_by(run)
-            ):
-                _append_candidate_reason(
-                    reasons_by_name,
-                    run_dir_name=run_dir_name,
-                    reason="operator_contract_bundle:digest_mismatch",
-                )
+        if _append_bundle_operator_contract_status_reasons(
+            reasons_by_name,
+            run_dir_name=run_dir_name,
+            status=status,
+            run=run,
+        ):
             continue
         if status != "consistent" or not isinstance(baseline_bundle_operator_contract_payload, Mapping):
             continue
-        candidate_payload = _load_operator_contract_payload(run.get("run_dir", None), bundle=True)
-        if isinstance(candidate_payload, Mapping) and dict(candidate_payload) != dict(
-            baseline_bundle_operator_contract_payload
+        if not _bundle_operator_contract_payload_matches(
+            run,
+            baseline_bundle_operator_contract_payload=baseline_bundle_operator_contract_payload,
         ):
             _set_candidate_gate(
                 candidate_gates,

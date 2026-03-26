@@ -401,6 +401,63 @@ def _validate_required_presence_flag(
     return []
 
 
+_OPERATOR_CONTRACT_DIGEST_KEY_TYPES: dict[str, tuple[type, ...]] = {
+    "source_run_operator_contract_sha256": (str, type(None)),
+    "bundle_operator_contract_sha256": (str, type(None)),
+    "bundle_infer_operator_contract_sha256": (str, type(None)),
+    "bundle_operator_contract_consistent": (bool, type(None)),
+    "source_run_matches_bundle_operator_contract": (bool, type(None)),
+}
+
+
+def _operator_contract_digest_actual(
+    *,
+    bundle_root: Path,
+    source_run_dir: str | None,
+) -> tuple[dict[str, Any], bool]:
+    source_root = (
+        Path(source_run_dir) if isinstance(source_run_dir, str) and source_run_dir.strip() else None
+    )
+    source_available = bool(source_root is not None and source_root.exists())
+    actual = _build_operator_contract_digests(
+        source_root=(source_root if source_root is not None else bundle_root),
+        bundle_root=bundle_root,
+    )
+    return actual, source_available
+
+
+def _skip_source_run_digest_validation(
+    key: str,
+    *,
+    expected_value: Any,
+    source_available: bool,
+) -> bool:
+    return key.startswith("source_run_") and not source_available and expected_value is not None
+
+
+def _operator_contract_digest_error(
+    *,
+    key: str,
+    expected_value: Any,
+    expected_types: tuple[type, ...],
+    actual: Mapping[str, Any],
+    source_available: bool,
+) -> str | None:
+    if not isinstance(expected_value, expected_types):
+        return f"operator_contract_digests.{key} has invalid type."
+    if _skip_source_run_digest_validation(
+        key,
+        expected_value=expected_value,
+        source_available=source_available,
+    ):
+        return None
+    if expected_value != actual.get(key, None):
+        return (
+            f"operator_contract_digests.{key} does not match computed bundle/source contract digest."
+        )
+    return None
+
+
 def _validate_operator_contract_digests(
     value: Any,
     *,
@@ -412,39 +469,24 @@ def _validate_operator_contract_digests(
     if not isinstance(value, Mapping):
         return ["operator_contract_digests must be a JSON object/dict."]
 
-    source_root = (
-        Path(source_run_dir) if isinstance(source_run_dir, str) and source_run_dir.strip() else None
-    )
-    source_available = bool(source_root is not None and source_root.exists())
-    actual = _build_operator_contract_digests(
-        source_root=(source_root if source_root is not None else bundle_root),
+    actual, source_available = _operator_contract_digest_actual(
         bundle_root=bundle_root,
+        source_run_dir=source_run_dir,
     )
     errors: list[str] = []
-    key_types: dict[str, tuple[type, ...]] = {
-        "source_run_operator_contract_sha256": (str, type(None)),
-        "bundle_operator_contract_sha256": (str, type(None)),
-        "bundle_infer_operator_contract_sha256": (str, type(None)),
-        "bundle_operator_contract_consistent": (bool, type(None)),
-        "source_run_matches_bundle_operator_contract": (bool, type(None)),
-    }
-    for key, expected_types in key_types.items():
+    for key, expected_types in _OPERATOR_CONTRACT_DIGEST_KEY_TYPES.items():
         if key not in value:
             continue
         expected_value = value.get(key, None)
-        if not isinstance(expected_value, expected_types):
-            errors.append(f"operator_contract_digests.{key} has invalid type.")
-            continue
-        if (
-            key.startswith("source_run_")
-            and not bool(source_available)
-            and expected_value is not None
-        ):
-            continue
-        if expected_value != actual.get(key, None):
-            errors.append(
-                f"operator_contract_digests.{key} does not match computed bundle/source contract digest."
-            )
+        error = _operator_contract_digest_error(
+            key=key,
+            expected_value=expected_value,
+            expected_types=expected_types,
+            actual=actual,
+            source_available=source_available,
+        )
+        if error is not None:
+            errors.append(error)
     return errors
 
 
