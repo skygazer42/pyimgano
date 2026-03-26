@@ -1,5 +1,6 @@
 import hashlib
 import json
+from types import MappingProxyType
 
 
 def _sha256_file(path):
@@ -2046,6 +2047,34 @@ def test_runs_cli_compare_can_fail_on_operator_contract_incompatibility(tmp_path
     assert rc == 1
     assert out["operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
     assert out["operator_contract_comparison"]["comparisons"][1]["status"] == "missing"
+
+
+def test_emit_contract_incompat_details_accepts_mapping_rows(capsys) -> None:
+    from pyimgano.runs_cli import _emit_contract_incompat_details
+
+    _emit_contract_incompat_details(
+        label="operator_contract",
+        comparison_payload={
+            "baseline_contract_sha256": "a" * 64,
+            "comparisons": [
+                MappingProxyType(
+                    {
+                        "run_dir_name": "candidate",
+                        "status": "mismatched",
+                        "mismatch_reason": "baseline_mismatch",
+                        "contract_sha256": "b" * 64,
+                    }
+                )
+            ],
+        },
+        summary_payload={"checked": True, "matched_runs": 0, "mismatched_runs": 1, "missing_runs": 0},
+    )
+
+    out = capsys.readouterr().out
+    assert "operator_contract: checked=True matched=0 mismatched=1 missing=0" in out
+    assert "operator_contract_baseline.sha256=" in out
+    assert "operator_contract_incompat.candidate=mismatched:baseline_mismatch" in out
+    assert "operator_contract_sha256.candidate=" in out
 
 
 def test_runs_cli_compare_can_fail_on_bundle_operator_contract_incompatibility(tmp_path, capsys):

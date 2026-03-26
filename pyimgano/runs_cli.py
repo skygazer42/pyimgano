@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Mapping
 
 import pyimgano.cli_output as cli_output
 from pyimgano.reporting.run_index import (
@@ -252,25 +253,52 @@ def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     )
 
 
-def _emit_contract_incompat_details(
+def _contract_incompat_summary_line(
     *,
     label: str,
-    comparison_payload: dict[str, object],
-    summary_payload: dict[str, object],
-) -> None:
-    print(
+    summary_payload: Mapping[str, object],
+) -> str:
+    return (
         f"{label}: "
         f"checked={summary_payload.get('checked')} "
         f"matched={summary_payload.get('matched_runs', 0)} "
         f"mismatched={summary_payload.get('mismatched_runs', 0)} "
         f"missing={summary_payload.get('missing_runs', 0)}"
     )
+
+
+def _contract_incompat_detail_line(
+    *,
+    label: str,
+    run_dir_name: str,
+    status: str,
+    mismatch_reason: object,
+) -> str:
+    if isinstance(mismatch_reason, str) and mismatch_reason:
+        return f"{label}_incompat.{run_dir_name}={status}:{mismatch_reason}"
+    return f"{label}_incompat.{run_dir_name}={status}"
+
+
+def _iter_contract_incompat_rows(
+    comparison_payload: Mapping[str, object],
+) -> list[Mapping[str, object]]:
+    rows = comparison_payload.get("comparisons", [])
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, Mapping)]
+
+
+def _emit_contract_incompat_details(
+    *,
+    label: str,
+    comparison_payload: dict[str, object],
+    summary_payload: dict[str, object],
+) -> None:
+    print(_contract_incompat_summary_line(label=label, summary_payload=summary_payload))
     baseline_sha256 = comparison_payload.get("baseline_contract_sha256", None)
     if isinstance(baseline_sha256, str) and baseline_sha256:
         print(f"{label}_baseline.sha256={baseline_sha256}")
-    for row in comparison_payload.get("comparisons", []):
-        if not isinstance(row, dict):
-            continue
+    for row in _iter_contract_incompat_rows(comparison_payload):
         status = str(row.get("status"))
         if status not in {"mismatched", "missing"}:
             continue
@@ -278,10 +306,14 @@ def _emit_contract_incompat_details(
         if not isinstance(run_dir_name, str) or not run_dir_name:
             continue
         mismatch_reason = row.get("mismatch_reason", None)
-        if isinstance(mismatch_reason, str) and mismatch_reason:
-            print(f"{label}_incompat.{run_dir_name}={status}:{mismatch_reason}")
-        else:
-            print(f"{label}_incompat.{run_dir_name}={status}")
+        print(
+            _contract_incompat_detail_line(
+                label=label,
+                run_dir_name=run_dir_name,
+                status=status,
+                mismatch_reason=mismatch_reason,
+            )
+        )
         candidate_sha256 = row.get("contract_sha256", None)
         if isinstance(candidate_sha256, str) and candidate_sha256:
             print(f"{label}_sha256.{run_dir_name}={candidate_sha256}")
