@@ -13,7 +13,7 @@ from typing import Any
 SYNTHESIS_SYNTHESIZER_MODULE = "synthesis.synthesizer"
 
 
-__version__ = "0.6.37"
+__version__ = "0.7.1"
 
 __all__ = [
     # Modules
