@@ -1,4 +1,5 @@
 import json
+from types import MappingProxyType
 
 
 def test_weights_cli_template_manifest_emits_json(capsys):
@@ -311,6 +312,49 @@ def test_weights_cli_validate_model_card_json_includes_check_strength(
     trust = out["trust_summary"]
     assert trust["trust_signals"]["file_refs_checked"] is True
     assert trust["trust_signals"]["hashes_checked"] is True
+
+
+def test_build_model_card_trust_summary_accepts_mapping_inputs() -> None:
+    from pyimgano.weights_cli import _build_model_card_trust_summary
+
+    class _Report:
+        ok = True
+        normalized = MappingProxyType(
+            {
+                "weights": MappingProxyType(
+                    {
+                        "sha256": "a" * 64,
+                        "source": "unit-test",
+                        "license": "internal",
+                        "manifest_entry": "demo_model",
+                    }
+                ),
+                "deployment": MappingProxyType({"runtime": "torch"}),
+            }
+        )
+        assets = MappingProxyType(
+            {
+                "manifest": MappingProxyType(
+                    {
+                        "matched_entry": "demo_model",
+                        "ok": True,
+                    }
+                )
+            }
+        )
+
+    trust = _build_model_card_trust_summary(
+        _Report(),
+        model_card_path="/tmp/model_card.json",
+        manifest_path="/tmp/weights_manifest.json",
+        check_files=True,
+        check_hashes=False,
+    )
+
+    assert trust["status"] == "trust-signaled"
+    assert trust["trust_signals"]["has_weights_sha256"] is True
+    assert trust["trust_signals"]["has_manifest_link"] is True
+    assert trust["trust_signals"]["has_cross_checked_manifest"] is True
 
 
 def test_weights_cli_audit_bundle_json_success(tmp_path, capsys):

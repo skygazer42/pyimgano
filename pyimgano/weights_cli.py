@@ -222,31 +222,20 @@ def _build_manifest_trust_summary(
     }
 
 
-def _build_model_card_trust_summary(
-    report: Any,
+def _normalized_mapping(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _model_card_trust_signals(
     *,
-    model_card_path: str | Path,
-    manifest_path: str | Path | None,
+    weights: Mapping[str, Any],
+    deployment: Mapping[str, Any],
+    manifest_asset: Mapping[str, Any],
     check_files: bool,
     check_hashes: bool,
-) -> dict[str, Any]:
-    normalized = getattr(report, "normalized", {})
-    if not isinstance(normalized, dict):
-        normalized = {}
-    weights = normalized.get("weights", {})
-    if not isinstance(weights, dict):
-        weights = {}
-    deployment = normalized.get("deployment", {})
-    if not isinstance(deployment, dict):
-        deployment = {}
-    assets = getattr(report, "assets", {})
-    if not isinstance(assets, dict):
-        assets = {}
-    manifest_asset = assets.get("manifest", {})
-    if not isinstance(manifest_asset, dict):
-        manifest_asset = {}
-
-    trust_signals = {
+) -> dict[str, bool]:
+    matched_entry = _nonempty_str(manifest_asset.get("matched_entry", None))
+    return {
         "file_refs_checked": bool(check_files),
         "hashes_checked": bool(check_hashes),
         "has_weights_sha256": _nonempty_str(weights.get("sha256", None)) is not None,
@@ -254,14 +243,13 @@ def _build_model_card_trust_summary(
         "has_weights_license": _nonempty_str(weights.get("license", None)) is not None,
         "has_deployment_runtime": _nonempty_str(deployment.get("runtime", None)) is not None,
         "has_manifest_link": (
-            _nonempty_str(weights.get("manifest_entry", None)) is not None
-            or _nonempty_str(manifest_asset.get("matched_entry", None)) is not None
+            _nonempty_str(weights.get("manifest_entry", None)) is not None or matched_entry is not None
         ),
-        "has_cross_checked_manifest": bool(
-            _nonempty_str(manifest_asset.get("matched_entry", None)) is not None
-            and manifest_asset.get("ok", None) is True
-        ),
+        "has_cross_checked_manifest": bool(matched_entry is not None and manifest_asset.get("ok", None) is True),
     }
+
+
+def _degraded_model_card_signals(trust_signals: Mapping[str, bool]) -> list[str]:
     degraded_by: list[str] = []
     if not trust_signals["has_weights_sha256"]:
         degraded_by.append("missing_weights_sha256")
@@ -275,6 +263,44 @@ def _build_model_card_trust_summary(
         degraded_by.append("missing_manifest_link")
     if not trust_signals["has_cross_checked_manifest"]:
         degraded_by.append("missing_cross_checked_manifest")
+    return degraded_by
+
+
+def _model_card_audit_refs(
+    *,
+    model_card_path: str | Path,
+    manifest_path: str | Path | None,
+) -> dict[str, str]:
+    audit_refs = {
+        "model_card_json": str(Path(str(model_card_path))),
+    }
+    if manifest_path is not None:
+        audit_refs["weights_manifest_json"] = str(Path(str(manifest_path)))
+    return audit_refs
+
+
+def _build_model_card_trust_summary(
+    report: Any,
+    *,
+    model_card_path: str | Path,
+    manifest_path: str | Path | None,
+    check_files: bool,
+    check_hashes: bool,
+) -> dict[str, Any]:
+    normalized = _normalized_mapping(getattr(report, "normalized", {}))
+    weights = _normalized_mapping(normalized.get("weights", {}))
+    deployment = _normalized_mapping(normalized.get("deployment", {}))
+    assets = _normalized_mapping(getattr(report, "assets", {}))
+    manifest_asset = _normalized_mapping(assets.get("manifest", {}))
+
+    trust_signals = _model_card_trust_signals(
+        weights=weights,
+        deployment=deployment,
+        manifest_asset=manifest_asset,
+        check_files=check_files,
+        check_hashes=check_hashes,
+    )
+    degraded_by = _degraded_model_card_signals(trust_signals)
 
     if not bool(getattr(report, "ok", False)):
         status = "broken"
@@ -283,17 +309,14 @@ def _build_model_card_trust_summary(
     else:
         status = "partial"
 
-    audit_refs = {
-        "model_card_json": str(Path(str(model_card_path))),
-    }
-    if manifest_path is not None:
-        audit_refs["weights_manifest_json"] = str(Path(str(manifest_path)))
-
     return {
         "status": status,
         "trust_signals": trust_signals,
         "degraded_by": degraded_by,
-        "audit_refs": audit_refs,
+        "audit_refs": _model_card_audit_refs(
+            model_card_path=model_card_path,
+            manifest_path=manifest_path,
+        ),
     }
 
 
