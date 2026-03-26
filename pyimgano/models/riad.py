@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 RIAD: Reconstruction from Adjacent Image Decomposition for Anomaly Detection.
 

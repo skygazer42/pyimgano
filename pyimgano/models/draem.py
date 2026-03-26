@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 DRAEM: SSIM-based Discriminatively Trained Reconstruction Embedding for Anomaly Detection.
 

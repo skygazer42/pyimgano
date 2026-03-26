@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
@@ -145,12 +145,12 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _parse_model_kwargs(text: str | None) -> dict[str, Any]:
+def _parse_model_kwargs(text: Optional[str]) -> dict[str, Any]:
     return parse_model_kwargs(text)
 
 
 def _merge_checkpoint_path(
-    user_kwargs: dict[str, Any], *, checkpoint_path: str | None
+    user_kwargs: dict[str, Any], *, checkpoint_path: Optional[str]
 ) -> dict[str, Any]:
     return merge_checkpoint_path(user_kwargs, checkpoint_path=checkpoint_path)
 

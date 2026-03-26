@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation.
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, Union
 
 from pyimgano.pyim_contracts import PyimListPayload
 from pyimgano.pyim_list_spec import PYIM_ALL_TEXT_LIST_KINDS, get_pyim_list_kind_spec
 
-PyimListPayloadLike = PyimListPayload | Mapping[str, Any]
+PyimListPayloadLike = Union[PyimListPayload, Mapping[str, Any]]
 
 
 @dataclass(frozen=True)

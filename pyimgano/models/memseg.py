@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 MemSeg: Memory-Guided Semantic Segmentation for Anomaly Detection.
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 CutPaste: Self-Supervised Learning for Anomaly Detection and Localization.
 
