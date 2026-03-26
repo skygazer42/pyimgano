@@ -42,6 +42,77 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _emit_json_validation_payload(validation: object) -> int:
+    payload = dict(validation.payload)
+    payload["validation_trust"] = dict(validation.trust_summary)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0
+
+
+def _artifact_quality_segments(artifact_quality: dict[str, object]) -> list[str]:
+    segments: list[str] = []
+    status = artifact_quality.get("status", None)
+    threshold_scope = artifact_quality.get("threshold_scope", None)
+    if status is not None:
+        segments.append(f"audit_status={status}")
+    if threshold_scope is not None:
+        segments.append(f"threshold_scope={threshold_scope}")
+    if "has_deploy_bundle" in artifact_quality:
+        segments.append(
+            f"deploy_bundle={str(bool(artifact_quality['has_deploy_bundle'])).lower()}"
+        )
+    if "has_bundle_manifest" in artifact_quality:
+        segments.append(
+            f"bundle_manifest={str(bool(artifact_quality['has_bundle_manifest'])).lower()}"
+        )
+    if "required_bundle_artifacts_present" in artifact_quality:
+        segments.append(
+            "bundle_required="
+            f"{str(bool(artifact_quality['required_bundle_artifacts_present'])).lower()}"
+        )
+    return segments
+
+
+def _plain_validation_summary(validation: object) -> str:
+    model = validation.payload.get("model", {}) or {}
+    model_name = model.get("name", None)
+    category = validation.payload.get("category", None)
+    artifact_quality = validation.payload.get("artifact_quality", {}) or {}
+    trust_summary = dict(validation.trust_summary)
+    segments = ["ok"]
+    if model_name is not None:
+        segments.append(f"model={model_name}")
+    if category is not None:
+        segments.append(f"category={category}")
+    if artifact_quality:
+        segments.extend(_artifact_quality_segments(artifact_quality))
+    trust_status = trust_summary.get("status", None)
+    if trust_status is not None:
+        segments.append(f"trust_status={trust_status}")
+    if validation.resolved_checkpoint_path is not None:
+        segments.append(f"checkpoint={validation.resolved_checkpoint_path}")
+    if validation.resolved_model_checkpoint_path is not None:
+        segments.append(f"model_checkpoint={validation.resolved_model_checkpoint_path}")
+    return ": ".join(segments[:1]) + (f" {' '.join(segments[1:])}" if len(segments) > 1 else "")
+
+
+def _print_prefixed_mapping(prefix: str, value: object) -> None:
+    if not isinstance(value, dict):
+        return
+    for key, item in value.items():
+        print(f"{prefix}.{key}={item}")
+
+
+def _emit_plain_validation_output(validation: object) -> int:
+    trust_summary = dict(validation.trust_summary)
+    print(_plain_validation_summary(validation))
+    _print_prefixed_mapping("trust_signal", trust_summary.get("trust_signals", {}))
+    for item in trust_summary.get("degraded_by", []):
+        print(f"degraded_by={item}")
+    _print_prefixed_mapping("audit_ref", trust_summary.get("audit_refs", {}))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _ensure_repo_root_on_sys_path()
     parser = _build_parser()
@@ -63,57 +134,5 @@ def main(argv: list[str] | None = None) -> int:
         print(f"warning: {w}", file=sys.stderr)
 
     if bool(args.json):
-        payload = dict(validation.payload)
-        payload["validation_trust"] = dict(validation.trust_summary)
-        print(json.dumps(payload, indent=2, sort_keys=True))
-        return 0
-
-    model = validation.payload.get("model", {}) or {}
-    model_name = model.get("name", None)
-    category = validation.payload.get("category", None)
-    artifact_quality = validation.payload.get("artifact_quality", {}) or {}
-    trust_summary = dict(validation.trust_summary)
-    ckpt = validation.resolved_checkpoint_path
-    model_ckpt = validation.resolved_model_checkpoint_path
-    msg = "ok"
-    if model_name is not None:
-        msg += f": model={model_name}"
-    if category is not None:
-        msg += f" category={category}"
-    if artifact_quality:
-        status = artifact_quality.get("status", None)
-        threshold_scope = artifact_quality.get("threshold_scope", None)
-        if status is not None:
-            msg += f" audit_status={status}"
-        if threshold_scope is not None:
-            msg += f" threshold_scope={threshold_scope}"
-        if "has_deploy_bundle" in artifact_quality:
-            msg += f" deploy_bundle={str(bool(artifact_quality['has_deploy_bundle'])).lower()}"
-        if "has_bundle_manifest" in artifact_quality:
-            msg += (
-                f" bundle_manifest={str(bool(artifact_quality['has_bundle_manifest'])).lower()}"
-            )
-        if "required_bundle_artifacts_present" in artifact_quality:
-            msg += (
-                " bundle_required="
-                f"{str(bool(artifact_quality['required_bundle_artifacts_present'])).lower()}"
-            )
-    trust_status = trust_summary.get("status", None)
-    if trust_status is not None:
-        msg += f" trust_status={trust_status}"
-    if ckpt is not None:
-        msg += f" checkpoint={ckpt}"
-    if model_ckpt is not None:
-        msg += f" model_checkpoint={model_ckpt}"
-    print(msg)
-    trust_signals = trust_summary.get("trust_signals", {})
-    if isinstance(trust_signals, dict):
-        for key, value in trust_signals.items():
-            print(f"trust_signal.{key}={value}")
-    for item in trust_summary.get("degraded_by", []):
-        print(f"degraded_by={item}")
-    audit_refs = trust_summary.get("audit_refs", {})
-    if isinstance(audit_refs, dict):
-        for key, value in audit_refs.items():
-            print(f"audit_ref.{key}={value}")
-    return 0
+        return _emit_json_validation_payload(validation)
+    return _emit_plain_validation_output(validation)
