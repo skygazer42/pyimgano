@@ -55,7 +55,7 @@ def _safe_metric(results: Mapping[str, Any], key: str) -> Any:
 
 def _build_metric_row(results: Mapping[str, Any] | None) -> dict[str, Any]:
     if not isinstance(results, Mapping):
-        return {key: None for key in _METRIC_COLUMNS}
+        return dict.fromkeys(_METRIC_COLUMNS)
     return {key: _safe_metric(results, key) for key in _METRIC_COLUMNS}
 
 
@@ -126,7 +126,7 @@ def _flatten_condition_rows(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
         return []
 
     rows: list[dict[str, Any]] = []
-    clean_metric_row: dict[str, Any] = {key: None for key in _METRIC_COLUMNS}
+    clean_metric_row: dict[str, Any] = dict.fromkeys(_METRIC_COLUMNS)
     clean = robustness.get("clean", None)
     if isinstance(clean, Mapping):
         clean_row, clean_metric_row = _build_clean_condition_row(clean)

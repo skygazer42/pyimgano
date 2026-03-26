@@ -2388,20 +2388,12 @@ def _build_compare_summary(
         if baseline_checked
         else []
     )
-    regression_gate = (
-        "clean"
-        if baseline_checked and int(total_regressions) == 0
-        else "regressed"
-        if baseline_checked
-        else "unchecked"
-    )
-    verdict = (
-        "pass"
-        if baseline_checked and not blocking_flags
-        else "blocked"
-        if baseline_checked
-        else "informational"
-    )
+    if baseline_checked:
+        regression_gate = "clean" if int(total_regressions) == 0 else "regressed"
+        verdict = "pass" if not blocking_flags else "blocked"
+    else:
+        regression_gate = "unchecked"
+        verdict = "informational"
     return {
         "baseline_checked": baseline_checked,
         "total_regressions": int(total_regressions),
