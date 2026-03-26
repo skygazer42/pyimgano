@@ -253,82 +253,139 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
     return bundle_dir
 
 
+def _needs_export_artifacts(request: TrainRunRequest) -> bool:
+    return bool(request.export_infer_config) or bool(request.export_deploy_bundle)
+
+
+def _validate_export_request(cfg: WorkbenchConfig, request: TrainRunRequest) -> None:
+    if not _needs_export_artifacts(request):
+        return
+    if (
+        bool(request.export_deploy_bundle)
+        and bool(cfg.defects.enabled)
+        and cfg.defects.pixel_threshold is None
+    ):
+        raise ValueError(
+            "--export-deploy-bundle with defects.enabled=true requires defects.pixel_threshold to be set.\n"
+            "Deploy bundles are intended to be self-contained for `pyimgano-infer --infer-config ... --defects`."
+        )
+    if not bool(cfg.output.save_run):
+        raise ValueError("--export-infer-config/--export-deploy-bundle require output.save_run=true.")
+
+
+def _require_run_dir(report: dict[str, Any], *, deploy_bundle: bool = False) -> Path:
+    run_dir_raw = report.get("run_dir", None)
+    if run_dir_raw is None:
+        if deploy_bundle:
+            raise ValueError("--export-deploy-bundle requires recipe output to include run_dir.")
+        raise ValueError(
+            "--export-infer-config/--export-deploy-bundle require recipe output to include run_dir."
+        )
+    return Path(str(run_dir_raw))
+
+
+def _write_optional_operator_contract(
+    infer_config_payload: dict[str, Any],
+    *,
+    run_dir: Path,
+    reporter: Any,
+) -> None:
+    operator_contract_payload = infer_config_payload.get("operator_contract", None)
+    if not isinstance(operator_contract_payload, dict):
+        return
+    operator_contract_path = run_dir / "artifacts" / "operator_contract.json"
+    save_run_report(operator_contract_path, operator_contract_payload)
+    reporter.on_artifact_written(
+        kind="operator_contract",
+        path=str(operator_contract_path),
+    )
+
+
+def _build_optional_calibration_card_payload(
+    report: dict[str, Any],
+    infer_config_payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    calibration_card_source = dict(report)
+    prediction_payload = infer_config_payload.get("prediction", None)
+    if isinstance(prediction_payload, dict):
+        calibration_card_source["prediction"] = dict(prediction_payload)
+    try:
+        return build_calibration_card_payload(calibration_card_source)
+    except ValueError:
+        return None
+
+
+def _write_optional_calibration_card(
+    calibration_card_payload: dict[str, Any] | None,
+    *,
+    run_dir: Path,
+    reporter: Any,
+) -> None:
+    if calibration_card_payload is None:
+        return
+    calibration_card_path = run_dir / "artifacts" / "calibration_card.json"
+    save_run_report(calibration_card_path, calibration_card_payload)
+    reporter.on_artifact_written(
+        kind="calibration_card",
+        path=str(calibration_card_path),
+    )
+
+
+def _export_infer_artifacts(
+    *,
+    cfg: WorkbenchConfig,
+    report: dict[str, Any],
+    reporter: Any,
+) -> tuple[Path, dict[str, Any]]:
+    import pyimgano.services.workbench_service as workbench_service
+
+    run_dir = _require_run_dir(report)
+    infer_config_path = run_dir / "artifacts" / _INFER_CONFIG_FILENAME
+    infer_config_payload = workbench_service.build_infer_config_payload(
+        config=cfg,
+        report=report,
+    )
+    save_run_report(infer_config_path, infer_config_payload)
+    reporter.on_artifact_written(kind="infer_config", path=str(infer_config_path))
+    _write_optional_operator_contract(
+        infer_config_payload,
+        run_dir=run_dir,
+        reporter=reporter,
+    )
+    _write_optional_calibration_card(
+        _build_optional_calibration_card_payload(report, infer_config_payload),
+        run_dir=run_dir,
+        reporter=reporter,
+    )
+    return run_dir, infer_config_payload
+
+
 def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
     import pyimgano.recipes  # noqa: F401
-    import pyimgano.services.workbench_service as workbench_service
     from pyimgano.recipes.registry import RECIPE_REGISTRY
 
     reporter = get_active_train_progress_reporter()
     cfg = load_train_config(request)
+    _validate_export_request(cfg, request)
     recipe = RECIPE_REGISTRY.get(cfg.recipe)
     report = recipe(cfg)
 
     infer_config_payload: dict[str, Any] | None = None
-    if bool(request.export_infer_config) or bool(request.export_deploy_bundle):
-        if (
-            bool(request.export_deploy_bundle)
-            and bool(cfg.defects.enabled)
-            and cfg.defects.pixel_threshold is None
-        ):
-            raise ValueError(
-                "--export-deploy-bundle with defects.enabled=true requires defects.pixel_threshold to be set.\n"
-                "Deploy bundles are intended to be self-contained for `pyimgano-infer --infer-config ... --defects`."
-            )
-        if not bool(cfg.output.save_run):
-            raise ValueError(
-                "--export-infer-config/--export-deploy-bundle require output.save_run=true."
-            )
-        run_dir_raw = report.get("run_dir", None)
-        if run_dir_raw is None:
-            raise ValueError(
-                "--export-infer-config/--export-deploy-bundle require recipe output to include run_dir."
-            )
-        run_dir = Path(str(run_dir_raw))
-        infer_config_path = run_dir / "artifacts" / _INFER_CONFIG_FILENAME
-
-        infer_config_payload = workbench_service.build_infer_config_payload(
-            config=cfg,
+    run_dir: Path | None = None
+    if _needs_export_artifacts(request):
+        run_dir, infer_config_payload = _export_infer_artifacts(
+            cfg=cfg,
             report=report,
+            reporter=reporter,
         )
-        save_run_report(infer_config_path, infer_config_payload)
-        reporter.on_artifact_written(kind="infer_config", path=str(infer_config_path))
-        operator_contract_payload = infer_config_payload.get("operator_contract", None)
-        if isinstance(operator_contract_payload, dict):
-            save_run_report(
-                run_dir / "artifacts" / "operator_contract.json",
-                operator_contract_payload,
-            )
-            reporter.on_artifact_written(
-                kind="operator_contract",
-                path=str(run_dir / "artifacts" / "operator_contract.json"),
-            )
-        calibration_card_source = dict(report)
-        prediction_payload = infer_config_payload.get("prediction", None)
-        if isinstance(prediction_payload, dict):
-            calibration_card_source["prediction"] = dict(prediction_payload)
-        try:
-            calibration_card_payload = build_calibration_card_payload(calibration_card_source)
-        except ValueError:
-            calibration_card_payload = None
-        if calibration_card_payload is not None:
-            save_run_report(
-                run_dir / "artifacts" / "calibration_card.json",
-                calibration_card_payload,
-            )
-            reporter.on_artifact_written(
-                kind="calibration_card",
-                path=str(run_dir / "artifacts" / "calibration_card.json"),
-            )
 
     if bool(request.export_deploy_bundle):
         if infer_config_payload is None:
             raise RuntimeError(
                 "Internal error: infer-config payload was not built for deploy bundle."
             )
-        run_dir_raw = report.get("run_dir", None)
-        if run_dir_raw is None:
-            raise ValueError("--export-deploy-bundle requires recipe output to include run_dir.")
-        run_dir = Path(str(run_dir_raw))
+        if run_dir is None:
+            run_dir = _require_run_dir(report, deploy_bundle=True)
         bundle_dir = _export_deploy_bundle(run_dir=run_dir, infer_config_payload=infer_config_payload)
         report = dict(report)
         report["deploy_bundle_dir"] = str(bundle_dir)

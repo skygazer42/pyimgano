@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from pyimgano.models.registry import MODEL_REGISTRY
 from pyimgano.services.train_service import TrainRunRequest, run_train_request
@@ -125,6 +126,65 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
     assert any(path.endswith("model.pt") for path in rel_paths)
     assert all(int(item["size_bytes"]) >= 0 for item in entries)
     assert all(len(str(item["sha256"])) == 64 for item in entries)
+
+
+def test_run_train_request_rejects_invalid_deploy_bundle_request_before_recipe_runs(tmp_path):
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+
+    calls: list[str] = []
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        calls.append(str(cfg.output.output_dir))
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "threshold": 0.5, "threshold_provenance": {"method": "fixed"}}
+
+    RECIPE_REGISTRY.register(
+        "test_deploy_bundle_requires_pixel_threshold_precheck_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+    run_dir = tmp_path / "run_out"
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "recipe": "test_deploy_bundle_requires_pixel_threshold_precheck_recipe",
+                "dataset": {
+                    "name": "custom",
+                    "root": str(root),
+                    "category": "custom",
+                    "resize": [16, 16],
+                },
+                "model": {
+                    "name": "vision_ecod",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                },
+                "defects": {
+                    "enabled": True,
+                    "pixel_threshold": None,
+                    "pixel_threshold_strategy": "normal_pixel_quantile",
+                },
+                "output": {"output_dir": str(run_dir), "save_run": True, "per_image_jsonl": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="pixel_threshold"):
+        run_train_request(
+            TrainRunRequest(
+                config_path=str(cfg_path),
+                export_deploy_bundle=True,
+            )
+        )
+
+    assert calls == []
 
 
 def test_validate_deploy_bundle_manifest_detects_tampered_file(tmp_path):
