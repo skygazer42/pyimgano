@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
@@ -76,6 +77,57 @@ def test_summarize_robustness_protocol_exposes_comparability_metadata() -> None:
         "requires_same_severities": True,
         "requires_same_split": True,
     }
+
+
+def test_summarize_robustness_report_accepts_mapping_pixel_metrics() -> None:
+    from pyimgano.services.robustness_service import _summarize_robustness_report
+
+    report = MappingProxyType(
+        {
+            "clean": MappingProxyType(
+                {
+                    "latency_ms_per_image": 1.0,
+                    "results": MappingProxyType(
+                        {
+                            "pixel_metrics": MappingProxyType(
+                                {
+                                    "pixel_auroc": 0.91,
+                                }
+                            )
+                        }
+                    ),
+                }
+            ),
+            "corruptions": MappingProxyType(
+                {
+                    "lighting": MappingProxyType(
+                        {
+                            "severity_1": MappingProxyType(
+                                {
+                                    "results": MappingProxyType(
+                                        {
+                                            "pixel_metrics": MappingProxyType(
+                                                {
+                                                    "pixel_auroc": 0.73,
+                                                }
+                                            )
+                                        }
+                                    ),
+                                    "latency_ms_per_image": 1.2,
+                                }
+                            )
+                        }
+                    )
+                }
+            ),
+        }
+    )
+
+    summary = _summarize_robustness_report(report)
+
+    assert summary["clean_pixel_auroc"] == pytest.approx(0.91)
+    assert summary["worst_corruption_pixel_auroc"] == pytest.approx(0.73)
+    assert summary["worst_corruption_drop_pixel_auroc"] == pytest.approx(0.18)
 
 
 def test_run_robustness_request_delegates_to_benchmark(monkeypatch) -> None:

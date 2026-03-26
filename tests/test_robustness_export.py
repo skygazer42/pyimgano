@@ -93,3 +93,41 @@ def test_export_robustness_tables_writes_csv_and_summary(tmp_path) -> None:
         tmp_path / "robustness_conditions.csv"
     )
     assert summary["condition_count"] == 3
+
+
+def test_export_robustness_tables_writes_pixel_metric_drop_columns(tmp_path) -> None:
+    from pyimgano.reporting.robustness_export import export_robustness_tables
+
+    payload = {
+        "dataset": "mvtec",
+        "model": "vision_ecod",
+        "robustness": {
+            "clean": {
+                "results": {
+                    "pixel_metrics": {
+                        "pixel_auroc": 0.92,
+                    }
+                }
+            },
+            "corruptions": {
+                "lighting": {
+                    "severity_1": {
+                        "results": {
+                            "pixel_metrics": {
+                                "pixel_auroc": 0.74,
+                            }
+                        }
+                    }
+                }
+            },
+        },
+    }
+
+    export_robustness_tables(payload, tmp_path)
+
+    with (tmp_path / "robustness_conditions.csv").open("r", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["pixel_auroc"] == "0.92"
+    assert rows[0]["drop_pixel_auroc"] == "0.0"
+    assert rows[1]["pixel_auroc"] == "0.74"
+    assert rows[1]["drop_pixel_auroc"] == "0.18"

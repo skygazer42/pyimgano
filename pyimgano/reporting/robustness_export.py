@@ -65,6 +65,61 @@ def _safe_drop(clean_value: Any, condition_value: Any) -> float | None:
     return round(float(clean_value) - float(condition_value), 12)
 
 
+def _clean_drop_row(clean_metric_row: Mapping[str, Any]) -> dict[str, float | None]:
+    return {
+        f"drop_{key}": (0.0 if isinstance(value, (int, float)) else None)
+        for key, value in clean_metric_row.items()
+    }
+
+
+def _severity_label(severity_name: object) -> str:
+    severity_value = str(severity_name)
+    if severity_value.startswith("severity_"):
+        return severity_value.split("_", 1)[1]
+    return severity_value
+
+
+def _build_clean_condition_row(clean: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    clean_metric_row = _build_metric_row(clean.get("results", None))
+    row = {
+        "condition": "clean",
+        "severity": "",
+        "latency_ms_per_image": clean.get("latency_ms_per_image"),
+        **clean_metric_row,
+        **_clean_drop_row(clean_metric_row),
+    }
+    return row, clean_metric_row
+
+
+def _build_corruption_condition_rows(
+    corruptions: Mapping[str, Any],
+    *,
+    clean_metric_row: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for condition_name, by_severity in corruptions.items():
+        if not isinstance(by_severity, Mapping):
+            continue
+        for severity_name, cond_payload in by_severity.items():
+            if not isinstance(cond_payload, Mapping):
+                continue
+            metric_row = _build_metric_row(cond_payload.get("results", None))
+            drop_row = {
+                f"drop_{key}": _safe_drop(clean_metric_row.get(key), value)
+                for key, value in metric_row.items()
+            }
+            rows.append(
+                {
+                    "condition": str(condition_name),
+                    "severity": _severity_label(severity_name),
+                    "latency_ms_per_image": cond_payload.get("latency_ms_per_image"),
+                    **metric_row,
+                    **drop_row,
+                }
+            )
+    return rows
+
+
 def _flatten_condition_rows(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     robustness = payload.get("robustness", None)
     if not isinstance(robustness, Mapping):
@@ -74,48 +129,17 @@ def _flatten_condition_rows(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     clean_metric_row: dict[str, Any] = {key: None for key in _METRIC_COLUMNS}
     clean = robustness.get("clean", None)
     if isinstance(clean, Mapping):
-        results = clean.get("results", None)
-        clean_metric_row = _build_metric_row(results)
-        clean_drop_row = {
-            f"drop_{key}": (0.0 if isinstance(value, (int, float)) else None)
-            for key, value in clean_metric_row.items()
-        }
-        rows.append(
-            {
-                "condition": "clean",
-                "severity": "",
-                "latency_ms_per_image": clean.get("latency_ms_per_image"),
-                **clean_metric_row,
-                **clean_drop_row,
-            }
-        )
+        clean_row, clean_metric_row = _build_clean_condition_row(clean)
+        rows.append(clean_row)
 
     corruptions = robustness.get("corruptions", None)
     if isinstance(corruptions, Mapping):
-        for condition_name, by_severity in corruptions.items():
-            if not isinstance(by_severity, Mapping):
-                continue
-            for severity_name, cond_payload in by_severity.items():
-                if not isinstance(cond_payload, Mapping):
-                    continue
-                results = cond_payload.get("results", None)
-                metric_row = _build_metric_row(results)
-                drop_row = {
-                    f"drop_{key}": _safe_drop(clean_metric_row.get(key), value)
-                    for key, value in metric_row.items()
-                }
-                severity_value = str(severity_name)
-                if severity_value.startswith("severity_"):
-                    severity_value = severity_value.split("_", 1)[1]
-                rows.append(
-                    {
-                        "condition": str(condition_name),
-                        "severity": severity_value,
-                        "latency_ms_per_image": cond_payload.get("latency_ms_per_image"),
-                        **metric_row,
-                        **drop_row,
-                    }
-                )
+        rows.extend(
+            _build_corruption_condition_rows(
+                corruptions,
+                clean_metric_row=clean_metric_row,
+            )
+        )
     return rows
 
 

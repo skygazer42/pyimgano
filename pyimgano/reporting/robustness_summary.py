@@ -91,30 +91,57 @@ def _iter_corruption_results(report: Mapping[str, Any]):
             yield results
 
 
+def _metric_value_from_results(
+    results: Mapping[str, Any] | None,
+    *,
+    image_key: str,
+    pixel_key: str | None,
+) -> float | None:
+    if not isinstance(results, Mapping):
+        return None
+    value = _safe_float(results.get(image_key, None))
+    if value is not None or pixel_key is None:
+        return value
+    pixel_metrics = results.get("pixel_metrics", None)
+    if not isinstance(pixel_metrics, Mapping):
+        return None
+    return _safe_float(pixel_metrics.get(pixel_key, None))
+
+
+def _clean_metric_value(
+    report: Mapping[str, Any],
+    *,
+    image_key: str,
+    pixel_key: str | None,
+) -> float | None:
+    clean = report.get("clean", None)
+    if not isinstance(clean, Mapping):
+        return None
+    return _metric_value_from_results(
+        clean.get("results", None),
+        image_key=image_key,
+        pixel_key=pixel_key,
+    )
+
+
 def _extract_robustness_metric_values(
     report: dict[str, Any],
     *,
     image_key: str,
     pixel_key: str | None = None,
 ) -> tuple[float | None, list[float]]:
-    clean = report.get("clean", None)
-    clean_value = None
-    if isinstance(clean, dict):
-        clean_results = clean.get("results", None)
-        if isinstance(clean_results, dict):
-            clean_value = _safe_float(clean_results.get(image_key, None))
-            if clean_value is None and pixel_key is not None:
-                pixel_metrics = clean_results.get("pixel_metrics", None)
-                if isinstance(pixel_metrics, dict):
-                    clean_value = _safe_float(pixel_metrics.get(pixel_key, None))
-
+    clean_value = _clean_metric_value(
+        report,
+        image_key=image_key,
+        pixel_key=pixel_key,
+    )
     corruption_values: list[float] = []
     for results in _iter_corruption_results(report):
-        value = _safe_float(results.get(image_key, None))
-        if value is None and pixel_key is not None:
-            pixel_metrics = results.get("pixel_metrics", None)
-            if isinstance(pixel_metrics, Mapping):
-                value = _safe_float(pixel_metrics.get(pixel_key, None))
+        value = _metric_value_from_results(
+            results,
+            image_key=image_key,
+            pixel_key=pixel_key,
+        )
         if value is not None:
             corruption_values.append(float(value))
     return clean_value, corruption_values
