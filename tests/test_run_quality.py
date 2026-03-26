@@ -5,8 +5,25 @@ from pathlib import Path
 
 import pytest
 
+_ALLOWED_JSON_PATHS = {
+    "artifacts/calibration_card.json",
+    "artifacts/infer_config.json",
+    "artifacts/operator_contract.json",
+    "bundle_manifest.json",
+    "calibration_card.json",
+    "config.json",
+    "environment.json",
+    "infer_config.json",
+    "model_card.json",
+    "operator_contract.json",
+    "report.json",
+    "weights_manifest.json",
+}
+
 
 def _resolve_test_path(root: Path, rel_path: str) -> Path:
+    if rel_path not in _ALLOWED_JSON_PATHS:
+        raise ValueError(f"Unsupported test json path: {rel_path}")
     root_resolved = root.resolve()
     path = (root_resolved / rel_path).resolve()
     path.relative_to(root_resolved)
@@ -17,6 +34,11 @@ def _write_json(root: Path, rel_path: str, payload: dict) -> None:
     path = _resolve_test_path(root, rel_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_write_json_rejects_unknown_relative_path(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Unsupported test json path"):
+        _write_json(tmp_path, "unexpected.json", {"ok": True})
 
 
 def test_evaluate_run_quality_detects_deployable_run(tmp_path: Path) -> None:

@@ -8,8 +8,20 @@ import numpy as np
 import pytest
 from PIL import Image
 
+_ALLOWED_JSON_PATHS = {
+    "artifacts/infer_config.json",
+    "bundle_manifest.json",
+    "calibration_card.json",
+    "config.json",
+    "environment.json",
+    "infer_config.json",
+    "report.json",
+}
+
 
 def _resolve_test_path(root: Path, rel_path: str) -> Path:
+    if rel_path not in _ALLOWED_JSON_PATHS:
+        raise ValueError(f"Unsupported test json path: {rel_path}")
     root_resolved = root.resolve()
     path = (root_resolved / rel_path).resolve()
     path.relative_to(root_resolved)
@@ -20,6 +32,11 @@ def _write_json(root: Path, rel_path: str, payload: dict) -> None:
     path = _resolve_test_path(root, rel_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_write_json_rejects_unknown_relative_path(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Unsupported test json path"):
+        _write_json(tmp_path, "unexpected.json", {"ok": True})
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
