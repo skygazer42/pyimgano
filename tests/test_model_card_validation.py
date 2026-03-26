@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from types import MappingProxyType
 
 
 def test_validate_model_card_file_accepts_minimal_payload(tmp_path):
@@ -283,3 +284,35 @@ def test_validate_model_card_file_reports_manifest_entry_mismatch(tmp_path):
     report = validate_model_card_file(path, manifest_path=manifest_path, check_files=True)
     assert not report.ok
     assert any("manifest entry" in err for err in report.errors)
+
+
+def test_validate_model_card_accepts_mapping_payloads() -> None:
+    from pyimgano.weights.model_card import validate_model_card
+
+    payload = MappingProxyType(
+        {
+            "schema_version": 1,
+            "model_name": "patchcore_bottle_v1",
+            "summary": MappingProxyType(
+                {
+                    "purpose": "Bottle surface anomaly detection",
+                    "intended_inputs": "RGB bottle images",
+                    "output_contract": "image-level + pixel-level",
+                }
+            ),
+            "weights": MappingProxyType(
+                {
+                    "path": "checkpoints/patchcore_bottle.pt",
+                    "sha256": "0" * 64,
+                    "source": "internal training run",
+                    "license": "internal",
+                }
+            ),
+            "deployment": MappingProxyType({"runtime": "torch"}),
+        }
+    )
+
+    report = validate_model_card(payload)
+
+    assert report.ok
+    assert report.errors == ()
