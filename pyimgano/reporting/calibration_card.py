@@ -6,6 +6,10 @@ from typing import Any, Mapping
 CALIBRATION_CARD_SCHEMA_VERSION = 1
 
 
+def _is_numeric_value(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def _coerce_score_distribution(provenance: Mapping[str, Any]) -> dict[str, Any] | None:
     score_summary = provenance.get("score_summary", None)
     if not isinstance(score_summary, Mapping):
@@ -13,28 +17,44 @@ def _coerce_score_distribution(provenance: Mapping[str, Any]) -> dict[str, Any] 
     return dict(score_summary)
 
 
+def _validate_numeric_score_summary_field(
+    payload: Mapping[str, Any],
+    *,
+    name: str,
+    key: str,
+) -> str | None:
+    value = payload.get(key, None)
+    if value is not None and not _is_numeric_value(value):
+        return f"{name}.{key} must be numeric."
+    return None
+
+
+def _validate_score_summary_quantiles(payload: Mapping[str, Any], *, name: str) -> list[str]:
+    quantiles = payload.get("quantiles", None)
+    if quantiles is None:
+        return []
+    if not isinstance(quantiles, Mapping):
+        return [f"{name}.quantiles must be a JSON object/dict."]
+    return [
+        f"{name}.quantiles[{quantile_name!r}] must be numeric."
+        for quantile_name, quantile_value in quantiles.items()
+        if not _is_numeric_value(quantile_value)
+    ]
+
+
 def _validate_score_summary_payload(payload: Any, *, name: str) -> list[str]:
     errors: list[str] = []
     if not isinstance(payload, Mapping):
         return [f"{name} must be a JSON object/dict."]
 
-    count = payload.get("count", None)
-    if count is not None and not isinstance(count, (int, float)):
-        errors.append(f"{name}.count must be numeric.")
-
     for key in ("min", "max", "mean", "std"):
-        value = payload.get(key, None)
-        if value is not None and not isinstance(value, (int, float)):
-            errors.append(f"{name}.{key} must be numeric.")
-
-    quantiles = payload.get("quantiles", None)
-    if quantiles is not None:
-        if not isinstance(quantiles, Mapping):
-            errors.append(f"{name}.quantiles must be a JSON object/dict.")
-        else:
-            for quantile_name, quantile_value in quantiles.items():
-                if not isinstance(quantile_value, (int, float)):
-                    errors.append(f"{name}.quantiles[{quantile_name!r}] must be numeric.")
+        error = _validate_numeric_score_summary_field(payload, name=name, key=key)
+        if error is not None:
+            errors.append(error)
+    count_error = _validate_numeric_score_summary_field(payload, name=name, key="count")
+    if count_error is not None:
+        errors.append(count_error)
+    errors.extend(_validate_score_summary_quantiles(payload, name=name))
 
     return errors
 
@@ -42,7 +62,7 @@ def _validate_score_summary_payload(payload: Any, *, name: str) -> list[str]:
 def _coerce_threshold_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     threshold = payload.get("threshold", None)
     provenance = payload.get("threshold_provenance", None)
-    if not isinstance(threshold, (int, float)) or not isinstance(provenance, Mapping):
+    if not _is_numeric_value(threshold) or not isinstance(provenance, Mapping):
         raise ValueError("threshold and threshold_provenance are required to build calibration cards.")
     out = {
         "threshold": float(threshold),
@@ -81,7 +101,7 @@ def _validate_threshold_payload(payload: Any, *, name: str) -> list[str]:
         return [f"{name} must be a JSON object/dict."]
 
     threshold = payload.get("threshold", None)
-    if not isinstance(threshold, (int, float)):
+    if not _is_numeric_value(threshold):
         errors.append(f"{name}.threshold must be a number.")
 
     provenance = payload.get("provenance", None)

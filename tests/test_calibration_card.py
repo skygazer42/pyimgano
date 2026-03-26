@@ -107,3 +107,28 @@ def test_validate_calibration_card_payload_rejects_bad_threshold_payload_shape()
     assert any("image_threshold.provenance" in item for item in errors)
     assert any("image_threshold.score_distribution.count" in item for item in errors)
     assert any("split_fingerprint.sha256" in item for item in errors)
+
+
+def test_validate_calibration_card_payload_rejects_boolean_score_summary_values() -> None:
+    from pyimgano.reporting.calibration_card import validate_calibration_card_payload
+
+    errors = validate_calibration_card_payload(
+        {
+            "schema_version": 1,
+            "threshold_context": {"scope": "image", "category_count": 1},
+            "image_threshold": {
+                "threshold": 0.42,
+                "provenance": {
+                    "method": "quantile",
+                    "score_summary": {
+                        "count": True,
+                        "quantiles": {"p95": False},
+                    },
+                },
+            },
+            "split_fingerprint": {"sha256": "f" * 64},
+        }
+    )
+
+    assert any("image_threshold.provenance.score_summary.count" in item for item in errors)
+    assert any("image_threshold.provenance.score_summary.quantiles['p95']" in item for item in errors)
