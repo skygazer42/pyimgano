@@ -534,3 +534,54 @@ def test_evaluate_publication_quality_reports_invalid_declared_model_card(tmp_pa
     assert quality["invalid_declared"] == ["model_card_json"]
     assert quality["asset_audit"]["valid"] is False
     assert quality["asset_audit"]["model_card"]["valid"] is False
+
+
+def test_evaluate_publication_quality_requires_boolean_publication_ready_flag(tmp_path: Path) -> None:
+    from pyimgano.reporting.publication_quality import evaluate_publication_quality
+
+    export_dir = tmp_path / "suite_export"
+    _write_run_artifacts(export_dir)
+    leaderboard_path = export_dir / "leaderboard.csv"
+    leaderboard_path.write_text("name,auroc\nx,0.9\n", encoding="utf-8")
+    _write_json(
+        export_dir / "leaderboard_metadata.json",
+        {
+            "artifact_quality": {
+                "required_files_present": True,
+                "missing_required": [],
+                "has_official_benchmark_config": True,
+                "has_environment_fingerprint": True,
+                "has_split_fingerprint": True,
+            },
+            "benchmark_config": {
+                "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                "official": True,
+                "sha256": "a" * 64,
+            },
+            "environment_fingerprint_sha256": "f" * 64,
+            "split_fingerprint": {"sha256": "b" * 64},
+            "citation": {"project": "pyimgano"},
+            "evaluation_contract": {"primary_metric": "auroc"},
+            "publication_ready": "yes",
+            "audit_refs": {
+                "report_json": "report.json",
+                "config_json": "config.json",
+                "environment_json": "environment.json",
+            },
+            "audit_digests": {
+                "report_json": _sha256(export_dir / "report.json"),
+                "config_json": _sha256(export_dir / "config.json"),
+                "environment_json": _sha256(export_dir / "environment.json"),
+            },
+            "exported_files": {
+                "leaderboard_csv": str(leaderboard_path),
+                "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+            },
+            "exported_file_digests": _sha256_map(leaderboard_csv=leaderboard_path),
+        },
+    )
+
+    quality = evaluate_publication_quality(export_dir)
+
+    assert quality["status"] == "partial"
+    assert quality["publication_ready"] is False

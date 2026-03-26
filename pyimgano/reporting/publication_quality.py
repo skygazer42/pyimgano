@@ -93,6 +93,224 @@ def _required_exported_digest_keys(exported_files: Any) -> list[str]:
     return [str(key) for key in exported_files if str(key) != "leaderboard_metadata_json"]
 
 
+def _publication_ready_requested(metadata: Mapping[str, Any]) -> bool:
+    return metadata.get("publication_ready") is True
+
+
+def _collect_exported_file_presence(
+    root: Path,
+    *,
+    exported_files: Any,
+    audit_refs: dict[str, str],
+    missing_required: list[str],
+) -> tuple[dict[str, bool], dict[str, Path]]:
+    exported_files_present: dict[str, bool] = {}
+    resolved_exported_paths: dict[str, Path] = {}
+    if not isinstance(exported_files, dict):
+        return exported_files_present, resolved_exported_paths
+
+    for key, raw_path in exported_files.items():
+        resolved = _resolve_exported_path(root, raw_path)
+        present = bool(resolved is not None and resolved.is_file())
+        exported_files_present[str(key)] = present
+        if present and resolved is not None:
+            resolved_exported_paths[str(key)] = resolved
+        display_path = _display_exported_path(root, raw_path)
+        if display_path is not None and present:
+            audit_refs[str(key)] = str(display_path)
+        if not present and str(key) != "leaderboard_metadata_json" and str(key) not in missing_required:
+            missing_required.append(str(key))
+    return exported_files_present, resolved_exported_paths
+
+
+def _collect_exported_file_digests(
+    metadata_exported_file_digests: Mapping[str, Any],
+    *,
+    required_exported_digest_keys: list[str],
+    resolved_exported_paths: Mapping[str, Path],
+    missing_required: list[str],
+) -> tuple[dict[str, str], bool]:
+    exported_file_digests: dict[str, str] = {}
+    has_exported_file_digests = bool(required_exported_digest_keys)
+    for key in required_exported_digest_keys:
+        digest = _nonempty_str(metadata_exported_file_digests.get(key))
+        if digest is None:
+            _append_missing_required(missing_required, f"exported_file_digests.{key}")
+            has_exported_file_digests = False
+            continue
+        resolved_exported = resolved_exported_paths.get(key)
+        if resolved_exported is None:
+            has_exported_file_digests = False
+            continue
+        actual_digest = _file_sha256(resolved_exported)
+        if digest != actual_digest:
+            _append_missing_required(missing_required, f"{key}_sha256_mismatch")
+            has_exported_file_digests = False
+            continue
+        exported_file_digests[key] = digest
+    return exported_file_digests, has_exported_file_digests
+
+
+def _collect_run_artifact_refs(
+    root: Path,
+    *,
+    metadata_audit_refs: Mapping[str, Any],
+    audit_refs: dict[str, str],
+    missing_required: list[str],
+) -> tuple[dict[str, Path], bool]:
+    resolved_run_artifact_paths: dict[str, Path] = {}
+    has_run_artifact_refs = True
+    for key in ("report_json", "config_json", "environment_json"):
+        raw_ref = _nonempty_str(metadata_audit_refs.get(key))
+        if raw_ref is None:
+            _append_missing_required(missing_required, f"audit_refs.{key}")
+            has_run_artifact_refs = False
+            continue
+        resolved_ref = _resolve_exported_path(root, raw_ref)
+        if resolved_ref is None or not resolved_ref.is_file():
+            _append_missing_required(missing_required, key)
+            has_run_artifact_refs = False
+            continue
+        resolved_run_artifact_paths[key] = resolved_ref
+        display_ref = _display_exported_path(root, raw_ref)
+        if display_ref is not None:
+            audit_refs[key] = str(display_ref)
+    return resolved_run_artifact_paths, has_run_artifact_refs
+
+
+def _collect_run_artifact_digests(
+    metadata_audit_digests: Mapping[str, Any],
+    *,
+    resolved_run_artifact_paths: Mapping[str, Path],
+    missing_required: list[str],
+) -> tuple[dict[str, str], bool]:
+    audit_digests: dict[str, str] = {}
+    has_run_artifact_digests = True
+    for key in ("report_json", "config_json", "environment_json"):
+        digest = _nonempty_str(metadata_audit_digests.get(key))
+        if digest is None:
+            _append_missing_required(missing_required, f"audit_digests.{key}")
+            has_run_artifact_digests = False
+            continue
+        resolved_ref = resolved_run_artifact_paths.get(key)
+        if resolved_ref is None:
+            has_run_artifact_digests = False
+            continue
+        actual_digest = _file_sha256(resolved_ref)
+        if digest != actual_digest:
+            _append_missing_required(missing_required, f"{key}_sha256_mismatch")
+            has_run_artifact_digests = False
+            continue
+        audit_digests[key] = digest
+    return audit_digests, has_run_artifact_digests
+
+
+def _benchmark_config_details(
+    benchmark_config: Any,
+    *,
+    audit_refs: dict[str, str],
+    missing_required: list[str],
+) -> tuple[str | None, str | None, dict[str, Any] | None]:
+    benchmark_config_source = None
+    benchmark_config_sha256 = None
+    benchmark_config_trust = None
+    if isinstance(benchmark_config, dict):
+        raw_source = _nonempty_str(benchmark_config.get("source", None))
+        if raw_source is not None:
+            benchmark_config_source = raw_source
+            audit_refs["benchmark_config_source"] = str(raw_source)
+        raw_sha256 = _nonempty_str(benchmark_config.get("sha256", None))
+        if raw_sha256 is not None:
+            benchmark_config_sha256 = raw_sha256
+        raw_trust = benchmark_config.get("trust_summary", None)
+        if isinstance(raw_trust, dict):
+            benchmark_config_trust = raw_trust
+    else:
+        _append_missing_required(missing_required, "benchmark_config")
+    if isinstance(benchmark_config, dict) and benchmark_config_source is None:
+        _append_missing_required(missing_required, "benchmark_config.source")
+    if isinstance(benchmark_config, dict) and benchmark_config_sha256 is None:
+        _append_missing_required(missing_required, "benchmark_config.sha256")
+    return benchmark_config_source, benchmark_config_sha256, benchmark_config_trust
+
+
+def _publication_trust_signals(
+    *,
+    benchmark_config: Any,
+    benchmark_config_source: str | None,
+    benchmark_config_sha256: str | None,
+    benchmark_config_trust: dict[str, Any] | None,
+    has_evaluation_contract: bool,
+    has_benchmark_citation: bool,
+    has_run_artifact_refs: bool,
+    has_run_artifact_digests: bool,
+    has_exported_file_digests: bool,
+    asset_audit: Mapping[str, Any],
+) -> dict[str, Any]:
+    has_official_benchmark_config = bool(
+        isinstance(benchmark_config, dict) and benchmark_config.get("official")
+    )
+    has_benchmark_provenance = bool(
+        isinstance(benchmark_config, dict)
+        and benchmark_config.get("official")
+        and benchmark_config_source
+        and benchmark_config_sha256
+    )
+    trust_signals = {
+        "has_official_benchmark_config": has_official_benchmark_config,
+        "has_evaluation_contract": has_evaluation_contract,
+        "has_benchmark_citation": has_benchmark_citation,
+        "has_cross_checked_assets": bool(asset_audit.get("cross_checked")),
+        "has_benchmark_provenance": has_benchmark_provenance,
+        "has_benchmark_config_ref": bool(benchmark_config_source),
+        "has_run_artifact_refs": bool(has_run_artifact_refs),
+        "has_run_artifact_digests": bool(has_run_artifact_digests),
+        "has_exported_file_digests": bool(has_exported_file_digests),
+    }
+    if isinstance(benchmark_config_trust, dict):
+        trust_signals["has_trust_signaled_benchmark_config"] = (
+            str(benchmark_config_trust.get("status", "")) == "trust-signaled"
+        )
+    return trust_signals
+
+
+def _publication_artifact_quality_payload(
+    artifact_quality: Any,
+    *,
+    missing_required: list[str],
+    environment_fingerprint_sha256: str | None,
+    split_fingerprint_sha256: str | None,
+    has_evaluation_contract: bool,
+    has_benchmark_citation: bool,
+    trust_signals: Mapping[str, Any],
+) -> dict[str, Any]:
+    artifact_quality_payload = dict(artifact_quality) if isinstance(artifact_quality, dict) else {}
+    artifact_quality_payload["required_files_present"] = len(missing_required) == 0
+    artifact_quality_payload["missing_required"] = list(missing_required)
+    artifact_quality_payload["has_official_benchmark_config"] = bool(
+        trust_signals["has_official_benchmark_config"]
+    )
+    artifact_quality_payload["has_environment_fingerprint"] = bool(environment_fingerprint_sha256)
+    artifact_quality_payload["has_split_fingerprint"] = bool(split_fingerprint_sha256)
+    artifact_quality_payload["has_evaluation_contract"] = has_evaluation_contract
+    artifact_quality_payload["has_benchmark_citation"] = has_benchmark_citation
+    artifact_quality_payload["has_benchmark_provenance"] = bool(
+        trust_signals["has_benchmark_provenance"]
+    )
+    artifact_quality_payload["has_run_artifact_refs"] = bool(trust_signals["has_run_artifact_refs"])
+    artifact_quality_payload["has_run_artifact_digests"] = bool(
+        trust_signals["has_run_artifact_digests"]
+    )
+    artifact_quality_payload["has_exported_file_digests"] = bool(
+        trust_signals["has_exported_file_digests"]
+    )
+    if "has_trust_signaled_benchmark_config" in trust_signals:
+        artifact_quality_payload["has_trust_signaled_benchmark_config"] = bool(
+            trust_signals["has_trust_signaled_benchmark_config"]
+        )
+    return artifact_quality_payload
+
+
 def _evaluate_declared_weight_artifacts(
     root: Path,
     exported_files: Any,
@@ -228,22 +446,14 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
         ]
 
     exported_files = metadata.get("exported_files", None)
-    exported_files_present: dict[str, bool] = {}
     audit_refs: dict[str, str] = {"leaderboard_metadata_json": _LEADERBOARD_METADATA_JSON}
     missing_required = list(declared_missing)
-    resolved_exported_paths: dict[str, Path] = {}
-    if isinstance(exported_files, dict):
-        for key, raw_path in exported_files.items():
-            resolved = _resolve_exported_path(root, raw_path)
-            present = bool(resolved is not None and resolved.is_file())
-            exported_files_present[str(key)] = present
-            if present and resolved is not None:
-                resolved_exported_paths[str(key)] = resolved
-            display_path = _display_exported_path(root, raw_path)
-            if display_path is not None and present:
-                audit_refs[str(key)] = str(display_path)
-            if not present and str(key) != "leaderboard_metadata_json" and str(key) not in missing_required:
-                missing_required.append(str(key))
+    exported_files_present, resolved_exported_paths = _collect_exported_file_presence(
+        root,
+        exported_files=exported_files,
+        audit_refs=audit_refs,
+        missing_required=missing_required,
+    )
     if not any(
         key.startswith("leaderboard_") and key != "leaderboard_metadata_json"
         for key in exported_files_present
@@ -257,91 +467,40 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
         if isinstance(metadata_exported_file_digests_raw, dict)
         else {}
     )
-    exported_file_digests: dict[str, str] = {}
-    has_exported_file_digests = bool(required_exported_digest_keys)
-    for key in required_exported_digest_keys:
-        digest = _nonempty_str(metadata_exported_file_digests.get(key))
-        if digest is None:
-            _append_missing_required(missing_required, f"exported_file_digests.{key}")
-            has_exported_file_digests = False
-            continue
-        resolved_exported = resolved_exported_paths.get(key)
-        if resolved_exported is None:
-            has_exported_file_digests = False
-            continue
-        actual_digest = _file_sha256(resolved_exported)
-        if digest != actual_digest:
-            _append_missing_required(missing_required, f"{key}_sha256_mismatch")
-            has_exported_file_digests = False
-            continue
-        exported_file_digests[key] = digest
+    exported_file_digests, has_exported_file_digests = _collect_exported_file_digests(
+        metadata_exported_file_digests,
+        required_exported_digest_keys=required_exported_digest_keys,
+        resolved_exported_paths=resolved_exported_paths,
+        missing_required=missing_required,
+    )
 
     metadata_audit_refs_raw = metadata.get("audit_refs", None)
     metadata_audit_refs = (
         dict(metadata_audit_refs_raw) if isinstance(metadata_audit_refs_raw, dict) else {}
     )
-    has_run_artifact_refs = True
-    resolved_run_artifact_paths: dict[str, Path] = {}
-    for key in ("report_json", "config_json", "environment_json"):
-        raw_ref = _nonempty_str(metadata_audit_refs.get(key))
-        if raw_ref is None:
-            _append_missing_required(missing_required, f"audit_refs.{key}")
-            has_run_artifact_refs = False
-            continue
-        resolved_ref = _resolve_exported_path(root, raw_ref)
-        if resolved_ref is None or not resolved_ref.is_file():
-            _append_missing_required(missing_required, key)
-            has_run_artifact_refs = False
-            continue
-        resolved_run_artifact_paths[key] = resolved_ref
-        display_ref = _display_exported_path(root, raw_ref)
-        if display_ref is not None:
-            audit_refs[key] = str(display_ref)
+    resolved_run_artifact_paths, has_run_artifact_refs = _collect_run_artifact_refs(
+        root,
+        metadata_audit_refs=metadata_audit_refs,
+        audit_refs=audit_refs,
+        missing_required=missing_required,
+    )
 
     metadata_audit_digests_raw = metadata.get("audit_digests", None)
     metadata_audit_digests = (
         dict(metadata_audit_digests_raw) if isinstance(metadata_audit_digests_raw, dict) else {}
     )
-    audit_digests: dict[str, str] = {}
-    has_run_artifact_digests = True
-    for key in ("report_json", "config_json", "environment_json"):
-        digest = _nonempty_str(metadata_audit_digests.get(key))
-        if digest is None:
-            _append_missing_required(missing_required, f"audit_digests.{key}")
-            has_run_artifact_digests = False
-            continue
-        resolved_ref = resolved_run_artifact_paths.get(key)
-        if resolved_ref is None:
-            has_run_artifact_digests = False
-            continue
-        actual_digest = _file_sha256(resolved_ref)
-        if digest != actual_digest:
-            _append_missing_required(missing_required, f"{key}_sha256_mismatch")
-            has_run_artifact_digests = False
-            continue
-        audit_digests[key] = digest
-
-    benchmark_config_source = None
-    benchmark_config_sha256 = None
-    benchmark_config_trust = None
-    if isinstance(benchmark_config, dict):
-        raw_source = _nonempty_str(benchmark_config.get("source", None))
-        if raw_source is not None:
-            benchmark_config_source = raw_source
-            audit_refs["benchmark_config_source"] = str(raw_source)
-        raw_sha256 = _nonempty_str(benchmark_config.get("sha256", None))
-        if raw_sha256 is not None:
-            benchmark_config_sha256 = raw_sha256
-        raw_trust = benchmark_config.get("trust_summary", None)
-        if isinstance(raw_trust, dict):
-            benchmark_config_trust = raw_trust
-    else:
-        _append_missing_required(missing_required, "benchmark_config")
-
-    if isinstance(benchmark_config, dict) and benchmark_config_source is None:
-        _append_missing_required(missing_required, "benchmark_config.source")
-    if isinstance(benchmark_config, dict) and benchmark_config_sha256 is None:
-        _append_missing_required(missing_required, "benchmark_config.sha256")
+    audit_digests, has_run_artifact_digests = _collect_run_artifact_digests(
+        metadata_audit_digests,
+        resolved_run_artifact_paths=resolved_run_artifact_paths,
+        missing_required=missing_required,
+    )
+    benchmark_config_source, benchmark_config_sha256, benchmark_config_trust = (
+        _benchmark_config_details(
+            benchmark_config,
+            audit_refs=audit_refs,
+            missing_required=missing_required,
+        )
+    )
 
     environment_fingerprint_sha256 = _nonempty_str(metadata.get("environment_fingerprint_sha256"))
     if environment_fingerprint_sha256 is None:
@@ -360,50 +519,30 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
         _append_missing_required(missing_required, "citation")
 
     invalid_declared, asset_audit = _evaluate_declared_weight_artifacts(root, exported_files)
-    has_official_benchmark_config = bool(
-        isinstance(benchmark_config, dict) and benchmark_config.get("official")
+    trust_signals = _publication_trust_signals(
+        benchmark_config=benchmark_config,
+        benchmark_config_source=benchmark_config_source,
+        benchmark_config_sha256=benchmark_config_sha256,
+        benchmark_config_trust=benchmark_config_trust,
+        has_evaluation_contract=has_evaluation_contract,
+        has_benchmark_citation=has_benchmark_citation,
+        has_run_artifact_refs=has_run_artifact_refs,
+        has_run_artifact_digests=has_run_artifact_digests,
+        has_exported_file_digests=has_exported_file_digests,
+        asset_audit=asset_audit,
     )
-    has_benchmark_provenance = bool(
-        isinstance(benchmark_config, dict)
-        and benchmark_config.get("official")
-        and benchmark_config_source
-        and benchmark_config_sha256
+    artifact_quality_payload = _publication_artifact_quality_payload(
+        artifact_quality,
+        missing_required=missing_required,
+        environment_fingerprint_sha256=environment_fingerprint_sha256,
+        split_fingerprint_sha256=split_fingerprint_sha256,
+        has_evaluation_contract=has_evaluation_contract,
+        has_benchmark_citation=has_benchmark_citation,
+        trust_signals=trust_signals,
     )
-    trust_signals = {
-        "has_official_benchmark_config": has_official_benchmark_config,
-        "has_evaluation_contract": has_evaluation_contract,
-        "has_benchmark_citation": has_benchmark_citation,
-        "has_cross_checked_assets": bool(asset_audit.get("cross_checked")),
-        "has_benchmark_provenance": has_benchmark_provenance,
-        "has_benchmark_config_ref": bool(benchmark_config_source),
-        "has_run_artifact_refs": bool(has_run_artifact_refs),
-        "has_run_artifact_digests": bool(has_run_artifact_digests),
-        "has_exported_file_digests": bool(has_exported_file_digests),
-    }
-    if isinstance(benchmark_config_trust, dict):
-        trust_signals["has_trust_signaled_benchmark_config"] = (
-            str(benchmark_config_trust.get("status", "")) == "trust-signaled"
-        )
-
-    artifact_quality_payload = dict(artifact_quality) if isinstance(artifact_quality, dict) else {}
-    artifact_quality_payload["required_files_present"] = len(missing_required) == 0
-    artifact_quality_payload["missing_required"] = list(missing_required)
-    artifact_quality_payload["has_official_benchmark_config"] = has_official_benchmark_config
-    artifact_quality_payload["has_environment_fingerprint"] = bool(environment_fingerprint_sha256)
-    artifact_quality_payload["has_split_fingerprint"] = bool(split_fingerprint_sha256)
-    artifact_quality_payload["has_evaluation_contract"] = has_evaluation_contract
-    artifact_quality_payload["has_benchmark_citation"] = has_benchmark_citation
-    artifact_quality_payload["has_benchmark_provenance"] = has_benchmark_provenance
-    artifact_quality_payload["has_run_artifact_refs"] = bool(has_run_artifact_refs)
-    artifact_quality_payload["has_run_artifact_digests"] = bool(has_run_artifact_digests)
-    artifact_quality_payload["has_exported_file_digests"] = bool(has_exported_file_digests)
-    if "has_trust_signaled_benchmark_config" in trust_signals:
-        artifact_quality_payload["has_trust_signaled_benchmark_config"] = bool(
-            trust_signals["has_trust_signaled_benchmark_config"]
-        )
 
     publication_ready = bool(
-        metadata.get("publication_ready")
+        _publication_ready_requested(metadata)
         and artifact_quality_payload["required_files_present"]
         and artifact_quality_payload["has_official_benchmark_config"]
         and artifact_quality_payload["has_evaluation_contract"]
