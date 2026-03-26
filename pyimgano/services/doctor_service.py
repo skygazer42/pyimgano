@@ -1226,7 +1226,36 @@ def collect_doctor_payload(
 ) -> dict[str, Any]:
     import pyimgano
 
-    optional_modules: list[dict[str, Any]] = [
+    optional_modules = _doctor_optional_modules()
+    payload = _doctor_base_payload(
+        pyimgano_version=str(getattr(pyimgano, "__version__", "")),
+        optional_modules=optional_modules,
+    )
+    _apply_doctor_runtime_checks(
+        payload,
+        suites_to_check=suites_to_check,
+        require_extras=require_extras,
+        accelerators=accelerators,
+    )
+    _apply_doctor_readiness_targets(
+        payload,
+        run_dir=run_dir,
+        deploy_bundle=deploy_bundle,
+        dataset_target=dataset_target,
+        dataset=dataset,
+        category=category,
+        root_fallback=root_fallback,
+        objective=objective,
+        allow_upstream=allow_upstream,
+        selection_profile=selection_profile,
+        topk=topk,
+        check_bundle_hashes=check_bundle_hashes,
+    )
+    return payload
+
+
+def _doctor_optional_modules() -> list[dict[str, Any]]:
+    return [
         check_module(module="numpy", dist="numpy", purpose="core numerical backend"),
         check_module(module="cv2", dist="opencv-python", purpose="image IO / preprocessing"),
         check_module(module="sklearn", dist="scikit-learn", purpose="classical ML baselines"),
@@ -1290,10 +1319,16 @@ def collect_doctor_payload(
         ),
     ]
 
-    payload: dict[str, Any] = {
+
+def _doctor_base_payload(
+    *,
+    pyimgano_version: str,
+    optional_modules: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
         "tool": "pyimgano-doctor",
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "pyimgano_version": str(getattr(pyimgano, "__version__", "")),
+        "pyimgano_version": pyimgano_version,
         "python": {
             "version": str(sys.version),
             "executable": str(sys.executable),
@@ -1311,6 +1346,14 @@ def collect_doctor_payload(
         "optional_modules": optional_modules,
     }
 
+
+def _apply_doctor_runtime_checks(
+    payload: dict[str, Any],
+    *,
+    suites_to_check: list[str] | None,
+    require_extras: list[str] | None,
+    accelerators: bool,
+) -> None:
     suites = split_csv_args(suites_to_check)
     if suites:
         payload["suite_checks"] = build_suite_checks(suites)
@@ -1321,6 +1364,22 @@ def collect_doctor_payload(
     if bool(accelerators):
         payload["accelerators"] = build_accelerator_checks()
 
+
+def _apply_doctor_readiness_targets(
+    payload: dict[str, Any],
+    *,
+    run_dir: str | None,
+    deploy_bundle: str | None,
+    dataset_target: str | None,
+    dataset: str,
+    category: str | None,
+    root_fallback: str | None,
+    objective: str | None,
+    allow_upstream: str | None,
+    selection_profile: str | None,
+    topk: int | None,
+    check_bundle_hashes: bool,
+) -> None:
     if run_dir is not None:
         payload["readiness"] = _doctor_readiness_payload(
             _build_run_readiness(
@@ -1350,8 +1409,6 @@ def collect_doctor_payload(
                 topk=(int(topk) if topk is not None else None),
             )
         )
-
-    return payload
 
 
 def _doctor_readiness_payload(readiness: Mapping[str, Any]) -> dict[str, Any]:
