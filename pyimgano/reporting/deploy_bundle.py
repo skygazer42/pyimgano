@@ -768,6 +768,105 @@ def _validate_bundle_status(value: Any) -> list[str]:
     return []
 
 
+def _entry_role(rel_path: str, role: Any, *, index: int, errors: list[str]) -> str:
+    if role is None:
+        return _classify_entry(rel_path)
+    if not isinstance(role, str) or not role.strip():
+        errors.append(f"entries[{index}].role must be a non-empty string.")
+        return _classify_entry(rel_path)
+    return str(role)
+
+
+def _validate_entry_hash(
+    entry: Mapping[str, Any],
+    *,
+    file_path: Path,
+    rel_path: str,
+    check_hashes: bool,
+) -> str | None:
+    if not check_hashes:
+        return None
+    expected = entry.get("sha256", None)
+    if not isinstance(expected, str) or not expected.strip():
+        return None
+    actual = FileHasher.compute_hash(str(file_path), algorithm="sha256")
+    if actual != expected:
+        return f"SHA256 mismatch for bundled file: {rel_path}"
+    return None
+
+
+def _collect_manifest_entries(
+    entries: list[Any],
+    *,
+    bundle_root: Path,
+    check_hashes: bool,
+) -> tuple[list[str], set[str], list[dict[str, Any]]]:
+    errors: list[str] = []
+    entry_paths: set[str] = set()
+    actual_entries: list[dict[str, Any]] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, Mapping):
+            errors.append(f"entries[{index}] must be an object.")
+            continue
+        rel_path = entry.get("path", None)
+        if not isinstance(rel_path, str) or not rel_path.strip():
+            errors.append(f"entries[{index}] missing path.")
+            continue
+        rel_path_str = str(rel_path)
+        entry_paths.add(rel_path_str)
+        file_path = bundle_root / rel_path_str
+        if not file_path.exists():
+            errors.append(f"Missing bundled file: {rel_path_str}")
+            continue
+        actual_entries.append(
+            {
+                "path": rel_path_str,
+                "role": _entry_role(
+                    rel_path_str,
+                    entry.get("role", None),
+                    index=index,
+                    errors=errors,
+                ),
+            }
+        )
+        hash_error = _validate_entry_hash(
+            entry,
+            file_path=file_path,
+            rel_path=rel_path_str,
+            check_hashes=check_hashes,
+        )
+        if hash_error is not None:
+            errors.append(hash_error)
+    return errors, entry_paths, actual_entries
+
+
+def _source_run_context(
+    manifest: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], str | None, list[str]]:
+    errors: list[str] = []
+    source_artifact_refs: Mapping[str, Any] = {}
+    source_run_dir: str | None = None
+    source_run = manifest.get("source_run", None)
+    if not isinstance(source_run, Mapping):
+        return source_artifact_refs, source_run_dir, errors
+
+    source_run_dir_value = source_run.get("run_dir", None)
+    if isinstance(source_run_dir_value, str) and source_run_dir_value.strip():
+        source_run_dir = str(source_run_dir_value)
+    artifact_refs = source_run.get("artifact_refs", None)
+    if isinstance(artifact_refs, Mapping):
+        source_artifact_refs = artifact_refs
+    if isinstance(source_run_dir, str) and source_run_dir:
+        errors.extend(
+            _validate_artifact_refs(
+                artifact_refs,
+                field_name="source_run.artifact_refs",
+                root=Path(source_run_dir),
+            )
+        )
+    return source_artifact_refs, source_run_dir, errors
+
+
 def validate_deploy_bundle_manifest(
     manifest: dict[str, Any], *, bundle_dir: str | Path, check_hashes: bool = False
 ) -> list[str]:
@@ -781,57 +880,17 @@ def validate_deploy_bundle_manifest(
     if not isinstance(entries, list):
         return ["Deploy bundle manifest entries must be a list."]
 
-    entry_paths: set[str] = set()
-    actual_entries: list[dict[str, Any]] = []
-    for index, entry in enumerate(entries):
-        if not isinstance(entry, dict):
-            errors.append(f"entries[{index}] must be an object.")
-            continue
-        rel_path = entry.get("path", None)
-        if not isinstance(rel_path, str) or not rel_path.strip():
-            errors.append(f"entries[{index}] missing path.")
-            continue
-        entry_paths.add(str(rel_path))
-        file_path = bundle_root / rel_path
-        if not file_path.exists():
-            errors.append(f"Missing bundled file: {rel_path}")
-            continue
-        role = entry.get("role", None)
-        if role is None:
-            actual_role = _classify_entry(str(rel_path))
-        elif not isinstance(role, str) or not role.strip():
-            errors.append(f"entries[{index}].role must be a non-empty string.")
-            actual_role = _classify_entry(str(rel_path))
-        else:
-            actual_role = str(role)
-        actual_entries.append({"path": str(rel_path), "role": str(actual_role)})
-        if check_hashes:
-            expected = entry.get("sha256", None)
-            if isinstance(expected, str) and expected.strip():
-                actual = FileHasher.compute_hash(str(file_path), algorithm="sha256")
-                if actual != expected:
-                    errors.append(f"SHA256 mismatch for bundled file: {rel_path}")
+    entry_errors, entry_paths, actual_entries = _collect_manifest_entries(
+        entries,
+        bundle_root=bundle_root,
+        check_hashes=bool(check_hashes),
+    )
+    errors.extend(entry_errors)
+
     actual_roles = _build_artifact_roles(actual_entries)
     actual_artifact_digests = _build_artifact_digests(entries)
-
-    source_run = manifest.get("source_run", None)
-    source_artifact_refs: Mapping[str, Any] = {}
-    source_run_dir: str | None = None
-    if isinstance(source_run, Mapping):
-        source_run_dir_value = source_run.get("run_dir", None)
-        if isinstance(source_run_dir_value, str) and source_run_dir_value.strip():
-            source_run_dir = str(source_run_dir_value)
-        artifact_refs = source_run.get("artifact_refs", None)
-        if isinstance(artifact_refs, Mapping):
-            source_artifact_refs = artifact_refs
-        if isinstance(source_run_dir, str) and source_run_dir:
-            errors.extend(
-                _validate_artifact_refs(
-                    artifact_refs,
-                    field_name="source_run.artifact_refs",
-                    root=Path(source_run_dir),
-                )
-            )
+    source_artifact_refs, source_run_dir, source_errors = _source_run_context(manifest)
+    errors.extend(source_errors)
 
     bundle_artifact_refs = manifest.get("bundle_artifact_refs", None)
     errors.extend(_validate_bundle_type(manifest.get("bundle_type", None)))
