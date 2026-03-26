@@ -4,6 +4,8 @@ import csv
 import hashlib
 import json
 
+import pytest
+
 
 def _sha256(path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -60,7 +62,7 @@ def test_export_robustness_tables_writes_csv_and_summary(tmp_path) -> None:
 
     summary = json.loads((tmp_path / "robustness_summary.json").read_text(encoding="utf-8"))
     assert summary["dataset"] == "mvtec"
-    assert summary["robustness_summary"]["worst_corruption_auroc"] == 0.8
+    assert summary["robustness_summary"]["worst_corruption_auroc"] == pytest.approx(0.8)
     assert summary["robustness_protocol"]["condition_count"] == 3
     assert summary["robustness_protocol"]["corruption_count"] == 1
     assert summary["robustness_protocol"]["severities"] == [1, 2]

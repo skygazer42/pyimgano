@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 
 def test_validate_infer_config_cli_smoke(tmp_path: Path, capsys) -> None:
     from pyimgano.validate_infer_config_cli import main
@@ -211,7 +213,7 @@ def test_validate_infer_config_cli_accepts_top_level_postprocess_contract(
     rc = main([str(cfg), "--json", "--no-check-files"])
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
-    assert out["postprocess"]["image_threshold"]["threshold"] == 0.42
+    assert out["postprocess"]["image_threshold"]["threshold"] == pytest.approx(0.42)
 
 
 def test_validate_infer_config_cli_reports_postprocess_contract_trust_signals(

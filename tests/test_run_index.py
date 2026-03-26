@@ -1,6 +1,8 @@
 import hashlib
 import json
 
+import pytest
+
 
 def test_list_run_summaries_sorts_newest_first(tmp_path):
     from pyimgano.reporting.run_index import list_run_summaries
@@ -103,8 +105,8 @@ def test_compare_run_summaries_collects_metric_table(tmp_path):
     payload = compare_run_summaries([run_a, run_b])
 
     assert len(payload["runs"]) == 2
-    assert payload["metrics"]["auroc"]["max"] == 0.92
-    assert payload["metrics"]["auroc"]["min"] == 0.9
+    assert payload["metrics"]["auroc"]["max"] == pytest.approx(0.92)
+    assert payload["metrics"]["auroc"]["min"] == pytest.approx(0.9)
     assert payload["evaluation_contract"]["primary_metric"] == "auroc"
     assert payload["evaluation_contract"]["metric_directions"]["auroc"] == "higher_is_better"
     assert payload["evaluation_contract"]["comparability_hints"] == {
@@ -135,10 +137,10 @@ def test_compare_run_summaries_can_report_deltas_vs_baseline(tmp_path):
 
     metric = payload["metrics"]["auroc"]
     assert metric["direction"] == "higher_is_better"
-    assert metric["baseline"] == 0.91
+    assert metric["baseline"] == pytest.approx(0.91)
     assert metric["comparisons"][0]["status"] == "baseline"
     assert metric["comparisons"][1]["status"] == "regressed"
-    assert metric["comparisons"][1]["delta_vs_baseline"] == -0.02
+    assert metric["comparisons"][1]["delta_vs_baseline"] == pytest.approx(-0.02)
 
 
 def test_list_run_summaries_can_filter_by_same_split(tmp_path):
@@ -569,16 +571,16 @@ def test_list_run_summaries_classifies_robustness_and_extracts_metrics(tmp_path)
     }
     assert items[0]["robustness_trust"]["status"] == "trust-signaled"
     assert items[0]["robustness_trust"]["trust_signals"]["has_corruption_conditions"] is True
-    assert items[0]["metrics"]["clean_auroc"] == 0.95
-    assert items[0]["metrics"]["mean_corruption_auroc"] == 0.85
-    assert items[0]["metrics"]["worst_corruption_auroc"] == 0.8
-    assert items[0]["metrics"]["mean_corruption_drop_auroc"] == 0.1
-    assert items[0]["metrics"]["worst_corruption_drop_auroc"] == 0.15
-    assert items[0]["metrics"]["clean_latency_ms_per_image"] == 1.0
-    assert items[0]["metrics"]["mean_corruption_latency_ms_per_image"] == 1.2
-    assert items[0]["metrics"]["worst_corruption_latency_ms_per_image"] == 1.3
-    assert items[0]["metrics"]["mean_corruption_latency_ratio"] == 1.2
-    assert items[0]["metrics"]["worst_corruption_latency_ratio"] == 1.3
+    assert items[0]["metrics"]["clean_auroc"] == pytest.approx(0.95)
+    assert items[0]["metrics"]["mean_corruption_auroc"] == pytest.approx(0.85)
+    assert items[0]["metrics"]["worst_corruption_auroc"] == pytest.approx(0.8)
+    assert items[0]["metrics"]["mean_corruption_drop_auroc"] == pytest.approx(0.1)
+    assert items[0]["metrics"]["worst_corruption_drop_auroc"] == pytest.approx(0.15)
+    assert items[0]["metrics"]["clean_latency_ms_per_image"] == pytest.approx(1.0)
+    assert items[0]["metrics"]["mean_corruption_latency_ms_per_image"] == pytest.approx(1.2)
+    assert items[0]["metrics"]["worst_corruption_latency_ms_per_image"] == pytest.approx(1.3)
+    assert items[0]["metrics"]["mean_corruption_latency_ratio"] == pytest.approx(1.2)
+    assert items[0]["metrics"]["worst_corruption_latency_ratio"] == pytest.approx(1.3)
     assert items[0]["evaluation_contract"]["primary_metric"] == "worst_corruption_auroc"
     assert items[0]["evaluation_contract"]["ranking_metric"] == "worst_corruption_auroc"
     assert (

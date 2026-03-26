@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from pyimgano.inference.runtime_adapter import score_and_maps
 
@@ -61,4 +62,4 @@ def test_score_and_maps_accepts_single_predict_map_2d_output() -> None:
     assert scores.shape == (1,)
     assert maps is not None
     assert maps.shape == (1, 4, 4)
-    assert float(maps[0, 0, 0]) == 7.0
+    assert float(maps[0, 0, 0]) == pytest.approx(7.0)

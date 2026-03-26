@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 
 def _read_jsonl(path: Path) -> list[dict]:
     rows: list[dict] = []
@@ -147,7 +149,7 @@ def test_run_evaluation_harness_writes_inventory_matrix_and_artifact_audit_outpu
     assert dataset_payload["datasets"][0]["dataset"] == "mvtec"
     assert matrix_rows[0]["model"] == "vision_ecod"
     assert matrix_rows[0]["status"] == "ok"
-    assert matrix_rows[0]["benchmark"]["metrics"]["auroc"] == 0.91
+    assert matrix_rows[0]["benchmark"]["metrics"]["auroc"] == pytest.approx(0.91)
     assert audit_rows[0]["model"] == "vision_ecod"
     assert audit_rows[0]["status"] == "ready"
 

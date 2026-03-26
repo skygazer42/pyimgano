@@ -133,7 +133,7 @@ class TestFindOptimalThreshold:
         threshold, f1 = find_optimal_threshold(y_true, y_scores, metric="f1")
 
         assert threshold > float(np.max(y_scores))
-        assert f1 == 0.0
+        assert f1 == pytest.approx(0.0)
 
 
 class TestClassificationMetrics:

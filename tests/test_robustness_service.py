@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from pyimgano.services.robustness_service import RobustnessRunRequest, run_robustness_request
 
 
@@ -26,16 +28,16 @@ def test_summarize_robustness_report_includes_drop_metrics() -> None:
         }
     )
 
-    assert summary["clean_auroc"] == 0.95
-    assert summary["mean_corruption_auroc"] == 0.85
-    assert summary["worst_corruption_auroc"] == 0.8
-    assert summary["mean_corruption_drop_auroc"] == 0.1
-    assert summary["worst_corruption_drop_auroc"] == 0.15
-    assert summary["clean_latency_ms_per_image"] == 1.0
-    assert summary["mean_corruption_latency_ms_per_image"] == 1.25
-    assert summary["worst_corruption_latency_ms_per_image"] == 1.3
-    assert summary["mean_corruption_latency_ratio"] == 1.25
-    assert summary["worst_corruption_latency_ratio"] == 1.3
+    assert summary["clean_auroc"] == pytest.approx(0.95)
+    assert summary["mean_corruption_auroc"] == pytest.approx(0.85)
+    assert summary["worst_corruption_auroc"] == pytest.approx(0.8)
+    assert summary["mean_corruption_drop_auroc"] == pytest.approx(0.1)
+    assert summary["worst_corruption_drop_auroc"] == pytest.approx(0.15)
+    assert summary["clean_latency_ms_per_image"] == pytest.approx(1.0)
+    assert summary["mean_corruption_latency_ms_per_image"] == pytest.approx(1.25)
+    assert summary["worst_corruption_latency_ms_per_image"] == pytest.approx(1.3)
+    assert summary["mean_corruption_latency_ratio"] == pytest.approx(1.25)
+    assert summary["worst_corruption_latency_ratio"] == pytest.approx(1.3)
 
 
 def test_summarize_robustness_protocol_exposes_comparability_metadata() -> None:
@@ -321,8 +323,8 @@ def test_run_robustness_request_can_persist_run_artifacts(monkeypatch, tmp_path:
     assert (run_dir / "artifacts" / "robustness_summary.json").exists()
 
     saved_report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
-    assert saved_report["robustness_summary"]["clean_auroc"] == 0.95
-    assert saved_report["robustness_summary"]["worst_corruption_auroc"] == 0.85
+    assert saved_report["robustness_summary"]["clean_auroc"] == pytest.approx(0.95)
+    assert saved_report["robustness_summary"]["worst_corruption_auroc"] == pytest.approx(0.85)
     assert saved_report["robustness_protocol"]["corruption_mode"] == "clean_only"
     assert saved_report["robustness_protocol"]["condition_count"] == 2
     assert saved_report["robustness_protocol"]["conditions"] == ["clean", "lighting"]
