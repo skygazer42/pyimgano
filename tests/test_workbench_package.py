@@ -106,7 +106,9 @@ print(json.dumps({
     }
 
 
-def test_workbench_package_resolves_preflight_type_exports_without_loading_preflight_runtime() -> None:
+def test_workbench_package_resolves_preflight_type_exports_without_loading_preflight_runtime() -> (
+    None
+):
     payload = _run_python(
         """
 import json

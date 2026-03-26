@@ -154,7 +154,9 @@ class AlgorithmBenchmark:
                 print(f"{'=' * 60}")
 
             try:
-                result = self._benchmark_single(algo_config, train_images, test_images, test_labels, verbose)
+                result = self._benchmark_single(
+                    algo_config, train_images, test_images, test_labels, verbose
+                )
                 self.results[algo_name] = result
 
             except Exception as e:

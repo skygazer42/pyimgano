@@ -51,7 +51,11 @@ class CutPasteAugmentation:
         self.area_ratio = area_ratio
         self.aspect_ratio = aspect_ratio
         self.type = type
-        self.rng = rng if rng is not None else np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
+        self.rng = (
+            rng
+            if rng is not None
+            else np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
+        )
 
     def __call__(self, image: NDArray) -> NDArray:
         """Apply CutPaste augmentation.

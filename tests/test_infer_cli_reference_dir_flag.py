@@ -122,4 +122,3 @@ def test_infer_cli_reference_dir_rejects_non_reference_detectors(
     assert rc == 2
     err = capsys.readouterr().err.lower()
     assert "reference-dir" in err
-

@@ -683,7 +683,9 @@ def apply_advanced_morphology(
         return (thinned * 255).astype(np.uint8)
 
     elif operation == MorphologicalAdvanced.CONVEX_HULL:
-        skmorph = require(SKIMAGE_MORPHOLOGY_MODULE, extra="skimage", purpose="convex hull morphology")
+        skmorph = require(
+            SKIMAGE_MORPHOLOGY_MODULE, extra="skimage", purpose="convex hull morphology"
+        )
         hull = skmorph.convex_hull_image(binary_bool)
         return (hull * 255).astype(np.uint8)
 

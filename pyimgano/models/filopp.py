@@ -72,7 +72,9 @@ class VisionFiLoPP:
     ) -> None:
         self.vlm_backend = vlm_backend
         self.localization_backend = (
-            localization_backend if localization_backend is not None else _PromptLocalizationBackend()
+            localization_backend
+            if localization_backend is not None
+            else _PromptLocalizationBackend()
         )
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
@@ -87,7 +89,9 @@ class VisionFiLoPP:
         if not items:
             raise ValueError("X must contain at least one support sample.")
         support_patch_sets = [_encode_with_vlm(self.vlm_backend, item)[0] for item in items]
-        if not hasattr(self.localization_backend, "fit") or not hasattr(self.localization_backend, "score"):
+        if not hasattr(self.localization_backend, "fit") or not hasattr(
+            self.localization_backend, "score"
+        ):
             raise TypeError(
                 "localization_backend must implement .fit(support_patch_sets) and .score(patch_embeddings)."
             )
@@ -114,7 +118,9 @@ class VisionFiLoPP:
 
     def decision_function(self, x: object = MISSING, **kwargs: object):
         items = list(
-            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+            cast(
+                Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+            )
         )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):

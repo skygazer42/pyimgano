@@ -30,42 +30,45 @@ def test_evaluate_publication_quality_detects_ready_export(tmp_path: Path) -> No
     export_dir = tmp_path / "suite_export"
     _write_run_artifacts(export_dir)
     (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
-    _write_json(export_dir / "leaderboard_metadata.json", {
-        "artifact_quality": {
-            "required_files_present": True,
-            "missing_required": [],
-            "has_official_benchmark_config": True,
-            "has_environment_fingerprint": True,
-            "has_split_fingerprint": True,
-        },
-        "benchmark_config": {
-            "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
-            "official": True,
-            "sha256": "a" * 64,
-        },
-        "environment_fingerprint_sha256": "f" * 64,
-        "split_fingerprint": {"sha256": "b" * 64},
-        "evaluation_contract": {"primary_metric": "auroc"},
-        "citation": {"project": "pyimgano"},
-        "publication_ready": True,
-        "audit_refs": {
-            "report_json": "report.json",
-            "config_json": "config.json",
-            "environment_json": "environment.json",
-        },
-        "audit_digests": {
-            "report_json": _sha256(export_dir / "report.json"),
-            "config_json": _sha256(export_dir / "config.json"),
-            "environment_json": _sha256(export_dir / "environment.json"),
-        },
-        "exported_files": {
-            "leaderboard_csv": str(export_dir / "leaderboard.csv"),
-            "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
-        },
+    _write_json(
+        export_dir / "leaderboard_metadata.json",
+        {
+            "artifact_quality": {
+                "required_files_present": True,
+                "missing_required": [],
+                "has_official_benchmark_config": True,
+                "has_environment_fingerprint": True,
+                "has_split_fingerprint": True,
+            },
+            "benchmark_config": {
+                "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                "official": True,
+                "sha256": "a" * 64,
+            },
+            "environment_fingerprint_sha256": "f" * 64,
+            "split_fingerprint": {"sha256": "b" * 64},
+            "evaluation_contract": {"primary_metric": "auroc"},
+            "citation": {"project": "pyimgano"},
+            "publication_ready": True,
+            "audit_refs": {
+                "report_json": "report.json",
+                "config_json": "config.json",
+                "environment_json": "environment.json",
+            },
+            "audit_digests": {
+                "report_json": _sha256(export_dir / "report.json"),
+                "config_json": _sha256(export_dir / "config.json"),
+                "environment_json": _sha256(export_dir / "environment.json"),
+            },
+            "exported_files": {
+                "leaderboard_csv": str(export_dir / "leaderboard.csv"),
+                "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+            },
             "exported_file_digests": {
                 "leaderboard_csv": _sha256(export_dir / "leaderboard.csv"),
             },
-    })
+        },
+    )
 
     quality = evaluate_publication_quality(export_dir)
 
@@ -102,20 +105,23 @@ def test_evaluate_publication_quality_reports_partial_export(tmp_path: Path) -> 
     from pyimgano.reporting.publication_quality import evaluate_publication_quality
 
     export_dir = tmp_path / "suite_export"
-    _write_json(export_dir / "leaderboard_metadata.json", {
-        "artifact_quality": {
-            "required_files_present": False,
-            "missing_required": ["environment_fingerprint_sha256"],
-            "has_official_benchmark_config": False,
-            "has_environment_fingerprint": False,
-            "has_split_fingerprint": True,
+    _write_json(
+        export_dir / "leaderboard_metadata.json",
+        {
+            "artifact_quality": {
+                "required_files_present": False,
+                "missing_required": ["environment_fingerprint_sha256"],
+                "has_official_benchmark_config": False,
+                "has_environment_fingerprint": False,
+                "has_split_fingerprint": True,
+            },
+            "publication_ready": False,
+            "exported_files": {
+                "leaderboard_csv": str(export_dir / "leaderboard.csv"),
+                "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+            },
         },
-        "publication_ready": False,
-        "exported_files": {
-            "leaderboard_csv": str(export_dir / "leaderboard.csv"),
-            "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
-        },
-    })
+    )
 
     quality = evaluate_publication_quality(export_dir)
 
@@ -368,7 +374,9 @@ def test_evaluate_publication_quality_blocks_mismatched_exported_file_digest(
     assert quality["trust_signals"]["has_exported_file_digests"] is False
 
 
-def test_evaluate_publication_quality_accepts_valid_declared_weight_artifacts(tmp_path: Path) -> None:
+def test_evaluate_publication_quality_accepts_valid_declared_weight_artifacts(
+    tmp_path: Path,
+) -> None:
     from pyimgano.reporting.publication_quality import evaluate_publication_quality
 
     export_dir = tmp_path / "suite_export"
@@ -536,7 +544,9 @@ def test_evaluate_publication_quality_reports_invalid_declared_model_card(tmp_pa
     assert quality["asset_audit"]["model_card"]["valid"] is False
 
 
-def test_evaluate_publication_quality_requires_boolean_publication_ready_flag(tmp_path: Path) -> None:
+def test_evaluate_publication_quality_requires_boolean_publication_ready_flag(
+    tmp_path: Path,
+) -> None:
     from pyimgano.reporting.publication_quality import evaluate_publication_quality
 
     export_dir = tmp_path / "suite_export"

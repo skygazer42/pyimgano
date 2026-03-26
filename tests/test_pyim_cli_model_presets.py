@@ -102,9 +102,7 @@ def test_pyim_model_preset_json_uses_shared_rendering_helper(monkeypatch):
     assert kwargs == {"list_kind": "model-presets", "json_output": True}
 
 
-def test_pyim_model_preset_listing_delegates_raw_filters_to_discovery_service(
-    monkeypatch, capsys
-):
+def test_pyim_model_preset_listing_delegates_raw_filters_to_discovery_service(monkeypatch, capsys):
     import pyimgano.services.discovery_service as discovery_service
     from pyimgano.pyim_cli import main
 

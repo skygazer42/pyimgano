@@ -69,9 +69,7 @@ def test_infer_cli_continue_on_error_records_error_lines_and_returns_nonzero(
     assert isinstance(ok["score"], float)
 
 
-def test_infer_cli_continue_on_error_delegates_to_inference_service(
-    tmp_path, monkeypatch
-) -> None:
+def test_infer_cli_continue_on_error_delegates_to_inference_service(tmp_path, monkeypatch) -> None:
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()
     _write_png(input_dir / "a_good.png")
@@ -116,9 +114,7 @@ def test_infer_cli_continue_on_error_delegates_to_inference_service(
     assert [str(input_dir / "b_bad.png")] in calls
 
 
-def test_infer_cli_continue_on_error_delegates_to_continue_service(
-    tmp_path, monkeypatch
-) -> None:
+def test_infer_cli_continue_on_error_delegates_to_continue_service(tmp_path, monkeypatch) -> None:
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()
     _write_png(input_dir / "a.png")
@@ -251,4 +247,3 @@ def test_infer_cli_profile_json_writes_payload(tmp_path, monkeypatch) -> None:
     assert isinstance(counts, dict)
     assert counts.get("inputs") == 1
     assert counts.get("processed") == 1
-

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import pyimgano.services.pyim_payload_collectors as pyim_payload_collectors
-from pyimgano.pyim_contracts import (
-    PyimListPayload,
-    PyimListRequest,
-)
+from pyimgano.pyim_contracts import PyimListPayload, PyimListRequest
 
 
 def collect_pyim_listing_payload(request: PyimListRequest) -> PyimListPayload:

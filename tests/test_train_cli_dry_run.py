@@ -85,8 +85,8 @@ def test_train_cli_dry_run_json_emits_effective_config_payload(tmp_path, capsys)
 
 
 def test_train_cli_dry_run_delegates_to_train_service_in_json_mode(tmp_path, capsys, monkeypatch):
-    from pyimgano.train_cli import main
     import pyimgano.services.train_service as train_service
+    from pyimgano.train_cli import main
 
     cfg_path = tmp_path / "cfg.json"
     cfg_path.write_text(

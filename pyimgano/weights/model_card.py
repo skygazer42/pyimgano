@@ -258,7 +258,9 @@ def _apply_matched_manifest_entry_checks(
     manifest_asset["entry_path"] = _nonempty_str(matched_entry.get("path", None))
     manifest_asset["entry_resolved_path"] = _nonempty_str(matched_entry.get("resolved_path", None))
 
-    model_resolved = _nonempty_str(dict(report.assets.get("weights", {})).get("resolved_path", None))
+    model_resolved = _nonempty_str(
+        dict(report.assets.get("weights", {})).get("resolved_path", None)
+    )
     manifest_entry_path = _nonempty_str(matched_entry.get("path", None))
     manifest_entry_resolved = (
         str(_resolve_path(manifest_entry_path, base_dir=manifest_base))
@@ -268,7 +270,11 @@ def _apply_matched_manifest_entry_checks(
     if manifest_entry_resolved is not None:
         manifest_asset["entry_resolved_path"] = manifest_entry_resolved
 
-    if model_resolved is not None and manifest_entry_resolved is not None and model_resolved != manifest_entry_resolved:
+    if (
+        model_resolved is not None
+        and manifest_entry_resolved is not None
+        and model_resolved != manifest_entry_resolved
+    ):
         errors.append(
             "Model card weights.path does not resolve to the same asset as "
             f"manifest entry {manifest_asset['matched_entry']!r}: "
@@ -285,8 +291,7 @@ def _apply_matched_manifest_entry_checks(
             )
     elif model_sha is None and manifest_sha is not None:
         warnings.append(
-            "Model card weights.sha256 is missing while the linked manifest entry "
-            "declares one."
+            "Model card weights.sha256 is missing while the linked manifest entry " "declares one."
         )
     elif model_sha is not None and manifest_sha is None:
         warnings.append(
@@ -305,7 +310,11 @@ def _apply_matched_manifest_entry_checks(
     deployment = _as_dict(report.normalized.get("deployment", {})) or {}
     deployment_runtime = _nonempty_str(deployment.get("runtime", None))
     supported_runtimes = _manifest_runtimes(matched_entry)
-    if deployment_runtime is not None and supported_runtimes and deployment_runtime not in supported_runtimes:
+    if (
+        deployment_runtime is not None
+        and supported_runtimes
+        and deployment_runtime not in supported_runtimes
+    ):
         warnings.append(
             "Model card deployment.runtime is not listed by the linked manifest "
             f"entry: runtime={deployment_runtime!r} supported={list(supported_runtimes)!r}"

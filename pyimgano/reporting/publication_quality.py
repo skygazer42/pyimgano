@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from pyimgano.weights.manifest import validate_weights_manifest_file
 from pyimgano.weights.model_card import validate_model_card_file
@@ -118,7 +118,11 @@ def _collect_exported_file_presence(
         display_path = _display_exported_path(root, raw_path)
         if display_path is not None and present:
             audit_refs[str(key)] = str(display_path)
-        if not present and str(key) != "leaderboard_metadata_json" and str(key) not in missing_required:
+        if (
+            not present
+            and str(key) != "leaderboard_metadata_json"
+            and str(key) not in missing_required
+        ):
             missing_required.append(str(key))
     return exported_files_present, resolved_exported_paths
 
@@ -494,12 +498,14 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
         resolved_run_artifact_paths=resolved_run_artifact_paths,
         missing_required=missing_required,
     )
-    benchmark_config_source, benchmark_config_sha256, benchmark_config_trust = (
-        _benchmark_config_details(
-            benchmark_config,
-            audit_refs=audit_refs,
-            missing_required=missing_required,
-        )
+    (
+        benchmark_config_source,
+        benchmark_config_sha256,
+        benchmark_config_trust,
+    ) = _benchmark_config_details(
+        benchmark_config,
+        audit_refs=audit_refs,
+        missing_required=missing_required,
     )
 
     environment_fingerprint_sha256 = _nonempty_str(metadata.get("environment_fingerprint_sha256"))

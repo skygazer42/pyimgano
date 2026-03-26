@@ -219,4 +219,3 @@ def test_workbench_manifest_per_image_jsonl_includes_meta(tmp_path: Path) -> Non
     bad = [r for r in records if str(r["input"]).endswith("bad.png")][0]
     assert good.get("meta") == {"frame": 0}
     assert bad.get("meta") == {"frame": 1, "defect": "scratch"}
-

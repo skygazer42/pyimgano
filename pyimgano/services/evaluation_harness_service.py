@@ -9,9 +9,9 @@ from pyimgano.inference.validate_infer_config import validate_infer_config_file
 from pyimgano.models.registry import list_models, model_info
 from pyimgano.reporting.report import save_jsonl_records, save_run_report
 from pyimgano.reporting.run_acceptance import evaluate_acceptance
+from pyimgano.services.benchmark_service import BenchmarkRunRequest, run_benchmark_request
 from pyimgano.services.discovery_service import list_dataset_categories_payload
 from pyimgano.services.train_service import TrainRunRequest, run_train_request
-from pyimgano.services.benchmark_service import BenchmarkRunRequest, run_benchmark_request
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
 
@@ -138,9 +138,7 @@ def collect_dataset_inventory(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for target in targets:
-        manifest_path = (
-            str(target.manifest_path) if target.manifest_path is not None else None
-        )
+        manifest_path = str(target.manifest_path) if target.manifest_path is not None else None
         if target.categories is not None:
             categories = list(target.categories)
         else:
@@ -265,10 +263,14 @@ def _run_artifact_audit_for_entry(
             infer_config_path = str(candidate)
             infer_valid = bool(validate_infer_config_file(candidate, check_files=True))
 
-    acceptance = evaluate_acceptance(
-        run_dir,
-        required_quality=str(artifact_audit.required_quality),
-    ) if run_dir is not None else None
+    acceptance = (
+        evaluate_acceptance(
+            run_dir,
+            required_quality=str(artifact_audit.required_quality),
+        )
+        if run_dir is not None
+        else None
+    )
 
     bundle_dir_raw = report.get("deploy_bundle_dir", None)
     bundle_dir = Path(str(bundle_dir_raw)) if bundle_dir_raw is not None else None
@@ -280,9 +282,7 @@ def _run_artifact_audit_for_entry(
 
     return {
         "status": (
-            str(acceptance.get("status"))
-            if isinstance(acceptance, Mapping)
-            else "not_applicable"
+            str(acceptance.get("status")) if isinstance(acceptance, Mapping) else "not_applicable"
         ),
         "run_dir": (str(run_dir) if run_dir is not None else None),
         "deploy_bundle_dir": (str(bundle_dir) if bundle_dir is not None else None),

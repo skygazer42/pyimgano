@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -20,7 +20,6 @@ from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_pa
 from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
-
 
 
 @dataclass

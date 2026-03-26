@@ -377,7 +377,9 @@ def test_build_infer_result_artifact_build_request_from_options_populates_defect
     )
 
 
-def test_build_infer_result_artifact_build_request_from_options_skips_defects_when_disabled() -> None:
+def test_build_infer_result_artifact_build_request_from_options_skips_defects_when_disabled() -> (
+    None
+):
     result = InferenceResult(score=0.2, label=0, anomaly_map=None)
 
     request = build_infer_result_artifact_request_from_options(

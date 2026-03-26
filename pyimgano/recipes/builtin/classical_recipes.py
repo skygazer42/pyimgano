@@ -11,7 +11,6 @@ from pyimgano.workbench.config import WorkbenchConfig
 MANIFEST_JSONL = "manifest.jsonl"
 
 
-
 def _run_structural_iforest_synthetic_manifest(
     *,
     config: WorkbenchConfig,
@@ -20,7 +19,9 @@ def _run_structural_iforest_synthetic_manifest(
     manifest_path: Path,
 ) -> dict[str, Any]:
     model_kwargs = dict(config.model.model_kwargs)
-    model_kwargs.setdefault("feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}})
+    model_kwargs.setdefault(
+        "feature_extractor", {"name": "structural", "kwargs": {"max_size": 512}}
+    )
     cfg: WorkbenchConfig = replace(
         config,
         dataset=replace(

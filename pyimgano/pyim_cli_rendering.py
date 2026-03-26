@@ -110,7 +110,9 @@ def emit_pyim_list_payload(
         return 0
 
     try:
-        _render_text_section(pyim_section_views.resolve_pyim_text_section_view(payload, list_kind_value))
+        _render_text_section(
+            pyim_section_views.resolve_pyim_text_section_view(payload, list_kind_value)
+        )
     except (KeyError, ValueError) as exc:
         raise ValueError(f"Unsupported pyim list kind: {list_kind_value}") from exc
     return 0

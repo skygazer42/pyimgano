@@ -40,4 +40,3 @@ def call_with_temporary_attr(obj: Any, attr: str, value: int, fn: Callable[[], T
         return fn()
     finally:
         setattr(obj, attr, old)
-

@@ -408,7 +408,13 @@ def test_infer_cli_from_run_delegates_postprocess_summary_to_runtime_plan(
             prediction_payload=None,
             defects_payload_source="from_run",
             illumination_contrast_knobs=None,
-            tiling_payload={"tile_size": 4, "stride": 4, "score_reduce": "max", "score_topk": 0.1, "map_reduce": "max"},
+            tiling_payload={
+                "tile_size": 4,
+                "stride": 4,
+                "score_reduce": "max",
+                "score_topk": 0.1,
+                "map_reduce": "max",
+            },
             infer_config_postprocess=None,
             enable_maps_by_default=False,
             postprocess_summary=postprocess_summary,
@@ -427,9 +433,7 @@ def test_infer_cli_from_run_delegates_postprocess_summary_to_runtime_plan(
     monkeypatch.setattr(
         infer_wrapper_service,
         "apply_infer_detector_wrappers",
-        lambda request: infer_wrapper_service.InferDetectorWrapperResult(
-            detector=request.detector
-        ),
+        lambda request: infer_wrapper_service.InferDetectorWrapperResult(detector=request.detector),
     )
 
     calls: list[object] = []
@@ -663,4 +667,3 @@ def test_infer_cli_from_run_supports_preprocessing_for_base_vision_models(
     )
     assert rc == 0
     assert det.loaded == str(ckpt_path)
-

@@ -379,7 +379,9 @@ class VisionPatchCoreLiteMap:
         if not isinstance(payload, dict):
             raise ValueError("Invalid PatchCore-lite-map checkpoint payload: expected a dict.")
         if str(payload.get("detector", "")) != "vision_patchcore_lite_map":
-            raise ValueError("Invalid PatchCore-lite-map checkpoint payload: detector marker mismatch.")
+            raise ValueError(
+                "Invalid PatchCore-lite-map checkpoint payload: detector marker mismatch."
+            )
 
         config = dict(cast(dict[str, object], payload.get("config", {})))
         self.contamination = float(config.get("contamination", self.contamination))
@@ -391,7 +393,9 @@ class VisionPatchCoreLiteMap:
             config.get("coreset_sampling_ratio", self.coreset_sampling_ratio)
         )
         self.random_seed = int(config.get("random_seed", self.random_seed))
-        self.aggregation_method = cast(AggregationMethod, config.get("aggregation_method", self.aggregation_method))
+        self.aggregation_method = cast(
+            AggregationMethod, config.get("aggregation_method", self.aggregation_method)
+        )
         self.aggregation_topk = float(config.get("aggregation_topk", self.aggregation_topk))
 
         embedder_payload = payload.get("embedder", None)
@@ -401,7 +405,9 @@ class VisionPatchCoreLiteMap:
 
         state = payload.get("state", None)
         if not isinstance(state, dict):
-            raise ValueError("Invalid PatchCore-lite-map checkpoint payload: missing detector state.")
+            raise ValueError(
+                "Invalid PatchCore-lite-map checkpoint payload: missing detector state."
+            )
 
         self._memory_bank = np.asarray(state["memory_bank"], dtype=np.float32)
         self.decision_scores_ = (

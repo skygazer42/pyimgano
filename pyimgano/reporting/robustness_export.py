@@ -11,7 +11,6 @@ from pyimgano.reporting.robustness_summary import (
     summarize_robustness_protocol,
 )
 
-
 _CSV_COLUMNS = [
     "condition",
     "severity",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from pyimgano.reporting.calibration_card import validate_calibration_card_payload
 from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
@@ -435,7 +435,9 @@ def _append_calibration_comparison_warnings(
             "Calibration audit warning: calibration_card.json is missing split_fingerprint metadata."
         )
 
-    if _infer_declares_prediction_policy(infer_payload) and not bool(payload["has_prediction_policy"]):
+    if _infer_declares_prediction_policy(infer_payload) and not bool(
+        payload["has_prediction_policy"]
+    ):
         warnings.append(
             "Calibration audit warning: calibration_card.json is missing prediction_policy metadata."
         )
@@ -636,7 +638,9 @@ def _bundle_operator_contract_flags(
     *,
     bundle_manifest_payload: Mapping[str, Any],
 ) -> tuple[bool, bool, bool, bool, bool]:
-    has_bundle_operator_contract = bool((root / "deploy_bundle" / "operator_contract.json").is_file())
+    has_bundle_operator_contract = bool(
+        (root / "deploy_bundle" / "operator_contract.json").is_file()
+    )
     bundle_operator_contract_digest_error_present = any(
         "operator_contract_digests" in str(item).lower()
         for item in bundle_manifest_payload["errors"]

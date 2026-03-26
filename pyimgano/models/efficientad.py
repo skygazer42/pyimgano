@@ -151,7 +151,6 @@ class EfficientADDetector(BaseVisionDeepDetector):
         )
 
     def build_model(self):
-
         # Teacher backbone (frozen). Note: pretrained=False by default (no downloads).
         teacher, _t = load_torchvision_backbone(
             str(self.cfg.teacher_net), pretrained=bool(self.cfg.teacher_pretrained)

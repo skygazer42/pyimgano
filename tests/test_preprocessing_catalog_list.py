@@ -32,4 +32,3 @@ def test_cli_presets_resolve_preprocessing_preset_supports_new_schemes() -> None
         assert isinstance(preset.payload, dict)
         assert "white_balance" in preset.payload
         assert "clahe" in preset.payload
-

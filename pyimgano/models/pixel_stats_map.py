@@ -193,15 +193,21 @@ class _BasePixelStatsMapDetector(BaseDetector):
         return _Prepared(orig_hw=orig_hw, rep_u8=np.asarray(rep, dtype=np.uint8))
 
     # ------------------------------------------------------------------
-    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> np.ndarray:  # noqa: ANN001, ANN201
-        items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")))
+    def predict_anomaly_map(
+        self, x: object = MISSING, **kwargs: object
+    ) -> np.ndarray:  # noqa: ANN001, ANN201
+        items = list(
+            cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
+        )
         if not items:
             return np.zeros((0, 1, 1), dtype=np.float32)
         maps = [self.get_anomaly_map(it) for it in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
     def decision_function(self, x: object = MISSING, **kwargs: object):  # noqa: ANN001, ANN201
-        items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")))
+        items = list(
+            cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        )
         if not items:
             return np.zeros((0,), dtype=np.float64)
         scores = np.zeros((len(items),), dtype=np.float64)
@@ -242,7 +248,9 @@ class VisionPixelMeanAbsDiffMapDetector(_BasePixelStatsMapDetector):
         )
         self.mean_template_: np.ndarray | None = None
 
-    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201 - sklearn-like signature
+    def fit(
+        self, x: object = MISSING, y=None, **kwargs: object
+    ):  # noqa: ANN001, ANN201 - sklearn-like signature
         items = list(cast(Iterable, resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError(EMPTY_TRAINING_SET_ERROR)

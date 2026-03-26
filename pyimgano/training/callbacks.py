@@ -66,7 +66,9 @@ class MetricsLoggingCallback:
     ) -> None:
         self._logger.info("epoch=%s metrics=%s", int(epoch), dict(metrics))
 
-    def on_train_end(self, *, report: Mapping[str, Any], context: Mapping[str, Any]) -> None:  # noqa: ARG002 - interface parity
+    def on_train_end(
+        self, *, report: Mapping[str, Any], context: Mapping[str, Any]
+    ) -> None:  # noqa: ARG002 - interface parity
         timing = report.get("timing", {})
         self._logger.info(
             "training finished: fit_s=%s total_s=%s",
@@ -74,7 +76,9 @@ class MetricsLoggingCallback:
             timing.get("total_s"),
         )
 
-    def on_exception(self, *, error: Exception, context: Mapping[str, Any]) -> None:  # noqa: ARG002 - interface parity
+    def on_exception(
+        self, *, error: Exception, context: Mapping[str, Any]
+    ) -> None:  # noqa: ARG002 - interface parity
         self._logger.exception("training failed: %s", error)
 
 
@@ -86,7 +90,9 @@ class ResourceProfilingCallback:
         self._start_s: float | None = None
         self._tracemalloc_started_here = False
 
-    def on_train_start(self, *, context: Mapping[str, Any]) -> None:  # noqa: ARG002 - interface parity
+    def on_train_start(
+        self, *, context: Mapping[str, Any]
+    ) -> None:  # noqa: ARG002 - interface parity
         self._start_s = time.perf_counter()
         if not tracemalloc.is_tracing():
             tracemalloc.start()
@@ -159,7 +165,9 @@ class ResourceProfilingCallback:
 
         self._stop_tracemalloc_if_needed()
 
-    def on_exception(self, *, error: Exception, context: Mapping[str, Any]) -> None:  # noqa: ARG002 - interface parity
+    def on_exception(
+        self, *, error: Exception, context: Mapping[str, Any]
+    ) -> None:  # noqa: ARG002 - interface parity
         self._stop_tracemalloc_if_needed()
 
 

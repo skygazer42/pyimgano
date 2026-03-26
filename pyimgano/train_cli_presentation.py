@@ -328,11 +328,7 @@ def emit_dry_run_summary(payload: Mapping[str, Any]) -> None:
 def emit_preflight_summary(payload: Mapping[str, Any]) -> None:
     preflight = dict(_as_mapping(payload.get("preflight", {})))
     summary = dict(_as_mapping(preflight.get("summary", {})))
-    issues = [
-        dict(item)
-        for item in preflight.get("issues", [])
-        if isinstance(item, Mapping)
-    ]
+    issues = [dict(item) for item in preflight.get("issues", []) if isinstance(item, Mapping)]
     error_count = sum(1 for item in issues if str(item.get("severity")) == "error")
     warning_count = sum(1 for item in issues if str(item.get("severity")) == "warning")
     info_count = sum(1 for item in issues if str(item.get("severity")) == "info")
@@ -378,7 +374,9 @@ def emit_preflight_summary(payload: Mapping[str, Any]) -> None:
     if cfg_bits:
         print(f"{_format_badge('CFG')} " + " ".join(cfg_bits))
     if data_bits:
-        print(f"{_format_badge('DATA', str(preflight.get('category') or ''))} " + " ".join(data_bits))
+        print(
+            f"{_format_badge('DATA', str(preflight.get('category') or ''))} " + " ".join(data_bits)
+        )
     if counts or assigned_counts:
         print(
             _format_table_line(
@@ -617,9 +615,7 @@ class TrainConsoleReporter(TrainProgressReporter):
             value_alignments=alignments,
         )
         if pixel_metrics_reason:
-            self._emit_line(
-                f"{_format_badge('DATA', str(category))} note={pixel_metrics_reason}"
-            )
+            self._emit_line(f"{_format_badge('DATA', str(category))} note={pixel_metrics_reason}")
 
     def on_training_start(
         self,
@@ -640,10 +636,7 @@ class TrainConsoleReporter(TrainProgressReporter):
             summary_bits.append(f"tracker={tracker_backend}")
         if callback_names:
             summary_bits.append(f"callbacks={_comma_join(callback_names)}")
-        self._emit_line(
-            f"{_format_badge('TRAIN', str(category))} "
-            + " ".join(summary_bits)
-        )
+        self._emit_line(f"{_format_badge('TRAIN', str(category))} " + " ".join(summary_bits))
         if enabled:
             detail_bits: list[str] = []
             for key, label in (
@@ -831,7 +824,9 @@ class TrainConsoleReporter(TrainProgressReporter):
                         continue
                     seen.add(item)
                     self._emit_line(f"{_format_badge('SAVE')} {kind}={path}")
-            self._emit_line(f"{_format_badge('DONE')} next=pyimgano-runs quality {self._run_dir} --json")
+            self._emit_line(
+                f"{_format_badge('DONE')} next=pyimgano-runs quality {self._run_dir} --json"
+            )
 
 
 __all__ = [

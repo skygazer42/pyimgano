@@ -8,9 +8,6 @@ from typing import Any, Mapping, Optional
 ILLUMINATION_CONTRAST_KEY = "preprocessing.illumination_contrast"
 
 
-
-
-
 @dataclass(frozen=True)
 class PreprocessingScheme:
     name: str

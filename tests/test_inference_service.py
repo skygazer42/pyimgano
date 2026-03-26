@@ -48,4 +48,3 @@ def test_run_inference_uses_runtime_adapter_score_path(monkeypatch):
         label=None,
         anomaly_map=None,
     )
-

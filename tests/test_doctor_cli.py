@@ -326,14 +326,11 @@ def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
     presets = {str(item.get("preset")) for item in recommendations if isinstance(item, dict)}
     assert "industrial-template-ncc-map" in presets
     assert "industrial-structural-ecod" in presets
-    assert (
-        {
-            "industrial-patchcore-lite-map",
-            "industrial-ssim-template-map",
-            "industrial-pixel-mad-map",
-        }
-        & presets
-    )
+    assert {
+        "industrial-patchcore-lite-map",
+        "industrial-ssim-template-map",
+        "industrial-pixel-mad-map",
+    } & presets
 
 
 def test_doctor_cli_dataset_target_recommendations_expose_reference_roles(

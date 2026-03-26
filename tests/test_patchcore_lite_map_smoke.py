@@ -79,9 +79,9 @@ def test_patchcore_lite_map_checkpoint_roundtrip_on_image_paths(tmp_path) -> Non
     pytest.importorskip("torchvision")
     pytest.importorskip("cv2")
 
-    import pyimgano.models  # noqa: F401
     from PIL import Image
 
+    import pyimgano.models  # noqa: F401
     from pyimgano.features.torchvision_conv_patch_embedder import TorchvisionConvPatchEmbedder
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint

@@ -2067,7 +2067,12 @@ def test_emit_contract_incompat_details_accepts_mapping_rows(capsys) -> None:
                 )
             ],
         },
-        summary_payload={"checked": True, "matched_runs": 0, "mismatched_runs": 1, "missing_runs": 0},
+        summary_payload={
+            "checked": True,
+            "matched_runs": 0,
+            "mismatched_runs": 1,
+            "missing_runs": 0,
+        },
     )
 
     out = capsys.readouterr().out

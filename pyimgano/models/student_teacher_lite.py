@@ -13,8 +13,8 @@ Advantages:
 
 from __future__ import annotations
 
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -29,7 +29,9 @@ from .base_detector import BaseDetector
 from .registry import register_model
 
 
-def _ridge_solve(student_features: np.ndarray, teacher_features: np.ndarray, *, ridge: float) -> np.ndarray:
+def _ridge_solve(
+    student_features: np.ndarray, teacher_features: np.ndarray, *, ridge: float
+) -> np.ndarray:
     """Solve W = argmin ||S W - T||^2 + ridge ||W||^2."""
 
     student_features = np.asarray(student_features, dtype=np.float64)
@@ -229,7 +231,9 @@ class VisionStudentTeacherLite(BaseDetector):
                 "W_": np.asarray(self.W_, dtype=np.float64),  # type: ignore[attr-defined]
                 "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
                 "threshold_": (
-                    float(self.threshold_) if getattr(self, "threshold_", None) is not None else None
+                    float(self.threshold_)
+                    if getattr(self, "threshold_", None) is not None
+                    else None
                 ),
                 "labels_": (
                     np.asarray(self.labels_, dtype=np.int64)
@@ -258,7 +262,9 @@ class VisionStudentTeacherLite(BaseDetector):
         teacher_payload = payload.get("teacher_extractor", None)
         student_payload = payload.get("student_extractor", None)
         if not isinstance(teacher_payload, Mapping) or not isinstance(student_payload, Mapping):
-            raise ValueError("Invalid StudentTeacherLite checkpoint payload: missing extractor specs.")
+            raise ValueError(
+                "Invalid StudentTeacherLite checkpoint payload: missing extractor specs."
+            )
 
         self.teacher_extractor = _feature_extractor_from_spec(teacher_payload)
         self.student_extractor = _feature_extractor_from_spec(student_payload)
@@ -274,7 +280,9 @@ class VisionStudentTeacherLite(BaseDetector):
 
         state = payload.get("state", None)
         if not isinstance(state, Mapping):
-            raise ValueError("Invalid StudentTeacherLite checkpoint payload: missing detector state.")
+            raise ValueError(
+                "Invalid StudentTeacherLite checkpoint payload: missing detector state."
+            )
 
         self.W_ = np.asarray(state["W_"], dtype=np.float64)
         self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)

@@ -349,7 +349,9 @@ class VisionAST(BaseVisionDeepDetector):
         dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(self.student_.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.student_.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
 
         self.student_.train()
 
@@ -497,9 +499,7 @@ class VisionAST(BaseVisionDeepDetector):
         finally:
             self.batch_size = old_batch_size
 
-    def get_anomaly_map(
-        self, x: object = MISSING, **kwargs: object
-    ) -> NDArray:
+    def get_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Get pixel-level anomaly maps.
 

@@ -205,9 +205,7 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
                     image_paths=[str(p) for p in x_list],
                     transform=self.eval_transform,
                 )
-        eval_loader = dataloader_cls(
-            eval_dataset, batch_size=current_batch_size, shuffle=False
-        )
+        eval_loader = dataloader_cls(eval_dataset, batch_size=current_batch_size, shuffle=False)
 
         # 调用父类的评估方法 evaluating_forward
         scores = self.evaluate(eval_loader)

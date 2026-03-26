@@ -152,8 +152,14 @@ def test_collect_pyim_listing_payload_returns_core_sections() -> None:
 
     assert isinstance(payload, PyimListPayload)
     assert "vision_patchcore" in payload.models
-    assert any(isinstance(item, PyimModelFacetSummary) and item.name == "neighbors" for item in payload.families)
-    assert any(isinstance(item, PyimModelFacetSummary) and item.name == "deep-vision" for item in payload.types)
+    assert any(
+        isinstance(item, PyimModelFacetSummary) and item.name == "neighbors"
+        for item in payload.families
+    )
+    assert any(
+        isinstance(item, PyimModelFacetSummary) and item.name == "deep-vision"
+        for item in payload.types
+    )
     assert any(isinstance(item, PyimYearSummary) and item.name == "2001" for item in payload.years)
     assert any(
         isinstance(item, PyimMetadataContractField) and item.name == "paper"
@@ -181,7 +187,9 @@ def test_collect_pyim_listing_payload_optionally_includes_recipes_and_datasets()
     )
 
     assert any(item.get("name") == "industrial-adapt" for item in payload.recipes)
-    assert any(isinstance(item, PyimDatasetSummary) and item.name == "custom" for item in payload.datasets)
+    assert any(
+        isinstance(item, PyimDatasetSummary) and item.name == "custom" for item in payload.datasets
+    )
 
 
 def test_collect_pyim_listing_payload_respects_model_preset_family_filter() -> None:
@@ -235,7 +243,9 @@ def test_collect_pyim_listing_payload_can_skip_core_sections_for_datasets_only()
     assert payload.model_preset_infos == []
     assert payload.defects_presets == []
     assert payload.recipes == []
-    assert any(isinstance(item, PyimDatasetSummary) and item.name == "custom" for item in payload.datasets)
+    assert any(
+        isinstance(item, PyimDatasetSummary) and item.name == "custom" for item in payload.datasets
+    )
 
 
 def test_collect_pyim_listing_payload_can_derive_sections_from_list_kind() -> None:
@@ -255,7 +265,9 @@ def test_collect_pyim_listing_payload_can_derive_sections_from_list_kind() -> No
     assert payload.model_preset_infos == []
     assert payload.defects_presets == []
     assert payload.recipes == []
-    assert any(isinstance(item, PyimDatasetSummary) and item.name == "custom" for item in payload.datasets)
+    assert any(
+        isinstance(item, PyimDatasetSummary) and item.name == "custom" for item in payload.datasets
+    )
 
 
 def test_collect_pyim_listing_payload_for_families_only_populates_requested_section() -> None:
@@ -446,5 +458,7 @@ def test_pyim_list_payload_builds_all_json_payload_without_model_preset_infos() 
         "model_presets": ["industrial-structural-ecod"],
         "defects_presets": ["industrial-defects-fp40"],
         "recipes": [{"name": "industrial-adapt", "metadata": {}}],
-        "datasets": [{"name": "custom", "description": "Custom dataset", "requires_category": False}],
+        "datasets": [
+            {"name": "custom", "description": "Custom dataset", "requires_category": False}
+        ],
     }

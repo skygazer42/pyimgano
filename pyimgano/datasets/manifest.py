@@ -57,8 +57,7 @@ class ManifestRecord:
         split = None if split_raw is None else str(split_raw).strip().lower()
         if split is not None and split not in ("train", "val", "test"):
             raise ValueError(
-                f"Manifest line {lineno}: invalid split {split!r}. "
-                "Supported: train, val, test."
+                f"Manifest line {lineno}: invalid split {split!r}. " "Supported: train, val, test."
             )
 
         label_raw = raw.get("label", None)

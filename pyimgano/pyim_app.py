@@ -22,6 +22,7 @@ class PyimCommand:
     audit_metadata: bool = False
     json_output: bool = False
 
+
 def _run_pyim_audit(command: PyimCommand) -> int:
     payload = pyim_audit_service.collect_pyim_audit_payload()
     return pyim_audit_rendering.emit_pyim_audit_payload(

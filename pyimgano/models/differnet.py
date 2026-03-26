@@ -24,8 +24,8 @@ from numpy import ndarray as NDArray
 from scipy.spatial import cKDTree
 from torchvision import models
 
-from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from ._image_batch import coerce_rgb_image_batch
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -242,7 +242,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
         if self.train_difference:
             self._train_difference_module(x_array)
 
-        self.decision_scores_ = np.asarray(self.predict_proba(x_array), dtype=np.float64).reshape(-1)
+        self.decision_scores_ = np.asarray(self.predict_proba(x_array), dtype=np.float64).reshape(
+            -1
+        )
         self._process_decision_scores()
         self._set_n_classes(y)
         self.fitted_ = True
@@ -316,7 +318,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
 
         # Training loop for each layer
         for layer_name, diff_module in self.diff_modules.items():
-            optimizer = torch.optim.Adam(diff_module.parameters(), lr=self.learning_rate, weight_decay=0.0)
+            optimizer = torch.optim.Adam(
+                diff_module.parameters(), lr=self.learning_rate, weight_decay=0.0
+            )
             diff_module.train()
 
             for epoch in range(self.epochs):
@@ -501,9 +505,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
                 if batch_size_int <= 0:
                     raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
             return np.asarray([], dtype=np.float64)
-        x_array = coerce_rgb_image_batch(
-            resolved_x
-        )
+        x_array = coerce_rgb_image_batch(resolved_x)
         if batch_size is not None:
             batch_size_int = int(batch_size)
             if batch_size_int <= 0:
@@ -598,7 +600,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Return anomaly maps (N,H,W) for a batch of images."""
 
-        arr = coerce_rgb_image_batch(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
+        arr = coerce_rgb_image_batch(
+            resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        )
         if arr.ndim == 3:
             m = self.get_anomaly_map(arr)
             return np.asarray(m[None, ...], dtype=np.float32)

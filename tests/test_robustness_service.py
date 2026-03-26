@@ -172,7 +172,10 @@ def test_run_robustness_request_delegates_to_benchmark(monkeypatch) -> None:
     assert "robustness" in payload
     assert payload["robustness_protocol"]["corruption_mode"] == "clean_only"
     assert payload["robustness_protocol"]["condition_count"] == 1
-    assert payload["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"] is True
+    assert (
+        payload["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"]
+        is True
+    )
     assert payload["robustness_trust"]["status"] == "partial"
     assert "clean_only_mode" in payload["robustness_trust"]["degraded_by"]
     assert "missing_corruption_conditions" in payload["robustness_trust"]["degraded_by"]
@@ -323,8 +326,8 @@ def test_run_robustness_request_delegates_split_loading_through_service(monkeypa
 
 
 def test_run_robustness_request_can_persist_run_artifacts(monkeypatch, tmp_path: Path) -> None:
-    import pyimgano.services.robustness_service as robustness_service
     import pyimgano.services.dataset_split_service as dataset_split_service
+    import pyimgano.services.robustness_service as robustness_service
 
     class _Split:
         train_paths = ["train_0.png"]
@@ -391,9 +394,9 @@ def test_run_robustness_request_can_persist_run_artifacts(monkeypatch, tmp_path:
         saved_report["robustness_trust"]["audit_refs"]["robustness_summary_json"]
         == "artifacts/robustness_summary.json"
     )
-    assert saved_report["robustness_trust"]["audit_digests"]["robustness_conditions_csv"] == _sha256(
-        run_dir / "artifacts" / "robustness_conditions.csv"
-    )
+    assert saved_report["robustness_trust"]["audit_digests"][
+        "robustness_conditions_csv"
+    ] == _sha256(run_dir / "artifacts" / "robustness_conditions.csv")
     assert saved_report["robustness_trust"]["audit_digests"]["robustness_summary_json"] == _sha256(
         run_dir / "artifacts" / "robustness_summary.json"
     )

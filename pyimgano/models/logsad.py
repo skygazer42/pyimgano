@@ -105,7 +105,9 @@ class VisionLogSAD:
 
     def decision_function(self, x: object = MISSING, **kwargs: object):
         items = list(
-            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+            cast(
+                Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+            )
         )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):

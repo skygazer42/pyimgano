@@ -3,15 +3,11 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from pyimgano.workbench.config import WorkbenchConfig
-from pyimgano.workbench.non_manifest_category_listing import (
-    load_non_manifest_preflight_categories,
-)
+from pyimgano.workbench.non_manifest_category_listing import load_non_manifest_preflight_categories
 from pyimgano.workbench.non_manifest_category_selection import (
     select_non_manifest_preflight_categories,
 )
-from pyimgano.workbench.non_manifest_preflight_report import (
-    build_non_manifest_preflight_report,
-)
+from pyimgano.workbench.non_manifest_preflight_report import build_non_manifest_preflight_report
 from pyimgano.workbench.non_manifest_source_validation import resolve_non_manifest_preflight_source
 
 

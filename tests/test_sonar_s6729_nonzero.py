@@ -64,9 +64,7 @@ def test_postprocessing_nms_executes_nonzero_line():
     )
     scores = np.asarray([0.9, 0.8, 0.7], dtype=np.float32)
 
-    keep = PostProcessing.non_max_suppression(
-        boxes, scores, iou_threshold=0.5, score_threshold=0.0
-    )
+    keep = PostProcessing.non_max_suppression(boxes, scores, iou_threshold=0.5, score_threshold=0.0)
     assert isinstance(keep, np.ndarray)
     assert keep.dtype == np.int32
     assert keep.size >= 1

@@ -90,7 +90,10 @@ def _apply_feature_extractor_session_options(
         }
         return updated
 
-    if isinstance(feature_extractor, Mapping) and str(feature_extractor.get("name", "")).strip() == "onnx_embed":
+    if (
+        isinstance(feature_extractor, Mapping)
+        and str(feature_extractor.get("name", "")).strip() == "onnx_embed"
+    ):
         feature_kwargs = feature_extractor.get("kwargs", None)
         feature_kwargs_dict = dict(feature_kwargs) if isinstance(feature_kwargs, Mapping) else {}
         feature_kwargs_dict["session_options"] = _merge_session_options(

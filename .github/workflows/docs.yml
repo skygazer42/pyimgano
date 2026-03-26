@@ -43,7 +43,10 @@ jobs:
 
   deploy-docs:
     name: Deploy Documentation
-    if: github.ref == 'refs/heads/main'
+    # GitHub Pages deployment requires repo-level Pages configuration.
+    # Keep docs build always-on, but make deployment opt-in so CI stays green
+    # for forks and repos that haven't enabled Pages yet.
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_GITHUB_PAGES_DEPLOY == 'true'
     needs: build-docs
     runs-on: ubuntu-latest
     permissions:

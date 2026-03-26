@@ -362,7 +362,9 @@ def list_model_names(
 
     selector = resolve_year_filter(year)
     return [
-        name for name in names if _matches_year_filter(MODEL_REGISTRY.info(name).metadata.get("year"), selector)
+        name
+        for name in names
+        if _matches_year_filter(MODEL_REGISTRY.info(name).metadata.get("year"), selector)
     ]
 
 

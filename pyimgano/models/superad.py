@@ -16,13 +16,13 @@ from .registry import register_model
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
-
 class PatchEmbedder(Protocol):
     """Protocol for patch embedders used by :class:`VisionSuperAD`."""
 
     def embed(
         self, image: Union[str, np.ndarray]
-    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
+        ...
 
 
 @dataclass

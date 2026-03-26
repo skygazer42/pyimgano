@@ -97,7 +97,10 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
     assert manifest["source_run"]["run_dir"] == str(run_dir)
     assert manifest["source_run"]["environment_fingerprint_sha256"]
     assert manifest["source_run"]["artifact_refs"]["infer_config"] == "artifacts/infer_config.json"
-    assert manifest["source_run"]["artifact_refs"]["calibration_card"] == "artifacts/calibration_card.json"
+    assert (
+        manifest["source_run"]["artifact_refs"]["calibration_card"]
+        == "artifacts/calibration_card.json"
+    )
     assert (
         manifest["source_run"]["artifact_refs"]["operator_contract"]
         == "artifacts/operator_contract.json"
@@ -137,7 +140,11 @@ def test_run_train_request_rejects_invalid_deploy_bundle_request_before_recipe_r
         calls.append(str(cfg.output.output_dir))
         run_dir = Path(str(cfg.output.output_dir))
         run_dir.mkdir(parents=True, exist_ok=True)
-        return {"run_dir": str(run_dir), "threshold": 0.5, "threshold_provenance": {"method": "fixed"}}
+        return {
+            "run_dir": str(run_dir),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed"},
+        }
 
     RECIPE_REGISTRY.register(
         "test_deploy_bundle_requires_pixel_threshold_precheck_recipe",
@@ -306,7 +313,10 @@ def test_build_deploy_bundle_manifest_classifies_weight_audit_files(tmp_path):
 
 
 def test_validate_deploy_bundle_manifest_accepts_valid_weight_audit_files(tmp_path):
-    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -373,7 +383,10 @@ def test_validate_deploy_bundle_manifest_accepts_valid_weight_audit_files(tmp_pa
 
 
 def test_validate_deploy_bundle_manifest_rejects_invalid_model_card_payload(tmp_path):
-    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -407,7 +420,10 @@ def test_validate_deploy_bundle_manifest_rejects_invalid_model_card_payload(tmp_
 
 
 def test_validate_deploy_bundle_manifest_rejects_operator_contract_mismatch(tmp_path):
-    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -460,7 +476,10 @@ def test_validate_deploy_bundle_manifest_rejects_operator_contract_mismatch(tmp_
 
 
 def test_validate_deploy_bundle_manifest_rejects_missing_operator_contract_ref(tmp_path):
-    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -495,7 +514,10 @@ def test_validate_deploy_bundle_manifest_rejects_missing_operator_contract_ref(t
 
 
 def test_validate_deploy_bundle_manifest_rejects_missing_operator_contract_file(tmp_path):
-    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -526,7 +548,10 @@ def test_validate_deploy_bundle_manifest_rejects_missing_operator_contract_file(
 
 
 def test_validate_deploy_bundle_manifest_rejects_tampered_operator_contract_digests(tmp_path):
-    from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest, validate_deploy_bundle_manifest
+    from pyimgano.reporting.deploy_bundle import (
+        build_deploy_bundle_manifest,
+        validate_deploy_bundle_manifest,
+    )
 
     run_dir = tmp_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -574,6 +599,5 @@ def test_validate_deploy_bundle_manifest_rejects_tampered_operator_contract_dige
     errors = validate_deploy_bundle_manifest(manifest, bundle_dir=bundle_dir, check_hashes=False)
 
     assert any(
-        "operator_contract_digests.bundle_operator_contract_sha256" in item
-        for item in errors
+        "operator_contract_digests.bundle_operator_contract_sha256" in item for item in errors
     )

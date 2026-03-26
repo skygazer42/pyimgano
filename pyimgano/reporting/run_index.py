@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.reporting.run_quality import evaluate_run_quality
@@ -15,7 +15,6 @@ from pyimgano.reporting.robustness_summary import (
     summarize_robustness_protocol,
     summarize_robustness_report,
 )
-
 
 _HIGHER_IS_BETTER_METRICS = {
     "auroc",
@@ -80,7 +79,9 @@ def _comparison_trust_gate(trust_status: object) -> str | None:
     return "trusted" if status_text == "trust-signaled" else "limited"
 
 
-def _operator_contract_status_from_trust_summary(trust_summary: Mapping[str, Any]) -> tuple[str, bool]:
+def _operator_contract_status_from_trust_summary(
+    trust_summary: Mapping[str, Any]
+) -> tuple[str, bool]:
     trust_signals = trust_summary.get("trust_signals", None)
     signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
     has_contract = bool(signal_map.get("has_operator_contract"))
@@ -145,12 +146,14 @@ def _build_trust_comparison(
     trust_summary = dict(artifact_quality.get("trust_summary", {}))
     trust_signals = trust_summary.get("trust_signals", None)
     signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
-    operator_contract_status, operator_contract_consistent = (
-        _operator_contract_status_from_trust_summary(trust_summary)
-    )
-    bundle_operator_contract_status, bundle_operator_contract_consistent = (
-        _bundle_operator_contract_status_from_trust_summary(trust_summary)
-    )
+    (
+        operator_contract_status,
+        operator_contract_consistent,
+    ) = _operator_contract_status_from_trust_summary(trust_summary)
+    (
+        bundle_operator_contract_status,
+        bundle_operator_contract_consistent,
+    ) = _bundle_operator_contract_status_from_trust_summary(trust_summary)
     baseline_operator_contract_status = baseline_summary.get("operator_contract_status", None)
     if isinstance(baseline_operator_contract_status, str) and baseline_operator_contract_status:
         operator_contract_status = str(baseline_operator_contract_status)
@@ -193,9 +196,7 @@ def _build_trust_comparison(
             signal_map.get("has_bundle_operator_contract_digests_valid", False)
         ),
         "audit_refs": {
-            str(key): str(value)
-            for key, value in audit_refs.items()
-            if str(key) and str(value)
+            str(key): str(value) for key, value in audit_refs.items() if str(key) and str(value)
         },
     }
 
@@ -324,10 +325,7 @@ _CANDIDATE_COMPARABILITY_GATE_ORDER = (
 
 
 def _candidate_comparability_defaults() -> dict[str, str]:
-    return {
-        gate_name: "unchecked"
-        for gate_name in _CANDIDATE_COMPARABILITY_GATE_ORDER
-    }
+    return {gate_name: "unchecked" for gate_name in _CANDIDATE_COMPARABILITY_GATE_ORDER}
 
 
 def _candidate_summary_state(
@@ -557,9 +555,9 @@ def _set_bundle_operator_contract_candidate_state(
         status=status,
     )
     if isinstance(run_dir_name, str) and run_dir_name in candidate_bundle_digest_statuses:
-        candidate_bundle_digest_statuses[run_dir_name] = _run_bundle_operator_contract_digest_status(
-            run
-        )
+        candidate_bundle_digest_statuses[
+            run_dir_name
+        ] = _run_bundle_operator_contract_digest_status(run)
 
 
 def _append_bundle_operator_contract_status_reasons(
@@ -614,7 +612,9 @@ def _apply_bundle_operator_contract_candidates(
         return
     for run in _iter_candidate_runs(runs, baseline_path_str=baseline_path_str):
         run_dir_name = run.get("run_dir_name", None)
-        status = str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
+        status = (
+            str(run.get("bundle_operator_contract_status", "missing") or "missing").strip().lower()
+        )
         _set_bundle_operator_contract_candidate_state(
             candidate_gates,
             candidate_bundle_digest_statuses,
@@ -629,7 +629,9 @@ def _apply_bundle_operator_contract_candidates(
             run=run,
         ):
             continue
-        if status != "consistent" or not isinstance(baseline_bundle_operator_contract_payload, Mapping):
+        if status != "consistent" or not isinstance(
+            baseline_bundle_operator_contract_payload, Mapping
+        ):
             continue
         if not _bundle_operator_contract_payload_matches(
             run,
@@ -809,8 +811,7 @@ def _build_candidate_blocking_summary(
     )
 
     candidate_verdicts = {
-        name: ("blocked" if reasons_by_name.get(name, []) else "pass")
-        for name in candidate_names
+        name: ("blocked" if reasons_by_name.get(name, []) else "pass") for name in candidate_names
     }
     return {
         "candidate_verdicts": candidate_verdicts,
@@ -949,9 +950,7 @@ def _extract_robustness_trust(
         ),
         robustness_protocol=robustness_protocol,
         audit_refs=(dict(raw_audit_refs) if isinstance(raw_audit_refs, Mapping) else None),
-        audit_digests=(
-            dict(raw_audit_digests) if isinstance(raw_audit_digests, Mapping) else None
-        ),
+        audit_digests=(dict(raw_audit_digests) if isinstance(raw_audit_digests, Mapping) else None),
         audit_root=root,
     )
 
@@ -1203,7 +1202,9 @@ def _compare_robustness_protocol_fields(
     missing_fields: list[str] = []
     mismatch_fields: list[str] = []
     for field in ("conditions", "corruption_mode", "input_mode", "resize", "severities"):
-        baseline_value = baseline_signature.get(field) if isinstance(baseline_signature, Mapping) else None
+        baseline_value = (
+            baseline_signature.get(field) if isinstance(baseline_signature, Mapping) else None
+        )
         if baseline_value is None:
             continue
         run_value = signature.get(field)
@@ -1503,9 +1504,7 @@ def _filter_same_robustness_protocol(
     if target_signature is None:
         return []
     return [
-        item
-        for item in items
-        if _extract_robustness_protocol_signature(item) == target_signature
+        item for item in items if _extract_robustness_protocol_signature(item) == target_signature
     ]
 
 
@@ -1741,9 +1740,7 @@ def _primary_metric_summary_fields(
         else None
     )
     summary["primary_metric_total_regressions"] = (
-        int(primary_metric_info.get("regression_count", 0))
-        if bool(primary_metric_info)
-        else None
+        int(primary_metric_info.get("regression_count", 0)) if bool(primary_metric_info) else None
     )
     primary_metric_statuses, primary_metric_deltas = _primary_metric_candidate_maps(
         primary_metric_info
@@ -2060,8 +2057,12 @@ def _build_target_comparison(
     if baseline_summary is not None:
         dataset_value = baseline_summary.get("dataset", None)
         category_value = baseline_summary.get("category", None)
-        baseline_dataset = str(dataset_value) if isinstance(dataset_value, str) and dataset_value else None
-        baseline_category = str(category_value) if isinstance(category_value, str) and category_value else None
+        baseline_dataset = (
+            str(dataset_value) if isinstance(dataset_value, str) and dataset_value else None
+        )
+        baseline_category = (
+            str(category_value) if isinstance(category_value, str) and category_value else None
+        )
 
     dataset_checked = baseline_dataset is not None
     category_checked = baseline_category is not None
@@ -2116,9 +2117,7 @@ def _environment_comparison_row(
         "run_dir": run.get("run_dir"),
         "run_dir_name": run.get("run_dir_name"),
         "environment_fingerprint_sha256": (
-            str(run_fingerprint)
-            if isinstance(run_fingerprint, str) and run_fingerprint
-            else None
+            str(run_fingerprint) if isinstance(run_fingerprint, str) and run_fingerprint else None
         ),
         "status": "unchecked",
     }
@@ -2240,9 +2239,7 @@ def compare_run_summaries(
 ) -> dict[str, Any]:
     run_paths = [Path(path) for path in run_dirs]
     runs = [summarize_run_dir(path) for path in run_paths]
-    baseline_summary = (
-        summarize_run_dir(baseline_run_dir) if baseline_run_dir is not None else None
-    )
+    baseline_summary = summarize_run_dir(baseline_run_dir) if baseline_run_dir is not None else None
     metric_names = _compare_metric_names(
         runs,
         baseline_summary=baseline_summary,
@@ -2437,9 +2434,7 @@ def _build_summary_evaluation_contract(
         ),
         pixel_metrics_enabled=baseline_contract.get("pixel_metrics_enabled"),
         comparability_hints=(
-            dict(comparability_hints)
-            if isinstance(comparability_hints, Mapping)
-            else None
+            dict(comparability_hints) if isinstance(comparability_hints, Mapping) else None
         ),
     )
 

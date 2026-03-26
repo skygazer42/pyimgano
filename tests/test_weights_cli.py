@@ -225,9 +225,7 @@ def test_weights_cli_validate_manifest_json_includes_trust_summary(tmp_path, cap
     assert trust["audit_refs"]["weights_manifest_json"] == str(manifest_path)
 
 
-def test_weights_cli_validate_manifest_plain_output_prints_check_strength(
-    tmp_path, capsys
-):
+def test_weights_cli_validate_manifest_plain_output_prints_check_strength(tmp_path, capsys):
     from pyimgano.weights_cli import main
 
     ckpt = tmp_path / "checkpoints" / "demo.pt"
@@ -264,9 +262,7 @@ def test_weights_cli_validate_manifest_plain_output_prints_check_strength(
     assert "trust_signal.hashes_checked=false" in out
 
 
-def test_weights_cli_validate_model_card_json_includes_check_strength(
-    tmp_path, capsys
-):
+def test_weights_cli_validate_model_card_json_includes_check_strength(tmp_path, capsys):
     from pyimgano.weights_cli import main
 
     ckpt = tmp_path / "checkpoints" / "demo.pt"

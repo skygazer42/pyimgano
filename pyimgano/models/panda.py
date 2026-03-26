@@ -282,7 +282,9 @@ class VisionPANDA(BaseVisionDeepDetector):
 
         # Optimize both encoder and prototypes
         optimizer = torch.optim.Adam(
-            list(self.encoder_.parameters()) + [self.prototypes_], lr=self.learning_rate, weight_decay=0.0
+            list(self.encoder_.parameters()) + [self.prototypes_],
+            lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         self.encoder_.train()
@@ -386,9 +388,7 @@ class VisionPANDA(BaseVisionDeepDetector):
         finally:
             self.batch_size = old_batch_size
 
-    def get_prototype_assignments(
-        self, x: object = MISSING, **kwargs: object
-    ) -> NDArray:
+    def get_prototype_assignments(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """
         Get prototype assignments for samples.
 

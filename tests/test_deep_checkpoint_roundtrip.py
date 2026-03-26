@@ -70,7 +70,6 @@ def test_padim_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
@@ -141,7 +140,6 @@ def test_draem_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
@@ -210,7 +208,6 @@ def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
@@ -278,7 +275,6 @@ def test_fastflow_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
@@ -329,7 +325,6 @@ def test_softpatch_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) ->
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.anomalydino import TorchHubDinoV2Embedder
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
@@ -407,7 +402,6 @@ def test_anomalydino_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) 
     pytest.importorskip("cv2")
 
     import pyimgano.models  # noqa: F401
-
     from pyimgano.models.anomalydino import TorchHubDinoV2Embedder
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint

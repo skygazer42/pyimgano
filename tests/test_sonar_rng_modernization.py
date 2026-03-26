@@ -3,8 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-pytest.importorskip("torch")
-import torch
+torch = pytest.importorskip("torch")
 
 _GLOBAL_NUMPY_RNG = np.random.mtrand._rand
 
@@ -28,11 +27,7 @@ def _run_after_advancing_global_numpy(draws: int, action):
 
 
 def _numpy_states_equal(left, right) -> bool:
-    return (
-        left[0] == right[0]
-        and np.array_equal(left[1], right[1])
-        and left[2:] == right[2:]
-    )
+    return left[0] == right[0] and np.array_equal(left[1], right[1]) and left[2:] == right[2:]
 
 
 @pytest.mark.parametrize(
@@ -355,4 +350,3 @@ def test_core_torch_autoencoder_fit_does_not_reset_global_numpy_rng() -> None:
     observed = _global_numpy_state_after(lambda: det.fit(x))
 
     assert _numpy_states_equal(observed, expected)
-

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import hashlib
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
@@ -11,13 +11,17 @@ from numpy.typing import NDArray
 import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.models.registry import create_model
 from pyimgano.reporting.environment import collect_environment
+from pyimgano.reporting.report import save_run_report, stamp_report_payload
 from pyimgano.reporting.robustness_export import export_robustness_tables
 from pyimgano.reporting.robustness_summary import (
     build_robustness_trust_summary as _build_robustness_trust_summary,
+)
+from pyimgano.reporting.robustness_summary import (
     summarize_robustness_protocol as _summarize_robustness_protocol,
+)
+from pyimgano.reporting.robustness_summary import (
     summarize_robustness_report as _summarize_robustness_report,
 )
-from pyimgano.reporting.report import save_run_report, stamp_report_payload
 from pyimgano.reporting.runs import build_run_dir_name, ensure_run_dir
 from pyimgano.robustness.corruptions import (
     apply_blur,
@@ -244,9 +248,7 @@ def run_robustness_request(request: RobustnessRunRequest) -> dict[str, Any]:
         pixel_segf1_enabled = False
         notes.append("pixel_segf1 disabled because dataset split has no masks.")
 
-    supports_maps = hasattr(detector, "predict_anomaly_map") or hasattr(
-        detector, "get_anomaly_map"
-    )
+    supports_maps = hasattr(detector, "predict_anomaly_map") or hasattr(detector, "get_anomaly_map")
     if pixel_segf1_enabled and not supports_maps:
         pixel_segf1_enabled = False
         notes.append(

@@ -45,8 +45,7 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
             (),
             {
                 "resolve_pyim_list_options": staticmethod(
-                    lambda **kwargs: helper_calls.append(dict(kwargs))
-                    or _Options()
+                    lambda **kwargs: helper_calls.append(dict(kwargs)) or _Options()
                 )
             },
         ),
@@ -59,9 +58,7 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
         type(
             "_ForbiddenPyimContracts",
             (),
-            {
-                "PyimListRequest": staticmethod(_forbidden_pyim_list_request)
-            },
+            {"PyimListRequest": staticmethod(_forbidden_pyim_list_request)},
         ),
         raising=False,
     )
@@ -160,7 +157,11 @@ def test_run_pyim_command_audit_metadata_json_preserves_nonzero_exit(monkeypatch
         type(
             "_StubPyimAuditService",
             (),
-            {"collect_pyim_audit_payload": staticmethod(lambda: service_calls.append(True) or payload)},
+            {
+                "collect_pyim_audit_payload": staticmethod(
+                    lambda: service_calls.append(True) or payload
+                )
+            },
         ),
         raising=False,
     )

@@ -319,4 +319,3 @@ def test_infer_amp_is_best_effort() -> None:
     else:
         out = infer(_ScoreOnly(), imgs, input_format=ImageFormat.RGB_U8_HWC, amp=True)
     assert len(out) == 1
-

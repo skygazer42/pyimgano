@@ -452,9 +452,7 @@ def _operator_contract_digest_error(
     ):
         return None
     if expected_value != actual.get(key, None):
-        return (
-            f"operator_contract_digests.{key} does not match computed bundle/source contract digest."
-        )
+        return f"operator_contract_digests.{key} does not match computed bundle/source contract digest."
     return None
 
 

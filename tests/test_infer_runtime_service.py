@@ -114,7 +114,9 @@ def test_prepare_infer_runtime_plan_builds_default_postprocess_when_requested() 
     assert type(result.postprocess).__name__ == "AnomalyMapPostprocess"
 
 
-def test_prepare_infer_runtime_plan_uses_explicit_pixel_threshold_without_infer_config_payload() -> None:
+def test_prepare_infer_runtime_plan_uses_explicit_pixel_threshold_without_infer_config_payload() -> (
+    None
+):
     result = prepare_infer_runtime_plan(
         InferRuntimePlanRequest(
             detector=object(),
@@ -140,7 +142,9 @@ def test_prepare_infer_runtime_plan_uses_explicit_pixel_threshold_without_infer_
     assert result.pixel_threshold_provenance["source"] == "explicit"
 
 
-def test_prepare_infer_runtime_plan_keeps_infer_config_threshold_for_non_quantile_strategy() -> None:
+def test_prepare_infer_runtime_plan_keeps_infer_config_threshold_for_non_quantile_strategy() -> (
+    None
+):
     result = prepare_infer_runtime_plan(
         InferRuntimePlanRequest(
             detector=object(),
@@ -166,7 +170,9 @@ def test_prepare_infer_runtime_plan_keeps_infer_config_threshold_for_non_quantil
     assert result.pixel_threshold_provenance["source"] == "infer_config"
 
 
-def test_prepare_infer_runtime_plan_requires_threshold_when_defects_enabled_without_sources() -> None:
+def test_prepare_infer_runtime_plan_requires_threshold_when_defects_enabled_without_sources() -> (
+    None
+):
     with pytest.raises(ValueError, match="--defects requires a pixel threshold"):
         prepare_infer_runtime_plan(
             InferRuntimePlanRequest(

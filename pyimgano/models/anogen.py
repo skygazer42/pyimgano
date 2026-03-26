@@ -11,9 +11,6 @@ from .registry import register_model
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
-
-
-
 def _as_float_array(image: Any) -> NDArray:
     arr = np.asarray(image, dtype=np.float32)
     if arr.ndim < 2:
@@ -124,7 +121,9 @@ class VisionAnoGenAdapter:
             copy=False,
         )
         self.generated_pairs_ = self.generate_training_pairs(self.support_images_)
-        self.decision_scores_ = np.asarray(self.decision_function(self.support_images_), dtype=np.float64)
+        self.decision_scores_ = np.asarray(
+            self.decision_function(self.support_images_), dtype=np.float64
+        )
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 

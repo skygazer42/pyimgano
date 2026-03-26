@@ -106,7 +106,7 @@ class FeatureExtractor(nn.Module):
             weights = ResNet18_Weights.DEFAULT if pretrained else None
             model = resnet18(weights=weights)
 
-        # Extract features up to layer3
+            # Extract features up to layer3
             self.features = nn.Sequential(
                 model.conv1,
                 model.bn1,
@@ -356,7 +356,9 @@ class DSRDetector(BaseVisionDeepDetector):
 
         return upsampled_maps
 
-    def predict(self, x: object = MISSING, threshold: Optional[float] = None, **kwargs: object) -> NDArray:
+    def predict(
+        self, x: object = MISSING, threshold: Optional[float] = None, **kwargs: object
+    ) -> NDArray:
         """Predict anomaly labels.
 
         Args:

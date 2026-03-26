@@ -298,7 +298,9 @@ class RIADDetector(BaseVisionDeepDetector):
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Optimizer and loss
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
         criterion = nn.MSELoss()
 
         # Training loop

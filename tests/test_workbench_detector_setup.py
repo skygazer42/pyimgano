@@ -34,7 +34,9 @@ def test_workbench_detector_setup_builds_detector_tiling_and_preprocessing(monke
         def __getattr__(self, name: str):  # pragma: no cover - helper shim
             return getattr(self.detector, name)
 
-    monkeypatch.setattr(workbench_service, "create_workbench_detector", _fake_create_workbench_detector)
+    monkeypatch.setattr(
+        workbench_service, "create_workbench_detector", _fake_create_workbench_detector
+    )
     monkeypatch.setattr(detector_setup, "apply_tiling", _fake_apply_tiling)
     monkeypatch.setattr(preprocessing_module, "PreprocessingDetector", _FakePreprocessingDetector)
 
@@ -76,7 +78,9 @@ def test_workbench_detector_setup_skips_preprocessing_when_not_configured(monkey
         assert detector is base_detector
         return tiled_detector
 
-    monkeypatch.setattr(workbench_service, "create_workbench_detector", _fake_create_workbench_detector)
+    monkeypatch.setattr(
+        workbench_service, "create_workbench_detector", _fake_create_workbench_detector
+    )
     monkeypatch.setattr(detector_setup, "apply_tiling", _fake_apply_tiling)
 
     cfg = WorkbenchConfig.from_dict(

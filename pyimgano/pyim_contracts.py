@@ -141,9 +141,13 @@ class PyimPreprocessingSchemeSummary:
             description=str(payload["description"]),
             deployable=bool(payload.get("deployable", False)),
             tags=_list_of_str(payload.get("tags", [])),
-            config_key=(None if payload.get("config_key") is None else str(payload.get("config_key"))),
+            config_key=(
+                None if payload.get("config_key") is None else str(payload.get("config_key"))
+            ),
             payload=(None if raw_payload is None else dict(raw_payload)),
-            entrypoint=(None if payload.get("entrypoint") is None else str(payload.get("entrypoint"))),
+            entrypoint=(
+                None if payload.get("entrypoint") is None else str(payload.get("entrypoint"))
+            ),
         )
 
     def to_payload(self) -> dict[str, Any]:
@@ -295,7 +299,9 @@ class PyimListRequest:
                 requested_fields.add("recipes")
             if bool(self.include_datasets):
                 requested_fields.add("datasets")
-            return tuple(field_name for field_name in ALL_PAYLOAD_FIELDS if field_name in requested_fields)
+            return tuple(
+                field_name for field_name in ALL_PAYLOAD_FIELDS if field_name in requested_fields
+            )
 
         requested_fields.update(get_pyim_list_kind_spec(self.list_kind).request_fields)
         kind_spec = get_pyim_list_kind_spec(self.list_kind)
@@ -306,7 +312,9 @@ class PyimListRequest:
         if not kind_spec.include_datasets and bool(self.include_datasets):
             requested_fields.add("datasets")
 
-        return tuple(field_name for field_name in ALL_PAYLOAD_FIELDS if field_name in requested_fields)
+        return tuple(
+            field_name for field_name in ALL_PAYLOAD_FIELDS if field_name in requested_fields
+        )
 
 
 @dataclass(frozen=True)
@@ -342,7 +350,9 @@ class PyimListPayload:
             "preprocessing",
             [_coerce_preprocessing_scheme(item) for item in self.preprocessing],
         )
-        object.__setattr__(self, "datasets", [_coerce_dataset_summary(item) for item in self.datasets])
+        object.__setattr__(
+            self, "datasets", [_coerce_dataset_summary(item) for item in self.datasets]
+        )
 
     def get_section_value(self, list_kind: str) -> Any:
         spec = get_pyim_list_kind_spec(list_kind)

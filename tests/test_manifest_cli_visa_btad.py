@@ -95,4 +95,3 @@ def test_manifest_cli_btad_converter(tmp_path: Path) -> None:
     assert any(r.get("split") == "train" for r in records)
     assert any(r.get("split") == "test" and int(r.get("label", -1)) == 0 for r in records)
     assert any(r.get("split") == "test" and int(r.get("label", -1)) == 1 for r in records)
-

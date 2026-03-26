@@ -87,7 +87,9 @@ class VisionUniVAD:
         contamination: float = 0.1,
     ) -> None:
         self.feature_extractor = feature_extractor
-        self.support_backend = support_backend if support_backend is not None else _PrototypeSupportBackend()
+        self.support_backend = (
+            support_backend if support_backend is not None else _PrototypeSupportBackend()
+        )
         self.layer_weights = layer_weights
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
@@ -115,7 +117,9 @@ class VisionUniVAD:
 
     def decision_function(self, x: object = MISSING, **kwargs: object):
         items = list(
-            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+            cast(
+                Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+            )
         )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):

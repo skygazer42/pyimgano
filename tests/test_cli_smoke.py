@@ -38,9 +38,7 @@ def test_cli_single_benchmark_mode_delegates_to_benchmark_service(monkeypatch, c
     assert '"ok": true' in capsys.readouterr().out.lower()
 
 
-def test_cli_single_pixel_benchmark_mode_delegates_to_benchmark_service(
-    monkeypatch, capsys
-):
+def test_cli_single_pixel_benchmark_mode_delegates_to_benchmark_service(monkeypatch, capsys):
     import pyimgano.cli as cli
     import pyimgano.services.benchmark_service as benchmark_service
     from pyimgano.services.benchmark_service import PixelPostprocessConfig

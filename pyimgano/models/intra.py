@@ -330,7 +330,9 @@ class InTraDetector(BaseVisionDeepDetector):
 
         # Optimizer
         optimizer = torch.optim.Adam(
-            list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=self.learning_rate, weight_decay=0.0
+            list(self.encoder.parameters()) + list(self.decoder.parameters()),
+            lr=self.learning_rate,
+            weight_decay=0.0,
         )
 
         # Convert to tensor

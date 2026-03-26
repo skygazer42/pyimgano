@@ -113,7 +113,9 @@ def test_run_manifest_preflight_uses_split_policy_boundary(monkeypatch, tmp_path
             test_normal_fraction=0.45,
         )
 
-    monkeypatch.setattr(helper_module, "build_manifest_split_policy", _fake_build_manifest_split_policy)
+    monkeypatch.setattr(
+        helper_module, "build_manifest_split_policy", _fake_build_manifest_split_policy
+    )
 
     cfg = WorkbenchConfig.from_dict(
         {
@@ -149,9 +151,7 @@ def test_run_manifest_preflight_uses_split_policy_boundary(monkeypatch, tmp_path
     assert calls == [123]
 
 
-def test_run_manifest_preflight_uses_category_batch_boundary(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_run_manifest_preflight_uses_category_batch_boundary(monkeypatch, tmp_path: Path) -> None:
     import pyimgano.workbench.manifest_preflight as helper_module
 
     mdir = tmp_path / "m"
@@ -245,9 +245,7 @@ def test_run_manifest_preflight_uses_category_batch_boundary(
     ]
 
 
-def test_run_manifest_preflight_uses_record_preflight_boundary(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_run_manifest_preflight_uses_record_preflight_boundary(monkeypatch, tmp_path: Path) -> None:
     import pyimgano.workbench.manifest_preflight as helper_module
 
     mdir = tmp_path / "m"
@@ -257,7 +255,9 @@ def test_run_manifest_preflight_uses_record_preflight_boundary(
 
     calls: list[str] = []
 
-    def _fake_resolve_manifest_preflight_records(*, manifest_path, issues, issue_builder):  # noqa: ANN001
+    def _fake_resolve_manifest_preflight_records(
+        *, manifest_path, issues, issue_builder
+    ):  # noqa: ANN001
         del issues, issue_builder
         calls.append(str(manifest_path))
         return {

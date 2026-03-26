@@ -212,9 +212,7 @@ class VisionTemplateNCCMapDetector(BaseDetector):
 
     # ------------------------------------------------------------------
     def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201
-        items = list(
-            cast(Iterable[object], resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
-        )
+        items = list(cast(Iterable[object], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("Training set cannot be empty")
 

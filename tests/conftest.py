@@ -18,6 +18,34 @@ def _fixture_rng(seed: int) -> np.random.Generator:
     return np.random.default_rng(seed)
 
 
+def _torch_cuda_available() -> bool:
+    try:
+        import torch
+    except ImportError:
+        return False
+
+    cuda = getattr(torch, "cuda", None)
+    is_available = getattr(cuda, "is_available", None)
+    return bool(callable(is_available) and is_available())
+
+
+def _seed_torch_if_available(seed: int) -> None:
+    try:
+        import torch
+    except ImportError:
+        return
+
+    manual_seed = getattr(torch, "manual_seed", None)
+    if callable(manual_seed):
+        manual_seed(seed)
+
+    cuda = getattr(torch, "cuda", None)
+    is_available = getattr(cuda, "is_available", None)
+    manual_seed_cuda = getattr(cuda, "manual_seed", None)
+    if callable(is_available) and is_available() and callable(manual_seed_cuda):
+        manual_seed_cuda(seed)
+
+
 @pytest.fixture(scope="session")
 def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test files."""
@@ -67,15 +95,7 @@ def sample_grayscale_image() -> np.ndarray:
 def reset_random_seeds():
     """Reset random seeds before each test for reproducibility."""
     _GLOBAL_NUMPY_RNG.seed(42)
-    # Add torch seed if torch is available
-    try:
-        import torch
-
-        torch.manual_seed(42)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(42)
-    except ImportError:
-        pass
+    _seed_torch_if_available(42)
 
 
 @pytest.fixture
@@ -125,12 +145,7 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to skip GPU tests if CUDA is not available."""
     del config
-    try:
-        import torch
-
-        has_cuda = torch.cuda.is_available()
-    except ImportError:
-        has_cuda = False
+    has_cuda = _torch_cuda_available()
 
     skip_gpu = pytest.mark.skip(reason="CUDA not available")
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
-import torch
+import pytest
+
+torch = pytest.importorskip("torch")
 
 
 def test_winclip_contract_fit_and_decision_function_with_fake_backend(monkeypatch) -> None:

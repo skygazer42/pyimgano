@@ -32,7 +32,9 @@ def test_resolve_pyim_text_section_view_uses_shared_spec_metadata() -> None:
     )
 
 
-def test_iter_pyim_all_text_section_views_uses_shared_order_and_skips_empty_optional_sections() -> None:
+def test_iter_pyim_all_text_section_views_uses_shared_order_and_skips_empty_optional_sections() -> (
+    None
+):
     from pyimgano.pyim_contracts import (
         PyimListPayload,
         PyimMetadataContractField,

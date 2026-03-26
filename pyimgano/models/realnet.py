@@ -360,7 +360,9 @@ class VisionRealNet(BaseVisionDeepDetector):
         dataset = TensorDataset(x_tensor)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer = torch.optim.Adam(self.feature_selectors_.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.feature_selectors_.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
         criterion = nn.BCEWithLogitsLoss()
 
         self.feature_selectors_.train()
@@ -501,7 +503,9 @@ class VisionRealNet(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> NDArray:
         """Alias for predict."""
-        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is None:
             return self.predict(x_array)
 

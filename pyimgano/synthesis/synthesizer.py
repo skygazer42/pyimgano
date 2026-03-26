@@ -13,6 +13,7 @@ from .presets import PresetFn, make_preset
 
 _BlendMode = Literal["alpha", "poisson"]
 
+
 @dataclass(frozen=True)
 class SynthSpec:
     """Configuration for `AnomalySynthesizer`."""
@@ -82,7 +83,9 @@ class AnomalySynthesizer:
         img = as_u8_image(image_u8)
         if rng is None:
             if seed is None:
-                rng = np.random.default_rng()  # NOSONAR - intentionally non-deterministic when no seed
+                rng = (
+                    np.random.default_rng()
+                )  # NOSONAR - intentionally non-deterministic when no seed
             else:
                 rng = self.make_rng(int(seed))
 

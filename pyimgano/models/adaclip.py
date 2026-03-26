@@ -11,9 +11,6 @@ from .registry import register_model
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
-
-
-
 def _as_vector(value: Any) -> NDArray:
     arr = np.asarray(value, dtype=np.float32).reshape(-1)
     if arr.size == 0:
@@ -42,7 +39,9 @@ def _read_prompt_dict(prompt_backend: Any, method_name: str, *args: Any) -> dict
     if not isinstance(raw, Mapping):
         raise TypeError(f"prompt_backend.{method_name}(...) must return a mapping.")
     if "normal" not in raw or "anomaly" not in raw:
-        raise ValueError(f"prompt_backend.{method_name}(...) must return 'normal' and 'anomaly' prompts.")
+        raise ValueError(
+            f"prompt_backend.{method_name}(...) must return 'normal' and 'anomaly' prompts."
+        )
     return {
         "normal": _as_vector(raw["normal"]),
         "anomaly": _as_vector(raw["anomaly"]),
@@ -117,10 +116,14 @@ class VisionAdaCLIP:
         if not items:
             raise ValueError("X must contain at least one support sample.")
 
-        support_features = np.stack([_encode_image(self.clip_backend, item) for item in items], axis=0)
+        support_features = np.stack(
+            [_encode_image(self.clip_backend, item) for item in items], axis=0
+        )
         self.static_prompts_ = _read_prompt_dict(self.prompt_backend, "get_static_prompts")
         if hasattr(self.prompt_backend, "adapt"):
-            self.dynamic_prompts_ = _read_prompt_dict(self.prompt_backend, "adapt", support_features)
+            self.dynamic_prompts_ = _read_prompt_dict(
+                self.prompt_backend, "adapt", support_features
+            )
         else:
             self.dynamic_prompts_ = dict(self.static_prompts_)
         self.hybrid_prompts_ = self._build_hybrid_prompts()
@@ -137,7 +140,9 @@ class VisionAdaCLIP:
 
     def decision_function(self, x: object = MISSING, **kwargs: object):
         items = list(
-            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+            cast(
+                Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+            )
         )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):

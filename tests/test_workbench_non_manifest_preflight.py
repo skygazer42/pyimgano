@@ -9,9 +9,7 @@ from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.non_manifest_preflight import run_non_manifest_preflight
 
 
-def test_preflight_summary_dispatches_manifest_configs(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_preflight_summary_dispatches_manifest_configs(monkeypatch, tmp_path: Path) -> None:
     try:
         helper_module = importlib.import_module("pyimgano.workbench.preflight_summary")
     except ModuleNotFoundError as exc:
@@ -56,9 +54,7 @@ def test_preflight_summary_dispatches_manifest_configs(
     assert calls == ["manifest"]
 
 
-def test_preflight_summary_dispatches_non_manifest_configs(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_preflight_summary_dispatches_non_manifest_configs(monkeypatch, tmp_path: Path) -> None:
     try:
         helper_module = importlib.import_module("pyimgano.workbench.preflight_summary")
     except ModuleNotFoundError as exc:
@@ -85,7 +81,9 @@ def test_preflight_summary_dispatches_non_manifest_configs(
 
     calls: list[str] = []
 
-    def _fake_run_non_manifest_preflight(*, config, issues, issue_builder):  # noqa: ANN001 - test seam
+    def _fake_run_non_manifest_preflight(
+        *, config, issues, issue_builder
+    ):  # noqa: ANN001 - test seam
         del issues, issue_builder
         calls.append(str(config.dataset.name))
         return {"summary_source": "non_manifest"}

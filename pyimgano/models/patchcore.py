@@ -194,7 +194,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
         projection_state: dict[str, object] | None = None
         if self._projection is not None and hasattr(self._projection, "components_"):
             projection_state = {
-                "components_": self._np.asarray(self._projection.components_, dtype=self._np.float32),
+                "components_": self._np.asarray(
+                    self._projection.components_, dtype=self._np.float32
+                ),
                 "n_features_in_": int(self._projection.n_features_in_),
                 "n_components_": int(self._projection.components_.shape[0]),
             }
@@ -352,7 +354,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
             if target_size is None:
                 target_size = (int(feat.shape[-2]), int(feat.shape[-1]))
             else:
-                feat = functional.interpolate(feat, size=target_size, mode="bilinear", align_corners=False)
+                feat = functional.interpolate(
+                    feat, size=target_size, mode="bilinear", align_corners=False
+                )
 
             features_list.append(feat)
 

@@ -13,7 +13,6 @@ from .registry import register_model
 ONE_CLASS_CNN_FEATURE_EXTRACTION = "one_class_cnn CNN feature extraction"
 
 
-
 @register_model(
     "one_class_cnn",
     tags=("vision", "classical", "svm"),
@@ -323,9 +322,7 @@ class ImageAnomalyDetector:
 # 使用示例
 if __name__ == "__main__":
     # 1. 创建检测器
-    detector = ImageAnomalyDetector(
-        feature_type="combined", nu=0.05
-    )  # 使用组合特征  # 假设最多5%的训练数据可能是异常
+    detector = ImageAnomalyDetector(feature_type="combined", nu=0.05)  # 使用组合特征  # 假设最多5%的训练数据可能是异常
 
     # 2. 训练模型
     train_folder = "/Computer/data/temp11/程序正常"

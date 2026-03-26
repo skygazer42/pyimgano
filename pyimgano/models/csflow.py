@@ -303,7 +303,9 @@ class CSFlowDetector(BaseVisionDeepDetector):
             flow.train()
 
         # Optimizer
-        optimizer = torch.optim.Adam(self.flows.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.flows.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
 
         # Convert to tensor dataset
         if not isinstance(x, torch.Tensor):

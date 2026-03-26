@@ -26,6 +26,7 @@ from pyimgano.utils.optional_deps import require
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import safe_torch_load
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -171,7 +172,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
         projection_state: dict[str, object] | None = None
         if hasattr(self.random_projection, "components_"):
             projection_state = {
-                "components_": np.asarray(self.random_projection.components_, dtype=np.float32),
+                "components_": torch.as_tensor(
+                    np.asarray(self.random_projection.components_, dtype=np.float32),
+                    dtype=torch.float32,
+                ),
                 "n_features_in_": int(self.random_projection.n_features_in_),
                 "n_components_": int(self.random_projection.components_.shape[0]),
             }
@@ -180,10 +184,16 @@ class VisionPaDiM(BaseVisionDeepDetector):
             {
                 "model_state_dict": model_state_dict,
                 "projection_state": projection_state,
-                "means": np.asarray(self.means, dtype=np.float32),
-                "inv_covs": np.asarray(self.inv_covs, dtype=np.float32),
+                "means": torch.as_tensor(
+                    np.asarray(self.means, dtype=np.float32), dtype=torch.float32
+                ),
+                "inv_covs": torch.as_tensor(
+                    np.asarray(self.inv_covs, dtype=np.float32), dtype=torch.float32
+                ),
                 "patch_shape": [int(v) for v in cast(tuple[int, int], self.patch_shape)],
-                "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
+                "decision_scores_": torch.as_tensor(
+                    np.asarray(self.decision_scores_, dtype=np.float64), dtype=torch.float64
+                ),
                 "threshold_": float(self.threshold_),
             },
             out_path,
@@ -191,11 +201,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         return out_path
 
     def load_checkpoint(self, path: str | Path) -> None:
-        from pyimgano.utils.optional_deps import require
-
-        torch = require("torch", extra="torch", purpose="VisionPaDiM checkpoint loading")
-
-        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionPaDiM checkpoint payload.")
 
@@ -252,7 +258,9 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
     def _extract_patch_features(self, image_path: ImageInput) -> NDArray:
         torch = require("torch", extra="torch", purpose="VisionPaDiM feature extraction")
-        functional = require("torch.nn.functional", extra="torch", purpose="VisionPaDiM feature extraction")
+        functional = require(
+            "torch.nn.functional", extra="torch", purpose="VisionPaDiM feature extraction"
+        )
 
         img = self._load_image_rgb(image_path)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)

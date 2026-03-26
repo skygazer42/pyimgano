@@ -263,7 +263,9 @@ def _tiling_summary(tiling_payload: dict[str, Any] | None) -> dict[str, Any] | N
         return None
     return {
         "tile_size": (
-            int(tiling_payload["tile_size"]) if tiling_payload.get("tile_size") is not None else None
+            int(tiling_payload["tile_size"])
+            if tiling_payload.get("tile_size") is not None
+            else None
         ),
         "stride": (
             int(tiling_payload["stride"]) if tiling_payload.get("stride") is not None else None
@@ -279,7 +281,9 @@ def _tiling_summary(tiling_payload: dict[str, Any] | None) -> dict[str, Any] | N
             else None
         ),
         "map_reduce": (
-            str(tiling_payload["map_reduce"]) if tiling_payload.get("map_reduce") is not None else None
+            str(tiling_payload["map_reduce"])
+            if tiling_payload.get("map_reduce") is not None
+            else None
         ),
     }
 
@@ -643,14 +647,19 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
     threshold = workbench_run_service.extract_threshold(payload)
     trained_checkpoint_path = resolve_infer_checkpoint_path(payload, config_path=config_path)
 
-    preset, device, contamination, pretrained, base_user_kwargs, checkpoint_path = (
-        _apply_infer_config_overrides(
-            payload=payload,
-            model_payload=model_payload,
-            request=request,
-            config_path=config_path,
-            resolve_infer_model_checkpoint_path=resolve_infer_model_checkpoint_path,
-        )
+    (
+        preset,
+        device,
+        contamination,
+        pretrained,
+        base_user_kwargs,
+        checkpoint_path,
+    ) = _apply_infer_config_overrides(
+        payload=payload,
+        model_payload=model_payload,
+        request=request,
+        config_path=config_path,
+        resolve_infer_model_checkpoint_path=resolve_infer_model_checkpoint_path,
     )
 
     return _build_config_backed_context(

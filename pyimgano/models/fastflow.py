@@ -304,9 +304,7 @@ class FastFlow(BaseVisionDeepDetector):
                     )
                 ),
                 "threshold_": (
-                    None
-                    if getattr(self, "threshold_", None) is None
-                    else float(self.threshold_)
+                    None if getattr(self, "threshold_", None) is None else float(self.threshold_)
                 ),
             },
             out_path,
@@ -323,7 +321,9 @@ class FastFlow(BaseVisionDeepDetector):
 
         model_state_dict = state.get("model_state_dict", None)
         feature_extractor_state_dict = state.get("feature_extractor_state_dict", None)
-        if not isinstance(model_state_dict, dict) or not isinstance(feature_extractor_state_dict, dict):
+        if not isinstance(model_state_dict, dict) or not isinstance(
+            feature_extractor_state_dict, dict
+        ):
             raise ValueError("FastFlow checkpoint is missing required state_dict payloads.")
 
         self.model.load_state_dict(dict(model_state_dict), strict=False)

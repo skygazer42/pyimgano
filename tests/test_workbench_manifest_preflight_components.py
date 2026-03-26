@@ -17,10 +17,7 @@ from pyimgano.workbench.manifest_record_preflight import (
 
 
 def _write_jsonl(path: Path, rows: list[object]) -> None:
-    lines = [
-        row if isinstance(row, str) else json.dumps(row, ensure_ascii=False)
-        for row in rows
-    ]
+    lines = [row if isinstance(row, str) else json.dumps(row, ensure_ascii=False) for row in rows]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -76,7 +73,9 @@ def test_manifest_record_preflight_resolves_relative_path_from_manifest_dir(
     assert source == "manifest_dir"
 
 
-def test_manifest_record_preflight_resolves_loaded_records_via_loader(monkeypatch, tmp_path: Path) -> None:
+def test_manifest_record_preflight_resolves_loaded_records_via_loader(
+    monkeypatch, tmp_path: Path
+) -> None:
     try:
         helper_module = importlib.import_module("pyimgano.workbench.manifest_record_preflight")
     except ModuleNotFoundError as exc:
@@ -85,7 +84,9 @@ def test_manifest_record_preflight_resolves_loaded_records_via_loader(monkeypatc
     calls: list[str] = []
     sentinel_records = [SimpleNamespace(category="bottle")]
 
-    def _fake_load_manifest_records_best_effort(*, manifest_path, issues, issue_builder):  # noqa: ANN001
+    def _fake_load_manifest_records_best_effort(
+        *, manifest_path, issues, issue_builder
+    ):  # noqa: ANN001
         del issues, issue_builder
         calls.append(str(manifest_path))
         return sentinel_records, {"bottle", "cable"}
@@ -683,7 +684,9 @@ def test_non_manifest_source_validation_emits_custom_structure_issue(tmp_path: P
 
 def test_non_manifest_category_selection_expands_all_categories_in_sorted_order() -> None:
     try:
-        helper_module = importlib.import_module("pyimgano.workbench.non_manifest_category_selection")
+        helper_module = importlib.import_module(
+            "pyimgano.workbench.non_manifest_category_selection"
+        )
     except ModuleNotFoundError as exc:
         pytest.fail(f"missing non-manifest category selection helper: {exc}")
 
@@ -713,7 +716,9 @@ def test_non_manifest_category_selection_expands_all_categories_in_sorted_order(
 
 def test_non_manifest_category_selection_emits_issue_for_missing_requested_category() -> None:
     try:
-        helper_module = importlib.import_module("pyimgano.workbench.non_manifest_category_selection")
+        helper_module = importlib.import_module(
+            "pyimgano.workbench.non_manifest_category_selection"
+        )
     except ModuleNotFoundError as exc:
         pytest.fail(f"missing non-manifest category selection helper: {exc}")
 
@@ -841,7 +846,9 @@ def test_non_manifest_category_listing_returns_error_summary_on_loader_failure(
             "context": context,
         }
 
-    monkeypatch.setattr(helper_module, "list_workbench_categories", _failing_list_workbench_categories)
+    monkeypatch.setattr(
+        helper_module, "list_workbench_categories", _failing_list_workbench_categories
+    )
 
     result = helper_module.load_non_manifest_preflight_categories(
         config=cfg,

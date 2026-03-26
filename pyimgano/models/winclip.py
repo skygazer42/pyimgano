@@ -257,7 +257,9 @@ class WinCLIPDetector(BaseVisionDeepDetector):
 
         self.decision_scores_ = np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
         if self.decision_scores_.size > 0:
-            self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - float(self.contamination)))
+            self.threshold_ = float(
+                np.quantile(self.decision_scores_, 1.0 - float(self.contamination))
+            )
         return self
 
     def predict_proba(self, x: NDArray, **kwargs) -> NDArray:

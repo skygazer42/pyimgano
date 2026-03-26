@@ -283,7 +283,9 @@ def trivial_augment(image: Image.Image, magnitude: float = 0.5) -> Image.Image:
         lambda img, mag: _enhance(img, "color", 1 + (rng.uniform(-1, 1) * mag)),
         lambda img, mag: _enhance(img, "sharpness", 1 + (rng.uniform(-1, 1) * mag)),
     ]
-    operation = random_horizontal_flip if rng.random() < 0.1 else random.choice(ops)  # NOSONAR - non-crypto RNG (data augmentation)
+    operation = (
+        random_horizontal_flip if rng.random() < 0.1 else random.choice(ops)
+    )  # NOSONAR - non-crypto RNG (data augmentation)
     if operation is random_horizontal_flip:
         return operation(image)
     return operation(image, magnitude)

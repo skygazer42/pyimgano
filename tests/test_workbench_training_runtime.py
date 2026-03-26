@@ -149,9 +149,7 @@ def test_workbench_training_runtime_runs_micro_finetune_and_checkpoint(
             "warmup_start_factor": 0.25,
         },
     }
-    assert Path(calls["save_checkpoint"]["path"]).as_posix().endswith(
-        "checkpoints/custom/model.pt"
-    )
+    assert Path(calls["save_checkpoint"]["path"]).as_posix().endswith("checkpoints/custom/model.pt")
     assert result.training_report == {
         "fit_kwargs_used": {
             "epochs": 2,
@@ -367,9 +365,7 @@ def test_workbench_training_runtime_passes_multistep_scheduler_kwargs(
     }
 
 
-def test_workbench_training_runtime_passes_ema_kwargs(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_workbench_training_runtime_passes_ema_kwargs(monkeypatch, tmp_path: Path) -> None:
     calls: dict[str, object] = {}
 
     def _fake_micro_finetune(
@@ -516,7 +512,9 @@ def test_workbench_training_runtime_passes_tracker_and_callbacks(
     import pyimgano.training.runner as training_runner_module
     import pyimgano.workbench.training_runtime as training_runtime_module
 
-    monkeypatch.setattr(training_runtime_module, "create_training_tracker", _fake_create_training_tracker)
+    monkeypatch.setattr(
+        training_runtime_module, "create_training_tracker", _fake_create_training_tracker
+    )
     monkeypatch.setattr(training_runner_module, "micro_finetune", _fake_micro_finetune)
     monkeypatch.setattr(checkpointing_module, "save_checkpoint", _fake_save_checkpoint)
 
@@ -688,7 +686,9 @@ def test_workbench_training_runtime_resolves_default_mlflow_tracker_dir(
     import pyimgano.training.runner as training_runner_module
     import pyimgano.workbench.training_runtime as training_runtime_module
 
-    monkeypatch.setattr(training_runtime_module, "create_training_tracker", _fake_create_training_tracker)
+    monkeypatch.setattr(
+        training_runtime_module, "create_training_tracker", _fake_create_training_tracker
+    )
     monkeypatch.setattr(training_runner_module, "micro_finetune", _fake_micro_finetune)
     monkeypatch.setattr(checkpointing_module, "save_checkpoint", _fake_save_checkpoint)
 

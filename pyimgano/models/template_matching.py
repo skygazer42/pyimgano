@@ -225,7 +225,9 @@ class TemplateMatching(BaseDetector):
 
         return 0.0
 
-    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object) -> "TemplateMatching":
+    def fit(
+        self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object
+    ) -> "TemplateMatching":
         """
         Fit template matching model.
 

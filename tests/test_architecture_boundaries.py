@@ -34,7 +34,9 @@ def _extract_dunder_all(path: Path) -> list[str]:
     for node in tree.body:
         if not isinstance(node, ast.Assign):
             continue
-        if not any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
+        if not any(
+            isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets
+        ):
             continue
         value = ast.literal_eval(node.value)
         if not isinstance(value, (list, tuple)):
@@ -847,7 +849,7 @@ def test_manifest_preflight_uses_report_assembly_boundary() -> None:
 
     assert "pyimgano.workbench.manifest_preflight_report" in source
     assert "build_manifest_preflight_report" in source
-    assert 'out: dict[str, Any] = {' not in source
+    assert "out: dict[str, Any] = {" not in source
     assert 'out["manifest"] = {"ok": True}' not in source
     assert "split_policy={" not in source
     assert '"mode": str(policy.mode)' not in source
@@ -1086,11 +1088,7 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
             violations.append(f"{path.name}: missing service import whitelist coverage")
             continue
 
-        actual = {
-            item
-            for item in _iter_imports(path)
-            if item.startswith("pyimgano.services.")
-        }
+        actual = {item for item in _iter_imports(path) if item.startswith("pyimgano.services.")}
         unexpected = sorted(actual - allowed_service_imports[path.name])
         if unexpected:
             violations.append(f"{path.name}: {', '.join(unexpected)}")
@@ -1170,7 +1168,8 @@ def test_pyim_app_uses_audit_helpers_boundary() -> None:
     violations = [
         imported
         for imported in _iter_imports(app_path)
-        if imported in {"pyimgano.cli_output", "pyimgano.models.registry", "pyimgano.pyim_contracts"}
+        if imported
+        in {"pyimgano.cli_output", "pyimgano.models.registry", "pyimgano.pyim_contracts"}
     ]
 
     assert violations == []

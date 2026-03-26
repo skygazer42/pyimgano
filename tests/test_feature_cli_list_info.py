@@ -24,4 +24,3 @@ def test_feature_cli_extractor_info_emits_json(capsys) -> None:
     assert "accepted_kwargs" in payload
     assert isinstance(payload["accepted_kwargs"], list)
     assert "resize_hw" in payload["accepted_kwargs"]
-

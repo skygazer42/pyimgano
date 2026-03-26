@@ -104,7 +104,9 @@ def test_load_workbench_split_manifest_paths_uses_split_policy_boundary(
             test_normal_fraction=0.4,
         )
 
-    monkeypatch.setattr(loader_module, "build_manifest_split_policy", _fake_build_manifest_split_policy)
+    monkeypatch.setattr(
+        loader_module, "build_manifest_split_policy", _fake_build_manifest_split_policy
+    )
 
     manifest_path = tmp_path / "manifest.jsonl"
     manifest_path.write_text("", encoding="utf-8")
@@ -271,9 +273,7 @@ def test_load_workbench_split_rejects_manifest_numpy_mode(tmp_path: Path) -> Non
         raise AssertionError("Expected ValueError for manifest numpy mode")
 
 
-def test_list_workbench_categories_delegates_manifest_listing(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_list_workbench_categories_delegates_manifest_listing(monkeypatch, tmp_path: Path) -> None:
     calls: list[dict[str, object]] = []
 
     def _fake_list_dataset_categories(**kwargs):  # noqa: ANN003 - test seam

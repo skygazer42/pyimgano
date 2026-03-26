@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import importlib
+import json
 from pathlib import Path
 
 import numpy as np
@@ -204,7 +204,10 @@ def test_recipe_micro_finetune_autoencoder_restores_before_training(
     assert train_calls == [
         {
             "detector": train_calls[0]["detector"],
-            "train_inputs": [str(root / "train/normal/train_0.png"), str(root / "train/normal/train_1.png")],
+            "train_inputs": [
+                str(root / "train/normal/train_0.png"),
+                str(root / "train/normal/train_1.png"),
+            ],
             "seed": 7,
             "fit_kwargs": {"epochs": 2},
         }
@@ -216,9 +219,7 @@ def test_recipe_micro_finetune_autoencoder_restores_before_training(
     }
 
 
-def test_recipe_micro_finetune_autoencoder_passes_ema_kwargs(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_recipe_micro_finetune_autoencoder_passes_ema_kwargs(monkeypatch, tmp_path: Path) -> None:
     import cv2
 
     train_calls: list[dict[str, object]] = []

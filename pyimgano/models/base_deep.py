@@ -15,13 +15,14 @@ The API is intentionally small and geared toward the needs of this repository.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 import numpy as np
 
 from pyimgano.train_progress import get_active_train_progress_reporter
+
 from .base_detector import BaseDetector
 
 

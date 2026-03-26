@@ -235,7 +235,9 @@ class MemAE(BaseVisionDeepDetector):
         ).to(self.device)
 
         # Setup optimizer
-        optimizer = torch.optim.Adam(self.network_.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.network_.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
 
         # Training loop
         dataset = TensorDataset(x_tensor)

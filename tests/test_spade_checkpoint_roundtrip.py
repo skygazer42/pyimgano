@@ -9,9 +9,9 @@ def test_spade_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     pytest.importorskip("torchvision")
     pytest.importorskip("cv2")
 
-    import pyimgano.models  # noqa: F401
     from PIL import Image
 
+    import pyimgano.models  # noqa: F401
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector

@@ -45,7 +45,9 @@ def _normalize_extracted_maps(
     return [np.asarray(normalized[i], dtype=np.float32) for i in range(normalized.shape[0])]
 
 
-def extract_maps_best_effort(detector: Any, inputs: Sequence[Any]) -> list[np.ndarray | None] | None:
+def extract_maps_best_effort(
+    detector: Any, inputs: Sequence[Any]
+) -> list[np.ndarray | None] | None:
     if hasattr(detector, "predict_anomaly_map"):
         try:
             maps = _call_with_numpy_batch_fallback(detector.predict_anomaly_map, inputs)

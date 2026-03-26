@@ -24,7 +24,10 @@ class PreparedWorkbenchSplit:
 def _calibration_matches_train(train_inputs: list[Any], calibration_inputs: list[Any]) -> bool:
     if len(train_inputs) != len(calibration_inputs):
         return False
-    return all(train_item is calibration_item for train_item, calibration_item in zip(train_inputs, calibration_inputs))
+    return all(
+        train_item is calibration_item
+        for train_item, calibration_item in zip(train_inputs, calibration_inputs)
+    )
 
 
 def _split_calibration_holdout(

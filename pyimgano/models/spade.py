@@ -351,7 +351,6 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         norms = np.linalg.norm(features, axis=1, keepdims=True)
         return features / (norms + 1e-8)
 
-
     def save_checkpoint(self, path: str | Path) -> Path:
         self._check_fitted()
 
@@ -396,7 +395,9 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
                     else None
                 ),
                 "threshold_": (
-                    float(self.threshold_) if getattr(self, "threshold_", None) is not None else None
+                    float(self.threshold_)
+                    if getattr(self, "threshold_", None) is not None
+                    else None
                 ),
                 "labels_": (
                     np.asarray(self.labels_, dtype=np.int64)

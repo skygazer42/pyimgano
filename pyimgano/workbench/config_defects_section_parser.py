@@ -25,9 +25,7 @@ def _parse_map_smoothing_config(d_map: Mapping[str, Any]) -> MapSmoothingConfig:
     ms_map = _require_mapping(ms_raw, name="defects.map_smoothing")
     ms_method = str(ms_map.get("method", "none")).lower().strip()
     if ms_method not in ("none", "median", "gaussian", "box"):
-        raise ValueError(
-            "defects.map_smoothing.method must be one of: none|median|gaussian|box"
-        )
+        raise ValueError("defects.map_smoothing.method must be one of: none|median|gaussian|box")
     ms_ksize = int(_optional_int(ms_map.get("ksize", 0), name="defects.map_smoothing.ksize") or 0)
     ms_sigma = _optional_float(ms_map.get("sigma", 0.0), name="defects.map_smoothing.sigma")
     ms_sigma_v = float(ms_sigma if ms_sigma is not None else 0.0)
@@ -94,9 +92,7 @@ def _parse_shape_filters_config(d_map: Mapping[str, Any]) -> ShapeFiltersConfig:
 
     return ShapeFiltersConfig(
         min_fill_ratio=(float(sf_min_fill_ratio) if sf_min_fill_ratio is not None else None),
-        max_aspect_ratio=(
-            float(sf_max_aspect_ratio) if sf_max_aspect_ratio is not None else None
-        ),
+        max_aspect_ratio=(float(sf_max_aspect_ratio) if sf_max_aspect_ratio is not None else None),
         min_solidity=(float(sf_min_solidity) if sf_min_solidity is not None else None),
     )
 

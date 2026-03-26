@@ -6,13 +6,10 @@ import sys
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from pyimgano.presets.catalog import list_model_presets
-from pyimgano.services.discovery_service import (
-    list_baseline_suites_payload,
-    list_sweeps_payload,
-)
+from pyimgano.services.discovery_service import list_baseline_suites_payload, list_sweeps_payload
 from pyimgano.utils.extras import extra_importable, extra_installed, extras_install_hint
 from pyimgano.utils.optional_deps import optional_import
 

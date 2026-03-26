@@ -71,8 +71,10 @@ def test_validate_model_card_file_can_check_weight_asset_and_hash(tmp_path):
     assert report.ok
     assert report.assets["weights"]["exists"] is True
     assert report.assets["weights"]["sha256_match"] is True
-    assert Path(report.assets["weights"]["resolved_path"]).as_posix().endswith(
-        "checkpoints/patchcore_bottle.pt"
+    assert (
+        Path(report.assets["weights"]["resolved_path"])
+        .as_posix()
+        .endswith("checkpoints/patchcore_bottle.pt")
     )
 
 

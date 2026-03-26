@@ -70,7 +70,9 @@ class _RobustMADDetector:
         if self.median_ is None or self.mad_ is None:
             raise RuntimeError("Detector not fitted. Call fit() first.")
 
-        x_arr = np.asarray(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"), dtype=np.float64)
+        x_arr = np.asarray(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"), dtype=np.float64
+        )
         if x_arr.ndim != 2:
             raise ValueError(f"Expected 2D feature matrix, got shape {x_arr.shape}")
         if x_arr.shape[1] != self.median_.shape[0]:

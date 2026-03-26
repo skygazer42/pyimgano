@@ -84,15 +84,21 @@ def _build_bundle_trust_summary(
         "manifest_has_entries": bool(len(manifest_entries) > 0),
         "manifest_all_entries_have_sha256": bool(
             len(manifest_entries) > 0
-            and all(_nonempty_str(item.get("sha256", None)) is not None for item in manifest_entries)
+            and all(
+                _nonempty_str(item.get("sha256", None)) is not None for item in manifest_entries
+            )
         ),
         "manifest_all_entries_have_source": bool(
             len(manifest_entries) > 0
-            and all(_nonempty_str(item.get("source", None)) is not None for item in manifest_entries)
+            and all(
+                _nonempty_str(item.get("source", None)) is not None for item in manifest_entries
+            )
         ),
         "manifest_all_entries_have_license": bool(
             len(manifest_entries) > 0
-            and all(_nonempty_str(item.get("license", None)) is not None for item in manifest_entries)
+            and all(
+                _nonempty_str(item.get("license", None)) is not None for item in manifest_entries
+            )
         ),
         "manifest_all_entries_have_runtime": bool(
             len(manifest_entries) > 0 and all(_has_runtime(item) for item in manifest_entries)
@@ -259,7 +265,9 @@ def evaluate_bundle_weights_audit(
     payload["trust_summary"] = trust_summary
     payload["ready"] = bool(trust_summary.get("status") == "trust-signaled")
     payload["status"] = "ready" if bool(payload["ready"]) else "partial"
-    payload["missing_required"] = list(dict.fromkeys(str(item) for item in payload["missing_required"]))
+    payload["missing_required"] = list(
+        dict.fromkeys(str(item) for item in payload["missing_required"])
+    )
     payload["warnings"] = list(dict.fromkeys(str(item) for item in payload["warnings"]))
     payload["errors"] = list(dict.fromkeys(str(item) for item in payload["errors"]))
     return payload

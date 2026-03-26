@@ -251,7 +251,10 @@ def test_robust_cli_smoke(tmp_path, capsys) -> None:
     assert payload["robustness_protocol"]["condition_count"] == 2
     assert payload["robustness_protocol"]["corruption_count"] == 1
     assert payload["robustness_protocol"]["severities"] == [1]
-    assert payload["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"] is True
+    assert (
+        payload["robustness_protocol"]["comparability_hints"]["requires_same_corruption_protocol"]
+        is True
+    )
     assert payload["robustness_protocol"]["comparability_hints"]["requires_same_input_mode"] is True
     trust = payload["robustness_trust"]
     assert trust["status"] == "trust-signaled"

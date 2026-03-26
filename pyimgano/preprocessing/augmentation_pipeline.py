@@ -116,7 +116,9 @@ class OneOf:
     def __call__(self, image: NDArray, **kwargs) -> NDArray:
         """Apply one randomly selected transform."""
         if random.random() < self.p:  # NOSONAR - non-crypto RNG (data augmentation)
-            transform = random.choice(self.transforms)  # NOSONAR - non-crypto RNG (data augmentation)
+            transform = random.choice(
+                self.transforms
+            )  # NOSONAR - non-crypto RNG (data augmentation)
             return transform(image, **kwargs)
         return image
 
@@ -292,7 +294,9 @@ class MotionBlur(AugmentationTransform):
 
     def apply(self, image: NDArray, **kwargs) -> NDArray:
         del kwargs
-        kernel_size = random.randint(*self.kernel_size_range)  # NOSONAR - non-crypto RNG (data augmentation)
+        kernel_size = random.randint(
+            *self.kernel_size_range
+        )  # NOSONAR - non-crypto RNG (data augmentation)
         if kernel_size % 2 == 0:
             kernel_size += 1
         angle = random.uniform(*self.angle_range)
@@ -585,7 +589,9 @@ def get_industrial_camera_robust_augmentation() -> Compose:
     """
 
     def _jpeg(image):
-        return jpeg_compress(image, quality=random.randint(30, 95))  # NOSONAR - non-crypto RNG (data augmentation)
+        return jpeg_compress(
+            image, quality=random.randint(30, 95)
+        )  # NOSONAR - non-crypto RNG (data augmentation)
 
     def _vignette(image):
         return vignette(image, strength=random.uniform(0.1, 0.5), exponent=2.0)
@@ -637,7 +643,9 @@ def get_industrial_drift_augmentation() -> Compose:
     """
 
     def _jpeg(image):
-        return jpeg_compress(image, quality=random.randint(20, 95))  # NOSONAR - non-crypto RNG (data augmentation)
+        return jpeg_compress(
+            image, quality=random.randint(20, 95)
+        )  # NOSONAR - non-crypto RNG (data augmentation)
 
     def _gain(image):
         return random_channel_gain(image, gain_range=(0.85, 1.15))

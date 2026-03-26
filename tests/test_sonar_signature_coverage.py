@@ -3,7 +3,6 @@ import inspect
 import numpy as np
 import pytest
 
-
 _OPTIONAL_IMPORT_ROOTS = {
     "anomalib",
     "faiss",
@@ -586,7 +585,9 @@ def test_constructor_signatures_use_lowercase_names(target, expected, legacy):
             id="sod-train-x",
         ),
         pytest.param(
-            lambda: __import__("pyimgano.models.lscp", fromlist=["CoreLSCP", "_default_lscp_detectors"]).CoreLSCP(
+            lambda: __import__(
+                "pyimgano.models.lscp", fromlist=["CoreLSCP", "_default_lscp_detectors"]
+            ).CoreLSCP(
                 detector_list=__import__(
                     "pyimgano.models.lscp", fromlist=["_default_lscp_detectors"]
                 )._default_lscp_detectors(contamination=0.1, random_state=0),

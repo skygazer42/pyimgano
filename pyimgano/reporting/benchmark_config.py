@@ -107,7 +107,9 @@ def _build_benchmark_config_trust_summary(
         "has_source_path": bool(kind == "file" and _nonempty_str(source) not in (None, "<inline>")),
         "has_sha256": bool(_nonempty_str(sha256)),
         "has_dataset": _nonempty_str(dataset) is not None,
-        "has_suite_or_model": (_nonempty_str(suite) is not None or _nonempty_str(model) is not None),
+        "has_suite_or_model": (
+            _nonempty_str(suite) is not None or _nonempty_str(model) is not None
+        ),
         "has_evaluation_contract": isinstance(evaluation_contract, Mapping),
     }
 
@@ -246,10 +248,7 @@ def describe_benchmark_config(spec: str | Path) -> dict[str, Any]:
 
 def list_official_benchmark_configs(directory: str | Path | None = None) -> list[dict[str, Any]]:
     config_dir = _official_benchmark_config_dir(directory)
-    return [
-        describe_benchmark_config(path)
-        for path in sorted(config_dir.glob("official_*.json"))
-    ]
+    return [describe_benchmark_config(path) for path in sorted(config_dir.glob("official_*.json"))]
 
 
 def load_benchmark_config_spec(spec: str | Path) -> Any:

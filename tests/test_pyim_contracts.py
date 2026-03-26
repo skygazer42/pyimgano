@@ -47,7 +47,9 @@ def test_pyim_contracts_module_exports_request_and_payload() -> None:
             "tags": ["deployable"],
         }
     )
-    dataset = PyimDatasetSummary(name="custom", description="Custom dataset", requires_category=False)
+    dataset = PyimDatasetSummary(
+        name="custom", description="Custom dataset", requires_category=False
+    )
 
     assert request.tags == ["vision"]
     assert payload.models == ["vision_patchcore"]

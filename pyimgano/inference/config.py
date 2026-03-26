@@ -59,7 +59,9 @@ def normalize_infer_config_schema(
     try:
         version = int(raw_version)
     except Exception as exc:  # noqa: BLE001 - validation boundary
-        raise ValueError(f"infer-config schema_version must be an int, got {raw_version!r}") from exc
+        raise ValueError(
+            f"infer-config schema_version must be an int, got {raw_version!r}"
+        ) from exc
 
     if version <= 0:
         out["schema_version"] = int(INFER_CONFIG_SCHEMA_VERSION)

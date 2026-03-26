@@ -16,11 +16,14 @@ def test_resolve_category_uses_single_detected_candidate() -> None:
         ]
     }
 
-    assert _resolve_category(
-        dataset="mvtec_ad2",
-        detection=detection,
-        category=None,
-    ) == "bottle"
+    assert (
+        _resolve_category(
+            dataset="mvtec_ad2",
+            detection=detection,
+            category=None,
+        )
+        == "bottle"
+    )
 
 
 def test_build_profile_sections_counts_manifest_splits(tmp_path: Path) -> None:
@@ -43,7 +46,13 @@ def test_build_profile_sections_counts_manifest_splits(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    dataset_profile, task_profile, constraints, evaluation_readiness, stats = _build_profile_sections(
+    (
+        dataset_profile,
+        task_profile,
+        constraints,
+        evaluation_readiness,
+        stats,
+    ) = _build_profile_sections(
         manifest_path=manifest_path,
         root_fallback=tmp_path,
     )

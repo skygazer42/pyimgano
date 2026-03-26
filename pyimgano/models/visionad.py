@@ -16,7 +16,9 @@ def _as_float_array(value: Any) -> NDArray:
     return arr
 
 
-def _call_embedder(embedder: Any, image: Any) -> tuple[NDArray, tuple[int, int] | None, tuple[int, int] | None]:
+def _call_embedder(
+    embedder: Any, image: Any
+) -> tuple[NDArray, tuple[int, int] | None, tuple[int, int] | None]:
     if embedder is None:
         raise ValueError("embedder is required for vision_visionad.")
 
@@ -73,7 +75,9 @@ class VisionVisionAD:
         contamination: float = 0.1,
     ) -> None:
         self.embedder = embedder
-        self.search_backend = search_backend if search_backend is not None else _CentroidSearchBackend()
+        self.search_backend = (
+            search_backend if search_backend is not None else _CentroidSearchBackend()
+        )
         self.contamination = float(contamination)
         if not (0.0 < self.contamination < 0.5):
             raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
@@ -88,13 +92,17 @@ class VisionVisionAD:
             raise ValueError("X must contain at least one support sample.")
         embedded = [_call_embedder(self.embedder, item)[0] for item in items]
         if not hasattr(self.search_backend, "fit") or not hasattr(self.search_backend, "score"):
-            raise TypeError("search_backend must implement .fit(train_patches) and .score(patches).")
+            raise TypeError(
+                "search_backend must implement .fit(train_patches) and .score(patches)."
+            )
         self.search_backend.fit(embedded)
         self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64)
         self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
         return self
 
-    def _score_item(self, item: Any) -> tuple[float, NDArray, tuple[int, int] | None, tuple[int, int] | None]:
+    def _score_item(
+        self, item: Any
+    ) -> tuple[float, NDArray, tuple[int, int] | None, tuple[int, int] | None]:
         patches, grid_shape, original_size = _call_embedder(self.embedder, item)
         image_score, patch_scores = self.search_backend.score(patches)
         patch_scores_arr = np.asarray(patch_scores, dtype=np.float32).reshape(-1)
@@ -107,7 +115,9 @@ class VisionVisionAD:
 
     def decision_function(self, x: object = MISSING, **kwargs: object):
         items = list(
-            cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+            cast(
+                Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+            )
         )
         scores = np.zeros((len(items),), dtype=np.float64)
         for i, item in enumerate(items):

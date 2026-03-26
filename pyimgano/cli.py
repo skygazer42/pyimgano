@@ -243,8 +243,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--family",
         default=None,
         help=(
-            "Optional algorithm family/tag filter for --list-models. "
-            "Example: --family patchcore"
+            "Optional algorithm family/tag filter for --list-models. " "Example: --family patchcore"
         ),
     )
     parser.add_argument(
@@ -259,10 +258,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--year",
         default=None,
-        help=(
-            "Optional publication year filter for --list-models. "
-            "Example: --year 2021"
-        ),
+        help=("Optional publication year filter for --list-models. " "Example: --year 2021"),
     )
     parser.add_argument(
         "--feature-tags",
@@ -1103,9 +1099,13 @@ def main(argv: list[str] | None = None) -> int:
                 contamination=float(args.contamination),
                 resize=resize,
                 model_kwargs=_parse_model_kwargs(args.model_kwargs),
-                checkpoint_path=(str(args.checkpoint_path) if args.checkpoint_path is not None else None),
+                checkpoint_path=(
+                    str(args.checkpoint_path) if args.checkpoint_path is not None else None
+                ),
                 calibration_quantile=(
-                    float(args.calibration_quantile) if args.calibration_quantile is not None else None
+                    float(args.calibration_quantile)
+                    if args.calibration_quantile is not None
+                    else None
                 ),
                 limit_train=(int(args.limit_train) if args.limit_train is not None else None),
                 limit_test=(int(args.limit_test) if args.limit_test is not None else None),
@@ -1116,8 +1116,12 @@ def main(argv: list[str] | None = None) -> int:
                 save_run=bool(args.save_run),
                 per_image_jsonl=bool(args.per_image_jsonl),
                 cache_dir=(str(args.cache_dir) if args.cache_dir is not None else None),
-                load_detector_path=(str(args.load_detector) if args.load_detector is not None else None),
-                save_detector_path=(str(args.save_detector) if args.save_detector is not None else None),
+                load_detector_path=(
+                    str(args.load_detector) if args.load_detector is not None else None
+                ),
+                save_detector_path=(
+                    str(args.save_detector) if args.save_detector is not None else None
+                ),
                 output_dir=(str(args.output_dir) if args.output_dir is not None else None),
                 pixel=bool(args.pixel),
                 pixel_segf1=bool(args.pixel_segf1),

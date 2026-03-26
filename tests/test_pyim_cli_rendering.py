@@ -271,8 +271,14 @@ def test_emit_pyim_list_payload_renders_all_text_sections(capsys) -> None:
             model_presets=["industrial-structural-ecod"],
             model_preset_infos=[{"name": "industrial-structural-ecod", "tags": ["graph"]}],
             defects_presets=["industrial-defects-fp40"],
-            recipes=[{"name": "industrial-adapt", "metadata": {"description": "Recipe description"}}],
-            datasets=[PyimDatasetSummary(name="custom", description="Custom dataset", requires_category=True)],
+            recipes=[
+                {"name": "industrial-adapt", "metadata": {"description": "Recipe description"}}
+            ],
+            datasets=[
+                PyimDatasetSummary(
+                    name="custom", description="Custom dataset", requires_category=True
+                )
+            ],
         ),
         list_kind="all",
         json_output=False,

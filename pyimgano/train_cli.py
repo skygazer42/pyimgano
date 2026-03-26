@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
+
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
-
-from pyimgano.recipes.registry import list_recipes, recipe_info
 import pyimgano.services.train_service as train_service
+from pyimgano.recipes.registry import list_recipes, recipe_info
 from pyimgano.train_cli_presentation import (
     TrainConsoleReporter,
     emit_dry_run_summary,
@@ -70,6 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
 
 def _build_train_request(args: argparse.Namespace) -> train_service.TrainRunRequest:
     if args.config is None:

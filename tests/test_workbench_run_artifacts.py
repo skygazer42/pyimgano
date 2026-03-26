@@ -46,9 +46,7 @@ def test_run_artifacts_helpers_extract_threshold_and_checkpoint_path(tmp_path) -
     }
 
     assert extract_threshold(payload) == pytest.approx(0.42)
-    assert resolve_checkpoint_path(tmp_path, payload) == (
-        tmp_path / "checkpoints" / "model.pt"
-    )
+    assert resolve_checkpoint_path(tmp_path, payload) == (tmp_path / "checkpoints" / "model.pt")
 
 
 def test_run_artifacts_load_report_from_run_reads_report_json(tmp_path) -> None:

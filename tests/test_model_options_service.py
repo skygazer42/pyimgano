@@ -24,7 +24,9 @@ def test_resolve_model_options_merges_user_preset_and_auto_kwargs():
 
 
 def test_resolve_requested_model_accepts_model_preset_alias():
-    model_name, preset_model_auto_kwargs, entry = resolve_requested_model("industrial-structural-ecod")
+    model_name, preset_model_auto_kwargs, entry = resolve_requested_model(
+        "industrial-structural-ecod"
+    )
 
     assert model_name == "vision_feature_pipeline"
     assert isinstance(preset_model_auto_kwargs, dict)
@@ -157,7 +159,9 @@ def test_apply_onnx_session_options_shorthand_rejects_unsupported_onnx_target(mo
         )
 
 
-def test_apply_onnx_session_options_shorthand_rejects_onnx_route_with_no_supported_target(monkeypatch):
+def test_apply_onnx_session_options_shorthand_rejects_onnx_route_with_no_supported_target(
+    monkeypatch,
+):
     monkeypatch.setattr(
         model_options_service,
         "get_model_signature_info",
@@ -219,10 +223,14 @@ def test_resolve_preset_kwargs_keeps_reverse_distillation_aliases_in_sync():
     a = resolve_preset_kwargs("industrial-accurate", "vision_reverse_distillation")
     b = resolve_preset_kwargs("industrial-accurate", "vision_reverse_dist")
 
-    assert a == b == {
-        "epoch_num": 20,
-        "batch_size": 32,
-    }
+    assert (
+        a
+        == b
+        == {
+            "epoch_num": 20,
+            "batch_size": 32,
+        }
+    )
 
 
 def test_resolve_preset_kwargs_rejects_unknown_preset():
@@ -294,7 +302,11 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
         ("industrial-balanced", "vision_draem", {"image_size": 256, "epochs": 50}),
         ("industrial-balanced", "not-covered-balanced", {}),
         ("industrial-accurate", "vision_padim", {"d_reduced": 128, "image_size": 224}),
-        ("industrial-accurate", "vision_spade", {"backbone": "wide_resnet50", "gaussian_sigma": 4.0}),
+        (
+            "industrial-accurate",
+            "vision_spade",
+            {"backbone": "wide_resnet50", "gaussian_sigma": 4.0},
+        ),
         (
             "industrial-accurate",
             "vision_anomalydino",

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
-
 
 _ROBUSTNESS_COMPARABILITY_HINTS = {
     "requires_same_dataset": True,
@@ -340,8 +339,7 @@ def _robustness_trust_signals(
     )
     has_summary_metrics = bool(summary) or _has_report_metrics(report)
     summary_has_latency = any(
-        _safe_float(summary.get(key))
-        is not None
+        _safe_float(summary.get(key)) is not None
         for key in (
             "clean_latency_ms_per_image",
             "mean_corruption_latency_ms_per_image",

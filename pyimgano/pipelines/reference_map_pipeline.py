@@ -171,7 +171,9 @@ class ReferenceMapPipeline(BaseDetector):
         raise ValueError("Unknown reduction mode")
 
     # ------------------------------------------------------------------
-    def fit(self, x: object = MISSING, y=None, **kwargs: object):  # noqa: ANN001, ANN201 - sklearn-like API
+    def fit(
+        self, x: object = MISSING, y=None, **kwargs: object
+    ):  # noqa: ANN001, ANN201 - sklearn-like API
         items = list(cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if not items:
             raise ValueError("Training set cannot be empty")

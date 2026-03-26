@@ -49,10 +49,14 @@ def test_evaluate_run_quality_detects_deployable_run(tmp_path: Path) -> None:
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {"threshold": 0.5, "split_fingerprint": {"sha256": "f" * 64}},
     )
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -69,7 +73,9 @@ def test_evaluate_run_quality_detects_deployable_run(tmp_path: Path) -> None:
     _write_json(bundle_dir, "report.json", {"dataset": "custom"})
     _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(bundle_dir, "calibration_card.json",
+    _write_json(
+        bundle_dir,
+        "calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -78,7 +84,9 @@ def test_evaluate_run_quality_detects_deployable_run(tmp_path: Path) -> None:
             },
         },
     )
-    _write_json(bundle_dir, "bundle_manifest.json",
+    _write_json(
+        bundle_dir,
+        "bundle_manifest.json",
         build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
     )
 
@@ -140,14 +148,18 @@ def test_evaluate_run_quality_reports_calibration_audit_warnings(tmp_path: Path)
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "threshold": 0.55,
             "split_fingerprint": {"sha256": "a" * 64},
             "prediction": {"reject_confidence_below": 0.75, "reject_label": -9},
         },
     )
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -198,7 +210,9 @@ def test_evaluate_run_quality_reads_top_level_postprocess_threshold_contract(
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "split_fingerprint": {"sha256": "f" * 64},
             "postprocess": {
@@ -217,7 +231,9 @@ def test_evaluate_run_quality_reads_top_level_postprocess_threshold_contract(
             },
         },
     )
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -253,7 +269,9 @@ def test_evaluate_run_quality_uses_top_level_review_policy_for_prediction_policy
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "split_fingerprint": {"sha256": "f" * 64},
             "postprocess": {
@@ -272,7 +290,9 @@ def test_evaluate_run_quality_uses_top_level_review_policy_for_prediction_policy
             },
         },
     )
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -298,10 +318,14 @@ def test_evaluate_run_quality_emits_trust_signals(tmp_path: Path) -> None:
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {"threshold": 0.5, "split_fingerprint": {"sha256": "f" * 64}},
     )
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -340,7 +364,9 @@ def test_evaluate_run_quality_emits_operator_contract_trust_signals(tmp_path: Pa
             "reject_label": -9,
         },
     }
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "threshold": 0.5,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -348,7 +374,9 @@ def test_evaluate_run_quality_emits_operator_contract_trust_signals(tmp_path: Pa
         },
     )
     _write_json(run_dir, "artifacts/operator_contract.json", operator_contract)
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -376,7 +404,9 @@ def test_evaluate_run_quality_downgrades_mismatched_operator_contract(tmp_path: 
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "threshold": 0.5,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -391,7 +421,9 @@ def test_evaluate_run_quality_downgrades_mismatched_operator_contract(tmp_path: 
             },
         },
     )
-    _write_json(run_dir, "artifacts/operator_contract.json",
+    _write_json(
+        run_dir,
+        "artifacts/operator_contract.json",
         {
             "schema_version": 1,
             "review_policy": {
@@ -402,7 +434,9 @@ def test_evaluate_run_quality_downgrades_mismatched_operator_contract(tmp_path: 
             },
         },
     )
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -434,7 +468,9 @@ def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) 
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
     _write_json(run_dir, "artifacts/infer_config.json", {"threshold": 0.5})
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -449,7 +485,9 @@ def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) 
     _write_json(bundle_dir, "report.json", {"dataset": "custom"})
     _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(bundle_dir, "calibration_card.json",
+    _write_json(
+        bundle_dir,
+        "calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -467,7 +505,9 @@ def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) 
 
     sha = hashlib.sha256(data).hexdigest()
 
-    _write_json(bundle_dir, "weights_manifest.json",
+    _write_json(
+        bundle_dir,
+        "weights_manifest.json",
         {
             "schema_version": 1,
             "entries": [
@@ -482,7 +522,9 @@ def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) 
             ],
         },
     )
-    _write_json(bundle_dir, "model_card.json",
+    _write_json(
+        bundle_dir,
+        "model_card.json",
         {
             "schema_version": 1,
             "model_name": "bundle_model",
@@ -501,7 +543,9 @@ def test_evaluate_run_quality_accepts_valid_bundle_weight_audit(tmp_path: Path) 
             "deployment": {"runtime": "torch"},
         },
     )
-    _write_json(bundle_dir, "bundle_manifest.json",
+    _write_json(
+        bundle_dir,
+        "bundle_manifest.json",
         build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
     )
 
@@ -524,7 +568,9 @@ def test_evaluate_run_quality_downgrades_invalid_bundle_model_card(tmp_path: Pat
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
     _write_json(run_dir, "artifacts/infer_config.json", {"threshold": 0.5})
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -539,7 +585,9 @@ def test_evaluate_run_quality_downgrades_invalid_bundle_model_card(tmp_path: Pat
     _write_json(bundle_dir, "report.json", {"dataset": "custom"})
     _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(bundle_dir, "calibration_card.json",
+    _write_json(
+        bundle_dir,
+        "calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -548,7 +596,9 @@ def test_evaluate_run_quality_downgrades_invalid_bundle_model_card(tmp_path: Pat
             },
         },
     )
-    _write_json(bundle_dir, "model_card.json",
+    _write_json(
+        bundle_dir,
+        "model_card.json",
         {
             "schema_version": 1,
             "model_name": "bundle_model",
@@ -565,7 +615,9 @@ def test_evaluate_run_quality_downgrades_invalid_bundle_model_card(tmp_path: Pat
             "deployment": {"runtime": "torch"},
         },
     )
-    _write_json(bundle_dir, "bundle_manifest.json",
+    _write_json(
+        bundle_dir,
+        "bundle_manifest.json",
         build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
     )
 
@@ -605,7 +657,9 @@ def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: P
             "reject_label": -9,
         },
     }
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "threshold": 0.5,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -617,7 +671,9 @@ def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: P
         },
     )
     _write_json(run_dir, "artifacts/operator_contract.json", operator_contract)
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -630,7 +686,9 @@ def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: P
     )
 
     bundle_dir = run_dir / "deploy_bundle"
-    _write_json(bundle_dir, "infer_config.json",
+    _write_json(
+        bundle_dir,
+        "infer_config.json",
         {
             "threshold": 0.5,
             "operator_contract": operator_contract,
@@ -645,7 +703,9 @@ def test_evaluate_run_quality_emits_bundle_operator_contract_signals(tmp_path: P
     _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
     _write_json(bundle_dir, "calibration_card.json", {"schema_version": 1})
-    _write_json(bundle_dir, "bundle_manifest.json",
+    _write_json(
+        bundle_dir,
+        "bundle_manifest.json",
         build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
     )
 
@@ -675,7 +735,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: 
         },
     }
     _write_json(run_dir, "artifacts/infer_config.json", {"threshold": 0.5})
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "image_threshold": {
@@ -686,7 +748,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: 
     )
 
     bundle_dir = run_dir / "deploy_bundle"
-    _write_json(bundle_dir, "infer_config.json",
+    _write_json(
+        bundle_dir,
+        "infer_config.json",
         {
             "threshold": 0.5,
             "operator_contract": operator_contract,
@@ -696,7 +760,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: 
             },
         },
     )
-    _write_json(bundle_dir, "operator_contract.json",
+    _write_json(
+        bundle_dir,
+        "operator_contract.json",
         {
             "schema_version": 1,
             "review_policy": {
@@ -711,7 +777,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_mismatch(tmp_path: 
     _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
     _write_json(bundle_dir, "calibration_card.json", {"schema_version": 1})
-    _write_json(bundle_dir, "bundle_manifest.json",
+    _write_json(
+        bundle_dir,
+        "bundle_manifest.json",
         build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
     )
 
@@ -742,7 +810,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_digest_mismatch(
             "reject_label": -9,
         },
     }
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "threshold": 0.5,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -754,7 +824,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_digest_mismatch(
         },
     )
     _write_json(run_dir, "artifacts/operator_contract.json", operator_contract)
-    _write_json(run_dir, "artifacts/calibration_card.json",
+    _write_json(
+        run_dir,
+        "artifacts/calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "f" * 64},
@@ -767,7 +839,9 @@ def test_evaluate_run_quality_flags_bundle_operator_contract_digest_mismatch(
     )
 
     bundle_dir = run_dir / "deploy_bundle"
-    _write_json(bundle_dir, "infer_config.json",
+    _write_json(
+        bundle_dir,
+        "infer_config.json",
         {
             "threshold": 0.5,
             "operator_contract": operator_contract,

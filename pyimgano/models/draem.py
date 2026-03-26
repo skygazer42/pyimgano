@@ -124,7 +124,11 @@ class ImagePathDataset(Dataset):
     def __init__(self, image_paths, transform=None, rng: Optional[np.random.Generator] = None):
         self.image_paths = image_paths
         self.transform = transform
-        self.rng = rng if rng is not None else np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
+        self.rng = (
+            rng
+            if rng is not None
+            else np.random.default_rng(int.from_bytes(os.urandom(8), "little"))
+        )
 
     def __len__(self):
         return len(self.image_paths)

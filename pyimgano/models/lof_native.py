@@ -51,4 +51,6 @@ class VisionLOF(BaseVisionDetector):
         return super().fit(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), y=y)
 
     def decision_function(self, x: object = MISSING, **kwargs: object):
-        return super().decision_function(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        return super().decision_function(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )

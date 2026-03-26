@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from pyimgano.workbench.adaptation_types import (
-    AdaptationConfig,
-    MapPostprocessConfig,
-    TilingConfig,
-)
+from pyimgano.workbench.adaptation_types import AdaptationConfig, MapPostprocessConfig, TilingConfig
 from pyimgano.workbench.config_parse_primitives import (
     _optional_float,
     _optional_int,

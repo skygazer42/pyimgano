@@ -410,7 +410,9 @@ def test_config_training_section_parser_builds_compatible_section() -> None:
 
 def test_config_adaptation_section_parser_builds_compatible_section() -> None:
     try:
-        helper_module = importlib.import_module("pyimgano.workbench.config_adaptation_section_parser")
+        helper_module = importlib.import_module(
+            "pyimgano.workbench.config_adaptation_section_parser"
+        )
     except ModuleNotFoundError as exc:
         pytest.fail(f"missing config adaptation section helper: {exc}")
 
@@ -489,7 +491,9 @@ def test_config_dataset_section_parser_builds_compatible_dataset_section() -> No
 
 def test_config_model_output_section_parser_builds_compatible_sections() -> None:
     try:
-        helper_module = importlib.import_module("pyimgano.workbench.config_model_output_section_parser")
+        helper_module = importlib.import_module(
+            "pyimgano.workbench.config_model_output_section_parser"
+        )
     except ModuleNotFoundError as exc:
         pytest.fail(f"missing config model/output section helper: {exc}")
 

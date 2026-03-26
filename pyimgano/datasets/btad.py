@@ -110,4 +110,3 @@ def convert_btad_to_manifest(
 
 
 __all__ = ["convert_btad_to_manifest"]
-

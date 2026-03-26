@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -478,9 +478,7 @@ def _resolve_manifest_image_path(image_path: str, *, manifest_path: Path) -> str
     try:
         candidate.relative_to(manifest_root)
     except ValueError as exc:
-        raise ValueError(
-            f"Manifest image_path escapes manifest directory: {image_path!r}"
-        ) from exc
+        raise ValueError(f"Manifest image_path escapes manifest directory: {image_path!r}") from exc
     if candidate.exists():
         return str(candidate)
     raise FileNotFoundError(
@@ -575,7 +573,9 @@ def _rewrite_results_jsonl(
         raise ValueError("results.jsonl path must stay within output_dir") from exc
 
     rows = [
-        line for line in resolved_results_path.read_text(encoding="utf-8").splitlines() if line.strip()
+        line
+        for line in resolved_results_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
     ]
     if len(rows) != len(input_records):
         raise RuntimeError(
@@ -675,7 +675,9 @@ def _append_failed_gate(
     reason_codes.append(_RUN_BATCH_GATE_REASON_CODE_MAP[gate_name])
 
 
-def _determine_batch_verdict(*, requested: bool, evaluated: bool, failed_gates: Sequence[str]) -> str:
+def _determine_batch_verdict(
+    *, requested: bool, evaluated: bool, failed_gates: Sequence[str]
+) -> str:
     if not requested:
         return "not_requested"
     if not evaluated:

@@ -217,7 +217,9 @@ class HistogramComparison(BaseVisionClassicalDetector):
 
         return 0.0
 
-    def fit(self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object) -> "HistogramComparison":
+    def fit(
+        self, x: object = MISSING, y: Optional[NDArray] = None, **kwargs: object
+    ) -> "HistogramComparison":
         """
         Fit histogram comparison model.
 

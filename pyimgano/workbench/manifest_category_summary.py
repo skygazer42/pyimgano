@@ -6,7 +6,9 @@ from typing import Any, Sequence
 def summarize_manifest_category_records(*, records: Sequence[Any]) -> dict[str, Any]:
     from pyimgano.datasets.manifest import ManifestRecord
 
-    recs: list[ManifestRecord] = [record for record in records if isinstance(record, ManifestRecord)]
+    recs: list[ManifestRecord] = [
+        record for record in records if isinstance(record, ManifestRecord)
+    ]
     counts_by_split = {"train": 0, "val": 0, "test": 0, "unspecified": 0}
     explicit_test_labels = {"normal": 0, "anomaly": 0}
     for record in recs:

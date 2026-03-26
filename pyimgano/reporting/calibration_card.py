@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-
 CALIBRATION_CARD_SCHEMA_VERSION = 1
 
 
@@ -63,7 +62,9 @@ def _coerce_threshold_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     threshold = payload.get("threshold", None)
     provenance = payload.get("threshold_provenance", None)
     if not _is_numeric_value(threshold) or not isinstance(provenance, Mapping):
-        raise ValueError("threshold and threshold_provenance are required to build calibration cards.")
+        raise ValueError(
+            "threshold and threshold_provenance are required to build calibration cards."
+        )
     out = {
         "threshold": float(threshold),
         "provenance": dict(provenance),

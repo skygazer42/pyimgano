@@ -21,10 +21,7 @@ import pyimgano.services.infer_options_service as infer_options_service
 import pyimgano.services.infer_output_service as infer_output_service
 import pyimgano.services.infer_runtime_service as infer_runtime_service
 import pyimgano.services.infer_wrapper_service as infer_wrapper_service
-from pyimgano.inference.api import (
-    InferenceTiming,
-    calibrate_threshold,
-)
+from pyimgano.inference.api import InferenceTiming, calibrate_threshold
 from pyimgano.models.registry import create_model
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
@@ -61,6 +58,7 @@ def _parse_csv_strs_arg(text: str, *, arg_name: str) -> list[str]:
     del arg_name
     raw = [t.strip() for t in str(text).split(",")]
     return [t for t in raw if t]
+
 
 def _apply_onnx_session_options_shorthand(
     *,
@@ -371,9 +369,7 @@ def _resolve_prediction_cli_options(
     default_reject_label = None
     if isinstance(prediction_payload, dict):
         if prediction_payload.get("reject_confidence_below", None) is not None:
-            default_reject_confidence_below = float(
-                prediction_payload["reject_confidence_below"]
-            )
+            default_reject_confidence_below = float(prediction_payload["reject_confidence_below"])
         if prediction_payload.get("reject_label", None) is not None:
             default_reject_label = int(prediction_payload["reject_label"])
 
@@ -382,9 +378,7 @@ def _resolve_prediction_cli_options(
         if args.reject_confidence_below is not None
         else default_reject_confidence_below
     )
-    reject_label = (
-        int(args.reject_label) if args.reject_label is not None else default_reject_label
-    )
+    reject_label = int(args.reject_label) if args.reject_label is not None else default_reject_label
     include_confidence = bool(getattr(args, "include_confidence", False)) or (
         reject_confidence_below is not None
     )
@@ -700,9 +694,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-errors",
         type=int,
         default=0,
-        help=(
-            "Stop early after N errors when --continue-on-error is set. Default: 0 (no limit)."
-        ),
+        help=("Stop early after N errors when --continue-on-error is set. Default: 0 (no limit)."),
     )
     parser.add_argument(
         "--flush-every",
@@ -952,10 +944,7 @@ def main(argv: list[str] | None = None) -> int:
         import time
 
         import pyimgano.models  # noqa: F401
-        from pyimgano.cli_common import (
-            merge_checkpoint_path,
-            parse_model_kwargs,
-        )
+        from pyimgano.cli_common import merge_checkpoint_path, parse_model_kwargs
         from pyimgano.services.inference_service import iter_inference_records, run_inference
 
         preprocessing_preset_knobs = _resolve_preprocessing_preset_knobs(args)
@@ -1418,26 +1407,28 @@ def main(argv: list[str] | None = None) -> int:
                 *, index: int, input_path: str, result: Any, include_status: bool
             ) -> None:
                 nonlocal out_written, regions_written
-                artifact_request = infer_artifact_service.build_infer_result_artifact_request_from_cli(
-                    infer_artifact_service.InferResultArtifactCliRequest(
-                        index=int(index),
-                        input_path=str(input_path),
-                        result=result,
-                        cli_args=args,
-                        include_status=bool(include_status),
-                        maps_dir=(str(maps_dir) if maps_dir is not None else None),
-                        overlays_dir=(str(overlays_dir) if overlays_dir is not None else None),
-                        masks_dir=(str(masks_dir) if masks_dir is not None else None),
-                        pixel_threshold_value=(
-                            float(pixel_threshold_value)
-                            if pixel_threshold_value is not None
-                            else None
-                        ),
-                        pixel_threshold_provenance=(
-                            dict(pixel_threshold_provenance)
-                            if pixel_threshold_provenance is not None
-                            else None
-                        ),
+                artifact_request = (
+                    infer_artifact_service.build_infer_result_artifact_request_from_cli(
+                        infer_artifact_service.InferResultArtifactCliRequest(
+                            index=int(index),
+                            input_path=str(input_path),
+                            result=result,
+                            cli_args=args,
+                            include_status=bool(include_status),
+                            maps_dir=(str(maps_dir) if maps_dir is not None else None),
+                            overlays_dir=(str(overlays_dir) if overlays_dir is not None else None),
+                            masks_dir=(str(masks_dir) if masks_dir is not None else None),
+                            pixel_threshold_value=(
+                                float(pixel_threshold_value)
+                                if pixel_threshold_value is not None
+                                else None
+                            ),
+                            pixel_threshold_provenance=(
+                                dict(pixel_threshold_provenance)
+                                if pixel_threshold_provenance is not None
+                                else None
+                            ),
+                        )
                     )
                 )
 
@@ -1603,6 +1594,7 @@ def main(argv: list[str] | None = None) -> int:
                 context_lines.append(f"context: model_preset={model_preset!r}")
         cli_output.print_cli_error(exc, context_lines=context_lines or None)
         return 2
+
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

@@ -8,9 +8,7 @@ def test_validate_mutually_exclusive_flags_raises_formatted_error() -> None:
 
     with pytest.raises(
         ValueError,
-        match=(
-            r"--list-models, --model-info, and --list-model-presets are mutually exclusive\."
-        ),
+        match=(r"--list-models, --model-info, and --list-model-presets are mutually exclusive\."),
     ):
         validate_mutually_exclusive_flags(
             [

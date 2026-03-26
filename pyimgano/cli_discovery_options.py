@@ -28,7 +28,9 @@ def _format_flag_names(names: Sequence[str]) -> str:
 def validate_mutually_exclusive_flags(flags: Iterable[tuple[str, bool]]) -> None:
     normalized_flags = [(str(name), bool(active)) for name, active in flags]
     if sum(1 for _name, active in normalized_flags if active) > 1:
-        raise ValueError(f"{_format_flag_names([name for name, _ in normalized_flags])} are mutually exclusive.")
+        raise ValueError(
+            f"{_format_flag_names([name for name, _ in normalized_flags])} are mutually exclusive."
+        )
 
 
 def resolve_model_list_discovery_options(
@@ -44,8 +46,10 @@ def resolve_model_list_discovery_options(
     algorithm_type_value = str(algorithm_type) if algorithm_type is not None else None
     year_value = str(year) if year is not None else None
 
-    if family_value is not None and not bool(list_models) and not bool(
-        allow_family_without_list_models
+    if (
+        family_value is not None
+        and not bool(list_models)
+        and not bool(allow_family_without_list_models)
     ):
         raise ValueError("--family is supported only with --list-models.")
     if algorithm_type_value is not None and not bool(list_models):

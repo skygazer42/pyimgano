@@ -196,7 +196,6 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
         return _build_conv_vqvae(cfg=self.cfg)
 
     def training_forward(self, batch) -> float:  # noqa: ANN001
-
         images, _targets = batch
         images = images.to(self.device)
 
@@ -253,7 +252,9 @@ class VQVAEAnomalyDetector(BaseVisionDeepDetector):
                 if image_size is not None:
                     out_h, out_w = int(image_size[0]), int(image_size[1])
                     if out_h <= 0 or out_w <= 0:
-                        raise ValueError(f"image_size must contain positive integers, got {image_size!r}")
+                        raise ValueError(
+                            f"image_size must contain positive integers, got {image_size!r}"
+                        )
                     map_tensor = F.interpolate(
                         map_tensor,
                         size=(out_h, out_w),

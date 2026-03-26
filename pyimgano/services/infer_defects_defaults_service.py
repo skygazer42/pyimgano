@@ -121,7 +121,9 @@ def _apply_map_smoothing_defaults(args: Any, defects_payload: dict[str, Any]) ->
         return
 
     if str(getattr(args, "defect_map_smoothing", "none")) == "none":
-        method = _coerce_smoothing_method(map_smoothing.get("method"),)
+        method = _coerce_smoothing_method(
+            map_smoothing.get("method"),
+        )
         if method is not None:
             args.defect_map_smoothing = str(method)
 
@@ -186,9 +188,7 @@ def _apply_shape_filter_defaults(args: Any, defects_payload: dict[str, Any]) -> 
 
 
 def _apply_merge_nearby_defaults(args: Any, defects_payload: dict[str, Any]) -> None:
-    merge_nearby = _require_nested_payload(
-        defects_payload.get("merge_nearby"), name="merge_nearby"
-    )
+    merge_nearby = _require_nested_payload(defects_payload.get("merge_nearby"), name="merge_nearby")
     if merge_nearby is None:
         return
 
@@ -209,9 +209,7 @@ def _apply_score_and_limit_defaults(args: Any, defects_payload: dict[str, Any]) 
             args.defect_min_score_max = float(min_score_max)
 
     if getattr(args, "defect_min_score_mean", None) is None:
-        min_score_mean = _coerce_float(
-            defects_payload.get("min_score_mean"), name="min_score_mean"
-        )
+        min_score_mean = _coerce_float(defects_payload.get("min_score_mean"), name="min_score_mean")
         if min_score_mean is not None:
             args.defect_min_score_mean = float(min_score_mean)
 

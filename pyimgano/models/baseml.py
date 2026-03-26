@@ -14,7 +14,8 @@ from .base_detector import BaseDetector
 
 class BaseVisionDetector(BaseDetector):
     """
-    闁圭鍋撻柡鍫濐槸鐎垫鎲楅崨顒傚晩缂備礁绻愰崥鈧柡鍫濇惈濞呮帞鈧冻缂氱弧鍕不濡や胶銆婇柣銊ュ椤鎲存径濠勭＝閻㈩垰鎲￠ˉ鍛圭€ｎ亝鐝ら柣銊ュ婵炲﹦鎸掗垾宕囧敤缂侇偅鐪归埀?    """
+    闁圭鍋撻柡鍫濐槸鐎垫鎲楅崨顒傚晩缂備礁绻愰崥鈧柡鍫濇惈濞呮帞鈧冻缂氱弧鍕不濡や胶銆婇柣銊ュ椤鎲存径濠勭＝閻㈩垰鎲￠ˉ鍛圭€ｎ亝鐝ら柣銊ュ婵炲﹦鎸掗垾宕囧敤缂侇偅鐪归埀?
+    """
 
     @abstractmethod
     def __init__(self, contamination=0.1, feature_extractor=None):
@@ -104,7 +105,7 @@ class BaseVisionDetector(BaseDetector):
         Parameters
         ----------
         X : list of str, or numpy array
-            閺夊牊鎸搁崣鍡涙儍閸曨噮鍞茬紓浣稿暞閻楅亶寮甸濠勭闂侇偅鑹鹃悥鍫曞及椤栨碍绂堥柛宥呯箲閺嬪啯绂掗幆鎵唴鐎垫澘瀚▓鎴﹀礆濡ゅ嫨鈧啴濡?        """
+            閺夊牊鎸搁崣鍡涙儍閸曨噮鍞茬紓浣稿暞閻楅亶寮甸濠勭闂侇偅鑹鹃悥鍫曞及椤栨碍绂堥柛宥呯箲閺嬪啯绂掗幆鎵唴鐎垫澘瀚▓鎴﹀礆濡ゅ嫨鈧啴濡?"""
         # 1. 濞达綀娉曢弫銈夊箵閹哄秵顐介柛鏍ㄧ墱濞堟垿鎮ч悷鎵獧闁圭粯鍔曡ぐ鍥闯椤帞绀夐悘蹇撴濞存﹢宕撹箛姘ギ闁硅婢€鐠愮喖鎮ч悷鎵獧闁告碍鍨块崳?
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         extractor = self.feature_extractor
@@ -134,4 +135,3 @@ class BaseVisionDetector(BaseDetector):
         features = self.feature_extractor.extract(x_value)
         # 2. 闁活潿鍔忛鍕磼閸愩劊鍋ㄩ柣銊ュ缁繝宕楅崨濠庢⒕婵炴潙顑呭▍鎺旀媼閿涘嫮鏆€殿喖鍊搁悥鍫曞礆閸℃ɑ娈?
         return self.detector.decision_function(features)
-

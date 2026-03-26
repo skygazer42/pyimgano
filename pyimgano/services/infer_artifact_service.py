@@ -200,9 +200,7 @@ def build_defects_artifact_config(
             float(request.max_aspect_ratio) if request.max_aspect_ratio is not None else None
         ),
         min_solidity=(float(request.min_solidity) if request.min_solidity is not None else None),
-        min_score_max=(
-            float(request.min_score_max) if request.min_score_max is not None else None
-        ),
+        min_score_max=(float(request.min_score_max) if request.min_score_max is not None else None),
         min_score_mean=(
             float(request.min_score_mean) if request.min_score_mean is not None else None
         ),
@@ -322,9 +320,7 @@ def build_infer_result_artifact_build_request_from_cli(
             result=request.result,
             include_status=bool(request.include_status),
             options=InferArtifactOptions(
-                include_anomaly_map_values=bool(
-                    getattr(args, "include_anomaly_map_values", False)
-                ),
+                include_anomaly_map_values=bool(getattr(args, "include_anomaly_map_values", False)),
                 maps_dir=(str(request.maps_dir) if request.maps_dir is not None else None),
                 overlays_dir=(
                     str(request.overlays_dir) if request.overlays_dir is not None else None
@@ -535,17 +531,13 @@ def materialize_infer_result_artifacts(
             fill_holes=bool(cfg.fill_holes),
             mask_dilate_ksize=int(cfg.mask_dilate_ksize),
             min_area=int(cfg.min_area),
-            min_fill_ratio=(
-                float(cfg.min_fill_ratio) if cfg.min_fill_ratio is not None else None
-            ),
+            min_fill_ratio=(float(cfg.min_fill_ratio) if cfg.min_fill_ratio is not None else None),
             max_aspect_ratio=(
                 float(cfg.max_aspect_ratio) if cfg.max_aspect_ratio is not None else None
             ),
             min_solidity=(float(cfg.min_solidity) if cfg.min_solidity is not None else None),
             min_score_max=(float(cfg.min_score_max) if cfg.min_score_max is not None else None),
-            min_score_mean=(
-                float(cfg.min_score_mean) if cfg.min_score_mean is not None else None
-            ),
+            min_score_mean=(float(cfg.min_score_mean) if cfg.min_score_mean is not None else None),
             merge_nearby_enabled=bool(cfg.merge_nearby_enabled),
             merge_nearby_max_gap_px=int(cfg.merge_nearby_max_gap_px),
             max_regions_sort_by=str(cfg.max_regions_sort_by),

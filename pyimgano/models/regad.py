@@ -308,7 +308,9 @@ class VisionRegAD(BaseVisionDeepDetector):
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
         # Only optimize STN parameters
-        optimizer = torch.optim.Adam(self.reg_network_.stn.parameters(), lr=self.learning_rate, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.reg_network_.stn.parameters(), lr=self.learning_rate, weight_decay=0.0
+        )
 
         self.reg_network_.stn.train()
 
@@ -393,7 +395,9 @@ class VisionRegAD(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> NDArray:
         """Alias for predict."""
-        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is None:
             return self.predict(x_array)
 

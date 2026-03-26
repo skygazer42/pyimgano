@@ -69,4 +69,3 @@ def test_sonar_s7498_literal_kwargs_smoke_torch_models() -> None:
         batch_size=8,
     )
     assert det is not None
-

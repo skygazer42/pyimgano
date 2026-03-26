@@ -30,9 +30,7 @@ def test_sonar_project_focuses_on_runtime_code_only() -> None:
 def test_sonar_project_excludes_non_runtime_paths_from_duplication() -> None:
     props = _read_properties()
 
-    exclusions = {
-        part.strip() for part in props["sonar.cpd.exclusions"].split(",") if part.strip()
-    }
+    exclusions = {part.strip() for part in props["sonar.cpd.exclusions"].split(",") if part.strip()}
     assert "tests/**" in exclusions
     assert "docs/**" in exclusions
     assert "examples/**" in exclusions

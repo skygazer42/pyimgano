@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -140,9 +140,7 @@ def build_training_fit_kwargs(config: WorkbenchConfig) -> dict[str, Any]:
     if config.training.scheduler_name is not None:
         fit_kwargs["scheduler_name"] = str(config.training.scheduler_name)
     if config.training.scheduler_milestones is not None:
-        fit_kwargs["scheduler_milestones"] = [
-            int(v) for v in config.training.scheduler_milestones
-        ]
+        fit_kwargs["scheduler_milestones"] = [int(v) for v in config.training.scheduler_milestones]
     if config.training.scheduler_step_size is not None:
         fit_kwargs["scheduler_step_size"] = int(config.training.scheduler_step_size)
     if config.training.scheduler_gamma is not None:

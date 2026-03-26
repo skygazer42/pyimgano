@@ -235,7 +235,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.output is None:
-            raise ValueError("--output is required unless using --list-extractors/--extractor-info.")
+            raise ValueError(
+                "--output is required unless using --list-extractors/--extractor-info."
+            )
 
         from pyimgano.features import create_feature_extractor
 

@@ -682,9 +682,7 @@ class TestIntegration:
         assert scores.shape == (3,)
         assert np.all(np.isfinite(scores))
 
-    def test_example_detector_predict_does_not_mutate_global_numpy_state(
-        self, sample_color_image
-    ):
+    def test_example_detector_predict_does_not_mutate_global_numpy_state(self, sample_color_image):
         """Example detector prediction should not touch the module-level NumPy RNG."""
         detector = ExampleDetectorWithPreprocessing()
         global_rng = np.random.mtrand._rand

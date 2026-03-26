@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 import pickle
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, Optional, Protocol, Tuple, Union, cast
 
 import numpy as np
@@ -17,13 +17,13 @@ from .registry import register_model
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
 
-
 class PatchEmbedder(Protocol):
     """Protocol for patch embedders used by :class:`VisionAnomalyDINO`."""
 
     def embed(
         self, image: Union[str, np.ndarray]
-    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
+        ...
 
 
 @dataclass
@@ -44,7 +44,9 @@ def _embedder_to_checkpoint_payload(embedder: PatchEmbedder) -> dict[str, object
                 "hub_repo": str(embedder.hub_repo),
             },
             "patch_size": (
-                int(embedder._patch_size) if getattr(embedder, "_patch_size", None) is not None else None
+                int(embedder._patch_size)
+                if getattr(embedder, "_patch_size", None) is not None
+                else None
             ),
         }
         model = getattr(embedder, "_model", None)
@@ -74,7 +76,12 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
         blob = payload.get("blob", None)
         if not isinstance(blob, (bytes, bytearray)):
             raise ValueError("Invalid pickled embedder checkpoint payload.")
-        return cast(PatchEmbedder, pickle.loads(blob))
+        return cast(
+            PatchEmbedder,
+            pickle.loads(
+                blob
+            ),  # nosec B301 - embedder payload comes from trusted local checkpoints
+        )
 
     if payload_type != "torchhub_dinov2":
         raise ValueError("Unsupported patch embedder checkpoint payload.")

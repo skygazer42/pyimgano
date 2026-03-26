@@ -82,7 +82,12 @@ def _build_per_image_records(
             meta = outputs.test_meta[i]
             if meta is not None:
                 record["meta"] = dict(meta)
-        if map_paths is not None and i < len(map_paths) and map_paths[i] is not None and outputs.maps is not None:
+        if (
+            map_paths is not None
+            and i < len(map_paths)
+            and map_paths[i] is not None
+            and outputs.maps is not None
+        ):
             anomaly_map = outputs.maps[i]
             if anomaly_map is not None:
                 arr = np.asarray(anomaly_map)

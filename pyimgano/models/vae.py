@@ -202,7 +202,6 @@ class VAEAnomalyDetector(BaseVisionDeepDetector):
         return _build_conv_vae(cfg=self.cfg)
 
     def training_forward(self, batch) -> float:  # noqa: ANN001
-
         images, _targets = batch
         images = images.to(self.device)
 

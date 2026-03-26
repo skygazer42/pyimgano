@@ -475,9 +475,7 @@ def infer_iter(
     normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)
     rejection_threshold = _resolve_rejection_threshold(reject_confidence_below)
-    summary_payload = (
-        dict(postprocess_summary) if postprocess_summary is not None else None
-    )
+    summary_payload = dict(postprocess_summary) if postprocess_summary is not None else None
 
     bs: int | None
     if batch_size is None:
@@ -504,9 +502,7 @@ def infer_iter(
                     chunk,
                     scores=np.asarray(scores, dtype=np.float64).reshape(-1),
                     labels=(
-                        None
-                        if labels is None
-                        else np.asarray(labels, dtype=np.int64).reshape(-1)
+                        None if labels is None else np.asarray(labels, dtype=np.int64).reshape(-1)
                     ),
                 )
             labels, rejected = _apply_rejection_policy(

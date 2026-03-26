@@ -25,9 +25,7 @@ def _parse_model_config(top: Mapping[str, Any]) -> ModelConfig:
     return ModelConfig(
         name=str(model_name),
         device=str(model_raw.get("device", "cpu")),
-        preset=(
-            str(model_raw["preset"]) if model_raw.get("preset", None) is not None else None
-        ),
+        preset=(str(model_raw["preset"]) if model_raw.get("preset", None) is not None else None),
         pretrained=bool(model_raw.get("pretrained", True)),
         contamination=float(contamination if contamination is not None else 0.1),
         model_kwargs=model_kwargs,

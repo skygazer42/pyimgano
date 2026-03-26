@@ -118,7 +118,16 @@ def materialize_model_constructor(name: str) -> Callable[..., Any]:
     if bool(entry.metadata.get("_lazy_placeholder", False)):
         module_name = str(entry.metadata.get("_lazy_module", "")).strip()
         if module_name:
-            import_module(f"pyimgano.models.{module_name}")
+            try:
+                import_module(f"pyimgano.models.{module_name}")
+            except ModuleNotFoundError as exc:
+                from pyimgano.utils.extras import extra_for_root_module
+
+                missing = getattr(exc, "name", None)
+                root = str(missing).split(".", 1)[0].strip() if missing else ""
+                if extra_for_root_module(root) is None:
+                    raise
+                return entry.constructor
             entry = MODEL_REGISTRY.info(str(name))
     return entry.constructor
 

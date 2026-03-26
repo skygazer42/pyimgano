@@ -183,15 +183,20 @@ def _build_manifest_trust_summary(
         "hashes_checked": bool(check_hashes),
         "has_entries": bool(has_entries),
         "all_entries_have_sha256": bool(
-            has_entries and all(_nonempty_str(item.get("sha256", None)) is not None for item in entries)
+            has_entries
+            and all(_nonempty_str(item.get("sha256", None)) is not None for item in entries)
         ),
         "all_entries_have_source": bool(
-            has_entries and all(_nonempty_str(item.get("source", None)) is not None for item in entries)
+            has_entries
+            and all(_nonempty_str(item.get("source", None)) is not None for item in entries)
         ),
         "all_entries_have_license": bool(
-            has_entries and all(_nonempty_str(item.get("license", None)) is not None for item in entries)
+            has_entries
+            and all(_nonempty_str(item.get("license", None)) is not None for item in entries)
         ),
-        "all_entries_have_runtime": bool(has_entries and all(_has_runtime(item) for item in entries)),
+        "all_entries_have_runtime": bool(
+            has_entries and all(_has_runtime(item) for item in entries)
+        ),
     }
     degraded_by: list[str] = []
     if not trust_signals["has_entries"]:
@@ -243,9 +248,12 @@ def _model_card_trust_signals(
         "has_weights_license": _nonempty_str(weights.get("license", None)) is not None,
         "has_deployment_runtime": _nonempty_str(deployment.get("runtime", None)) is not None,
         "has_manifest_link": (
-            _nonempty_str(weights.get("manifest_entry", None)) is not None or matched_entry is not None
+            _nonempty_str(weights.get("manifest_entry", None)) is not None
+            or matched_entry is not None
         ),
-        "has_cross_checked_manifest": bool(matched_entry is not None and manifest_asset.get("ok", None) is True),
+        "has_cross_checked_manifest": bool(
+            matched_entry is not None and manifest_asset.get("ok", None) is True
+        ),
     }
 
 

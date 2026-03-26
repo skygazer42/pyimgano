@@ -230,9 +230,7 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-    def _apply_bundle_manifest_metadata(
-        payload: dict[str, Any], manifest: dict[str, Any]
-    ) -> None:
+    def _apply_bundle_manifest_metadata(payload: dict[str, Any], manifest: dict[str, Any]) -> None:
         artifact_quality = payload.get("artifact_quality", None)
         if not isinstance(artifact_quality, dict):
             return
@@ -270,7 +268,9 @@ def _validate_export_request(cfg: WorkbenchConfig, request: TrainRunRequest) -> 
             "Deploy bundles are intended to be self-contained for `pyimgano-infer --infer-config ... --defects`."
         )
     if not bool(cfg.output.save_run):
-        raise ValueError("--export-infer-config/--export-deploy-bundle require output.save_run=true.")
+        raise ValueError(
+            "--export-infer-config/--export-deploy-bundle require output.save_run=true."
+        )
 
 
 def _require_run_dir(report: dict[str, Any], *, deploy_bundle: bool = False) -> Path:
@@ -386,7 +386,9 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
             )
         if run_dir is None:
             run_dir = _require_run_dir(report, deploy_bundle=True)
-        bundle_dir = _export_deploy_bundle(run_dir=run_dir, infer_config_payload=infer_config_payload)
+        bundle_dir = _export_deploy_bundle(
+            run_dir=run_dir, infer_config_payload=infer_config_payload
+        )
         report = dict(report)
         report["deploy_bundle_dir"] = str(bundle_dir)
         reporter.on_artifact_written(kind="deploy_bundle", path=str(bundle_dir))

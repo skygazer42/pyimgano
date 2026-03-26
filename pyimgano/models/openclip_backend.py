@@ -553,7 +553,12 @@ class VisionOpenCLIPPromptScore:
 
     def fit(self, x: object = MISSING, y=None, **kwargs: object):
         del y
-        items = list(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            )
+        )
         if not items:
             raise ValueError("X must contain at least one training image path.")
 
@@ -569,7 +574,12 @@ class VisionOpenCLIPPromptScore:
         ):  # pragma: no cover
             raise RuntimeError("text_features_normal/text_features_anomaly are required")
 
-        items = list(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")))
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
+            )
+        )
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
             patch_embeddings, _grid_shape, _original_size = self._embed(item)
@@ -589,7 +599,12 @@ class VisionOpenCLIPPromptScore:
     def predict(self, x: object = MISSING, **kwargs: object):
         if self.threshold_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = self.decision_function(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="predict")))
+        scores = self.decision_function(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
+            )
+        )
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
@@ -626,7 +641,12 @@ class VisionOpenCLIPPromptScore:
         return np.asarray(upsampled, dtype=np.float32)
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object):
-        items = list(cast(Iterable[Union[str, np.ndarray]], resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")))
+        items = list(
+            cast(
+                Iterable[Union[str, np.ndarray]],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
         maps = [self.get_anomaly_map(item) for item in items]
         if not maps:
             raise ValueError("X must be non-empty")
@@ -692,8 +712,12 @@ class VisionOpenCLIPPatchKNN:
         self._core.fit(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), y=y)
         return self
 
-    def decision_function(self, x: object = MISSING, **kwargs: object):  # pragma: no cover - skeleton API
-        return self._core.decision_function(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+    def decision_function(
+        self, x: object = MISSING, **kwargs: object
+    ):  # pragma: no cover - skeleton API
+        return self._core.decision_function(
+            resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
 
     def predict(self, x: object = MISSING, **kwargs: object):
         return self._core.predict(resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
@@ -702,7 +726,9 @@ class VisionOpenCLIPPatchKNN:
         return self._core.get_anomaly_map(image)
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object):
-        return self._core.predict_anomaly_map(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
+        return self._core.predict_anomaly_map(
+            resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
+        )
 
     @property
     def decision_scores_(self):

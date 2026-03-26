@@ -18,7 +18,8 @@ class Corruption(Protocol):
         *,
         severity: int,
         rng: np.random.Generator,
-    ) -> tuple[NDArray, Optional[NDArray]]: ...
+    ) -> tuple[NDArray, Optional[NDArray]]:
+        ...
 
     # Notes:
     # - Most corruptions keep `mask` unchanged.

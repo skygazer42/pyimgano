@@ -128,4 +128,3 @@ def test_manifest_cli_filter_writes_filtered_jsonl(tmp_path: Path) -> None:
     assert len(rows2) == 2
     assert rows2[0]["image_path"] == "rel/train0.png"
     assert rows2[1]["image_path"] == "rel/test_good.png"
-

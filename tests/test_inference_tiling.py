@@ -104,4 +104,3 @@ def test_tiled_detector_caches_tile_coords(monkeypatch: pytest.MonkeyPatch) -> N
     tiled.decision_function([img])
     tiled.decision_function([img])
     assert calls["count"] == 1
-

@@ -147,7 +147,9 @@ def load_workbench_split(
             load_masks=bool(load_masks),
         )
 
-    raise ValueError(f"Unknown input_mode: {config.dataset.input_mode!r}. Choose from: paths, numpy.")
+    raise ValueError(
+        f"Unknown input_mode: {config.dataset.input_mode!r}. Choose from: paths, numpy."
+    )
 
 
 def list_workbench_categories(*, config: WorkbenchConfig) -> list[str]:
@@ -158,7 +160,9 @@ def list_workbench_categories(*, config: WorkbenchConfig) -> list[str]:
             dataset=str(config.dataset.name),
             root=str(config.dataset.root),
             manifest_path=(
-                str(config.dataset.manifest_path) if config.dataset.manifest_path is not None else None
+                str(config.dataset.manifest_path)
+                if config.dataset.manifest_path is not None
+                else None
             ),
         )
     )

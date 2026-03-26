@@ -18,4 +18,3 @@ def test_mamba_models_are_not_discoverable() -> None:
     available = set(models.list_models())
     assert "vision_mambaad" not in available
     assert "vision_snarm" not in available
-

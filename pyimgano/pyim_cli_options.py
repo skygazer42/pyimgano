@@ -57,7 +57,9 @@ def resolve_pyim_list_options(
     deployable_only_value = bool(deployable_only)
 
     if family_value is not None and not kind_spec.supports_family_filter:
-        raise ValueError("--family is supported only with --list models, --list model-presets, or --list.")
+        raise ValueError(
+            "--family is supported only with --list models, --list model-presets, or --list."
+        )
     if algorithm_type_value is not None and not kind_spec.supports_algorithm_type_filter:
         raise ValueError("--type is supported only with --list models.")
     if year_value is not None and not kind_spec.supports_year_filter:

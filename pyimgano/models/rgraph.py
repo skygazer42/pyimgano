@@ -273,7 +273,9 @@ class VisionRGraph(BaseVisionDetector):
     ) -> None:
         legacy_fit_intercept_lr = kwargs.pop("fit_intercept_LR", MISSING)
         if fit_intercept_lr is MISSING:
-            fit_intercept_lr_value = False if legacy_fit_intercept_lr is MISSING else bool(legacy_fit_intercept_lr)
+            fit_intercept_lr_value = (
+                False if legacy_fit_intercept_lr is MISSING else bool(legacy_fit_intercept_lr)
+            )
         elif legacy_fit_intercept_lr is not MISSING:
             raise TypeError("VisionRGraph() got multiple values for argument 'fit_intercept_lr'")
         else:

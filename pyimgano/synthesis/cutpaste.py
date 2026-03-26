@@ -11,6 +11,7 @@ from .masks import ensure_u8_mask
 
 _Variant = Literal["normal", "scar", "3way"]
 
+
 @dataclass(frozen=True)
 class CutPasteConfig:
     area_ratio_range: tuple[float, float] = (0.02, 0.15)

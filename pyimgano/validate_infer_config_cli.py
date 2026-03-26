@@ -58,9 +58,7 @@ def _artifact_quality_segments(artifact_quality: dict[str, object]) -> list[str]
     if threshold_scope is not None:
         segments.append(f"threshold_scope={threshold_scope}")
     if "has_deploy_bundle" in artifact_quality:
-        segments.append(
-            f"deploy_bundle={str(bool(artifact_quality['has_deploy_bundle'])).lower()}"
-        )
+        segments.append(f"deploy_bundle={str(bool(artifact_quality['has_deploy_bundle'])).lower()}")
     if "has_bundle_manifest" in artifact_quality:
         segments.append(
             f"bundle_manifest={str(bool(artifact_quality['has_bundle_manifest'])).lower()}"

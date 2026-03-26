@@ -234,4 +234,3 @@ __all__ = [
     "manifest_stats",
     "write_manifest_records",
 ]
-

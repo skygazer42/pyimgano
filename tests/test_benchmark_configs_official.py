@@ -10,4 +10,3 @@ def test_official_benchmark_configs_validate():
     for path in paths:
         payload = load_and_validate_benchmark_config(path)
         assert "dataset" in payload or "suite" in payload
-

@@ -51,7 +51,9 @@ def test_predict_return_confidence_returns_labels_and_confidence() -> None:
 def test_predict_with_rejection_rejects_low_confidence_samples() -> None:
     det = _make_dummy_detector()
 
-    labels, conf = det.predict_with_rejection([0, 2, 4], confidence_threshold=0.75, return_confidence=True)
+    labels, conf = det.predict_with_rejection(
+        [0, 2, 4], confidence_threshold=0.75, return_confidence=True
+    )
 
     labels_arr = np.asarray(labels, dtype=np.int64)
     conf_arr = np.asarray(conf, dtype=np.float64)

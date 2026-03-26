@@ -70,9 +70,7 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
     if optimizer_name_raw is not None:
         optimizer_name = str(optimizer_name_raw).strip().lower()
         if optimizer_name not in {"adam", "adamw", "sgd", "rmsprop"}:
-            raise ValueError(
-                "training.optimizer_name must be one of: adam, adamw, sgd, rmsprop"
-            )
+            raise ValueError("training.optimizer_name must be one of: adam, adamw, sgd, rmsprop")
     optimizer_momentum = _optional_float(
         t_map.get("optimizer_momentum", None),
         name="training.optimizer_momentum",
@@ -216,9 +214,7 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
     if scheduler_threshold_mode_raw is not None:
         scheduler_threshold_mode = str(scheduler_threshold_mode_raw).strip().lower()
         if scheduler_threshold_mode not in {"rel", "abs"}:
-            raise ValueError(
-                "training.scheduler_threshold_mode must be one of: rel, abs"
-            )
+            raise ValueError("training.scheduler_threshold_mode must be one of: rel, abs")
     scheduler_eps = _optional_float(
         t_map.get("scheduler_eps", None),
         name="training.scheduler_eps",

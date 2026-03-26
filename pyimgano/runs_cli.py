@@ -5,15 +5,14 @@ from pathlib import Path
 from typing import Mapping
 
 import pyimgano.cli_output as cli_output
+from pyimgano.reporting.publication_quality import evaluate_publication_quality
+from pyimgano.reporting.run_acceptance import evaluate_acceptance
 from pyimgano.reporting.run_index import (
     compare_run_summaries,
     latest_run_summary,
     list_run_summaries,
 )
-from pyimgano.reporting.run_acceptance import evaluate_acceptance
-from pyimgano.reporting.publication_quality import evaluate_publication_quality
 from pyimgano.reporting.run_quality import evaluate_run_quality
-
 
 _QUALITY_STATUS_RANK = {
     "broken": 0,
@@ -121,7 +120,9 @@ def _resolve_operator_contract_status(
     has_contract = bool(signal_map.get("has_operator_contract"))
     if not has_contract:
         return "missing"
-    return "consistent" if bool(signal_map.get("has_operator_contract_consistent")) else "mismatched"
+    return (
+        "consistent" if bool(signal_map.get("has_operator_contract_consistent")) else "mismatched"
+    )
 
 
 def _resolve_bundle_operator_contract_status(
@@ -243,7 +244,9 @@ def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     incompatible_items = (
         [str(item) for item in incompatible if str(item)] if isinstance(incompatible, list) else []
     )
-    blocking_items = [str(item) for item in blocking if str(item)] if isinstance(blocking, list) else []
+    blocking_items = (
+        [str(item) for item in blocking if str(item)] if isinstance(blocking, list) else []
+    )
     incompatible_text = ",".join(incompatible_items) if incompatible_items else "none"
     blocking_text = ",".join(blocking_items) if blocking_items else "none"
     return (
@@ -512,7 +515,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "publication",
         help="Inspect suite publication readiness for an export directory.",
     )
-    p_publication.add_argument("path", help="Suite export directory or leaderboard_metadata.json path.")
+    p_publication.add_argument(
+        "path", help="Suite export directory or leaderboard_metadata.json path."
+    )
     p_publication.add_argument("--json", action="store_true", help=_JSON_OUTPUT_HELP)
     return parser
 
@@ -581,7 +586,9 @@ def main(argv: list[str] | None = None) -> int:
             if bool(args.json):
                 rc = cli_output.emit_jsonable(payload, indent=None)
                 split_summary = dict(payload.get("split_comparison", {}).get("summary", {}))
-                environment_summary = dict(payload.get("environment_comparison", {}).get("summary", {}))
+                environment_summary = dict(
+                    payload.get("environment_comparison", {}).get("summary", {})
+                )
                 target_summary = dict(payload.get("target_comparison", {}).get("summary", {}))
                 robustness_protocol_summary = dict(
                     payload.get("robustness_protocol_comparison", {}).get("summary", {})
@@ -622,9 +629,9 @@ def main(argv: list[str] | None = None) -> int:
                     or int(bundle_operator_contract_summary.get("incompatible_runs", 0)) > 0
                 ):
                     return 1
-                if bool(args.fail_on_regression) and int(payload["summary"]["total_regressions"]) > int(
-                    args.max_regressions
-                ):
+                if bool(args.fail_on_regression) and int(
+                    payload["summary"]["total_regressions"]
+                ) > int(args.max_regressions):
                     return 1
                 return rc
 
@@ -646,9 +653,7 @@ def main(argv: list[str] | None = None) -> int:
             for run in payload["runs"]:
                 run_name = run.get("run_dir_name", None)
                 metric_row = (
-                    primary_metric_rows_by_name.get(run_name)
-                    if isinstance(run_name, str)
-                    else None
+                    primary_metric_rows_by_name.get(run_name) if isinstance(run_name, str) else None
                 )
                 print(
                     _format_compare_run_brief(
@@ -674,18 +679,12 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"comparison_primary_metric={primary_metric}")
                     primary_metric_direction = primary_metric_info.get("direction", None)
                     if isinstance(primary_metric_direction, str) and primary_metric_direction:
-                        print(
-                            "comparison_primary_metric_direction="
-                            f"{primary_metric_direction}"
-                        )
+                        print("comparison_primary_metric_direction=" f"{primary_metric_direction}")
                     primary_metric_baseline = _format_metric_value(
                         primary_metric_info.get("baseline", None)
                     )
                     if primary_metric_baseline is not None:
-                        print(
-                            "comparison_primary_metric_baseline="
-                            f"{primary_metric_baseline}"
-                        )
+                        print("comparison_primary_metric_baseline=" f"{primary_metric_baseline}")
                     print(
                         "comparison_primary_metric_total_regressions="
                         f"{payload.get('summary', {}).get('total_regressions', 0)}"
@@ -698,10 +697,7 @@ def main(argv: list[str] | None = None) -> int:
                         run_dir_name = row.get("run_dir_name", None)
                         if not isinstance(run_dir_name, str) or not run_dir_name:
                             continue
-                        print(
-                            "primary_metric_status."
-                            f"{run_dir_name}={row.get('status')}"
-                        )
+                        print("primary_metric_status." f"{run_dir_name}={row.get('status')}")
                         delta = _format_metric_value(row.get("delta_vs_baseline", None))
                         if delta is not None:
                             print(f"primary_metric_delta.{run_dir_name}={delta}")
@@ -719,8 +715,7 @@ def main(argv: list[str] | None = None) -> int:
                 if isinstance(baseline_trust_status, str) and baseline_trust_status:
                     print(f"baseline_trust={baseline_trust_status}")
                     print(
-                        "comparison_trust_gate="
-                        f"{_comparison_trust_gate(baseline_trust_status)}"
+                        "comparison_trust_gate=" f"{_comparison_trust_gate(baseline_trust_status)}"
                     )
                     print(f"comparison_trust_status={baseline_trust_status}")
                     trust_reason = _comparison_trust_reason(
@@ -770,7 +765,9 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"comparison_trust_ref.{key}={value}")
 
                 split_summary = dict(payload.get("split_comparison", {}).get("summary", {}))
-                environment_summary = dict(payload.get("environment_comparison", {}).get("summary", {}))
+                environment_summary = dict(
+                    payload.get("environment_comparison", {}).get("summary", {})
+                )
                 target_summary = dict(payload.get("target_comparison", {}).get("summary", {}))
                 robustness_protocol_summary = dict(
                     payload.get("robustness_protocol_comparison", {}).get("summary", {})
@@ -817,9 +814,7 @@ def main(argv: list[str] | None = None) -> int:
                         for name in (
                             list(dict(summary.get("candidate_verdicts", {})).keys())
                             + list(dict(summary.get("candidate_blocking_reasons", {})).keys())
-                            + list(
-                                dict(summary.get("candidate_comparability_gates", {})).keys()
-                            )
+                            + list(dict(summary.get("candidate_comparability_gates", {})).keys())
                         )
                         if str(name)
                     }
@@ -887,10 +882,7 @@ def main(argv: list[str] | None = None) -> int:
                             f"{run_name}={bundle_digest_status}"
                         )
                     if "operator_contract_bundle:digest_mismatch" in reason_tokens:
-                        print(
-                            "bundle_operator_contract_integrity."
-                            f"{run_name}=digest_mismatch"
-                        )
+                        print("bundle_operator_contract_integrity." f"{run_name}=digest_mismatch")
                 print(
                     "split: "
                     f"checked={split_summary.get('checked')} "
@@ -924,8 +916,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if isinstance(environment_baseline_sha256, str) and environment_baseline_sha256:
                     print(
-                        "environment_baseline.fingerprint_sha256="
-                        f"{environment_baseline_sha256}"
+                        "environment_baseline.fingerprint_sha256=" f"{environment_baseline_sha256}"
                     )
                 for row in payload.get("environment_comparison", {}).get("comparisons", []):
                     if not isinstance(row, dict):
@@ -973,9 +964,9 @@ def main(argv: list[str] | None = None) -> int:
                     f"mismatched={robustness_protocol_summary.get('mismatched_runs', 0)} "
                     f"missing={robustness_protocol_summary.get('missing_runs', 0)}"
                 )
-                robustness_protocol_baseline = payload.get("robustness_protocol_comparison", {}).get(
-                    "baseline", {}
-                )
+                robustness_protocol_baseline = payload.get(
+                    "robustness_protocol_comparison", {}
+                ).get("baseline", {})
                 if isinstance(robustness_protocol_baseline, dict):
                     corruption_mode = robustness_protocol_baseline.get("corruption_mode", None)
                     if isinstance(corruption_mode, str) and corruption_mode:
@@ -1027,45 +1018,53 @@ def main(argv: list[str] | None = None) -> int:
                 )
             if bool(args.require_same_split):
                 split_summary = dict(payload.get("split_comparison", {}).get("summary", {}))
-                if not bool(split_summary.get("checked")) or int(
-                    split_summary.get("incompatible_runs", 0)
-                ) > 0:
+                if (
+                    not bool(split_summary.get("checked"))
+                    or int(split_summary.get("incompatible_runs", 0)) > 0
+                ):
                     return 1
             if bool(args.require_same_environment):
-                environment_summary = dict(payload.get("environment_comparison", {}).get("summary", {}))
-                if not bool(environment_summary.get("checked")) or int(
-                    environment_summary.get("incompatible_runs", 0)
-                ) > 0:
+                environment_summary = dict(
+                    payload.get("environment_comparison", {}).get("summary", {})
+                )
+                if (
+                    not bool(environment_summary.get("checked"))
+                    or int(environment_summary.get("incompatible_runs", 0)) > 0
+                ):
                     return 1
             if bool(args.require_same_target):
                 target_summary = dict(payload.get("target_comparison", {}).get("summary", {}))
-                if not bool(target_summary.get("checked")) or int(
-                    target_summary.get("incompatible_runs", 0)
-                ) > 0:
+                if (
+                    not bool(target_summary.get("checked"))
+                    or int(target_summary.get("incompatible_runs", 0)) > 0
+                ):
                     return 1
             if bool(args.require_same_robustness_protocol):
                 robustness_protocol_summary = dict(
                     payload.get("robustness_protocol_comparison", {}).get("summary", {})
                 )
-                if not bool(robustness_protocol_summary.get("checked")) or int(
-                    robustness_protocol_summary.get("incompatible_runs", 0)
-                ) > 0:
+                if (
+                    not bool(robustness_protocol_summary.get("checked"))
+                    or int(robustness_protocol_summary.get("incompatible_runs", 0)) > 0
+                ):
                     return 1
             if bool(args.require_same_operator_contract):
                 operator_contract_summary = dict(
                     payload.get("operator_contract_comparison", {}).get("summary", {})
                 )
-                if not bool(operator_contract_summary.get("checked")) or int(
-                    operator_contract_summary.get("incompatible_runs", 0)
-                ) > 0:
+                if (
+                    not bool(operator_contract_summary.get("checked"))
+                    or int(operator_contract_summary.get("incompatible_runs", 0)) > 0
+                ):
                     return 1
             if bool(args.require_same_bundle_operator_contract):
                 bundle_operator_contract_summary = dict(
                     payload.get("bundle_operator_contract_comparison", {}).get("summary", {})
                 )
-                if not bool(bundle_operator_contract_summary.get("checked")) or int(
-                    bundle_operator_contract_summary.get("incompatible_runs", 0)
-                ) > 0:
+                if (
+                    not bool(bundle_operator_contract_summary.get("checked"))
+                    or int(bundle_operator_contract_summary.get("incompatible_runs", 0)) > 0
+                ):
                     return 1
             if bool(args.fail_on_regression) and int(payload["summary"]["total_regressions"]) > int(
                 args.max_regressions
@@ -1151,7 +1150,9 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"audit_ref.{key}={value}")
                 missing_required = list(publication.get("missing_required", []))
                 if missing_required:
-                    print(_MISSING_REQUIRED_PREFIX + ", ".join(str(item) for item in missing_required))
+                    print(
+                        _MISSING_REQUIRED_PREFIX + ", ".join(str(item) for item in missing_required)
+                    )
                 invalid_declared = list(publication.get("invalid_declared", []))
                 if invalid_declared:
                     print("invalid_declared=" + ", ".join(str(item) for item in invalid_declared))

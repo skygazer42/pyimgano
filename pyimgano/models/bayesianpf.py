@@ -416,7 +416,9 @@ class VisionBayesianPF(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> NDArray:
         """Alias for predict."""
-        x_array = cast(NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        x_array = cast(
+            NDArray, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
+        )
         if batch_size is None:
             return self.predict(x_array)
 

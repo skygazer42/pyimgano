@@ -33,9 +33,9 @@ def test_student_teacher_lite_smoke_on_vectors() -> None:
 
 def test_student_teacher_lite_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     pytest.importorskip("torch")
-    import pyimgano.models  # noqa: F401
     from PIL import Image
 
+    import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector

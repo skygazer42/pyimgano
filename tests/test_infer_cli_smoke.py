@@ -228,9 +228,7 @@ def test_infer_cli_smoke_delegates_to_inference_service(tmp_path, monkeypatch):
         captured.update(kwargs)
         yield InferenceResult(score=0.25, label=0, anomaly_map=None)
 
-    monkeypatch.setattr(
-        inference_service, "iter_inference_records", fake_iter_inference_records
-    )
+    monkeypatch.setattr(inference_service, "iter_inference_records", fake_iter_inference_records)
 
     rc = infer_cli.main(
         [
@@ -502,9 +500,7 @@ def test_infer_cli_defects_calibration_delegates_to_inference_service(tmp_path, 
         yield InferenceResult(score=0.0, label=0, anomaly_map=np.ones((4, 4), dtype=np.float32))
 
     monkeypatch.setattr(inference_service, "run_inference", fake_run_inference)
-    monkeypatch.setattr(
-        inference_service, "iter_inference_records", fake_iter_inference_records
-    )
+    monkeypatch.setattr(inference_service, "iter_inference_records", fake_iter_inference_records)
 
     rc = infer_cli.main(
         [
@@ -782,4 +778,3 @@ def test_infer_cli_train_dir_auto_calibrates_when_threshold_missing(tmp_path, mo
     assert len(lines) == 2
     record = json.loads(lines[0])
     assert "label" in record
-

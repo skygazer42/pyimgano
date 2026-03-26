@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .checkpointing import save_checkpoint
 from .callbacks import MetricsLoggingCallback, ResourceProfilingCallback, TrainingCallback
+from .checkpointing import save_checkpoint
 from .runner import micro_finetune
 from .tracking import (
     JsonlTracker,

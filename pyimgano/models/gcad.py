@@ -322,7 +322,9 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         # Compute pairwise distances
         features_norm = features.view(batch_size, num_nodes, 1, feature_dim)
-        dist = torch.sum((features_norm - features.view(batch_size, 1, num_nodes, feature_dim)) ** 2, dim=-1)
+        dist = torch.sum(
+            (features_norm - features.view(batch_size, 1, num_nodes, feature_dim)) ** 2, dim=-1
+        )
         # (B, N, N)
 
         # Find k nearest neighbors

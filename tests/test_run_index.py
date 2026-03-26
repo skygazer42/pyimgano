@@ -71,11 +71,23 @@ def test_list_run_summaries_can_filter_by_kind_and_dataset(tmp_path):
     bench_dir.mkdir()
 
     (suite_dir / "report.json").write_text(
-        json.dumps({"suite": "industrial-v4", "dataset": "mvtec", "timestamp_utc": "2026-03-17T10:00:00+00:00"}),
+        json.dumps(
+            {
+                "suite": "industrial-v4",
+                "dataset": "mvtec",
+                "timestamp_utc": "2026-03-17T10:00:00+00:00",
+            }
+        ),
         encoding="utf-8",
     )
     (bench_dir / "report.json").write_text(
-        json.dumps({"model": "vision_patchcore", "dataset": "visa", "timestamp_utc": "2026-03-17T11:00:00+00:00"}),
+        json.dumps(
+            {
+                "model": "vision_patchcore",
+                "dataset": "visa",
+                "timestamp_utc": "2026-03-17T11:00:00+00:00",
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -499,7 +511,9 @@ def test_list_run_summaries_can_filter_by_min_quality(tmp_path):
     reproducible_old.mkdir()
     reproducible_new.mkdir()
     (partial / "report.json").write_text(
-        json.dumps({"dataset": "custom", "model": "partial", "timestamp_utc": "2026-03-18T10:00:00+00:00"}),
+        json.dumps(
+            {"dataset": "custom", "model": "partial", "timestamp_utc": "2026-03-18T10:00:00+00:00"}
+        ),
         encoding="utf-8",
     )
     for run_dir, model_name, timestamp in (
@@ -518,7 +532,10 @@ def test_list_run_summaries_can_filter_by_min_quality(tmp_path):
 
     items = list_run_summaries(tmp_path, min_quality="reproducible")
 
-    assert [item["run_dir_name"] for item in items] == [reproducible_new.name, reproducible_old.name]
+    assert [item["run_dir_name"] for item in items] == [
+        reproducible_new.name,
+        reproducible_old.name,
+    ]
 
 
 def test_list_run_summaries_classifies_robustness_and_extracts_metrics(tmp_path):
@@ -1891,17 +1908,22 @@ def test_compare_run_summaries_flags_candidate_bundle_operator_contract_digest_m
     summary = payload["summary"]
 
     assert summary["candidate_verdicts"]["candidate"] == "blocked"
-    assert "operator_contract_bundle:mismatched" in summary["candidate_blocking_reasons"]["candidate"]
-    assert "operator_contract_bundle:digest_mismatch" in summary["candidate_blocking_reasons"][
-        "candidate"
-    ]
+    assert (
+        "operator_contract_bundle:mismatched" in summary["candidate_blocking_reasons"]["candidate"]
+    )
+    assert (
+        "operator_contract_bundle:digest_mismatch"
+        in summary["candidate_blocking_reasons"]["candidate"]
+    )
     assert summary["candidate_incompatibility_digest"]["candidate"]["incompatible_gates"] == [
         "bundle_operator_contract:mismatched"
     ]
     assert summary["candidate_bundle_operator_contract_digest_statuses"]["candidate"] == "invalid"
     assert summary["bundle_operator_contract_gate"] == "incompatible"
     assert payload["bundle_operator_contract_comparison"]["summary"]["incompatible_runs"] == 1
-    assert payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "mismatched"
+    assert (
+        payload["bundle_operator_contract_comparison"]["comparisons"][1]["status"] == "mismatched"
+    )
 
 
 def test_compare_run_summaries_reports_environment_compatibility_vs_baseline(tmp_path):

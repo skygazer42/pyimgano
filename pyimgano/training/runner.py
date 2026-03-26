@@ -5,10 +5,10 @@ import time
 from typing import Any, Mapping, Sequence
 
 import numpy as np
-from pyimgano.training.callbacks import run_callback_hook
-from pyimgano.train_progress import get_active_train_progress_reporter
-from pyimgano.training.tracking import TrainingTracker
 
+from pyimgano.train_progress import get_active_train_progress_reporter
+from pyimgano.training.callbacks import run_callback_hook
+from pyimgano.training.tracking import TrainingTracker
 
 _FIT_KWARG_ALIASES: dict[str, tuple[str, ...]] = {
     "epochs": ("epochs", "epoch_num"),
@@ -354,11 +354,7 @@ def _emit_epoch_metrics(
         default_epoch_s = float(fit_s) / float(len(loss_history))
     elapsed_s = 0.0
     total_epochs_raw = detector_training_state.get("epochs_completed", None)
-    total_epochs = (
-        int(total_epochs_raw)
-        if total_epochs_raw is not None
-        else int(len(loss_history))
-    )
+    total_epochs = int(total_epochs_raw) if total_epochs_raw is not None else int(len(loss_history))
 
     for idx, loss in enumerate(loss_history, start=1):
         metrics: dict[str, float] = {"loss": float(loss)}
@@ -366,11 +362,7 @@ def _emit_epoch_metrics(
             metrics["lr"] = float(lr_history[idx - 1])
         report_metrics: dict[str, float] = dict(metrics)
 
-        epoch_s = (
-            epoch_time_history[idx - 1]
-            if idx <= len(epoch_time_history)
-            else None
-        )
+        epoch_s = epoch_time_history[idx - 1] if idx <= len(epoch_time_history) else None
         if epoch_s is None:
             epoch_s = default_epoch_s
         if epoch_s is not None:
@@ -380,9 +372,7 @@ def _emit_epoch_metrics(
             report_metrics["eta_s"] = float(max(total_epochs - idx, 0)) * float(epoch_s)
 
         train_items = (
-            epoch_sample_counts[idx - 1]
-            if idx <= len(epoch_sample_counts)
-            else int(train_count)
+            epoch_sample_counts[idx - 1] if idx <= len(epoch_sample_counts) else int(train_count)
         )
         if train_items is not None:
             report_metrics["train_items"] = float(int(train_items))
@@ -447,9 +437,7 @@ def micro_finetune(
     original_inputs = list(train_inputs)
     train_inputs_used = _maybe_limit_train_inputs(
         original_inputs,
-        max_train_samples=(
-            int(max_train_samples) if max_train_samples is not None else None
-        ),
+        max_train_samples=(int(max_train_samples) if max_train_samples is not None else None),
         seed=seed,
     )
     train_inputs_used, validation_inputs = _split_validation_inputs(

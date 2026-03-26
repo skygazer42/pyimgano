@@ -131,4 +131,6 @@ def test_validate_calibration_card_payload_rejects_boolean_score_summary_values(
     )
 
     assert any("image_threshold.provenance.score_summary.count" in item for item in errors)
-    assert any("image_threshold.provenance.score_summary.quantiles['p95']" in item for item in errors)
+    assert any(
+        "image_threshold.provenance.score_summary.quantiles['p95']" in item for item in errors
+    )

@@ -18,7 +18,11 @@ def emit_pyim_audit_payload(payload: Mapping[str, Any], *, json_output: bool) ->
     has_issues = _audit_has_issues(payload)
 
     if bool(json_output):
-        return cli_output.emit_json(payload) if not has_issues else (cli_output.emit_json(payload) or 1)
+        return (
+            cli_output.emit_json(payload)
+            if not has_issues
+            else (cli_output.emit_json(payload) or 1)
+        )
 
     print("Metadata Audit")
     print(

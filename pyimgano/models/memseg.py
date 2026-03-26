@@ -21,8 +21,8 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torchvision import models
 
-from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from ._image_batch import coerce_rgb_image_batch
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 

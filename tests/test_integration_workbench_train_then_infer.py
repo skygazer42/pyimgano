@@ -382,9 +382,7 @@ def test_integration_train_then_infer_infer_config_manifest(tmp_path, capsys):
     assert rec1["label"] == 1
 
 
-def test_run_workbench_delegates_detector_creation_to_workbench_service(
-    tmp_path, monkeypatch
-):
+def test_run_workbench_delegates_detector_creation_to_workbench_service(tmp_path, monkeypatch):
     import cv2
 
     import pyimgano.services.workbench_service as workbench_service
@@ -452,4 +450,3 @@ def test_run_workbench_delegates_detector_creation_to_workbench_service(
     assert len(calls) == 1
     assert str(calls[0].model.name) == "vision_ecod"
     assert payload["threshold"] >= 0.0
-

@@ -25,4 +25,3 @@ def as_u8_image(image: np.ndarray) -> np.ndarray:
     if arr.ndim == 3 and arr.shape[2] != 3:
         raise ValueError(f"Expected grayscale (H,W) or color (H,W,3) image, got {arr.shape}")
     return arr
-

@@ -72,7 +72,9 @@ def _make_ready_bundle(
     _write_json(run_dir, "report.json", {"dataset": "custom", "model": model_name})
     _write_json(run_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(run_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(run_dir, "artifacts/infer_config.json",
+    _write_json(
+        run_dir,
+        "artifacts/infer_config.json",
         {
             "schema_version": 1,
             "model": {"name": model_name, "model_kwargs": {}},
@@ -82,7 +84,9 @@ def _make_ready_bundle(
     _write_json(bundle_dir, "report.json", {"dataset": "custom", "model": model_name})
     _write_json(bundle_dir, "config.json", {"config": {"dataset": "custom"}})
     _write_json(bundle_dir, "environment.json", {"fingerprint_sha256": "f" * 64})
-    _write_json(bundle_dir, "calibration_card.json",
+    _write_json(
+        bundle_dir,
+        "calibration_card.json",
         {
             "schema_version": 1,
             "split_fingerprint": {"sha256": "a" * 64},
@@ -107,7 +111,9 @@ def _make_ready_bundle(
             ),
         },
     )
-    _write_json(bundle_dir, "infer_config.json",
+    _write_json(
+        bundle_dir,
+        "infer_config.json",
         {
             "schema_version": 1,
             "model": {
@@ -147,7 +153,9 @@ def _make_ready_bundle(
     )
 
     if include_manifest:
-        _write_json(bundle_dir, "bundle_manifest.json",
+        _write_json(
+            bundle_dir,
+            "bundle_manifest.json",
             build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir),
         )
 

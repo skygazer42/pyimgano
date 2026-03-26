@@ -266,7 +266,9 @@ class VisionPhaseCorrelationMapDetector(BaseDetector):
         maps = [self.get_anomaly_map(it) for it in items]
         return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
-    def decision_function(self, x=MISSING, **kwargs):  # noqa: ANN001, ANN201 - sklearn-like signature
+    def decision_function(
+        self, x=MISSING, **kwargs
+    ):  # noqa: ANN001, ANN201 - sklearn-like signature
         items = list(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
         if not items:
             return np.zeros((0,), dtype=np.float64)

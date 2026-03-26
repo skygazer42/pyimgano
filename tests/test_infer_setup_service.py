@@ -8,6 +8,4 @@ def test_infer_setup_service_reexports_infer_load_boundary() -> None:
     assert infer_setup_service.__all__ == infer_load_service.__all__
 
     for export_name in infer_setup_service.__all__:
-        assert getattr(infer_setup_service, export_name) is getattr(
-            infer_load_service, export_name
-        )
+        assert getattr(infer_setup_service, export_name) is getattr(infer_load_service, export_name)
