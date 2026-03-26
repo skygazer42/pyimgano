@@ -176,61 +176,68 @@ def find_optimal_threshold(
             f"Got {y_true.shape[0]} != {y_scores.shape[0]}."
         )
 
+    _validate_threshold_metric(metric)
     unique = np.unique(y_true)
     if unique.size < 2:
-        max_score = float(np.max(y_scores))
-        only_label = int(unique[0]) if unique.size == 1 else 0
-        if only_label == 0:
-            # Predict everything as negative to avoid false positives.
-            return float(np.nextafter(max_score, np.inf)), 0.0
-        if metric == "youden":
-            return float(np.min(y_scores)), 0.0
-        return float(np.min(y_scores)), 1.0
+        return _single_class_threshold_result(unique, y_scores, metric=metric)
 
     if metric == "f1":
-        # Optimize F1 score
-        precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
+        return _optimal_f1_threshold(y_true, y_scores)
+    if metric == "youden":
+        return _optimal_youden_threshold(y_true, y_scores)
+    return _optimal_precision_recall_threshold(y_true, y_scores, metric=metric)
 
-        # Compute F1 scores (avoid division by zero)
-        f1_scores = np.zeros_like(precisions)
-        mask = (precisions + recalls) > 0
-        f1_scores[mask] = (
-            2 * (precisions[mask] * recalls[mask]) / (precisions[mask] + recalls[mask])
-        )
 
-        # Find optimal threshold
-        optimal_idx = np.argmax(f1_scores[:-1])  # Exclude last element
-        optimal_threshold = float(thresholds[optimal_idx])
-        optimal_f1 = float(f1_scores[optimal_idx])
+def _validate_threshold_metric(metric: str) -> None:
+    if metric in {"f1", "precision", "recall", "youden"}:
+        return
+    raise ValueError(
+        f"Unsupported metric: {metric}. Choose from 'f1', 'precision', 'recall', 'youden'"
+    )
 
-        return optimal_threshold, optimal_f1
 
-    elif metric == "youden":
-        # Youden's J statistic = Sensitivity + Specificity - 1
-        fpr, tpr, thresholds = roc_curve(y_true, y_scores)
-        youden_j = tpr - fpr
-        optimal_idx = np.argmax(youden_j)
-        optimal_threshold = float(thresholds[optimal_idx])
-        optimal_j = float(youden_j[optimal_idx])
+def _single_class_threshold_result(
+    unique: NDArray,
+    y_scores: NDArray,
+    *,
+    metric: str,
+) -> Tuple[float, float]:
+    max_score = float(np.max(y_scores))
+    only_label = int(unique[0]) if unique.size == 1 else 0
+    if only_label == 0:
+        # Predict everything as negative to avoid false positives.
+        return float(np.nextafter(max_score, np.inf)), 0.0
+    if metric == "youden":
+        return float(np.min(y_scores)), 0.0
+    return float(np.min(y_scores)), 1.0
 
-        return optimal_threshold, optimal_j
 
-    elif metric in ["precision", "recall"]:
-        precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
+def _optimal_f1_threshold(y_true: NDArray, y_scores: NDArray) -> Tuple[float, float]:
+    precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
+    f1_scores = np.zeros_like(precisions)
+    mask = (precisions + recalls) > 0
+    f1_scores[mask] = 2 * (precisions[mask] * recalls[mask]) / (precisions[mask] + recalls[mask])
+    optimal_idx = np.argmax(f1_scores[:-1])
+    return float(thresholds[optimal_idx]), float(f1_scores[optimal_idx])
 
-        if metric == "precision":
-            optimal_idx = np.argmax(precisions[:-1])
-            optimal_threshold = float(thresholds[optimal_idx])
-            return optimal_threshold, float(precisions[optimal_idx])
-        else:  # recall
-            optimal_idx = np.argmax(recalls[:-1])
-            optimal_threshold = float(thresholds[optimal_idx])
-            return optimal_threshold, float(recalls[optimal_idx])
 
-    else:
-        raise ValueError(
-            f"Unsupported metric: {metric}. Choose from 'f1', 'precision', 'recall', 'youden'"
-        )
+def _optimal_youden_threshold(y_true: NDArray, y_scores: NDArray) -> Tuple[float, float]:
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    youden_j = tpr - fpr
+    optimal_idx = np.argmax(youden_j)
+    return float(thresholds[optimal_idx]), float(youden_j[optimal_idx])
+
+
+def _optimal_precision_recall_threshold(
+    y_true: NDArray,
+    y_scores: NDArray,
+    *,
+    metric: str,
+) -> Tuple[float, float]:
+    precisions, recalls, thresholds = precision_recall_curve(y_true, y_scores)
+    values = precisions if metric == "precision" else recalls
+    optimal_idx = np.argmax(values[:-1])
+    return float(thresholds[optimal_idx]), float(values[optimal_idx])
 
 
 def compute_classification_metrics(

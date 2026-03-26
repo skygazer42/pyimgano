@@ -135,6 +135,13 @@ class TestFindOptimalThreshold:
         assert threshold > float(np.max(y_scores))
         assert f1 == pytest.approx(0.0)
 
+    def test_single_class_labels_still_validate_metric_name(self):
+        y_true = np.zeros((4,), dtype=np.int64)
+        y_scores = np.array([0.1, 0.2, 0.2, 0.3], dtype=np.float64)
+
+        with pytest.raises(ValueError, match="Unsupported metric"):
+            find_optimal_threshold(y_true, y_scores, metric="invalid")
+
 
 class TestClassificationMetrics:
     """Test classification metrics computation."""
