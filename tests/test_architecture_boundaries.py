@@ -1073,8 +1073,10 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
         },
         "dataset_split_service.py": set(),
         "train_service.py": {
+            "pyimgano.services.train_export_helpers",
             "pyimgano.services.workbench_service",
         },
+        "train_export_helpers.py": set(),
         "workbench_run_service.py": set(),
         "workbench_adaptation_service.py": set(),
         "workbench_service.py": {
@@ -1561,6 +1563,34 @@ def test_bundle_helper_modules_define_expected_public_exports() -> None:
             "build_reason_codes",
             "run_exit_code",
             "validate_exit_code",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []
+
+
+def test_train_export_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "services/train_export_helpers.py": [
+            "apply_bundle_manifest_metadata",
+            "build_optional_calibration_card_payload",
+            "require_run_dir",
+            "rewrite_bundle_paths",
+            "validate_export_request",
         ],
     }
     violations: list[str] = []
