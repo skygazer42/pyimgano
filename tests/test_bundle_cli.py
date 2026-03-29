@@ -228,6 +228,44 @@ def test_bundle_cli_validate_reports_missing_manifest_reason_code(tmp_path: Path
     assert "BUNDLE_MISSING_MANIFEST" in payload["reason_codes"]
 
 
+def test_bundle_cli_text_uses_validate_rendering_helper(monkeypatch, capsys, tmp_path: Path) -> None:
+    import pyimgano.bundle_cli as bundle_cli
+
+    monkeypatch.setattr(
+        bundle_cli,
+        "evaluate_bundle",
+        lambda bundle_dir, check_hashes=False: {
+            "bundle_dir": str(bundle_dir),
+            "status": "ready",
+            "ready": True,
+            "exit_code": 0,
+            "reason_codes": [],
+            "contract": {},
+        },
+    )
+    monkeypatch.setattr(
+        bundle_cli,
+        "bundle_rendering",
+        type(
+            "_StubBundleRendering",
+            (),
+            {
+                "format_bundle_validate_lines": staticmethod(
+                    lambda payload: ["bundle_dir=delegated", "status=ready"]
+                ),
+                "format_bundle_run_lines": staticmethod(lambda report: []),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = bundle_cli.main(["validate", str(tmp_path / "bundle")])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "bundle_dir=delegated" in out
+
+
 def test_bundle_cli_run_writes_results_and_run_report_for_image_dir(
     tmp_path: Path, capsys, monkeypatch
 ) -> None:

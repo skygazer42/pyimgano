@@ -719,6 +719,28 @@ Notes:
 
 ---
 
+## `pyimgano-bundle`
+
+Offline deploy-bundle validation and execution for CPU-first QC bundles.
+
+Common usage:
+
+```bash
+pyimgano-bundle validate ./deploy_bundle --json
+pyimgano-bundle validate ./deploy_bundle --check-hashes --json
+pyimgano-bundle run ./deploy_bundle --image-dir ./inputs --output-dir ./bundle_run --json
+pyimgano-bundle run ./deploy_bundle --input-manifest ./input_manifest.jsonl --output-dir ./bundle_run --json
+```
+
+Notes:
+
+- `validate` checks `infer_config.json`, `bundle_manifest.json`, and optional bundle weight audit files as one deploy-bundle contract.
+- `run` executes offline inference from the bundle and writes `results.jsonl` plus `run_report.json` under `--output-dir`.
+- Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
+- Use `pyimgano-weights audit-bundle` when you want a weights/model-card-focused audit without running bundle validation or inference.
+
+---
+
 ## `pyimgano-train`
 
 Runs a **recipe-driven workbench** run from a JSON-first config file. This is the

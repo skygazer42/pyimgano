@@ -7,9 +7,26 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import pyimgano.bundle_rendering as bundle_rendering
 import pyimgano.cli_output as cli_output
 import pyimgano.infer_cli as infer_cli
+from pyimgano.bundle_cli_helpers import (
+    build_batch_gate_summary as _build_batch_gate_summary_helper,
+)
+from pyimgano.bundle_cli_helpers import (
+    build_input_source_summary as _build_input_source_summary_helper,
+)
+from pyimgano.bundle_cli_helpers import (
+    build_reason_codes as _build_reason_codes_helper,
+)
+from pyimgano.bundle_cli_helpers import (
+    run_exit_code as _run_exit_code_helper,
+)
+from pyimgano.bundle_cli_helpers import (
+    validate_exit_code as _validate_exit_code_helper,
+)
 from pyimgano.datasets.manifest_tools import iter_manifest_rows
+from pyimgano.infer_cli_inputs import collect_image_paths
 from pyimgano.inference.validate_infer_config import validate_infer_config_file
 from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
 from pyimgano.utils.security import FileHasher
@@ -283,20 +300,15 @@ def _bundle_weights_payload(bundle_root: Path, *, check_hashes: bool) -> dict[st
 
 
 def _reason_codes(blocking_reasons: list[str], *, mapping: Mapping[str, str]) -> list[str]:
-    out: list[str] = []
-    for reason in blocking_reasons:
-        code = mapping.get(str(reason))
-        if code is not None and code not in out:
-            out.append(code)
-    return out
+    return _build_reason_codes_helper(blocking_reasons, mapping=mapping)
 
 
 def _validate_exit_code(payload: Mapping[str, Any]) -> int:
-    return 0 if bool(payload.get("ready")) else 1
+    return _validate_exit_code_helper(payload)
 
 
 def _run_exit_code(status: str) -> int:
-    return 0 if str(status) == "completed" else 1
+    return _run_exit_code_helper(status)
 
 
 def _default_bundle_weights_payload(bundle_root: Path) -> dict[str, Any]:
@@ -532,7 +544,7 @@ def _resolve_input_records(args: argparse.Namespace) -> tuple[list[dict[str, Any
     if getattr(args, "image_dir", None) is not None:
         source_root = Path(str(args.image_dir))
         return _records_from_paths(
-            infer_cli._collect_image_paths(str(source_root)),
+            collect_image_paths(str(source_root)),
             source_root=source_root,
             kind="image_dir",
             empty_message="No input images found in --image-dir.",
@@ -541,7 +553,7 @@ def _resolve_input_records(args: argparse.Namespace) -> tuple[list[dict[str, Any
     if getattr(args, "image", None) is not None:
         path = Path(str(args.image))
         records, _summary = _records_from_paths(
-            infer_cli._collect_image_paths(str(path))[:1],
+            collect_image_paths(str(path))[:1],
             source_root=None,
             kind="single_image",
             empty_message="No input images found in --image.",
@@ -738,15 +750,15 @@ def _evaluate_batch_gates(
     )
 
     return (
-        {
-            "requested": bool(requested),
-            "evaluated": bool(evaluated),
-            "processed": int(processed),
-            "counts": counts,
-            "rates": rates,
-            "thresholds": thresholds,
-            "failed_gates": list(failed_gates),
-        },
+        _build_batch_gate_summary_helper(
+            requested=bool(requested),
+            evaluated=bool(evaluated),
+            processed=int(processed),
+            counts=counts,
+            rates=rates,
+            thresholds=thresholds,
+            failed_gates=list(failed_gates),
+        ),
         str(batch_verdict),
         list(reason_codes),
     )
@@ -869,10 +881,10 @@ def _build_run_report(
             "reason_codes": list(bundle_validation.get("reason_codes", [])),
         },
         "bundle_contract": dict(bundle_validation.get("contract", {})),
-        "input_summary": {
-            "kind": str(input_summary.get("kind")),
-            "count": int(input_summary.get("count", 0)),
-        },
+        "input_summary": _build_input_source_summary_helper(
+            kind=str(input_summary.get("kind")),
+            count=int(input_summary.get("count", 0)),
+        ),
         "processed": int(processed),
         "batch_verdict": str(batch_verdict),
         "batch_gate_summary": dict(batch_gate_summary or {}),
@@ -905,16 +917,8 @@ def _emit_validate_payload(payload: dict[str, Any], *, json_output: bool) -> int
     if bool(json_output):
         return cli_output.emit_json(payload, status_code=status_code, indent=None)
 
-    print(f"bundle_dir={payload.get('bundle_dir')}")
-    print(f"status={payload.get('status')}")
-    print(f"ready={str(bool(payload.get('ready'))).lower()}")
-    for code in payload.get("reason_codes", []):
-        print(f"reason_code={code}")
-    contract = payload.get("contract", {})
-    if isinstance(contract, Mapping):
-        bundle_type = contract.get("bundle_type")
-        if bundle_type is not None:
-            print(f"bundle_type={bundle_type}")
+    for line in bundle_rendering.format_bundle_validate_lines(payload):
+        print(line)
     return status_code
 
 
@@ -923,17 +927,8 @@ def _emit_run_report(report: dict[str, Any], *, json_output: bool) -> int:
     if bool(json_output):
         return cli_output.emit_json(report, status_code=status_code, indent=None)
 
-    print(f"bundle_dir={report.get('bundle_dir')}")
-    print(f"output_dir={report.get('output_dir')}")
-    print(f"status={report.get('status')}")
-    print(f"processed={report.get('processed')}")
-    if report.get("batch_verdict") is not None:
-        print(f"batch_verdict={report.get('batch_verdict')}")
-    for code in report.get("reason_codes", []):
-        print(f"reason_code={code}")
-    artifacts = report.get("artifacts", {})
-    if isinstance(artifacts, Mapping) and artifacts.get("results_jsonl") is not None:
-        print(f"results_jsonl={artifacts.get('results_jsonl')}")
+    for line in bundle_rendering.format_bundle_run_lines(report):
+        print(line)
     return status_code
 
 

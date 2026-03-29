@@ -1547,3 +1547,35 @@ def test_doctor_helper_modules_define_expected_public_exports() -> None:
             )
 
     assert violations == []
+
+
+def test_bundle_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "bundle_rendering.py": [
+            "format_bundle_run_lines",
+            "format_bundle_validate_lines",
+        ],
+        "bundle_cli_helpers.py": [
+            "build_batch_gate_summary",
+            "build_input_source_summary",
+            "build_reason_codes",
+            "run_exit_code",
+            "validate_exit_code",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []

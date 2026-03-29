@@ -301,6 +301,7 @@ pyimgano --help
 pyimgano -- list preprocessing --deployable-only
 pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
+pyimgano-bundle validate runs/<run_dir>/deploy_bundle --json
 pyimgano runs quality runs/<run_dir> --require-status audited --json
 pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
 pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
