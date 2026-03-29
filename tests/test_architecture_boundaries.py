@@ -1475,3 +1475,39 @@ def test_inference_helper_modules_define_expected_public_exports() -> None:
             )
 
     assert violations == []
+
+
+def test_runs_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "reporting/run_index_helpers.py": [
+            "build_trust_comparison",
+            "bundle_operator_contract_status_from_trust_summary",
+            "comparability_gate_status",
+            "compare_blocking_flags",
+            "comparison_trust_gate",
+            "comparison_trust_reason",
+            "format_candidate_incompatibility_digest",
+            "format_metric_value",
+            "operator_contract_status_from_trust_summary",
+        ],
+        "runs_cli_rendering.py": [
+            "format_compare_run_brief_line",
+            "format_run_brief_line",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []

@@ -5,12 +5,28 @@ from pathlib import Path
 from typing import Mapping
 
 import pyimgano.cli_output as cli_output
+import pyimgano.runs_cli_rendering as runs_cli_rendering
 from pyimgano.reporting.publication_quality import evaluate_publication_quality
 from pyimgano.reporting.run_acceptance import evaluate_acceptance
 from pyimgano.reporting.run_index import (
     compare_run_summaries,
     latest_run_summary,
     list_run_summaries,
+)
+from pyimgano.reporting.run_index_helpers import (
+    comparability_gate_status as _comparability_gate_status_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    compare_blocking_flags as _compare_blocking_flags_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    comparison_trust_gate as _comparison_trust_gate_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    comparison_trust_reason as _comparison_trust_reason_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    format_metric_value as _format_metric_value_helper,
 )
 from pyimgano.reporting.run_quality import evaluate_run_quality
 
@@ -37,17 +53,11 @@ _MISSING_REQUIRED_PREFIX = "missing_required="
 
 
 def _format_metric_value(value: object) -> str | None:
-    if not isinstance(value, (int, float)):
-        return None
-    return f"{float(value):.6g}"
+    return _format_metric_value_helper(value)
 
 
 def _comparability_gate_status(summary: dict[str, object]) -> str:
-    if not bool(summary.get("checked")):
-        return "unchecked"
-    if int(summary.get("incompatible_runs", 0) or 0) > 0:
-        return "incompatible"
-    return "compatible"
+    return _comparability_gate_status_helper(summary)
 
 
 def _compare_blocking_flags(
@@ -60,26 +70,20 @@ def _compare_blocking_flags(
     operator_contract_summary: dict[str, object],
     bundle_operator_contract_summary: dict[str, object],
 ) -> list[str]:
-    flags: list[str] = []
-    if int(total_regressions) > 0:
-        flags.append("--fail-on-regression")
-    if _comparability_gate_status(split_summary) == "incompatible":
-        flags.append("--require-same-split")
-    if _comparability_gate_status(environment_summary) == "incompatible":
-        flags.append("--require-same-environment")
-    if _comparability_gate_status(target_summary) == "incompatible":
-        flags.append("--require-same-target")
-    if _comparability_gate_status(robustness_protocol_summary) == "incompatible":
-        flags.append("--require-same-robustness-protocol")
-    if _comparability_gate_status(operator_contract_summary) == "incompatible":
-        flags.append("--require-same-operator-contract")
-    if _comparability_gate_status(bundle_operator_contract_summary) == "incompatible":
-        flags.append("--require-same-bundle-operator-contract")
-    return flags
+    return _compare_blocking_flags_helper(
+        total_regressions=total_regressions,
+        split_summary=split_summary,
+        environment_summary=environment_summary,
+        target_summary=target_summary,
+        robustness_protocol_summary=robustness_protocol_summary,
+        operator_contract_summary=operator_contract_summary,
+        bundle_operator_contract_summary=bundle_operator_contract_summary,
+    )
 
 
 def _comparison_trust_gate(trust_status: object) -> str:
-    return "trusted" if str(trust_status) == "trust-signaled" else "limited"
+    gate = _comparison_trust_gate_helper(trust_status)
+    return str(gate) if gate is not None else "limited"
 
 
 def _comparison_trust_reason(
@@ -89,21 +93,12 @@ def _comparison_trust_reason(
     status_reasons: list[object],
     degraded_by: list[object],
 ) -> str | None:
-    reasons = [str(item) for item in status_reasons if str(item)]
-    degradations = [str(item) for item in degraded_by if str(item)]
-    if str(trust_status) == "trust-signaled":
-        if "calibration_audit_consistent" in reasons:
-            return "calibration_audit_consistent"
-        if reasons:
-            return reasons[0]
-    if degradations:
-        return degradations[0]
-    if str(quality_status) in {"reproducible", "partial"}:
-        return "calibration_audit_incomplete"
-    if reasons:
-        return reasons[0]
-    status_text = str(trust_status)
-    return status_text if status_text else None
+    return _comparison_trust_reason_helper(
+        trust_status=trust_status,
+        quality_status=quality_status,
+        status_reasons=status_reasons,
+        degraded_by=degraded_by,
+    )
 
 
 def _resolve_operator_contract_status(
@@ -147,41 +142,7 @@ def _resolve_bundle_operator_contract_status(
 
 
 def _format_run_brief(run: dict[str, object]) -> str:
-    artifact_quality = dict(run.get("artifact_quality", {}))
-    trust_summary = dict(artifact_quality.get("trust_summary", {}))
-    operator_contract_status = _resolve_operator_contract_status(
-        run=run,
-        trust_summary=trust_summary,
-    )
-    bundle_operator_contract_status = _resolve_bundle_operator_contract_status(
-        run=run,
-        trust_summary=trust_summary,
-    )
-    parts = [
-        f"{run['run_dir_name']}: {run.get('kind')} "
-        f"{run.get('dataset')}/{run.get('category')} "
-        f"{run.get('model_or_suite')}",
-        f"quality={artifact_quality.get('status')}",
-        f"trust={trust_summary.get('status')}",
-        f"operator_contract={operator_contract_status}",
-    ]
-
-    evaluation_contract = dict(run.get("evaluation_contract", {}))
-    metrics = dict(run.get("metrics", {}))
-    primary_metric = evaluation_contract.get("primary_metric", None)
-    if isinstance(primary_metric, str) and primary_metric:
-        metric_value = _format_metric_value(metrics.get(primary_metric, None))
-        if metric_value is not None:
-            parts.append(f"primary_metric={primary_metric}:{metric_value}")
-        else:
-            parts.append(f"primary_metric={primary_metric}")
-
-    status_reasons = list(trust_summary.get("status_reasons", []))
-    if status_reasons:
-        parts.append(f"reason={status_reasons[0]}")
-    parts.append(f"bundle_operator_contract={bundle_operator_contract_status}")
-
-    return " ".join(parts)
+    return runs_cli_rendering.format_run_brief_line(run)
 
 
 def _format_compare_run_brief(
@@ -190,41 +151,11 @@ def _format_compare_run_brief(
     primary_metric_name: str | None = None,
     primary_metric_row: dict[str, object] | None = None,
 ) -> str:
-    artifact_quality = dict(run.get("artifact_quality", {}))
-    trust_summary = dict(artifact_quality.get("trust_summary", {}))
-    operator_contract_status = _resolve_operator_contract_status(
-        run=run,
-        trust_summary=trust_summary,
+    return runs_cli_rendering.format_compare_run_brief_line(
+        run,
+        primary_metric_name=primary_metric_name,
+        primary_metric_row=primary_metric_row,
     )
-    bundle_operator_contract_status = _resolve_bundle_operator_contract_status(
-        run=run,
-        trust_summary=trust_summary,
-    )
-    parts = [
-        f"{run['run_dir_name']}: {run.get('model_or_suite')}",
-        f"quality={artifact_quality.get('status')}",
-        f"trust={trust_summary.get('status')}",
-        f"operator_contract={operator_contract_status}",
-    ]
-
-    metrics = dict(run.get("metrics", {}))
-    if isinstance(primary_metric_name, str) and primary_metric_name:
-        metric_value = _format_metric_value(metrics.get(primary_metric_name, None))
-        if metric_value is not None:
-            parts.append(f"primary_metric={primary_metric_name}:{metric_value}")
-        else:
-            parts.append(f"primary_metric={primary_metric_name}")
-
-    if isinstance(primary_metric_row, dict):
-        status = primary_metric_row.get("status", None)
-        if isinstance(status, str) and status:
-            parts.append(f"primary_metric_status={status}")
-        delta = _format_metric_value(primary_metric_row.get("delta_vs_baseline", None))
-        if delta is not None and str(status) != "baseline":
-            parts.append(f"primary_metric_delta={delta}")
-    parts.append(f"bundle_operator_contract={bundle_operator_contract_status}")
-
-    return " ".join(parts)
 
 
 def _format_candidate_comparability_gates(gates: dict[str, object]) -> str:

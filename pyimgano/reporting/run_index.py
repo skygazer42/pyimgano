@@ -6,6 +6,27 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
+from pyimgano.reporting.run_index_helpers import (
+    build_trust_comparison,
+)
+from pyimgano.reporting.run_index_helpers import (
+    bundle_operator_contract_status_from_trust_summary as _bundle_operator_contract_status_from_trust_summary_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    comparability_gate_status as _comparability_gate_status_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    compare_blocking_flags as _compare_blocking_flags_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    comparison_trust_gate as _comparison_trust_gate_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    comparison_trust_reason as _comparison_trust_reason_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
+    operator_contract_status_from_trust_summary as _operator_contract_status_from_trust_summary_helper,
+)
 from pyimgano.reporting.run_quality import evaluate_run_quality
 
 _REPORT_JSON = "report.json"
@@ -73,34 +94,19 @@ _QUALITY_STATUS_RANK = {
 
 
 def _comparison_trust_gate(trust_status: object) -> str | None:
-    status_text = str(trust_status) if trust_status is not None else ""
-    if not status_text:
-        return None
-    return "trusted" if status_text == "trust-signaled" else "limited"
+    return _comparison_trust_gate_helper(trust_status)
 
 
 def _operator_contract_status_from_trust_summary(
     trust_summary: Mapping[str, Any]
 ) -> tuple[str, bool]:
-    trust_signals = trust_summary.get("trust_signals", None)
-    signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
-    has_contract = bool(signal_map.get("has_operator_contract"))
-    is_consistent = bool(signal_map.get("has_operator_contract_consistent"))
-    if not has_contract:
-        return "missing", False
-    return ("consistent" if is_consistent else "mismatched"), bool(is_consistent)
+    return _operator_contract_status_from_trust_summary_helper(trust_summary)
 
 
 def _bundle_operator_contract_status_from_trust_summary(
     trust_summary: Mapping[str, Any],
 ) -> tuple[str, bool]:
-    trust_signals = trust_summary.get("trust_signals", None)
-    signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
-    has_contract = bool(signal_map.get("has_bundle_operator_contract"))
-    is_consistent = bool(signal_map.get("has_bundle_operator_contract_consistent"))
-    if not has_contract:
-        return "missing", False
-    return ("consistent" if is_consistent else "mismatched"), bool(is_consistent)
+    return _bundle_operator_contract_status_from_trust_summary_helper(trust_summary)
 
 
 def _comparison_trust_reason(
@@ -110,103 +116,22 @@ def _comparison_trust_reason(
     status_reasons: list[object],
     degraded_by: list[object],
 ) -> str | None:
-    reasons = [str(item) for item in status_reasons if str(item)]
-    degradations = [str(item) for item in degraded_by if str(item)]
-    if str(trust_status) == "trust-signaled":
-        if "calibration_audit_consistent" in reasons:
-            return "calibration_audit_consistent"
-        if reasons:
-            return reasons[0]
-    if degradations:
-        return degradations[0]
-    if str(quality_status) in {"reproducible", "partial"}:
-        return "calibration_audit_incomplete"
-    if reasons:
-        return reasons[0]
-    status_text = str(trust_status)
-    return status_text if status_text else None
+    return _comparison_trust_reason_helper(
+        trust_status=trust_status,
+        quality_status=quality_status,
+        status_reasons=status_reasons,
+        degraded_by=degraded_by,
+    )
 
 
 def _build_trust_comparison(
     baseline_summary: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
-    if not isinstance(baseline_summary, Mapping):
-        return {
-            "checked": False,
-            "quality_status": None,
-            "gate": None,
-            "status": None,
-            "reason": None,
-            "status_reasons": [],
-            "degraded_by": [],
-            "audit_refs": {},
-        }
-
-    artifact_quality = dict(baseline_summary.get("artifact_quality", {}))
-    trust_summary = dict(artifact_quality.get("trust_summary", {}))
-    trust_signals = trust_summary.get("trust_signals", None)
-    signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
-    (
-        operator_contract_status,
-        operator_contract_consistent,
-    ) = _operator_contract_status_from_trust_summary(trust_summary)
-    (
-        bundle_operator_contract_status,
-        bundle_operator_contract_consistent,
-    ) = _bundle_operator_contract_status_from_trust_summary(trust_summary)
-    baseline_operator_contract_status = baseline_summary.get("operator_contract_status", None)
-    if isinstance(baseline_operator_contract_status, str) and baseline_operator_contract_status:
-        operator_contract_status = str(baseline_operator_contract_status)
-        operator_contract_consistent = operator_contract_status == "consistent"
-    baseline_bundle_operator_contract_status = baseline_summary.get(
-        "bundle_operator_contract_status",
-        None,
-    )
-    if (
-        isinstance(baseline_bundle_operator_contract_status, str)
-        and baseline_bundle_operator_contract_status
-    ):
-        bundle_operator_contract_status = str(baseline_bundle_operator_contract_status)
-        bundle_operator_contract_consistent = bundle_operator_contract_status == "consistent"
-    quality_status = artifact_quality.get("status", None)
-    trust_status = trust_summary.get("status", None)
-    status_reasons = list(trust_summary.get("status_reasons", []))
-    degraded_by = list(trust_summary.get("degraded_by", []))
-    audit_refs = dict(trust_summary.get("audit_refs", {}))
-    return {
-        "checked": True,
-        "quality_status": (
-            str(quality_status) if isinstance(quality_status, str) and quality_status else None
-        ),
-        "gate": _comparison_trust_gate(trust_status),
-        "status": (str(trust_status) if isinstance(trust_status, str) and trust_status else None),
-        "reason": _comparison_trust_reason(
-            trust_status=trust_status,
-            quality_status=quality_status,
-            status_reasons=status_reasons,
-            degraded_by=degraded_by,
-        ),
-        "status_reasons": [str(item) for item in status_reasons if str(item)],
-        "degraded_by": [str(item) for item in degraded_by if str(item)],
-        "operator_contract_status": str(operator_contract_status),
-        "operator_contract_consistent": bool(operator_contract_consistent),
-        "bundle_operator_contract_status": str(bundle_operator_contract_status),
-        "bundle_operator_contract_consistent": bool(bundle_operator_contract_consistent),
-        "bundle_operator_contract_digests_valid": bool(
-            signal_map.get("has_bundle_operator_contract_digests_valid", False)
-        ),
-        "audit_refs": {
-            str(key): str(value) for key, value in audit_refs.items() if str(key) and str(value)
-        },
-    }
+    return build_trust_comparison(baseline_summary)
 
 
 def _comparability_gate_status(summary: Mapping[str, Any]) -> str:
-    if not bool(summary.get("checked")):
-        return "unchecked"
-    if int(summary.get("incompatible_runs", 0) or 0) > 0:
-        return "incompatible"
-    return "compatible"
+    return _comparability_gate_status_helper(summary)
 
 
 def _compare_blocking_flags(
@@ -219,22 +144,15 @@ def _compare_blocking_flags(
     operator_contract_summary: Mapping[str, Any],
     bundle_operator_contract_summary: Mapping[str, Any],
 ) -> list[str]:
-    flags: list[str] = []
-    if int(total_regressions) > 0:
-        flags.append("--fail-on-regression")
-    if _comparability_gate_status(split_summary) == "incompatible":
-        flags.append("--require-same-split")
-    if _comparability_gate_status(environment_summary) == "incompatible":
-        flags.append("--require-same-environment")
-    if _comparability_gate_status(target_summary) == "incompatible":
-        flags.append("--require-same-target")
-    if _comparability_gate_status(robustness_protocol_summary) == "incompatible":
-        flags.append("--require-same-robustness-protocol")
-    if _comparability_gate_status(operator_contract_summary) == "incompatible":
-        flags.append("--require-same-operator-contract")
-    if _comparability_gate_status(bundle_operator_contract_summary) == "incompatible":
-        flags.append("--require-same-bundle-operator-contract")
-    return flags
+    return _compare_blocking_flags_helper(
+        total_regressions=total_regressions,
+        split_summary=split_summary,
+        environment_summary=environment_summary,
+        target_summary=target_summary,
+        robustness_protocol_summary=robustness_protocol_summary,
+        operator_contract_summary=operator_contract_summary,
+        bundle_operator_contract_summary=bundle_operator_contract_summary,
+    )
 
 
 def _candidate_run_dir_names(
