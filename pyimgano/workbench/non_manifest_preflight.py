@@ -7,6 +7,10 @@ from pyimgano.workbench.non_manifest_category_listing import load_non_manifest_p
 from pyimgano.workbench.non_manifest_category_selection import (
     select_non_manifest_preflight_categories,
 )
+from pyimgano.workbench.non_manifest_preflight_flow import (
+    resolve_non_manifest_category_listing_summary,
+    resolve_non_manifest_preflight_source_or_summary,
+)
 from pyimgano.workbench.non_manifest_preflight_report import build_non_manifest_preflight_report
 from pyimgano.workbench.non_manifest_source_validation import resolve_non_manifest_preflight_source
 
@@ -22,8 +26,9 @@ def run_non_manifest_preflight(
         issues=issues,
         issue_builder=issue_builder,
     )
-    if source["summary"] is not None:
-        return source["summary"]
+    source_summary = resolve_non_manifest_preflight_source_or_summary(source)
+    if source_summary is not None:
+        return source_summary
 
     dataset = str(source["dataset"])
     root = source["root"]
@@ -36,8 +41,9 @@ def run_non_manifest_preflight(
         issues=issues,
         issue_builder=issue_builder,
     )
-    if category_listing["summary"] is not None:
-        return category_listing["summary"]
+    category_listing_summary = resolve_non_manifest_category_listing_summary(category_listing)
+    if category_listing_summary is not None:
+        return category_listing_summary
     categories = category_listing["categories"]
 
     select_non_manifest_preflight_categories(

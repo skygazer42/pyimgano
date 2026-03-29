@@ -292,11 +292,13 @@ def test_preflight_summary_module_hosts_dataset_dispatch_logic() -> None:
     source = helper_path.read_text(encoding="utf-8")
 
     assert "def resolve_workbench_preflight_summary(" in source
+    assert "pyimgano.workbench.preflight_dispatch" in source
+    assert "resolve_preflight_dataset_dispatch" in source
     assert "pyimgano.workbench.manifest_preflight" in source
     assert "pyimgano.workbench.non_manifest_preflight" in source
     assert "run_manifest_preflight" in source
     assert "run_non_manifest_preflight" in source
-    assert 'dataset.lower() == "manifest"' in source
+    assert 'dataset.lower() == "manifest"' not in source
 
 
 def test_preflight_uses_types_boundary() -> None:
@@ -1591,6 +1593,38 @@ def test_train_export_helper_modules_define_expected_public_exports() -> None:
             "require_run_dir",
             "rewrite_bundle_paths",
             "validate_export_request",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []
+
+
+def test_preflight_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "workbench/preflight_dispatch.py": [
+            "resolve_preflight_dataset_dispatch",
+        ],
+        "workbench/manifest_preflight_flow.py": [
+            "resolve_manifest_preflight_source_or_summary",
+            "resolve_manifest_record_preflight_summary",
+        ],
+        "workbench/non_manifest_preflight_flow.py": [
+            "resolve_non_manifest_category_listing_summary",
+            "resolve_non_manifest_preflight_source_or_summary",
         ],
     }
     violations: list[str] = []

@@ -5,6 +5,10 @@ from typing import Any, Callable
 from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.manifest_category_selection import select_manifest_preflight_categories
 from pyimgano.workbench.manifest_preflight_categories import preflight_manifest_categories
+from pyimgano.workbench.manifest_preflight_flow import (
+    resolve_manifest_preflight_source_or_summary,
+    resolve_manifest_record_preflight_summary,
+)
 from pyimgano.workbench.manifest_preflight_report import build_manifest_preflight_report
 from pyimgano.workbench.manifest_record_preflight import resolve_manifest_preflight_records
 from pyimgano.workbench.manifest_source_validation import resolve_manifest_preflight_source
@@ -22,8 +26,9 @@ def run_manifest_preflight(
         issues=issues,
         issue_builder=issue_builder,
     )
-    if source["summary"] is not None:
-        return source["summary"]
+    source_summary = resolve_manifest_preflight_source_or_summary(source)
+    if source_summary is not None:
+        return source_summary
 
     mp = source["manifest_path"]
     root_fallback = source["root_fallback"]
@@ -35,8 +40,9 @@ def run_manifest_preflight(
         issues=issues,
         issue_builder=issue_builder,
     )
-    if record_preflight["summary"] is not None:
-        return record_preflight["summary"]
+    record_summary = resolve_manifest_record_preflight_summary(record_preflight)
+    if record_summary is not None:
+        return record_summary
     records = record_preflight["records"]
     raw_categories = record_preflight["categories"]
 
