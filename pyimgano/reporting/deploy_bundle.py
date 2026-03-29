@@ -12,10 +12,16 @@ from pyimgano.reporting.deploy_bundle_validation_helpers import (
     operator_contract_audit_state as _operator_contract_audit_state_helper,
 )
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    source_run_context as _source_run_context_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
     validate_artifact_refs as _validate_artifact_refs_helper,
 )
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
     validate_exact_mapping as _validate_exact_mapping_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    validate_operator_contract_consistency as _validate_operator_contract_consistency_helper,
 )
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
     validate_operator_contract_digests_map as _validate_operator_contract_digests_map_helper,
@@ -453,66 +459,11 @@ def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> li
 
 
 def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
-    errors: list[str] = []
-
-    infer_config_path = bundle_root / _INFER_CONFIG_JSON
-    if not infer_config_path.is_file():
-        return errors
-
-    infer_payload = _load_optional_json_with_errors(
-        infer_config_path,
-        label=_INFER_CONFIG_JSON,
-        errors=errors,
+    return _validate_operator_contract_consistency_helper(
+        bundle_root,
+        infer_config_json=_INFER_CONFIG_JSON,
+        operator_contract_json=_OPERATOR_CONTRACT_JSON,
     )
-    if infer_payload is None:
-        return errors
-
-    operator_contract_path = bundle_root / _OPERATOR_CONTRACT_JSON
-    operator_contract_payload = _load_optional_json_with_errors(
-        operator_contract_path,
-        label=_OPERATOR_CONTRACT_JSON,
-        errors=errors,
-    )
-
-    has_operator_contract_file = operator_contract_path.is_file()
-    has_operator_contract_flag, audit_refs = _operator_contract_audit_state(infer_payload)
-    infer_operator_contract = infer_payload.get("operator_contract", None)
-    has_infer_operator_contract = isinstance(infer_operator_contract, Mapping)
-
-    _append_operator_contract_presence_errors(
-        errors,
-        audit_refs=audit_refs,
-        has_operator_contract_flag=has_operator_contract_flag,
-        has_operator_contract_file=has_operator_contract_file,
-        has_infer_operator_contract=has_infer_operator_contract,
-    )
-
-    if (
-        has_operator_contract_file
-        and has_infer_operator_contract
-        and isinstance(operator_contract_payload, Mapping)
-        and dict(infer_operator_contract) != dict(operator_contract_payload)
-    ):
-        errors.append(
-            f"operator_contract mismatch between {_INFER_CONFIG_JSON} and {_OPERATOR_CONTRACT_JSON}."
-        )
-
-    return errors
-
-
-def _load_optional_json_with_errors(
-    path: Path,
-    *,
-    label: str,
-    errors: list[str],
-) -> dict[str, Any] | None:
-    if not path.is_file():
-        return None
-    try:
-        return _load_json_dict(path)
-    except Exception as exc:  # noqa: BLE001 - validation boundary
-        errors.append(f"{label}: {exc}")
-        return None
 
 
 def _operator_contract_audit_state(
@@ -711,28 +662,7 @@ def _collect_manifest_entries(
 def _source_run_context(
     manifest: Mapping[str, Any],
 ) -> tuple[Mapping[str, Any], str | None, list[str]]:
-    errors: list[str] = []
-    source_artifact_refs: Mapping[str, Any] = {}
-    source_run_dir: str | None = None
-    source_run = manifest.get("source_run", None)
-    if not isinstance(source_run, Mapping):
-        return source_artifact_refs, source_run_dir, errors
-
-    source_run_dir_value = source_run.get("run_dir", None)
-    if isinstance(source_run_dir_value, str) and source_run_dir_value.strip():
-        source_run_dir = str(source_run_dir_value)
-    artifact_refs = source_run.get("artifact_refs", None)
-    if isinstance(artifact_refs, Mapping):
-        source_artifact_refs = artifact_refs
-    if isinstance(source_run_dir, str) and source_run_dir:
-        errors.extend(
-            _validate_artifact_refs(
-                artifact_refs,
-                field_name="source_run.artifact_refs",
-                root=Path(source_run_dir),
-            )
-        )
-    return source_artifact_refs, source_run_dir, errors
+    return _source_run_context_helper(manifest)
 
 
 def validate_deploy_bundle_manifest(

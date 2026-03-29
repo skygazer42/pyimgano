@@ -119,3 +119,51 @@ def test_append_operator_contract_presence_errors_reports_missing_ref_and_file()
     assert any("artifact_quality.audit_refs.operator_contract" in item for item in errors)
     assert any("requires operator_contract.json" in item for item in errors)
     assert any("infer_config.operator_contract payload" in item for item in errors)
+
+
+def test_source_run_context_validates_artifact_refs_when_run_dir_present(tmp_path) -> None:
+    from pyimgano.reporting.deploy_bundle_validation_helpers import source_run_context
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    (artifacts / "infer_config.json").write_text("{}", encoding="utf-8")
+
+    refs, run_dir_value, errors = source_run_context(
+        {
+            "source_run": {
+                "run_dir": str(run_dir),
+                "artifact_refs": {"infer_config": "artifacts/infer_config.json"},
+            }
+        }
+    )
+
+    assert refs == {"infer_config": "artifacts/infer_config.json"}
+    assert run_dir_value == str(run_dir)
+    assert errors == []
+
+
+def test_validate_operator_contract_consistency_reports_payload_mismatch(tmp_path) -> None:
+    from pyimgano.reporting.deploy_bundle_validation_helpers import (
+        validate_operator_contract_consistency,
+    )
+
+    bundle_root = tmp_path / "bundle"
+    bundle_root.mkdir(parents=True, exist_ok=True)
+    (bundle_root / "infer_config.json").write_text(
+        '{"operator_contract":{"schema_version":1},"artifact_quality":{"has_operator_contract":true,"audit_refs":{"operator_contract":"operator_contract.json"}}}',
+        encoding="utf-8",
+    )
+    (bundle_root / "operator_contract.json").write_text(
+        '{"schema_version":2}',
+        encoding="utf-8",
+    )
+
+    errors = validate_operator_contract_consistency(
+        bundle_root,
+        infer_config_json="infer_config.json",
+        operator_contract_json="operator_contract.json",
+    )
+
+    assert any("operator_contract mismatch" in item for item in errors)

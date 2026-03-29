@@ -1650,8 +1650,10 @@ def test_deploy_bundle_validation_helper_module_define_expected_public_exports()
         "reporting/deploy_bundle_validation_helpers.py": [
             "append_operator_contract_presence_errors",
             "operator_contract_audit_state",
+            "source_run_context",
             "validate_artifact_refs",
             "validate_exact_mapping",
+            "validate_operator_contract_consistency",
             "validate_operator_contract_digests_map",
             "validate_required_presence_flag",
             "validate_weight_audit_files",
