@@ -247,8 +247,9 @@ pyimgano-infer \
 ```
 
 The JSONL output carries stable deployment metadata for downstream systems, including
-`decision_summary` on each success record; Python best-effort batch integrations also
-receive a `triage_summary` aggregate from `run_continue_on_error_inference(...)`.
+`decision_summary` on each success record and `postprocess_summary` whenever runtime
+postprocess / infer-config defaults are in play; Python best-effort batch integrations
+also receive a `triage_summary` aggregate from `run_continue_on_error_inference(...)`.
 
 <details>
 <summary><b>One-off inference (no workbench)</b></summary>
@@ -522,6 +523,7 @@ graph LR
 - **ROI gating** — only flag defects inside the region of interest
 - **Morphology** — open/close/fill holes to reduce noise
 - **Stable triage metadata** — per-record `decision_summary` for review routing and low-confidence rejection handling
+- **Stable runtime metadata** — per-record `postprocess_summary` for map/postprocess/threshold provenance
 
 > 📖 Guides: `docs/INDUSTRIAL_INFERENCE.md` · `docs/FALSE_POSITIVE_DEBUGGING.md`
 

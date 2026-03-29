@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
-import pyimgano.cli_discovery_options as cli_discovery_options
-import pyimgano.cli_discovery_rendering as cli_discovery_rendering
-import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
-import pyimgano.services.discovery_service as discovery_service
+import pyimgano.infer_cli_discovery as infer_cli_discovery
+import pyimgano.infer_cli_onnx as infer_cli_onnx
+import pyimgano.infer_cli_profile as infer_cli_profile
 import pyimgano.services.infer_artifact_service as infer_artifact_service
 import pyimgano.services.infer_context_service as infer_context_service
 import pyimgano.services.infer_continue_service as infer_continue_service
@@ -21,246 +17,20 @@ import pyimgano.services.infer_options_service as infer_options_service
 import pyimgano.services.infer_output_service as infer_output_service
 import pyimgano.services.infer_runtime_service as infer_runtime_service
 import pyimgano.services.infer_wrapper_service as infer_wrapper_service
+from pyimgano.infer_cli_inputs import (
+    collect_image_paths,
+    parse_csv_ints_arg,
+    parse_csv_strs_arg,
+    parse_json_mapping_arg,
+)
 from pyimgano.inference.api import InferenceTiming, calibrate_threshold
 from pyimgano.models.registry import create_model
 
-_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
-
-
-def _parse_json_mapping_arg(text: str, *, arg_name: str) -> dict[str, Any]:
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{arg_name} must be valid JSON. Original error: {exc}") from exc
-
-    if not isinstance(parsed, dict):
-        raise ValueError(f"{arg_name} must be a JSON object (e.g. '{{\"k\": 1}}').")
-
-    return dict(parsed)
-
-
-def _parse_csv_ints_arg(text: str, *, arg_name: str) -> list[int]:
-    raw = [t.strip() for t in str(text).split(",")]
-    out: list[int] = []
-    for item in raw:
-        if not item:
-            continue
-        try:
-            out.append(int(item))
-        except Exception as exc:  # noqa: BLE001 - CLI boundary
-            raise ValueError(
-                f"{arg_name} must be a comma-separated list of ints, got {text!r}"
-            ) from exc
-    return out
-
-
-def _parse_csv_strs_arg(text: str, *, arg_name: str) -> list[str]:
-    del arg_name
-    raw = [t.strip() for t in str(text).split(",")]
-    return [t for t in raw if t]
-
-
-def _apply_onnx_session_options_shorthand(
-    *,
-    model_name: str,
-    user_kwargs: dict[str, Any],
-    session_options: dict[str, Any] | None,
-) -> dict[str, Any]:
-    import pyimgano.services.model_options as model_options
-
-    return model_options.apply_onnx_session_options_shorthand(
-        model_name=model_name,
-        user_kwargs=user_kwargs,
-        session_options=session_options,
-    )
-
-
-def _default_onnx_sweep_intra_values() -> list[int]:
-    import os
-
-    n = int(os.cpu_count() or 8)
-    cap = max(1, min(n, 16))
-    vals = [1, 2, 4, 8, 16]
-    out = [v for v in vals if v <= cap]
-    return out or [1]
-
-
-def _run_onnx_session_options_sweep(
-    *,
-    checkpoint_path: str,
-    device: str,
-    image_size: int,
-    batch_size: int,
-    inputs: list[str],
-    base_session_options: dict[str, Any],
-    intra_values: list[int],
-    opt_levels: list[str],
-    repeats: int,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Run a small timing+stability sweep for onnx_embed SessionOptions."""
-
-    import statistics
-    import time
-
-    if str(device).strip().lower() != "cpu":
-        raise ValueError("--onnx-sweep currently supports device='cpu' only.")
-    if repeats <= 0:
-        raise ValueError("--onnx-sweep-repeats must be > 0")
-    if not inputs:
-        raise ValueError("--onnx-sweep requires at least one input image")
-
-    from pyimgano.features.onnx_embed import ONNXEmbedExtractor
-
-    sample_inputs = list(inputs)
-
-    candidates: list[dict[str, Any]] = []
-    best: dict[str, Any] | None = None
-
-    for intra in intra_values:
-        for opt in opt_levels:
-            so = dict(base_session_options)
-            so["intra_op_num_threads"] = int(intra)
-            so["graph_optimization_level"] = str(opt)
-
-            row: dict[str, Any] = {"session_options": dict(so)}
-            try:
-                extractor = ONNXEmbedExtractor(
-                    checkpoint_path=str(checkpoint_path),
-                    device="cpu",
-                    batch_size=int(batch_size),
-                    image_size=int(image_size),
-                    session_options=dict(so),
-                )
-
-                # Warm up to materialize the ORT session and stabilize timings.
-                extractor.extract(sample_inputs[:1])
-
-                timings: list[float] = []
-                first_out = None
-                second_out = None
-                for i in range(int(repeats)):
-                    t0 = time.perf_counter()
-                    out = extractor.extract(sample_inputs)
-                    t1 = time.perf_counter()
-                    timings.append(float(t1 - t0))
-                    if i == 0:
-                        first_out = np.asarray(out)
-                    elif i == 1:
-                        second_out = np.asarray(out)
-
-                stable = True
-                if first_out is None:
-                    stable = False
-                else:
-                    stable = bool(np.all(np.isfinite(first_out)))
-                if stable and (first_out is not None) and (second_out is not None):
-                    stable = bool(np.allclose(first_out, second_out, rtol=1e-5, atol=1e-6))
-
-                row.update(
-                    {
-                        "ok": True,
-                        "stable": bool(stable),
-                        "timing_seconds": list(timings),
-                        "median_seconds": float(statistics.median(timings)) if timings else None,
-                        "stdev_seconds": (
-                            float(statistics.pstdev(timings)) if len(timings) >= 2 else 0.0
-                        ),
-                    }
-                )
-            except Exception as exc:  # noqa: BLE001 - CLI boundary
-                row.update(
-                    {
-                        "ok": False,
-                        "stable": False,
-                        "error": {
-                            "type": type(exc).__name__,
-                            "message": str(exc),
-                        },
-                    }
-                )
-
-            candidates.append(row)
-
-            if bool(row.get("ok")) and bool(row.get("stable")):
-                if best is None:
-                    best = dict(row)
-                else:
-                    # Rank by median latency; tie-break by lower stdev.
-                    a = float(row.get("median_seconds") or 1e99)
-                    b = float(best.get("median_seconds") or 1e99)
-                    if a < b:
-                        best = dict(row)
-                    elif a == b:
-                        sa = float(row.get("stdev_seconds") or 1e99)
-                        sb = float(best.get("stdev_seconds") or 1e99)
-                        if sa < sb:
-                            best = dict(row)
-
-    payload = {
-        "checkpoint_path": str(checkpoint_path),
-        "device": str(device),
-        "image_size": int(image_size),
-        "batch_size": int(batch_size),
-        "samples": int(len(sample_inputs)),
-        "repeats": int(repeats),
-        "grid": {
-            "intra_op_num_threads": [int(v) for v in intra_values],
-            "graph_optimization_level": [str(v) for v in opt_levels],
-        },
-        "base_session_options": dict(base_session_options),
-        "candidates": list(candidates),
-        "best": None if best is None else dict(best),
-    }
-
-    if best is None:
-        raise RuntimeError(
-            "ONNX sweep failed: no stable candidates. "
-            "Try reducing the grid (threads/opt-levels) or inspect --onnx-sweep-json."
-        )
-
-    best_opts = dict(best.get("session_options") or {})
-    return best_opts, payload
-
-
-def _extract_onnx_checkpoint_path_for_sweep(user_kwargs: dict[str, Any]) -> str | None:
-    ckpt = user_kwargs.get("checkpoint_path", None)
-    if ckpt is not None and str(ckpt).strip():
-        return str(ckpt)
-
-    ek = user_kwargs.get("embedding_kwargs", None)
-    if isinstance(ek, dict):
-        ckpt2 = ek.get("checkpoint_path", None)
-        if ckpt2 is not None and str(ckpt2).strip():
-            return str(ckpt2)
-
-    fx = user_kwargs.get("feature_extractor", None)
-    if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
-        kw = fx.get("kwargs", None)
-        if isinstance(kw, dict):
-            ckpt3 = kw.get("checkpoint_path", None)
-            if ckpt3 is not None and str(ckpt3).strip():
-                return str(ckpt3)
-
-    return None
-
-
-def _extract_session_options_for_sweep(user_kwargs: dict[str, Any]) -> dict[str, Any]:
-    so = user_kwargs.get("session_options", None)
-    if isinstance(so, dict):
-        return dict(so)
-    ek = user_kwargs.get("embedding_kwargs", None)
-    if isinstance(ek, dict):
-        so2 = ek.get("session_options", None)
-        if isinstance(so2, dict):
-            return dict(so2)
-    fx = user_kwargs.get("feature_extractor", None)
-    if isinstance(fx, dict) and str(fx.get("name", "")).strip() == "onnx_embed":
-        kw = fx.get("kwargs", None)
-        if isinstance(kw, dict):
-            so3 = kw.get("session_options", None)
-            if isinstance(so3, dict):
-                return dict(so3)
-    return {}
+_apply_onnx_session_options_shorthand = infer_cli_onnx.apply_onnx_session_options_shorthand
+_default_onnx_sweep_intra_values = infer_cli_onnx.default_onnx_sweep_intra_values
+_run_onnx_session_options_sweep = infer_cli_onnx.run_onnx_session_options_sweep
+_extract_onnx_checkpoint_path_for_sweep = infer_cli_onnx.extract_onnx_checkpoint_path_for_sweep
+_extract_session_options_for_sweep = infer_cli_onnx.extract_session_options_for_sweep
 
 
 def _maybe_apply_onnx_session_options_and_sweep(
@@ -272,66 +42,15 @@ def _maybe_apply_onnx_session_options_and_sweep(
     inputs: list[str],
     onnx_session_options_cli: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Apply --onnx-session-options and/or --onnx-sweep to model kwargs (best-effort)."""
-
-    if not bool(getattr(args, "onnx_sweep", False)) and not onnx_session_options_cli:
-        return dict(user_kwargs)
-
-    if bool(getattr(args, "onnx_sweep", False)):
-        sweep_inputs = inputs[: int(getattr(args, "onnx_sweep_samples", 32) or 32)]
-        intra_values = (
-            _parse_csv_ints_arg(str(args.onnx_sweep_intra), arg_name="--onnx-sweep-intra")
-            if getattr(args, "onnx_sweep_intra", None)
-            else _default_onnx_sweep_intra_values()
-        )
-        opt_levels = (
-            _parse_csv_strs_arg(str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels")
-            if getattr(args, "onnx_sweep_opt_levels", None)
-            else ["all", "extended"]
-        )
-
-        base_so = _extract_session_options_for_sweep(user_kwargs)
-        if onnx_session_options_cli:
-            base_so.update(dict(onnx_session_options_cli))
-
-        ckpt_for_sweep = _extract_onnx_checkpoint_path_for_sweep(user_kwargs)
-        if ckpt_for_sweep is None:
-            raise ValueError(
-                "--onnx-sweep requires checkpoint_path for ONNX models. "
-                "Provide --checkpoint-path (or set checkpoint_path in --model-kwargs)."
-            )
-
-        best_so, sweep_payload = _run_onnx_session_options_sweep(
-            checkpoint_path=str(ckpt_for_sweep),
-            device=str(device),
-            image_size=int(user_kwargs.get("image_size", 224)),
-            batch_size=int(user_kwargs.get("batch_size", 16)),
-            inputs=list(sweep_inputs),
-            base_session_options=dict(base_so),
-            intra_values=[int(v) for v in intra_values],
-            opt_levels=[str(v) for v in opt_levels],
-            repeats=int(getattr(args, "onnx_sweep_repeats", 3)),
-        )
-
-        if getattr(args, "onnx_sweep_json", None) is not None:
-            sweep_path = Path(str(args.onnx_sweep_json))
-            sweep_path.parent.mkdir(parents=True, exist_ok=True)
-            sweep_path.write_text(
-                json.dumps({"tool": "pyimgano-infer", "onnx_sweep": sweep_payload}, indent=2),
-                encoding="utf-8",
-            )
-
-        return _apply_onnx_session_options_shorthand(
-            model_name=model_name,
-            user_kwargs=dict(user_kwargs),
-            session_options=dict(best_so),
-        )
-
-    # No sweep: just apply the shorthand.
-    return _apply_onnx_session_options_shorthand(
+    return infer_cli_onnx.maybe_apply_onnx_session_options_and_sweep(
+        args=args,
         model_name=model_name,
-        user_kwargs=dict(user_kwargs),
-        session_options=dict(onnx_session_options_cli or {}),
+        device=device,
+        user_kwargs=user_kwargs,
+        inputs=inputs,
+        onnx_session_options_cli=onnx_session_options_cli,
+        parse_csv_ints_arg=parse_csv_ints_arg,
+        parse_csv_strs_arg=parse_csv_strs_arg,
     )
 
 
@@ -383,6 +102,67 @@ def _resolve_prediction_cli_options(
         reject_confidence_below is not None
     )
     return bool(include_confidence), reject_confidence_below, reject_label
+
+
+def _build_direct_postprocess_summary(
+    args: argparse.Namespace,
+    *,
+    reject_confidence_below: float | None,
+    reject_label: int | None,
+) -> dict[str, Any] | None:
+    defects_enabled = bool(getattr(args, "defects", False))
+    maps_requested = bool(getattr(args, "include_maps", False))
+    map_postprocess_requested = bool(getattr(args, "postprocess", False))
+    has_tiling = getattr(args, "tile_size", None) is not None
+    has_prediction_policy = reject_confidence_below is not None or reject_label is not None
+
+    if not any(
+        (
+            defects_enabled,
+            maps_requested,
+            map_postprocess_requested,
+            has_tiling,
+            has_prediction_policy,
+        )
+    ):
+        return None
+
+    prediction_policy = None
+    if has_prediction_policy:
+        prediction_policy = {
+            "reject_confidence_below": (
+                float(reject_confidence_below) if reject_confidence_below is not None else None
+            ),
+            "reject_label": (int(reject_label) if reject_label is not None else None),
+        }
+
+    tiling_summary = None
+    if has_tiling:
+        tiling_summary = {
+            "tile_size": int(args.tile_size),
+            "stride": (int(args.tile_stride) if args.tile_stride is not None else None),
+            "score_reduce": str(args.tile_score_reduce),
+            "score_topk": float(args.tile_score_topk),
+            "map_reduce": str(args.tile_map_reduce),
+        }
+
+    return {
+        "has_defects_payload": bool(defects_enabled),
+        "defects_payload_source": ("cli" if defects_enabled else None),
+        "pixel_threshold_in_payload": (getattr(args, "pixel_threshold", None) is not None),
+        "pixel_threshold_strategy": (
+            str(args.pixel_threshold_strategy)
+            if defects_enabled or getattr(args, "pixel_threshold", None) is not None
+            else None
+        ),
+        "has_prediction_policy": bool(has_prediction_policy),
+        "prediction_policy": prediction_policy,
+        "has_tiling": bool(has_tiling),
+        "tiling_summary": tiling_summary,
+        "has_map_postprocess": bool(map_postprocess_requested),
+        "map_postprocess_summary": None,
+        "maps_enabled_by_default": False,
+    }
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -916,23 +696,6 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _collect_image_paths(raw: str | Path) -> list[str]:
-    path = Path(raw)
-    if not path.exists():
-        raise FileNotFoundError(f"Input not found: {path}")
-
-    if path.is_file():
-        if path.suffix.lower() not in _IMAGE_SUFFIXES:
-            raise ValueError(f"Unsupported image type: {path}")
-        return [str(path)]
-
-    out: list[str] = []
-    for p in sorted(path.rglob("*")):
-        if p.is_file() and p.suffix.lower() in _IMAGE_SUFFIXES:
-            out.append(str(p))
-    return out
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -949,72 +712,9 @@ def main(argv: list[str] | None = None) -> int:
 
         preprocessing_preset_knobs = _resolve_preprocessing_preset_knobs(args)
 
-        list_models = bool(getattr(args, "list_models", False))
-        list_model_presets = bool(getattr(args, "list_model_presets", False))
-        cli_discovery_options.validate_mutually_exclusive_flags(
-            [
-                ("--list-models", list_models),
-                ("--model-info", getattr(args, "model_info", None) is not None),
-                ("--list-model-presets", list_model_presets),
-                ("--model-preset-info", getattr(args, "model_preset_info", None) is not None),
-            ]
-        )
-        model_list_options = cli_discovery_options.resolve_model_list_discovery_options(
-            list_models=list_models,
-            tags=getattr(args, "tags", None),
-            family=getattr(args, "family", None),
-            algorithm_type=getattr(args, "algorithm_type", None),
-            year=getattr(args, "year", None),
-            allow_family_without_list_models=list_model_presets,
-        )
-
-        if list_models:
-            names = discovery_service.list_discovery_model_names(
-                tags=model_list_options.tags,
-                family=model_list_options.family,
-                algorithm_type=model_list_options.algorithm_type,
-                year=model_list_options.year,
-            )
-            return cli_listing.emit_listing(
-                names,
-                json_output=bool(getattr(args, "json", False)),
-                sort_keys=False,
-            )
-
-        if getattr(args, "model_info", None) is not None:
-            model_name = str(getattr(args, "model_info"))
-            payload = discovery_service.build_model_info_payload(model_name)
-            return cli_discovery_rendering.emit_signature_payload(
-                payload,
-                json_output=bool(getattr(args, "json", False)),
-            )
-
-        if list_model_presets:
-            names = discovery_service.list_model_preset_names(
-                tags=model_list_options.tags,
-                family=model_list_options.family,
-            )
-            json_output = bool(getattr(args, "json", False))
-            json_payload = None
-            if json_output:
-                json_payload = discovery_service.list_model_preset_infos_payload(
-                    tags=model_list_options.tags,
-                    family=model_list_options.family,
-                )
-            return cli_listing.emit_listing(
-                names,
-                json_output=json_output,
-                json_payload=json_payload,
-                sort_keys=False,
-            )
-
-        if getattr(args, "model_preset_info", None) is not None:
-            preset_name = str(getattr(args, "model_preset_info"))
-            payload = discovery_service.build_model_preset_info_payload(preset_name)
-            return cli_discovery_rendering.emit_model_preset_payload(
-                payload,
-                json_output=bool(getattr(args, "json", False)),
-            )
+        discovery_rc = infer_cli_discovery.maybe_run_infer_discovery_command(args)
+        if discovery_rc is not None:
+            return int(discovery_rc)
 
         t_total_start = time.perf_counter()
         t_load_model = 0.0
@@ -1030,7 +730,7 @@ def main(argv: list[str] | None = None) -> int:
 
         onnx_session_options_cli: dict[str, Any] | None = None
         if getattr(args, "onnx_session_options", None) is not None:
-            onnx_session_options_cli = _parse_json_mapping_arg(
+            onnx_session_options_cli = parse_json_mapping_arg(
                 str(args.onnx_session_options), arg_name="--onnx-session-options"
             )
 
@@ -1042,7 +742,7 @@ def main(argv: list[str] | None = None) -> int:
 
         inputs: list[str] = []
         for raw in args.input:
-            inputs.extend(_collect_image_paths(raw))
+            inputs.extend(collect_image_paths(raw))
         if not inputs:
             raise ValueError("No input images found.")
 
@@ -1268,7 +968,7 @@ def main(argv: list[str] | None = None) -> int:
         t_fit_start = time.perf_counter()
         train_paths: list[str] = []
         if args.train_dir is not None:
-            train_paths = _collect_image_paths(args.train_dir)
+            train_paths = collect_image_paths(args.train_dir)
             if not train_paths:
                 raise ValueError(f"No images found in --train-dir={args.train_dir!r}")
             detector.fit(train_paths)
@@ -1308,6 +1008,12 @@ def main(argv: list[str] | None = None) -> int:
             args,
             prediction_payload=prediction_payload,
         )
+        if context_postprocess_summary is None:
+            context_postprocess_summary = _build_direct_postprocess_summary(
+                args,
+                reject_confidence_below=reject_confidence_below,
+                reject_label=reject_label,
+            )
 
         runtime_plan = infer_runtime_service.prepare_infer_runtime_plan(
             infer_runtime_service.InferRuntimePlanRequest(
@@ -1537,42 +1243,29 @@ def main(argv: list[str] | None = None) -> int:
         if bool(args.profile):
             total = time.perf_counter() - t_total_start
             print(
-                "profile: "
-                + " ".join(
-                    [
-                        f"load_model={t_load_model:.3f}s",
-                        f"fit_calibrate={t_fit_calibrate:.3f}s",
-                        f"infer={t_infer:.3f}s",
-                        f"artifacts={t_artifacts:.3f}s",
-                        f"total={total:.3f}s",
-                    ]
+                infer_cli_profile.format_infer_profile_summary(
+                    load_model=t_load_model,
+                    fit_calibrate=t_fit_calibrate,
+                    infer=t_infer,
+                    artifacts=t_artifacts,
+                    total=total,
                 ),
                 file=sys.stderr,
             )
 
         if args.profile_json is not None:
-            profile_path = Path(str(args.profile_json))
-            profile_path.parent.mkdir(parents=True, exist_ok=True)
             total = time.perf_counter() - t_total_start
-            profile_payload = {
-                "tool": "pyimgano-infer",
-                "counts": {
-                    "inputs": int(len(inputs)),
-                    "processed": int(len(inputs) if not bool(continue_on_error) else processed),
-                    "errors": int(errors),
-                },
-                "timing_seconds": {
-                    "load_model": float(t_load_model),
-                    "fit_calibrate": float(t_fit_calibrate),
-                    "infer": float(t_infer),
-                    "artifacts": float(t_artifacts),
-                    "total": float(total),
-                },
-            }
-            profile_path.write_text(
-                json.dumps(profile_payload, indent=2, sort_keys=True),
-                encoding="utf-8",
+            profile_payload = infer_cli_profile.build_infer_profile_payload(
+                inputs=len(inputs),
+                processed=(len(inputs) if not bool(continue_on_error) else processed),
+                errors=errors,
+                load_model=t_load_model,
+                fit_calibrate=t_fit_calibrate,
+                infer=t_infer,
+                artifacts=t_artifacts,
+                total=total,
             )
+            infer_cli_profile.write_infer_profile_payload(args.profile_json, profile_payload)
 
         if bool(continue_on_error) and int(errors) > 0:
             return 1

@@ -4,16 +4,29 @@ import time
 import warnings
 from contextlib import ExitStack
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Optional, Sequence, Union, cast
+from typing import Any, Optional, Sequence, cast
 
 import numpy as np
 
+from pyimgano.inference.decision_summary import maybe_build_decision_summary
 from pyimgano.inference.runtime_adapter import extract_maps_best_effort, score_and_maps
-from pyimgano.inputs.image_format import ImageFormat, normalize_numpy_image, parse_image_format
+from pyimgano.inference.runtime_support import (
+    ImageInput,
+)
+from pyimgano.inference.runtime_support import (
+    apply_rejection_policy as _apply_rejection_policy_shared,
+)
+from pyimgano.inference.runtime_support import (
+    best_effort_label_confidence as _best_effort_label_confidence_shared,
+)
+from pyimgano.inference.runtime_support import (
+    normalize_inputs as _normalize_inputs_shared,
+)
+from pyimgano.inference.runtime_support import (
+    resolve_rejection_threshold as _resolve_rejection_threshold_shared,
+)
+from pyimgano.inputs.image_format import ImageFormat
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
-
-ImageInput = Union[str, Path, np.ndarray]
 
 
 @dataclass(frozen=True)
@@ -40,31 +53,7 @@ def _normalize_inputs(
     input_format: str | ImageFormat | None,
     u16_max: int | None = None,
 ) -> list[str] | list[np.ndarray]:
-    if not inputs:
-        return []
-
-    first = inputs[0]
-    if isinstance(first, (str, Path)):
-        # Path-based callers: keep as strings, let detectors handle loading.
-        out = []
-        for item in inputs:
-            if not isinstance(item, (str, Path)):
-                raise TypeError("Mixed input types are not supported (paths + arrays).")
-            out.append(str(item))
-        return out
-
-    if isinstance(first, np.ndarray):
-        if input_format is None:
-            raise ValueError("input_format is required when passing numpy images.")
-        fmt = parse_image_format(input_format)
-        out_arr: list[np.ndarray] = []
-        for item in inputs:
-            if not isinstance(item, np.ndarray):
-                raise TypeError("Mixed input types are not supported (paths + arrays).")
-            out_arr.append(normalize_numpy_image(item, input_format=fmt, u16_max=u16_max))
-        return out_arr
-
-    raise TypeError(f"Unsupported input type: {type(first)}. Expected str|Path|np.ndarray.")
+    return _normalize_inputs_shared(inputs, input_format=input_format, u16_max=u16_max)
 
 
 def calibrate_threshold(
@@ -217,36 +206,16 @@ def _best_effort_label_confidence(
     scores: np.ndarray,
     labels: np.ndarray | None,
 ) -> np.ndarray | None:
-    helper = getattr(detector, "_label_confidence_from_scores", None)
-    if callable(helper):
-        try:
-            conf = helper(scores, labels=labels)
-            arr = np.asarray(conf, dtype=np.float64).reshape(-1)
-            if arr.shape[0] == int(scores.shape[0]):
-                return np.clip(arr, 0.0, 1.0)
-        except Exception:
-            pass
-
-    predictor = getattr(detector, "predict_confidence", None)
-    if callable(predictor):
-        try:
-            conf = predictor(inputs)
-            arr = np.asarray(conf, dtype=np.float64).reshape(-1)
-            if arr.shape[0] == int(scores.shape[0]):
-                return np.clip(arr, 0.0, 1.0)
-        except Exception:
-            return None
-
-    return None
+    return _best_effort_label_confidence_shared(
+        detector,
+        inputs,
+        scores=scores,
+        labels=labels,
+    )
 
 
 def _resolve_rejection_threshold(value: float | None) -> float | None:
-    if value is None:
-        return None
-    thr = float(value)
-    if not 0.0 < thr <= 1.0:
-        raise ValueError(f"reject_confidence_below must be in (0, 1], got {value!r}")
-    return thr
+    return _resolve_rejection_threshold_shared(value)
 
 
 def _apply_rejection_policy(
@@ -257,72 +226,19 @@ def _apply_rejection_policy(
     reject_confidence_below: float | None,
     reject_label: int | None,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
-    thr = _resolve_rejection_threshold(reject_confidence_below)
-    if thr is None:
-        return labels, None
-    if labels is None:
-        raise RuntimeError("Confidence rejection requires threshold-based label predictions.")
-    if confidences is None:
-        raise RuntimeError("Confidence rejection requires detector confidence support.")
-
-    labels_arr = np.asarray(labels, dtype=np.int64).reshape(-1).copy()
-    conf_arr = np.asarray(confidences, dtype=np.float64).reshape(-1)
-    rejected = conf_arr < float(thr)
-    marker = int(getattr(detector, "reject_label", -2) if reject_label is None else reject_label)
-    labels_arr[rejected] = marker
-    return labels_arr, rejected.astype(bool)
-
-
-def _build_decision_summary(
-    *,
-    label: int | None,
-    label_confidence: float | None,
-    rejected: bool | None,
-) -> dict[str, Any]:
-    rejected_flag = bool(rejected)
-    threshold_applied = label is not None
-    has_confidence = label_confidence is not None
-
-    if rejected_flag:
-        decision = "rejected_low_confidence"
-        requires_review = True
-        review_reason = "low_confidence"
-    elif label is None:
-        decision = "score_only"
-        requires_review = False
-        review_reason = "unthresholded_score"
-    elif int(label) == 0:
-        decision = "normal"
-        requires_review = False
-        review_reason = "none"
-    else:
-        decision = "anomalous"
-        requires_review = True
-        review_reason = "anomaly_label"
-
-    return {
-        "decision": str(decision),
-        "threshold_applied": bool(threshold_applied),
-        "has_confidence": bool(has_confidence),
-        "rejected": bool(rejected_flag),
-        "requires_review": bool(requires_review),
-        "review_reason": str(review_reason),
-    }
-
-
-def _maybe_build_decision_summary(
-    *,
-    label: int | None,
-    label_confidence: float | None,
-    rejected: bool | None,
-) -> dict[str, Any] | None:
-    if label is None and label_confidence is None and rejected is None:
-        return None
-    return _build_decision_summary(
-        label=label,
-        label_confidence=label_confidence,
-        rejected=rejected,
+    return _apply_rejection_policy_shared(
+        detector=detector,
+        labels=labels,
+        confidences=confidences,
+        reject_confidence_below=reject_confidence_below,
+        reject_label=reject_label,
     )
+
+
+def _copy_optional_summary(summary: dict[str, Any] | None) -> dict[str, Any] | None:
+    if summary is None:
+        return None
+    return dict(summary)
 
 
 def infer(
@@ -548,8 +464,8 @@ def infer_iter(
                 label_confidence=label_confidence,
                 rejected=rejected_flag,
                 anomaly_map=anomaly_map,
-                postprocess_summary=summary_payload,
-                decision_summary=_maybe_build_decision_summary(
+                postprocess_summary=_copy_optional_summary(summary_payload),
+                decision_summary=maybe_build_decision_summary(
                     label=label,
                     label_confidence=label_confidence,
                     rejected=rejected_flag,

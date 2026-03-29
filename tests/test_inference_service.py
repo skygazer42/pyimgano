@@ -48,3 +48,21 @@ def test_run_inference_uses_runtime_adapter_score_path(monkeypatch):
         label=None,
         anomaly_map=None,
     )
+
+
+def test_run_inference_copies_postprocess_summary_per_record() -> None:
+    summary = {"maps_enabled": False}
+    x = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(2)]
+
+    result = run_inference(
+        detector=_DummyDetector(),
+        inputs=x,
+        input_format="rgb_u8_hwc",
+        postprocess_summary=summary,
+    )
+
+    assert result.records[0].postprocess_summary == {"maps_enabled": False}
+    assert result.records[1].postprocess_summary == {"maps_enabled": False}
+    assert result.records[0].postprocess_summary is not summary
+    assert result.records[1].postprocess_summary is not summary
+    assert result.records[0].postprocess_summary is not result.records[1].postprocess_summary

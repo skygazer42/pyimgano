@@ -230,3 +230,45 @@ def test_prepare_infer_runtime_plan_preserves_postprocess_summary() -> None:
         "pixel_threshold_source": None,
     }
     assert result.postprocess_summary is not summary
+
+
+def test_resolve_runtime_postprocess_source_prefers_cli_over_infer_config() -> None:
+    import pyimgano.services.infer_runtime_service as infer_runtime_service
+
+    source = infer_runtime_service._resolve_runtime_postprocess_source(
+        postprocess_requested=True,
+        infer_config_postprocess={"normalize": True},
+        postprocess=object(),
+    )
+
+    assert source == "cli"
+
+
+def test_build_runtime_summary_copies_input_and_appends_runtime_fields() -> None:
+    import pyimgano.services.infer_runtime_service as infer_runtime_service
+
+    summary = {"maps_enabled_by_default": True}
+
+    built = infer_runtime_service._build_runtime_summary(
+        postprocess_summary=summary,
+        include_maps_requested=False,
+        include_maps=True,
+        postprocess=object(),
+        postprocess_requested=False,
+        infer_config_postprocess={"normalize": True},
+        defects_enabled=True,
+        pixel_threshold_provenance={"source": "infer_config"},
+        pixel_threshold_value=0.5,
+    )
+
+    assert built == {
+        "maps_enabled_by_default": True,
+        "maps_requested": False,
+        "maps_enabled": True,
+        "runtime_postprocess_applied": True,
+        "runtime_postprocess_source": "infer_config",
+        "defects_enabled": True,
+        "pixel_threshold_resolved": True,
+        "pixel_threshold_source": "infer_config",
+    }
+    assert built is not summary

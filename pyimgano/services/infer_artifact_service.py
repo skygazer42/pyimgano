@@ -163,6 +163,60 @@ class InferResultArtifactResult:
     regions_payload: dict[str, Any] | None = None
 
 
+def _build_defects_build_request_from_options(
+    options: InferArtifactOptions,
+) -> DefectsArtifactConfigBuildRequest:
+    return DefectsArtifactConfigBuildRequest(
+        defects_enabled=bool(options.defects_enabled),
+        pixel_threshold_value=(
+            float(options.pixel_threshold_value)
+            if options.pixel_threshold_value is not None
+            else None
+        ),
+        pixel_threshold_provenance=(
+            dict(options.pixel_threshold_provenance)
+            if options.pixel_threshold_provenance is not None
+            else None
+        ),
+        roi_xyxy_norm=(list(options.roi_xyxy_norm) if options.roi_xyxy_norm is not None else None),
+        mask_space=str(options.mask_space),
+        border_ignore_px=int(options.border_ignore_px),
+        map_smoothing_method=str(options.map_smoothing_method),
+        map_smoothing_ksize=int(options.map_smoothing_ksize),
+        map_smoothing_sigma=float(options.map_smoothing_sigma),
+        hysteresis_enabled=bool(options.hysteresis_enabled),
+        hysteresis_low=(
+            float(options.hysteresis_low) if options.hysteresis_low is not None else None
+        ),
+        hysteresis_high=(
+            float(options.hysteresis_high) if options.hysteresis_high is not None else None
+        ),
+        open_ksize=int(options.open_ksize),
+        close_ksize=int(options.close_ksize),
+        fill_holes=bool(options.fill_holes),
+        mask_dilate_ksize=int(options.mask_dilate_ksize),
+        min_area=int(options.min_area),
+        min_fill_ratio=(
+            float(options.min_fill_ratio) if options.min_fill_ratio is not None else None
+        ),
+        max_aspect_ratio=(
+            float(options.max_aspect_ratio) if options.max_aspect_ratio is not None else None
+        ),
+        min_solidity=(float(options.min_solidity) if options.min_solidity is not None else None),
+        min_score_max=(float(options.min_score_max) if options.min_score_max is not None else None),
+        min_score_mean=(
+            float(options.min_score_mean) if options.min_score_mean is not None else None
+        ),
+        merge_nearby_enabled=bool(options.merge_nearby_enabled),
+        merge_nearby_max_gap_px=int(options.merge_nearby_max_gap_px),
+        max_regions_sort_by=str(options.max_regions_sort_by),
+        max_regions=(int(options.max_regions) if options.max_regions is not None else None),
+        masks_dir=(str(options.masks_dir) if options.masks_dir is not None else None),
+        mask_format=str(options.mask_format),
+        defects_image_space=bool(options.defects_image_space),
+    )
+
+
 def build_defects_artifact_config(
     request: DefectsArtifactConfigBuildRequest,
 ) -> DefectsArtifactConfig | None:
@@ -246,61 +300,7 @@ def build_infer_result_artifact_request_from_options(
         include_anomaly_map_values=bool(options.include_anomaly_map_values),
         maps_dir=(str(options.maps_dir) if options.maps_dir is not None else None),
         overlays_dir=(str(options.overlays_dir) if options.overlays_dir is not None else None),
-        defects=DefectsArtifactConfigBuildRequest(
-            defects_enabled=bool(options.defects_enabled),
-            pixel_threshold_value=(
-                float(options.pixel_threshold_value)
-                if options.pixel_threshold_value is not None
-                else None
-            ),
-            pixel_threshold_provenance=(
-                dict(options.pixel_threshold_provenance)
-                if options.pixel_threshold_provenance is not None
-                else None
-            ),
-            roi_xyxy_norm=(
-                list(options.roi_xyxy_norm) if options.roi_xyxy_norm is not None else None
-            ),
-            mask_space=str(options.mask_space),
-            border_ignore_px=int(options.border_ignore_px),
-            map_smoothing_method=str(options.map_smoothing_method),
-            map_smoothing_ksize=int(options.map_smoothing_ksize),
-            map_smoothing_sigma=float(options.map_smoothing_sigma),
-            hysteresis_enabled=bool(options.hysteresis_enabled),
-            hysteresis_low=(
-                float(options.hysteresis_low) if options.hysteresis_low is not None else None
-            ),
-            hysteresis_high=(
-                float(options.hysteresis_high) if options.hysteresis_high is not None else None
-            ),
-            open_ksize=int(options.open_ksize),
-            close_ksize=int(options.close_ksize),
-            fill_holes=bool(options.fill_holes),
-            mask_dilate_ksize=int(options.mask_dilate_ksize),
-            min_area=int(options.min_area),
-            min_fill_ratio=(
-                float(options.min_fill_ratio) if options.min_fill_ratio is not None else None
-            ),
-            max_aspect_ratio=(
-                float(options.max_aspect_ratio) if options.max_aspect_ratio is not None else None
-            ),
-            min_solidity=(
-                float(options.min_solidity) if options.min_solidity is not None else None
-            ),
-            min_score_max=(
-                float(options.min_score_max) if options.min_score_max is not None else None
-            ),
-            min_score_mean=(
-                float(options.min_score_mean) if options.min_score_mean is not None else None
-            ),
-            merge_nearby_enabled=bool(options.merge_nearby_enabled),
-            merge_nearby_max_gap_px=int(options.merge_nearby_max_gap_px),
-            max_regions_sort_by=str(options.max_regions_sort_by),
-            max_regions=(int(options.max_regions) if options.max_regions is not None else None),
-            masks_dir=(str(options.masks_dir) if options.masks_dir is not None else None),
-            mask_format=str(options.mask_format),
-            defects_image_space=bool(options.defects_image_space),
-        ),
+        defects=_build_defects_build_request_from_options(options),
     )
 
 

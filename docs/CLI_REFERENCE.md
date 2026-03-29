@@ -535,6 +535,10 @@ Optional:
 - `--reject-confidence-below FLOAT` — rewrite low-confidence predictions to a reject label
   - requires detector confidence support and threshold-based labels
   - rejection also emits `label_confidence`, `rejected`, and a stable `decision_summary` block
+- Runtime metadata:
+  - success records may also include a stable `postprocess_summary` block describing whether maps were requested/enabled, whether runtime postprocess ran, and which source supplied map/threshold defaults
+  - this is especially useful for `--infer-config` and `--from-run`, where deploy defaults are restored before CLI overrides are applied
+  - direct CLI runs can also emit `postprocess_summary` when maps/defects/postprocess/tiling or prediction-policy knobs materially affect runtime behavior
 - `--reject-label INT` — label value used for rejected samples (default: `-2`; requires `--reject-confidence-below`)
 - When running with `--infer-config` or `--from-run`, exported `prediction.reject_confidence_below`
   and `prediction.reject_label` are used as defaults when present. Explicit CLI flags override them.

@@ -68,6 +68,19 @@ def _extract_infer_config_pixel_threshold(defects_payload: dict[str, Any] | None
     return float(raw_threshold) if raw_threshold is not None else None
 
 
+def _resolve_runtime_postprocess_source(
+    *,
+    postprocess_requested: bool,
+    infer_config_postprocess: dict[str, Any] | None,
+    postprocess: Any | None,
+) -> str | None:
+    if bool(postprocess_requested):
+        return "cli"
+    if infer_config_postprocess is not None and postprocess is not None:
+        return "infer_config"
+    return None
+
+
 def _collect_calibration_maps(
     request: InferRuntimePlanRequest,
     *,
@@ -125,6 +138,46 @@ def _resolve_threshold_inputs(
     return None, calibration_maps, str(infer_cfg_source)
 
 
+def _build_runtime_summary(
+    *,
+    postprocess_summary: dict[str, Any] | None,
+    include_maps_requested: bool,
+    include_maps: bool,
+    postprocess: Any | None,
+    postprocess_requested: bool,
+    infer_config_postprocess: dict[str, Any] | None,
+    defects_enabled: bool,
+    pixel_threshold_provenance: dict[str, Any] | None,
+    pixel_threshold_value: float | None,
+) -> dict[str, Any] | None:
+    if postprocess_summary is None:
+        return None
+
+    runtime_postprocess_source = _resolve_runtime_postprocess_source(
+        postprocess_requested=postprocess_requested,
+        infer_config_postprocess=infer_config_postprocess,
+        postprocess=postprocess,
+    )
+    summary = dict(postprocess_summary)
+    summary.update(
+        {
+            "maps_requested": bool(include_maps_requested),
+            "maps_enabled": bool(include_maps),
+            "runtime_postprocess_applied": bool(postprocess is not None),
+            "runtime_postprocess_source": runtime_postprocess_source,
+            "defects_enabled": bool(defects_enabled),
+            "pixel_threshold_resolved": bool(pixel_threshold_value is not None),
+            "pixel_threshold_source": (
+                str(pixel_threshold_provenance.get("source"))
+                if isinstance(pixel_threshold_provenance, dict)
+                and pixel_threshold_provenance.get("source") is not None
+                else None
+            ),
+        }
+    )
+    return summary
+
+
 def prepare_infer_runtime_plan(
     request: InferRuntimePlanRequest,
     *,
@@ -158,31 +211,17 @@ def prepare_infer_runtime_plan(
             ),
         )
 
-    summary = None
-    if request.postprocess_summary is not None:
-        runtime_postprocess_source = None
-        if bool(request.postprocess_requested):
-            runtime_postprocess_source = "cli"
-        elif request.infer_config_postprocess is not None and postprocess is not None:
-            runtime_postprocess_source = "infer_config"
-
-        summary = dict(request.postprocess_summary)
-        summary.update(
-            {
-                "maps_requested": bool(request.include_maps_requested),
-                "maps_enabled": bool(include_maps),
-                "runtime_postprocess_applied": bool(postprocess is not None),
-                "runtime_postprocess_source": runtime_postprocess_source,
-                "defects_enabled": bool(request.defects_enabled),
-                "pixel_threshold_resolved": bool(pixel_threshold_value is not None),
-                "pixel_threshold_source": (
-                    str(pixel_threshold_provenance.get("source"))
-                    if isinstance(pixel_threshold_provenance, dict)
-                    and pixel_threshold_provenance.get("source") is not None
-                    else None
-                ),
-            }
-        )
+    summary = _build_runtime_summary(
+        postprocess_summary=request.postprocess_summary,
+        include_maps_requested=bool(request.include_maps_requested),
+        include_maps=bool(include_maps),
+        postprocess=postprocess,
+        postprocess_requested=bool(request.postprocess_requested),
+        infer_config_postprocess=request.infer_config_postprocess,
+        defects_enabled=bool(request.defects_enabled),
+        pixel_threshold_provenance=pixel_threshold_provenance,
+        pixel_threshold_value=pixel_threshold_value,
+    )
 
     return InferRuntimePlanResult(
         include_maps=bool(include_maps),

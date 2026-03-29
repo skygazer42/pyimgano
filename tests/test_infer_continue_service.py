@@ -170,3 +170,35 @@ def test_run_continue_on_error_inference_stops_early_after_artifact_errors() -> 
     assert result.errors == 1
     assert result.stop_early is True
     assert result.timing_seconds == pytest.approx(0.1)
+
+
+def test_run_continue_on_error_inference_treats_non_positive_batch_size_as_single_item() -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_inference(**kwargs):
+        inputs = [str(item) for item in kwargs["inputs"]]
+        calls.append(inputs)
+        return inference_service.InferenceRunResult(
+            records=[InferenceResult(score=0.5, label=0, anomaly_map=None)],
+            timing_seconds=0.1,
+        )
+
+    result = infer_continue_service.run_continue_on_error_inference(
+        infer_continue_service.ContinueOnErrorInferRequest(
+            detector=object(),
+            inputs=["a.png", "b.png"],
+            include_maps=False,
+            batch_size=0,
+            amp=False,
+            max_errors=0,
+        ),
+        process_ok_result=lambda *, index, input_path, result: None,
+        handle_error=lambda *, index, input_path, exc, stage: None,
+        run_inference_impl=fake_run_inference,
+    )
+
+    assert calls == [["a.png"], ["b.png"]]
+    assert result.processed == 2
+    assert result.errors == 0
+    assert result.stop_early is False
+    assert result.timing_seconds == pytest.approx(0.2)

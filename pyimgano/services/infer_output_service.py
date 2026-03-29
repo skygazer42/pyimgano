@@ -52,6 +52,22 @@ def _error_message(exc: object) -> str:
     return str(exc)
 
 
+def _json_line(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, sort_keys=True)
+
+
+def _should_flush(*, flush_every: int, written: int) -> bool:
+    return int(flush_every) > 0 and int(written) % int(flush_every) == 0
+
+
+def _build_error_payload(*, exc: object, stage: str) -> dict[str, Any]:
+    return {
+        "type": _error_type_name(exc),
+        "message": _error_message(exc),
+        "stage": str(stage),
+    }
+
+
 def open_infer_output_targets(request: InferOutputTargetsRequest) -> InferOutputTargets:
     output_file: TextIO | None = None
     if request.save_jsonl is not None:
@@ -83,18 +99,18 @@ def write_infer_output_payloads(
     flush_every = int(request.flush_every)
 
     if request.regions_payload is not None and request.regions_file is not None:
-        request.regions_file.write(json.dumps(request.regions_payload, sort_keys=True))
+        request.regions_file.write(_json_line(request.regions_payload))
         request.regions_file.write("\n")
         regions_written += 1
-        if flush_every > 0 and (regions_written % flush_every == 0):
+        if _should_flush(flush_every=flush_every, written=regions_written):
             request.regions_file.flush()
 
-    line = json.dumps(request.record, sort_keys=True)
+    line = _json_line(request.record)
     if request.output_file is not None:
         request.output_file.write(line)
         request.output_file.write("\n")
         output_written += 1
-        if flush_every > 0 and (output_written % flush_every == 0):
+        if _should_flush(flush_every=flush_every, written=output_written):
             request.output_file.flush()
     else:
         printer = print if print_fn is None else print_fn
@@ -111,11 +127,7 @@ def build_infer_error_record(request: InferErrorRecordRequest) -> dict[str, Any]
         "status": "error",
         "index": int(request.index),
         "input": str(request.input_path),
-        "error": {
-            "type": _error_type_name(request.exc),
-            "message": _error_message(request.exc),
-            "stage": str(request.stage),
-        },
+        "error": _build_error_payload(exc=request.exc, stage=str(request.stage)),
     }
 
 

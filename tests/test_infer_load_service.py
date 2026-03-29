@@ -75,3 +75,42 @@ def test_load_config_backed_infer_detector_restores_checkpoint_and_threshold() -
     assert created["kwargs"]["contamination"] == pytest.approx(0.2)
     assert loaded == [f"{id(detector)}:/tmp/trained-model.pt"]
     assert detector.threshold_ == pytest.approx(0.73)
+
+
+def test_load_config_backed_infer_detector_merges_context_base_user_kwargs() -> None:
+    created: dict[str, object] = {}
+
+    load_config_backed_infer_detector(
+        ConfigBackedInferLoadRequest(
+                context=ConfigBackedInferContext(
+                    model_name="vision_ecod",
+                    preset=None,
+                    device="cpu",
+                    contamination=0.2,
+                    pretrained=False,
+                    base_user_kwargs={"n_jobs": 2},
+                checkpoint_path=None,
+                trained_checkpoint_path=None,
+                threshold=None,
+                defects_payload=None,
+                prediction_payload=None,
+                defects_payload_source=None,
+                illumination_contrast_knobs=None,
+                tiling_payload=None,
+                infer_config_postprocess=None,
+                enable_maps_by_default=False,
+                warnings=(),
+            ),
+                user_kwargs={"eps": 0.05},
+        ),
+        create_detector=lambda name, **kwargs: created.update(
+            name=str(name),
+            kwargs=dict(kwargs),
+        )
+        or object(),
+        load_checkpoint=lambda det, path: None,
+    )
+
+    assert created["name"] == "vision_ecod"
+    assert created["kwargs"]["n_jobs"] == 2
+    assert created["kwargs"]["eps"] == pytest.approx(0.05)

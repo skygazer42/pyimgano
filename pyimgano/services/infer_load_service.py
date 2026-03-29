@@ -45,6 +45,35 @@ class ConfigBackedInferLoadResult:
     model_kwargs: dict[str, Any]
 
 
+def _build_auto_kwargs(
+    *,
+    device: str,
+    contamination: float,
+    pretrained: bool,
+    seed: int | None,
+) -> dict[str, Any]:
+    auto_kwargs: dict[str, Any] = {
+        "device": str(device),
+        "contamination": float(contamination),
+        "pretrained": bool(pretrained),
+    }
+    if seed is not None:
+        auto_kwargs["random_seed"] = int(seed)
+        auto_kwargs["random_state"] = int(seed)
+    return auto_kwargs
+
+
+def _merge_config_backed_user_kwargs(
+    *,
+    context: ConfigBackedInferContext,
+    user_kwargs: dict[str, Any] | None,
+) -> dict[str, Any]:
+    merged = dict(context.base_user_kwargs)
+    if user_kwargs:
+        merged.update(dict(user_kwargs))
+    return merged
+
+
 def load_direct_infer_detector(
     request: DirectInferLoadRequest,
     *,
@@ -56,15 +85,13 @@ def load_direct_infer_detector(
 
     auto_kwargs: dict[str, Any] = dict(preset_model_auto_kwargs)
     auto_kwargs.update(
-        {
-            "device": str(request.device),
-            "contamination": float(request.contamination),
-            "pretrained": bool(request.pretrained),
-        }
+        _build_auto_kwargs(
+            device=str(request.device),
+            contamination=float(request.contamination),
+            pretrained=bool(request.pretrained),
+            seed=request.seed,
+        )
     )
-    if request.seed is not None:
-        auto_kwargs["random_seed"] = int(request.seed)
-        auto_kwargs["random_state"] = int(request.seed)
 
     model_kwargs = resolve_model_options(
         model_name=model_name,
@@ -98,19 +125,20 @@ def load_config_backed_infer_detector(
     context = request.context
     model_name = str(context.model_name)
 
-    auto_kwargs: dict[str, Any] = {
-        "device": str(context.device),
-        "contamination": float(context.contamination),
-        "pretrained": bool(context.pretrained),
-    }
-    if request.seed is not None:
-        auto_kwargs["random_seed"] = int(request.seed)
-        auto_kwargs["random_state"] = int(request.seed)
+    auto_kwargs = _build_auto_kwargs(
+        device=str(context.device),
+        contamination=float(context.contamination),
+        pretrained=bool(context.pretrained),
+        seed=request.seed,
+    )
 
     model_kwargs = resolve_model_options(
         model_name=model_name,
         preset=(str(context.preset) if context.preset is not None else None),
-        user_kwargs=dict(request.user_kwargs or {}),
+        user_kwargs=_merge_config_backed_user_kwargs(
+            context=context,
+            user_kwargs=request.user_kwargs,
+        ),
         auto_kwargs=auto_kwargs,
         checkpoint_path=None,
     )

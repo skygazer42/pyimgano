@@ -209,6 +209,7 @@ Each JSONL line includes:
 - `label_confidence` (optional; only when `--include-confidence` is enabled and the detector supports confidence APIs)
 - `rejected` (optional; emitted when `--reject-confidence-below` is enabled)
 - `decision_summary` (stable triage metadata: `decision`, `threshold_applied`, `has_confidence`, `rejected`, `requires_review`)
+- `postprocess_summary` (stable runtime metadata describing whether maps were requested/enabled, whether runtime postprocess was applied, which source supplied it, and whether pixel-threshold resolution happened)
 - `input` (path)
 - `anomaly_map.path` + `shape` + `dtype` (if map exported)
 
@@ -218,6 +219,9 @@ When `--reject-confidence-below` is enabled, low-confidence predictions are rewr
 to the configured reject label (default `-2`) and the record carries `rejected=true`.
 When you run with `--infer-config` or `--from-run`, the exported `prediction` block can
 provide deploy defaults for this policy; explicit CLI flags still win.
+Likewise, `postprocess_summary` gives downstream systems a stable view of whether runtime
+map postprocessing, infer-config defaults, and defect threshold resolution were active for
+the final inference path, without requiring them to re-interpret CLI flags and config payloads.
 `decision_summary` gives downstream systems a stable triage view without having to
 re-derive business logic from `label`, `label_confidence`, and `rejected`.
 

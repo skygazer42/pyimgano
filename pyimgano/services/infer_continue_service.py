@@ -27,6 +27,13 @@ class ContinueOnErrorInferResult:
     stop_early: bool
 
 
+def _normalize_chunk_size(batch_size: int | None) -> int:
+    if batch_size is None:
+        return 1
+    value = int(batch_size)
+    return value if value > 0 else 1
+
+
 def _has_reached_max_errors(*, errors: int, max_errors: int) -> bool:
     return int(max_errors) > 0 and int(errors) >= int(max_errors)
 
@@ -140,7 +147,7 @@ def run_continue_on_error_inference(
 
     run_inference_fn = run_inference if run_inference_impl is None else run_inference_impl
 
-    chunk_size = int(request.batch_size) if request.batch_size is not None else 1
+    chunk_size = _normalize_chunk_size(request.batch_size)
     processed = 0
     errors = 0
     timing_seconds = 0.0

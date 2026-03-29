@@ -53,6 +53,16 @@ class InferConfigContextRequest:
     checkpoint_path: str | None = None
 
 
+def _copy_optional_mapping(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    return dict(payload)
+
+
+def _normalize_warnings(warnings: Any) -> tuple[str, ...]:
+    return tuple(str(warning) for warning in (warnings or ()))
+
+
 def _resolve_from_run_model_checkpoint_path(
     *,
     run_dir: str,
@@ -182,7 +192,7 @@ def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBacke
         device=str(context_payload["device"]),
         contamination=float(context_payload["contamination"]),
         pretrained=bool(context_payload["pretrained"]),
-        base_user_kwargs=context_payload["base_user_kwargs"],
+        base_user_kwargs=dict(context_payload["base_user_kwargs"]),
         checkpoint_path=context_payload.get("checkpoint_path"),
         trained_checkpoint_path=(
             str(context_payload["trained_checkpoint_path"])
@@ -194,31 +204,19 @@ def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBacke
             if context_payload.get("threshold") is not None
             else None
         ),
-        defects_payload=(
-            dict(context_payload["defects_payload"])
-            if context_payload.get("defects_payload") is not None
-            else None
-        ),
-        prediction_payload=(
-            dict(context_payload["prediction_payload"])
-            if context_payload.get("prediction_payload") is not None
-            else None
-        ),
+        defects_payload=_copy_optional_mapping(context_payload.get("defects_payload")),
+        prediction_payload=_copy_optional_mapping(context_payload.get("prediction_payload")),
         defects_payload_source=(
             str(context_payload["defects_payload_source"])
             if context_payload.get("defects_payload_source") is not None
             else None
         ),
         illumination_contrast_knobs=context_payload.get("illumination_contrast_knobs"),
-        tiling_payload=context_payload.get("tiling_payload"),
-        infer_config_postprocess=context_payload.get("infer_config_postprocess"),
+        tiling_payload=_copy_optional_mapping(context_payload.get("tiling_payload")),
+        infer_config_postprocess=_copy_optional_mapping(context_payload.get("infer_config_postprocess")),
         enable_maps_by_default=bool(context_payload.get("enable_maps_by_default", False)),
-        postprocess_summary=(
-            dict(context_payload["postprocess_summary"])
-            if context_payload.get("postprocess_summary") is not None
-            else None
-        ),
-        warnings=tuple(str(warning) for warning in context_payload.get("warnings", ())),
+        postprocess_summary=_copy_optional_mapping(context_payload.get("postprocess_summary")),
+        warnings=_normalize_warnings(context_payload.get("warnings", ())),
     )
 
 
@@ -237,7 +235,7 @@ def _build_postprocess_summary(
         pixel_threshold_strategy = defects_payload.get("pixel_threshold_strategy", None)
         pixel_threshold_in_payload = defects_payload.get("pixel_threshold", None) is not None
 
-    prediction_summary = dict(prediction_payload) if isinstance(prediction_payload, dict) else None
+    prediction_summary = _copy_optional_mapping(prediction_payload)
     tiling_summary = _tiling_summary(tiling_payload)
     map_postprocess_summary = _map_postprocess_summary(infer_config_postprocess)
 
@@ -693,7 +691,7 @@ def prepare_infer_config_context(request: InferConfigContextRequest) -> ConfigBa
                     or infer_config_postprocess is not None
                 ),
             ),
-            "warnings": tuple(str(warning) for warning in schema_warnings),
+            "warnings": _normalize_warnings(schema_warnings),
         }
     )
 

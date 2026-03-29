@@ -588,3 +588,74 @@ def test_prepare_infer_config_context_allows_missing_illumination_payload(tmp_pa
     )
 
     assert context.illumination_contrast_knobs is None
+
+
+def test_build_config_backed_context_copies_mutable_payloads() -> None:
+    import pyimgano.services.infer_context_service as infer_context_service
+
+    base_user_kwargs = {"alpha": 1}
+    defects_payload = {"enabled": True}
+    prediction_payload = {"reject_confidence_below": 0.8}
+    tiling_payload = {"tile_size": 32}
+    infer_config_postprocess = {"normalize": True}
+    postprocess_summary = {"maps_enabled_by_default": True}
+
+    context = infer_context_service._build_config_backed_context(
+        {
+            "model_name": "vision_ecod",
+            "preset": None,
+            "device": "cpu",
+            "contamination": 0.1,
+            "pretrained": False,
+            "base_user_kwargs": base_user_kwargs,
+            "checkpoint_path": None,
+            "trained_checkpoint_path": None,
+            "threshold": None,
+            "defects_payload": defects_payload,
+            "prediction_payload": prediction_payload,
+            "defects_payload_source": "infer_config",
+            "illumination_contrast_knobs": None,
+            "tiling_payload": tiling_payload,
+            "infer_config_postprocess": infer_config_postprocess,
+            "enable_maps_by_default": True,
+            "postprocess_summary": postprocess_summary,
+            "warnings": ["warn-a", "warn-b"],
+        }
+    )
+
+    base_user_kwargs["alpha"] = 9
+    defects_payload["enabled"] = False
+    prediction_payload["reject_confidence_below"] = 0.1
+    tiling_payload["tile_size"] = 8
+    infer_config_postprocess["normalize"] = False
+    postprocess_summary["maps_enabled_by_default"] = False
+
+    assert context.base_user_kwargs == {"alpha": 1}
+    assert context.defects_payload == {"enabled": True}
+    assert context.prediction_payload == {"reject_confidence_below": 0.8}
+    assert context.tiling_payload == {"tile_size": 32}
+    assert context.infer_config_postprocess == {"normalize": True}
+    assert context.postprocess_summary == {"maps_enabled_by_default": True}
+    assert context.warnings == ("warn-a", "warn-b")
+
+
+def test_build_postprocess_summary_copies_prediction_payload() -> None:
+    import pyimgano.services.infer_context_service as infer_context_service
+
+    prediction_payload = {"reject_confidence_below": 0.75, "reject_label": -9}
+
+    summary = infer_context_service._build_postprocess_summary(
+        defects_payload={"enabled": True},
+        defects_payload_source="infer_config",
+        prediction_payload=prediction_payload,
+        tiling_payload=None,
+        infer_config_postprocess=None,
+        enable_maps_by_default=False,
+    )
+
+    prediction_payload["reject_label"] = -1
+
+    assert summary["prediction_policy"] == {
+        "reject_confidence_below": 0.75,
+        "reject_label": -9,
+    }

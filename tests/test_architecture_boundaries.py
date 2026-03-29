@@ -1371,3 +1371,107 @@ def test_selected_service_boundary_modules_define_expected_public_exports() -> N
             )
 
     assert violations == []
+
+
+def test_infer_cli_helper_modules_only_import_allowed_internal_modules() -> None:
+    allowed_internal_imports = {
+        "infer_cli_inputs.py": set(),
+        "infer_cli_discovery.py": {
+            "pyimgano.cli_discovery_options",
+            "pyimgano.cli_discovery_rendering",
+            "pyimgano.cli_listing",
+            "pyimgano.services.discovery_service",
+        },
+        "infer_cli_onnx.py": {
+            "pyimgano.features.onnx_embed",
+            "pyimgano.infer_cli_inputs",
+            "pyimgano.services.model_options",
+        },
+        "infer_cli_profile.py": set(),
+    }
+    violations: list[str] = []
+
+    for rel_path, allowed in allowed_internal_imports.items():
+        path = SRC_DIR / rel_path
+        actual = {item for item in _iter_imports(path) if item.startswith("pyimgano.")}
+        unexpected = sorted(actual - allowed)
+        if unexpected:
+            violations.append(f"{rel_path}: {', '.join(unexpected)}")
+
+    assert violations == []
+
+
+def test_infer_cli_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "infer_cli_inputs.py": [
+            "IMAGE_SUFFIXES",
+            "collect_image_paths",
+            "parse_csv_ints_arg",
+            "parse_csv_strs_arg",
+            "parse_json_mapping_arg",
+        ],
+        "infer_cli_discovery.py": [
+            "maybe_run_infer_discovery_command",
+        ],
+        "infer_cli_onnx.py": [
+            "apply_onnx_session_options_shorthand",
+            "default_onnx_sweep_intra_values",
+            "extract_onnx_checkpoint_path_for_sweep",
+            "extract_session_options_for_sweep",
+            "maybe_apply_onnx_session_options_and_sweep",
+            "run_onnx_session_options_sweep",
+        ],
+        "infer_cli_profile.py": [
+            "build_infer_profile_payload",
+            "format_infer_profile_summary",
+            "write_infer_profile_payload",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []
+
+
+def test_inference_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "inference/decision_summary.py": [
+            "build_decision_summary",
+            "maybe_build_decision_summary",
+        ],
+        "inference/runtime_support.py": [
+            "ImageInput",
+            "apply_rejection_policy",
+            "best_effort_label_confidence",
+            "normalize_inputs",
+            "resolve_rejection_threshold",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []

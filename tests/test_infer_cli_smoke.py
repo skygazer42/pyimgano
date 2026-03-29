@@ -149,6 +149,95 @@ def test_infer_cli_smoke_seed_calls_seed_everything(tmp_path, monkeypatch):
     assert called["seed"] == 123
 
 
+def test_infer_cli_writes_profile_json_payload(tmp_path, monkeypatch) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    out_jsonl = tmp_path / "out.jsonl"
+    profile_json = tmp_path / "profile" / "infer-profile.json"
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--save-jsonl",
+            str(out_jsonl),
+            "--profile-json",
+            str(profile_json),
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(profile_json.read_text(encoding="utf-8"))
+    assert payload["tool"] == "pyimgano-infer"
+    assert payload["counts"] == {"inputs": 1, "processed": 1, "errors": 0}
+    assert set(payload["timing_seconds"]) == {
+        "load_model",
+        "fit_calibrate",
+        "infer",
+        "artifacts",
+        "total",
+    }
+
+
+def test_infer_cli_direct_mode_emits_postprocess_summary_for_cli_runtime_options(
+    tmp_path, monkeypatch
+) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    _write_png(input_dir / "a.png")
+    out_jsonl = tmp_path / "out.jsonl"
+
+    det = _DummyDetector()
+    monkeypatch.setattr(infer_cli, "create_model", lambda name, **kwargs: det)
+
+    rc = infer_cli.main(
+        [
+            "--model",
+            "vision_ecod",
+            "--input",
+            str(input_dir),
+            "--include-maps",
+            "--postprocess",
+            "--defects",
+            "--pixel-threshold",
+            "0.5",
+            "--pixel-threshold-strategy",
+            "fixed",
+            "--save-jsonl",
+            str(out_jsonl),
+        ]
+    )
+
+    assert rc == 0
+    record = json.loads(out_jsonl.read_text(encoding="utf-8").strip())
+    assert record["postprocess_summary"] == {
+        "has_defects_payload": True,
+        "defects_payload_source": "cli",
+        "pixel_threshold_in_payload": True,
+        "pixel_threshold_strategy": "fixed",
+        "has_prediction_policy": False,
+        "prediction_policy": None,
+        "has_tiling": False,
+        "tiling_summary": None,
+        "has_map_postprocess": True,
+        "map_postprocess_summary": None,
+        "maps_enabled_by_default": False,
+        "maps_requested": True,
+        "maps_enabled": True,
+        "runtime_postprocess_applied": True,
+        "runtime_postprocess_source": "cli",
+        "defects_enabled": True,
+        "pixel_threshold_resolved": True,
+        "pixel_threshold_source": "explicit",
+    }
+
+
 def test_infer_cli_can_emit_label_confidence_jsonl(tmp_path, monkeypatch) -> None:
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()

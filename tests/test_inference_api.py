@@ -160,6 +160,29 @@ def test_infer_can_export_postprocess_summary() -> None:
     }
 
 
+def test_infer_copies_postprocess_summary_per_result() -> None:
+    class _ScoreOnly:
+        def decision_function(self, X):
+            assert len(X) == 2
+            return np.asarray([0.1, 0.2], dtype=np.float32)
+
+    summary = {"maps_enabled": False}
+    imgs = [np.zeros((4, 4, 3), dtype=np.uint8) for _ in range(2)]
+
+    out = infer(
+        _ScoreOnly(),
+        imgs,
+        input_format=ImageFormat.RGB_U8_HWC,
+        postprocess_summary=summary,
+    )
+
+    assert out[0].postprocess_summary == {"maps_enabled": False}
+    assert out[1].postprocess_summary == {"maps_enabled": False}
+    assert out[0].postprocess_summary is not summary
+    assert out[1].postprocess_summary is not summary
+    assert out[0].postprocess_summary is not out[1].postprocess_summary
+
+
 def test_infer_rejection_requires_confidence_support() -> None:
     class _ScoreOnly:
         def __init__(self) -> None:
