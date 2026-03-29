@@ -1024,7 +1024,9 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
         "discovery_service.py": set(),
         "doctor_service.py": {
             "pyimgano.services.discovery_service",
+            "pyimgano.services.doctor_service_helpers",
         },
+        "doctor_service_helpers.py": set(),
         "evaluation_harness_service.py": {
             "pyimgano.services.benchmark_service",
             "pyimgano.services.discovery_service",
@@ -1496,6 +1498,37 @@ def test_runs_helper_modules_define_expected_public_exports() -> None:
             "format_publication_summary_line",
             "format_quality_summary_line",
             "format_run_brief_line",
+        ],
+    }
+    violations: list[str] = []
+
+    for rel_path, expected_exports in expected_public_exports.items():
+        path = SRC_DIR / rel_path
+        try:
+            actual_exports = _extract_dunder_all(path)
+        except AssertionError as exc:
+            violations.append(f"{rel_path}: {exc}")
+            continue
+
+        if actual_exports != expected_exports:
+            violations.append(
+                f"{rel_path}: expected __all__={expected_exports}, found {actual_exports}"
+            )
+
+    assert violations == []
+
+
+def test_doctor_helper_modules_define_expected_public_exports() -> None:
+    expected_public_exports: dict[str, list[str]] = {
+        "doctor_rendering.py": [
+            "format_readiness_lines",
+            "format_require_extras_line",
+            "format_suite_check_line",
+        ],
+        "services/doctor_service_helpers.py": [
+            "build_accelerator_checks",
+            "build_require_extras_check",
+            "split_csv_args",
         ],
     }
     violations: list[str] = []

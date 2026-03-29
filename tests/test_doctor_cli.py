@@ -113,6 +113,53 @@ def test_doctor_cli_outputs_text(capsys) -> None:
     assert "pyimgano" in out.lower()
 
 
+def test_doctor_cli_text_uses_readiness_rendering_helper(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "readiness": {
+                "target_kind": "run",
+                "path": "/tmp/run_a",
+                "status": "warning",
+                "issues": ["issue-a"],
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        doctor_cli,
+        "doctor_rendering",
+        type(
+            "_StubDoctorRendering",
+            (),
+            {
+                "format_suite_check_line": staticmethod(lambda suite_name, info: ""),
+                "format_require_extras_line": staticmethod(lambda req: None),
+                "format_readiness_lines": staticmethod(
+                    lambda readiness: ["readiness:", "- delegated: yes"]
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    rc = doctor_cli.main([])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "readiness:" in out
+    assert "- delegated: yes" in out
+
+
 def test_doctor_cli_suite_check_outputs_json(capsys) -> None:
     from pyimgano.doctor_cli import main as doctor_main
 

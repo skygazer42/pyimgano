@@ -10,7 +10,16 @@ from typing import Any, Mapping, Sequence
 
 from pyimgano.presets.catalog import list_model_presets
 from pyimgano.services.discovery_service import list_baseline_suites_payload, list_sweeps_payload
-from pyimgano.utils.extras import extra_importable, extra_installed, extras_install_hint
+from pyimgano.services.doctor_service_helpers import (
+    build_accelerator_checks as _build_accelerator_checks_helper,
+)
+from pyimgano.services.doctor_service_helpers import (
+    build_require_extras_check as _build_require_extras_check_helper,
+)
+from pyimgano.services.doctor_service_helpers import (
+    split_csv_args as _split_csv_args_helper,
+)
+from pyimgano.utils.extras import extra_installed
 from pyimgano.utils.optional_deps import optional_import
 
 
@@ -22,16 +31,7 @@ def _dist_version(name: str) -> str | None:
 
 
 def split_csv_args(values: list[str] | None) -> list[str]:
-    if not values:
-        return []
-
-    out: list[str] = []
-    for raw in values:
-        for part in str(raw).split(","):
-            stripped = str(part).strip()
-            if stripped:
-                out.append(stripped)
-    return out
+    return _split_csv_args_helper(values)
 
 
 def check_module(
@@ -118,160 +118,11 @@ def build_suite_checks(suite_names: list[str]) -> dict[str, Any]:
 
 
 def build_require_extras_check(required_extras: list[str] | None) -> dict[str, Any]:
-    required = split_csv_args(required_extras)
-    missing = [extra for extra in required if not extra_importable(extra)]
-    ok = len(missing) == 0
-
-    install_hint = None
-    if missing:
-        install_hint = extras_install_hint(missing)
-
-    return {
-        "required": required,
-        "missing": missing,
-        "ok": bool(ok),
-        "install_hint": install_hint,
-    }
+    return _build_require_extras_check_helper(required_extras)
 
 
 def build_accelerator_checks() -> dict[str, Any]:
-    checks: dict[str, Any] = {}
-
-    torch_mod, torch_err = optional_import("torch")
-    if torch_mod is None:
-        checks["torch"] = {
-            "available": False,
-            "install_hint": extras_install_hint(["torch"]),
-            "error": str(torch_err) if torch_err is not None else "missing",
-        }
-    else:
-        torch = torch_mod
-        payload: dict[str, Any] = {
-            "available": True,
-            "install_hint": None,
-            "torch_version": getattr(torch, "__version__", None),
-        }
-
-        cuda_compiled = getattr(getattr(torch, "version", None), "cuda", None) is not None
-        cuda_available = False
-        try:
-            cuda_available = bool(getattr(torch, "cuda").is_available())
-        except Exception as exc:  # noqa: BLE001 - best-effort diagnostics
-            payload["cuda_error"] = str(exc)
-
-        cuda: dict[str, Any] = {
-            "compiled": bool(cuda_compiled),
-            "available": bool(cuda_available),
-            "version": getattr(getattr(torch, "version", None), "cuda", None),
-        }
-
-        if cuda_available:
-            try:
-                cuda["device_count"] = int(torch.cuda.device_count())
-            except Exception as exc:  # noqa: BLE001
-                cuda["device_count_error"] = str(exc)
-
-            devices: list[dict[str, Any]] = []
-            try:
-                for index in range(int(cuda.get("device_count") or 0)):
-                    try:
-                        props = torch.cuda.get_device_properties(int(index))
-                        devices.append(
-                            {
-                                "index": int(index),
-                                "name": getattr(props, "name", None),
-                                "total_memory": int(getattr(props, "total_memory", 0)),
-                                "major": int(getattr(props, "major", 0)),
-                                "minor": int(getattr(props, "minor", 0)),
-                            }
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        devices.append({"index": int(index), "error": str(exc)})
-                cuda["devices"] = devices
-            except Exception as exc:  # noqa: BLE001
-                cuda["devices_error"] = str(exc)
-
-            try:
-                cudnn = getattr(getattr(torch, "backends", None), "cudnn", None)
-                version = cudnn.version() if cudnn is not None and callable(cudnn.version) else None
-                cuda["cudnn_version"] = int(version) if version is not None else None
-            except Exception as exc:  # noqa: BLE001
-                cuda["cudnn_error"] = str(exc)
-
-        payload["cuda"] = cuda
-
-        mps_available = False
-        try:
-            backends = getattr(torch, "backends", None)
-            mps = getattr(backends, "mps", None) if backends is not None else None
-            if mps is not None and callable(getattr(mps, "is_available", None)):
-                mps_available = bool(mps.is_available())
-        except Exception:
-            mps_available = False
-        payload["mps"] = {"available": bool(mps_available)}
-
-        checks["torch"] = payload
-
-    ort_mod, ort_err = optional_import("onnxruntime")
-    if ort_mod is None:
-        checks["onnxruntime"] = {
-            "available": False,
-            "install_hint": extras_install_hint(["onnx"]),
-            "error": str(ort_err) if ort_err is not None else "missing",
-        }
-    else:
-        providers = None
-        providers_error = None
-        try:
-            providers = list(ort_mod.get_available_providers())
-        except Exception as exc:  # noqa: BLE001
-            providers_error = str(exc)
-
-        checks["onnxruntime"] = {
-            "available": True,
-            "install_hint": None,
-            "onnxruntime_version": getattr(ort_mod, "__version__", None),
-            "available_providers": providers,
-            "providers_error": providers_error,
-        }
-
-    ov_mod, ov_err = optional_import("openvino")
-    if ov_mod is None:
-        checks["openvino"] = {
-            "available": False,
-            "install_hint": extras_install_hint(["openvino"]),
-            "error": str(ov_err) if ov_err is not None else "missing",
-        }
-    else:
-        devices = None
-        devices_error = None
-        try:
-            try:
-                from openvino.runtime import Core as core_cls  # type: ignore[import-not-found]
-            except Exception:
-                core_cls = getattr(getattr(ov_mod, "runtime", None), "Core", None)  # type: ignore[assignment]
-            if core_cls is None:
-                raise RuntimeError("openvino.runtime.Core not found")
-
-            core = core_cls()
-            if hasattr(core, "available_devices"):
-                devices = list(core.available_devices)
-            elif hasattr(core, "get_available_devices"):
-                devices = list(core.get_available_devices())
-            else:
-                raise RuntimeError("OpenVINO Core does not expose available devices")
-        except Exception as exc:  # noqa: BLE001
-            devices_error = str(exc)
-
-        checks["openvino"] = {
-            "available": True,
-            "install_hint": None,
-            "openvino_version": getattr(ov_mod, "__version__", None),
-            "devices": devices,
-            "devices_error": devices_error,
-        }
-
-    return checks
+    return _build_accelerator_checks_helper()
 
 
 def _load_json_dict(path: Path) -> dict[str, Any]:

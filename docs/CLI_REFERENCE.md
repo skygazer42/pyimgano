@@ -63,12 +63,15 @@ pyimgano-doctor --json
 pyimgano-doctor --suite industrial-v4 --json   # show which suite baselines will be skipped
 pyimgano-doctor --require-extras torch,skimage --json   # CI/deploy gate: exit 1 if missing
 pyimgano-doctor --accelerators --json   # runtime checks: torch CUDA/MPS, onnxruntime providers, openvino devices
+pyimgano-doctor --run-dir /path/to/run_dir --json   # evaluate run readiness / acceptance-adjacent state
+pyimgano-doctor --deploy-bundle /path/to/deploy_bundle --json   # validate deploy bundle readiness
 ```
 
 Notes:
 - `--require-extras` accepts comma-separated values and is repeatable.
 - When `--json` is set, the tool still prints JSON on missing extras, but exits with code `1`.
 - `--accelerators` is best-effort and opt-in; it never raises, it only reports missing runtimes + install hints.
+- `--run-dir` and `--deploy-bundle` surface readiness payloads for deployment-oriented checks without changing the underlying run/bundle artifacts.
 
 ## `pyimgano-demo`
 

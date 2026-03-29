@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 import pyimgano.cli_output as cli_output
+import pyimgano.doctor_rendering as doctor_rendering
 import pyimgano.services.doctor_service as doctor_service
 
 
@@ -180,37 +181,24 @@ def main(argv: list[str] | None = None) -> int:
     if isinstance(suite_checks, dict) and suite_checks:
         print("suite_checks:")
         for suite_name in sorted(suite_checks):
-            info = suite_checks.get(suite_name) or {}
-            summary = info.get("summary", {}) or {}
-            total = summary.get("total", None)
-            runnable = summary.get("runnable", None)
-            missing = summary.get("missing_extras", []) or []
-            suffix = ""
-            if missing:
-                suffix = f" (missing extras: {', '.join(missing)})"
-            print(f"- {suite_name}: runnable {runnable}/{total}{suffix}")
+            info = dict(suite_checks.get(suite_name) or {})
+            print(
+                doctor_rendering.format_suite_check_line(
+                    suite_name=str(suite_name),
+                    info=info,
+                )
+            )
 
     req = payload.get("require_extras")
     if isinstance(req, dict) and req.get("required"):
-        missing = req.get("missing", []) or []
-        if missing:
-            hint = req.get("install_hint")
-            msg = f"require_extras: MISSING ({', '.join(str(x) for x in missing)})"
-            if hint:
-                msg += f" → {hint}"
-            print(msg)
-        else:
-            print("require_extras: OK")
+        line = doctor_rendering.format_require_extras_line(dict(req))
+        if line is not None:
+            print(line)
 
     readiness = payload.get("readiness")
     if isinstance(readiness, dict):
-        print("readiness:")
-        print(f"- target_kind: {readiness.get('target_kind')}")
-        print(f"- path: {readiness.get('path')}")
-        print(f"- status: {readiness.get('status')}")
-        issues = readiness.get("issues", []) or []
-        if issues:
-            print(f"- issues: {', '.join(str(item) for item in issues)}")
+        for line in doctor_rendering.format_readiness_lines(dict(readiness)):
+            print(line)
 
     dataset_profile = payload.get("dataset_profile")
     if isinstance(dataset_profile, dict):
