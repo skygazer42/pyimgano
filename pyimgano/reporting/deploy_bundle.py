@@ -6,6 +6,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    append_operator_contract_presence_errors as _append_operator_contract_presence_errors_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    operator_contract_audit_state as _operator_contract_audit_state_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
     validate_artifact_refs as _validate_artifact_refs_helper,
 )
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
@@ -512,12 +518,7 @@ def _load_optional_json_with_errors(
 def _operator_contract_audit_state(
     infer_payload: Mapping[str, Any],
 ) -> tuple[bool, dict[str, Any]]:
-    artifact_quality = infer_payload.get("artifact_quality", None)
-    if not isinstance(artifact_quality, Mapping):
-        return False, {}
-    audit_refs_raw = artifact_quality.get("audit_refs", None)
-    audit_refs = dict(audit_refs_raw) if isinstance(audit_refs_raw, Mapping) else {}
-    return bool(artifact_quality.get("has_operator_contract", False)), audit_refs
+    return _operator_contract_audit_state_helper(infer_payload)
 
 
 def _append_operator_contract_presence_errors(
@@ -528,37 +529,15 @@ def _append_operator_contract_presence_errors(
     has_operator_contract_file: bool,
     has_infer_operator_contract: bool,
 ) -> None:
-    if has_operator_contract_flag:
-        ref = audit_refs.get("operator_contract", None)
-        if not isinstance(ref, str) or not str(ref).strip():
-            errors.append(
-                f"{_INFER_CONFIG_JSON} artifact_quality.has_operator_contract=true requires "
-                "artifact_quality.audit_refs.operator_contract."
-            )
-        elif str(ref).strip() != _OPERATOR_CONTRACT_JSON:
-            errors.append(
-                f"{_INFER_CONFIG_JSON} artifact_quality.audit_refs.operator_contract must point to "
-                f"{_OPERATOR_CONTRACT_JSON} inside deploy bundle."
-            )
-        if not has_operator_contract_file:
-            errors.append(
-                f"{_INFER_CONFIG_JSON} artifact_quality.has_operator_contract=true requires "
-                f"{_OPERATOR_CONTRACT_JSON} in deploy bundle."
-            )
-        if not has_infer_operator_contract:
-            errors.append(
-                f"{_INFER_CONFIG_JSON} artifact_quality.has_operator_contract=true requires "
-                "infer_config.operator_contract payload."
-            )
-
-    if (
-        has_operator_contract_file
-        and not has_infer_operator_contract
-        and not has_operator_contract_flag
-    ):
-        errors.append(
-            f"{_OPERATOR_CONTRACT_JSON} exists but {_INFER_CONFIG_JSON} is missing operator_contract payload."
-        )
+    _append_operator_contract_presence_errors_helper(
+        errors,
+        audit_refs=audit_refs,
+        has_operator_contract_flag=has_operator_contract_flag,
+        has_operator_contract_file=has_operator_contract_file,
+        has_infer_operator_contract=has_infer_operator_contract,
+        infer_config_json=_INFER_CONFIG_JSON,
+        operator_contract_json=_OPERATOR_CONTRACT_JSON,
+    )
 
 
 def build_deploy_bundle_manifest(

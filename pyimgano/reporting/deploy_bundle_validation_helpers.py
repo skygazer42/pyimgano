@@ -127,7 +127,63 @@ def validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> lis
     return errors
 
 
+def operator_contract_audit_state(
+    infer_payload: Mapping[str, Any],
+) -> tuple[bool, dict[str, Any]]:
+    artifact_quality = infer_payload.get("artifact_quality", None)
+    if not isinstance(artifact_quality, Mapping):
+        return False, {}
+    audit_refs_raw = artifact_quality.get("audit_refs", None)
+    audit_refs = dict(audit_refs_raw) if isinstance(audit_refs_raw, Mapping) else {}
+    return bool(artifact_quality.get("has_operator_contract", False)), audit_refs
+
+
+def append_operator_contract_presence_errors(
+    errors: list[str],
+    *,
+    audit_refs: Mapping[str, Any],
+    has_operator_contract_flag: bool,
+    has_operator_contract_file: bool,
+    has_infer_operator_contract: bool,
+    infer_config_json: str,
+    operator_contract_json: str,
+) -> None:
+    if has_operator_contract_flag:
+        ref = audit_refs.get("operator_contract", None)
+        if not isinstance(ref, str) or not str(ref).strip():
+            errors.append(
+                f"{infer_config_json} artifact_quality.has_operator_contract=true requires "
+                "artifact_quality.audit_refs.operator_contract."
+            )
+        elif str(ref).strip() != operator_contract_json:
+            errors.append(
+                f"{infer_config_json} artifact_quality.audit_refs.operator_contract must point to "
+                f"{operator_contract_json} inside deploy bundle."
+            )
+        if not has_operator_contract_file:
+            errors.append(
+                f"{infer_config_json} artifact_quality.has_operator_contract=true requires "
+                f"{operator_contract_json} in deploy bundle."
+            )
+        if not has_infer_operator_contract:
+            errors.append(
+                f"{infer_config_json} artifact_quality.has_operator_contract=true requires "
+                "infer_config.operator_contract payload."
+            )
+
+    if (
+        has_operator_contract_file
+        and not has_infer_operator_contract
+        and not has_operator_contract_flag
+    ):
+        errors.append(
+            f"{operator_contract_json} exists but {infer_config_json} is missing operator_contract payload."
+        )
+
+
 __all__ = [
+    "append_operator_contract_presence_errors",
+    "operator_contract_audit_state",
     "validate_artifact_refs",
     "validate_exact_mapping",
     "validate_operator_contract_digests_map",
