@@ -13,6 +13,7 @@ def test_cli_reference_documents_bundle_validate_and_run() -> None:
     assert "pyimgano-bundle" in text
     assert "validate" in text
     assert "run" in text
+    assert "bundle_manifest.json" in text
 
 
 def test_readme_mentions_bundle_validate_and_weights_audit() -> None:

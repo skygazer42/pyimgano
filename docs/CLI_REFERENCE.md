@@ -735,6 +735,7 @@ pyimgano-bundle run ./deploy_bundle --input-manifest ./input_manifest.jsonl --ou
 Notes:
 
 - `validate` checks `infer_config.json`, `bundle_manifest.json`, and optional bundle weight audit files as one deploy-bundle contract.
+- `validate` also checks `bundle_manifest.json` refs/roles/completeness flags and operator-contract digest consistency when those fields are present.
 - `run` executes offline inference from the bundle and writes `results.jsonl` plus `run_report.json` under `--output-dir`.
 - Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
 - Use `pyimgano-weights audit-bundle` when you want a weights/model-card-focused audit without running bundle validation or inference.

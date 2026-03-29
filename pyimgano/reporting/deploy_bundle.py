@@ -5,9 +5,22 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    validate_artifact_refs as _validate_artifact_refs_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    validate_exact_mapping as _validate_exact_mapping_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    validate_operator_contract_digests_map as _validate_operator_contract_digests_map_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    validate_required_presence_flag as _validate_required_presence_flag_helper,
+)
+from pyimgano.reporting.deploy_bundle_validation_helpers import (
+    validate_weight_audit_files as _validate_weight_audit_files_helper,
+)
 from pyimgano.utils.security import FileHasher
-from pyimgano.weights.manifest import validate_weights_manifest_file
-from pyimgano.weights.model_card import validate_model_card_file
 
 DEPLOY_BUNDLE_SCHEMA_VERSION = 1
 _DEPLOY_BUNDLE_TYPE = "cpu-offline-qc"
@@ -334,23 +347,12 @@ def _validate_artifact_refs(
     root: Path,
     entry_paths: set[str] | None = None,
 ) -> list[str]:
-    errors: list[str] = []
-    if refs is None:
-        return errors
-    if not isinstance(refs, Mapping):
-        return [f"{field_name} must be a JSON object/dict."]
-
-    for name, rel_path in refs.items():
-        if not isinstance(rel_path, str) or not rel_path.strip():
-            errors.append(f"{field_name}.{name} must be a non-empty string.")
-            continue
-        file_path = root / rel_path
-        if not file_path.is_file():
-            errors.append(f"{field_name}.{name} points to missing file: {rel_path}")
-            continue
-        if entry_paths is not None and rel_path not in entry_paths:
-            errors.append(f"{field_name}.{name} is not listed in manifest entries: {rel_path}")
-    return errors
+    return _validate_artifact_refs_helper(
+        refs,
+        field_name=field_name,
+        root=root,
+        entry_paths=entry_paths,
+    )
 
 
 def _validate_artifact_roles(
@@ -392,13 +394,11 @@ def _validate_required_presence_flag(
     field_name: str,
     actual: bool,
 ) -> list[str]:
-    if value is None:
-        return []
-    if not isinstance(value, bool):
-        return [f"{field_name} must be a boolean."]
-    if bool(value) != bool(actual):
-        return [f"{field_name} does not match manifest artifact refs."]
-    return []
+    return _validate_required_presence_flag_helper(
+        value,
+        field_name=field_name,
+        actual=actual,
+    )
 
 
 _OPERATOR_CONTRACT_DIGEST_KEY_TYPES: dict[str, tuple[type, ...]] = {
@@ -424,85 +424,26 @@ def _operator_contract_digest_actual(
         bundle_root=bundle_root,
     )
     return actual, source_available
-
-
-def _skip_source_run_digest_validation(
-    key: str,
-    *,
-    expected_value: Any,
-    source_available: bool,
-) -> bool:
-    return key.startswith("source_run_") and not source_available and expected_value is not None
-
-
-def _operator_contract_digest_error(
-    *,
-    key: str,
-    expected_value: Any,
-    expected_types: tuple[type, ...],
-    actual: Mapping[str, Any],
-    source_available: bool,
-) -> str | None:
-    if not isinstance(expected_value, expected_types):
-        return f"operator_contract_digests.{key} has invalid type."
-    if _skip_source_run_digest_validation(
-        key,
-        expected_value=expected_value,
-        source_available=source_available,
-    ):
-        return None
-    if expected_value != actual.get(key, None):
-        return f"operator_contract_digests.{key} does not match computed bundle/source contract digest."
-    return None
-
-
 def _validate_operator_contract_digests(
     value: Any,
     *,
     bundle_root: Path,
     source_run_dir: str | None,
 ) -> list[str]:
-    if value is None:
-        return []
-    if not isinstance(value, Mapping):
-        return ["operator_contract_digests must be a JSON object/dict."]
-
     actual, source_available = _operator_contract_digest_actual(
         bundle_root=bundle_root,
         source_run_dir=source_run_dir,
     )
-    errors: list[str] = []
-    for key, expected_types in _OPERATOR_CONTRACT_DIGEST_KEY_TYPES.items():
-        if key not in value:
-            continue
-        expected_value = value.get(key, None)
-        error = _operator_contract_digest_error(
-            key=key,
-            expected_value=expected_value,
-            expected_types=expected_types,
-            actual=actual,
-            source_available=source_available,
-        )
-        if error is not None:
-            errors.append(error)
-    return errors
+    return _validate_operator_contract_digests_map_helper(
+        value,
+        actual=actual,
+        source_available=source_available,
+        key_types=_OPERATOR_CONTRACT_DIGEST_KEY_TYPES,
+    )
 
 
 def _validate_weight_audit_files(bundle_root: Path, *, check_hashes: bool) -> list[str]:
-    manifest_path = bundle_root / _WEIGHTS_MANIFEST_JSON
-    model_card_path = bundle_root / _MODEL_CARD_JSON
-    errors, manifest_ok = _weight_manifest_validation_errors(
-        manifest_path=manifest_path,
-        check_hashes=bool(check_hashes),
-    )
-    errors.extend(
-        _model_card_validation_errors(
-            model_card_path=model_card_path,
-            manifest_path=(manifest_path if manifest_ok else None),
-            check_hashes=bool(check_hashes),
-        )
-    )
-    return errors
+    return _validate_weight_audit_files_helper(bundle_root, check_hashes=bool(check_hashes))
 
 
 def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
@@ -550,54 +491,6 @@ def _validate_operator_contract_consistency(bundle_root: Path) -> list[str]:
             f"operator_contract mismatch between {_INFER_CONFIG_JSON} and {_OPERATOR_CONTRACT_JSON}."
         )
 
-    return errors
-
-
-def _weight_manifest_validation_errors(
-    *,
-    manifest_path: Path,
-    check_hashes: bool,
-) -> tuple[list[str], bool]:
-    errors: list[str] = []
-    if not manifest_path.is_file():
-        return errors, False
-
-    try:
-        report = validate_weights_manifest_file(
-            manifest_path=manifest_path,
-            check_files=True,
-            check_hashes=bool(check_hashes),
-        )
-    except Exception as exc:  # noqa: BLE001 - validation boundary
-        errors.append(f"{_WEIGHTS_MANIFEST_JSON}: {exc}")
-        return errors, False
-
-    errors.extend(f"{_WEIGHTS_MANIFEST_JSON}: {item}" for item in report.errors)
-    return errors, bool(report.ok)
-
-
-def _model_card_validation_errors(
-    *,
-    model_card_path: Path,
-    manifest_path: Path | None,
-    check_hashes: bool,
-) -> list[str]:
-    errors: list[str] = []
-    if not model_card_path.is_file():
-        return errors
-
-    try:
-        report = validate_model_card_file(
-            model_card_path,
-            manifest_path=manifest_path,
-            check_files=True,
-            check_hashes=bool(check_hashes),
-        )
-    except Exception as exc:  # noqa: BLE001 - validation boundary
-        errors.append(f"{_MODEL_CARD_JSON}: {exc}")
-        return errors
-
-    errors.extend(f"{_MODEL_CARD_JSON}: {item}" for item in report.errors)
     return errors
 
 
@@ -741,13 +634,11 @@ def _validate_exact_mapping(
     field_name: str,
     expected: Mapping[str, Any],
 ) -> list[str]:
-    if value is None:
-        return []
-    if not isinstance(value, Mapping):
-        return [f"{field_name} must be a JSON object/dict."]
-    if dict(value) != dict(expected):
-        return [f"{field_name} does not match computed bundle contract."]
-    return []
+    return _validate_exact_mapping_helper(
+        value,
+        field_name=field_name,
+        expected=expected,
+    )
 
 
 def _validate_bundle_type(value: Any) -> list[str]:
