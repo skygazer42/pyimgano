@@ -1647,6 +1647,12 @@ def test_preflight_helper_modules_define_expected_public_exports() -> None:
 
 def test_deploy_bundle_validation_helper_module_define_expected_public_exports() -> None:
     expected_public_exports: dict[str, list[str]] = {
+        "reporting/deploy_bundle_contract_helpers.py": [
+            "build_artifact_digests",
+            "build_artifact_roles",
+            "collect_existing_artifact_refs",
+            "required_artifacts_present",
+        ],
         "reporting/deploy_bundle_validation_helpers.py": [
             "append_operator_contract_presence_errors",
             "operator_contract_audit_state",

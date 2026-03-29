@@ -5,6 +5,12 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from pyimgano.reporting.deploy_bundle_contract_helpers import (
+    build_artifact_digests as _build_artifact_digests_helper,
+    build_artifact_roles as _build_artifact_roles_helper,
+    collect_existing_artifact_refs as _collect_existing_artifact_refs_helper,
+    required_artifacts_present as _required_artifacts_present_helper,
+)
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
     append_operator_contract_presence_errors as _append_operator_contract_presence_errors_helper,
 )
@@ -312,15 +318,11 @@ def _collect_existing_artifact_refs(
     *,
     paths: Mapping[str, str],
 ) -> dict[str, str]:
-    refs: dict[str, str] = {}
-    for name, rel_path in paths.items():
-        if (root / rel_path).is_file():
-            refs[str(name)] = str(rel_path)
-    return refs
+    return _collect_existing_artifact_refs_helper(root, paths=paths)
 
 
 def _build_artifact_roles(entries: list[dict[str, Any]]) -> dict[str, list[str]]:
-    roles: dict[str, list[str]] = {}
+    normalized_entries: list[dict[str, Any]] = []
     for entry in entries:
         rel_path = entry.get("path", None)
         if not isinstance(rel_path, str) or not rel_path.strip():
@@ -328,28 +330,25 @@ def _build_artifact_roles(entries: list[dict[str, Any]]) -> dict[str, list[str]]
         role = entry.get("role", None)
         if not isinstance(role, str) or not role.strip():
             role = _classify_entry(rel_path)
-        roles.setdefault(str(role), []).append(str(rel_path))
-    return {
-        str(role): sorted(paths)
-        for role, paths in sorted(roles.items(), key=lambda item: str(item[0]))
-    }
+        normalized_entries.append({"path": str(rel_path), "role": str(role)})
+    return _build_artifact_roles_helper(normalized_entries)
 
 
 def _build_artifact_digests(entries: list[dict[str, Any]]) -> dict[str, str]:
-    digests: dict[str, str] = {}
+    normalized_entries: list[dict[str, Any]] = []
     for entry in entries:
         rel_path = _nonempty_str(entry.get("path", None))
         sha256 = _nonempty_str(entry.get("sha256", None))
         if rel_path is None or sha256 is None:
             continue
-        digests[rel_path] = sha256
-    return dict(sorted(digests.items(), key=lambda item: item[0]))
+        normalized_entries.append({"path": rel_path, "sha256": sha256})
+    return _build_artifact_digests_helper(normalized_entries)
 
 
 def _required_artifacts_present(
     refs: Mapping[str, Any], *, required_names: tuple[str, ...]
 ) -> bool:
-    return all(str(name) in refs for name in required_names)
+    return _required_artifacts_present_helper(refs, required_names=required_names)
 
 
 def _validate_artifact_refs(
