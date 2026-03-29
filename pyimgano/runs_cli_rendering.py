@@ -124,7 +124,51 @@ def format_compare_run_brief_line(
     return " ".join(parts)
 
 
+def format_quality_summary_line(*, run_name: str, quality: dict[str, object]) -> str:
+    trust_status = dict(quality.get("trust_summary", {})).get("status")
+    return (
+        f"{run_name}: status={quality.get('status')} "
+        f"score={quality.get('score')} "
+        f"trust={trust_status}"
+    )
+
+
+def format_acceptance_run_summary_line(
+    *,
+    run_name: str,
+    acceptance: dict[str, object],
+) -> str:
+    infer_cfg = dict(acceptance.get("infer_config", {}))
+    bundle_weights = dict(acceptance.get("bundle_weights", {}))
+    bundle_status = (
+        str(bundle_weights.get("status"))
+        if bool(bundle_weights.get("applicable"))
+        else "not_applicable"
+    )
+    return (
+        f"{run_name}: kind=run status={acceptance.get('status')} "
+        f"required_quality={acceptance.get('required_quality')} "
+        f"quality={dict(acceptance.get('quality', {})).get('status')} "
+        f"infer_config={infer_cfg.get('selected_source')} "
+        f"bundle_weights={bundle_status}"
+    )
+
+
+def format_publication_summary_line(
+    *,
+    path_name: str,
+    publication: dict[str, object],
+) -> str:
+    return (
+        f"{path_name}: status={publication.get('status')} "
+        f"publication_ready={publication.get('publication_ready')}"
+    )
+
+
 __all__ = [
+    "format_acceptance_run_summary_line",
     "format_compare_run_brief_line",
+    "format_publication_summary_line",
+    "format_quality_summary_line",
     "format_run_brief_line",
 ]

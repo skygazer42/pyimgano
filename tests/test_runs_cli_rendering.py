@@ -54,3 +54,45 @@ def test_format_compare_run_brief_line_includes_primary_metric_status() -> None:
         "primary_metric_status=improved primary_metric_delta=0.02 "
         "bundle_operator_contract=consistent"
     )
+
+
+def test_format_quality_summary_line_includes_status_score_and_trust() -> None:
+    from pyimgano.runs_cli_rendering import format_quality_summary_line
+
+    line = format_quality_summary_line(
+        run_name="run_a",
+        quality={"status": "audited", "score": 0.75, "trust_summary": {"status": "limited"}},
+    )
+
+    assert line == "run_a: status=audited score=0.75 trust=limited"
+
+
+def test_format_acceptance_run_summary_line_includes_required_quality_and_bundle_status() -> None:
+    from pyimgano.runs_cli_rendering import format_acceptance_run_summary_line
+
+    line = format_acceptance_run_summary_line(
+        run_name="run_a",
+        acceptance={
+            "status": "ready",
+            "required_quality": "audited",
+            "quality": {"status": "deployable"},
+            "infer_config": {"selected_source": "deploy_bundle"},
+            "bundle_weights": {"applicable": True, "status": "ready"},
+        },
+    )
+
+    assert (
+        line
+        == "run_a: kind=run status=ready required_quality=audited quality=deployable infer_config=deploy_bundle bundle_weights=ready"
+    )
+
+
+def test_format_publication_summary_line_includes_status_and_ready_flag() -> None:
+    from pyimgano.runs_cli_rendering import format_publication_summary_line
+
+    line = format_publication_summary_line(
+        path_name="suite_export",
+        publication={"status": "ready", "publication_ready": True},
+    )
+
+    assert line == "suite_export: status=ready publication_ready=True"

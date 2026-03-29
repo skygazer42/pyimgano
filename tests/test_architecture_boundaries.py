@@ -1491,7 +1491,10 @@ def test_runs_helper_modules_define_expected_public_exports() -> None:
             "operator_contract_status_from_trust_summary",
         ],
         "runs_cli_rendering.py": [
+            "format_acceptance_run_summary_line",
             "format_compare_run_brief_line",
+            "format_publication_summary_line",
+            "format_quality_summary_line",
             "format_run_brief_line",
         ],
     }

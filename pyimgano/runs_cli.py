@@ -1023,9 +1023,10 @@ def main(argv: list[str] | None = None) -> int:
                 return rc
 
             print(
-                f"{Path(str(args.run_dir)).name}: status={quality.get('status')} "
-                f"score={quality.get('score')} "
-                f"trust={dict(quality.get('trust_summary', {})).get('status')}"
+                runs_cli_rendering.format_quality_summary_line(
+                    run_name=Path(str(args.run_dir)).name,
+                    quality=quality,
+                )
             )
             warnings = list(quality.get("warnings", []))
             for item in warnings:
@@ -1091,17 +1092,11 @@ def main(argv: list[str] | None = None) -> int:
 
             infer_cfg = dict(acceptance.get("infer_config", {}))
             bundle_weights = dict(acceptance.get("bundle_weights", {}))
-            bundle_status = (
-                str(bundle_weights.get("status"))
-                if bool(bundle_weights.get("applicable"))
-                else "not_applicable"
-            )
             print(
-                f"{Path(str(args.path)).name}: kind=run status={acceptance.get('status')} "
-                f"required_quality={acceptance.get('required_quality')} "
-                f"quality={dict(acceptance.get('quality', {})).get('status')} "
-                f"infer_config={infer_cfg.get('selected_source')} "
-                f"bundle_weights={bundle_status}"
+                runs_cli_rendering.format_acceptance_run_summary_line(
+                    run_name=Path(str(args.path)).name,
+                    acceptance=acceptance,
+                )
             )
             for item in acceptance.get("blocking_reasons", []):
                 print(f"blocking_reason={item}")
@@ -1128,8 +1123,10 @@ def main(argv: list[str] | None = None) -> int:
                 return rc
 
             print(
-                f"{Path(str(args.path)).name}: status={publication.get('status')} "
-                f"publication_ready={publication.get('publication_ready')}"
+                runs_cli_rendering.format_publication_summary_line(
+                    path_name=Path(str(args.path)).name,
+                    publication=publication,
+                )
             )
             trust_signals = dict(publication.get("trust_signals", {}))
             for key, value in trust_signals.items():
