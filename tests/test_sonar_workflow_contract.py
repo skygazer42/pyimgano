@@ -17,10 +17,17 @@ def test_sonar_workflow_runs_on_push_without_repo_variable_gate() -> None:
     assert "github.actor != 'dependabot[bot]'" in workflow
 
 
-def test_sonar_workflow_waits_for_quality_gate() -> None:
+def test_sonar_workflow_passes_project_version_to_repo_runner() -> None:
     workflow = _read_workflow()
 
-    assert "-Dsonar.qualitygate.wait=true" in workflow
+    assert "SONAR_PROJECT_VERSION: ${{ steps.project-version.outputs.value }}" in workflow
+
+
+def test_sonar_workflow_uses_repo_runner_instead_of_deprecated_scan_action() -> None:
+    workflow = _read_workflow()
+
+    assert "SonarSource/sonarqube-scan-action@v7" not in workflow
+    assert "bash tools/run_sonar_local.sh --skip-install --skip-tests" in workflow
 
 
 def test_contributing_and_readme_document_local_sonar_workflow() -> None:

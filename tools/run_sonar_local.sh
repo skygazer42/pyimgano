@@ -36,7 +36,14 @@ pytest_cmd="${PYIMGANO_SONAR_PYTEST_COMMAND:-pytest -v --cov=pyimgano --cov-repo
 scanner_image="${SONAR_SCANNER_IMAGE:-sonarsource/sonar-scanner-cli}"
 host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
 project_key="${SONAR_PROJECT_KEY:-skygazer42_pyimgano}"
-scanner_cmd="${PYIMGANO_SONAR_SCAN_COMMAND:-docker run --rm -e SONAR_TOKEN -e SONAR_HOST_URL=${host_url} -v ${repo_root}:/usr/src -w /usr/src ${scanner_image} -Dsonar.projectKey=${project_key} -Dsonar.qualitygate.wait=true}"
+scanner_args="-Dsonar.projectKey=${project_key} -Dsonar.qualitygate.wait=true -Dsonar.scanner.skipJreProvisioning=true"
+if [ -n "${SONAR_PROJECT_VERSION:-}" ]; then
+  scanner_args="${scanner_args} -Dsonar.projectVersion=${SONAR_PROJECT_VERSION}"
+fi
+if [ -n "${SONAR_SCANNER_EXTRA_ARGS:-}" ]; then
+  scanner_args="${scanner_args} ${SONAR_SCANNER_EXTRA_ARGS}"
+fi
+scanner_cmd="${PYIMGANO_SONAR_SCAN_COMMAND:-docker run --rm -e SONAR_TOKEN -e SONAR_HOST_URL=${host_url} -v ${repo_root}:/usr/src -w /usr/src ${scanner_image} ${scanner_args}}"
 
 run_cmd() {
   local cmd="$1"

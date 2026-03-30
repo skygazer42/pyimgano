@@ -88,10 +88,7 @@ jobs:
         run: pytest -v --cov=pyimgano --cov-report=xml --cov-report=term-missing
 
       - name: SonarQube Cloud Scan
-        uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ steps.sonar-token.outputs.value }}
-        with:
-          args: >
-            "-Dsonar.projectVersion=${{ steps.project-version.outputs.value }}"
-            "-Dsonar.qualitygate.wait=true"
+          SONAR_PROJECT_VERSION: ${{ steps.project-version.outputs.value }}
+        run: bash tools/run_sonar_local.sh --skip-install --skip-tests

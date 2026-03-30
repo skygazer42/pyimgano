@@ -35,6 +35,20 @@ def test_run_sonar_local_dry_run_prints_pytest_and_scanner_steps() -> None:
     assert "pip install -e .[dev,torch,skimage]" in proc.stdout
     assert "pytest -v --cov=pyimgano --cov-report=xml --cov-report=term-missing" in proc.stdout
     assert "docker run --rm" in proc.stdout
+    assert "-Dsonar.scanner.skipJreProvisioning=true" in proc.stdout
+
+
+def test_run_sonar_local_dry_run_includes_project_version_when_provided() -> None:
+    proc = subprocess.run(
+        ["bash", "tools/run_sonar_local.sh", "--dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_clean_runner_env(SONAR_PROJECT_VERSION="1.2.3"),
+    )
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "-Dsonar.projectVersion=1.2.3" in proc.stdout
 
 
 def test_dockerfile_sonar_uses_local_runner_entrypoint() -> None:
