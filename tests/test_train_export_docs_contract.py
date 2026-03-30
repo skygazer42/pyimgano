@@ -12,6 +12,12 @@ def test_cli_reference_documents_train_export_infer_config_and_deploy_bundle() -
 
     assert "--export-infer-config" in text
     assert "--export-deploy-bundle" in text
+    assert "--list-starter-configs" in text
+    assert "--starter-config-info" in text
+    assert "optional_extras" in text
+    assert "starter_tier" in text
+    assert "starter_info_command" in text
+    assert "starter_run_command" in text
     assert "deploy_bundle/" in text
 
 
@@ -20,4 +26,5 @@ def test_readme_mentions_export_deploy_bundle_validation_flow() -> None:
 
     assert "--export-infer-config" in text
     assert "--export-deploy-bundle" in text
+    assert "--list-starter-configs" in text
     assert "pyimgano-bundle validate" in text

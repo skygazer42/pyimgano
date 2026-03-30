@@ -106,6 +106,88 @@ def test_benchmark_cli_can_list_official_configs_json(capsys) -> None:
     assert mvtec["sha256"]
 
 
+def test_benchmark_cli_can_list_starter_configs_json(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--list-starter-configs", "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert isinstance(payload, list)
+    by_name = {str(item["name"]): item for item in payload}
+    mvtec = by_name["official_mvtec_industrial_v4_cpu_offline.json"]
+    assert mvtec["starter"] is True
+    assert mvtec["starter_tier"] == "starter"
+    assert isinstance(mvtec["estimated_runtime"], str)
+    assert mvtec["dataset"] == "mvtec"
+    assert mvtec["optional_extras"] == ["clip", "skimage", "torch"]
+    assert mvtec["optional_extras_install_hint"] == "pip install 'pyimgano[clip,skimage,torch]'"
+    assert mvtec["optional_baseline_count"] == 11
+    assert mvtec["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
+    assert "starter_info_command" in mvtec
+    assert "starter_run_command" in mvtec
+
+
+def test_benchmark_cli_can_list_starter_configs_text(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(["--list-starter-configs"])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "official_mvtec_industrial_v4_cpu_offline.json" in out
+    assert "dataset=mvtec" in out
+    assert "optional_extras=clip,skimage,torch" in out
+    assert "optional_baselines=11" in out
+    assert "list=pyimgano benchmark --list-starter-configs" in out
+    assert "inspect=pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json" in out
+
+
+def test_benchmark_cli_starter_config_info_outputs_json(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(
+        [
+            "--starter-config-info",
+            "official_mvtec_industrial_v4_cpu_offline.json",
+            "--json",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["name"] == "official_mvtec_industrial_v4_cpu_offline.json"
+    assert payload["starter"] is True
+    assert payload["starter_tier"] == "starter"
+    assert isinstance(payload["recommended_for"], list)
+    assert payload["recommended_for"]
+    assert payload["optional_extras"] == ["clip", "skimage", "torch"]
+    assert payload["optional_baseline_count"] == 11
+    assert payload["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
+    assert payload["starter_info_command"].endswith("--json")
+    assert payload["starter_run_command"] == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
+
+
+def test_benchmark_cli_starter_config_info_text_surfaces_optional_extras(capsys) -> None:
+    from pyimgano.cli import main as benchmark_main
+
+    rc = benchmark_main(
+        [
+            "--starter-config-info",
+            "official_mvtec_industrial_v4_cpu_offline.json",
+        ]
+    )
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "Optional extras:" in out
+    assert "clip, skimage, torch" in out
+    assert "Optional baselines: 11" in out
+    assert "Suggested commands:" in out
+    assert "pyimgano benchmark --list-starter-configs" in out
+    assert "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json" in out
+
+
 def test_benchmark_cli_official_config_info_outputs_json(capsys) -> None:
     from pyimgano.cli import main as benchmark_main
 

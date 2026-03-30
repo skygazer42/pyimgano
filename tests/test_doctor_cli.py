@@ -71,6 +71,58 @@ def test_doctor_cli_json_delegates_to_doctor_service(monkeypatch, capsys) -> Non
     assert "delegated-doctor" in capsys.readouterr().out
 
 
+def test_doctor_cli_passes_extra_recommendation_flags_to_service(monkeypatch) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    calls = []
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **kwargs: calls.append(dict(kwargs))
+        or {
+            "tool": "pyimgano-doctor",
+            "python": {},
+            "platform": {},
+            "optional_modules": [],
+            "baselines": {},
+        },
+    )
+
+    rc = doctor_cli.main(
+        [
+            "--json",
+            "--recommend-extras",
+            "--for-command",
+            "export-onnx",
+            "--for-model",
+            "vision_openclip_patch_map",
+        ]
+    )
+
+    assert rc == 0
+    assert calls == [
+        {
+            "suites_to_check": None,
+            "require_extras": None,
+            "accelerators": False,
+            "run_dir": None,
+            "deploy_bundle": None,
+            "dataset_target": None,
+            "dataset": "auto",
+            "category": None,
+            "root_fallback": None,
+            "objective": None,
+            "allow_upstream": None,
+            "selection_profile": None,
+            "topk": None,
+            "recommend_extras": True,
+            "for_command": "export-onnx",
+            "for_model": "vision_openclip_patch_map",
+            "check_bundle_hashes": False,
+        }
+    ]
+
+
 def test_doctor_cli_json_uses_cli_output_helper(monkeypatch) -> None:
     import pyimgano.doctor_cli as doctor_cli
 
@@ -111,6 +163,188 @@ def test_doctor_cli_outputs_text(capsys) -> None:
     out = capsys.readouterr().out
     assert "pyimgano-doctor" in out.lower()
     assert "pyimgano" in out.lower()
+
+
+def test_doctor_cli_text_renders_extras_recommendation(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "extras_recommendation": {
+                "target_kind": "command",
+                "target": "export-onnx",
+                "workflow_stage": "validate",
+                "required_extras": ["torch", "onnx"],
+                "recommended_extras": [],
+                "suggested_commands": [
+                    "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
+                    "pyimgano-doctor --recommend-extras --for-command infer --json",
+                ],
+                "next_step_commands": [
+                    "pyimgano-doctor --recommend-extras --for-command infer --json",
+                ],
+                "artifact_hints": [
+                    "embed.onnx",
+                    "onnx sweep JSON (optional)",
+                ],
+                "missing_extras": ["torch", "onnx"],
+                "available_extras": [],
+                "install_hint": "pip install 'pyimgano[onnx,torch]'",
+                "notes": ["Exports require torch plus ONNX tooling."],
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--recommend-extras", "--for-command", "export-onnx"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "extras_recommendation:" in out
+    assert "target: export-onnx" in out
+    assert "pip install 'pyimgano[onnx,torch]'" in out
+    assert "workflow_stage: validate" in out
+    assert "artifact_hints: embed.onnx; onnx sweep JSON (optional)" in out
+
+
+def test_doctor_cli_text_renders_benchmark_recommendation_context(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "extras_recommendation": {
+                "target_kind": "command",
+                "target": "benchmark",
+                "workflow_stage": "benchmark",
+                "required_extras": [],
+                "recommended_extras": ["clip", "skimage", "torch"],
+                "optional_baseline_count": 11,
+                "starter_configs": ["official_mvtec_industrial_v4_cpu_offline.json"],
+                "starter_list_command": "pyimgano benchmark --list-starter-configs",
+                "starter_info_command": "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+                "starter_run_command": "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json",
+                "suggested_commands": [
+                    "pyimgano benchmark --list-starter-configs",
+                    "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+                ],
+                "next_step_commands": [
+                    "pyimgano-doctor --recommend-extras --for-command train --json",
+                ],
+                "artifact_hints": [
+                    "leaderboard.csv",
+                    "leaderboard_metadata.json",
+                ],
+                "install_hint": "pip install 'pyimgano[clip,skimage,torch]'",
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--recommend-extras", "--for-command", "benchmark"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "workflow_stage: benchmark" in out
+    assert "optional_baseline_count: 11" in out
+    assert "starter_configs: official_mvtec_industrial_v4_cpu_offline.json" in out
+    assert "starter_list_command: pyimgano benchmark --list-starter-configs" in out
+    assert "starter_run_command: pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json" in out
+    assert "suggested_commands: pyimgano benchmark --list-starter-configs; pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json" in out
+    assert "next_step_commands: pyimgano-doctor --recommend-extras --for-command train --json" in out
+    assert "artifact_hints: leaderboard.csv; leaderboard_metadata.json" in out
+
+
+def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "extras_recommendation": {
+                "target_kind": "command",
+                "target": "train",
+                "required_extras": ["torch"],
+                "recommended_extras": [],
+                "suggested_commands": [
+                    "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
+                    "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+                ],
+                "artifact_hints": [
+                    "artifacts/infer_config.json",
+                    "deploy_bundle/bundle_manifest.json",
+                ],
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--recommend-extras", "--for-command", "train"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "suggested_commands:" in out
+    assert "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle" in out
+    assert "artifact_hints: artifacts/infer_config.json; deploy_bundle/bundle_manifest.json" in out
+
+
+def test_doctor_cli_text_renders_model_recommendation_context(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "extras_recommendation": {
+                "target_kind": "model",
+                "target": "vision_openclip_patch_map",
+                "workflow_stage": "discover",
+                "required_extras": ["clip", "torch"],
+                "supports_pixel_map": True,
+                "tested_runtime": "torch",
+                "model_info_command": "pyimgano-benchmark --model-info vision_openclip_patch_map --json",
+                "suggested_commands": [
+                    "pyimgano-benchmark --model-info vision_openclip_patch_map --json",
+                    "pyimgano-doctor --recommend-extras --for-command infer --json",
+                ],
+                "next_step_commands": [
+                    "pyimgano-doctor --recommend-extras --for-command infer --json",
+                ],
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--recommend-extras", "--for-model", "vision_openclip_patch_map"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "workflow_stage: discover" in out
+    assert "model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json" in out
 
 
 def test_doctor_cli_text_uses_readiness_rendering_helper(monkeypatch, capsys) -> None:

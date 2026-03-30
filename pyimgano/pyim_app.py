@@ -19,6 +19,9 @@ class PyimCommand:
     algorithm_type: str | None = None
     year: str | None = None
     deployable_only: bool = False
+    objective: str | None = None
+    selection_profile: str | None = None
+    topk: int | None = None
     audit_metadata: bool = False
     json_output: bool = False
 
@@ -39,12 +42,27 @@ def _run_pyim_listing(command: PyimCommand) -> int:
         algorithm_type=command.algorithm_type,
         year=command.year,
         deployable_only=bool(command.deployable_only),
+        objective=command.objective,
+        selection_profile=command.selection_profile,
+        topk=command.topk,
     )
-    payload = pyim_service.collect_pyim_listing_payload(list_options.to_request())
+    request = list_options.to_request()
+    payload = pyim_service.collect_pyim_listing_payload(request)
+    selection_payload = None
+    if (
+        list_options.list_kind == "models"
+        and (
+            list_options.objective is not None
+            or list_options.selection_profile is not None
+            or list_options.topk is not None
+        )
+    ):
+        selection_payload = pyim_service.collect_pyim_model_selection_payload(request)
     return pyim_cli_rendering.emit_pyim_list_payload(
         payload,
         list_kind=list_options.list_kind,
         json_output=bool(command.json_output),
+        selection_payload=selection_payload,
     )
 
 

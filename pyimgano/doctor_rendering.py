@@ -40,7 +40,67 @@ def format_readiness_lines(readiness: dict[str, object]) -> list[str]:
     return lines
 
 
+def format_extra_recommendation_lines(recommendation: dict[str, object]) -> list[str]:
+    lines = [
+        "extras_recommendation:",
+        f"- target_kind: {recommendation.get('target_kind')}",
+        f"- target: {recommendation.get('target')}",
+    ]
+    workflow_stage = recommendation.get("workflow_stage")
+    if workflow_stage:
+        lines.append(f"- workflow_stage: {workflow_stage}")
+    if "supports_pixel_map" in recommendation:
+        lines.append(f"- supports_pixel_map: {recommendation.get('supports_pixel_map')}")
+    tested_runtime = recommendation.get("tested_runtime")
+    if tested_runtime:
+        lines.append(f"- tested_runtime: {tested_runtime}")
+    model_info_command = recommendation.get("model_info_command")
+    if model_info_command:
+        lines.append(f"- model_info_command: {model_info_command}")
+    required = list(recommendation.get("required_extras", []) or [])
+    if required:
+        lines.append(f"- required_extras: {', '.join(str(item) for item in required)}")
+    recommended = list(recommendation.get("recommended_extras", []) or [])
+    if recommended:
+        lines.append(f"- recommended_extras: {', '.join(str(item) for item in recommended)}")
+    optional_baseline_count = recommendation.get("optional_baseline_count")
+    if optional_baseline_count is not None:
+        lines.append(f"- optional_baseline_count: {optional_baseline_count}")
+    starter_configs = list(recommendation.get("starter_configs", []) or [])
+    if starter_configs:
+        lines.append(f"- starter_configs: {', '.join(str(item) for item in starter_configs)}")
+    starter_list_command = recommendation.get("starter_list_command")
+    if starter_list_command:
+        lines.append(f"- starter_list_command: {starter_list_command}")
+    starter_info_command = recommendation.get("starter_info_command")
+    if starter_info_command:
+        lines.append(f"- starter_info_command: {starter_info_command}")
+    starter_run_command = recommendation.get("starter_run_command")
+    if starter_run_command:
+        lines.append(f"- starter_run_command: {starter_run_command}")
+    suggested_commands = list(recommendation.get("suggested_commands", []) or [])
+    if suggested_commands:
+        lines.append(f"- suggested_commands: {'; '.join(str(item) for item in suggested_commands)}")
+    next_step_commands = list(recommendation.get("next_step_commands", []) or [])
+    if next_step_commands:
+        lines.append(f"- next_step_commands: {'; '.join(str(item) for item in next_step_commands)}")
+    artifact_hints = list(recommendation.get("artifact_hints", []) or [])
+    if artifact_hints:
+        lines.append(f"- artifact_hints: {'; '.join(str(item) for item in artifact_hints)}")
+    missing = list(recommendation.get("missing_extras", []) or [])
+    if missing:
+        lines.append(f"- missing_extras: {', '.join(str(item) for item in missing)}")
+    install_hint = recommendation.get("install_hint")
+    if install_hint:
+        lines.append(f"- install_hint: {install_hint}")
+    notes = list(recommendation.get("notes", []) or [])
+    if notes:
+        lines.append(f"- notes: {'; '.join(str(item) for item in notes)}")
+    return lines
+
+
 __all__ = [
+    "format_extra_recommendation_lines",
     "format_readiness_lines",
     "format_require_extras_line",
     "format_suite_check_line",

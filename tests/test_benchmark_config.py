@@ -62,3 +62,16 @@ def test_describe_benchmark_config_can_resolve_official_name_without_full_path()
     assert trust["audit_refs"]["benchmark_config_source"].endswith(
         "official_mvtec_industrial_v4_cpu_offline.json"
     )
+    assert info["starter"] is True
+    assert info["starter_tier"] == "starter"
+    assert info["optional_extras"] == ["clip", "skimage", "torch"]
+    assert info["optional_baseline_count"] == 11
+    assert info["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
+    assert (
+        info["starter_info_command"]
+        == "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
+    )
+    assert (
+        info["starter_run_command"]
+        == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
+    )

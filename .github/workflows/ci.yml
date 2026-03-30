@@ -44,6 +44,15 @@ jobs:
       - name: Audit repository links
         run: python tools/audit_repo_links.py
 
+      - name: Audit adoption docs
+        run: python tools/audit_adoption_docs.py
+
+      - name: Audit translated entrypoints
+        run: python tools/audit_translation_entrypoints.py
+
+      - name: Audit release surface
+        run: python tools/audit_release_surface.py
+
       - name: Audit official benchmark configs
         run: python tools/audit_benchmark_configs.py
 

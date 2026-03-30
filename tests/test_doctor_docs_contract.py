@@ -12,6 +12,23 @@ def test_cli_reference_documents_doctor_extras_and_readiness() -> None:
 
     assert "pyimgano-doctor" in text
     assert "--require-extras" in text
+    assert "--recommend-extras" in text
+    assert "--for-command" in text
+    assert "--for-model" in text
+    assert "starter_configs" in text
+    assert "optional_baseline_count" in text
+    assert "starter_list_command" in text
+    assert "starter_info_command" in text
+    assert "suggested_commands" in text
+    assert "artifact_hints" in text
+    assert "workflow_stage" in text
+    assert "next_step_commands" in text
+    assert "model_info_command" in text
+    assert "supports_pixel_map" in text
+    assert "tested_runtime" in text
+    assert "leaderboard_metadata.json" in text
+    assert "embed.onnx" in text
+    assert "embed.ts" in text
     assert "--accelerators" in text
     assert "--run-dir" in text
     assert "--deploy-bundle" in text
@@ -22,3 +39,8 @@ def test_readme_mentions_doctor_require_extras_and_readiness() -> None:
 
     assert "pyimgano-doctor" in text
     assert "--suite industrial-v4" in text
+    assert "--recommend-extras" in text
+    assert "--for-command train" in text
+    assert "--for-command infer" in text
+    assert "--for-command runs" in text
+    assert "pyimgano-doctor --recommend-extras --for-command benchmark --json" in text

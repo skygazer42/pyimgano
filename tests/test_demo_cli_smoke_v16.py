@@ -91,3 +91,37 @@ def test_demo_cli_can_run_infer_defects_loop(tmp_path: Path) -> None:
     r0 = json.loads(regions_lines[0])
     assert isinstance(r0, dict)
     assert "defects" in r0
+
+
+def test_demo_cli_smoke_can_write_summary_and_next_steps(tmp_path: Path, capsys) -> None:
+    from pyimgano.demo_cli import main as demo_main
+
+    dataset_root = tmp_path / "demo_dataset"
+    out_dir = tmp_path / "suite_out"
+    summary_path = tmp_path / "demo_summary.json"
+
+    rc = demo_main(
+        [
+            "--smoke",
+            "--dataset-root",
+            str(dataset_root),
+            "--output-dir",
+            str(out_dir),
+            "--summary-json",
+            str(summary_path),
+            "--emit-next-steps",
+            "--no-pretrained",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["smoke"] is True
+    assert payload["dataset_root"] == str(dataset_root)
+    assert payload["run_dir"] == str(out_dir)
+    assert isinstance(payload["next_steps"], list)
+    assert payload["next_steps"]
+
+    out = capsys.readouterr().out
+    assert "Next steps:" in out
+    assert "pyimgano-infer" in out

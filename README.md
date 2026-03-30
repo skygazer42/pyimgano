@@ -27,6 +27,10 @@
 </p>
 
 <p align="center">
+  <b>Start Here:</b> <a href="docs/START_HERE.md">First-run guide</a> · <a href="docs/BENCHMARK_GETTING_STARTED.md">Benchmark starter guide</a> · <a href="docs/CLI_REFERENCE.md">CLI reference</a> · <a href="docs/ALGORITHM_SELECTION_GUIDE.md">Selection guide</a>
+</p>
+
+<p align="center">
   <b>Translations:</b> <a href="README_cn.md">中文</a> · <a href="README_ja.md">日本語</a> · <a href="README_ko.md">한국어</a>
 </p>
 
@@ -174,6 +178,20 @@ See `docs/OPTIONAL_DEPENDENCIES.md` for the full extras map.
 
 </details>
 
+<details>
+<summary><b>Task-oriented install checks</b></summary>
+
+```bash
+pyimgano-doctor --recommend-extras --for-command export-onnx --json
+pyimgano-doctor --recommend-extras --for-command benchmark --json
+pyimgano-doctor --recommend-extras --for-command train --json
+pyimgano-doctor --recommend-extras --for-command infer --json
+pyimgano-doctor --recommend-extras --for-command runs --json
+pyimgano-doctor --recommend-extras --for-model vision_openclip_patch_map --json
+```
+
+</details>
+
 ---
 
 ## 🚀 Quickstart
@@ -226,11 +244,13 @@ print(results[0].score, results[0].label)
 ### CLI — End-to-end pipeline
 
 ```bash
-# 1. Quick demo (creates dataset + runs suite + exports tables)
-pyimgano-demo
-
-# 2. Environment check
+# 1. Environment check + install hint
 pyimgano-doctor --suite industrial-v4
+pyimgano-doctor --recommend-extras --for-command export-onnx --json
+python -m pyimgano --help
+
+# 2. Quick smoke demo (creates dataset + runs a bounded suite + prints next steps)
+pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
 
 # 3. Train → export infer config
 pyimgano-train \
@@ -250,6 +270,32 @@ The JSONL output carries stable deployment metadata for downstream systems, incl
 `decision_summary` on each success record and `postprocess_summary` whenever runtime
 postprocess / infer-config defaults are in play; Python best-effort batch integrations
 also receive a `triage_summary` aggregate from `run_continue_on_error_inference(...)`.
+
+If you want benchmark presets with the lowest setup friction first, start from:
+
+```bash
+pyimgano benchmark --list-starter-configs
+pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json
+```
+
+### Guided Workflow
+
+If you want one compact command chain to follow:
+
+- `Discover`:
+  `pyim --list models --objective latency --selection-profile cpu-screening --topk 5`
+- `Benchmark`:
+  `pyimgano-doctor --recommend-extras --for-command benchmark --json`
+- `Train`:
+  `pyimgano-doctor --recommend-extras --for-command train --json`
+- `Export`:
+  `pyimgano-doctor --recommend-extras --for-command export-onnx --json`
+- `Infer`:
+  `pyimgano-doctor --recommend-extras --for-command infer --json`
+- `Validate`:
+  `pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json`
+- `Gate`:
+  `pyimgano-doctor --recommend-extras --for-command runs --json`
 
 <details>
 <summary><b>One-off inference (no workbench)</b></summary>
@@ -582,6 +628,8 @@ pyimgano-weights validate ./weights_manifest.json --check-files --json
 <td width="33%">
 
 **Getting Started**
+- [`START_HERE.md`](docs/START_HERE.md)
+- [`BENCHMARK_GETTING_STARTED.md`](docs/BENCHMARK_GETTING_STARTED.md)
 - [`QUICKSTART.md`](docs/QUICKSTART.md)
 - [`WORKBENCH.md`](docs/WORKBENCH.md)
 - [`CLI_REFERENCE.md`](docs/CLI_REFERENCE.md)
@@ -605,6 +653,7 @@ pyimgano-weights validate ./weights_manifest.json --check-files --json
 - [`ALGORITHM_SELECTION_GUIDE.md`](docs/ALGORITHM_SELECTION_GUIDE.md)
 - [`EVALUATION_AND_BENCHMARK.md`](docs/EVALUATION_AND_BENCHMARK.md)
 - [`PUBLISHING.md`](docs/PUBLISHING.md)
+- [`examples/README.md`](examples/README.md)
 
 </td>
 </tr>

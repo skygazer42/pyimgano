@@ -17,10 +17,60 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert "runs" in out
     assert "--list [KIND]" in out
     assert "benchmark --list-official-configs" in out
+    assert "benchmark --list-starter-configs" in out
+    assert "benchmark --starter-config-info" in out
+    assert "doctor --recommend-extras --for-command train --json" in out
+    assert "doctor --recommend-extras --for-command infer --json" in out
+    assert "doctor --recommend-extras --for-command runs --json" in out
+    assert "guided next steps:" in out.lower()
+    assert "discover:" in out.lower()
+    assert "benchmark:" in out.lower()
+    assert "train:" in out.lower()
+    assert "export:" in out.lower()
+    assert "infer:" in out.lower()
+    assert "validate:" in out.lower()
+    assert "gate:" in out.lower()
+    assert "pyim --list models --objective latency --selection-profile cpu-screening --topk 5" in out
+    assert "doctor --recommend-extras --for-command export-onnx --json" in out
+    assert "doctor --recommend-extras --for-command export-torchscript --json" in out
     assert "industrial_adapt_audited.json" in out
     assert "runs publication" in out
     assert "runs acceptance" in out
     assert "weights audit-bundle" in out
+    assert "\n  benchmark" in out
+    assert "\n  bundle" in out
+
+
+def test_root_cli_help_uses_shared_workflow_guidance_groups(monkeypatch, capsys):
+    import pyimgano.root_cli as root_cli
+
+    monkeypatch.setattr(root_cli, "industrial_fast_path_commands", lambda: ["fast-path-cmd"])
+    monkeypatch.setattr(root_cli, "benchmark_publication_commands", lambda: ["bench-pub-cmd"])
+    monkeypatch.setattr(root_cli, "artifact_acceptance_commands", lambda: ["artifact-cmd"])
+    monkeypatch.setattr(root_cli, "list_workflow_stages", lambda: [])
+
+    rc = root_cli.main([])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "fast-path-cmd" in out
+    assert "bench-pub-cmd" in out
+    assert "artifact-cmd" in out
+
+
+def test_python_module_invocation_routes_to_root_cli() -> None:
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "pyimgano", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "pyimgano <command> [args...]" in completed.stdout
 
 
 def test_root_cli_delegates_discovery_shortcuts(monkeypatch):
@@ -38,6 +88,47 @@ def test_root_cli_delegates_discovery_shortcuts(monkeypatch):
 
     assert rc == 17
     assert calls == [["--list", "models", "--json"]]
+
+
+def test_root_cli_delegates_discovery_shortcuts_with_selection_flags(monkeypatch):
+    import pyimgano.root_cli as root_cli
+
+    calls = []
+
+    monkeypatch.setattr(
+        root_cli,
+        "_run_discovery_cli",
+        lambda argv: calls.append(list(argv)) or 18,
+    )
+
+    rc = root_cli.main(
+        [
+            "--list",
+            "models",
+            "--objective",
+            "latency",
+            "--selection-profile",
+            "cpu-screening",
+            "--topk",
+            "3",
+            "--json",
+        ]
+    )
+
+    assert rc == 18
+    assert calls == [
+        [
+            "--list",
+            "models",
+            "--objective",
+            "latency",
+            "--selection-profile",
+            "cpu-screening",
+            "--topk",
+            "3",
+            "--json",
+        ]
+    ]
 
 
 def test_root_cli_accepts_list_alias_without_dashes(monkeypatch):

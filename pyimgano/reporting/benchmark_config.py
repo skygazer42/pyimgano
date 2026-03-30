@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
+from pyimgano.utils.extras import extras_install_hint
+from pyimgano.workflow_guidance import starter_benchmark_info_command
+from pyimgano.workflow_guidance import starter_benchmark_list_command
+from pyimgano.workflow_guidance import starter_benchmark_run_command
 
 
 def _official_benchmark_config_dir(directory: str | Path | None = None) -> Path:
@@ -190,6 +194,74 @@ def _benchmark_config_degraded_by(
     return degraded_by
 
 
+_STARTER_CONFIG_METADATA: dict[str, dict[str, Any]] = {
+    "official_manifest_industrial_v4_cpu_offline.json": {
+        "estimated_runtime": "cpu-friendly starter benchmark",
+        "recommended_for": ["manifest-backed industrial smoke benchmarks"],
+        "notes": ["Use when your dataset is already expressed as a manifest."],
+    },
+    "official_mvtec_industrial_v4_cpu_offline.json": {
+        "estimated_runtime": "cpu-friendly starter benchmark",
+        "recommended_for": ["first MVTec AD comparison", "offline CPU sanity checks"],
+        "notes": ["Good default starter benchmark for industrial visual AD comparisons."],
+    },
+    "official_visa_industrial_v4_cpu_offline.json": {
+        "estimated_runtime": "cpu-friendly starter benchmark",
+        "recommended_for": ["first VisA comparison", "offline CPU sanity checks"],
+        "notes": ["Useful when you want a VisA-flavored starter benchmark."],
+    },
+}
+
+
+def _starter_metadata_for_benchmark_config(
+    *,
+    name: str,
+    suite: Any,
+) -> dict[str, Any]:
+    import pyimgano.services.discovery_service as discovery_service
+
+    meta = dict(_STARTER_CONFIG_METADATA.get(str(name), {}))
+    optional_extras: list[str] = []
+    optional_baseline_count = 0
+    suite_name = _nonempty_str(suite)
+    if suite_name is not None:
+        try:
+            suite_info = discovery_service.build_suite_info_payload(suite_name)
+        except Exception:
+            suite_info = {}
+        for baseline in suite_info.get("baselines", []) if isinstance(suite_info, Mapping) else []:
+            requires_extras = [str(extra).strip() for extra in baseline.get("requires_extras", []) or []]
+            requires_extras = [extra for extra in requires_extras if extra]
+            if requires_extras:
+                optional_baseline_count += 1
+            for extra in requires_extras:
+                text = str(extra).strip()
+                if text and text not in optional_extras:
+                    optional_extras.append(text)
+    optional_extras = sorted(optional_extras)
+    starter = bool(meta)
+    starter_name = str(name)
+    return {
+        "starter": starter,
+        "starter_tier": ("starter" if starter else None),
+        "estimated_runtime": (
+            str(meta.get("estimated_runtime", "cpu-friendly starter benchmark")) if starter else None
+        ),
+        "recommended_for": [str(item) for item in meta.get("recommended_for", [])],
+        "notes": [str(item) for item in meta.get("notes", [])],
+        "optional_extras": optional_extras,
+        "optional_baseline_count": int(optional_baseline_count),
+        "optional_extras_install_hint": (
+            extras_install_hint(optional_extras) if optional_extras else None
+        ),
+        "starter_list_command": (starter_benchmark_list_command() if starter else None),
+        "starter_info_command": (
+            starter_benchmark_info_command(starter_name) if starter else None
+        ),
+        "starter_run_command": (starter_benchmark_run_command(starter_name) if starter else None),
+    }
+
+
 def describe_benchmark_config(spec: str | Path) -> dict[str, Any]:
     payload, source, kind = _load_config_spec(spec)
     canonical = json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
@@ -223,6 +295,7 @@ def describe_benchmark_config(spec: str | Path) -> dict[str, Any]:
     sha256 = hashlib.sha256(canonical).hexdigest()
     errors = validate_benchmark_config_payload(payload)
     official = bool(name.startswith("official_") and name.endswith(".json"))
+    starter_metadata = _starter_metadata_for_benchmark_config(name=name, suite=suite)
     return {
         "name": name,
         "source": source,
@@ -243,12 +316,31 @@ def describe_benchmark_config(spec: str | Path) -> dict[str, Any]:
             evaluation_contract=evaluation_contract,
             errors=errors,
         ),
+        **starter_metadata,
     }
 
 
 def list_official_benchmark_configs(directory: str | Path | None = None) -> list[dict[str, Any]]:
     config_dir = _official_benchmark_config_dir(directory)
     return [describe_benchmark_config(path) for path in sorted(config_dir.glob("official_*.json"))]
+
+
+def describe_starter_benchmark_config(spec: str | Path) -> dict[str, Any]:
+    payload = describe_benchmark_config(spec)
+    return {
+        **payload,
+        "starter": True,
+        "starter_tier": "starter",
+    }
+
+
+def list_starter_benchmark_configs(directory: str | Path | None = None) -> list[dict[str, Any]]:
+    config_dir = _official_benchmark_config_dir(directory)
+    return [
+        describe_starter_benchmark_config(path)
+        for path in sorted(config_dir.glob("official_*.json"))
+        if path.name in _STARTER_CONFIG_METADATA
+    ]
 
 
 def load_benchmark_config_spec(spec: str | Path) -> Any:
@@ -268,7 +360,9 @@ def load_and_validate_benchmark_config(spec: str | Path) -> dict[str, Any]:
 
 __all__ = [
     "describe_benchmark_config",
+    "describe_starter_benchmark_config",
     "list_official_benchmark_configs",
+    "list_starter_benchmark_configs",
     "load_benchmark_config_spec",
     "load_and_validate_benchmark_config",
     "validate_benchmark_config_payload",

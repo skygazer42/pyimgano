@@ -53,6 +53,21 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--recommend-extras",
+        action="store_true",
+        help="Emit task-oriented extras recommendations for a command or model.",
+    )
+    parser.add_argument(
+        "--for-command",
+        default=None,
+        help="Command name used with --recommend-extras. Example: --for-command export-onnx",
+    )
+    parser.add_argument(
+        "--for-model",
+        default=None,
+        help="Model name used with --recommend-extras. Example: --for-model vision_patchcore",
+    )
+    parser.add_argument(
         "--accelerators",
         action="store_true",
         help=(
@@ -147,6 +162,13 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             ),
             topk=(int(args.topk) if getattr(args, "topk", None) is not None else None),
+            recommend_extras=bool(getattr(args, "recommend_extras", False)),
+            for_command=(
+                str(args.for_command) if getattr(args, "for_command", None) is not None else None
+            ),
+            for_model=(
+                str(args.for_model) if getattr(args, "for_model", None) is not None else None
+            ),
             check_bundle_hashes=bool(getattr(args, "check_bundle_hashes", False)),
         )
     except Exception as exc:  # noqa: BLE001 - CLI boundary
@@ -193,6 +215,11 @@ def main(argv: list[str] | None = None) -> int:
     if isinstance(req, dict) and req.get("required"):
         line = doctor_rendering.format_require_extras_line(dict(req))
         if line is not None:
+            print(line)
+
+    extras_recommendation = payload.get("extras_recommendation")
+    if isinstance(extras_recommendation, dict):
+        for line in doctor_rendering.format_extra_recommendation_lines(dict(extras_recommendation)):
             print(line)
 
     readiness = payload.get("readiness")

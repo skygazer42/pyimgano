@@ -20,7 +20,21 @@ from pyimgano.services.doctor_service_helpers import (
     split_csv_args as _split_csv_args_helper,
 )
 from pyimgano.utils.extras import extra_installed
+from pyimgano.utils.extras import extras_install_hint
 from pyimgano.utils.optional_deps import optional_import
+from pyimgano.workflow_guidance import artifact_hints_for_command
+from pyimgano.workflow_guidance import default_starter_benchmark_name
+from pyimgano.workflow_guidance import model_workflow_guidance
+from pyimgano.workflow_guidance import model_info_command_for_model
+from pyimgano.workflow_guidance import next_step_commands_for_command
+from pyimgano.workflow_guidance import next_step_commands_for_model
+from pyimgano.workflow_guidance import suggested_commands_for_command
+from pyimgano.workflow_guidance import suggested_commands_for_model
+from pyimgano.workflow_guidance import starter_benchmark_info_command
+from pyimgano.workflow_guidance import starter_benchmark_list_command
+from pyimgano.workflow_guidance import starter_benchmark_run_command
+from pyimgano.workflow_guidance import workflow_stage_for_command
+from pyimgano.workflow_guidance import workflow_stage_for_model
 
 
 def _dist_version(name: str) -> str | None:
@@ -1055,6 +1069,223 @@ def _build_dataset_target_payload(
     }
 
 
+_COMMAND_EXTRA_SPECS: dict[str, dict[str, Any]] = {
+    "export-onnx": {
+        "required_extras": ["onnx", "torch"],
+        "recommended_extras": [],
+        "notes": ["Exports require torch plus ONNX tooling."],
+    },
+    "export-torchscript": {
+        "required_extras": ["torch"],
+        "recommended_extras": [],
+        "notes": ["TorchScript export depends on the torch extra."],
+    },
+    "train": {
+        "required_extras": ["torch"],
+        "recommended_extras": ["faiss"],
+        "notes": ["Most training-first deep workflows depend on torch."],
+    },
+    "infer": {
+        "required_extras": [],
+        "recommended_extras": ["torch", "onnx", "openvino"],
+        "notes": ["Base install supports classical CPU inference; extras unlock deep and deploy runtimes."],
+    },
+    "runs": {
+        "required_extras": [],
+        "recommended_extras": [],
+        "notes": ["Run inspection and release gates work on the base install."],
+    },
+    "demo": {
+        "required_extras": [],
+        "recommended_extras": [],
+        "notes": ["The smoke demo is designed to run on the base install."],
+    },
+}
+
+
+def _sorted_unique(items: Sequence[str]) -> list[str]:
+    return sorted({str(item) for item in items if str(item).strip()})
+
+
+def _build_extra_recommendation_payload(
+    *,
+    target_kind: str,
+    target: str,
+    required_extras: Sequence[str],
+    recommended_extras: Sequence[str],
+    notes: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    required = _sorted_unique(required_extras)
+    recommended = [item for item in _sorted_unique(recommended_extras) if item not in required]
+    combined = [*required, *recommended]
+    missing = [extra for extra in combined if not extra_installed(extra)]
+    available = [extra for extra in combined if extra not in missing]
+    install_hint = extras_install_hint(missing or combined) if combined else None
+    return {
+        "target_kind": str(target_kind),
+        "target": str(target),
+        "required_extras": required,
+        "recommended_extras": recommended,
+        "missing_extras": missing,
+        "available_extras": available,
+        "install_hint": install_hint,
+        "notes": [str(item) for item in (notes or []) if str(item).strip()],
+    }
+
+
+def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
+    key = str(command_name).strip()
+    if not key:
+        raise ValueError("for_command must not be empty.")
+    if key == "benchmark":
+        from pyimgano.reporting.benchmark_config import list_starter_benchmark_configs
+
+        starter_configs = list_starter_benchmark_configs()
+        recommended_extras: list[str] = []
+        starter_names: list[str] = []
+        optional_baseline_count = 0
+        for item in starter_configs:
+            starter_names.append(str(item.get("name")))
+            optional_baseline_count = max(
+                optional_baseline_count,
+                int(item.get("optional_baseline_count", 0) or 0),
+            )
+            for extra in item.get("optional_extras", []) or []:
+                text = str(extra).strip()
+                if text and text not in recommended_extras:
+                    recommended_extras.append(text)
+
+        payload = _build_extra_recommendation_payload(
+            target_kind="command",
+            target=key,
+            required_extras=[],
+            recommended_extras=recommended_extras,
+            notes=[
+                "Starter CPU baselines run without extras; broader suites often benefit from clip, torch, and skimage."
+            ],
+        )
+        payload["optional_baseline_count"] = int(optional_baseline_count)
+        payload["starter_configs"] = sorted(starter_names)
+        payload["starter_list_command"] = starter_benchmark_list_command()
+        payload["workflow_stage"] = workflow_stage_for_command(key)
+        if starter_names:
+            preferred = (
+                default_starter_benchmark_name()
+                if default_starter_benchmark_name() in starter_names
+                else sorted(starter_names)[0]
+            )
+            payload["starter_info_command"] = starter_benchmark_info_command(preferred)
+            payload["starter_run_command"] = starter_benchmark_run_command(preferred)
+            payload["suggested_commands"] = suggested_commands_for_command(key)
+            payload["next_step_commands"] = next_step_commands_for_command(key)
+        else:
+            payload["suggested_commands"] = suggested_commands_for_command(key)
+            payload["next_step_commands"] = next_step_commands_for_command(key)
+        payload["artifact_hints"] = artifact_hints_for_command(key)
+        return payload
+
+    spec = _COMMAND_EXTRA_SPECS.get(key)
+    if spec is None:
+        raise ValueError(f"Unknown command for extras recommendation: {key!r}")
+    return _build_extra_recommendation_payload(
+        target_kind="command",
+        target=key,
+        required_extras=spec.get("required_extras", []),
+        recommended_extras=spec.get("recommended_extras", []),
+        notes=spec.get("notes", []),
+    ) | {
+        "workflow_stage": workflow_stage_for_command(key),
+        "suggested_commands": suggested_commands_for_command(key),
+        "next_step_commands": next_step_commands_for_command(key),
+        "artifact_hints": artifact_hints_for_command(key),
+    }
+
+
+def _build_model_extra_recommendation(model_name: str) -> dict[str, Any]:
+    from pyimgano.services.discovery_service import build_model_info_payload
+
+    info = build_model_info_payload(str(model_name))
+    metadata = dict(info.get("metadata", {}))
+    tags = {str(item).strip().lower() for item in info.get("tags", [])}
+    profile = dict(info.get("deployment_profile", {}))
+    required: list[str] = []
+    recommended: list[str] = []
+    notes: list[str] = []
+
+    tested_runtime = str(profile.get("tested_runtime", "")).strip().lower()
+    upstream_project = str(profile.get("upstream_project", "")).strip().lower()
+    backend = str(metadata.get("backend", "")).strip().lower()
+    weights_source = str(metadata.get("weights_source", "")).strip().lower()
+    memory_bank = dict(profile.get("memory_bank", {}))
+
+    if (
+        tested_runtime == "torch"
+        or "torch" in tags
+        or "deep" in tags
+        or "clip" in tags
+        or upstream_project in {"anomalib", "patchcore_inspection"}
+        or backend in {"anomalib", "patchcore_inspection", "openclip"}
+    ):
+        required.append("torch")
+    if tested_runtime == "onnxruntime" or "onnx" in tags or weights_source == "local-exported-onnx":
+        required.append("onnx")
+    if "clip" in tags or "openclip" in tags or backend == "openclip":
+        required.append("clip")
+    if upstream_project == "anomalib" or "anomalib" in tags or backend == "anomalib":
+        required.append("anomalib")
+    if (
+        upstream_project == "patchcore_inspection"
+        or "patchcore_inspection" in tags
+        or backend == "patchcore_inspection"
+    ):
+        required.append("patchcore_inspection")
+        notes.append(
+            "PatchCore-Inspection is not published on PyPI; install the upstream package separately when needed."
+        )
+    if bool(memory_bank.get("enabled")):
+        recommended.append("faiss")
+    if "ssim" in tags:
+        recommended.append("skimage")
+
+    payload = _build_extra_recommendation_payload(
+        target_kind="model",
+        target=str(model_name),
+        required_extras=required,
+        recommended_extras=recommended,
+        notes=notes,
+    )
+    guidance = model_workflow_guidance(model_name)
+    payload["workflow_stage"] = guidance.workflow_stage
+    payload["supports_pixel_map"] = bool(info.get("supports_pixel_map", False))
+    payload["tested_runtime"] = str(profile.get("tested_runtime", ""))
+    payload["model_info_command"] = guidance.model_info_command
+    payload["suggested_commands"] = list(guidance.suggested_commands)
+    payload["next_step_commands"] = list(guidance.next_step_commands)
+    return payload
+
+
+def _resolve_extra_recommendation(
+    *,
+    recommend_extras: bool,
+    for_command: str | None,
+    for_model: str | None,
+) -> dict[str, Any] | None:
+    if not recommend_extras and for_command is None and for_model is None:
+        return None
+
+    if for_model is not None:
+        return _build_model_extra_recommendation(str(for_model))
+    if for_command is not None:
+        return _build_command_extra_recommendation(str(for_command))
+    return _build_extra_recommendation_payload(
+        target_kind="command",
+        target="base-install",
+        required_extras=[],
+        recommended_extras=[],
+        notes=["Base install is sufficient for the lightweight CPU smoke path."],
+    )
+
+
 def collect_doctor_payload(
     *,
     suites_to_check: list[str] | None = None,
@@ -1070,6 +1301,9 @@ def collect_doctor_payload(
     allow_upstream: str | None = None,
     selection_profile: str | None = None,
     topk: int | None = None,
+    recommend_extras: bool = False,
+    for_command: str | None = None,
+    for_model: str | None = None,
     check_bundle_hashes: bool = False,
 ) -> dict[str, Any]:
     import pyimgano
@@ -1085,6 +1319,13 @@ def collect_doctor_payload(
         require_extras=require_extras,
         accelerators=accelerators,
     )
+    extras_recommendation = _resolve_extra_recommendation(
+        recommend_extras=bool(recommend_extras),
+        for_command=for_command,
+        for_model=for_model,
+    )
+    if extras_recommendation is not None:
+        payload["extras_recommendation"] = extras_recommendation
     _apply_doctor_readiness_targets(
         payload,
         run_dir=run_dir,

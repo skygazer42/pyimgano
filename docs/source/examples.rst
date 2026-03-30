@@ -6,6 +6,7 @@ The repository contains runnable scripts under ``examples/``.
 Browse:
 
 - https://github.com/skygazer42/pyimgano/tree/main/examples
+- https://github.com/skygazer42/pyimgano/blob/main/examples/README.md
 
 Highlights
 ----------

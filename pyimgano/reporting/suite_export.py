@@ -747,6 +747,32 @@ def export_suite_tables(
     written.update(_export_category_matrix_tables(payload, out_dir, formats=formats))
 
     benchmark_config = payload.get("benchmark_config")
+    if isinstance(benchmark_config, Mapping):
+        benchmark_map = dict(benchmark_config)
+        benchmark_source = _nonempty_str(benchmark_map.get("source"))
+        if benchmark_source is not None:
+            try:
+                from pyimgano.reporting.benchmark_config import describe_benchmark_config
+
+                described = describe_benchmark_config(benchmark_source)
+                for key in (
+                    "starter",
+                    "starter_tier",
+                    "estimated_runtime",
+                    "recommended_for",
+                    "notes",
+                    "optional_extras",
+                    "optional_baseline_count",
+                    "optional_extras_install_hint",
+                    "starter_list_command",
+                    "starter_info_command",
+                    "starter_run_command",
+                ):
+                    if key in described and key not in benchmark_map:
+                        benchmark_map[key] = described[key]
+                benchmark_config = benchmark_map
+            except Exception:
+                benchmark_config = benchmark_map
     split_fingerprint = _resolve_split_fingerprint(payload=payload, rows=rows_norm)
     citation = _suite_citation(benchmark_config)
     audit_refs = _build_publication_audit_refs(

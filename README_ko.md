@@ -27,6 +27,13 @@ pip install pyimgano
 
 ## 빠른 시작(CLI)
 
+가장 짧은 smoke path:
+
+```bash
+pyimgano-doctor --recommend-extras --for-command export-onnx --json
+pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
+```
+
 ### 학습(workbench) → `infer_config.json` 내보내기
 
 ```bash
@@ -58,4 +65,5 @@ pyimgano-infer \
 pyimgano-benchmark --list-models
 pyimgano-benchmark --list-models --tags numpy,pixel_map
 pyimgano-benchmark --model-info vision_patchcore --json
+pyimgano benchmark --list-starter-configs
 ```

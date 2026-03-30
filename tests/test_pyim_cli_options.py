@@ -30,6 +30,9 @@ def test_resolve_pyim_list_options_normalizes_filters_and_section_flags(monkeypa
         algorithm_type="deep-vision",
         year=2025,
         deployable_only=False,
+        objective="latency",
+        selection_profile="cpu-screening",
+        topk=3,
     )
 
     assert options.list_kind == "models"
@@ -38,6 +41,9 @@ def test_resolve_pyim_list_options_normalizes_filters_and_section_flags(monkeypa
     assert options.algorithm_type == "deep-vision"
     assert options.year == "2025"
     assert options.deployable_only is False
+    assert options.objective == "latency"
+    assert options.selection_profile == "cpu-screening"
+    assert options.topk == 3
     assert options.include_core_sections is True
     assert options.include_recipes is False
     assert options.include_datasets is False
@@ -106,6 +112,9 @@ def test_pyim_list_options_can_build_neutral_request(monkeypatch) -> None:
         algorithm_type="deep-vision",
         year="2025",
         deployable_only=True,
+        objective="balanced",
+        selection_profile="benchmark-parity",
+        topk=4,
     )
 
     request = options.to_request()
@@ -119,6 +128,9 @@ def test_pyim_list_options_can_build_neutral_request(monkeypatch) -> None:
             "algorithm_type": "deep-vision",
             "year": "2025",
             "deployable_only": True,
+            "objective": "balanced",
+            "selection_profile": "benchmark-parity",
+            "topk": 4,
         }
     ]
 
@@ -128,6 +140,22 @@ def test_pyim_cli_options_reexports_shared_list_kind_choices() -> None:
     from pyimgano.pyim_list_spec import PYIM_LIST_KIND_CHOICES as SPEC_CHOICES
 
     assert PYIM_LIST_KIND_CHOICES == SPEC_CHOICES
+
+
+def test_resolve_pyim_list_options_supports_selection_flags_only_for_model_listings() -> None:
+    from pyimgano.pyim_cli_options import resolve_pyim_list_options
+
+    options = resolve_pyim_list_options(
+        list_kind="models",
+        tags=None,
+        objective="localization",
+        selection_profile="deploy-readiness",
+        topk=2,
+    )
+
+    assert options.objective == "localization"
+    assert options.selection_profile == "deploy-readiness"
+    assert options.topk == 2
 
 
 @pytest.mark.parametrize(
@@ -148,6 +176,18 @@ def test_pyim_cli_options_reexports_shared_list_kind_choices() -> None:
         (
             {"list_kind": "models", "deployable_only": True},
             "--deployable-only is supported only with --list preprocessing or --list.",
+        ),
+        (
+            {"list_kind": "families", "objective": "latency"},
+            "--objective is supported only with --list models.",
+        ),
+        (
+            {"list_kind": "types", "selection_profile": "cpu-screening"},
+            "--selection-profile is supported only with --list models.",
+        ),
+        (
+            {"list_kind": "all", "topk": 2},
+            "--topk is supported only with --list models.",
         ),
     ],
 )

@@ -112,6 +112,8 @@ Table of Contents
    :maxdepth: 2
    :caption: User Guide
 
+   start_here
+   benchmark_getting_started
    quickstart
    tutorials
    examples

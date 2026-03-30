@@ -51,6 +51,11 @@ def _write_demo_custom_dataset(root: Path, *, size_hw: tuple[int, int]) -> None:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-demo")
     parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Force a lightweight CPU-friendly smoke path with bounded defaults.",
+    )
+    parser.add_argument(
         "--dataset-root",
         default="./_demo_custom_dataset",
         help="Where to write a tiny demo custom dataset (default: ./_demo_custom_dataset).",
@@ -123,6 +128,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Print full suite JSON payload to stdout (default: false).",
     )
     parser.add_argument(
+        "--summary-json",
+        default=None,
+        help="Optional path to write a compact demo summary JSON payload.",
+    )
+    parser.add_argument(
+        "--emit-next-steps",
+        action="store_true",
+        help="Print a small copy-pasteable next-step command block after the demo completes.",
+    )
+    parser.add_argument(
         "--infer-defects",
         action="store_true",
         help=(
@@ -133,11 +148,27 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_next_steps(*, dataset_root: Path, run_dir: Path | None) -> list[str]:
+    steps = [
+        (
+            "pyimgano-infer "
+            f"--model-preset industrial-template-ncc-map --train-dir {dataset_root / 'train' / 'normal'} "
+            f"--input {dataset_root / 'test'} --defects-preset industrial-defects-fp40 "
+            f"--save-jsonl {dataset_root.parent / '_demo_results.jsonl'}"
+        ),
+        "pyimgano benchmark --list-starter-configs",
+    ]
+    if run_dir is not None:
+        steps.append(f"pyimgano runs quality {run_dir} --json")
+    return steps
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     dataset_root = Path(str(args.dataset_root))
-    resize = (int(args.resize[0]), int(args.resize[1]))
+    smoke = bool(getattr(args, "smoke", False))
+    resize = (32, 32) if smoke else (int(args.resize[0]), int(args.resize[1]))
     _write_demo_custom_dataset(dataset_root, size_hw=resize)
 
     output_dir: Path | None
@@ -148,12 +179,17 @@ def main(argv: list[str] | None = None) -> int:
         if str(args.export).lower().strip() != "none":
             raise ValueError("--export requires --save-run.")
 
-    sweep: str | None = None if bool(args.no_sweep) else str(args.sweep)
+    suite = "industrial-ci" if smoke else str(args.suite)
+    sweep: str | None = None if (smoke or bool(args.no_sweep)) else str(args.sweep)
+    sweep_max_variants = 0 if smoke else int(args.sweep_max_variants)
+    export_mode = "csv" if smoke else str(args.export)
+    limit_train = 2 if smoke else int(args.limit_train)
+    limit_test = 2 if smoke else int(args.limit_test)
 
     from pyimgano.pipelines.run_suite import run_baseline_suite
 
     payload = run_baseline_suite(
-        suite=str(args.suite),
+        suite=suite,
         dataset="custom",
         root=str(dataset_root),
         manifest_path=None,
@@ -164,15 +200,15 @@ def main(argv: list[str] | None = None) -> int:
         pretrained=bool(args.pretrained),
         contamination=0.1,
         resize=resize,
-        limit_train=int(args.limit_train),
-        limit_test=int(args.limit_test),
+        limit_train=limit_train,
+        limit_test=limit_test,
         save_run=bool(args.save_run),
         per_image_jsonl=True,
         cache_dir=None,
         output_dir=(output_dir if output_dir is not None else None),
         continue_on_error=True,
         sweep=sweep,
-        sweep_max_variants=int(args.sweep_max_variants),
+        sweep_max_variants=sweep_max_variants,
     )
 
     infer_defects_payload: dict[str, Any] | None = None
@@ -235,21 +271,38 @@ def main(argv: list[str] | None = None) -> int:
             return int(infer_rc)
 
     exported: dict[str, str] | None = None
-    if bool(args.save_run) and str(args.export).lower().strip() != "none":
+    if bool(args.save_run) and str(export_mode).lower().strip() != "none":
         from pyimgano.reporting.suite_export import export_suite_tables
 
         run_dir = payload.get("run_dir")
         if not isinstance(run_dir, str) or not run_dir:
             raise RuntimeError("internal error: expected suite run_dir when --save-run is enabled.")
-        fmt = str(args.export).lower().strip()
+        fmt = str(export_mode).lower().strip()
         formats = ["csv", "md"] if fmt == "both" else [fmt]
         exported = export_suite_tables(payload, Path(run_dir), formats=formats)
+
+    run_dir = payload.get("run_dir")
+    run_dir_path = Path(run_dir) if isinstance(run_dir, str) and run_dir else None
+    next_steps = _build_next_steps(dataset_root=dataset_root, run_dir=run_dir_path)
+    summary_payload = {
+        "smoke": smoke,
+        "dataset_root": str(dataset_root),
+        "run_dir": (str(run_dir_path) if run_dir_path is not None else None),
+        "exported": (dict(exported) if exported is not None else {}),
+        "next_steps": next_steps,
+    }
+
+    summary_json = getattr(args, "summary_json", None)
+    if summary_json is not None:
+        Path(str(summary_json)).write_text(
+            json.dumps(to_jsonable(summary_payload), indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
     if bool(args.json):
         print(json.dumps(to_jsonable(payload), indent=2, sort_keys=True))
         return 0
 
-    run_dir = payload.get("run_dir")
     print(f"Demo dataset: {dataset_root.resolve()}")
     if isinstance(run_dir, str) and run_dir:
         print(f"Suite run dir: {Path(run_dir).resolve()}")
@@ -271,6 +324,11 @@ def main(argv: list[str] | None = None) -> int:
                 name = top.get("name")
                 auroc = top.get("auroc")
                 print(f"Top by AUROC: {name} (auroc={auroc})")
+
+    if bool(getattr(args, "emit_next_steps", False)):
+        print("Next steps:")
+        for step in next_steps:
+            print(step)
 
     print("Tip: remove ./_demo_custom_dataset and ./_demo_suite_run* when done.")
     return 0

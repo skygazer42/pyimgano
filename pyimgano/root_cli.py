@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import importlib
 import sys
-from textwrap import dedent
+from textwrap import dedent, indent
+
+from pyimgano.workflow_guidance import artifact_acceptance_commands
+from pyimgano.workflow_guidance import benchmark_publication_commands
+from pyimgano.workflow_guidance import industrial_fast_path_commands
+from pyimgano.workflow_guidance import list_workflow_stages
 
 _COMMANDS: dict[str, tuple[str, str]] = {
     "benchmark": ("pyimgano.cli", "Benchmarking, suites, and benchmark discovery."),
@@ -38,6 +43,25 @@ def _help_text() -> str:
     command_lines = "\n".join(
         f"  {name:<22} {description}" for name, (_module, description) in _COMMANDS.items()
     )
+    command_lines = indent(command_lines, "        ")
+    workflow_lines = []
+    for stage in list_workflow_stages():
+        workflow_lines.append(f"  {stage.key}:")
+        for command in stage.commands:
+            workflow_lines.append(f"    {command}")
+    workflow_block = indent("\n".join(workflow_lines), "        ")
+    industrial_fast_path_block = indent(
+        "\n".join(f"  {command}" for command in industrial_fast_path_commands()),
+        "        ",
+    )
+    benchmark_publication_block = indent(
+        "\n".join(f"  {command}" for command in benchmark_publication_commands()),
+        "        ",
+    )
+    artifact_acceptance_block = indent(
+        "\n".join(f"  {command}" for command in artifact_acceptance_commands()),
+        "        ",
+    )
     return dedent(
         f"""\
         usage:
@@ -53,25 +77,19 @@ def _help_text() -> str:
           --json                   JSON output for discovery commands.
 
         commands:
-        {command_lines}
+{command_lines}
 
         industrial fast-path:
-          pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
-          pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
-          pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json
-          pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
-          pyimgano runs quality runs/<run_dir> --require-status audited --json
-          pyimgano runs acceptance runs/<run_dir> --require-status audited --json
+{industrial_fast_path_block}
 
         benchmark publication:
-          pyimgano benchmark --list-official-configs
-          pyimgano benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json
-          pyimgano runs acceptance /path/to/suite_export --json
-          pyimgano runs publication /path/to/suite_export --json
+{benchmark_publication_block}
 
         artifact acceptance:
-          pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
-          pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
+{artifact_acceptance_block}
+
+        guided next steps:
+{workflow_block}
 
         examples:
           pyimgano --list

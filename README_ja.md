@@ -27,6 +27,13 @@ pip install pyimgano
 
 ## クイックスタート（CLI）
 
+最短の smoke path:
+
+```bash
+pyimgano-doctor --recommend-extras --for-command export-onnx --json
+pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
+```
+
 ### 学習（workbench）→ `infer_config.json` をエクスポート
 
 ```bash
@@ -58,4 +65,5 @@ pyimgano-infer \
 pyimgano-benchmark --list-models
 pyimgano-benchmark --list-models --tags numpy,pixel_map
 pyimgano-benchmark --model-info vision_patchcore --json
+pyimgano benchmark --list-starter-configs
 ```

@@ -76,6 +76,8 @@ docs/
 
 If you’re updating docs, these pages form the "happy path" for most industrial users:
 
+- `docs/START_HERE.md` (first-run environment check + smoke demo + next steps)
+- `docs/BENCHMARK_GETTING_STARTED.md` (starter benchmark discovery + first benchmark run)
 - `docs/ZH_ZERO_TO_ONE_GUIDE.md` (中文从 0 到 1 落地操作指南)
 - `docs/ZH_INDUSTRY_SCENARIO_PLAYBOOK.md` (中文行业场景落地手册)
 - `docs/ZH_FAQ_TROUBLESHOOTING.md` (中文 FAQ / Troubleshooting / 排障索引)
@@ -90,6 +92,8 @@ If you’re updating docs, these pages form the "happy path" for most industrial
 - `docs/STRUCTURE_TEMPLATE_BASELINES.md` (CPU-friendly aligned/template baselines)
 - `docs/FALSE_POSITIVE_DEBUGGING.md` (practical FP tuning with overlays/ROI/filters)
 - `docs/CLI_REFERENCE.md` (CLI flags + JSONL schemas)
+- `examples/README.md` (goal-oriented example index by dependency and offline safety)
+- `docs/COMPARISON.md` (when to choose pyimgano vs PyOD vs anomalib)
 
 ## Writing Documentation
 

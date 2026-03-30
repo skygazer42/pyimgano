@@ -61,6 +61,9 @@ def test_pyim_main_delegates_parsed_command_to_pyim_app(monkeypatch):
             "algorithm_type": None,
             "year": None,
             "deployable_only": False,
+            "objective": None,
+            "selection_profile": None,
+            "topk": None,
             "audit_metadata": False,
             "json_output": True,
         }
@@ -191,6 +194,62 @@ def test_pyim_list_models_supports_year_and_type_filters(capsys):
     out = capsys.readouterr().out
     assert "cutpaste" in out
     assert "core_qmcd" not in out
+
+
+def test_pyim_list_models_can_emit_selection_json(capsys):
+    from pyimgano.pyim_cli import main
+
+    code = main(
+        [
+            "--list",
+            "models",
+            "--objective",
+            "latency",
+            "--selection-profile",
+            "cpu-screening",
+            "--topk",
+            "2",
+            "--json",
+        ]
+    )
+    assert code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selection_context"] == {
+        "objective": "latency",
+        "selection_profile": "cpu-screening",
+        "topk": 2,
+    }
+    assert isinstance(payload["items"], list)
+    assert "vision_ecod" in payload["items"]
+    assert payload["starter_picks"][0]["name"] == "vision_ecod"
+    assert payload["starter_picks"][0]["tested_runtime"] == "numpy"
+    assert payload["starter_picks"][0]["supports_pixel_map"] is False
+    assert payload["suggested_commands"][0] == "pyimgano-doctor --recommend-extras --for-model vision_ecod --json"
+
+
+def test_pyim_list_models_text_can_render_starter_picks(capsys):
+    from pyimgano.pyim_cli import main
+
+    code = main(
+        [
+            "--list",
+            "models",
+            "--objective",
+            "localization",
+            "--selection-profile",
+            "balanced",
+            "--topk",
+            "2",
+        ]
+    )
+    assert code == 0
+
+    out = capsys.readouterr().out
+    assert "Starter Picks" in out
+    assert "ssim_template_map" in out or "vision_patchcore" in out
+    assert "runtime=" in out
+    assert "pixel_map=" in out
 
 
 def test_pyim_list_models_surfaces_verified_classical_years(capsys):

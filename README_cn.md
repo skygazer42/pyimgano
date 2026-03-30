@@ -54,6 +54,13 @@ pyimgano-demo
 
 ```bash
 pyimgano-doctor --suite industrial-v4
+pyimgano-doctor --recommend-extras --for-command export-onnx --json
+```
+
+如果你只想先跑一个最小、CPU 友好的 smoke path：
+
+```bash
+pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
 ```
 
 统一发现入口：
@@ -137,6 +144,13 @@ pyimgano-infer \
 - 高分辨率 tiling 更建议用带 `numpy,pixel_map` tag 的模型（见 `docs/INDUSTRIAL_INFERENCE.md`）。
 
 ### 算法选型：基线套件（suite）+ 小网格扫参（sweep）
+
+先看 starter benchmark 入口：
+
+```bash
+pyimgano benchmark --list-starter-configs
+pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json
+```
 
 工业算法选型常见需求是：在一个数据类目上快速对比一组 **baseline**，并得到可审计的汇总报告与排行榜表格。
 `pyimgano-benchmark` 支持运行内置的 **suite**（基线套件），并可选启用小范围 `sweep`（每个 baseline 的小网格搜索）。

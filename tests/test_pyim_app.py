@@ -23,6 +23,9 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
         algorithm_type = "normalized-type"
         year = "2032"
         deployable_only = True
+        objective = "latency"
+        selection_profile = "cpu-screening"
+        topk = 3
 
         def to_request(self):
             request_calls.append(
@@ -33,6 +36,9 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
                     "algorithm_type": self.algorithm_type,
                     "year": self.year,
                     "deployable_only": self.deployable_only,
+                    "objective": self.objective,
+                    "selection_profile": self.selection_profile,
+                    "topk": self.topk,
                 }
             )
             return _Request(**request_calls[-1])
@@ -74,7 +80,17 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
                 "collect_pyim_listing_payload": staticmethod(
                     lambda request: service_calls.append(dict(request.__dict__))
                     or {"payload": "delegated"}
-                )
+                ),
+                "collect_pyim_model_selection_payload": staticmethod(
+                    lambda request: {
+                        "selection_context": {
+                            "objective": request.objective,
+                            "selection_profile": request.selection_profile,
+                            "topk": request.topk,
+                        },
+                        "starter_picks": [{"name": "vision_ecod"}],
+                    }
+                ),
             },
         ),
         raising=False,
@@ -104,6 +120,9 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
             algorithm_type=None,
             year=None,
             deployable_only=False,
+            objective="latency",
+            selection_profile="cpu-screening",
+            topk=3,
             audit_metadata=False,
             json_output=True,
         )
@@ -118,6 +137,9 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
             "algorithm_type": None,
             "year": None,
             "deployable_only": False,
+            "objective": "latency",
+            "selection_profile": "cpu-screening",
+            "topk": 3,
         }
     ]
     assert request_calls == [
@@ -128,13 +150,27 @@ def test_run_pyim_command_delegates_list_flow_through_shared_helpers(monkeypatch
             "algorithm_type": "normalized-type",
             "year": "2032",
             "deployable_only": True,
+            "objective": "latency",
+            "selection_profile": "cpu-screening",
+            "topk": 3,
         }
     ]
     assert service_calls == request_calls
     assert render_calls == [
         (
             {"payload": "delegated"},
-            {"list_kind": "models", "json_output": True},
+            {
+                "list_kind": "models",
+                "json_output": True,
+                "selection_payload": {
+                    "selection_context": {
+                        "objective": "latency",
+                        "selection_profile": "cpu-screening",
+                        "topk": 3,
+                    },
+                    "starter_picks": [{"name": "vision_ecod"}],
+                },
+            },
         )
     ]
 

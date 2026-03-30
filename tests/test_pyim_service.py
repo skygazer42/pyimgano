@@ -310,6 +310,65 @@ def test_collect_pyim_listing_payload_for_model_presets_only_populates_preset_se
     assert payload.datasets == []
 
 
+def test_collect_pyim_model_selection_payload_prefers_curated_candidates() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_model_selection_payload
+
+    payload = collect_pyim_model_selection_payload(
+        PyimListRequest(
+            list_kind="models",
+            objective="latency",
+            selection_profile="cpu-screening",
+            topk=2,
+        )
+    )
+
+    assert payload["selection_context"] == {
+        "objective": "latency",
+        "selection_profile": "cpu-screening",
+        "topk": 2,
+    }
+    picks = payload["starter_picks"]
+    assert isinstance(picks, list)
+    assert len(picks) == 2
+    assert picks[0]["name"] == "vision_ecod"
+    assert isinstance(picks[0]["summary"], str)
+    assert picks[0]["supports_pixel_map"] is False
+    assert picks[0]["tested_runtime"] == "numpy"
+    assert (
+        picks[0]["doctor_command"]
+        == "pyimgano-doctor --recommend-extras --for-model vision_ecod --json"
+    )
+    assert (
+        picks[0]["model_info_command"]
+        == "pyimgano-benchmark --model-info vision_ecod --json"
+    )
+    assert payload["suggested_commands"] == [
+        "pyimgano-doctor --recommend-extras --for-model vision_ecod --json",
+        "pyimgano-benchmark --model-info vision_ecod --json",
+    ]
+
+
+def test_collect_pyim_model_selection_payload_surfaces_localization_hints() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_model_selection_payload
+
+    payload = collect_pyim_model_selection_payload(
+        PyimListRequest(
+            list_kind="models",
+            objective="localization",
+            selection_profile="balanced",
+            topk=3,
+        )
+    )
+
+    by_name = {item["name"]: item for item in payload["starter_picks"]}
+    template = by_name["ssim_template_map"]
+    assert template["supports_pixel_map"] is True
+    assert template["tested_runtime"] == "numpy"
+    assert template["deployment_family"] == ["template"]
+
+
 def test_pyim_list_payload_builds_all_json_payload_without_model_preset_infos() -> None:
     from pyimgano.pyim_contracts import (
         PyimDatasetSummary,

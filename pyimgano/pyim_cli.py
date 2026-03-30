@@ -49,6 +49,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional publication year filter used with --list models. Example: --year 2021",
     )
     parser.add_argument(
+        "--objective",
+        default=None,
+        choices=["balanced", "latency", "localization"],
+        help="Optional starter-pick objective used with --list models.",
+    )
+    parser.add_argument(
+        "--selection-profile",
+        default=None,
+        choices=["balanced", "benchmark-parity", "cpu-screening", "deploy-readiness"],
+        help="Optional starter-pick profile used with --list models.",
+    )
+    parser.add_argument(
+        "--topk",
+        type=int,
+        default=None,
+        help="Maximum number of starter picks to emit with --list models.",
+    )
+    parser.add_argument(
         "--deployable-only",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -80,6 +98,9 @@ def main(argv: list[str] | None = None) -> int:
                 algorithm_type=args.algorithm_type,
                 year=args.year,
                 deployable_only=bool(args.deployable_only),
+                objective=args.objective,
+                selection_profile=args.selection_profile,
+                topk=args.topk,
                 audit_metadata=bool(args.audit_metadata),
                 json_output=bool(args.json),
             )

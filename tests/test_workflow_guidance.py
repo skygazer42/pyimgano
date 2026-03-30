@@ -1,0 +1,168 @@
+from __future__ import annotations
+
+
+def test_workflow_guidance_exposes_expected_stage_order() -> None:
+    from pyimgano.workflow_guidance import list_workflow_stages
+
+    stages = list_workflow_stages()
+    assert [stage.key for stage in stages] == [
+        "discover",
+        "benchmark",
+        "train",
+        "export",
+        "infer",
+        "validate",
+        "gate",
+    ]
+
+
+def test_workflow_guidance_includes_export_recommendation_commands() -> None:
+    from pyimgano.workflow_guidance import list_workflow_stages
+
+    stages = {stage.key: stage for stage in list_workflow_stages()}
+    export = stages["export"]
+
+    assert export.title == "Export"
+    assert list(export.commands) == [
+        "pyimgano doctor --recommend-extras --for-command export-onnx --json",
+        "pyimgano doctor --recommend-extras --for-command export-torchscript --json",
+    ]
+
+
+def test_workflow_guidance_exposes_command_stage_and_next_steps() -> None:
+    from pyimgano.workflow_guidance import artifact_hints_for_command
+    from pyimgano.workflow_guidance import model_info_command_for_model
+    from pyimgano.workflow_guidance import next_step_commands_for_model
+    from pyimgano.workflow_guidance import suggested_commands_for_model
+    from pyimgano.workflow_guidance import workflow_stage_for_model
+    from pyimgano.workflow_guidance import next_step_commands_for_command
+    from pyimgano.workflow_guidance import suggested_commands_for_command
+    from pyimgano.workflow_guidance import workflow_stage_for_command
+
+    assert workflow_stage_for_command("benchmark") == "benchmark"
+    assert workflow_stage_for_command("train") == "train"
+    assert workflow_stage_for_command("export-onnx") == "validate"
+    assert workflow_stage_for_command("infer") == "infer"
+    assert workflow_stage_for_command("runs") == "gate"
+
+    assert next_step_commands_for_command("benchmark") == [
+        "pyimgano-doctor --recommend-extras --for-command train --json",
+    ]
+    assert suggested_commands_for_command("benchmark") == [
+        "pyimgano benchmark --list-starter-configs",
+        "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+        "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json",
+    ]
+    assert artifact_hints_for_command("benchmark") == [
+        "leaderboard.csv",
+        "best_by_baseline.csv",
+        "skipped.csv",
+        "leaderboard_metadata.json",
+    ]
+    assert next_step_commands_for_command("train") == [
+        "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+    ]
+    assert next_step_commands_for_command("export-onnx") == [
+        "pyimgano-doctor --recommend-extras --for-command infer --json",
+    ]
+    assert next_step_commands_for_command("infer") == [
+        "pyimgano-doctor --recommend-extras --for-command runs --json",
+    ]
+    assert next_step_commands_for_command("runs") == [
+        "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",
+    ]
+    assert suggested_commands_for_command("train") == [
+        "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
+        "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+    ]
+    assert suggested_commands_for_command("export-onnx") == [
+        "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
+        "pyimgano-doctor --recommend-extras --for-command infer --json",
+    ]
+    assert artifact_hints_for_command("infer") == [
+        "results.jsonl",
+        "masks/ (optional)",
+        "overlays/ (optional)",
+        "regions.jsonl (optional)",
+    ]
+    assert workflow_stage_for_model("vision_openclip_patch_map") == "discover"
+    assert (
+        model_info_command_for_model("vision_openclip_patch_map")
+        == "pyimgano-benchmark --model-info vision_openclip_patch_map --json"
+    )
+    assert suggested_commands_for_model("vision_openclip_patch_map") == [
+        "pyimgano-benchmark --model-info vision_openclip_patch_map --json",
+        "pyimgano-doctor --recommend-extras --for-command infer --json",
+    ]
+    assert next_step_commands_for_model("vision_openclip_patch_map") == [
+        "pyimgano-doctor --recommend-extras --for-command infer --json",
+    ]
+
+
+def test_workflow_guidance_exposes_structured_model_guidance() -> None:
+    from pyimgano.workflow_guidance import model_workflow_guidance
+
+    guidance = model_workflow_guidance("vision_openclip_patch_map")
+
+    assert guidance.workflow_stage == "discover"
+    assert (
+        guidance.model_info_command
+        == "pyimgano-benchmark --model-info vision_openclip_patch_map --json"
+    )
+    assert guidance.target_kind == "model"
+    assert guidance.target == "vision_openclip_patch_map"
+    assert list(guidance.suggested_commands) == [
+        "pyimgano-benchmark --model-info vision_openclip_patch_map --json",
+        "pyimgano-doctor --recommend-extras --for-command infer --json",
+    ]
+    assert list(guidance.next_step_commands) == [
+        "pyimgano-doctor --recommend-extras --for-command infer --json",
+    ]
+
+
+def test_workflow_guidance_exposes_root_help_command_groups() -> None:
+    from pyimgano.workflow_guidance import artifact_acceptance_commands
+    from pyimgano.workflow_guidance import benchmark_publication_commands
+    from pyimgano.workflow_guidance import industrial_fast_path_commands
+
+    assert industrial_fast_path_commands() == [
+        "pyimgano doctor --recommend-extras --for-command train --json",
+        "pyimgano doctor --recommend-extras --for-command infer --json",
+        "pyimgano doctor --recommend-extras --for-command runs --json",
+        "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
+        "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
+        "pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json",
+        "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+        "pyimgano runs quality runs/<run_dir> --require-status audited --json",
+        "pyimgano runs acceptance runs/<run_dir> --require-status audited --json",
+    ]
+    assert benchmark_publication_commands() == [
+        "pyimgano benchmark --list-starter-configs",
+        "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+        "pyimgano benchmark --list-official-configs",
+        "pyimgano benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+        "pyimgano runs acceptance /path/to/suite_export --json",
+        "pyimgano runs publication /path/to/suite_export --json",
+    ]
+    assert artifact_acceptance_commands() == [
+        "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
+        "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",
+    ]
+
+
+def test_workflow_guidance_exposes_shared_starter_benchmark_commands() -> None:
+    from pyimgano.workflow_guidance import default_starter_benchmark_name
+    from pyimgano.workflow_guidance import starter_benchmark_info_command
+    from pyimgano.workflow_guidance import starter_benchmark_list_command
+    from pyimgano.workflow_guidance import starter_benchmark_run_command
+
+    assert default_starter_benchmark_name() == "official_mvtec_industrial_v4_cpu_offline.json"
+    assert starter_benchmark_list_command() == "pyimgano benchmark --list-starter-configs"
+    assert (
+        starter_benchmark_info_command()
+        == "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
+    )
+    assert (
+        starter_benchmark_run_command()
+        == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
+    )

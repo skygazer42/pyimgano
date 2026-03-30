@@ -33,6 +33,7 @@ Common usage:
 
 ```bash
 pyimgano --help
+python -m pyimgano --help
 pyimgano --list
 pyimgano list models
 pyimgano -- list models --json
@@ -45,6 +46,8 @@ pyimgano runs acceptance /path/to/run_or_suite_export --json
 Notes:
 
 - Top-level `--list ...` forwards to the same discovery surface as `pyim --list ...`.
+- `python -m pyimgano --help` is equivalent to the root CLI and is useful in environments where console scripts are not on `PATH`.
+- `pyimgano --help` now includes a small guided workflow grouped into `discover`, `benchmark`, `train`, `infer`, `validate`, and `gate` stages.
 - `pyimgano list ...` and `pyimgano -- list ...` are equivalent discovery aliases when you want a more shell-like command form.
 - `pyimgano help COMMAND` is a shortcut for `pyimgano COMMAND --help`.
 - Existing `pyimgano-*` entry points are still supported and remain the stable low-level interface.
@@ -62,6 +65,8 @@ pyimgano-doctor
 pyimgano-doctor --json
 pyimgano-doctor --suite industrial-v4 --json   # show which suite baselines will be skipped
 pyimgano-doctor --require-extras torch,skimage --json   # CI/deploy gate: exit 1 if missing
+pyimgano-doctor --recommend-extras --for-command export-onnx --json
+pyimgano-doctor --recommend-extras --for-model vision_openclip_patch_map --json
 pyimgano-doctor --accelerators --json   # runtime checks: torch CUDA/MPS, onnxruntime providers, openvino devices
 pyimgano-doctor --run-dir /path/to/run_dir --json   # evaluate run readiness / acceptance-adjacent state
 pyimgano-doctor --deploy-bundle /path/to/deploy_bundle --json   # validate deploy bundle readiness
@@ -69,6 +74,14 @@ pyimgano-doctor --deploy-bundle /path/to/deploy_bundle --json   # validate deplo
 
 Notes:
 - `--require-extras` accepts comma-separated values and is repeatable.
+- `--recommend-extras` can be paired with `--for-command` or `--for-model` to turn extras discovery into a copy-pasteable install hint.
+- For `--for-command benchmark`, the recommendation payload also surfaces `starter_configs`, `optional_baseline_count`, `starter_list_command`, and `starter_info_command` so you can see how much of the starter suite is gated behind optional extras and jump straight to the next benchmark command.
+- Command recommendations also carry a `workflow_stage` hint so automation or UI layers can place the recommendation inside the broader `discover / benchmark / train / infer / validate / gate` flow.
+- For `--for-command train|infer|runs`, the recommendation payload also surfaces `suggested_commands` so the text/JSON output tells you the next concrete command to run.
+- Command recommendations also surface `next_step_commands` for the likely follow-up stage after the current command succeeds.
+- For `--for-command train|infer|runs`, the payload also includes `artifact_hints` so the operator can see which files or directories are expected to matter after the command runs.
+- For `--for-model NAME`, the recommendation payload now also includes `workflow_stage=discover`, `supports_pixel_map`, `tested_runtime`, and a `model_info_command` plus suggested follow-up commands.
+- Export recommendations follow the same structure, including example outputs like `embed.onnx` and `embed.ts` plus the likely follow-up infer recommendation.
 - When `--json` is set, the tool still prints JSON on missing extras, but exits with code `1`.
 - `--accelerators` is best-effort and opt-in; it never raises, it only reports missing runtimes + install hints.
 - `--run-dir` and `--deploy-bundle` surface readiness payloads for deployment-oriented checks without changing the underlying run/bundle artifacts.
@@ -85,9 +98,16 @@ Common usage:
 
 ```bash
 pyimgano-demo
+pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
 pyimgano-demo --export none --no-sweep
 pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/infer/results.jsonl + masks/ + overlays/ + regions.jsonl
 ```
+
+Notes:
+
+- `--smoke` clamps the demo to a lightweight CPU-friendly path.
+- `--summary-json PATH` writes a compact machine-friendly summary with `run_dir`, exported files, and suggested follow-up commands.
+- `--emit-next-steps` prints a short copy-pasteable block after the demo completes.
 
 ## `pyim`
 
@@ -124,6 +144,11 @@ Notes:
 - `--year VALUE` filters model discovery by publication year or timeline buckets such as `pre-2001` and `unknown`.
 - `--tags a,b --tags c` works for model and feature discovery and is repeatable.
 - `--deployable-only` restricts preprocessing output to infer/workbench-safe presets.
+- `--objective`, `--selection-profile`, and `--topk` add starter-pick guidance for `--list models` without changing the default discovery shape for other list kinds.
+- In text output, `pyim` renders a `Selection Context` block ahead of starter picks so the chosen objective/profile/topk are visible in the terminal transcript.
+- When available, `pyim` also renders a `Suggested Commands` block with the next inspection commands for the top pick (for example `pyimgano-doctor --recommend-extras --for-model ...` and `pyimgano-benchmark --model-info ...`).
+- In text output, starter picks now show compact hints like `runtime=numpy`, `pixel_map=yes|no`, `family=...`, and an install hint when extras are required.
+- When starter picks are present in `--json` output, each pick includes lightweight deployment hints such as `supports_pixel_map`, `tested_runtime`, and `deployment_family`.
 - `--json` prints machine-friendly JSON payloads instead of text blocks.
 - See `docs/MODEL_METADATA_CONTRACT.md` for field semantics and audit policy.
 
@@ -161,6 +186,8 @@ Rules:
 - Explicit CLI flags override config values.
 - Official configs can be discovered with `--list-official-configs` and inspected with
   `--official-config-info NAME --json`.
+- Starter configs can be discovered with `--list-starter-configs` and inspected with
+  `--starter-config-info NAME --json`.
 - When the config name matches a built-in official preset, `--config` accepts the bare
   filename (for example `official_mvtec_industrial_v4_cpu_offline.json`) in addition to a full path.
 - When `--config` is used, saved benchmark reports are stamped with a `benchmark_config`
@@ -184,6 +211,9 @@ Rules:
 - Sweep contents (variants + overrides): `pyimgano-benchmark --sweep-info industrial-small`
 - List official benchmark config presets: `pyimgano-benchmark --list-official-configs`
 - Show official config metadata: `pyimgano-benchmark --official-config-info official_mvtec_industrial_v4_cpu_offline.json --json`
+- List starter benchmark config presets: `pyimgano-benchmark --list-starter-configs`
+- Show starter config metadata: `pyimgano-benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json`
+- Starter config metadata also includes `starter_tier`, `optional_extras`, `optional_baseline_count`, `starter_info_command`, `starter_run_command`, and an `optional_extras_install_hint` so users know which optional backends broaden the suite, how the preset is positioned, and which command to run next.
 
 ### Baseline Suites (Industrial)
 

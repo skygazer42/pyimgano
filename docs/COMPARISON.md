@@ -2,6 +2,23 @@
 
 A practical comparison to help you choose the right tool for anomaly detection in production.
 
+## If You Are Deciding Where To Start
+
+Use this shortcut if you are not trying to read the whole comparison first:
+
+| Starting Need | Recommended First Command | Likely Best Fit |
+|---|---|---|
+| Check whether your environment is ready for the workflow you want | `pyimgano-doctor --recommend-extras --for-command export-onnx --json` | `pyimgano` |
+| Run the smallest industrial smoke path end-to-end | `pyimgano-demo --smoke --emit-next-steps` | `pyimgano` |
+| Compare deep vision AD training frameworks and paper reproduction focus | Read anomalib docs first, then come back for deployment wrapping if needed | `anomalib` |
+| You only need tabular or feature-vector anomaly detection | `pip install pyod` and follow its estimator-style quickstart | `PyOD` |
+
+Rule of thumb:
+
+- Choose `pyimgano` when the problem is image-centric and you care about inference artifacts, defect export, or deployment readiness.
+- Choose `anomalib` when the primary goal is training deep vision AD models and reproducing published pipelines.
+- Choose `PyOD` when the problem is tabular, feature-matrix, or sklearn-style anomaly detection.
+
 ## Executive Summary
 
 | Aspect | PyImgAno | PyOD | anomalib |

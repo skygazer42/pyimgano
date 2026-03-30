@@ -2,6 +2,19 @@
 
 This guide helps you choose the right anomaly detection algorithm for your use case.
 
+## Start From Your Situation
+
+If you are starting from the CLI and want the shortest route to a reasonable first choice, use this table first:
+
+| Your Situation | Command | Recommended Starting Route |
+|---|---|---|
+| You want a fast CPU screening baseline | `pyim --list models --objective latency --selection-profile cpu-screening --topk 5` | Start with `vision_ecod` or `ssim_template_map` |
+| You want pixel localization on industrial images | `pyim --list models --objective localization --selection-profile balanced --topk 5` | Start with `vision_patchcore`, `ssim_template_map`, or `vision_softpatch` |
+| You want the lowest-friction deploy path | `pyim --list models --objective balanced --selection-profile deploy-readiness --topk 5` | Start with `vision_ecod`, `ssim_template_map`, or `vision_onnx_ecod` |
+| You want benchmark-style parity exploration | `pyim --list models --objective balanced --selection-profile benchmark-parity --topk 5` | Start with PatchCore-family native and wrapper routes |
+
+If you are not sure about dependencies first, run `pyimgano-doctor --recommend-extras --for-model <MODEL> --json` before committing to a route.
+
 ## Quick Selection Table
 
 | Your Priority | Recommended Algorithms | Why |

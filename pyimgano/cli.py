@@ -197,9 +197,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="List official reproducibility-oriented benchmark config presets and exit",
     )
     parser.add_argument(
+        "--list-starter-configs",
+        action="store_true",
+        help="List CPU-friendly starter benchmark config presets and exit",
+    )
+    parser.add_argument(
         "--official-config-info",
         default=None,
         help="Show metadata for an official benchmark config name/path and exit",
+    )
+    parser.add_argument(
+        "--starter-config-info",
+        default=None,
+        help="Show metadata for a starter benchmark config name/path and exit",
     )
     parser.add_argument(
         "--model-info",
@@ -217,6 +227,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "When used with discovery flags (--list-models/--model-info/--list-suites/--suite-info/"
             "--list-sweeps/--sweep-info/--list-official-configs/--official-config-info/"
+            "--list-starter-configs/--starter-config-info/"
             "--list-feature-extractors/--feature-info/--list-categories), "
             "output JSON instead of text"
         ),
@@ -752,6 +763,8 @@ def main(argv: list[str] | None = None) -> int:
                 ("--sweep-info", args.sweep_info is not None),
                 ("--list-official-configs", bool(args.list_official_configs)),
                 ("--official-config-info", args.official_config_info is not None),
+                ("--list-starter-configs", bool(args.list_starter_configs)),
+                ("--starter-config-info", args.starter_config_info is not None),
                 ("--list-feature-extractors", bool(args.list_feature_extractors)),
                 ("--feature-info", args.feature_info is not None),
             ]
@@ -841,6 +854,32 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=False,
             )
 
+        if bool(args.list_starter_configs):
+            from pyimgano.reporting.benchmark_config import list_starter_benchmark_configs
+
+            payload = list_starter_benchmark_configs()
+            if bool(args.json):
+                return cli_output.emit_jsonable(payload)
+            for item in payload:
+                name = str(item["name"])
+                dataset = str(item.get("dataset"))
+                runtime = str(item.get("estimated_runtime"))
+                optional_extras = list(item.get("optional_extras", []) or [])
+                optional_baseline_count = int(item.get("optional_baseline_count", 0))
+                starter_list_command = str(item.get("starter_list_command", "")).strip()
+                starter_info_command = str(item.get("starter_info_command", "")).strip()
+                suffix = f"dataset={dataset}; runtime={runtime}"
+                if optional_extras:
+                    suffix += f"; optional_extras={','.join(str(extra) for extra in optional_extras)}"
+                if optional_baseline_count:
+                    suffix += f"; optional_baselines={optional_baseline_count}"
+                if starter_list_command:
+                    suffix += f"; list={starter_list_command}"
+                if starter_info_command:
+                    suffix += f"; inspect={starter_info_command}"
+                print(f"{name} [{suffix}]")
+            return 0
+
         if args.official_config_info is not None:
             from pyimgano.reporting.benchmark_config import describe_benchmark_config
 
@@ -858,6 +897,48 @@ def main(argv: list[str] | None = None) -> int:
             print("Errors:")
             if payload["errors"]:
                 for item in payload["errors"]:
+                    print(f"  - {item}")
+            else:
+                print("  <none>")
+            return 0
+
+        if args.starter_config_info is not None:
+            from pyimgano.reporting.benchmark_config import describe_starter_benchmark_config
+
+            payload = describe_starter_benchmark_config(str(args.starter_config_info))
+            if bool(args.json):
+                return cli_output.emit_jsonable(payload)
+
+            print(f"Name: {payload['name']}")
+            print(f"Source: {payload['source']}")
+            print(f"Starter tier: {payload['starter_tier']}")
+            print(f"Estimated runtime: {payload['estimated_runtime']}")
+            print("Recommended for:")
+            for item in payload["recommended_for"]:
+                print(f"  - {item}")
+            print("Optional extras:")
+            optional_extras = list(payload.get("optional_extras", []) or [])
+            if optional_extras:
+                print(f"  {', '.join(str(item) for item in optional_extras)}")
+                install_hint = payload.get("optional_extras_install_hint")
+                if install_hint:
+                    print(f"  install hint: {install_hint}")
+            else:
+                print("  <none>")
+            print(f"Optional baselines: {int(payload.get('optional_baseline_count', 0))}")
+            print("Suggested commands:")
+            starter_list_command = payload.get("starter_list_command")
+            if starter_list_command:
+                print(f"  {starter_list_command}")
+            starter_info_command = payload.get("starter_info_command")
+            if starter_info_command:
+                print(f"  {starter_info_command}")
+            starter_run_command = payload.get("starter_run_command")
+            if starter_run_command:
+                print(f"  {starter_run_command}")
+            print("Notes:")
+            if payload["notes"]:
+                for item in payload["notes"]:
                     print(f"  - {item}")
             else:
                 print("  <none>")
