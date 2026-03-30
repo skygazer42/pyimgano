@@ -11,12 +11,21 @@ def test_collect_doctor_payload_returns_json_ready_shape() -> None:
     assert "baselines" in payload
 
 
-def test_collect_doctor_payload_recommends_extras_for_export_onnx_command() -> None:
+def test_collect_doctor_payload_recommends_extras_for_export_onnx_command(
+    monkeypatch,
+) -> None:
+    import pyimgano.services.doctor_service as doctor_service
     from pyimgano.workflow_guidance import artifact_hints_for_command
     from pyimgano.workflow_guidance import command_workflow_guidance
     from pyimgano.workflow_guidance import next_step_commands_for_command
     from pyimgano.workflow_guidance import suggested_commands_for_command
     from pyimgano.workflow_guidance import workflow_stage_for_command
+
+    monkeypatch.setattr(
+        doctor_service,
+        "extra_installed",
+        lambda extra: str(extra) not in {"onnx", "torch"},
+    )
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="export-onnx")
     guidance = command_workflow_guidance("export-onnx")

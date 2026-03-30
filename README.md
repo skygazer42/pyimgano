@@ -669,6 +669,13 @@ We welcome contributions! Please see:
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
 - [`SECURITY.md`](SECURITY.md)
 
+For SonarCloud-related changes, the repository includes a local reproduction path:
+
+```bash
+bash tools/run_sonar_local.sh --skip-scan
+SONAR_TOKEN=... python3 tools/fetch_sonar_issues.py --project-key skygazer42_pyimgano --limit 10
+```
+
 ---
 
 ## 📄 License

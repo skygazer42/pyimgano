@@ -15,10 +15,7 @@ jobs:
   sonarcloud:
     name: SonarQube Cloud Scan
     runs-on: ubuntu-latest
-    # This scanner has been failing consistently at the external Sonar step.
-    # Keep the workflow available, but make it opt-in so push CI stays stable
-    # until the SonarCloud project/token/runtime issue is resolved.
-    if: vars.ENABLE_SONARQUBE_CLOUD_SCAN == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
 
     steps:
       - uses: actions/checkout@v6
@@ -97,3 +94,4 @@ jobs:
         with:
           args: >
             "-Dsonar.projectVersion=${{ steps.project-version.outputs.value }}"
+            "-Dsonar.qualitygate.wait=true"
