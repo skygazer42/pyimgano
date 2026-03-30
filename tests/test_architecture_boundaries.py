@@ -1217,6 +1217,7 @@ def test_pyim_modules_only_import_allowed_internal_modules() -> None:
         "services/pyim_service.py": {
             "pyimgano.pyim_contracts",
             "pyimgano.services.pyim_payload_collectors",
+            "pyimgano.utils.extras",
         },
         "services/pyim_payload_collectors.py": {
             "pyimgano.datasets.converters",
@@ -1291,6 +1292,7 @@ def test_pyim_boundary_modules_define_expected_public_exports() -> None:
         "services/pyim_service.py": [
             "PyimListPayload",
             "PyimListRequest",
+            "collect_pyim_model_selection_payload",
             "collect_pyim_listing_payload",
         ],
         "services/pyim_payload_collectors.py": [
@@ -1525,6 +1527,7 @@ def test_runs_helper_modules_define_expected_public_exports() -> None:
 def test_doctor_helper_modules_define_expected_public_exports() -> None:
     expected_public_exports: dict[str, list[str]] = {
         "doctor_rendering.py": [
+            "format_extra_recommendation_lines",
             "format_readiness_lines",
             "format_require_extras_line",
             "format_suite_check_line",

@@ -131,6 +131,16 @@ def _collect_model_preset_infos(request: PyimListRequest) -> list[dict[str, Any]
     )
 
 
+def list_filtered_model_names(request: PyimListRequest) -> list[str]:
+    return _collect_models(request)
+
+
+def build_model_info_payload(model_name: str) -> dict[str, Any]:
+    import pyimgano.services.discovery_service as discovery_service
+
+    return discovery_service.build_model_info_payload(model_name)
+
+
 def _collect_defects_presets(_request: PyimListRequest) -> list[str]:
     from pyimgano.presets.catalog import list_defects_presets
 

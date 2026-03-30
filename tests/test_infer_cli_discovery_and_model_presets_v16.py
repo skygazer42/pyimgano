@@ -128,6 +128,7 @@ def test_infer_cli_can_list_model_presets_by_family_as_json(capsys) -> None:
 
 def test_infer_cli_model_preset_listing_uses_shared_listing_helper(monkeypatch) -> None:
     import pyimgano.infer_cli as infer_cli
+    import pyimgano.infer_cli_discovery as infer_cli_discovery
     import pyimgano.services.discovery_service as discovery_service
 
     monkeypatch.setattr(
@@ -143,7 +144,7 @@ def test_infer_cli_model_preset_listing_uses_shared_listing_helper(monkeypatch) 
 
     calls = []
     monkeypatch.setattr(
-        infer_cli,
+        infer_cli_discovery,
         "cli_listing",
         type(
             "_StubCliListing",
@@ -173,6 +174,7 @@ def test_infer_cli_model_preset_listing_uses_shared_listing_helper(monkeypatch) 
 
 def test_infer_cli_model_preset_listing_delegates_raw_filters_to_service(monkeypatch) -> None:
     import pyimgano.infer_cli as infer_cli
+    import pyimgano.infer_cli_discovery as infer_cli_discovery
     import pyimgano.services.discovery_service as discovery_service
 
     service_calls: list[tuple[str, dict[str, object]]] = []
@@ -187,7 +189,7 @@ def test_infer_cli_model_preset_listing_delegates_raw_filters_to_service(monkeyp
         lambda **kwargs: service_calls.append(("infos", dict(kwargs))) or [{"name": "preset-a"}],
     )
     monkeypatch.setattr(
-        infer_cli,
+        infer_cli_discovery,
         "cli_listing",
         type(
             "_StubCliListing",
@@ -209,6 +211,7 @@ def test_infer_cli_model_preset_listing_delegates_raw_filters_to_service(monkeyp
 
 def test_infer_cli_model_info_uses_shared_discovery_renderer(monkeypatch) -> None:
     import pyimgano.infer_cli as infer_cli
+    import pyimgano.infer_cli_discovery as infer_cli_discovery
     import pyimgano.services.discovery_service as discovery_service
 
     monkeypatch.setattr(
@@ -226,7 +229,7 @@ def test_infer_cli_model_info_uses_shared_discovery_renderer(monkeypatch) -> Non
 
     calls = []
     monkeypatch.setattr(
-        infer_cli,
+        infer_cli_discovery,
         "cli_discovery_rendering",
         type(
             "_StubDiscoveryRendering",
@@ -260,6 +263,7 @@ def test_infer_cli_model_info_uses_shared_discovery_renderer(monkeypatch) -> Non
 
 def test_infer_cli_model_preset_info_uses_shared_discovery_renderer(monkeypatch) -> None:
     import pyimgano.infer_cli as infer_cli
+    import pyimgano.infer_cli_discovery as infer_cli_discovery
     import pyimgano.services.discovery_service as discovery_service
 
     monkeypatch.setattr(
@@ -277,7 +281,7 @@ def test_infer_cli_model_preset_info_uses_shared_discovery_renderer(monkeypatch)
 
     calls = []
     monkeypatch.setattr(
-        infer_cli,
+        infer_cli_discovery,
         "cli_discovery_rendering",
         type(
             "_StubDiscoveryRendering",
@@ -343,12 +347,13 @@ def test_infer_cli_accepts_model_preset_name_as_model(tmp_path: Path, monkeypatc
 
 def test_infer_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) -> None:
     import pyimgano.infer_cli as infer_cli
+    import pyimgano.infer_cli_discovery as infer_cli_discovery
     import pyimgano.services.discovery_service as discovery_service
 
     helper_calls = []
 
     monkeypatch.setattr(
-        infer_cli,
+        infer_cli_discovery,
         "cli_discovery_options",
         type(
             "_StubDiscoveryOptions",
@@ -378,7 +383,7 @@ def test_infer_cli_list_models_uses_shared_discovery_option_helper(monkeypatch) 
         lambda **kwargs: discovery_calls.append(dict(kwargs)) or ["delegated-model"],
     )
     monkeypatch.setattr(
-        infer_cli,
+        infer_cli_discovery,
         "cli_listing",
         type(
             "_StubCliListing",

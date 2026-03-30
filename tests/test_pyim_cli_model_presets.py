@@ -99,7 +99,11 @@ def test_pyim_model_preset_json_uses_shared_rendering_helper(monkeypatch):
     assert isinstance(payload, PyimListPayload)
     assert payload.model_presets == ["delegated-preset"]
     assert payload.model_preset_infos == [{"name": "delegated-preset", "tags": ["graph"]}]
-    assert kwargs == {"list_kind": "model-presets", "json_output": True}
+    assert kwargs == {
+        "list_kind": "model-presets",
+        "json_output": True,
+        "selection_payload": None,
+    }
 
 
 def test_pyim_model_preset_listing_delegates_raw_filters_to_discovery_service(monkeypatch, capsys):

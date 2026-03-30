@@ -136,8 +136,6 @@ def _score_curated_pick(spec: dict[str, Any], *, objective: str, selection_profi
 
 
 def _build_pick_payload(spec: dict[str, Any]) -> dict[str, Any]:
-    import pyimgano.services.discovery_service as discovery_service
-
     required = sorted({str(item) for item in spec.get("required_extras", ()) if str(item).strip()})
     recommended = [
         item
@@ -147,7 +145,7 @@ def _build_pick_payload(spec: dict[str, Any]) -> dict[str, Any]:
     combined = [*required, *recommended]
     missing = [extra for extra in combined if not extra_installed(extra)]
     install_hint = extras_install_hint(missing or combined) if combined else None
-    info = discovery_service.build_model_info_payload(str(spec["name"]))
+    info = pyim_payload_collectors.build_model_info_payload(str(spec["name"]))
     deployment_profile = dict(info.get("deployment_profile", {}))
     return {
         "name": str(spec["name"]),
@@ -179,8 +177,6 @@ def collect_pyim_listing_payload(request: PyimListRequest) -> PyimListPayload:
 
 
 def collect_pyim_model_selection_payload(request: PyimListRequest) -> dict[str, Any]:
-    import pyimgano.services.discovery_service as discovery_service
-
     selection_profile = _normalize_selection_profile(request.selection_profile)
     profile_defaults = _PROFILE_DEFAULTS[selection_profile]
     objective = _normalize_objective(
@@ -188,14 +184,7 @@ def collect_pyim_model_selection_payload(request: PyimListRequest) -> dict[str, 
     )
     topk = _normalize_topk(request.topk, profile=selection_profile)
 
-    allowed_names = set(
-        discovery_service.list_discovery_model_names(
-            tags=request.tags,
-            family=request.family,
-            algorithm_type=request.algorithm_type,
-            year=request.year,
-        )
-    )
+    allowed_names = set(pyim_payload_collectors.list_filtered_model_names(request))
 
     ranked = sorted(
         (
