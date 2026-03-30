@@ -23,6 +23,7 @@ from pyimgano.utils.extras import extra_installed
 from pyimgano.utils.extras import extras_install_hint
 from pyimgano.utils.optional_deps import optional_import
 from pyimgano.workflow_guidance import artifact_hints_for_command
+from pyimgano.workflow_guidance import command_workflow_guidance
 from pyimgano.workflow_guidance import default_starter_benchmark_name
 from pyimgano.workflow_guidance import model_workflow_guidance
 from pyimgano.workflow_guidance import model_info_command_for_model
@@ -1187,6 +1188,7 @@ def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
     spec = _COMMAND_EXTRA_SPECS.get(key)
     if spec is None:
         raise ValueError(f"Unknown command for extras recommendation: {key!r}")
+    guidance = command_workflow_guidance(key)
     return _build_extra_recommendation_payload(
         target_kind="command",
         target=key,
@@ -1194,10 +1196,10 @@ def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
         recommended_extras=spec.get("recommended_extras", []),
         notes=spec.get("notes", []),
     ) | {
-        "workflow_stage": workflow_stage_for_command(key),
-        "suggested_commands": suggested_commands_for_command(key),
-        "next_step_commands": next_step_commands_for_command(key),
-        "artifact_hints": artifact_hints_for_command(key),
+        "workflow_stage": (None if guidance is None else guidance.workflow_stage),
+        "suggested_commands": ([] if guidance is None else list(guidance.suggested_commands)),
+        "next_step_commands": ([] if guidance is None else list(guidance.next_step_commands)),
+        "artifact_hints": ([] if guidance is None else list(guidance.artifact_hints)),
     }
 
 

@@ -14,6 +14,8 @@ class WorkflowStage:
 
 @dataclass(frozen=True)
 class CommandWorkflowGuidance:
+    target_kind: str
+    target: str
     workflow_stage: str
     suggested_commands: tuple[str, ...] = ()
     next_step_commands: tuple[str, ...] = ()
@@ -28,6 +30,15 @@ class ModelWorkflowGuidance:
     model_info_command: str
     suggested_commands: tuple[str, ...]
     next_step_commands: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class StarterBenchmarkGuidance:
+    target_kind: str
+    target: str
+    list_command: str
+    info_command: str
+    run_command: str
 
 
 _WORKFLOW_STAGES: tuple[WorkflowStage, ...] = (
@@ -115,6 +126,8 @@ _ARTIFACT_ACCEPTANCE_COMMANDS: tuple[str, ...] = (
 
 _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
     "benchmark": CommandWorkflowGuidance(
+        target_kind="command",
+        target="benchmark",
         workflow_stage="benchmark",
         suggested_commands=(
             "pyimgano benchmark --list-starter-configs",
@@ -130,6 +143,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         ),
     ),
     "train": CommandWorkflowGuidance(
+        target_kind="command",
+        target="train",
         workflow_stage="train",
         suggested_commands=(
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
@@ -144,6 +159,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         ),
     ),
     "export-onnx": CommandWorkflowGuidance(
+        target_kind="command",
+        target="export-onnx",
         workflow_stage="validate",
         suggested_commands=(
             "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
@@ -156,6 +173,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         ),
     ),
     "export-torchscript": CommandWorkflowGuidance(
+        target_kind="command",
+        target="export-torchscript",
         workflow_stage="validate",
         suggested_commands=(
             "pyimgano-export-torchscript --backbone resnet18 --output /tmp/embed.ts --no-pretrained",
@@ -165,6 +184,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         artifact_hints=("embed.ts",),
     ),
     "infer": CommandWorkflowGuidance(
+        target_kind="command",
+        target="infer",
         workflow_stage="infer",
         suggested_commands=(
             "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
@@ -179,6 +200,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         ),
     ),
     "runs": CommandWorkflowGuidance(
+        target_kind="command",
+        target="runs",
         workflow_stage="gate",
         suggested_commands=(
             "pyimgano runs quality runs/<run_dir> --require-status audited --json",
@@ -192,7 +215,7 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "leaderboard_metadata.json (suite exports)",
         ),
     ),
-    "demo": CommandWorkflowGuidance(workflow_stage="discover"),
+    "demo": CommandWorkflowGuidance(target_kind="command", target="demo", workflow_stage="discover"),
 }
 
 _MODEL_WORKFLOW_STAGE = "discover"
@@ -220,6 +243,17 @@ def starter_benchmark_run_command(name: str | None = None) -> str:
     return f"pyimgano-benchmark --config {target}"
 
 
+def starter_benchmark_guidance(name: str | None = None) -> StarterBenchmarkGuidance:
+    target = str(name or _DEFAULT_STARTER_BENCHMARK_NAME)
+    return StarterBenchmarkGuidance(
+        target_kind="starter-benchmark",
+        target=target,
+        list_command=starter_benchmark_list_command(),
+        info_command=starter_benchmark_info_command(target),
+        run_command=starter_benchmark_run_command(target),
+    )
+
+
 def industrial_fast_path_commands() -> list[str]:
     return list(_INDUSTRIAL_FAST_PATH_COMMANDS)
 
@@ -237,6 +271,10 @@ def workflow_stage_for_command(command_name: str) -> str | None:
     if info is None:
         return None
     return str(info.workflow_stage)
+
+
+def command_workflow_guidance(command_name: str) -> CommandWorkflowGuidance | None:
+    return _COMMAND_WORKFLOW_GUIDANCE.get(str(command_name).strip())
 
 
 def next_step_commands_for_command(command_name: str) -> list[str]:
@@ -293,10 +331,12 @@ def model_workflow_guidance(model_name: str) -> ModelWorkflowGuidance:
 __all__ = [
     "CommandWorkflowGuidance",
     "ModelWorkflowGuidance",
+    "StarterBenchmarkGuidance",
     "WorkflowStage",
     "artifact_hints_for_command",
     "artifact_acceptance_commands",
     "benchmark_publication_commands",
+    "command_workflow_guidance",
     "default_starter_benchmark_name",
     "industrial_fast_path_commands",
     "list_workflow_stages",
@@ -306,6 +346,7 @@ __all__ = [
     "next_step_commands_for_model",
     "suggested_commands_for_command",
     "suggested_commands_for_model",
+    "starter_benchmark_guidance",
     "starter_benchmark_info_command",
     "starter_benchmark_list_command",
     "starter_benchmark_run_command",

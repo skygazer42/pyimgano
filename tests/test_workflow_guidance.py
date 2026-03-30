@@ -31,6 +31,7 @@ def test_workflow_guidance_includes_export_recommendation_commands() -> None:
 
 def test_workflow_guidance_exposes_command_stage_and_next_steps() -> None:
     from pyimgano.workflow_guidance import artifact_hints_for_command
+    from pyimgano.workflow_guidance import command_workflow_guidance
     from pyimgano.workflow_guidance import model_info_command_for_model
     from pyimgano.workflow_guidance import next_step_commands_for_model
     from pyimgano.workflow_guidance import suggested_commands_for_model
@@ -97,6 +98,14 @@ def test_workflow_guidance_exposes_command_stage_and_next_steps() -> None:
     assert next_step_commands_for_model("vision_openclip_patch_map") == [
         "pyimgano-doctor --recommend-extras --for-command infer --json",
     ]
+    infer_guidance = command_workflow_guidance("infer")
+    assert infer_guidance.target_kind == "command"
+    assert infer_guidance.target == "infer"
+    assert infer_guidance.workflow_stage == "infer"
+    assert list(infer_guidance.suggested_commands) == [
+        "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
+        "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
+    ]
 
 
 def test_workflow_guidance_exposes_structured_model_guidance() -> None:
@@ -152,6 +161,7 @@ def test_workflow_guidance_exposes_root_help_command_groups() -> None:
 
 def test_workflow_guidance_exposes_shared_starter_benchmark_commands() -> None:
     from pyimgano.workflow_guidance import default_starter_benchmark_name
+    from pyimgano.workflow_guidance import starter_benchmark_guidance
     from pyimgano.workflow_guidance import starter_benchmark_info_command
     from pyimgano.workflow_guidance import starter_benchmark_list_command
     from pyimgano.workflow_guidance import starter_benchmark_run_command
@@ -166,3 +176,9 @@ def test_workflow_guidance_exposes_shared_starter_benchmark_commands() -> None:
         starter_benchmark_run_command()
         == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
     )
+    guidance = starter_benchmark_guidance()
+    assert guidance.target_kind == "starter-benchmark"
+    assert guidance.target == "official_mvtec_industrial_v4_cpu_offline.json"
+    assert guidance.list_command == starter_benchmark_list_command()
+    assert guidance.info_command == starter_benchmark_info_command()
+    assert guidance.run_command == starter_benchmark_run_command()

@@ -40,8 +40,10 @@ def test_list_official_benchmark_configs_returns_structured_metadata():
 
 def test_describe_benchmark_config_can_resolve_official_name_without_full_path():
     from pyimgano.reporting.benchmark_config import describe_benchmark_config
+    from pyimgano.workflow_guidance import starter_benchmark_guidance
 
     info = describe_benchmark_config("official_mvtec_industrial_v4_cpu_offline.json")
+    guidance = starter_benchmark_guidance("official_mvtec_industrial_v4_cpu_offline.json")
 
     assert info["name"] == "official_mvtec_industrial_v4_cpu_offline.json"
     assert info["official"] is True
@@ -66,12 +68,6 @@ def test_describe_benchmark_config_can_resolve_official_name_without_full_path()
     assert info["starter_tier"] == "starter"
     assert info["optional_extras"] == ["clip", "skimage", "torch"]
     assert info["optional_baseline_count"] == 11
-    assert info["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
-    assert (
-        info["starter_info_command"]
-        == "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
-    )
-    assert (
-        info["starter_run_command"]
-        == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
-    )
+    assert info["starter_list_command"] == guidance.list_command
+    assert info["starter_info_command"] == guidance.info_command
+    assert info["starter_run_command"] == guidance.run_command

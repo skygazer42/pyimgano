@@ -13,11 +13,13 @@ def test_collect_doctor_payload_returns_json_ready_shape() -> None:
 
 def test_collect_doctor_payload_recommends_extras_for_export_onnx_command() -> None:
     from pyimgano.workflow_guidance import artifact_hints_for_command
+    from pyimgano.workflow_guidance import command_workflow_guidance
     from pyimgano.workflow_guidance import next_step_commands_for_command
     from pyimgano.workflow_guidance import suggested_commands_for_command
     from pyimgano.workflow_guidance import workflow_stage_for_command
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="export-onnx")
+    guidance = command_workflow_guidance("export-onnx")
 
     recommendation = payload.get("extras_recommendation")
     assert isinstance(recommendation, dict)
@@ -25,9 +27,13 @@ def test_collect_doctor_payload_recommends_extras_for_export_onnx_command() -> N
     assert recommendation["target"] == "export-onnx"
     assert recommendation["required_extras"] == ["onnx", "torch"]
     assert recommendation["workflow_stage"] == workflow_stage_for_command("export-onnx")
+    assert recommendation["workflow_stage"] == guidance.workflow_stage
     assert recommendation["suggested_commands"] == suggested_commands_for_command("export-onnx")
+    assert recommendation["suggested_commands"] == list(guidance.suggested_commands)
     assert recommendation["next_step_commands"] == next_step_commands_for_command("export-onnx")
+    assert recommendation["next_step_commands"] == list(guidance.next_step_commands)
     assert recommendation["artifact_hints"] == artifact_hints_for_command("export-onnx")
+    assert recommendation["artifact_hints"] == list(guidance.artifact_hints)
     assert recommendation["install_hint"] == "pip install 'pyimgano[onnx,torch]'"
 
 
@@ -124,9 +130,11 @@ def test_collect_doctor_payload_recommends_starter_suite_extras_for_benchmark_co
     from pyimgano.workflow_guidance import default_starter_benchmark_name
     from pyimgano.workflow_guidance import next_step_commands_for_command
     from pyimgano.workflow_guidance import suggested_commands_for_command
+    from pyimgano.workflow_guidance import starter_benchmark_guidance
     from pyimgano.workflow_guidance import workflow_stage_for_command
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="benchmark")
+    guidance = starter_benchmark_guidance(default_starter_benchmark_name())
 
     recommendation = payload.get("extras_recommendation")
     assert isinstance(recommendation, dict)
@@ -141,15 +149,9 @@ def test_collect_doctor_payload_recommends_starter_suite_extras_for_benchmark_co
         "official_mvtec_industrial_v4_cpu_offline.json",
         "official_visa_industrial_v4_cpu_offline.json",
     ]
-    assert recommendation["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
-    assert (
-        recommendation["starter_info_command"]
-        == "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
-    )
-    assert (
-        recommendation["starter_run_command"]
-        == f"pyimgano-benchmark --config {default_starter_benchmark_name()}"
-    )
+    assert recommendation["starter_list_command"] == guidance.list_command
+    assert recommendation["starter_info_command"] == guidance.info_command
+    assert recommendation["starter_run_command"] == guidance.run_command
     assert recommendation["suggested_commands"] == suggested_commands_for_command("benchmark")
     assert recommendation["next_step_commands"] == next_step_commands_for_command("benchmark")
     assert recommendation["artifact_hints"] == artifact_hints_for_command("benchmark")
