@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-03-31
+
 ### Synthesis
 - Added `pyimgano.synthesis` package for industrial synthetic anomaly generation:
   - Perlin/fBm noise (`perlin_noise_2d`, `fractal_perlin_noise_2d`)
@@ -1053,5 +1055,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor**: New features, backward compatible
 - **Patch**: Bug fixes, backward compatible
 
-[Unreleased]: https://github.com/jhlu2019/pyimgano/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/jhlu2019/pyimgano/releases/tag/v0.1.0
+[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.8.0
+[0.1.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.1.0
