@@ -11,6 +11,379 @@ Regenerate:
 python tools/generate_tag_history.py
 ```
 
+## v0.8.0 - 2026-03-31
+
+### Synthesis
+- Added `pyimgano.synthesis` package for industrial synthetic anomaly generation:
+  - Perlin/fBm noise (`perlin_noise_2d`, `fractal_perlin_noise_2d`)
+  - Mask primitives (blobs/ellipses/scratches) + alpha/Poisson blending utilities
+  - CutPaste variants and an `AnomalySynthesizer` pipeline with deterministic seeding + ROI constraints
+  - Built-in presets: `scratch`, `stain`, `pit`, `glare`, `rust`, `oil`, `crack`
+- Expanded synthesis mask primitives with more industrial shapes:
+  - Brush strokes (`random_brush_stroke_mask`)
+  - Spatter/droplets (`random_spatter_mask`)
+  - Edge-band wear (`random_edge_band_mask`)
+- Expanded built-in synthesis presets:
+  - `brush`, `spatter`, `tape`, `marker`, `burn`, `bubble`, `fiber`, `wrinkle`, `texture`, `edge_wear`
+- Added shift/misalignment stress-test presets:
+  - `illumination` (global gradient / vignetting)
+  - `warp` (slight affine misalignment)
+- Added preset mixture support (`make_preset_mixture`) to sample multiple defect types.
+- `AnomalySynthesizer` now supports multiple defects per image (`num_defects`) and a global severity scalar (`severity`).
+- Added `SyntheticAnomalyDataset` wrapper to generate synthetic anomalies on-the-fly, including severity curriculum controls.
+- Added `TextureSourceBank` to support industrial texture-driven synthesis variants.
+- Added industrial camera artifact synthesis primitives and presets:
+  - Defocus blur (`apply_defocus_blur`) via preset `defocus`
+  - Lens distortion (`apply_lens_distortion`) via preset `lens_distortion`
+- Added defect-bank copy/paste synthesis (`DefectBank`) to paste real defect crops onto normal images.
+- Presets can now optionally return a continuous `alpha_mask_u8` for smoother alpha blending while keeping `mask_u8` binary for label/manifest semantics.
+- Added CLI `pyimgano-synthesize` to generate a tiny synthetic dataset + masks + JSONL manifest.
+  - Added `--preview` mode (grid output) for fast preset debugging.
+  - Added `--from-manifest` mode to sample normals from a JSONL manifest and append synthetic anomalies.
+  - Added `--presets` to sample from a preset mixture and attach chosen preset metadata to manifest records (`meta.preset_id`).
+  - Added `--roi-mask` to constrain anomalies to an allowed region (useful for fixtures/background exclusion).
+  - Added `--num-defects` and `--severity-range` to control multi-defect generation and severity sampling.
+  - Added `--defect-bank-dir` to blend defects from a real defect library (defect bank).
+  - Manifest anomaly records now include `meta.severity` (0..1) for curriculum-style workflows.
+
+### Robustness
+- Robustness benchmark corruptions can now optionally emit masks; benchmark updates labels based on returned masks so image-level metrics remain consistent.
+- Added a synthesis-style robustness corruption helper (`apply_synthesis_preset`).
+- Added `pyimgano.datasets.CorruptionsDataset` to apply deterministic corruptions in torch-style pipelines.
+
+### Preprocessing
+- Added MSRCR-lite Retinex illumination normalization (`msrcr_lite`) and an industrial preset helper `retinex_illumination_normalization`.
+
+### Recipes
+- Added a best-effort builtin recipe `classical-struct-iforest-synth` to run a classical baseline on a generated synthetic manifest dataset.
+
+### CLI
+- CLIs now default to offline-safe behavior (`--no-pretrained`) to avoid implicit weight downloads.
+  - Affected: `pyimgano-benchmark`, `pyimgano-robust-benchmark`, and direct `pyimgano-infer --model ...`.
+  - Opt in explicitly via `--pretrained` when you want upstream weights (may download).
+- `pyimgano-infer` now supports ONNX Runtime CPU tuning helpers for ONNX-based routes:
+  - `--onnx-session-options` (SessionOptions shorthand; avoids nested `--model-kwargs`)
+  - `--onnx-sweep` (small grid sweep over threads + graph optimization level; optional `--onnx-sweep-json`)
+
+### Feature Extractors
+- Added `torchscript_embed` feature extractor for industrial “bring-your-own checkpoint” deployments (TorchScript `.pt`),
+  keeping the embedding+core route offline-safe (no implicit downloads).
+
+### Tooling
+- Added `tools/audit_no_tensorrt_imports.py` to forbid TensorRT (`tensorrt` / `trt`) imports under `pyimgano/`.
+
+### Docs
+- Added `docs/SYNTHETIC_ANOMALY_GENERATION.md` and updated the industrial preprocessing cookbook with synthesis usage.
+- Added industrial “MVP loop” documentation: `docs/INDUSTRIAL_MVP_LOOP.md` (synthesize → infer → defects).
+- Added a v4 research-to-implementation mapping doc: `docs/PAPER_TO_MODULE_MAP_V4.md`.
+- Added a v5 research-to-implementation mapping doc: `docs/PAPER_TO_MODULE_MAP_V5.md`.
+- Added a v5 execution plan: `docs/plans/2026-03-02-optimize-pyimgano-next-100-tasks-v5.md`.
+- Updated the reference study index: `docs/INDUSTRIAL_REFERENCE_PROJECTS.md`.
+- Added reference-based inspection recipes: `docs/RECIPES_REFERENCE_BASED_INSPECTION.md`.
+- Added embedding/core selection guidance: `docs/CORE_SELECTION_ON_EMBEDDINGS.md`.
+- Added dataset notes:
+  - `docs/DATASET_MVTEC_AD2_NOTES.md`
+  - `docs/DATASET_REAL_WORLD_IAD_NOTES.md`
+
+### Models
+- Removed runtime dependency on `pyod` by porting PyOD-backed classical detectors to native implementations built around `BaseDetector`.
+- Deep vision models now default to offline-safe behavior (no implicit pretrained weight downloads); enable pretrained weights explicitly (e.g. `pretrained=True` or providing an explicit embedder).
+- Added/ported native classical detectors and ensembles: `vision_hbos`, `vision_mcd`, `vision_ocsvm`, `vision_kpca`, `vision_inne`, `vision_feature_bagging`, `vision_lscp`, `vision_suod`, `vision_rgraph`, `vision_sampling`.
+- `vision_lscp` and `vision_lscp_spec` now provide a cheap default base-detector set, so they work out-of-the-box without explicitly passing `detector_list` / `detector_specs`.
+- Added spec-friendly *core* ensemble variants for feature-matrix workflows:
+  - `core_lscp` and `core_lscp_spec`
+  - `core_suod_spec`
+- Added spec-friendly Feature Bagging variants:
+  - `core_feature_bagging_spec`
+  - `vision_feature_bagging_spec`
+- Spec-friendly Feature Bagging now requires `base_estimator_spec` to be JSON-friendly (string/dict); estimator instances are rejected.
+- Dropped PyOD-only heavy wrappers from the default registry: `vision_cd`, `vision_auto_encoder`, `vision_anogan`, `vision_dif`, `vision_lunar`, `vision_so_gaal`, `vision_so_gaal_new`, `vision_mo_gaal`, `vision_xgbod`.
+- Added more native core detectors (feature-matrix first) with optional `vision_*` wrappers:
+  - `core_elliptic_envelope`, `core_mst_outlier`, `core_lid`
+  - `core_cook_distance`, `core_studentized_residual`
+  - `core_extra_trees_density`, `core_random_projection_knn`, `core_kde_ratio`, `core_neighborhood_entropy`
+  - `core_oddoneout`, `core_knn_cosine_calibrated`, `core_cosine_mahalanobis`
+- Added/modernized pipeline models:
+  - `vision_embedding_core` (deep embedding extractor + classical core detector)
+  - `vision_score_standardizer` and `core_score_standardizer` (score standardization wrappers)
+  - `vision_score_ensemble` and `core_score_ensemble` (spec-friendly score ensembles)
+- Improved the native detector contract (`BaseDetector`):
+  - Added sklearn-style parameter helpers (`get_params` / `set_params`).
+  - Added convenience methods (`fit_predict`, `score_samples`).
+  - Added optional POT (Peaks Over Threshold) tail thresholding mode for converting scores to labels.
+- Added new native classical detectors (both `core_*` and `vision_*` variants where applicable):
+  - LoOP (`core_loop` / `vision_loop`)
+  - LDOF (`core_ldof` / `vision_ldof`)
+  - ODIN (`core_odin` / `vision_odin`)
+  - RRCF-style random cut forest baseline (`core_rrcf` / `vision_rrcf`)
+  - Half-Space Trees (`core_hst` / `vision_hst`)
+  - Mahalanobis baseline (`core_mahalanobis` / `vision_mahalanobis`)
+  - Distance-to-centroid baseline (`core_dtc` / `vision_dtc`)
+  - Robust z-score baseline (`core_rzscore` / `vision_rzscore`)
+  - kNN graph degree detector (`core_knn_degree` / `vision_knn_degree`)
+  - Distance-correlation influence (`core_dcorr` / `vision_dcorr`)
+  - PCA + Mahalanobis (`core_pca_md` / `vision_pca_md`)
+- Added `vision_feature_pipeline` to compose feature extractors with `core_*` detectors via a single registry model.
+- Added pixel-map capable SSIM template baselines:
+  - `ssim_template_map` and `ssim_struct_map` (return `predict_anomaly_map`)
+- Added additional pixel-map template baselines:
+  - `vision_template_ncc_map` (local NCC similarity → anomaly map)
+  - `vision_phase_correlation_map` (translation alignment → abs-diff anomaly map)
+- Added reference-based pixel-map baseline:
+  - `vision_ref_patch_distance_map` (torchvision feature-map patch distance vs a golden reference)
+- Added patch-memory pixel-map baseline:
+  - `vision_patchcore_lite_map` (patch embeddings + memory-bank kNN distance → anomaly map)
+- Added patch-embedding + classical core pixel-map baseline:
+  - `vision_patch_embedding_core_map` (patch embeddings + `core_*` detector → anomaly map)
+- Added torch-based reconstruction baselines:
+  - `core_torch_autoencoder` (MLP autoencoder on feature matrices)
+  - `vision_torch_autoencoder` (feature extractor + autoencoder core)
+- Added a tiny VQ-VAE reconstruction baseline (`vqvae_conv`) and an embedding-first AE route (`vision_embedding_torch_autoencoder`).
+- Added lightweight preconfigured industrial wrappers (embedding + core):
+  - `vision_resnet18_ecod`, `vision_resnet18_iforest`, `vision_resnet18_knn`, `vision_resnet18_torch_ae`
+- Refined `vision_crossmad` to be safe-by-default and align with `BaseDetector` score/threshold semantics.
+
+### Feature Extractors
+- Added a first-class feature extractor subsystem (`pyimgano.features`) with a registry API and runtime protocol validation.
+- Added extractors:
+  - `IdentityExtractor` (canonical)
+  - `HOGExtractor`, `LBPExtractor`, `GaborBankExtractor`
+  - `ColorHistogramExtractor`, `EdgeStatsExtractor`, `FFTLowFreqExtractor`, `PatchStatsExtractor`
+  - `MultiExtractor` (concat) and `PCAProjector` / `StandardScalerExtractor` (fit/transform)
+- Added embedding-focused extractors:
+  - `torchvision_backbone_gem` (GeM pooled conv feature map embeddings; safe `pretrained=False` default)
+  - `torchvision_vit_tokens` (ViT token embeddings)
+  - `normalize` (embedding normalization / power transform)
+  - `TorchvisionConvPatchEmbedder` (conv feature map patch embeddings; safe `pretrained=False` default)
+ - `torchvision_backbone` now accepts in-memory images as `PIL.Image.Image` and `torch.Tensor`, and supports CHW numpy arrays (`(C,H,W)`) in addition to HWC (`(H,W,C)`).
+- Added feature pipeline spec support (string/dict extractor specs) and feature export helpers (`FeatureExport`).
+- Added optional disk caching for feature vectors when inputs are file paths (useful for large datasets).
+
+### Calibration
+- Added rank-based calibration helpers for unsupervised score alignment.
+- Added POT thresholding utility (`pyimgano.calibration.pot_threshold`) and integrated it into the base detector contract.
+
+### Preprocessing
+- Vectorized `frequency_filter` to remove O(HW) Python loops (faster and more stable on large images; optimize performance).
+- Added guided filter, Perona–Malik anisotropic diffusion, rolling-ball background subtraction, and high-res tiling + blending helpers.
+- Added industrial presets (shading correction, defect amplification, JPEG artifact robustness) and mask-aware enhancement.
+- Added a best-effort torch (GPU) Gaussian blur path with CPU fallback.
+
+### CLI / Pipelines
+- Added `pyimgano-features` CLI to list feature extractors and precompute feature vectors.
+- Added `pyimgano.pipelines.feature_pipeline` helpers and benchmark support for a `cache_dir` to persist feature vectors.
+- Added CLI support for lightweight industrial model presets (preset names resolve to model+kwargs).
+- `pyimgano --model-info <name>` now materializes lazy registry entries so signatures/accepted kwargs are accurate and actionable.
+
+### Utilities
+- Made `pyimgano.models` discovery lightweight by scanning model source files and registering lazy constructors, avoiding implicit imports of heavy roots like `torch`/`cv2` during `--list-models` workflows.
+- Made `pyimgano.utils` exports lazy to avoid importing heavy optional dependencies at package import time (e.g. `torchvision` / `cv2`), while preserving the same re-exported API.
+- Added consistent project logging utilities and deterministic `random_state` helpers.
+- Added score normalization helpers and lightweight parallel utilities.
+- Added typing helpers for stable public annotations.
+- Added best-effort AMP helper (`pyimgano.utils.torch_amp`) and an optional eval-time tensor cache for deep vision models.
+- Added audit helper `tools/audit_pixel_map_models.py` to check pixel-map model registry/tag consistency (warn-only by default).
+
+### Packaging
+- Removed `pyod` from core dependencies.
+
+### Docs
+- Updated examples/quickstart snippets to use `vision_deep_svdd` in place of the removed `vision_auto_encoder` wrapper.
+- Added migration notes for the PyOD removal.
+- Added:
+  - `docs/FEATURE_EXTRACTORS.md`
+  - `docs/INDUSTRIAL_PREPROCESSING_COOKBOOK.md`
+  - `docs/TUTORIAL_CLASSICAL_ON_EMBEDDINGS.md`
+  - `docs/INDUSTRIAL_EMBEDDING_PLUS_CORE.md`
+  - `docs/RECIPES_EMBEDDINGS_PLUS_CORE.md`
+  - `docs/ARCHITECTURE_DEEP_CONTRACTS.md`
+  - `docs/DEEP_MODELS_STATUS.md`
+- Added algorithm pages for new classical detectors (`loop`, `ldof`, `odin`, `rrcf`, `hst`) and refreshed the selection guide + comparisons.
+
+### Tests
+- Added extensive coverage for the native detector contract, calibration utilities, feature extractors, preprocessing ops, and CLI smoke checks.
+- Added guardrail tests for inference flags (`--include-maps` vs `--defects`), OpenCLIP no-download defaults, and torch-tensor inputs for `core_*` models.
+- Added guardrail tests ensuring deep models do not implicitly download pretrained weights by default.
+- Added end-to-end coverage for defect-bank synthesis + `vision_patchcore_lite_map`, and core detector score-direction contract checks.
+- Added strict pixel-map registry audit coverage (`tools/audit_pixel_map_models.py --strict`) and alpha-mask blending tests for synthesis.
+- Added smoke/e2e coverage for `vision_patch_embedding_core_map`.
+- Added a regression test ensuring CLI `--model-info` returns real constructor signatures under the lazy registry.
+
+
+## v0.7.1 - 2026-03-26
+
+### Commits
+- 728697f chore: bump package version to 0.7.1
+
+## v0.7 - 2026-03-26
+
+### Commits
+- cfaf61d refactor: accept mapping contract rows
+- 312f298 refactor: normalize model card mappings
+- 579cc6c refactor: normalize weights trust mappings
+- 59708f7 fix: require boolean publication readiness flag
+- ffa2796 refactor: split doctor payload builders
+- 13c2b73 fix: prevalidate deploy bundle export requests
+- d16cb4d refactor: split infer config cli rendering
+- 919770d refactor: split deploy bundle manifest validation
+- 130b3c1 refactor: simplify summary branching helpers
+- 56285ad fix: tighten calibration score summary validation
+- aadcfdd fix: validate single-class threshold metrics
+- aee66e4 refactor: streamline robustness report helpers
+- be61eb4 test: constrain helper json write paths
+- fb23f97 test: replace float equality assertions
+- 1dbe12a fix: reduce sonar blockers and digest complexity
+- c970592 refactor: split summary comparison helpers
+- eaff667 refactor: split run quality state helpers
+- 6e93bfb refactor: split run comparison summary helpers
+- 28e04ae refactor: streamline run summary filtering
+- 624ef4b refactor: streamline run index filters
+- 460724b refactor: simplify run index metrics comparisons
+- f666f35 refactor: split run comparison helpers
+- 2679108 refactor: split robustness trust helpers
+- 4c64b84 refactor: split doctor recommendation helpers
+- 89e9b13 refactor: split run quality audit helpers
+- 7d80d53 refactor: split reporting validation helpers
+- 239d75d refactor: split publication quality helpers
+- c7e5d4b refactor: split training presentation helpers
+- c9aa34a refactor: split suite export helpers
+- 26fc3d4 refactor: split deploy bundle validation helpers
+- 8dca36f refactor: trim dataset and infer context complexity
+- c8736ee refactor: deduplicate artifact filename literals
+- 8439d8b refactor: split bundle validation helpers
+- 71c8cc6 refactor: extract repeated audit path literals
+- d6b61b8 refactor: simplify bundle input and gate handling
+- 46e2bc2 refactor: reduce small sonar complexity hotspots
+- 1efd96e fix: harden report file writes
+- ef3d07a chore: ignore non-runtime sonar issue families
+- fd18f61 fix: reduce sonar issue backlog
+- 16ae59b chore: trigger sonar refresh after baseline
+- c7c5f25 fix: tighten sonar new-code scan surface
+- e79a97f fix: stabilize sonar regression tests
+- b2b7333 fix: address sonar reliability and security findings
+- 7f2d0eb Merge branch 'feat/full-eval-harness'
+- 372134f feat: add full evaluation harness follow-up
+- bc80b20 test: stabilize sonar coverage checks
+- 1f6f298 ci: install sonar coverage extras
+- 99a412d ci: make sonar signature coverage optional-deps safe
+
+## v0.6.40 - 2026-03-25
+
+### Commits
+- 5022f81 doctor: stabilize benchmark reference roles
+- 884f00e Harden CPU offline QC bundle contract
+- 604541c Add industrial selection metadata and parity suite
+- 659a5ac Add industrial dataset profiling and doctor recommendations
+- 15c42b3 docs: clean up svg asset labels
+- c58a31d feat: add industrial contracts and deployment validations
+- de7279a Fix inference confidence and runtime regressions
+- 9a3d047 Merge branch 'codex/train-logs-ui'
+- 58ae83f Merge branch 'chore/sonar-cleanup-wave-2'
+- b2ff8ec Merge branch 'dependabot/github_actions/actions/upload-pages-artifact-4'
+- 05ffa01 Merge branch 'dependabot/github_actions/actions/upload-artifact-7'
+- 424b78c Merge branch 'dependabot/github_actions/SonarSource/sonarcloud-github-action-5.0.0'
+- 90f6aca chore: checkpoint local changes before branch consolidation
+- 4c5d66c ci: bump SonarSource/sonarcloud-github-action from 3.1.0 to 5.0.0
+- 0f39aca chore: add SonarCloud CI analysis for infer services
+- 0ab27f3 ci: bump actions/upload-pages-artifact from 3 to 4
+- 78f9518 ci: bump actions/upload-artifact from 6 to 7
+
+## v0.6.39 - 2026-03-19
+
+### Commits
+- c54e62b feat(training): polish train cli logs and compatibility fixes
+- fba35aa feat: close industrial handoff audit gaps
+- cadec8b feat(training): add pluggable callbacks and tracker integrations
+- 9e88e5f compare: surface baseline contract hashes in summary
+- ffab87d runs-cli: deduplicate contract incompatibility printing
+- a60a959 runs-cli: print contract sha256 hints for incompat runs
+- 22d7cf8 compare: include contract sha256 in contract comparisons
+- d0db3cd compare: add candidate bundle contract digest status map
+- 7121870 runs-cli: print bundle contract digest mismatch integrity line
+- 0756b71 compare: expose bundle contract digest validity signal
+- dfd4cb9 compare: surface bundle contract digest mismatch reason
+- 6f3758f run-quality: track bundle operator contract digest validity
+- bd0298b deploy-bundle: include and validate operator contract digests
+- b6360b2 runs-cli: print candidate incompatibility digest in plain compare
+- 1f357ca compare: add candidate incompatibility digest summary
+- ddb4856 runs-cli: show contract states in comparability line
+- cac289a runs-cli: print operator contract incompat details
+- 72d3d2a compare: include contract gates in comparability summary
+- c4de12b compare: add operator contract compatibility gates
+- 372f1c0 runs-cli: surface bundle operator contract status
+- cdef988 reporting: block baseline-mismatched bundle operator contracts
+- ba2b31b reporting: gate comparisons on bundle operator contract
+- 691bcbe reporting: expose bundle operator contract trust signals
+- a24ffdc block compare candidates missing operator contract under consistent baseline
+- 17cbd0a validate operator contract consistency in deploy bundle manifest
+- 9fd567e surface operator contract audit in run index and runs cli
+- 5eea3b9 validate operator contract consistency and audit run artifacts
+- 8970375 solidify operator contract in infer config and deploy bundle
+- b5ed285 Add output contract to inference profiles
+- a337896 Add execution and review policy summaries
+- 1f934c6 Expose inference summaries in CLI profile output
+- e2e1d54 Add inference summaries to profile output
+- 0ce12b4 Expose inference postprocess and triage summaries
+- 52f1111 Expose run quality trust signals in CLI
+- 4605dd0 Expose infer config trust signals in CLI output
+- 4dc81b4 Expose weights trust check strength
+- efbf580 Tighten deploy bundle infer-config trust metadata
+- e066079 Add benchmark trust, comparison, and confidence tooling
+
+## v0.6.38 - 2026-03-17
+
+### Commits
+- 257ec32 chore: release v0.6.38
+- d8d82d5 fix: tighten param bound validation for Sonar
+- 3ceb07a fix: resolve final param check Sonar issue
+- ea9b90d fix: resolve final SonarCloud issues
+- e9351bb chore: resolve remaining SonarCloud issues
+- 666298b Reduce remaining Sonar issues across models and utilities
+- 2f12b7f Reduce Sonar issues across models and tests
+- a0166bf Merge branch 'chore/sonar-cleanup-wave-3'
+- 848ba76 fix: continue sonar cleanup batch
+- 6518fb2 fix: address latest Sonar new-code findings
+- b966307 chore: add SonarCloud CI analysis for infer services
+- 793d688 a
+- 426a883 fix: resolve low-risk sonar issue batch
+- 8afa0ec fix: prefer literal syntax for kwargs dicts (S7498)
+- c4de719 fix: clean up LSCP Sonar issues
+- e96cd21 fix: remove unused locals (S1481)
+- 77b69c6 sonar: restore new-code gate (torch coverage + dedupe)
+- 38f6590 ci: fix SonarCloud scan on Ubuntu
+- 33f256d fix: prefer np.nonzero over np.where
+- 3f36014 refactor: reduce DRAEM decision_function complexity
+- 7845752 chore: include __init__.py in coverage config
+- 291c5a9 chore: include __init__.py in coverage
+- e8e8ba4 test: cover workbench/services lazy facades
+- 30b5248 test: improve new-code coverage for sonar
+- 4bb1977 test: cover signature guard branches
+- 0d2774d fix: align detector method signatures
+- 37d1a0d refactor: simplify manifest assignment summary
+- 6ddc870 refactor: reduce workbench cognitive complexity
+- 3e07937 fix: reduce SonarCloud new-code smells
+- ec2bd74 fix: keep SonarCloud new-code quality gate green
+- 7c5fe53 fix: clear new SonarCloud bug and hotspot
+- a94ce45 security: reduce SonarCloud security hotspots
+- 931af11 fix: resolve SonarCloud open bug findings
+- 4748fd2 ci: generate SonarCloud-compatible coverage report
+- b853c42 fix: make padim import-light without torch
+- e5b18e5 ci: pin GitHub Actions by full SHA
+- c823869 fix: address SonarCloud quality gate findings
+- ccebca3 ci: add SonarCloud scan workflow
+- 7757bfa a
+- 11cf731 refactor: reduce repeated literals in workbench and train service
+- 876e87f refactor: continue architecture split and sonar remediation
+- e0555dd docs: add chinese zero-to-one guide
+- 65033cf fix doctor json output and robust cli annotations
+- 15def06 refactor: thin cli entrypoints behind services
+- 9d8ed24 feat: surface parallel algorithm families in discovery
+- c551c99 Merge branch 'feat/algo-families-2026q1'
+- 5820f30 Merge branch 'feat/anogen-fewshot-generation' into feat/algo-families-2026q1
+- 34a4318 Merge branch 'feat/logsad-logical-structural' into feat/algo-families-2026q1
+- b217584 Merge branch 'feat/one-to-normal-personalization' into feat/algo-families-2026q1
+- 087ee03 Merge branch 'feat/aaclip-anomaly-aware' into feat/algo-families-2026q1
+
 ## v0.6.37 - 2026-03-07
 
 ### Fixed
@@ -867,3 +1240,63 @@ python tools/generate_tag_history.py
 - Test configuration with coverage reporting
 - Documentation structure
 - Code quality and consistency
+
+## [0.1.0] - 2025-01-XX
+
+### Added
+- Initial release of PyImgAno
+- Visual anomaly detection utilities
+- Support for 15+ classical ML anomaly detectors:
+  - ABOD (Angle-Based Outlier Detection)
+  - CBLOF (Cluster-Based Local Outlier Factor)
+  - DBSCAN
+  - Isolation Forest
+  - HBOS (Histogram-Based Outlier Score)
+  - K-Means
+  - Kernel PCA
+  - LOCI (Local Correlation Integral)
+  - LODA (Lightweight On-line Detector)
+  - LOF (Local Outlier Factor)
+  - LSCP (Locally Selective Combination)
+  - MO_GAAL
+  - One-Class SVM
+  - SUOD (Scalable Unsupervised Outlier Detection)
+  - XGBOD (XGBoost Outlier Detection)
+
+- Support for 15 deep learning anomaly detectors:
+  - **SimpleNet** (CVPR 2023) - Ultra-fast SOTA ⭐
+  - **PatchCore** (CVPR 2022) - Best accuracy ⭐
+  - **STFPM** (BMVC 2021) - Student-Teacher ⭐
+  - AutoEncoder (AE)
+  - AE + SVM
+  - ALAD (Adversarial Learning)
+  - Anomalib integration
+  - Deep SVDD
+  - EfficientAD
+  - FastFlow
+  - IMDD
+  - PaDiM
+  - Reverse Distillation
+  - SSIM-based methods
+  - VAE (Variational AutoEncoder)
+
+- Model registry system with factory pattern
+- Flexible data loading utilities
+- Image preprocessing and transformation pipeline
+- Augmentation registry system
+- Defect detection operations
+- Support for diffusion models (optional)
+- Multi-language documentation (English, Chinese, Japanese, Korean)
+- Example scripts and notebooks
+- MIT License
+
+### Features
+- Unified API for all anomaly detection models
+- PyTorch Lightning data modules
+- Extensible architecture
+- Easy model registration system
+- Comprehensive image operations
+- OpenCV-based augmentation
+- Visualization utilities
+
+---
