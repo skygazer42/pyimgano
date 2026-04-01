@@ -483,7 +483,16 @@ def test_list_run_summaries_include_artifact_quality(tmp_path):
     run_dir = tmp_path / "run_a"
     run_dir.mkdir()
     (run_dir / "report.json").write_text(
-        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        json.dumps(
+            {
+                "dataset": "custom",
+                "model": "vision_ecod",
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
+            }
+        ),
         encoding="utf-8",
     )
     (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
@@ -496,6 +505,8 @@ def test_list_run_summaries_include_artifact_quality(tmp_path):
 
     assert items[0]["artifact_quality"]["status"] == "reproducible"
     assert items[0]["artifact_quality"]["missing_required"] == []
+    assert items[0]["dataset_readiness_status"] == "warning"
+    assert items[0]["dataset_issue_codes"] == ["FEWSHOT_TRAIN_SET"]
     assert items[0]["evaluation_contract"]["primary_metric"] == "auroc"
     assert items[0]["evaluation_contract"]["metric_directions"]["auroc"] == "higher_is_better"
     assert items[0]["evaluation_contract"]["comparability_hints"]["requires_same_split"] is True

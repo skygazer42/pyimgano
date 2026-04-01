@@ -61,10 +61,18 @@ def test_format_quality_summary_line_includes_status_score_and_trust() -> None:
 
     line = format_quality_summary_line(
         run_name="run_a",
-        quality={"status": "audited", "score": 0.75, "trust_summary": {"status": "limited"}},
+        quality={
+            "status": "audited",
+            "score": 0.75,
+            "trust_summary": {"status": "limited"},
+            "dataset_readiness": {"status": "warning", "issue_codes": ["FEWSHOT_TRAIN_SET"]},
+        },
     )
 
-    assert line == "run_a: status=audited score=0.75 trust=limited"
+    assert line == (
+        "run_a: status=audited score=0.75 trust=limited "
+        "dataset_readiness=warning"
+    )
 
 
 def test_format_acceptance_run_summary_line_includes_required_quality_and_bundle_status() -> None:

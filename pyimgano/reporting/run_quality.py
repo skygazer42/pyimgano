@@ -47,6 +47,20 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _report_dataset_readiness(root: Path) -> dict[str, Any] | None:
+    report_path = root / _ARTIFACT_SPECS[0].rel_path
+    if not report_path.exists():
+        return None
+    try:
+        report = _load_json_dict(report_path)
+    except Exception:
+        return None
+    readiness = report.get("dataset_readiness", None)
+    if not isinstance(readiness, Mapping):
+        return None
+    return dict(readiness)
+
+
 def _validation_payload(rel_path: str) -> dict[str, Any]:
     return {
         "path": rel_path,
@@ -729,6 +743,7 @@ def evaluate_run_quality(
         check_hashes=bool(check_bundle_hashes),
     )
     bundle_weights_valid = (weights_audit["valid"] is True) or (weights_audit["present"] is False)
+    dataset_readiness = _report_dataset_readiness(root)
 
     report_present = bool(artifacts["report"]["present"])
     core_complete = len(missing_required) == 0
@@ -789,6 +804,7 @@ def evaluate_run_quality(
         "operator_contract_audit": operator_contract_audit,
         "bundle_manifest": bundle_manifest_payload,
         "weights_audit": weights_audit,
+        "dataset_readiness": dataset_readiness,
         "trust_summary": trust_summary,
     }
 

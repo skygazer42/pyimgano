@@ -1035,6 +1035,15 @@ def main(argv: list[str] | None = None) -> int:
             trust_signals = dict(trust_summary.get("trust_signals", {}))
             for key, value in trust_signals.items():
                 print(f"trust_signal.{key}={value}")
+            raw_dataset_readiness = quality.get("dataset_readiness", {})
+            dataset_readiness = (
+                dict(raw_dataset_readiness) if isinstance(raw_dataset_readiness, dict) else {}
+            )
+            if dataset_readiness:
+                print(f"dataset_readiness_status={dataset_readiness.get('status')}")
+                issue_codes = list(dataset_readiness.get("issue_codes", []))
+                if issue_codes:
+                    print("dataset_issue_codes=" + ",".join(str(item) for item in issue_codes))
             for item in trust_summary.get("status_reasons", []):
                 print(f"reason={item}")
             for item in trust_summary.get("degraded_by", []):

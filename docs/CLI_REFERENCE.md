@@ -387,6 +387,7 @@ Notes:
 - `pyimgano-runs quality` validates the top-level `artifacts/calibration_card.json` when present, so an invalid threshold-audit card keeps a run at `reproducible` instead of `audited`.
 - `pyimgano-runs quality` also inspects optional `deploy_bundle/model_card.json` and `deploy_bundle/weights_manifest.json`;
   if either file is present but invalid, the run does not qualify as `deployable`.
+- When `report.json` carries `dataset_readiness`, `pyimgano-runs quality` now preserves it in JSON output and prints `dataset_readiness_status=...` / `dataset_issue_codes=...` in plain text.
 - `pyimgano-runs quality --require-status reproducible|audited|deployable` returns exit code `1`
   unless the run reaches at least the requested artifact quality level.
 - `pyimgano-runs acceptance` is the aggregated handoff gate: it auto-detects run directories vs suite exports, reuses `quality` for runs, validates the selected `infer_config.json` (preferring `deploy_bundle/` when present), and only blocks on bundle weight metadata when `model_card.json` or `weights_manifest.json` actually exist.

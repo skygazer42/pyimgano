@@ -1056,6 +1056,16 @@ def summarize_run_dir(run_dir: str | Path) -> dict[str, Any]:
         "environment_fingerprint_sha256": env.get("fingerprint_sha256", None),
         "split_fingerprint_sha256": _extract_split_fingerprint_sha256(report),
         "artifact_quality": artifact_quality,
+        "dataset_readiness_status": (
+            None
+            if not isinstance(artifact_quality.get("dataset_readiness"), Mapping)
+            else dict(artifact_quality.get("dataset_readiness", {})).get("status")
+        ),
+        "dataset_issue_codes": (
+            []
+            if not isinstance(artifact_quality.get("dataset_readiness"), Mapping)
+            else list(dict(artifact_quality.get("dataset_readiness", {})).get("issue_codes", []))
+        ),
         "operator_contract_status": str(operator_contract_status),
         "bundle_operator_contract_status": str(bundle_operator_contract_status),
         "metrics": metrics,

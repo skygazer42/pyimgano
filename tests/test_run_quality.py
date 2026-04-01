@@ -107,7 +107,24 @@ def test_evaluate_run_quality_reports_partial_run(tmp_path: Path) -> None:
     from pyimgano.reporting.run_quality import evaluate_run_quality
 
     run_dir = tmp_path / "run"
-    _write_json(run_dir, "report.json", {"dataset": "custom", "model": "vision_ecod"})
+    _write_json(
+        run_dir,
+        "report.json",
+        {
+            "dataset": "custom",
+            "model": "vision_ecod",
+            "dataset_readiness": {
+                "status": "warning",
+                "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                "issue_details": [
+                    {
+                        "code": "FEWSHOT_TRAIN_SET",
+                        "message": "Train split has fewer than 16 normal samples; results may be unstable.",
+                    }
+                ],
+            },
+        },
+    )
 
     quality = evaluate_run_quality(run_dir)
 
@@ -117,6 +134,8 @@ def test_evaluate_run_quality_reports_partial_run(tmp_path: Path) -> None:
     assert quality["artifacts"]["report"]["present"] is True
     assert quality["artifacts"]["config"]["present"] is False
     assert quality["artifacts"]["environment"]["present"] is False
+    assert quality["dataset_readiness"]["status"] == "warning"
+    assert quality["dataset_readiness"]["issue_codes"] == ["FEWSHOT_TRAIN_SET"]
     assert quality["trust_summary"]["status"] == "partial"
 
 

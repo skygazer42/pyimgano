@@ -868,7 +868,16 @@ def test_runs_cli_quality_plain_output_prints_trust_signals(tmp_path, capsys):
     run_dir = tmp_path / "run_a"
     run_dir.mkdir()
     (run_dir / "report.json").write_text(
-        json.dumps({"dataset": "custom", "model": "vision_ecod"}),
+        json.dumps(
+            {
+                "dataset": "custom",
+                "model": "vision_ecod",
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
+            }
+        ),
         encoding="utf-8",
     )
     (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
@@ -902,6 +911,8 @@ def test_runs_cli_quality_plain_output_prints_trust_signals(tmp_path, capsys):
     out = capsys.readouterr().out.lower()
     assert "trust_signal.has_threshold_context=true" in out
     assert "trust_signal.has_split_fingerprint=true" in out
+    assert "dataset_readiness_status=warning" in out
+    assert "dataset_issue_codes=fewshot_train_set" in out
     assert "ref=calibration_card_json:artifacts/calibration_card.json" in out
 
 

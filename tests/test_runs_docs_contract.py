@@ -14,6 +14,8 @@ def test_cli_reference_documents_runs_compare_quality_and_acceptance() -> None:
     assert "compare" in text
     assert "quality" in text
     assert "acceptance" in text
+    assert "dataset_readiness" in text
+    assert "dataset_issue_codes" in text
 
 
 def test_readme_mentions_runs_quality_and_compare_contracts() -> None:

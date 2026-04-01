@@ -126,11 +126,17 @@ def format_compare_run_brief_line(
 
 def format_quality_summary_line(*, run_name: str, quality: dict[str, object]) -> str:
     trust_status = dict(quality.get("trust_summary", {})).get("status")
-    return (
+    line = (
         f"{run_name}: status={quality.get('status')} "
         f"score={quality.get('score')} "
         f"trust={trust_status}"
     )
+    dataset_readiness = quality.get("dataset_readiness", None)
+    if isinstance(dataset_readiness, dict):
+        status = dataset_readiness.get("status", None)
+        if status is not None:
+            line += f" dataset_readiness={status}"
+    return line
 
 
 def format_acceptance_run_summary_line(
