@@ -26,6 +26,9 @@ from pyimgano.reporting.run_index_helpers import (
     comparison_trust_reason as _comparison_trust_reason_helper,
 )
 from pyimgano.reporting.run_index_helpers import (
+    format_candidate_incompatibility_digest as _format_candidate_incompatibility_digest_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
     format_metric_value as _format_metric_value_helper,
 )
 from pyimgano.reporting.run_quality import evaluate_run_quality
@@ -168,36 +171,7 @@ def _format_candidate_comparability_gates(gates: dict[str, object]) -> str:
 
 
 def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
-    verdict = entry.get("verdict", None)
-    verdict_text = str(verdict) if isinstance(verdict, str) and verdict else "pass"
-    incompatible = entry.get("incompatible_gates", [])
-    blocking = entry.get("blocking_reasons", [])
-    incompatible_items = (
-        [str(item) for item in incompatible if str(item)] if isinstance(incompatible, list) else []
-    )
-    blocking_items = (
-        [str(item) for item in blocking if str(item)] if isinstance(blocking, list) else []
-    )
-    incompatible_text = ",".join(incompatible_items) if incompatible_items else "none"
-    blocking_text = ",".join(blocking_items) if blocking_items else "none"
-    parts = [
-        f"verdict:{verdict_text}",
-        f"incompatible_gates:{incompatible_text}",
-        f"blocking_reasons:{blocking_text}",
-    ]
-    dataset_readiness_status = entry.get("dataset_readiness_status", None)
-    if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
-        parts.append(f"dataset_readiness_status:{dataset_readiness_status}")
-    if "dataset_issue_codes" in entry:
-        dataset_issue_codes = entry.get("dataset_issue_codes", [])
-        dataset_issue_items = (
-            [str(item) for item in dataset_issue_codes if str(item)]
-            if isinstance(dataset_issue_codes, list)
-            else []
-        )
-        dataset_issue_text = ",".join(dataset_issue_items) if dataset_issue_items else "none"
-        parts.append(f"dataset_issue_codes:{dataset_issue_text}")
-    return "|".join(parts)
+    return _format_candidate_incompatibility_digest_helper(entry)
 
 
 def _contract_incompat_summary_line(

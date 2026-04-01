@@ -96,6 +96,25 @@ def test_format_candidate_incompatibility_digest_is_stable() -> None:
     )
 
 
+def test_format_candidate_incompatibility_digest_includes_dataset_readiness_details() -> None:
+    from pyimgano.reporting.run_index_helpers import format_candidate_incompatibility_digest
+
+    digest = format_candidate_incompatibility_digest(
+        {
+            "verdict": "pass",
+            "incompatible_gates": [],
+            "blocking_reasons": [],
+            "dataset_readiness_status": "error",
+            "dataset_issue_codes": ["MISSING_TEST_ANOMALY"],
+        }
+    )
+
+    assert (
+        digest
+        == "verdict:pass|incompatible_gates:none|blocking_reasons:none|dataset_readiness_status:error|dataset_issue_codes:MISSING_TEST_ANOMALY"
+    )
+
+
 def test_format_metric_value_returns_none_for_non_numeric_values() -> None:
     from pyimgano.reporting.run_index_helpers import format_metric_value
 

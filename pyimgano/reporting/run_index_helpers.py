@@ -185,11 +185,24 @@ def format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     )
     incompatible_text = ",".join(incompatible_items) if incompatible_items else "none"
     blocking_text = ",".join(blocking_items) if blocking_items else "none"
-    return (
-        f"verdict:{verdict_text}|"
-        f"incompatible_gates:{incompatible_text}|"
-        f"blocking_reasons:{blocking_text}"
-    )
+    parts = [
+        f"verdict:{verdict_text}",
+        f"incompatible_gates:{incompatible_text}",
+        f"blocking_reasons:{blocking_text}",
+    ]
+    dataset_readiness_status = entry.get("dataset_readiness_status", None)
+    if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
+        parts.append(f"dataset_readiness_status:{dataset_readiness_status}")
+    if "dataset_issue_codes" in entry:
+        dataset_issue_codes = entry.get("dataset_issue_codes", [])
+        dataset_issue_items = (
+            [str(item) for item in dataset_issue_codes if str(item)]
+            if isinstance(dataset_issue_codes, list)
+            else []
+        )
+        dataset_issue_text = ",".join(dataset_issue_items) if dataset_issue_items else "none"
+        parts.append(f"dataset_issue_codes:{dataset_issue_text}")
+    return "|".join(parts)
 
 
 __all__ = [
