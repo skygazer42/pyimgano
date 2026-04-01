@@ -22,6 +22,9 @@ _TARGETS = [
     "pyimgano/models/bgad.py",
     "pyimgano/models/dsr.py",
     "pyimgano/models/pni.py",
+    "pyimgano/models/ast.py",
+    "pyimgano/models/dst.py",
+    "pyimgano/models/favae.py",
 ]
 
 

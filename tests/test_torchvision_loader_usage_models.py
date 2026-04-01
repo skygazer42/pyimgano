@@ -84,3 +84,108 @@ def test_pni_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> No
 
     assert set(out.keys()) == {"layer1", "layer2", "layer3"}
     assert calls == [("resnet18", False)]
+
+
+def test_ast_teacher_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.ast as ast_module
+    from pyimgano.models.ast import TeacherEncoder
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(ast_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    encoder = TeacherEncoder(backbone="resnet18")
+    out = encoder(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert tuple(out.shape) == (1, 3, 8, 8)
+    assert calls == [("resnet18", True)]
+
+
+def test_dst_teacher_network_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.dst as dst_module
+    from pyimgano.models.dst import TeacherNetwork
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(dst_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    network = TeacherNetwork(backbone="resnet18")
+    outputs = network(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert len(outputs) == 3
+    assert calls == [("resnet18", True)]
+
+
+def test_favae_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.favae as favae_module
+    from pyimgano.models.favae import FeatureExtractor
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(favae_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    extractor = FeatureExtractor(backbone="resnet18")
+    out = extractor(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert tuple(out.shape) == (1, 3, 8, 8)
+    assert calls == [("resnet18", True)]
+
+
+def test_ast_teacher_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.ast as ast_module
+    from pyimgano.models.ast import TeacherEncoder
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(ast_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    encoder = TeacherEncoder(backbone="resnet18")
+    out = encoder(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert tuple(out.shape) == (1, 3, 8, 8)
+    assert calls == [("resnet18", True)]
+
+
+def test_dst_teacher_network_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.dst as dst_module
+    from pyimgano.models.dst import TeacherNetwork
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(dst_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    network = TeacherNetwork(backbone="resnet18")
+    outputs = network(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert len(outputs) == 3
+    assert calls == [("resnet18", True)]

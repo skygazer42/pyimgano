@@ -17,6 +17,8 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from pyimgano.utils.torchvision_safe import load_torchvision_model
+
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
@@ -29,16 +31,10 @@ class TeacherEncoder(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
-
-            weights = Wide_ResNet50_2_Weights.IMAGENET1K_V1
-            resnet = wide_resnet50_2(weights=weights)
+            resnet, _ = load_torchvision_model("wide_resnet50", pretrained=True)
             self.out_channels = 1024
         elif backbone == "resnet18":
-            from torchvision.models import ResNet18_Weights, resnet18
-
-            weights = ResNet18_Weights.IMAGENET1K_V1
-            resnet = resnet18(weights=weights)
+            resnet, _ = load_torchvision_model("resnet18", pretrained=True)
             self.out_channels = 512
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
