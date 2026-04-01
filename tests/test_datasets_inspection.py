@@ -64,3 +64,48 @@ def test_build_profile_sections_counts_manifest_splits(tmp_path: Path) -> None:
     assert constraints["fewshot_risk"] is True
     assert evaluation_readiness["ready_for_image_metrics"] is True
     assert isinstance(stats, dict)
+
+
+def test_profile_dataset_target_emits_readiness_issue_codes_for_fewshot_custom_layout(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.datasets.inspection import profile_dataset_target
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    payload = profile_dataset_target(target=root)
+
+    readiness = payload["readiness"]
+    assert readiness["status"] == "warning"
+    assert readiness["issue_codes"] == ["FEWSHOT_TRAIN_SET"]
+    assert readiness["issue_details"] == [
+        {
+            "code": "FEWSHOT_TRAIN_SET",
+            "message": "Train split has fewer than 16 normal samples; results may be unstable.",
+        }
+    ]
+
+
+def test_lint_dataset_target_emits_error_issue_codes_for_missing_test_anomaly(tmp_path: Path) -> None:
+    from pyimgano.datasets.inspection import lint_dataset_target
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+
+    payload = lint_dataset_target(target=root, dataset="custom")
+
+    readiness = payload["readiness"]
+    assert readiness["status"] == "error"
+    assert "MISSING_TEST_ANOMALY" in set(readiness["issue_codes"])
+    assert "PIXEL_METRICS_UNAVAILABLE" in set(readiness["issue_codes"])

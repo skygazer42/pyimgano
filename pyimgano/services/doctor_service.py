@@ -25,6 +25,7 @@ from pyimgano.utils.optional_deps import optional_import
 from pyimgano.workflow_guidance import artifact_hints_for_command
 from pyimgano.workflow_guidance import command_workflow_guidance
 from pyimgano.workflow_guidance import default_starter_benchmark_name
+from pyimgano.workflow_guidance import first_ten_minutes_commands
 from pyimgano.workflow_guidance import model_workflow_guidance
 from pyimgano.workflow_guidance import model_info_command_for_model
 from pyimgano.workflow_guidance import next_step_commands_for_command
@@ -36,6 +37,8 @@ from pyimgano.workflow_guidance import starter_benchmark_list_command
 from pyimgano.workflow_guidance import starter_benchmark_run_command
 from pyimgano.workflow_guidance import workflow_stage_for_command
 from pyimgano.workflow_guidance import workflow_stage_for_model
+
+_DOCTOR_PROFILE_CHOICES = {"first-run", "benchmark", "deploy", "publish"}
 
 
 def _dist_version(name: str) -> str | None:
@@ -375,6 +378,29 @@ def _build_bundle_readiness(
     if external_checkpoint_audit is not None:
         payload["external_checkpoint_audit"] = external_checkpoint_audit
     return payload
+
+
+def _build_publication_readiness(*, publication_target: str | Path) -> dict[str, Any]:
+    from pyimgano.reporting.publication_quality import evaluate_publication_quality
+
+    target = Path(publication_target)
+    publication = evaluate_publication_quality(target)
+    issues: list[str] = []
+    if bool(publication.get("missing_required")):
+        issues.append("missing_required_exports")
+    if bool(publication.get("invalid_declared")):
+        issues.append("invalid_declared_assets")
+    if publication.get("publication_ready") is not True:
+        issues.append("publication_not_ready")
+
+    status = "ok" if str(publication.get("status")) == "ready" and not issues else "error"
+    return {
+        "target_kind": "publication",
+        "path": str(target),
+        "status": str(status),
+        "issues": list(dict.fromkeys(issues)),
+        "publication": publication,
+    }
 
 
 _DEFAULT_OBJECTIVE = "balanced"
@@ -1014,24 +1040,15 @@ def _build_dataset_target_payload(
     evaluation_readiness = dict(profile_payload.get("evaluation_readiness", {}))
     constraints = dict(profile_payload.get("constraints", {}))
 
-    issues: list[str] = [
-        str(item)
-        for item in evaluation_readiness.get("missing_requirements", [])
-        if str(item) != "pixel_metrics_unavailable"
+    readiness_payload = dict(profile_payload.get("readiness", {}) or {})
+    issues = [str(item) for item in readiness_payload.get("issues", []) if str(item).strip()]
+    status = str(readiness_payload.get("status", "ok") or "ok")
+    issue_codes = [str(item) for item in readiness_payload.get("issue_codes", []) if str(item).strip()]
+    issue_details = [
+        dict(item)
+        for item in readiness_payload.get("issue_details", [])
+        if isinstance(item, Mapping)
     ]
-    if bool(constraints.get("fewshot_risk")):
-        issues.append("fewshot_train_set")
-    if not bool(dataset_profile.get("pixel_metrics_available")):
-        issues.append("pixel_metrics_unavailable")
-
-    issues = list(dict.fromkeys(issues))
-
-    if not bool(evaluation_readiness.get("ready_for_image_metrics")):
-        status = "error"
-    elif issues:
-        status = "warning"
-    else:
-        status = "ok"
 
     selection_profile_payload = _resolve_selection_profile(
         selection_profile=selection_profile,
@@ -1064,6 +1081,8 @@ def _build_dataset_target_payload(
             "path": str(Path(dataset_target)),
             "status": str(status),
             "issues": issues,
+            "issue_codes": issue_codes,
+            "issue_details": issue_details,
             "dataset": profile_payload.get("dataset"),
             "category": profile_payload.get("category"),
         },
@@ -1293,8 +1312,10 @@ def collect_doctor_payload(
     suites_to_check: list[str] | None = None,
     require_extras: list[str] | None = None,
     accelerators: bool = False,
+    profile: str | None = None,
     run_dir: str | None = None,
     deploy_bundle: str | None = None,
+    publication_target: str | None = None,
     dataset_target: str | None = None,
     dataset: str = "auto",
     category: str | None = None,
@@ -1332,6 +1353,7 @@ def collect_doctor_payload(
         payload,
         run_dir=run_dir,
         deploy_bundle=deploy_bundle,
+        publication_target=publication_target,
         dataset_target=dataset_target,
         dataset=dataset,
         category=category,
@@ -1342,6 +1364,16 @@ def collect_doctor_payload(
         topk=topk,
         check_bundle_hashes=check_bundle_hashes,
     )
+    if dataset_target is not None:
+        payload["dataset_target"] = str(dataset_target)
+    if publication_target is not None:
+        payload["publication_target"] = str(publication_target)
+    profile_payload = _resolve_doctor_profile_payload(
+        profile=(str(profile) if profile is not None else None),
+        payload=payload,
+    )
+    if profile_payload is not None:
+        payload.update(profile_payload)
     return payload
 
 
@@ -1438,6 +1470,252 @@ def _doctor_base_payload(
     }
 
 
+def _core_module_availability(optional_modules: Sequence[Mapping[str, Any]]) -> dict[str, bool]:
+    tracked = {"cv2": False, "numpy": False, "sklearn": False}
+    for item in optional_modules:
+        module_name = str(item.get("module", "")).strip()
+        if module_name not in tracked:
+            continue
+        tracked[module_name] = bool(item.get("available"))
+    return tracked
+
+
+def _profile_readiness_payload(
+    *,
+    profile: str,
+    status: str,
+    issues: Sequence[str],
+) -> dict[str, Any]:
+    return {
+        "target_kind": "profile",
+        "path": str(profile),
+        "status": str(status),
+        "issues": [str(item) for item in issues if str(item).strip()],
+    }
+
+
+def _build_first_run_profile_payload(
+    *,
+    optional_modules: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    module_state = _core_module_availability(optional_modules)
+    required_modules = sorted(module_state)
+    missing_modules = [name for name in required_modules if not bool(module_state.get(name))]
+    issues = [f"missing_core_module:{name}" for name in missing_modules]
+    status = "ok" if not issues else "error"
+    workflow_profile = {
+        "target_kind": "profile",
+        "profile": "first-run",
+        "status": str(status),
+        "summary": "doctor -> demo -> benchmark -> infer -> runs quality",
+        "offline_safe": True,
+        "required_modules": required_modules,
+        "missing_modules": missing_modules,
+        "required_extras": [],
+        "recommended_extras": [],
+        "missing_extras": [],
+        "starter_commands": first_ten_minutes_commands(),
+        "artifact_hints": [
+            "./_demo_suite_run/report.json",
+            "./_demo_benchmark_run/report.json",
+            "./_demo_benchmark_run/leaderboard.csv",
+            "./_demo_results.jsonl",
+        ],
+        "issues": issues,
+    }
+    return {
+        "workflow_profile": workflow_profile,
+        "readiness": _profile_readiness_payload(
+            profile="first-run",
+            status=status,
+            issues=issues,
+        ),
+    }
+
+
+def _build_benchmark_profile_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    recommendation = _build_command_extra_recommendation("benchmark")
+    dataset_target = payload.get("dataset_target")
+    dataset_readiness = payload.get("readiness")
+    if dataset_target is None:
+        status = "warning"
+        issues = ["dataset_target_missing_for_benchmark_profile"]
+    elif isinstance(dataset_readiness, Mapping):
+        status = str(dataset_readiness.get("status", "warning") or "warning")
+        issues = [str(item) for item in dataset_readiness.get("issues", []) if str(item).strip()]
+    else:
+        status = "warning"
+        issues = ["dataset_target_readiness_unavailable"]
+
+    workflow_profile = {
+        "target_kind": "profile",
+        "profile": "benchmark",
+        "status": str(status),
+        "summary": "dataset readiness + starter benchmark config + expected benchmark artifacts",
+        "starter_config": default_starter_benchmark_name(),
+        "required_extras": list(recommendation.get("required_extras", [])),
+        "recommended_extras": list(recommendation.get("recommended_extras", [])),
+        "missing_extras": list(recommendation.get("missing_extras", [])),
+        "starter_commands": list(recommendation.get("suggested_commands", [])),
+        "next_step_commands": [
+            *next_step_commands_for_command("benchmark"),
+            "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
+            "pyimgano runs quality runs/<run_dir> --require-status audited --json",
+        ],
+        "artifact_hints": list(recommendation.get("artifact_hints", [])),
+        "dataset_target": None if dataset_target is None else str(dataset_target),
+        "issues": issues,
+    }
+    return {
+        "workflow_profile": workflow_profile,
+        "readiness": _profile_readiness_payload(
+            profile="benchmark",
+            status=status,
+            issues=issues,
+        ),
+    }
+
+
+def _build_deploy_profile_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    readiness = payload.get("readiness")
+    if isinstance(readiness, Mapping) and str(readiness.get("target_kind")) in {
+        "run",
+        "deploy_bundle",
+    }:
+        status = str(readiness.get("status", "warning") or "warning")
+        issues = [str(item) for item in readiness.get("issues", []) if str(item).strip()]
+        target_path = str(readiness.get("path", "") or "")
+        target_source = "run_dir" if str(readiness.get("target_kind")) == "run" else "deploy_bundle"
+    else:
+        status = "warning"
+        issues = ["deploy_target_missing_for_deploy_profile"]
+        target_path = ""
+        target_source = "missing"
+
+    workflow_profile = {
+        "target_kind": "profile",
+        "profile": "deploy",
+        "status": str(status),
+        "summary": "run/deploy bundle readiness plus acceptance-adjacent deployment checks",
+        "target_path": target_path,
+        "target_source": target_source,
+        "starter_commands": [
+            "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json",
+            "pyimgano-doctor --profile deploy --deploy-bundle runs/<run_dir>/deploy_bundle --json",
+            "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
+        ],
+        "next_step_commands": [
+            "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+            "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
+            "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
+        ],
+        "artifact_hints": [
+            "report.json",
+            "config.json",
+            "environment.json",
+            "deploy_bundle/infer_config.json",
+            "deploy_bundle/bundle_manifest.json",
+        ],
+        "issues": issues,
+    }
+    return {
+        "workflow_profile": workflow_profile,
+        "readiness": _profile_readiness_payload(
+            profile="deploy",
+            status=status,
+            issues=issues,
+        ),
+    }
+
+
+def _build_publish_profile_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    publication_target = payload.get("publication_target")
+    publication_payload = payload.get("publication")
+    if publication_target is None or not isinstance(publication_payload, Mapping):
+        status = "warning"
+        issues = ["publication_target_missing_for_publish_profile"]
+        target_path = ""
+        publication = None
+    else:
+        publication = dict(publication_payload)
+        issues: list[str] = []
+        if bool(publication.get("missing_required")):
+            issues.append("missing_required_exports")
+        if bool(publication.get("invalid_declared")):
+            issues.append("invalid_declared_assets")
+        if publication.get("publication_ready") is not True:
+            issues.append("publication_not_ready")
+        status = "ok" if str(publication.get("status")) == "ready" and not issues else "error"
+        target_path = str(publication_target)
+
+    workflow_profile = {
+        "target_kind": "profile",
+        "profile": "publish",
+        "status": str(status),
+        "summary": "suite export publication readiness plus trust-signal gate checks",
+        "target_path": target_path,
+        "target_source": "publication_target" if target_path else "missing",
+        "starter_commands": [
+            "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json",
+            "pyimgano runs acceptance /path/to/suite_export --json",
+            "pyimgano runs publication /path/to/suite_export --json",
+        ],
+        "next_step_commands": [
+            "pyimgano benchmark --list-starter-configs",
+            "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+            "pyimgano runs publication /path/to/suite_export --json",
+        ],
+        "artifact_hints": [
+            "leaderboard.csv",
+            "leaderboard_metadata.json",
+            "report.json",
+            "config.json",
+            "environment.json",
+        ],
+        "issues": issues,
+    }
+    out = {
+        "workflow_profile": workflow_profile,
+        "readiness": _profile_readiness_payload(
+            profile="publish",
+            status=status,
+            issues=issues,
+        ),
+    }
+    if publication is not None:
+        out["publication"] = publication
+    return out
+
+
+def _resolve_doctor_profile_payload(
+    *,
+    profile: str | None,
+    payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    if profile is None:
+        return None
+
+    key = str(profile).strip().lower()
+    if key not in _DOCTOR_PROFILE_CHOICES:
+        raise ValueError(
+            f"profile must be one of: {', '.join(sorted(_DOCTOR_PROFILE_CHOICES))}"
+        )
+
+    optional_modules = payload.get("optional_modules", [])
+    if not isinstance(optional_modules, Sequence):
+        optional_modules = []
+
+    if key == "first-run":
+        return _build_first_run_profile_payload(optional_modules=optional_modules)
+    if key == "benchmark":
+        return _build_benchmark_profile_payload(payload)
+    if key == "deploy":
+        return _build_deploy_profile_payload(payload)
+    if key == "publish":
+        return _build_publish_profile_payload(payload)
+    raise ValueError(f"Unsupported doctor profile: {key}")
+
+
 def _apply_doctor_runtime_checks(
     payload: dict[str, Any],
     *,
@@ -1461,6 +1739,7 @@ def _apply_doctor_readiness_targets(
     *,
     run_dir: str | None,
     deploy_bundle: str | None,
+    publication_target: str | None,
     dataset_target: str | None,
     dataset: str,
     category: str | None,
@@ -1485,6 +1764,12 @@ def _apply_doctor_readiness_targets(
                 check_bundle_hashes=bool(check_bundle_hashes),
             )
         )
+    if publication_target is not None:
+        publication_readiness = _build_publication_readiness(
+            publication_target=str(publication_target)
+        )
+        payload["publication"] = dict(publication_readiness.get("publication", {}))
+        payload["readiness"] = _doctor_readiness_payload(publication_readiness)
     if dataset_target is not None:
         payload.update(
             _build_dataset_target_payload(

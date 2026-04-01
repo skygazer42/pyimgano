@@ -105,8 +105,10 @@ def test_doctor_cli_passes_extra_recommendation_flags_to_service(monkeypatch) ->
             "suites_to_check": None,
             "require_extras": None,
             "accelerators": False,
+            "profile": None,
             "run_dir": None,
             "deploy_bundle": None,
+            "publication_target": None,
             "dataset_target": None,
             "dataset": "auto",
             "category": None,
@@ -121,6 +123,141 @@ def test_doctor_cli_passes_extra_recommendation_flags_to_service(monkeypatch) ->
             "check_bundle_hashes": False,
         }
     ]
+
+
+def test_doctor_cli_passes_profile_flag_to_service(monkeypatch) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    calls = []
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **kwargs: calls.append(dict(kwargs))
+        or {
+            "tool": "pyimgano-doctor",
+            "python": {},
+            "platform": {},
+            "optional_modules": [],
+            "baselines": {},
+        },
+    )
+
+    rc = doctor_cli.main(["--json", "--profile", "first-run"])
+
+    assert rc == 0
+    assert calls == [
+        {
+            "suites_to_check": None,
+            "require_extras": None,
+            "accelerators": False,
+            "profile": "first-run",
+            "run_dir": None,
+            "deploy_bundle": None,
+            "publication_target": None,
+            "dataset_target": None,
+            "dataset": "auto",
+            "category": None,
+            "root_fallback": None,
+            "objective": None,
+            "allow_upstream": None,
+            "selection_profile": None,
+            "topk": None,
+            "recommend_extras": False,
+            "for_command": None,
+            "for_model": None,
+            "check_bundle_hashes": False,
+        }
+    ]
+
+
+def test_doctor_cli_passes_publication_target_to_service(monkeypatch) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    calls = []
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **kwargs: calls.append(dict(kwargs))
+        or {
+            "tool": "pyimgano-doctor",
+            "python": {},
+            "platform": {},
+            "optional_modules": [],
+            "baselines": {},
+        },
+    )
+
+    rc = doctor_cli.main(
+        ["--json", "--profile", "publish", "--publication-target", "/tmp/suite_export"]
+    )
+
+    assert rc == 0
+    assert calls == [
+        {
+            "suites_to_check": None,
+            "require_extras": None,
+            "accelerators": False,
+            "profile": "publish",
+            "run_dir": None,
+            "deploy_bundle": None,
+            "publication_target": "/tmp/suite_export",
+            "dataset_target": None,
+            "dataset": "auto",
+            "category": None,
+            "root_fallback": None,
+            "objective": None,
+            "allow_upstream": None,
+            "selection_profile": None,
+            "topk": None,
+            "recommend_extras": False,
+            "for_command": None,
+            "for_model": None,
+            "check_bundle_hashes": False,
+        }
+    ]
+
+
+def test_doctor_cli_text_renders_workflow_profile(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "readiness": {
+                "target_kind": "profile",
+                "path": "first-run",
+                "status": "ok",
+                "issues": [],
+            },
+            "workflow_profile": {
+                "profile": "first-run",
+                "status": "ok",
+                "summary": "doctor -> demo -> benchmark -> infer -> runs quality",
+                "starter_commands": [
+                    "pyimgano-doctor --profile first-run --json",
+                    "pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps",
+                ],
+                "artifact_hints": ["./_demo_suite_run/report.json"],
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--profile", "first-run"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "workflow_profile:" in out
+    assert "- profile: first-run" in out
+    assert "- summary: doctor -> demo -> benchmark -> infer -> runs quality" in out
+    assert "pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps" in out
+    assert "artifact_hints: ./_demo_suite_run/report.json" in out
 
 
 def test_doctor_cli_json_uses_cli_output_helper(monkeypatch) -> None:
@@ -596,6 +733,13 @@ def test_doctor_cli_dataset_target_outputs_profile_and_recommendations(
     assert readiness.get("path") == str(root)
     assert readiness.get("status") == "warning"
     assert "fewshot_train_set" in set(readiness.get("issues", []))
+    assert readiness.get("issue_codes") == ["FEWSHOT_TRAIN_SET"]
+    assert readiness.get("issue_details") == [
+        {
+            "code": "FEWSHOT_TRAIN_SET",
+            "message": "Train split has fewer than 16 normal samples; results may be unstable.",
+        }
+    ]
 
     dataset_profile = payload.get("dataset_profile")
     assert isinstance(dataset_profile, dict)

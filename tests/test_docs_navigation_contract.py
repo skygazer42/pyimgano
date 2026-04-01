@@ -11,9 +11,11 @@ def test_docs_readme_mentions_start_here_and_benchmark_getting_started() -> None
     text = _read_text("docs/README_DOCS.md")
 
     assert "docs/START_HERE.md" in text
+    assert "docs/STARTER_PATHS.md" in text
     assert "docs/BENCHMARK_GETTING_STARTED.md" in text
     assert "docs/QUICKSTART.md" in text
     assert "docs/COMPARISON.md" in text
+    assert "examples/README.md" in text
 
 
 def test_algorithm_selection_guide_opens_with_route_oriented_guidance() -> None:
@@ -36,6 +38,7 @@ def test_readme_top_navigation_mentions_first_run_and_reference_guides() -> None
     text = _read_text("README.md")
 
     assert "docs/START_HERE.md" in text
+    assert "docs/STARTER_PATHS.md" in text
     assert "docs/BENCHMARK_GETTING_STARTED.md" in text
     assert "docs/CLI_REFERENCE.md" in text
     assert "docs/ALGORITHM_SELECTION_GUIDE.md" in text
@@ -55,3 +58,23 @@ def test_readme_and_start_here_document_guided_workflow() -> None:
     assert "Gate" in readme
     assert "Guided Workflow" in start_here
     assert "Export" in start_here
+
+
+def test_starter_paths_doc_maps_goals_to_exact_command_sequences() -> None:
+    text = _read_text("docs/STARTER_PATHS.md")
+
+    assert "First 10 Minutes" in text
+    assert "Deployment Check" in text
+    assert "Publication Gate" in text
+    assert "pyimgano-doctor --profile first-run --json" in text
+    assert "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json" in text
+    assert "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json" in text
+
+
+def test_examples_index_mentions_goal_based_routes() -> None:
+    text = _read_text("examples/README.md")
+
+    assert "pyim --goal first-run --json" in text
+    assert "pyim --goal pixel-localization --json" in text
+    assert "embedding_plus_core_ecod.py" in text
+    assert "openclip_plus_core_knn.py" in text

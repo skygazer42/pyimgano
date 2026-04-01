@@ -16,6 +16,7 @@ class PyimListOptions:
     algorithm_type: str | None
     year: str | None
     deployable_only: bool
+    goal: str | None = None
     objective: str | None = None
     selection_profile: str | None = None
     topk: int | None = None
@@ -33,25 +34,57 @@ class PyimListOptions:
         return get_pyim_list_kind_spec(self.list_kind).include_datasets
 
     def to_request(self) -> pyim_contracts.PyimListRequest:
-        return pyim_contracts.PyimListRequest(
-            list_kind=self.list_kind,
-            tags=self.tags,
-            family=self.family,
-            algorithm_type=self.algorithm_type,
-            year=self.year,
-            deployable_only=self.deployable_only,
-            objective=self.objective,
-            selection_profile=self.selection_profile,
-            topk=self.topk,
-        )
+        kwargs: dict[str, Any] = {
+            "list_kind": self.list_kind,
+            "tags": self.tags,
+            "family": self.family,
+            "algorithm_type": self.algorithm_type,
+            "year": self.year,
+            "deployable_only": self.deployable_only,
+            "objective": self.objective,
+            "selection_profile": self.selection_profile,
+            "topk": self.topk,
+        }
+        if self.goal is not None:
+            kwargs["goal"] = self.goal
+        return pyim_contracts.PyimListRequest(**kwargs)
 
 
 _ALLOWED_OBJECTIVES = {"balanced", "latency", "localization"}
+_ALLOWED_GOALS = {
+    "cpu-screening",
+    "deployable",
+    "first-run",
+    "pixel-localization",
+}
 _ALLOWED_SELECTION_PROFILES = {
     "balanced",
     "benchmark-parity",
     "cpu-screening",
     "deploy-readiness",
+}
+
+_GOAL_DEFAULTS = {
+    "first-run": {
+        "objective": "latency",
+        "selection_profile": "cpu-screening",
+        "topk": 3,
+    },
+    "cpu-screening": {
+        "objective": "latency",
+        "selection_profile": "cpu-screening",
+        "topk": 3,
+    },
+    "pixel-localization": {
+        "objective": "localization",
+        "selection_profile": "balanced",
+        "topk": 3,
+    },
+    "deployable": {
+        "objective": "balanced",
+        "selection_profile": "deploy-readiness",
+        "topk": 4,
+    },
 }
 
 
@@ -61,6 +94,15 @@ def _normalize_objective(objective: Any) -> str | None:
     key = str(objective).strip().lower()
     if key not in _ALLOWED_OBJECTIVES:
         raise ValueError(f"--objective must be one of: {', '.join(sorted(_ALLOWED_OBJECTIVES))}.")
+    return key
+
+
+def _normalize_goal(goal: Any) -> str | None:
+    if goal is None:
+        return None
+    key = str(goal).strip().lower()
+    if key not in _ALLOWED_GOALS:
+        raise ValueError(f"--goal must be one of: {', '.join(sorted(_ALLOWED_GOALS))}.")
     return key
 
 
@@ -93,16 +135,30 @@ def resolve_pyim_list_options(
     algorithm_type: Any = None,
     year: Any = None,
     deployable_only: bool = False,
+    goal: Any = None,
     objective: Any = None,
     selection_profile: Any = None,
     topk: Any = None,
 ) -> PyimListOptions:
+    goal_value = _normalize_goal(goal)
     list_kind_value = "all" if list_kind is None else str(list_kind)
     kind_spec = get_pyim_list_kind_spec(list_kind_value)
     family_value = str(family) if family is not None else None
     algorithm_type_value = str(algorithm_type) if algorithm_type is not None else None
     year_value = str(year) if year is not None else None
     deployable_only_value = bool(deployable_only)
+    if goal_value is not None:
+        goal_defaults = _GOAL_DEFAULTS[goal_value]
+        objective = goal_defaults["objective"] if objective is None else objective
+        selection_profile = (
+            goal_defaults["selection_profile"]
+            if selection_profile is None
+            else selection_profile
+        )
+        topk = goal_defaults["topk"] if topk is None else topk
+        if list_kind is None:
+            list_kind_value = "all"
+            kind_spec = get_pyim_list_kind_spec(list_kind_value)
     objective_value = _normalize_objective(objective)
     selection_profile_value = _normalize_selection_profile(selection_profile)
     topk_value = _normalize_topk(topk)
@@ -117,11 +173,13 @@ def resolve_pyim_list_options(
         raise ValueError("--year is supported only with --list models.")
     if deployable_only_value and not kind_spec.supports_deployable_only:
         raise ValueError("--deployable-only is supported only with --list preprocessing or --list.")
-    if objective_value is not None and list_kind_value != "models":
+    if goal_value is not None and list_kind_value != "all":
+        raise ValueError("--goal is supported only with --list all or no --list value.")
+    if objective_value is not None and list_kind_value != "models" and goal_value is None:
         raise ValueError("--objective is supported only with --list models.")
-    if selection_profile_value is not None and list_kind_value != "models":
+    if selection_profile_value is not None and list_kind_value != "models" and goal_value is None:
         raise ValueError("--selection-profile is supported only with --list models.")
-    if topk_value is not None and list_kind_value != "models":
+    if topk_value is not None and list_kind_value != "models" and goal_value is None:
         raise ValueError("--topk is supported only with --list models.")
 
     if family_value is not None:
@@ -138,6 +196,7 @@ def resolve_pyim_list_options(
         algorithm_type=algorithm_type_value,
         year=year_value,
         deployable_only=deployable_only_value,
+        goal=goal_value,
         objective=objective_value,
         selection_profile=selection_profile_value,
         topk=topk_value,

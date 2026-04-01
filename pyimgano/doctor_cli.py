@@ -24,9 +24,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional deploy bundle directory to validate for deployment readiness.",
     )
     readiness.add_argument(
+        "--publication-target",
+        default=None,
+        help="Optional suite export directory or leaderboard metadata to evaluate for publication readiness.",
+    )
+    readiness.add_argument(
         "--dataset-target",
         default=None,
         help="Optional dataset root or manifest to evaluate for industrial AD readiness.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        choices=["first-run", "benchmark", "deploy", "publish"],
+        help="Optional guided workflow profile to validate and summarize.",
     )
     parser.add_argument(
         "--json",
@@ -130,10 +141,16 @@ def main(argv: list[str] | None = None) -> int:
             suites_to_check=args.suite,
             require_extras=args.require_extras,
             accelerators=bool(getattr(args, "accelerators", False)),
+            profile=(str(args.profile) if getattr(args, "profile", None) is not None else None),
             run_dir=(str(args.run_dir) if getattr(args, "run_dir", None) is not None else None),
             deploy_bundle=(
                 str(args.deploy_bundle)
                 if getattr(args, "deploy_bundle", None) is not None
+                else None
+            ),
+            publication_target=(
+                str(args.publication_target)
+                if getattr(args, "publication_target", None) is not None
                 else None
             ),
             dataset_target=(
@@ -225,6 +242,12 @@ def main(argv: list[str] | None = None) -> int:
     readiness = payload.get("readiness")
     if isinstance(readiness, dict):
         for line in doctor_rendering.format_readiness_lines(dict(readiness)):
+            print(line)
+
+    workflow_profile = payload.get("workflow_profile")
+    formatter = getattr(doctor_rendering, "_format_workflow_profile_lines", None)
+    if isinstance(workflow_profile, dict) and callable(formatter):
+        for line in formatter(dict(workflow_profile)):
             print(line)
 
     dataset_profile = payload.get("dataset_profile")

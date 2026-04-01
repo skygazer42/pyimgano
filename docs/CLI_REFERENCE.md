@@ -63,6 +63,10 @@ Common usage:
 ```bash
 pyimgano-doctor
 pyimgano-doctor --json
+pyimgano-doctor --profile first-run --json
+pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json
+pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json
+pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json
 pyimgano-doctor --suite industrial-v4 --json   # show which suite baselines will be skipped
 pyimgano-doctor --require-extras torch,skimage --json   # CI/deploy gate: exit 1 if missing
 pyimgano-doctor --recommend-extras --for-command export-onnx --json
@@ -73,6 +77,7 @@ pyimgano-doctor --deploy-bundle /path/to/deploy_bundle --json   # validate deplo
 ```
 
 Notes:
+- `--profile first-run|benchmark|deploy|publish` emits a guided workflow profile and a readiness summary for that operator path.
 - `--require-extras` accepts comma-separated values and is repeatable.
 - `--recommend-extras` can be paired with `--for-command` or `--for-model` to turn extras discovery into a copy-pasteable install hint.
 - For `--for-command benchmark`, the recommendation payload also surfaces `starter_configs`, `optional_baseline_count`, `starter_list_command`, and `starter_info_command` so you can see how much of the starter suite is gated behind optional extras and jump straight to the next benchmark command.
@@ -85,6 +90,7 @@ Notes:
 - When `--json` is set, the tool still prints JSON on missing extras, but exits with code `1`.
 - `--accelerators` is best-effort and opt-in; it never raises, it only reports missing runtimes + install hints.
 - `--run-dir` and `--deploy-bundle` surface readiness payloads for deployment-oriented checks without changing the underlying run/bundle artifacts.
+- `--publication-target` accepts a suite export directory or `leaderboard_metadata.json` path and evaluates publication readiness through the same trust gate used by `pyimgano-runs publication`.
 
 ## `pyimgano-demo`
 
@@ -99,6 +105,8 @@ Common usage:
 ```bash
 pyimgano-demo
 pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
+pyimgano-demo --scenario benchmark --summary-json /tmp/pyimgano_benchmark_summary.json
+pyimgano-demo --scenario infer-defects --summary-json /tmp/pyimgano_infer_defects_summary.json
 pyimgano-demo --export none --no-sweep
 pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/infer/results.jsonl + masks/ + overlays/ + regions.jsonl
 ```
@@ -106,6 +114,7 @@ pyimgano-demo --infer-defects --export none --no-sweep   # writes <suite_dir>/in
 Notes:
 
 - `--smoke` clamps the demo to a lightweight CPU-friendly path.
+- `--scenario smoke|benchmark|infer-defects` applies a named preset so operators can rerun the same starter path without memorizing individual flags.
 - `--summary-json PATH` writes a compact machine-friendly summary with `run_dir`, exported files, and suggested follow-up commands.
 - `--emit-next-steps` prints a short copy-pasteable block after the demo completes.
 
@@ -122,6 +131,8 @@ Common usage:
 
 ```bash
 pyim --list
+pyim --goal first-run --json
+pyim --goal deployable
 pyim --list models --family patchcore
 pyim --list models --year 2021 --type deep-vision
 pyim --list models --type flow-based
@@ -144,11 +155,13 @@ Notes:
 - `--year VALUE` filters model discovery by publication year or timeline buckets such as `pre-2001` and `unknown`.
 - `--tags a,b --tags c` works for model and feature discovery and is repeatable.
 - `--deployable-only` restricts preprocessing output to infer/workbench-safe presets.
+- `--goal first-run|cpu-screening|pixel-localization|deployable` emits task-oriented picks across models, recipes, and datasets in one payload.
 - `--objective`, `--selection-profile`, and `--topk` add starter-pick guidance for `--list models` without changing the default discovery shape for other list kinds.
 - In text output, `pyim` renders a `Selection Context` block ahead of starter picks so the chosen objective/profile/topk are visible in the terminal transcript.
+- In text output, `pyim --goal ...` also renders `Goal Context` and `Goal Picks` blocks so the operator can see the chosen route and the concrete model/recipe/dataset recommendations together.
 - When available, `pyim` also renders a `Suggested Commands` block with the next inspection commands for the top pick (for example `pyimgano-doctor --recommend-extras --for-model ...` and `pyimgano-benchmark --model-info ...`).
-- In text output, starter picks now show compact hints like `runtime=numpy`, `pixel_map=yes|no`, `family=...`, and an install hint when extras are required.
-- When starter picks are present in `--json` output, each pick includes lightweight deployment hints such as `supports_pixel_map`, `tested_runtime`, and `deployment_family`.
+- In text output, starter picks now show compact hints like `runtime=numpy`, `pixel_map=yes|no`, `family=...`, `why=...`, and an install hint when extras are required.
+- When starter picks are present in `--json` output, each pick includes lightweight deployment hints such as `supports_pixel_map`, `tested_runtime`, `deployment_family`, and `why_this_pick`.
 - `--json` prints machine-friendly JSON payloads instead of text blocks.
 - See `docs/MODEL_METADATA_CONTRACT.md` for field semantics and audit policy.
 
@@ -900,6 +913,27 @@ Notes:
 - Output is stable and sorted (useful for reproducible diffs).
 - By default, paths are written relative to the output manifest directory.
 - Use `--absolute-paths` to emit absolute paths when you need portability across working directories.
+
+---
+
+## `pyimgano-datasets`
+
+Inspect dataset layouts, convert them to manifests, and summarize industrial-readiness signals.
+
+Examples:
+
+```bash
+pyimgano-datasets list --json
+pyimgano-datasets detect /path/to/dataset_root --json
+pyimgano-datasets lint /path/to/dataset_root --dataset custom --json
+pyimgano-datasets profile /path/to/dataset_root --json
+```
+
+Notes:
+
+- `lint` and `profile` now surface a compact `readiness` payload in JSON and `readiness_status` / `issue_codes` in text output.
+- Common issue codes include `FEWSHOT_TRAIN_SET`, `MISSING_TEST_ANOMALY`, and `PIXEL_METRICS_UNAVAILABLE`.
+- `lint` still reports manifest/file validation under `validation`, but now also returns a non-zero exit code when industrial readiness is `error`.
 
 ---
 

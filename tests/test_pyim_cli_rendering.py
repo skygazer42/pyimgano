@@ -467,6 +467,69 @@ def test_emit_pyim_list_payload_model_json_can_include_selection_metadata(monkey
     ]
 
 
+def test_emit_pyim_list_payload_json_can_include_goal_payload(monkeypatch) -> None:
+    import pyimgano.pyim_cli_rendering as rendering
+    from pyimgano.pyim_contracts import PyimListPayload
+
+    calls = []
+    monkeypatch.setattr(
+        rendering,
+        "cli_output",
+        type(
+            "_StubCliOutput",
+            (),
+            {
+                "emit_json": staticmethod(
+                    lambda payload, **kwargs: calls.append((payload, kwargs)) or 29
+                )
+            },
+        ),
+        raising=False,
+    )
+
+    rc = rendering.emit_pyim_list_payload(
+        PyimListPayload(models=["vision_ecod"], recipes=[{"name": "industrial-adapt", "metadata": {}}]),
+        list_kind="all",
+        json_output=True,
+        goal_payload={
+            "goal_context": {"goal": "first-run"},
+            "goal_picks": {
+                "models": [{"name": "vision_ecod", "why_this_pick": "Fast CPU baseline."}],
+                "recipes": [{"name": "industrial-adapt"}],
+                "datasets": [{"name": "custom"}],
+            },
+            "suggested_commands": ["pyimgano-doctor --profile first-run --json"],
+        },
+    )
+
+    assert rc == 29
+    assert calls == [
+        (
+            {
+                "models": ["vision_ecod"],
+                "families": [],
+                "types": [],
+                "years": [],
+                "metadata_contract": [],
+                "preprocessing": [],
+                "features": [],
+                "model_presets": [],
+                "defects_presets": [],
+                "recipes": [{"name": "industrial-adapt", "metadata": {}}],
+                "datasets": [],
+                "goal_context": {"goal": "first-run"},
+                "goal_picks": {
+                    "models": [{"name": "vision_ecod", "why_this_pick": "Fast CPU baseline."}],
+                    "recipes": [{"name": "industrial-adapt"}],
+                    "datasets": [{"name": "custom"}],
+                },
+                "suggested_commands": ["pyimgano-doctor --profile first-run --json"],
+            },
+            {},
+        )
+    ]
+
+
 def test_emit_pyim_list_payload_model_text_renders_runtime_and_pixel_hints(capsys) -> None:
     from pyimgano.pyim_cli_rendering import emit_pyim_list_payload
     from pyimgano.pyim_contracts import PyimListPayload
@@ -575,3 +638,62 @@ def test_emit_pyim_list_payload_model_text_renders_suggested_commands(capsys) ->
     assert "Suggested Commands" in out
     assert "pyimgano-doctor --recommend-extras --for-model vision_ecod --json" in out
     assert "pyimgano-benchmark --model-info vision_ecod --json" in out
+
+
+def test_emit_pyim_list_payload_text_renders_goal_context_and_goal_picks(capsys) -> None:
+    from pyimgano.pyim_cli_rendering import emit_pyim_list_payload
+    from pyimgano.pyim_contracts import PyimListPayload
+
+    rc = emit_pyim_list_payload(
+        PyimListPayload(
+            models=["vision_ecod"],
+            recipes=[{"name": "industrial-adapt", "metadata": {"description": "recipe"}}],
+            datasets=[],
+        ),
+        list_kind="all",
+        json_output=False,
+        goal_payload={
+            "goal_context": {
+                "goal": "deployable",
+                "objective": "balanced",
+                "selection_profile": "deploy-readiness",
+            },
+            "goal_picks": {
+                "models": [
+                    {
+                        "name": "vision_ecod",
+                        "summary": "Fast CPU baseline.",
+                        "why_this_pick": "Native CPU route with minimal setup.",
+                        "install_hint": None,
+                    }
+                ],
+                "recipes": [
+                    {
+                        "name": "industrial-adapt",
+                        "summary": "Audited train/export loop.",
+                    }
+                ],
+                "datasets": [
+                    {
+                        "name": "custom",
+                        "summary": "Folder-layout starter dataset path.",
+                    }
+                ],
+            },
+            "suggested_commands": [
+                "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json",
+            ],
+        },
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Goal Context" in out
+    assert "goal=deployable" in out
+    assert "Goal Picks" in out
+    assert "model=vision_ecod" in out
+    assert "why=Native CPU route with minimal setup." in out
+    assert "recipe=industrial-adapt" in out
+    assert "dataset=custom" in out
+    assert "Suggested Commands" in out
+    assert "install=None" not in out

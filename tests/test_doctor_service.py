@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pyimgano.services.doctor_service import collect_doctor_payload
 
 
@@ -193,3 +195,219 @@ def test_collect_doctor_payload_recommends_extras_for_model(monkeypatch) -> None
     assert recommendation["suggested_commands"] == list(guidance.suggested_commands)
     assert recommendation["next_step_commands"] == list(guidance.next_step_commands)
     assert recommendation["install_hint"] == "pip install 'pyimgano[clip,torch]'"
+
+
+def test_collect_doctor_payload_first_run_profile_exposes_guided_path() -> None:
+    payload = collect_doctor_payload(profile="first-run")
+
+    workflow_profile = payload.get("workflow_profile")
+    assert isinstance(workflow_profile, dict)
+    assert workflow_profile["profile"] == "first-run"
+    assert workflow_profile["status"] == "ok"
+    assert workflow_profile["offline_safe"] is True
+    assert workflow_profile["target_kind"] == "profile"
+    assert workflow_profile["required_modules"] == ["cv2", "numpy", "sklearn"]
+    assert workflow_profile["missing_modules"] == []
+    assert workflow_profile["required_extras"] == []
+    assert workflow_profile["missing_extras"] == []
+    assert workflow_profile["starter_commands"] == [
+        "pyimgano-doctor --profile first-run --json",
+        "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained",
+        "pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json",
+        "pyimgano-benchmark --dataset custom --root ./_demo_custom_dataset --suite industrial-ci --resize 32 32 --limit-train 2 --limit-test 2 --no-pretrained --save-run --output-dir ./_demo_benchmark_run --suite-export csv",
+        "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir ./_demo_custom_dataset/train/normal --input ./_demo_custom_dataset/test --save-jsonl ./_demo_results.jsonl",
+        "pyimgano runs quality ./_demo_benchmark_run --json",
+    ]
+    assert workflow_profile["artifact_hints"] == [
+        "./_demo_suite_run/report.json",
+        "./_demo_benchmark_run/report.json",
+        "./_demo_benchmark_run/leaderboard.csv",
+        "./_demo_results.jsonl",
+    ]
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness["target_kind"] == "profile"
+    assert readiness["path"] == "first-run"
+    assert readiness["status"] == "ok"
+
+
+def test_collect_doctor_payload_benchmark_profile_uses_dataset_target_and_artifact_expectations(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "ground_truth" / "anomaly").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").write_bytes(b"png")
+    (root / "test" / "normal" / "good_0.png").write_bytes(b"png")
+    (root / "test" / "anomaly" / "bad_0.png").write_bytes(b"png")
+    (root / "ground_truth" / "anomaly" / "bad_0_mask.png").write_bytes(b"png")
+
+    payload = collect_doctor_payload(profile="benchmark", dataset_target=str(root))
+
+    workflow_profile = payload.get("workflow_profile")
+    assert isinstance(workflow_profile, dict)
+    assert workflow_profile["profile"] == "benchmark"
+    assert workflow_profile["target_kind"] == "profile"
+    assert workflow_profile["status"] == "warning"
+    assert workflow_profile["starter_config"] == "official_mvtec_industrial_v4_cpu_offline.json"
+    assert workflow_profile["required_extras"] == []
+    assert workflow_profile["artifact_hints"] == [
+        "leaderboard.csv",
+        "best_by_baseline.csv",
+        "skipped.csv",
+        "leaderboard_metadata.json",
+    ]
+    assert workflow_profile["starter_commands"] == [
+        "pyimgano benchmark --list-starter-configs",
+        "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+        "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json",
+    ]
+    assert workflow_profile["next_step_commands"] == [
+        "pyimgano-doctor --recommend-extras --for-command train --json",
+        "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
+        "pyimgano runs quality runs/<run_dir> --require-status audited --json",
+    ]
+    assert workflow_profile["dataset_target"] == str(root)
+    assert "fewshot_train_set" in set(workflow_profile["issues"])
+
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness["target_kind"] == "profile"
+    assert readiness["path"] == "benchmark"
+    assert readiness["status"] == "warning"
+    assert "fewshot_train_set" in set(readiness["issues"])
+
+
+def test_collect_doctor_payload_deploy_profile_uses_run_readiness(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "report.json").write_text('{"run_dir": "demo"}', encoding="utf-8")
+    (run_dir / "config.json").write_text('{"recipe": "industrial-adapt"}', encoding="utf-8")
+    (run_dir / "environment.json").write_text('{"python": "3.10"}', encoding="utf-8")
+    artifacts = run_dir / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    (artifacts / "infer_config.json").write_text(
+        '{"model": {"name": "vision_patchcore", "model_kwargs": {}}, "defects": {"mask_format": "png"}}',
+        encoding="utf-8",
+    )
+
+    payload = collect_doctor_payload(profile="deploy", run_dir=str(run_dir))
+
+    workflow_profile = payload.get("workflow_profile")
+    assert isinstance(workflow_profile, dict)
+    assert workflow_profile["profile"] == "deploy"
+    assert workflow_profile["status"] == "warning"
+    assert workflow_profile["target_path"] == str(run_dir)
+    assert workflow_profile["target_source"] == "run_dir"
+    assert workflow_profile["artifact_hints"] == [
+        "report.json",
+        "config.json",
+        "environment.json",
+        "deploy_bundle/infer_config.json",
+        "deploy_bundle/bundle_manifest.json",
+    ]
+    assert workflow_profile["starter_commands"] == [
+        "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json",
+        "pyimgano-doctor --profile deploy --deploy-bundle runs/<run_dir>/deploy_bundle --json",
+        "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
+    ]
+    assert "insufficient_quality_status" in set(workflow_profile["issues"])
+
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness["target_kind"] == "profile"
+    assert readiness["path"] == "deploy"
+    assert readiness["status"] == "warning"
+
+
+def test_collect_doctor_payload_publish_profile_exposes_publication_gate(tmp_path: Path) -> None:
+    export_dir = tmp_path / "suite_export"
+    export_dir.mkdir()
+    report = export_dir / "report.json"
+    config = export_dir / "config.json"
+    environment = export_dir / "environment.json"
+    leaderboard = export_dir / "leaderboard.csv"
+    metadata = export_dir / "leaderboard_metadata.json"
+
+    report.write_text('{"suite": "industrial-v4"}', encoding="utf-8")
+    config.write_text('{"config": {"seed": 123}}', encoding="utf-8")
+    environment.write_text('{"fingerprint_sha256": "%s"}' % ("f" * 64), encoding="utf-8")
+    leaderboard.write_text("name,auroc\nx,0.9\n", encoding="utf-8")
+
+    import hashlib
+    import json
+
+    metadata.write_text(
+        json.dumps(
+            {
+                "benchmark_config": {
+                    "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                    "official": True,
+                    "sha256": "a" * 64,
+                },
+                "artifact_quality": {
+                    "required_files_present": True,
+                    "missing_required": [],
+                    "has_official_benchmark_config": True,
+                    "has_environment_fingerprint": True,
+                    "has_split_fingerprint": True,
+                },
+                "environment_fingerprint_sha256": "f" * 64,
+                "split_fingerprint": {"sha256": "b" * 64},
+                "evaluation_contract": {"primary_metric": "auroc"},
+                "citation": {"project": "pyimgano"},
+                "publication_ready": True,
+                "audit_refs": {
+                    "report_json": "report.json",
+                    "config_json": "config.json",
+                    "environment_json": "environment.json",
+                },
+                "audit_digests": {
+                    "report_json": hashlib.sha256(report.read_bytes()).hexdigest(),
+                    "config_json": hashlib.sha256(config.read_bytes()).hexdigest(),
+                    "environment_json": hashlib.sha256(environment.read_bytes()).hexdigest(),
+                },
+                "exported_files": {
+                    "leaderboard_csv": str(leaderboard),
+                    "leaderboard_metadata_json": str(metadata),
+                },
+                "exported_file_digests": {
+                    "leaderboard_csv": hashlib.sha256(leaderboard.read_bytes()).hexdigest(),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = collect_doctor_payload(profile="publish", publication_target=str(export_dir))
+
+    workflow_profile = payload.get("workflow_profile")
+    assert isinstance(workflow_profile, dict)
+    assert workflow_profile["profile"] == "publish"
+    assert workflow_profile["status"] == "ok"
+    assert workflow_profile["target_path"] == str(export_dir)
+    assert workflow_profile["target_source"] == "publication_target"
+    assert workflow_profile["artifact_hints"] == [
+        "leaderboard.csv",
+        "leaderboard_metadata.json",
+        "report.json",
+        "config.json",
+        "environment.json",
+    ]
+    assert workflow_profile["starter_commands"] == [
+        "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json",
+        "pyimgano runs acceptance /path/to/suite_export --json",
+        "pyimgano runs publication /path/to/suite_export --json",
+    ]
+    publication = payload.get("publication")
+    assert isinstance(publication, dict)
+    assert publication["status"] == "ready"
+    assert publication["publication_ready"] is True
+
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness["target_kind"] == "profile"
+    assert readiness["path"] == "publish"
+    assert readiness["status"] == "ok"

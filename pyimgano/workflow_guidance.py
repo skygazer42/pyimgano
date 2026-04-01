@@ -41,6 +41,14 @@ class StarterBenchmarkGuidance:
     run_command: str
 
 
+@dataclass(frozen=True)
+class StarterPathGuidance:
+    name: str
+    title: str
+    summary: str
+    commands: tuple[str, ...]
+
+
 _WORKFLOW_STAGES: tuple[WorkflowStage, ...] = (
     WorkflowStage(
         key="discover",
@@ -122,6 +130,57 @@ _BENCHMARK_PUBLICATION_COMMANDS: tuple[str, ...] = (
 _ARTIFACT_ACCEPTANCE_COMMANDS: tuple[str, ...] = (
     "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
     "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",
+)
+
+_FIRST_TEN_MINUTES_COMMANDS: tuple[str, ...] = (
+    "pyimgano-doctor --profile first-run --json",
+    "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained",
+    "pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json",
+    "pyimgano-benchmark --dataset custom --root ./_demo_custom_dataset --suite industrial-ci --resize 32 32 --limit-train 2 --limit-test 2 --no-pretrained --save-run --output-dir ./_demo_benchmark_run --suite-export csv",
+    "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir ./_demo_custom_dataset/train/normal --input ./_demo_custom_dataset/test --save-jsonl ./_demo_results.jsonl",
+    "pyimgano runs quality ./_demo_benchmark_run --json",
+)
+
+_STARTER_PATHS: tuple[StarterPathGuidance, ...] = (
+    StarterPathGuidance(
+        name="first-run",
+        title="First 10 Minutes",
+        summary="Smallest offline-safe operator path from environment check to benchmarked inference artifacts.",
+        commands=_FIRST_TEN_MINUTES_COMMANDS,
+    ),
+    StarterPathGuidance(
+        name="benchmark",
+        title="First Benchmark Run",
+        summary="Starter benchmark discovery plus one publication-aware benchmark loop.",
+        commands=(
+            "pyimgano-doctor --profile benchmark --dataset-target /path/to/dataset_root --json",
+            "pyimgano benchmark --list-starter-configs",
+            "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+            "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json",
+            "pyimgano runs publication /path/to/suite_export --json",
+        ),
+    ),
+    StarterPathGuidance(
+        name="deploy",
+        title="Deployment Check",
+        summary="Validate deploy artifacts and acceptance signals before shipping a run or bundle.",
+        commands=(
+            "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json",
+            "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+            "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
+            "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
+        ),
+    ),
+    StarterPathGuidance(
+        name="publish",
+        title="Publication Gate",
+        summary="Gate a suite export with the same publication trust checks used by release workflows.",
+        commands=(
+            "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json",
+            "pyimgano runs acceptance /path/to/suite_export --json",
+            "pyimgano runs publication /path/to/suite_export --json",
+        ),
+    ),
 )
 
 _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -266,6 +325,22 @@ def artifact_acceptance_commands() -> list[str]:
     return list(_ARTIFACT_ACCEPTANCE_COMMANDS)
 
 
+def first_ten_minutes_commands() -> list[str]:
+    return list(_FIRST_TEN_MINUTES_COMMANDS)
+
+
+def list_starter_paths() -> list[StarterPathGuidance]:
+    return list(_STARTER_PATHS)
+
+
+def starter_path_by_name(name: str) -> StarterPathGuidance | None:
+    key = str(name).strip()
+    for path in _STARTER_PATHS:
+        if path.name == key:
+            return path
+    return None
+
+
 def workflow_stage_for_command(command_name: str) -> str | None:
     info = _COMMAND_WORKFLOW_GUIDANCE.get(str(command_name).strip())
     if info is None:
@@ -332,13 +407,16 @@ __all__ = [
     "CommandWorkflowGuidance",
     "ModelWorkflowGuidance",
     "StarterBenchmarkGuidance",
+    "StarterPathGuidance",
     "WorkflowStage",
     "artifact_hints_for_command",
     "artifact_acceptance_commands",
     "benchmark_publication_commands",
     "command_workflow_guidance",
     "default_starter_benchmark_name",
+    "first_ten_minutes_commands",
     "industrial_fast_path_commands",
+    "list_starter_paths",
     "list_workflow_stages",
     "model_workflow_guidance",
     "model_info_command_for_model",
@@ -350,6 +428,7 @@ __all__ = [
     "starter_benchmark_info_command",
     "starter_benchmark_list_command",
     "starter_benchmark_run_command",
+    "starter_path_by_name",
     "workflow_stage_for_command",
     "workflow_stage_for_model",
 ]

@@ -9,6 +9,7 @@ from textwrap import dedent, indent
 from pyimgano.workflow_guidance import artifact_acceptance_commands
 from pyimgano.workflow_guidance import benchmark_publication_commands
 from pyimgano.workflow_guidance import industrial_fast_path_commands
+from pyimgano.workflow_guidance import list_starter_paths
 from pyimgano.workflow_guidance import list_workflow_stages
 
 _COMMANDS: dict[str, tuple[str, str]] = {
@@ -62,6 +63,12 @@ def _help_text() -> str:
         "\n".join(f"  {command}" for command in artifact_acceptance_commands()),
         "        ",
     )
+    starter_path_lines = []
+    for path in list_starter_paths():
+        starter_path_lines.append(f"  {path.name}:")
+        for command in path.commands:
+            starter_path_lines.append(f"    {command}")
+    starter_paths_block = indent("\n".join(starter_path_lines), "        ")
     return dedent(
         f"""\
         usage:
@@ -87,6 +94,9 @@ def _help_text() -> str:
 
         artifact acceptance:
 {artifact_acceptance_block}
+
+        starter paths:
+{starter_paths_block}
 
         guided next steps:
 {workflow_block}

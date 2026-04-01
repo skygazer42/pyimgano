@@ -26,3 +26,22 @@ Recommended starting order:
 4. `benchmark_example.py`
 
 If you prefer CLI-first onboarding, start from `docs/START_HERE.md` instead.
+
+## Goal-Based Routes
+
+If you want examples that match the new `pyim --goal ...` discovery routes, use this map:
+
+- `pyim --goal first-run --json`
+  Baseline: `embedding_plus_core_ecod.py`
+  Optional backend upgrade: `openclip_plus_core_knn.py`
+- `pyim --goal pixel-localization --json`
+  Baseline: `embedding_plus_core_ecod.py`
+  Stronger optional backend: `openclip_plus_core_knn.py`
+- `pyim --goal deployable --json`
+  Baseline: `industrial_infer_numpy.py`
+  Optional backend route: `openclip_plus_core_knn.py`
+
+The pattern is intentional:
+
+- baseline: low-friction CPU or base-install route you can run first
+- optional backend: stronger route that typically needs `pyimgano[clip,torch]` or another extra

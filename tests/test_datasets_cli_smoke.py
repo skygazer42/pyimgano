@@ -103,3 +103,20 @@ def test_datasets_cli_profile_reports_industrial_dataset_profile(tmp_path: Path,
     readiness = payload["evaluation_readiness"]
     assert readiness["ready_for_image_metrics"] is True
     assert readiness["ready_for_pixel_metrics"] is True
+    assert payload["readiness"]["status"] == "warning"
+    assert payload["readiness"]["issue_codes"] == ["FEWSHOT_TRAIN_SET"]
+
+
+def test_datasets_cli_lint_text_renders_readiness_issue_codes(tmp_path: Path, capsys) -> None:
+    from pyimgano.datasets_cli import main as datasets_main
+
+    root = tmp_path / "custom"
+    _write_png(root / "train" / "normal" / "train_0.png")
+    _write_png(root / "test" / "normal" / "good_0.png")
+
+    rc = datasets_main(["lint", str(root), "--dataset", "custom"])
+    assert rc == 1
+
+    out = capsys.readouterr().out
+    assert "readiness_status: error" in out
+    assert "issue_codes: MISSING_TEST_ANOMALY, PIXEL_METRICS_UNAVAILABLE, FEWSHOT_TRAIN_SET" in out

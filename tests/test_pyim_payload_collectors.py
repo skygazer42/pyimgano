@@ -29,6 +29,16 @@ def test_collect_pyim_payload_field_builds_typed_dataset_items(monkeypatch) -> N
 
     assert datasets == [
         PyimDatasetSummary(
+            name="manifest",
+            description="JSONL manifest dataset with explicit paths/splits for industrial workflows.",
+            requires_category=True,
+        ),
+        PyimDatasetSummary(
+            name="mvtec",
+            description="MVTec AD public benchmark dataset layout.",
+            requires_category=True,
+        ),
+        PyimDatasetSummary(
             name="custom",
             description="Custom dataset",
             requires_category=True,

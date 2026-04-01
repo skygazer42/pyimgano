@@ -60,6 +60,21 @@ def _build_dataset_summaries(converters: Iterable[Any]) -> list[PyimDatasetSumma
     ]
 
 
+def _virtual_dataset_summaries() -> list[PyimDatasetSummary]:
+    return [
+        PyimDatasetSummary(
+            name="manifest",
+            description="JSONL manifest dataset with explicit paths/splits for industrial workflows.",
+            requires_category=True,
+        ),
+        PyimDatasetSummary(
+            name="mvtec",
+            description="MVTec AD public benchmark dataset layout.",
+            requires_category=True,
+        ),
+    ]
+
+
 def empty_pyim_payload_kwargs() -> dict[str, Any]:
     return {field_name: [] for field_name in ALL_PAYLOAD_FIELDS}
 
@@ -160,7 +175,10 @@ def _collect_recipe_payloads(request: PyimListRequest) -> list[dict[str, Any]]:
 def _collect_datasets(_request: PyimListRequest) -> list[PyimDatasetSummary]:
     from pyimgano.datasets.converters import list_dataset_converters
 
-    return _build_dataset_summaries(list_dataset_converters())
+    return [
+        *_virtual_dataset_summaries(),
+        *_build_dataset_summaries(list_dataset_converters()),
+    ]
 
 
 _PAYLOAD_FIELD_COLLECTORS: dict[str, PyimPayloadFieldCollector] = {

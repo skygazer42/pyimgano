@@ -61,6 +61,7 @@ def test_pyim_main_delegates_parsed_command_to_pyim_app(monkeypatch):
             "algorithm_type": None,
             "year": None,
             "deployable_only": False,
+            "goal": None,
             "objective": None,
             "selection_profile": None,
             "topk": None,
@@ -68,6 +69,77 @@ def test_pyim_main_delegates_parsed_command_to_pyim_app(monkeypatch):
             "json_output": True,
         }
     ]
+
+
+def test_pyim_goal_delegates_goal_and_json_to_pyim_app(monkeypatch) -> None:
+    import pyimgano.pyim_cli as pyim_cli
+
+    calls = []
+    monkeypatch.setattr(
+        pyim_cli,
+        "pyim_app",
+        type(
+            "_StubPyimApp",
+            (),
+            {
+                "PyimCommand": staticmethod(lambda **kwargs: SimpleNamespace(**kwargs)),
+                "run_pyim_command": staticmethod(
+                    lambda command: calls.append(dict(command.__dict__)) or 41
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    code = pyim_cli.main(["--goal", "deployable", "--json"])
+    assert code == 41
+    assert calls == [
+        {
+            "list_kind": None,
+            "tags": None,
+            "family": None,
+            "algorithm_type": None,
+            "year": None,
+            "deployable_only": False,
+            "goal": "deployable",
+            "objective": None,
+            "selection_profile": None,
+            "topk": None,
+            "audit_metadata": False,
+            "json_output": True,
+        }
+    ]
+
+
+def test_pyim_goal_json_returns_goal_context_and_goal_picks(capsys) -> None:
+    from pyimgano.pyim_cli import main
+
+    code = main(["--goal", "pixel-localization", "--json"])
+    assert code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["goal_context"]["goal"] == "pixel-localization"
+    assert payload["goal_context"]["selection_profile"] == "balanced"
+    assert payload["goal_context"]["objective"] == "localization"
+    assert payload["goal_picks"]["models"][0]["name"] in {"ssim_template_map", "vision_patchcore"}
+    assert isinstance(payload["goal_picks"]["recipes"], list)
+    assert isinstance(payload["goal_picks"]["datasets"], list)
+    assert payload["goal_picks"]["models"][0]["why_this_pick"]
+
+
+def test_pyim_goal_text_renders_goal_context_and_picks(capsys) -> None:
+    from pyimgano.pyim_cli import main
+
+    code = main(["--goal", "first-run"])
+    assert code == 0
+
+    out = capsys.readouterr().out
+    assert "Goal Context" in out
+    assert "goal=first-run" in out
+    assert "Goal Picks" in out
+    assert "why=" in out
+    assert "recipe=" in out
+    assert "dataset=" in out
 
 
 def test_pyim_main_routes_app_errors_through_parser(monkeypatch, capsys) -> None:

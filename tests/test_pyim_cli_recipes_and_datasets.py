@@ -25,6 +25,8 @@ def test_pyim_list_datasets_outputs_json_payload(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert isinstance(payload, list)
     assert any(item.get("name") == "custom" for item in payload)
+    assert any(item.get("name") == "manifest" for item in payload)
+    assert any(item.get("name") == "mvtec" for item in payload)
     assert all(
         isinstance(item.get("name"), str)
         and isinstance(item.get("description"), str)
@@ -111,6 +113,7 @@ def test_pyim_list_all_json_delegates_payload_collection_to_pyim_service(
             "algorithm_type": None,
             "year": None,
             "deployable_only": False,
+            "goal": None,
             "objective": None,
             "selection_profile": None,
             "topk": None,
@@ -162,6 +165,7 @@ def test_pyim_list_recipes_delegates_payload_collection_to_pyim_service(
             "algorithm_type": None,
             "year": None,
             "deployable_only": False,
+            "goal": None,
             "objective": None,
             "selection_profile": None,
             "topk": None,
@@ -227,6 +231,7 @@ def test_pyim_list_datasets_delegates_payload_collection_to_pyim_service(
             "algorithm_type": None,
             "year": None,
             "deployable_only": False,
+            "goal": None,
             "objective": None,
             "selection_profile": None,
             "topk": None,

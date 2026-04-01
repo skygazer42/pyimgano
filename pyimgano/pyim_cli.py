@@ -49,6 +49,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional publication year filter used with --list models. Example: --year 2021",
     )
     parser.add_argument(
+        "--goal",
+        default=None,
+        choices=["first-run", "cpu-screening", "pixel-localization", "deployable"],
+        help="Task-oriented recommendation goal. Emits models, recipes, and datasets together.",
+    )
+    parser.add_argument(
         "--objective",
         default=None,
         choices=["balanced", "latency", "localization"],
@@ -85,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.list is None and not bool(args.audit_metadata):
+    if args.list is None and not bool(args.audit_metadata) and args.goal is None:
         parser.print_help()
         return 0
 
@@ -98,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
                 algorithm_type=args.algorithm_type,
                 year=args.year,
                 deployable_only=bool(args.deployable_only),
+                goal=args.goal,
                 objective=args.objective,
                 selection_profile=args.selection_profile,
                 topk=args.topk,

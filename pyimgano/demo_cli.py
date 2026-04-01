@@ -7,6 +7,8 @@ from typing import Any
 
 from pyimgano.utils.jsonable import to_jsonable
 
+_DEMO_SCENARIOS = {"smoke", "benchmark", "infer-defects"}
+
 
 def _ensure_unique_output_dir(base: Path) -> Path:
     base = Path(base)
@@ -50,6 +52,12 @@ def _write_demo_custom_dataset(root: Path, *, size_hw: tuple[int, int]) -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-demo")
+    parser.add_argument(
+        "--scenario",
+        default=None,
+        choices=sorted(_DEMO_SCENARIOS),
+        help="Named demo scenario preset: smoke, benchmark, or infer-defects.",
+    )
     parser.add_argument(
         "--smoke",
         action="store_true",
@@ -148,7 +156,108 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _build_next_steps(*, dataset_root: Path, run_dir: Path | None) -> list[str]:
+def _resolve_demo_scenario(args: argparse.Namespace) -> dict[str, Any]:
+    scenario = getattr(args, "scenario", None)
+    if scenario is None:
+        if bool(getattr(args, "smoke", False)):
+            scenario = "smoke"
+        elif bool(getattr(args, "infer_defects", False)):
+            scenario = "infer-defects"
+        else:
+            scenario = "custom"
+
+    scenario_key = str(scenario)
+    if scenario_key == "smoke":
+        return {
+            "scenario": scenario_key,
+            "smoke": True,
+            "resize": (32, 32),
+            "suite": "industrial-ci",
+            "sweep": None,
+            "sweep_max_variants": 0,
+            "export_mode": "csv",
+            "limit_train": 2,
+            "limit_test": 2,
+            "infer_defects": False,
+        }
+    if scenario_key == "benchmark":
+        return {
+            "scenario": scenario_key,
+            "smoke": False,
+            "resize": (32, 32),
+            "suite": "industrial-ci",
+            "sweep": None,
+            "sweep_max_variants": 0,
+            "export_mode": "csv",
+            "limit_train": 2,
+            "limit_test": 2,
+            "infer_defects": False,
+        }
+    if scenario_key == "infer-defects":
+        return {
+            "scenario": scenario_key,
+            "smoke": False,
+            "resize": (32, 32),
+            "suite": "industrial-ci",
+            "sweep": None,
+            "sweep_max_variants": 0,
+            "export_mode": "none",
+            "limit_train": 2,
+            "limit_test": 2,
+            "infer_defects": True,
+        }
+    return {
+        "scenario": scenario_key,
+        "smoke": bool(getattr(args, "smoke", False)),
+        "resize": (int(args.resize[0]), int(args.resize[1])),
+        "suite": str(args.suite),
+        "sweep": None if bool(getattr(args, "no_sweep", False)) else str(args.sweep),
+        "sweep_max_variants": int(args.sweep_max_variants),
+        "export_mode": str(args.export),
+        "limit_train": int(args.limit_train),
+        "limit_test": int(args.limit_test),
+        "infer_defects": bool(getattr(args, "infer_defects", False)),
+    }
+
+
+def _build_next_steps(
+    *,
+    dataset_root: Path,
+    run_dir: Path | None,
+    scenario: str,
+    infer_dir: Path | None,
+) -> list[str]:
+    if str(scenario) == "benchmark":
+        steps = [
+            "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json",
+        ]
+        if run_dir is not None:
+            steps.extend(
+                [
+                    f"pyimgano runs quality {run_dir} --json",
+                    f"pyimgano runs publication {run_dir} --json",
+                ]
+            )
+        return steps
+
+    if str(scenario) == "infer-defects":
+        steps = []
+        if run_dir is not None:
+            rerun_path = (
+                (infer_dir / "rerun_results.jsonl") if infer_dir is not None else (run_dir / "rerun_results.jsonl")
+            )
+            steps.append(
+                "pyimgano-infer "
+                f"--from-run {run_dir} --input {dataset_root / 'test'} --save-jsonl {rerun_path}"
+            )
+            steps.extend(
+                [
+                    f"pyimgano runs quality {run_dir} --json",
+                    f"pyimgano runs acceptance {run_dir} --require-status audited --json",
+                ]
+            )
+        return steps
+
     steps = [
         (
             "pyimgano-infer "
@@ -167,8 +276,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     dataset_root = Path(str(args.dataset_root))
-    smoke = bool(getattr(args, "smoke", False))
-    resize = (32, 32) if smoke else (int(args.resize[0]), int(args.resize[1]))
+    scenario_config = _resolve_demo_scenario(args)
+    scenario = str(scenario_config["scenario"])
+    smoke = bool(scenario_config["smoke"])
+    resize = tuple(int(v) for v in scenario_config["resize"])
     _write_demo_custom_dataset(dataset_root, size_hw=resize)
 
     output_dir: Path | None
@@ -179,12 +290,12 @@ def main(argv: list[str] | None = None) -> int:
         if str(args.export).lower().strip() != "none":
             raise ValueError("--export requires --save-run.")
 
-    suite = "industrial-ci" if smoke else str(args.suite)
-    sweep: str | None = None if (smoke or bool(args.no_sweep)) else str(args.sweep)
-    sweep_max_variants = 0 if smoke else int(args.sweep_max_variants)
-    export_mode = "csv" if smoke else str(args.export)
-    limit_train = 2 if smoke else int(args.limit_train)
-    limit_test = 2 if smoke else int(args.limit_test)
+    suite = str(scenario_config["suite"])
+    sweep = scenario_config["sweep"]
+    sweep_max_variants = int(scenario_config["sweep_max_variants"])
+    export_mode = str(scenario_config["export_mode"])
+    limit_train = int(scenario_config["limit_train"])
+    limit_test = int(scenario_config["limit_test"])
 
     from pyimgano.pipelines.run_suite import run_baseline_suite
 
@@ -212,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     infer_defects_payload: dict[str, Any] | None = None
-    if bool(getattr(args, "infer_defects", False)):
+    if bool(scenario_config["infer_defects"]):
         if not bool(args.save_run):
             raise ValueError("--infer-defects requires --save-run.")
 
@@ -283,8 +394,19 @@ def main(argv: list[str] | None = None) -> int:
 
     run_dir = payload.get("run_dir")
     run_dir_path = Path(run_dir) if isinstance(run_dir, str) and run_dir else None
-    next_steps = _build_next_steps(dataset_root=dataset_root, run_dir=run_dir_path)
+    infer_dir_path = (
+        Path(str(infer_defects_payload["infer_dir"]))
+        if isinstance(infer_defects_payload, dict) and infer_defects_payload.get("infer_dir")
+        else None
+    )
+    next_steps = _build_next_steps(
+        dataset_root=dataset_root,
+        run_dir=run_dir_path,
+        scenario=scenario,
+        infer_dir=infer_dir_path,
+    )
     summary_payload = {
+        "scenario": scenario,
         "smoke": smoke,
         "dataset_root": str(dataset_root),
         "run_dir": (str(run_dir_path) if run_dir_path is not None else None),

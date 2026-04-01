@@ -77,6 +77,7 @@ docs/
 If you’re updating docs, these pages form the "happy path" for most industrial users:
 
 - `docs/START_HERE.md` (first-run environment check + smoke demo + next steps)
+- `docs/STARTER_PATHS.md` (goal-based exact command chains: first run, benchmark, deploy, publish)
 - `docs/BENCHMARK_GETTING_STARTED.md` (starter benchmark discovery + first benchmark run)
 - `docs/ZH_ZERO_TO_ONE_GUIDE.md` (中文从 0 到 1 落地操作指南)
 - `docs/ZH_INDUSTRY_SCENARIO_PLAYBOOK.md` (中文行业场景落地手册)

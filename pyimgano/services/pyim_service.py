@@ -6,6 +6,7 @@ import pyimgano.services.pyim_payload_collectors as pyim_payload_collectors
 from pyimgano.pyim_contracts import PyimListPayload, PyimListRequest
 from pyimgano.utils.extras import extra_installed
 from pyimgano.utils.extras import extras_install_hint
+from pyimgano.workflow_guidance import starter_path_by_name
 
 
 _DEFAULT_OBJECTIVE = "balanced"
@@ -32,6 +33,109 @@ _PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
         "objective": "balanced",
         "topk": 5,
         "description": "Prefer lower-friction deploy and export-adjacent routes.",
+    },
+}
+
+_GOAL_SPECS: dict[str, dict[str, Any]] = {
+    "first-run": {
+        "title": "First Run",
+        "summary": "Fastest offline-safe route from discovery to a bounded benchmark and inference artifact.",
+        "objective": "latency",
+        "selection_profile": "cpu-screening",
+        "topk": 3,
+        "starter_path": "first-run",
+        "recipe_picks": [
+            {
+                "name": "industrial-adapt",
+                "summary": "Audited train/export loop once you move beyond the demo path.",
+            }
+        ],
+        "dataset_picks": [
+            {
+                "name": "custom",
+                "summary": "Folder-layout starter dataset path for the demo and first real trials.",
+            },
+            {
+                "name": "manifest",
+                "summary": "Use when your production data does not match the built-in folder layout.",
+            },
+        ],
+    },
+    "cpu-screening": {
+        "title": "CPU Screening",
+        "summary": "Prefer lightweight CPU baselines and low-friction install paths.",
+        "objective": "latency",
+        "selection_profile": "cpu-screening",
+        "topk": 3,
+        "starter_path": "benchmark",
+        "recipe_picks": [
+            {
+                "name": "industrial-adapt",
+                "summary": "Starter workbench recipe once CPU screening narrows the candidate set.",
+            }
+        ],
+        "dataset_picks": [
+            {
+                "name": "custom",
+                "summary": "Fastest path for local CPU screening on your own folder-layout dataset.",
+            },
+            {
+                "name": "mvtec",
+                "summary": "Public benchmark reference for CPU-friendly baseline comparisons.",
+            },
+        ],
+    },
+    "pixel-localization": {
+        "title": "Pixel Localization",
+        "summary": "Prioritize anomaly-map quality and defect export readiness.",
+        "objective": "localization",
+        "selection_profile": "balanced",
+        "topk": 3,
+        "starter_path": "benchmark",
+        "recipe_picks": [
+            {
+                "name": "industrial-adapt-fp40",
+                "summary": "Deploy-style inference defaults for pixel-map and defect export loops.",
+            },
+            {
+                "name": "industrial-adapt",
+                "summary": "General workbench recipe when you need adaptation-first training plus maps.",
+            },
+        ],
+        "dataset_picks": [
+            {
+                "name": "custom",
+                "summary": "Own defect masks or aligned inspection data for direct pixel-map validation.",
+            },
+            {
+                "name": "mvtec",
+                "summary": "Public pixel-localization benchmark reference.",
+            },
+        ],
+    },
+    "deployable": {
+        "title": "Deployable",
+        "summary": "Favor lower-friction runtime/export paths and audited artifact loops.",
+        "objective": "balanced",
+        "selection_profile": "deploy-readiness",
+        "topk": 4,
+        "starter_path": "deploy",
+        "recipe_picks": [
+            {
+                "name": "industrial-adapt",
+                "summary": "Default audited train/export recipe for deployable runs.",
+            }
+        ],
+        "dataset_picks": [
+            {
+                "name": "custom",
+                "summary": "Direct path when you already have production-like folder-layout data.",
+            },
+            {
+                "name": "manifest",
+                "summary": "Preferred when deployment data ingestion needs explicit metadata and paths.",
+            },
+        ],
     },
 }
 
@@ -150,6 +254,9 @@ def _build_pick_payload(spec: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": str(spec["name"]),
         "summary": str(spec["summary"]),
+        "why_this_pick": (
+            f"{spec['summary']} Fits the current starter objective without requiring a separate registry lookup."
+        ),
         "required_extras": required,
         "recommended_extras": recommended,
         "missing_extras": missing,
@@ -162,6 +269,31 @@ def _build_pick_payload(spec: dict[str, Any]) -> dict[str, Any]:
         ),
         "model_info_command": f"pyimgano-benchmark --model-info {spec['name']} --json",
     }
+
+
+def _goal_spec(goal: str) -> dict[str, Any]:
+    key = str(goal).strip().lower()
+    try:
+        return dict(_GOAL_SPECS[key])
+    except KeyError as exc:
+        raise ValueError(
+            "--goal must be one of: cpu-screening, deployable, first-run, pixel-localization."
+        ) from exc
+
+
+def _request_for_goal(request: PyimListRequest, spec: dict[str, Any]) -> PyimListRequest:
+    return PyimListRequest(
+        list_kind="models",
+        tags=request.tags,
+        family=request.family,
+        algorithm_type=request.algorithm_type,
+        year=request.year,
+        deployable_only=bool(request.deployable_only),
+        goal=request.goal,
+        objective=str(spec["objective"]),
+        selection_profile=str(spec["selection_profile"]),
+        topk=int(spec["topk"]),
+    )
 
 
 def collect_pyim_listing_payload(request: PyimListRequest) -> PyimListPayload:
@@ -247,9 +379,40 @@ def collect_pyim_model_selection_payload(request: PyimListRequest) -> dict[str, 
     }
 
 
+def collect_pyim_goal_payload(request: PyimListRequest) -> dict[str, Any]:
+    if request.goal is None:
+        raise ValueError("collect_pyim_goal_payload requires request.goal.")
+
+    spec = _goal_spec(str(request.goal))
+    selection_request = _request_for_goal(request, spec)
+    selection_payload = collect_pyim_model_selection_payload(selection_request)
+    starter_path = starter_path_by_name(str(spec["starter_path"]))
+    suggested_commands = (
+        [] if starter_path is None else [str(item) for item in starter_path.commands]
+    )
+
+    return {
+        "goal_context": {
+            "goal": str(request.goal),
+            "title": str(spec["title"]),
+            "summary": str(spec["summary"]),
+            "objective": str(spec["objective"]),
+            "selection_profile": str(spec["selection_profile"]),
+            "topk": int(spec["topk"]),
+        },
+        "goal_picks": {
+            "models": list(selection_payload.get("starter_picks", [])),
+            "recipes": [dict(item) for item in spec.get("recipe_picks", [])],
+            "datasets": [dict(item) for item in spec.get("dataset_picks", [])],
+        },
+        "suggested_commands": suggested_commands,
+    }
+
+
 __all__ = [
     "PyimListPayload",
     "PyimListRequest",
+    "collect_pyim_goal_payload",
     "collect_pyim_model_selection_payload",
     "collect_pyim_listing_payload",
 ]

@@ -19,6 +19,7 @@ class PyimCommand:
     algorithm_type: str | None = None
     year: str | None = None
     deployable_only: bool = False
+    goal: str | None = None
     objective: str | None = None
     selection_profile: str | None = None
     topk: int | None = None
@@ -35,21 +36,45 @@ def _run_pyim_audit(command: PyimCommand) -> int:
 
 
 def _run_pyim_listing(command: PyimCommand) -> int:
+    options_kwargs = {
+        "list_kind": command.list_kind,
+        "tags": command.tags,
+        "family": command.family,
+        "algorithm_type": command.algorithm_type,
+        "year": command.year,
+        "deployable_only": bool(command.deployable_only),
+        "objective": command.objective,
+        "selection_profile": command.selection_profile,
+        "topk": command.topk,
+    }
+    if command.goal is not None:
+        options_kwargs["goal"] = command.goal
     list_options = pyim_cli_options.resolve_pyim_list_options(
-        list_kind=command.list_kind,
-        tags=command.tags,
-        family=command.family,
-        algorithm_type=command.algorithm_type,
-        year=command.year,
-        deployable_only=bool(command.deployable_only),
-        objective=command.objective,
-        selection_profile=command.selection_profile,
-        topk=command.topk,
+        **options_kwargs,
     )
     request = list_options.to_request()
+    if hasattr(request, "__dict__") and not dict(getattr(request, "__dict__", {})):
+        for field in (
+            "list_kind",
+            "tags",
+            "family",
+            "algorithm_type",
+            "year",
+            "deployable_only",
+            "goal",
+            "objective",
+            "selection_profile",
+            "topk",
+        ):
+            value = getattr(list_options, field, None)
+            if value not in (None, False):
+                request.__dict__[field] = value
     payload = pyim_service.collect_pyim_listing_payload(request)
     selection_payload = None
-    if (
+    goal_payload = None
+    if getattr(list_options, "goal", None) is not None:
+        goal_payload = pyim_service.collect_pyim_goal_payload(request)
+    elif (
         list_options.list_kind == "models"
         and (
             list_options.objective is not None
@@ -58,11 +83,16 @@ def _run_pyim_listing(command: PyimCommand) -> int:
         )
     ):
         selection_payload = pyim_service.collect_pyim_model_selection_payload(request)
+    render_kwargs = {
+        "list_kind": list_options.list_kind,
+        "json_output": bool(command.json_output),
+        "selection_payload": selection_payload,
+    }
+    if goal_payload is not None:
+        render_kwargs["goal_payload"] = goal_payload
     return pyim_cli_rendering.emit_pyim_list_payload(
         payload,
-        list_kind=list_options.list_kind,
-        json_output=bool(command.json_output),
-        selection_payload=selection_payload,
+        **render_kwargs,
     )
 
 

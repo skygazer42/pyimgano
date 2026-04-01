@@ -228,3 +228,120 @@ def test_run_pyim_command_audit_metadata_json_preserves_nonzero_exit(monkeypatch
     assert rc == 1
     assert service_calls == [True]
     assert calls == [(payload, {"json_output": True})]
+
+
+def test_run_pyim_command_goal_flow_delegates_goal_payload(monkeypatch) -> None:
+    import pyimgano.pyim_app as pyim_app
+
+    listing_calls = []
+    goal_calls = []
+    render_calls = []
+
+    monkeypatch.setattr(
+        pyim_app,
+        "pyim_cli_options",
+        type(
+            "_StubPyimCliOptions",
+            (),
+            {
+                "resolve_pyim_list_options": staticmethod(
+                    lambda **kwargs: type(
+                        "_Opts",
+                        (),
+                        {
+                            "list_kind": "all",
+                            "tags": None,
+                            "family": None,
+                            "algorithm_type": None,
+                            "year": None,
+                            "deployable_only": False,
+                            "goal": "deployable",
+                            "objective": "balanced",
+                            "selection_profile": "deploy-readiness",
+                            "topk": 4,
+                            "to_request": staticmethod(
+                                lambda: type(
+                                    "_Request",
+                                    (),
+                                    {
+                                        "list_kind": "all",
+                                        "goal": "deployable",
+                                        "objective": "balanced",
+                                        "selection_profile": "deploy-readiness",
+                                        "topk": 4,
+                                    },
+                                )()
+                            ),
+                        },
+                    )()
+                )
+            },
+        ),
+        raising=False,
+    )
+
+    monkeypatch.setattr(
+        pyim_app,
+        "pyim_service",
+        type(
+            "_StubPyimService",
+            (),
+            {
+                "collect_pyim_listing_payload": staticmethod(
+                    lambda request: listing_calls.append(dict(request.__dict__))
+                    or {"models": ["vision_ecod"]}
+                ),
+                "collect_pyim_goal_payload": staticmethod(
+                    lambda request: goal_calls.append(dict(request.__dict__))
+                    or {
+                        "goal_context": {"goal": "deployable"},
+                        "goal_picks": {"models": [{"name": "vision_ecod"}], "recipes": [], "datasets": []},
+                    }
+                ),
+            },
+        ),
+        raising=False,
+    )
+
+    monkeypatch.setattr(
+        pyim_app,
+        "pyim_cli_rendering",
+        type(
+            "_StubPyimCliRendering",
+            (),
+            {
+                "emit_pyim_list_payload": staticmethod(
+                    lambda payload, **kwargs: render_calls.append((payload, kwargs)) or 73
+                )
+            },
+        ),
+        raising=False,
+    )
+
+    rc = pyim_app.run_pyim_command(pyim_app.PyimCommand(goal="deployable", json_output=True))
+
+    assert rc == 73
+    assert listing_calls == [
+        {
+            "list_kind": "all",
+            "goal": "deployable",
+            "objective": "balanced",
+            "selection_profile": "deploy-readiness",
+            "topk": 4,
+        }
+    ]
+    assert goal_calls == listing_calls
+    assert render_calls == [
+        (
+            {"models": ["vision_ecod"]},
+            {
+                "list_kind": "all",
+                "json_output": True,
+                "selection_payload": None,
+                "goal_payload": {
+                    "goal_context": {"goal": "deployable"},
+                    "goal_picks": {"models": [{"name": "vision_ecod"}], "recipes": [], "datasets": []},
+                },
+            },
+        )
+    ]

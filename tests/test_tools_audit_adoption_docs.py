@@ -31,3 +31,10 @@ def test_audit_adoption_docs_current_repo_passes() -> None:
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "OK" in proc.stdout
+
+
+def test_audit_adoption_docs_includes_starter_paths_page() -> None:
+    import tools.audit_adoption_docs as audit_adoption_docs
+
+    assert "docs/STARTER_PATHS.md" in audit_adoption_docs.DEFAULT_FILES
+    assert "STARTER_PATHS.md" in audit_adoption_docs.REQUIRED_NEEDLES

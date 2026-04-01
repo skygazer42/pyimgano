@@ -369,6 +369,56 @@ def test_collect_pyim_model_selection_payload_surfaces_localization_hints() -> N
     assert template["deployment_family"] == ["template"]
 
 
+def test_collect_pyim_model_selection_payload_includes_why_this_pick_and_install_hints() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_model_selection_payload
+
+    payload = collect_pyim_model_selection_payload(
+        PyimListRequest(
+            list_kind="models",
+            objective="localization",
+            selection_profile="balanced",
+            topk=2,
+        )
+    )
+
+    top = payload["starter_picks"][0]
+    assert isinstance(top["why_this_pick"], str)
+    assert top["why_this_pick"]
+    assert "install_hint" in top
+
+
+def test_collect_pyim_goal_payload_returns_goal_context_and_cross_section_picks() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_goal_payload
+
+    payload = collect_pyim_goal_payload(
+        PyimListRequest(
+            list_kind="all",
+            goal="deployable",
+            objective="balanced",
+            selection_profile="deploy-readiness",
+            topk=2,
+        )
+    )
+
+    context = payload["goal_context"]
+    assert context["goal"] == "deployable"
+    assert context["selection_profile"] == "deploy-readiness"
+    assert context["objective"] == "balanced"
+    picks = payload["goal_picks"]
+    assert isinstance(picks["models"], list)
+    assert picks["models"]
+    assert isinstance(picks["recipes"], list)
+    assert picks["recipes"]
+    assert isinstance(picks["datasets"], list)
+    assert picks["datasets"]
+    assert isinstance(payload["suggested_commands"], list)
+    assert payload["suggested_commands"]
+    dataset_names = {item["name"] for item in picks["datasets"]}
+    assert {"custom", "manifest"} <= dataset_names or {"custom", "mvtec"} <= dataset_names
+
+
 def test_pyim_list_payload_builds_all_json_payload_without_model_preset_infos() -> None:
     from pyimgano.pyim_contracts import (
         PyimDatasetSummary,

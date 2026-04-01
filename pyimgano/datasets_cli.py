@@ -168,13 +168,20 @@ def main(argv: list[str] | None = None) -> int:
                 category=(str(args.category) if args.category is not None else None),
                 root_fallback=(str(args.root_fallback) if args.root_fallback is not None else None),
             )
+            readiness = dict(payload.get("readiness", {}) or {})
+            readiness_error = str(readiness.get("status")) == "error"
             if bool(args.json):
                 print(json.dumps(payload, indent=2, sort_keys=True))
-                return 0 if bool(payload.get("ok")) else 1
+                return 0 if bool(payload.get("ok")) and not readiness_error else 1
             print(f"target: {payload.get('target')}")
             print(f"dataset: {payload.get('dataset')}")
             print(f"ok: {payload.get('ok')}")
-            return 0 if bool(payload.get("ok")) else 1
+            if readiness:
+                print(f"readiness_status: {readiness.get('status')}")
+                issue_codes = list(readiness.get("issue_codes", []) or [])
+                if issue_codes:
+                    print(f"issue_codes: {', '.join(str(item) for item in issue_codes)}")
+            return 0 if bool(payload.get("ok")) and not readiness_error else 1
 
         if args.cmd == "profile":
             payload = profile_dataset_target(
@@ -195,6 +202,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"train_count: {profile.get('train_count')}")
             print(f"test_count: {profile.get('test_count')}")
             print(f"pixel_metrics_available: {profile.get('pixel_metrics_available')}")
+            readiness = dict(payload.get("readiness", {}) or {})
+            if readiness:
+                print(f"readiness_status: {readiness.get('status')}")
+                issue_codes = list(readiness.get("issue_codes", []) or [])
+                if issue_codes:
+                    print(f"issue_codes: {', '.join(str(item) for item in issue_codes)}")
             return 0
 
         raise ValueError(f"Unknown command: {args.cmd!r}")

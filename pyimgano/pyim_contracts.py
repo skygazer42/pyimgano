@@ -248,6 +248,7 @@ class PyimListRequest:
     algorithm_type: str | None = None
     year: str | int | None = None
     deployable_only: bool = False
+    goal: str | None = None
     objective: str | None = None
     selection_profile: str | None = None
     topk: int | None = None

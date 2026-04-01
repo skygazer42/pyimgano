@@ -3,24 +3,26 @@
 If this is your first contact with `pyimgano`, follow this path:
 
 ```bash
-pyimgano-doctor
-pyimgano-doctor --recommend-extras --for-command export-onnx --json
-pyimgano-doctor --recommend-extras --for-command benchmark --json
-pyimgano-doctor --recommend-extras --for-command train --json
-pyimgano-doctor --recommend-extras --for-command infer --json
-pyimgano-doctor --recommend-extras --for-command runs --json
-pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps
+pyimgano-doctor --profile first-run --json
+pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained
+pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json
+pyimgano-benchmark --dataset custom --root ./_demo_custom_dataset --suite industrial-ci --resize 32 32 --limit-train 2 --limit-test 2 --no-pretrained --save-run --output-dir ./_demo_benchmark_run --suite-export csv
+pyimgano-infer --model-preset industrial-template-ncc-map --train-dir ./_demo_custom_dataset/train/normal --input ./_demo_custom_dataset/test --save-jsonl ./_demo_results.jsonl
+pyimgano runs quality ./_demo_benchmark_run --json
 ```
 
 What this does:
 
-- `pyimgano-doctor` shows the current environment and optional extras status.
-- `--recommend-extras` turns a command or model into a copy-pasteable install hint.
-- `--for-command benchmark` surfaces starter benchmark configs, optional extras, and how many starter baselines are gated behind those extras.
-- `pyimgano-demo --smoke` creates a tiny offline-safe dataset, runs a bounded suite, and prints the next commands to try.
+- `pyimgano-doctor --profile first-run` validates the base offline-safe starter path and prints the guided command chain.
+- `pyimgano-demo --smoke` creates a tiny offline-safe dataset plus a bounded suite run you can inspect immediately.
+- `pyimgano-doctor --profile benchmark --dataset-target ...` checks whether that dataset is benchmark-ready and reminds you which artifacts to expect.
+- `pyimgano-benchmark ... --save-run` writes a real benchmark run directory you can gate with `pyimgano runs quality`.
+- `pyimgano-infer ...` turns the same demo dataset into a concrete JSONL inference artifact.
 
 Recommended next steps:
 
+- Export extras readiness: `pyimgano-doctor --recommend-extras --for-command export-onnx --json`
+- Train extras readiness: `pyimgano-doctor --recommend-extras --for-command train --json`
 - Model discovery: `pyim --list models --objective latency --selection-profile cpu-screening --topk 5`
 - Starter benchmark discovery: `pyimgano benchmark --list-starter-configs`
 - Deploy-oriented validation: `python -m pyimgano --help`

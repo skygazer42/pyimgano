@@ -182,3 +182,38 @@ def test_workflow_guidance_exposes_shared_starter_benchmark_commands() -> None:
     assert guidance.list_command == starter_benchmark_list_command()
     assert guidance.info_command == starter_benchmark_info_command()
     assert guidance.run_command == starter_benchmark_run_command()
+
+
+def test_workflow_guidance_exposes_first_ten_minutes_path() -> None:
+    from pyimgano.workflow_guidance import first_ten_minutes_commands
+
+    assert first_ten_minutes_commands() == [
+        "pyimgano-doctor --profile first-run --json",
+        "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained",
+        "pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json",
+        "pyimgano-benchmark --dataset custom --root ./_demo_custom_dataset --suite industrial-ci --resize 32 32 --limit-train 2 --limit-test 2 --no-pretrained --save-run --output-dir ./_demo_benchmark_run --suite-export csv",
+        "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir ./_demo_custom_dataset/train/normal --input ./_demo_custom_dataset/test --save-jsonl ./_demo_results.jsonl",
+        "pyimgano runs quality ./_demo_benchmark_run --json",
+    ]
+
+
+def test_workflow_guidance_exposes_named_starter_paths() -> None:
+    from pyimgano.workflow_guidance import list_starter_paths
+    from pyimgano.workflow_guidance import starter_path_by_name
+
+    paths = list_starter_paths()
+    assert [path.name for path in paths] == ["first-run", "benchmark", "deploy", "publish"]
+
+    first_run = starter_path_by_name("first-run")
+    assert first_run is not None
+    assert first_run.title == "First 10 Minutes"
+    assert list(first_run.commands)[0] == "pyimgano-doctor --profile first-run --json"
+
+    publish = starter_path_by_name("publish")
+    assert publish is not None
+    assert publish.title == "Publication Gate"
+    assert list(publish.commands) == [
+        "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json",
+        "pyimgano runs acceptance /path/to/suite_export --json",
+        "pyimgano runs publication /path/to/suite_export --json",
+    ]

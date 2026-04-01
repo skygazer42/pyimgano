@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <b>Start Here:</b> <a href="docs/START_HERE.md">First-run guide</a> · <a href="docs/BENCHMARK_GETTING_STARTED.md">Benchmark starter guide</a> · <a href="docs/CLI_REFERENCE.md">CLI reference</a> · <a href="docs/ALGORITHM_SELECTION_GUIDE.md">Selection guide</a>
+  <b>Start Here:</b> <a href="docs/START_HERE.md">First-run guide</a> · <a href="docs/STARTER_PATHS.md">Starter paths</a> · <a href="docs/BENCHMARK_GETTING_STARTED.md">Benchmark starter guide</a> · <a href="docs/CLI_REFERENCE.md">CLI reference</a> · <a href="docs/ALGORITHM_SELECTION_GUIDE.md">Selection guide</a>
 </p>
 
 <p align="center">
@@ -284,6 +284,7 @@ If you want one compact command chain to follow:
 
 - `Discover`:
   `pyim --list models --objective latency --selection-profile cpu-screening --topk 5`
+  Or use the task-oriented shortcut: `pyim --goal first-run --json`
 - `Benchmark`:
   `pyimgano-doctor --recommend-extras --for-command benchmark --json`
 - `Train`:

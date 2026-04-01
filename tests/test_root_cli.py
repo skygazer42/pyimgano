@@ -37,6 +37,9 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert "runs publication" in out
     assert "runs acceptance" in out
     assert "weights audit-bundle" in out
+    assert "starter paths:" in out.lower()
+    assert "first-run:" in out.lower()
+    assert "publish:" in out.lower()
     assert "\n  benchmark" in out
     assert "\n  bundle" in out
 
@@ -47,6 +50,13 @@ def test_root_cli_help_uses_shared_workflow_guidance_groups(monkeypatch, capsys)
     monkeypatch.setattr(root_cli, "industrial_fast_path_commands", lambda: ["fast-path-cmd"])
     monkeypatch.setattr(root_cli, "benchmark_publication_commands", lambda: ["bench-pub-cmd"])
     monkeypatch.setattr(root_cli, "artifact_acceptance_commands", lambda: ["artifact-cmd"])
+    monkeypatch.setattr(
+        root_cli,
+        "list_starter_paths",
+        lambda: [
+            type("StarterPath", (), {"name": "first-run", "commands": ("starter-path-cmd",)})()
+        ],
+    )
     monkeypatch.setattr(root_cli, "list_workflow_stages", lambda: [])
 
     rc = root_cli.main([])
@@ -56,6 +66,7 @@ def test_root_cli_help_uses_shared_workflow_guidance_groups(monkeypatch, capsys)
     assert "fast-path-cmd" in out
     assert "bench-pub-cmd" in out
     assert "artifact-cmd" in out
+    assert "starter-path-cmd" in out
 
 
 def test_python_module_invocation_routes_to_root_cli() -> None:

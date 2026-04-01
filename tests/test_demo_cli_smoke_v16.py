@@ -125,3 +125,66 @@ def test_demo_cli_smoke_can_write_summary_and_next_steps(tmp_path: Path, capsys)
     out = capsys.readouterr().out
     assert "Next steps:" in out
     assert "pyimgano-infer" in out
+
+
+def test_demo_cli_benchmark_scenario_writes_scenario_summary_and_publication_next_step(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.demo_cli import main as demo_main
+
+    dataset_root = tmp_path / "demo_dataset"
+    out_dir = tmp_path / "suite_out"
+    summary_path = tmp_path / "benchmark_summary.json"
+
+    rc = demo_main(
+        [
+            "--scenario",
+            "benchmark",
+            "--dataset-root",
+            str(dataset_root),
+            "--output-dir",
+            str(out_dir),
+            "--summary-json",
+            str(summary_path),
+            "--no-pretrained",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["scenario"] == "benchmark"
+    assert payload["smoke"] is False
+    assert "pyimgano runs publication" in " || ".join(payload["next_steps"])
+    assert (out_dir / "leaderboard.csv").exists()
+    assert (out_dir / "leaderboard_metadata.json").exists()
+
+
+def test_demo_cli_infer_defects_scenario_writes_infer_artifacts_and_scenario_next_steps(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.demo_cli import main as demo_main
+
+    dataset_root = tmp_path / "demo_dataset"
+    out_dir = tmp_path / "suite_out"
+    summary_path = tmp_path / "infer_defects_summary.json"
+
+    rc = demo_main(
+        [
+            "--scenario",
+            "infer-defects",
+            "--dataset-root",
+            str(dataset_root),
+            "--output-dir",
+            str(out_dir),
+            "--summary-json",
+            str(summary_path),
+            "--no-pretrained",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["scenario"] == "infer-defects"
+    assert "pyimgano-infer --from-run" in " || ".join(payload["next_steps"])
+    assert (out_dir / "infer" / "results.jsonl").exists()
+    assert (out_dir / "infer" / "regions.jsonl").exists()

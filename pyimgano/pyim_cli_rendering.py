@@ -130,7 +130,8 @@ def _render_starter_picks(selection_payload: Mapping[str, Any]) -> None:
             line += f" [{' | '.join(details)}]"
         if required:
             line += f" [extras: {', '.join(str(extra) for extra in required)}]"
-        install_hint = str(item.get("install_hint", "")).strip()
+        raw_install_hint = item.get("install_hint", None)
+        install_hint = "" if raw_install_hint is None else str(raw_install_hint).strip()
         if install_hint:
             line += f" [install: {install_hint}]"
         lines.append(line)
@@ -144,6 +145,60 @@ def _render_suggested_commands(selection_payload: Mapping[str, Any]) -> None:
         _print_named_block("Suggested Commands", commands)
 
 
+def _render_goal_context(goal_payload: Mapping[str, Any]) -> None:
+    context = dict(goal_payload.get("goal_context", {}) or {})
+    if not context:
+        return
+
+    lines = [f"goal={context.get('goal')}"]
+    for key in ("title", "summary", "objective", "selection_profile", "topk"):
+        value = context.get(key)
+        if value is not None:
+            lines.append(f"{key}={value}")
+    _print_named_block("Goal Context", lines)
+
+
+def _render_goal_picks(goal_payload: Mapping[str, Any]) -> None:
+    picks = dict(goal_payload.get("goal_picks", {}) or {})
+    if not picks:
+        return
+
+    lines: list[str] = []
+    for item in picks.get("models", []) or []:
+        if not isinstance(item, Mapping):
+            continue
+        line = f"model={item.get('name')}"
+        summary = str(item.get("summary", "")).strip()
+        if summary:
+            line += f" summary={summary}"
+        why = str(item.get("why_this_pick", "")).strip()
+        if why:
+            line += f" why={why}"
+        raw_install_hint = item.get("install_hint", None)
+        install_hint = "" if raw_install_hint is None else str(raw_install_hint).strip()
+        if install_hint:
+            line += f" install={install_hint}"
+        lines.append(line)
+    for item in picks.get("recipes", []) or []:
+        if not isinstance(item, Mapping):
+            continue
+        line = f"recipe={item.get('name')}"
+        summary = str(item.get("summary", "")).strip()
+        if summary:
+            line += f" summary={summary}"
+        lines.append(line)
+    for item in picks.get("datasets", []) or []:
+        if not isinstance(item, Mapping):
+            continue
+        line = f"dataset={item.get('name')}"
+        summary = str(item.get("summary", "")).strip()
+        if summary:
+            line += f" summary={summary}"
+        lines.append(line)
+    if lines:
+        _print_named_block("Goal Picks", lines)
+
+
 def _render_all_sections(payload: pyim_section_views.PyimListPayloadLike) -> None:
     for section in pyim_section_views.iter_pyim_all_text_section_views(payload):
         _render_text_section(section)
@@ -155,16 +210,23 @@ def emit_pyim_list_payload(
     list_kind: str,
     json_output: bool,
     selection_payload: Mapping[str, Any] | None = None,
+    goal_payload: Mapping[str, Any] | None = None,
 ) -> int:
     list_kind_value = str(list_kind)
 
     if bool(json_output):
         json_payload = pyim_section_views.resolve_pyim_json_payload(payload, list_kind_value)
+        if goal_payload is not None and isinstance(json_payload, dict):
+            return _emit_json({**json_payload, **dict(goal_payload)})
         if selection_payload is not None and list_kind_value == "models":
             return _emit_json({"items": json_payload, **dict(selection_payload)})
         return _emit_json(json_payload)
 
     if list_kind_value == "all":
+        if goal_payload is not None:
+            _render_goal_context(goal_payload)
+            _render_goal_picks(goal_payload)
+            _render_suggested_commands(goal_payload)
         _render_all_sections(payload)
         return 0
 

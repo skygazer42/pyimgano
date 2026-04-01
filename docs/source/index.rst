@@ -113,6 +113,7 @@ Table of Contents
    :caption: User Guide
 
    start_here
+   starter_paths
    benchmark_getting_started
    quickstart
    tutorials

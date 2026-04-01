@@ -14,6 +14,23 @@ from pyimgano.datasets.manifest_validate import validate_manifest_file
 
 MANIFEST_JSONL_NAME = "manifest.jsonl"
 
+_DATASET_READINESS_CODE_BY_ISSUE = {
+    "missing_train_split": "MISSING_TRAIN_SPLIT",
+    "missing_test_normal": "MISSING_TEST_NORMAL",
+    "missing_test_anomaly": "MISSING_TEST_ANOMALY",
+    "pixel_metrics_unavailable": "PIXEL_METRICS_UNAVAILABLE",
+    "fewshot_train_set": "FEWSHOT_TRAIN_SET",
+}
+
+_DATASET_READINESS_MESSAGE_BY_CODE = {
+    "MISSING_TRAIN_SPLIT": "Train split is missing; image-level benchmarking cannot run.",
+    "MISSING_TEST_NORMAL": "Test normal split is missing; false-positive estimates and image metrics are incomplete.",
+    "MISSING_TEST_ANOMALY": "Test anomaly split is missing; anomaly recall and AUROC cannot be computed.",
+    "PIXEL_METRICS_UNAVAILABLE": "Pixel metrics are unavailable because anomaly masks are missing or no anomalous test samples carry masks.",
+    "FEWSHOT_TRAIN_SET": "Train split has fewer than 16 normal samples; results may be unstable.",
+    "VALIDATION_ERRORS_PRESENT": "Validation errors are present; fix the dataset source before relying on this target.",
+}
+
 
 def _candidate_payload(
     *,
@@ -366,6 +383,56 @@ def _build_profile_sections(
     return dataset_profile, task_profile, constraints, evaluation_readiness, stats
 
 
+def _build_dataset_readiness_payload(
+    *,
+    constraints: dict[str, Any],
+    evaluation_readiness: dict[str, Any],
+    validation_ok: bool | None = None,
+) -> dict[str, Any]:
+    issues: list[str] = [
+        str(item)
+        for item in evaluation_readiness.get("missing_requirements", [])
+        if str(item).strip()
+    ]
+    if bool(constraints.get("fewshot_risk")):
+        issues.append("fewshot_train_set")
+
+    issues = list(dict.fromkeys(issues))
+    issue_codes = [
+        _DATASET_READINESS_CODE_BY_ISSUE[item]
+        for item in issues
+        if item in _DATASET_READINESS_CODE_BY_ISSUE
+    ]
+    if validation_ok is False:
+        issue_codes.append("VALIDATION_ERRORS_PRESENT")
+    issue_codes = list(dict.fromkeys(issue_codes))
+
+    issue_details = [
+        {
+            "code": code,
+            "message": _DATASET_READINESS_MESSAGE_BY_CODE[code],
+        }
+        for code in issue_codes
+        if code in _DATASET_READINESS_MESSAGE_BY_CODE
+    ]
+
+    if validation_ok is False:
+        status = "error"
+    elif not bool(evaluation_readiness.get("ready_for_image_metrics")):
+        status = "error"
+    elif issue_codes:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": str(status),
+        "issues": issues,
+        "issue_codes": issue_codes,
+        "issue_details": issue_details,
+    }
+
+
 def _single_detected_category_candidate(
     *,
     dataset: str,
@@ -453,6 +520,10 @@ def profile_dataset_target(
             "task_profile": task_profile,
             "constraints": constraints,
             "evaluation_readiness": evaluation_readiness,
+            "readiness": _build_dataset_readiness_payload(
+                constraints=constraints,
+                evaluation_readiness=evaluation_readiness,
+            ),
             "stats": stats,
         }
 
@@ -496,6 +567,10 @@ def profile_dataset_target(
         "task_profile": task_profile,
         "constraints": constraints,
         "evaluation_readiness": evaluation_readiness,
+        "readiness": _build_dataset_readiness_payload(
+            constraints=constraints,
+            evaluation_readiness=evaluation_readiness,
+        ),
         "stats": stats,
     }
 
@@ -548,6 +623,11 @@ def lint_dataset_target(
             "task_profile": task_profile,
             "constraints": constraints,
             "evaluation_readiness": evaluation_readiness,
+            "readiness": _build_dataset_readiness_payload(
+                constraints=constraints,
+                evaluation_readiness=evaluation_readiness,
+                validation_ok=bool(validation.ok),
+            ),
             "stats": stats,
         }
 
@@ -598,6 +678,11 @@ def lint_dataset_target(
         "task_profile": task_profile,
         "constraints": constraints,
         "evaluation_readiness": evaluation_readiness,
+        "readiness": _build_dataset_readiness_payload(
+            constraints=constraints,
+            evaluation_readiness=evaluation_readiness,
+            validation_ok=bool(validation.ok),
+        ),
         "stats": stats,
     }
 

@@ -15,6 +15,15 @@ If you are starting from the CLI and want the shortest route to a reasonable fir
 
 If you are not sure about dependencies first, run `pyimgano-doctor --recommend-extras --for-model <MODEL> --json` before committing to a route.
 
+If you want one task-oriented discovery command instead of manually combining `--objective` and `--selection-profile`, use:
+
+```bash
+pyim --goal first-run --json
+pyim --goal cpu-screening --json
+pyim --goal pixel-localization --json
+pyim --goal deployable --json
+```
+
 ## Quick Selection Table
 
 | Your Priority | Recommended Algorithms | Why |
