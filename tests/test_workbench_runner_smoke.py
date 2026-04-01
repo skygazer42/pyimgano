@@ -81,6 +81,11 @@ def test_workbench_runner_smoke_writes_artifacts(tmp_path):
 
     report = run_workbench(config=cfg, recipe_name="industrial-adapt")
     assert Path(report["run_dir"]) == out_dir
+    assert report["dataset_readiness"]["status"] == "warning"
+    assert report["dataset_readiness"]["issue_codes"] == [
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
     assert (out_dir / "report.json").exists()
     assert (out_dir / "config.json").exists()
     assert (out_dir / "environment.json").exists()

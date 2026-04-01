@@ -18,6 +18,57 @@ def _safe_float(value: Any) -> float | None:
     return parsed
 
 
+def _aggregate_dataset_readiness(
+    *,
+    categories: Sequence[str],
+    per_category: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    issue_codes: list[str] = []
+    issue_details: list[dict[str, str]] = []
+    statuses: list[str] = []
+
+    for category in categories:
+        payload = per_category.get(str(category), {})
+        if not isinstance(payload, Mapping):
+            continue
+        readiness = payload.get("dataset_readiness", None)
+        if not isinstance(readiness, Mapping):
+            continue
+        status = str(readiness.get("status", "")).strip()
+        if status:
+            statuses.append(status)
+        for item in readiness.get("issue_details", []) or []:
+            if not isinstance(item, Mapping):
+                continue
+            code = str(item.get("code", "")).strip()
+            message = str(item.get("message", "")).strip()
+            if not code or code in issue_codes:
+                continue
+            issue_codes.append(code)
+            issue_details.append({"code": code, "message": message})
+        for code in readiness.get("issue_codes", []) or []:
+            text = str(code).strip()
+            if text and text not in issue_codes:
+                issue_codes.append(text)
+                issue_details.append({"code": text, "message": ""})
+
+    if not statuses and not issue_codes:
+        return None
+
+    if "error" in statuses:
+        status = "error"
+    elif "warning" in statuses:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": status,
+        "issue_codes": issue_codes,
+        "issue_details": issue_details,
+    }
+
+
 def build_workbench_aggregate_report(
     *,
     config: WorkbenchConfig,
@@ -41,6 +92,11 @@ def build_workbench_aggregate_report(
             means[key] = float(np.mean(arr))
             stds[key] = float(np.std(arr))
 
+    dataset_readiness = _aggregate_dataset_readiness(
+        categories=categories,
+        per_category=per_category,
+    )
+
     payload = {
         "dataset": str(config.dataset.name),
         "category": "all",
@@ -56,6 +112,8 @@ def build_workbench_aggregate_report(
         "std_metrics": stds,
         "per_category": dict(per_category),
     }
+    if dataset_readiness is not None:
+        payload["dataset_readiness"] = dataset_readiness
     return stamp_report_payload(payload)
 
 

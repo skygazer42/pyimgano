@@ -35,9 +35,40 @@ def test_workbench_aggregate_report_builds_stamped_payload_and_metric_aggregates
         recipe_name="industrial-adapt",
         categories=["bottle", "cable", "capsule"],
         per_category={
-            "bottle": {"results": {"auroc": 0.5, "average_precision": 0.4}},
-            "cable": {"results": {"auroc": 1.0, "average_precision": 0.7}},
-            "capsule": {"results": {"auroc": float("nan"), "average_precision": None}},
+            "bottle": {
+                "results": {"auroc": 0.5, "average_precision": 0.4},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                    "issue_details": [
+                        {
+                            "code": "FEWSHOT_TRAIN_SET",
+                            "message": "Train split has fewer than 16 normal samples; results may be unstable.",
+                        }
+                    ],
+                },
+            },
+            "cable": {
+                "results": {"auroc": 1.0, "average_precision": 0.7},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["PIXEL_METRICS_UNAVAILABLE"],
+                    "issue_details": [
+                        {
+                            "code": "PIXEL_METRICS_UNAVAILABLE",
+                            "message": "Pixel metrics are unavailable because anomaly masks are missing or no anomalous test samples carry masks.",
+                        }
+                    ],
+                },
+            },
+            "capsule": {
+                "results": {"auroc": float("nan"), "average_precision": None},
+                "dataset_readiness": {
+                    "status": "ok",
+                    "issue_codes": [],
+                    "issue_details": [],
+                },
+            },
         },
     )
 
@@ -49,6 +80,11 @@ def test_workbench_aggregate_report_builds_stamped_payload_and_metric_aggregates
     assert math.isclose(payload["std_metrics"]["auroc"], 0.25)
     assert math.isclose(payload["mean_metrics"]["average_precision"], 0.55)
     assert math.isclose(payload["std_metrics"]["average_precision"], 0.15)
+    assert payload["dataset_readiness"]["status"] == "warning"
+    assert payload["dataset_readiness"]["issue_codes"] == [
+        "FEWSHOT_TRAIN_SET",
+        "PIXEL_METRICS_UNAVAILABLE",
+    ]
     assert payload["schema_version"] == int(REPORT_SCHEMA_VERSION)
     assert isinstance(payload["timestamp_utc"], str)
 
@@ -72,8 +108,24 @@ def test_workbench_aggregate_report_ignores_missing_metrics() -> None:
         config=cfg,
         recipe_name="industrial-adapt",
         categories=["custom"],
-        per_category={"custom": {"results": {"threshold": 0.2}}},
+        per_category={
+            "custom": {
+                "results": {"threshold": 0.2},
+                "dataset_readiness": {
+                    "status": "error",
+                    "issue_codes": ["CUSTOM_DATASET_INVALID_STRUCTURE"],
+                    "issue_details": [
+                        {
+                            "code": "CUSTOM_DATASET_INVALID_STRUCTURE",
+                            "message": "Custom dataset layout validation failed.",
+                        }
+                    ],
+                },
+            }
+        },
     )
 
     assert payload["mean_metrics"] == {}
     assert payload["std_metrics"] == {}
+    assert payload["dataset_readiness"]["status"] == "error"
+    assert payload["dataset_readiness"]["issue_codes"] == ["CUSTOM_DATASET_INVALID_STRUCTURE"]
