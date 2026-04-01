@@ -24,6 +24,8 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from pyimgano.utils.torchvision_safe import load_torchvision_model
+
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -143,16 +145,14 @@ class FeatureExtractor(nn.Module):
     def __init__(self, backbone: str = "resnet18", pretrained: bool = False):
         super().__init__()
 
-        from torchvision import models
-
         if backbone == "resnet18":
-            resnet = models.resnet18(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
             self.feature_dim = 512
         elif backbone == "resnet34":
-            resnet = models.resnet34(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet34", pretrained=bool(pretrained))
             self.feature_dim = 512
         elif backbone == "resnet50":
-            resnet = models.resnet50(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet50", pretrained=bool(pretrained))
             self.feature_dim = 2048
         else:
             raise ValueError(f"Unknown backbone: {backbone}")

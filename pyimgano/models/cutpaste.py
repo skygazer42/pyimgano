@@ -26,7 +26,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, Dataset
-from torchvision import models
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
@@ -290,13 +291,22 @@ class CutPasteDetector(BaseVisionDeepDetector):
         """Build the CutPaste model."""
         # Load backbone
         if self.backbone_name == "resnet18":
-            self.backbone = models.resnet18(pretrained=self.pretrained)
+            self.backbone, _ = load_torchvision_model(
+                "resnet18",
+                pretrained=bool(self.pretrained),
+            )
             feature_dim = 512
         elif self.backbone_name == "resnet50":
-            self.backbone = models.resnet50(pretrained=self.pretrained)
+            self.backbone, _ = load_torchvision_model(
+                "resnet50",
+                pretrained=bool(self.pretrained),
+            )
             feature_dim = 2048
         elif self.backbone_name == "wide_resnet50":
-            self.backbone = models.wide_resnet50_2(pretrained=self.pretrained)
+            self.backbone, _ = load_torchvision_model(
+                "wide_resnet50",
+                pretrained=bool(self.pretrained),
+            )
             feature_dim = 2048
         else:
             raise ValueError(f"Unknown backbone: {self.backbone_name}")

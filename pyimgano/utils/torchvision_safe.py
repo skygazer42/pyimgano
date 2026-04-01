@@ -18,6 +18,10 @@ behave consistently across environments.
 
 from typing import Any
 
+_MODEL_NAME_ALIASES = {
+    "wide_resnet50": "wide_resnet50_2",
+}
+
 
 def load_torchvision_model(name: str, *, pretrained: bool):
     """Load a torchvision model with a best-effort transform.
@@ -33,7 +37,7 @@ def load_torchvision_model(name: str, *, pretrained: bool):
 
     models = require("torchvision.models", extra="torch", purpose="torchvision model loading")
 
-    model_name = str(name).strip()
+    model_name = _MODEL_NAME_ALIASES.get(str(name).strip(), str(name).strip())
 
     if hasattr(models, "get_model") and hasattr(models, "get_model_weights"):
         weights = None

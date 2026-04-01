@@ -21,7 +21,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
-from torchvision import models
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._image_batch import coerce_rgb_image_batch
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -98,13 +99,13 @@ class FeatureExtractorWithMemory(nn.Module):
 
         # Load backbone
         if backbone == "resnet18":
-            resnet = models.resnet18(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
             self.feature_dim = 512
         elif backbone == "resnet34":
-            resnet = models.resnet34(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet34", pretrained=bool(pretrained))
             self.feature_dim = 512
         elif backbone == "resnet50":
-            resnet = models.resnet50(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet50", pretrained=bool(pretrained))
             self.feature_dim = 2048
         else:
             raise ValueError(f"Unknown backbone: {backbone}")

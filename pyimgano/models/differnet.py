@@ -22,7 +22,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from scipy.spatial import cKDTree
-from torchvision import models
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._image_batch import coerce_rgb_image_batch
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -73,17 +74,17 @@ class FeatureExtractor(nn.Module):
 
         # Load pretrained backbone
         if backbone == "resnet18":
-            resnet = models.resnet18(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
             self.layer1 = nn.Sequential(*list(resnet.children())[:5])  # 64 channels
             self.layer2 = nn.Sequential(*list(resnet.children())[5:6])  # 128 channels
             self.layer3 = nn.Sequential(*list(resnet.children())[6:7])  # 256 channels
         elif backbone == "resnet50":
-            resnet = models.resnet50(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("resnet50", pretrained=bool(pretrained))
             self.layer1 = nn.Sequential(*list(resnet.children())[:5])  # 256 channels
             self.layer2 = nn.Sequential(*list(resnet.children())[5:6])  # 512 channels
             self.layer3 = nn.Sequential(*list(resnet.children())[6:7])  # 1024 channels
         elif backbone == "wide_resnet50":
-            resnet = models.wide_resnet50_2(pretrained=pretrained)
+            resnet, _ = load_torchvision_model("wide_resnet50", pretrained=bool(pretrained))
             self.layer1 = nn.Sequential(*list(resnet.children())[:5])  # 256 channels
             self.layer2 = nn.Sequential(*list(resnet.children())[5:6])  # 512 channels
             self.layer3 = nn.Sequential(*list(resnet.children())[6:7])  # 1024 channels
