@@ -226,6 +226,10 @@ def test_runs_cli_list_plain_output_prints_quality_and_trust(tmp_path, capsys):
                 "category": "bottle",
                 "model": "vision_patchcore",
                 "results": {"auroc": 0.95},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
             }
         ),
         encoding="utf-8",
@@ -245,6 +249,7 @@ def test_runs_cli_list_plain_output_prints_quality_and_trust(tmp_path, capsys):
     assert "operator_contract=missing" in out
     assert "bundle_operator_contract=missing" in out
     assert "primary_metric=auroc:0.95" in out
+    assert "dataset_readiness=warning" in out
     assert "reason=core_artifacts_present" in out
 
 
@@ -322,6 +327,10 @@ def test_runs_cli_latest_plain_output_prints_quality_and_trust(tmp_path, capsys)
                 "model": "vision_patchcore",
                 "timestamp_utc": "2026-03-17T10:00:00+00:00",
                 "results": {"auroc": 0.95},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
             }
         ),
         encoding="utf-8",
@@ -341,6 +350,7 @@ def test_runs_cli_latest_plain_output_prints_quality_and_trust(tmp_path, capsys)
     assert "operator_contract=missing" in out
     assert "bundle_operator_contract=missing" in out
     assert "primary_metric=auroc:0.95" in out
+    assert "dataset_readiness=warning" in out
     assert "reason=core_artifacts_present" in out
 
 

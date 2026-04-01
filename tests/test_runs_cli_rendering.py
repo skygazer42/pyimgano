@@ -17,6 +17,7 @@ def test_format_run_brief_line_renders_quality_and_trust() -> None:
             },
             "operator_contract_status": "consistent",
             "bundle_operator_contract_status": "missing",
+            "dataset_readiness_status": "warning",
             "evaluation_contract": {"primary_metric": "auroc"},
             "metrics": {"auroc": 0.95},
         }
@@ -25,7 +26,8 @@ def test_format_run_brief_line_renders_quality_and_trust() -> None:
     assert line == (
         "run_a: benchmark mvtec/bottle vision_patchcore "
         "quality=audited trust=trust-signaled operator_contract=consistent "
-        "primary_metric=auroc:0.95 reason=ok bundle_operator_contract=missing"
+        "primary_metric=auroc:0.95 reason=ok dataset_readiness=warning "
+        "bundle_operator_contract=missing"
     )
 
 

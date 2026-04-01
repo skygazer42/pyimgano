@@ -76,6 +76,9 @@ def format_run_brief_line(run: dict[str, object]) -> str:
     status_reasons = list(trust_summary.get("status_reasons", []))
     if status_reasons:
         parts.append(f"reason={status_reasons[0]}")
+    dataset_readiness_status = run.get("dataset_readiness_status", None)
+    if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
+        parts.append(f"dataset_readiness={dataset_readiness_status}")
     parts.append(f"bundle_operator_contract={bundle_operator_contract_status}")
 
     return " ".join(parts)
