@@ -250,6 +250,52 @@ def test_base_deep_detector_emits_live_epoch_timing_metrics(monkeypatch) -> None
     ]
 
 
+def test_base_deep_detector_does_not_print_verbose_epoch_progress(capsys) -> None:
+    import torch
+
+    from pyimgano.models.base_deep import BaseDeepLearningDetector
+
+    class DummyDeep(BaseDeepLearningDetector):
+        def build_model(self):
+            self.model = torch.nn.Linear(self.feature_size, self.feature_size)
+            return self.model
+
+        def training_forward(self, batch_data):
+            x, _y = batch_data
+            x = x.to(self.device)
+            self.optimizer.zero_grad(set_to_none=True)
+            out = self.model(x)
+            loss = self.criterion(out, x)
+            loss.backward()
+            self.optimizer.step()
+            return _loss_value(loss)
+
+        def evaluating_forward(self, batch_data):
+            x, _y = batch_data
+            x = x.to(self.device)
+            out = self.model(x)
+            err = torch.mean((out - x) ** 2, dim=1)
+            return err.detach().cpu().numpy()
+
+    rng = np.random.default_rng(9)
+    x_train = rng.standard_normal(size=(16, 4)).astype(np.float32)
+    det = DummyDeep(
+        contamination=0.1,
+        preprocessing=False,
+        lr=1e-2,
+        epoch_num=2,
+        batch_size=4,
+        optimizer_name="adam",
+        criterion_name="mse",
+        device="cpu",
+        verbose=2,
+    )
+
+    det.fit(x_train)
+    out = capsys.readouterr().out
+    assert out == ""
+
+
 def test_base_deep_detector_uses_weight_decay_num_workers_and_optimizer_name(
     monkeypatch,
 ) -> None:

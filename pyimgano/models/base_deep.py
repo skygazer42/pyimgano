@@ -15,6 +15,7 @@ The API is intentionally small and geared toward the needs of this repository.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -24,6 +25,8 @@ import numpy as np
 from pyimgano.train_progress import get_active_train_progress_reporter
 
 from .base_detector import BaseDetector
+
+logger = logging.getLogger(__name__)
 
 
 def _require_torch():
@@ -558,7 +561,7 @@ class BaseDeepLearningDetector(BaseDetector):
 
             if self.verbose >= 2:
                 mean_loss = float(np.mean(losses)) if losses else float("nan")
-                print(f"Epoch {_epoch + 1}/{self.epoch_num} - loss={mean_loss:.6f}")
+                logger.info("Epoch %d/%d - loss=%.6f", _epoch + 1, self.epoch_num, mean_loss)
 
             mean_loss_epoch: float | None = None
             if losses:
