@@ -11,6 +11,8 @@ _TARGETS = [
     "pyimgano/models/cflow.py",
     "pyimgano/models/stfpm.py",
     "pyimgano/models/simplenet.py",
+    "pyimgano/models/patchcore.py",
+    "pyimgano/models/one_svm_cnn.py",
 ]
 
 

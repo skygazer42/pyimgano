@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -42,3 +43,32 @@ def test_one_class_cnn_registry_contract_on_image_paths(tmp_path: Path) -> None:
     labels = np.asarray(detector.predict(test_paths), dtype=np.int64).reshape(-1)
     assert labels.shape == (2,)
     assert set(labels.tolist()).issubset({0, 1})
+
+
+def test_one_class_cnn_cnn_feature_path_avoids_torchvision_pretrained_warning(
+    tmp_path: Path,
+) -> None:
+    import pytest
+    from PIL import Image
+
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+
+    from pyimgano.models.one_svm_cnn import ImageAnomalyDetector
+
+    image_path = tmp_path / "cnn.png"
+    Image.fromarray(np.ones((32, 32, 3), dtype=np.uint8) * 80, mode="RGB").save(image_path)
+
+    detector = ImageAnomalyDetector(feature_type="cnn", cnn_pretrained=False, random_state=0)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        features = detector.extract_cnn_features(str(image_path))
+
+    assert features.ndim == 1
+    messages = [str(item.message) for item in caught]
+    assert not any(
+        "parameter 'pretrained' is deprecated" in message.lower()
+        or "arguments other than a weight enum or `none`" in message.lower()
+        for message in messages
+    ), messages

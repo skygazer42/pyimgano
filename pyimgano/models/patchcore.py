@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple, Union, cast
 
 from pyimgano.utils.optional_deps import require
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -99,7 +100,6 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self._cv2 = require("cv2", purpose="PatchCore image loading and resizing")
         self._torch = require("torch", purpose="PatchCore backbone inference")
         self._F = require("torch.nn.functional", purpose="PatchCore feature resizing")
-        self._tv_models = require("torchvision.models", purpose="PatchCore backbone models")
         self._tv_transforms = require(
             "torchvision.transforms", purpose="PatchCore preprocessing transforms"
         )
@@ -263,21 +263,16 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
     def _build_model(self) -> None:
         """Build feature extraction backbone."""
-        models = self._tv_models
-        # TorchVision changed API from `pretrained=True` to `weights=...`.
-        # Keep backward compatibility with older torchvision versions.
         if self.backbone_name == "wide_resnet50":
-            try:
-                weights = models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
-                self.model = models.wide_resnet50_2(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                self.model = models.wide_resnet50_2(pretrained=self.pretrained)
+            self.model, _ = load_torchvision_model(
+                "wide_resnet50",
+                pretrained=bool(self.pretrained),
+            )
         elif self.backbone_name == "resnet50":
-            try:
-                weights = models.ResNet50_Weights.DEFAULT if self.pretrained else None
-                self.model = models.resnet50(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                self.model = models.resnet50(pretrained=self.pretrained)
+            self.model, _ = load_torchvision_model(
+                "resnet50",
+                pretrained=bool(self.pretrained),
+            )
         else:
             raise ValueError(
                 f"Unsupported backbone: {self.backbone_name}. "

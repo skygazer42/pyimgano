@@ -10,6 +10,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 from tqdm import tqdm
 
+from pyimgano.utils.torchvision_safe import load_torchvision_model
+
 from .registry import register_model
 
 ONE_CLASS_CNN_FEATURE_EXTRACTION = "one_class_cnn CNN feature extraction"
@@ -138,16 +140,9 @@ class ImageAnomalyDetector:
         transforms = require(
             "torchvision.transforms", extra="torch", purpose=ONE_CLASS_CNN_FEATURE_EXTRACTION
         )
-        models = require(
-            "torchvision.models", extra="torch", purpose=ONE_CLASS_CNN_FEATURE_EXTRACTION
-        )
 
         # 加载预训练模型
-        try:
-            weights = models.ResNet18_Weights.DEFAULT if self.cnn_pretrained else None
-            model = models.resnet18(weights=weights)
-        except Exception:  # pragma: no cover - fallback for older torchvision
-            model = models.resnet18(pretrained=bool(self.cnn_pretrained))
+        model, _ = load_torchvision_model("resnet18", pretrained=bool(self.cnn_pretrained))
         model.eval()
 
         # 移除最后的分类层
