@@ -329,6 +329,7 @@ def emit_preflight_summary(payload: Mapping[str, Any]) -> None:
     preflight = dict(_as_mapping(payload.get("preflight", {})))
     summary = dict(_as_mapping(preflight.get("summary", {})))
     issues = [dict(item) for item in preflight.get("issues", []) if isinstance(item, Mapping)]
+    dataset_readiness = dict(_as_mapping(preflight.get("dataset_readiness", {})))
     error_count = sum(1 for item in issues if str(item.get("severity")) == "error")
     warning_count = sum(1 for item in issues if str(item.get("severity")) == "warning")
     info_count = sum(1 for item in issues if str(item.get("severity")) == "info")
@@ -439,6 +440,12 @@ def emit_preflight_summary(payload: Mapping[str, Any]) -> None:
             ]
         )
     )
+    if dataset_readiness:
+        readiness_bits = [f"dataset_readiness={dataset_readiness.get('status')}"]
+        issue_codes = [str(item) for item in dataset_readiness.get("issue_codes", []) if str(item)]
+        if issue_codes:
+            readiness_bits.append(f"dataset_issue_codes={','.join(issue_codes)}")
+        print(f"{_format_badge('READY')} " + " ".join(readiness_bits))
     if issues:
         print(f"{'Severity':<10} {'Code':<28} Message")
     for issue in issues:

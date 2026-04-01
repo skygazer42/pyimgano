@@ -177,3 +177,43 @@ def test_train_cli_preflight_json_preserves_machine_payload(tmp_path: Path, caps
     assert payload["preflight"]["dataset"] == "manifest"
     assert payload["preflight"]["category"] == "bottle"
     assert issues == []
+    assert payload["preflight"]["dataset_readiness"]["status"] == "error"
+    assert payload["preflight"]["dataset_readiness"]["issue_codes"] == [
+        "MISSING_TEST_ANOMALY",
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
+
+
+def test_train_cli_preflight_text_surfaces_dataset_readiness_issue_codes(tmp_path: Path, capsys) -> None:
+    from pyimgano.train_cli import main
+
+    root = tmp_path / "custom"
+    (root / "train" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "test" / "normal").mkdir(parents=True, exist_ok=True)
+    (root / "train" / "normal" / "train_0.png").touch()
+    (root / "test" / "normal" / "good_0.png").touch()
+
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "recipe": "industrial-adapt",
+                "dataset": {
+                    "name": "custom",
+                    "root": str(root),
+                    "category": "custom",
+                },
+                "model": {"name": "vision_ecod", "device": "cpu", "pretrained": False},
+                "output": {"save_run": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code = main(["--config", str(cfg_path), "--preflight"])
+    assert code == 2
+
+    out = capsys.readouterr().out
+    assert "dataset_readiness=error" in out
+    assert "dataset_issue_codes=MISSING_TEST_ANOMALY,PIXEL_METRICS_UNAVAILABLE,FEWSHOT_TRAIN_SET" in out

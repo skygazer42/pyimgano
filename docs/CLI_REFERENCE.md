@@ -852,6 +852,8 @@ pyimgano-train --config cfg.json --preflight
 Behavior:
 
 - Prints: `{"preflight": ...}` (JSON) to stdout.
+- JSON now also carries `preflight.dataset_readiness.status`, `preflight.dataset_readiness.issue_codes`, and `preflight.dataset_readiness.issue_details`.
+- Text summary now prints `dataset_readiness=...` and `dataset_issue_codes=...` when those signals are available.
 - Returns exit code `0` when no `severity="error"` issues exist.
 - Returns exit code `2` when any `severity="error"` issue exists.
 

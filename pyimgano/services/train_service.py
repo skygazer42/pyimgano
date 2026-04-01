@@ -90,12 +90,74 @@ def build_train_dry_run_payload(request: TrainRunRequest) -> dict[str, Any]:
     return {"config": asdict(cfg)}
 
 
+def _fallback_preflight_dataset_readiness(report: Any) -> dict[str, Any]:
+    issues = getattr(report, "issues", [])
+    issue_details = []
+    has_error = False
+    for item in issues:
+        if isinstance(item, dict):
+            code = item.get("code")
+            message = item.get("message")
+            severity = item.get("severity")
+        else:
+            code = getattr(item, "code", None)
+            message = getattr(item, "message", None)
+            severity = getattr(item, "severity", None)
+        if code is None or message is None:
+            continue
+        if str(severity) == "error":
+            has_error = True
+        issue_details.append(
+            {
+                "code": str(code),
+                "message": str(message),
+            }
+        )
+    return {
+        "status": ("error" if has_error else "ok"),
+        "issue_codes": [str(item["code"]) for item in issue_details],
+        "issue_details": issue_details,
+    }
+
+
+def _build_preflight_dataset_readiness(cfg: WorkbenchConfig, report: Any) -> dict[str, Any]:
+    try:
+        from pyimgano.datasets.inspection import profile_dataset_target
+
+        dataset_name = str(cfg.dataset.name)
+        category = str(cfg.dataset.category) if cfg.dataset.category is not None else None
+        if dataset_name.lower() == "manifest":
+            manifest_path = getattr(cfg.dataset, "manifest_path", None)
+            if manifest_path is None:
+                raise ValueError("manifest_path missing from config")
+            payload = profile_dataset_target(
+                target=str(manifest_path),
+                dataset="manifest",
+                category=category,
+                root_fallback=str(cfg.dataset.root) if cfg.dataset.root is not None else None,
+            )
+        else:
+            payload = profile_dataset_target(
+                target=str(cfg.dataset.root),
+                dataset=dataset_name,
+                category=category,
+            )
+        readiness = payload.get("readiness", None)
+        if isinstance(readiness, dict):
+            return dict(readiness)
+    except Exception:
+        pass
+    return _fallback_preflight_dataset_readiness(report)
+
+
 def run_train_preflight_payload(request: TrainRunRequest) -> dict[str, Any]:
     from pyimgano.workbench.preflight import run_preflight
 
     cfg = load_train_config(request)
     report = run_preflight(config=cfg)
-    return {"preflight": asdict(report)}
+    payload = {"preflight": asdict(report)}
+    payload["preflight"]["dataset_readiness"] = _build_preflight_dataset_readiness(cfg, report)
+    return payload
 
 
 def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]) -> Path:

@@ -12,3 +12,5 @@ def test_cli_reference_documents_train_preflight_output_contract() -> None:
 
     assert "--preflight" in text
     assert '{"preflight": ...}' in text or '`{"preflight": ...}`' in text
+    assert "dataset_readiness" in text
+    assert "dataset_issue_codes" in text
