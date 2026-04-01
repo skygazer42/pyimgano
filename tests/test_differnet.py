@@ -34,3 +34,22 @@ def test_differnet_contract_accepts_numpy_image_list() -> None:
     scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
+
+
+def test_differnet_fit_does_not_print_progress(capsys) -> None:
+    from pyimgano.models import create_model
+
+    train = _make_rgb_batch(count=4)
+
+    det = create_model(
+        "vision_differnet",
+        pretrained=False,
+        epochs=1,
+        batch_size=2,
+        device="cpu",
+        random_state=0,
+    )
+
+    det.fit(train)
+    out = capsys.readouterr().out
+    assert out == ""

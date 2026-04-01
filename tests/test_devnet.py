@@ -99,3 +99,29 @@ def test_vision_devnet_fit_does_not_warn_for_required_labels() -> None:
 
     messages = [str(item.message) for item in caught]
     assert "y should not be presented in unsupervised learning." not in messages
+
+
+def test_vision_devnet_fit_does_not_print_progress(capsys) -> None:
+    import numpy as np
+
+    from pyimgano.models import create_model
+
+    rng = np.random.default_rng(17)
+    normals = rng.integers(0, 255, size=(4, 32, 32, 3), dtype=np.uint8)
+    anomalies = normals.copy()
+    anomalies[:, 10:22, 10:22, :] = 255
+
+    x_train = np.concatenate([normals, anomalies], axis=0)
+    y_train = np.asarray([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.int64)
+
+    det = create_model(
+        "vision_devnet",
+        pretrained=False,
+        epochs=1,
+        batch_size=2,
+        device="cpu",
+    )
+
+    det.fit(x_train, y_train)
+    out = capsys.readouterr().out
+    assert out == ""

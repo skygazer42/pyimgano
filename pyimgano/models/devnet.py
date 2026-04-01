@@ -15,6 +15,7 @@ Key Features:
 - Good generalization
 """
 
+import logging
 from typing import Optional
 
 import numpy as np
@@ -28,6 +29,8 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class DeviationLoss(nn.Module):
@@ -277,15 +280,15 @@ class DevNetDetector(BaseVisionDeepDetector):
                 "For unsupervised learning, use other algorithms like CutPaste or SPADE."
             )
 
-        print("Training DevNet (weakly-supervised)...")
-        print(f"  Normal samples: {(y == 0).sum()}")
-        print(f"  Anomaly samples: {(y == 1).sum()}")
+        logger.info("Training DevNet (weakly-supervised)...")
+        logger.info("  Normal samples: %d", int((y == 0).sum()))
+        logger.info("  Anomaly samples: %d", int((y == 1).sum()))
 
         if x.max() > 1.0:
             x = x.astype(np.float32) / 255.0
 
         # Extract features
-        print("Extracting features...")
+        logger.info("Extracting features...")
         self.feature_extractor.eval()
 
         features_list = []
@@ -335,10 +338,10 @@ class DevNetDetector(BaseVisionDeepDetector):
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / len(dataloader)
-                print(f"Epoch [{epoch+1}/{self.epochs}] Loss: {avg_loss:.6f}")
+                logger.info("Epoch [%d/%d] Loss: %.6f", epoch + 1, self.epochs, avg_loss)
 
         self.scoring_model.eval()
-        print("Training completed!")
+        logger.info("Training completed!")
         self.decision_scores_ = np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
         self._process_decision_scores()
         self._set_n_classes(y, warn_on_labeled_y=False)

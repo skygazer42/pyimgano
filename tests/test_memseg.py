@@ -34,3 +34,22 @@ def test_memseg_contract_accepts_numpy_image_list() -> None:
     scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
+
+
+def test_memseg_fit_does_not_print_progress(capsys) -> None:
+    from pyimgano.models import create_model
+
+    train = _make_rgb_batch(count=4)
+
+    det = create_model(
+        "vision_memseg",
+        pretrained=False,
+        device="cpu",
+        memory_size=32,
+        k_neighbors=1,
+        use_segmentation_head=False,
+    )
+
+    det.fit(train)
+    out = capsys.readouterr().out
+    assert out == ""

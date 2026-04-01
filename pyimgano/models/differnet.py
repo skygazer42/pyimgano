@@ -14,6 +14,7 @@ Key Features:
 - Good localization performance
 """
 
+import logging
 from typing import Optional, Tuple, cast
 
 import numpy as np
@@ -29,6 +30,8 @@ from ._image_batch import coerce_rgb_image_batch
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class DifferenceModule(nn.Module):
@@ -257,7 +260,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         Args:
             X: Training images.
         """
-        print("Building memory bank...")
+        logger.info("Building memory bank...")
         self.feature_extractor.eval()
 
         features_dict = {"layer1": [], "layer2": [], "layer3": []}
@@ -296,7 +299,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         else:
             self.kd_tree = None
 
-        print(f"Memory bank built with {len(self.memory_bank['layer3'])} features")
+        logger.info("Memory bank built with %d features", len(self.memory_bank["layer3"]))
 
     def _train_difference_module(self, x: NDArray):
         """Train the learnable difference module.
@@ -304,7 +307,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         Args:
             X: Training images.
         """
-        print("Training difference module...")
+        logger.info("Training difference module...")
 
         # Create training data: pairs of (image, nn_image)
         x_tensor = self._preprocess(x).to(self.device)
@@ -353,9 +356,12 @@ class DifferNetDetector(BaseVisionDeepDetector):
                     epoch_loss += loss.detach().item()
 
                 if (epoch + 1) % 5 == 0:
-                    print(
-                        f"  Layer {layer_name} Epoch [{epoch+1}/{self.epochs}] "
-                        f"Loss: {epoch_loss/len(x):.6f}"
+                    logger.info(
+                        "  Layer %s Epoch [%d/%d] Loss: %.6f",
+                        layer_name,
+                        epoch + 1,
+                        self.epochs,
+                        epoch_loss / len(x),
                     )
 
             diff_module.eval()

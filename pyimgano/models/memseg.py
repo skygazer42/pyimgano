@@ -14,6 +14,7 @@ Key Features:
 - Efficient inference
 """
 
+import logging
 from typing import List, Optional, Tuple, cast
 
 import numpy as np
@@ -28,6 +29,8 @@ from ._image_batch import coerce_rgb_image_batch
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryBank(nn.Module):
@@ -332,7 +335,7 @@ class MemSegDetector(BaseVisionDeepDetector):
             resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit")
         )
         del y, kwargs
-        print("Building MemSeg memory banks...")
+        logger.info("Building MemSeg memory banks...")
 
         if x_array.max() > 1.0:
             x_array = x_array.astype(np.float32) / 255.0
@@ -342,16 +345,18 @@ class MemSegDetector(BaseVisionDeepDetector):
         with torch.no_grad():
             for i, img in enumerate(x_array):
                 if (i + 1) % 50 == 0:
-                    print(f"  Processing image {i+1}/{len(x_array)}")
+                    logger.info("  Processing image %d/%d", i + 1, len(x_array))
 
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
 
                 # Extract features and update memory
                 _ = self.feature_extractor(img_tensor, update_memory=True)
 
-        print("Memory banks built successfully!")
-        print(
-            f"  Memory filled: {self.feature_extractor.memory_banks['layer4'].memory_filled}/{self.memory_size}"
+        logger.info("Memory banks built successfully!")
+        logger.info(
+            "  Memory filled: %d/%d",
+            self.feature_extractor.memory_banks["layer4"].memory_filled,
+            self.memory_size,
         )
 
     def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
