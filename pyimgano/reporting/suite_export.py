@@ -675,8 +675,10 @@ def _build_benchmark_context(
     *,
     payload: Mapping[str, Any],
     dataset_profile: Mapping[str, Any] | None,
+    dataset_readiness: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     profile = dict(dataset_profile or {})
+    readiness = dict(dataset_readiness or {})
     benchmark_config = payload.get("benchmark_config")
     benchmark_map = dict(benchmark_config) if isinstance(benchmark_config, Mapping) else {}
     return {
@@ -687,6 +689,8 @@ def _build_benchmark_context(
         "pixel_metrics_available": bool(profile.get("pixel_metrics_available")),
         "fewshot_risk": bool(profile.get("fewshot_risk")),
         "multi_category": bool(profile.get("multi_category")),
+        "dataset_readiness_status": readiness.get("status"),
+        "dataset_issue_codes": list(readiness.get("issue_codes", []) or []),
     }
 
 
@@ -816,11 +820,19 @@ def export_suite_tables(
         if isinstance(payload.get("dataset_profile"), Mapping)
         else None
     )
+    dataset_readiness = (
+        dict(payload.get("dataset_readiness", {}))
+        if isinstance(payload.get("dataset_readiness"), Mapping)
+        else dict(payload.get("readiness", {}))
+        if isinstance(payload.get("readiness"), Mapping)
+        else None
+    )
     deployment_summary = _build_deployment_summary(rows_norm)
     upstream_coverage_summary = _build_upstream_coverage_summary(rows_norm)
     benchmark_context = _build_benchmark_context(
         payload=payload,
         dataset_profile=dataset_profile,
+        dataset_readiness=dataset_readiness,
     )
     constraint_warnings = _build_constraint_warnings(
         dataset_profile=dataset_profile,
@@ -833,6 +845,7 @@ def export_suite_tables(
         "category": payload.get("category"),
         "row_count": len(rows_norm),
         "dataset_profile": dataset_profile,
+        "dataset_readiness": dataset_readiness,
         "deployment_summary": deployment_summary,
         "upstream_coverage_summary": upstream_coverage_summary,
         "benchmark_context": benchmark_context,

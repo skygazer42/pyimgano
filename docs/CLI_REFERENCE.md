@@ -265,6 +265,8 @@ Suite artifacts (when `--save-run` is enabled):
 - `<suite_dir>/config.json`, `<suite_dir>/environment.json`
 - `<suite_dir>/leaderboard_metadata.json` — compact benchmark metadata payload (suite, dataset, config provenance, environment fingerprint, run-artifact audit refs/digests, and exported leaderboard file digests)
   - official benchmark presets also stamp a small `citation` payload for publication workflows
+  - also includes `dataset_readiness` plus `benchmark_context.dataset_readiness_status` / `benchmark_context.dataset_issue_codes`
+    so suite exports preserve the same readiness issue codes surfaced by `pyimgano-datasets` and `pyimgano-doctor --dataset-target`
 - `<suite_dir>/leaderboard.csv`, `<suite_dir>/skipped.csv` (when `--suite-export csv|both`)
 - `<suite_dir>/best_by_baseline.csv` (when `--suite-export csv|both`, best variant per baseline by AUROC; most useful with `--suite-sweep`)
 - `<suite_dir>/leaderboard.md`, `<suite_dir>/skipped.md` (when `--suite-export md|both`)

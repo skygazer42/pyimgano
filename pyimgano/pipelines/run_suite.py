@@ -359,7 +359,13 @@ def _best_effort_dataset_profile_payload(
         return None
 
     out: dict[str, Any] = {}
-    for key in ("dataset_profile", "task_profile", "constraints", "evaluation_readiness"):
+    for key in (
+        "dataset_profile",
+        "task_profile",
+        "constraints",
+        "evaluation_readiness",
+        "readiness",
+    ):
         value = payload.get(key)
         if isinstance(value, Mapping):
             out[key] = dict(value)

@@ -15,3 +15,5 @@ def test_cli_reference_documents_dataset_readiness_issue_codes() -> None:
     assert "issue_codes" in text
     assert "FEWSHOT_TRAIN_SET" in text
     assert "PIXEL_METRICS_UNAVAILABLE" in text
+    assert "dataset_readiness" in text
+    assert "dataset_readiness_status" in text

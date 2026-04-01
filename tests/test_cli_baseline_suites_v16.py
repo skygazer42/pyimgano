@@ -578,6 +578,16 @@ def test_benchmark_cli_suite_export_csv_writes_leaderboard(tmp_path: Path, capsy
     assert (out_dir / "skipped.csv").exists()
     metadata = json.loads((out_dir / "leaderboard_metadata.json").read_text(encoding="utf-8"))
     assert len(str(metadata["split_fingerprint"]["sha256"])) == 64
+    assert metadata["dataset_readiness"]["status"] == "warning"
+    assert metadata["dataset_readiness"]["issue_codes"] == [
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
+    assert metadata["benchmark_context"]["dataset_readiness_status"] == "warning"
+    assert metadata["benchmark_context"]["dataset_issue_codes"] == [
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
 
 
 def test_benchmark_cli_suite_export_best_metric_requires_pixel(tmp_path: Path, capsys) -> None:
