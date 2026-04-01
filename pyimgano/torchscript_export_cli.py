@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     from pyimgano.utils.optional_deps import require
 
     torch = require("torch", extra="torch", purpose="pyimgano-export-torchscript")
+    from pyimgano.utils.torchscript_safe import freeze_module
+    from pyimgano.utils.torchscript_safe import trace_module
 
     dev = str(args.device).strip().lower()
     if dev == "cuda" and not torch.cuda.is_available():
@@ -76,13 +78,13 @@ def main(argv: list[str] | None = None) -> int:
         if str(args.method) == "script":
             exported = torch.jit.script(model)
         else:
-            exported = torch.jit.trace(model, example)
+            exported = trace_module(model, example)
 
         if bool(args.optimize):
             # NOTE: torch.jit.optimize_for_inference currently produces artifacts
             # that fail to load on some torch versions (e.g. torch 2.4.0).
             # `freeze` gives most of the inference wins and remains loadable.
-            exported = torch.jit.freeze(exported)
+            exported = freeze_module(exported)
 
     exported.save(str(out_path))
     return 0

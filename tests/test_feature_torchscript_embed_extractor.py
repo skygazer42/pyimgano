@@ -16,6 +16,7 @@ def _write_png(path: Path, arr_u8: np.ndarray) -> None:
 def test_torchscript_embed_extractor_smoke_and_cache(tmp_path: Path) -> None:
     torch = pytest.importorskip("torch")
     nn = torch.nn
+    from pyimgano.utils.torchscript_safe import trace_module
 
     class ToyEmbed(nn.Module):
         def __init__(self) -> None:
@@ -29,7 +30,7 @@ def test_torchscript_embed_extractor_smoke_and_cache(tmp_path: Path) -> None:
 
     model = ToyEmbed().eval()
     example = torch.zeros((1, 3, 32, 32), dtype=torch.float32)
-    scripted = torch.jit.trace(model, example)
+    scripted = trace_module(model, example)
 
     ckpt = tmp_path / "toy_embed.pt"
     scripted.save(str(ckpt))

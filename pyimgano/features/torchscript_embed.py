@@ -268,8 +268,9 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
         if not ckpt.exists():
             raise FileNotFoundError(f"TorchScript checkpoint not found: {ckpt}")
         dev = _make_device(torch, str(self.device))
+        from pyimgano.utils.torchscript_safe import load_module
 
-        model = torch.jit.load(str(ckpt), map_location=dev)
+        model = load_module(ckpt, map_location=dev)
         # `.eval()` exists for ScriptModule.
         model.eval()
         self._model = model

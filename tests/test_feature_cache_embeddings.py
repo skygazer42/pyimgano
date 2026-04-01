@@ -19,6 +19,7 @@ def _write_rgb(path: Path, *, value: int) -> None:
 def _build_torchscript_checkpoint(path: Path) -> Path:
     torch = pytest.importorskip("torch")
     nn = torch.nn
+    from pyimgano.utils.torchscript_safe import trace_module
 
     class ToyEmbed(nn.Module):
         def __init__(self) -> None:
@@ -32,7 +33,7 @@ def _build_torchscript_checkpoint(path: Path) -> Path:
 
     model = ToyEmbed().eval()
     example = torch.zeros((1, 3, 32, 32), dtype=torch.float32)
-    scripted = torch.jit.trace(model, example)
+    scripted = trace_module(model, example)
     scripted.save(str(path))
     return path
 
