@@ -21,6 +21,7 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import safe_torch_load
 from .knn_index import build_knn_index
 from .registry import register_model
 
@@ -217,11 +218,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
     def load_checkpoint(self, path: str | Path) -> None:
         from sklearn.random_projection import GaussianRandomProjection
 
-        from pyimgano.utils.optional_deps import require
-
-        torch = require("torch", extra="torch", purpose="PatchCore checkpoint loading")
-
-        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionPatchCore checkpoint payload.")
 

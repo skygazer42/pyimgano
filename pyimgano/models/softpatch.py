@@ -15,6 +15,7 @@ from .anomalydino import (
     _embedder_from_checkpoint_payload,
     _embedder_to_checkpoint_payload,
 )
+from .deep_io import safe_torch_load
 from .knn_index import KNNIndex, build_knn_index
 from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_patch_scores
 from .registry import register_model
@@ -158,11 +159,7 @@ class VisionSoftPatch:
         return out_path
 
     def load_checkpoint(self, path: str | Path) -> None:
-        from pyimgano.utils.optional_deps import require
-
-        torch = require("torch", extra="torch", purpose="VisionSoftPatch checkpoint loading")
-
-        state = torch.load(Path(path), map_location="cpu", weights_only=False)
+        state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionSoftPatch checkpoint payload.")
 

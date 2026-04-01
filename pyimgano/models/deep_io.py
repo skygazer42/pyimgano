@@ -9,6 +9,7 @@ This is intentionally conservative:
 
 from pathlib import Path
 from typing import Any
+from contextlib import nullcontext
 
 
 def _require_torch():
@@ -58,7 +59,28 @@ def safe_torch_load(path: str | Path, *, map_location: str | None = "cpu") -> An
         raise FileNotFoundError(f"Checkpoint not found: {p}")
 
     try:
-        return torch.load(str(p), map_location=map_location, weights_only=True)
+        try:
+            import numpy as np
+
+            safe_globals = [
+                np._core.multiarray._reconstruct,
+                np.ndarray,
+                np.dtype,
+                type(np.dtype(np.float16)),
+                type(np.dtype(np.float32)),
+                type(np.dtype(np.float64)),
+                type(np.dtype(np.int32)),
+                type(np.dtype(np.int64)),
+                type(np.dtype(np.uint8)),
+                type(np.dtype(np.bool_)),
+            ]
+        except Exception:
+            safe_globals = []
+
+        safe_globals_ctx = getattr(torch.serialization, "safe_globals", None)
+        ctx = safe_globals_ctx(safe_globals) if callable(safe_globals_ctx) else nullcontext()
+        with ctx:
+            return torch.load(str(p), map_location=map_location, weights_only=True)
     except TypeError as exc:
         raise RuntimeError(
             "Safe checkpoint loading requires a torch build that supports "
