@@ -192,6 +192,41 @@ def format_candidate_comparability_gates(gates: dict[str, object]) -> str:
     return ",".join(parts) if parts else "none"
 
 
+def build_candidate_incompatibility_digest_entry(
+    *,
+    verdict: object,
+    gates: Mapping[str, object] | None,
+    blocking_reasons: list[object] | None,
+    dataset_readiness_status: object = None,
+    dataset_issue_codes: list[object] | None = None,
+) -> dict[str, object]:
+    verdict_text = str(verdict) if isinstance(verdict, str) and verdict else "pass"
+    gate_map = dict(gates) if isinstance(gates, Mapping) else {}
+    incompatible_gates: list[str] = []
+    for gate_name in _CANDIDATE_COMPARABILITY_GATES_ORDER:
+        gate_status = gate_map.get(gate_name, None)
+        gate_status_text = str(gate_status).strip().lower() if isinstance(gate_status, str) else ""
+        if gate_status_text in {"missing", "mismatched"}:
+            incompatible_gates.append(f"{gate_name}:{gate_status_text}")
+    reasons = (
+        [str(item) for item in blocking_reasons if str(item)]
+        if isinstance(blocking_reasons, list)
+        else []
+    )
+    entry: dict[str, object] = {
+        "verdict": verdict_text,
+        "incompatible_gates": incompatible_gates,
+        "blocking_reasons": reasons,
+    }
+    if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
+        entry["dataset_readiness_status"] = dataset_readiness_status
+    if dataset_issue_codes is not None:
+        entry["dataset_issue_codes"] = [
+            str(item) for item in dataset_issue_codes if str(item)
+        ] if isinstance(dataset_issue_codes, list) else []
+    return entry
+
+
 def format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     verdict = entry.get("verdict", None)
     verdict_text = str(verdict) if isinstance(verdict, str) and verdict else "pass"
@@ -226,6 +261,7 @@ def format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
 
 
 __all__ = [
+    "build_candidate_incompatibility_digest_entry",
     "build_trust_comparison",
     "bundle_operator_contract_status_from_trust_summary",
     "comparability_gate_status",

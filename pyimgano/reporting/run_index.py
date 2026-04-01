@@ -7,6 +7,9 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.reporting.run_index_helpers import (
+    build_candidate_incompatibility_digest_entry as _build_candidate_incompatibility_digest_entry_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
     build_trust_comparison,
 )
 from pyimgano.reporting.run_index_helpers import (
@@ -596,37 +599,26 @@ def _build_candidate_incompatibility_digest(
     digest: dict[str, dict[str, Any]] = {}
     for name in candidate_names:
         verdict = candidate_verdicts.get(name, None)
-        if not isinstance(verdict, str) or not verdict:
-            verdict = "pass"
         reasons_raw = candidate_blocking_reasons.get(name, [])
         reasons = [str(reason) for reason in reasons_raw if str(reason)]
         gate_states = candidate_comparability_gates.get(name, None)
         gate_map = dict(gate_states) if isinstance(gate_states, Mapping) else {}
-        incompatible_gates: list[str] = []
-        for gate_name in _CANDIDATE_COMPARABILITY_GATE_ORDER:
-            status = gate_map.get(gate_name, None)
-            status_text = str(status).strip().lower() if status is not None else ""
-            if status_text in {"missing", "mismatched"}:
-                incompatible_gates.append(f"{gate_name}:{status_text}")
-        digest_entry: dict[str, Any] = {
-            "verdict": verdict,
-            "incompatible_gates": incompatible_gates,
-            "blocking_reasons": reasons,
-        }
         readiness = (
             candidate_dataset_readiness.get(name, None)
             if isinstance(candidate_dataset_readiness, Mapping)
             else None
         )
-        if isinstance(readiness, Mapping):
-            readiness_status = readiness.get("status", None)
-            if isinstance(readiness_status, str) and readiness_status:
-                digest_entry["dataset_readiness_status"] = readiness_status
-            issue_codes = readiness.get("issue_codes", None)
-            if isinstance(issue_codes, list):
-                digest_entry["dataset_issue_codes"] = [
-                    str(item) for item in issue_codes if str(item)
-                ]
+        digest_entry = _build_candidate_incompatibility_digest_entry_helper(
+            verdict=verdict,
+            gates=gate_map,
+            blocking_reasons=reasons,
+            dataset_readiness_status=(
+                readiness.get("status", None) if isinstance(readiness, Mapping) else None
+            ),
+            dataset_issue_codes=(
+                readiness.get("issue_codes", None) if isinstance(readiness, Mapping) else None
+            ),
+        )
         digest[name] = digest_entry
     return digest
 

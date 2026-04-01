@@ -1490,6 +1490,7 @@ def test_inference_helper_modules_define_expected_public_exports() -> None:
 def test_runs_helper_modules_define_expected_public_exports() -> None:
     expected_public_exports: dict[str, list[str]] = {
         "reporting/run_index_helpers.py": [
+            "build_candidate_incompatibility_digest_entry",
             "build_trust_comparison",
             "bundle_operator_contract_status_from_trust_summary",
             "comparability_gate_status",

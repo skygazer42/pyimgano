@@ -14,6 +14,9 @@ from pyimgano.reporting.run_index import (
     list_run_summaries,
 )
 from pyimgano.reporting.run_index_helpers import (
+    build_candidate_incompatibility_digest_entry as _build_candidate_incompatibility_digest_entry_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
     comparability_gate_status as _comparability_gate_status_helper,
 )
 from pyimgano.reporting.run_index_helpers import (
@@ -43,17 +46,6 @@ _QUALITY_STATUS_RANK = {
     "audited": 3,
     "deployable": 4,
 }
-
-_CANDIDATE_COMPARABILITY_GATES_ORDER = (
-    "split",
-    "environment",
-    "target",
-    "target_dataset",
-    "target_category",
-    "robustness_protocol",
-    "operator_contract",
-    "bundle_operator_contract",
-)
 _JSON_OUTPUT_HELP = "Emit JSON output."
 _MISSING_REQUIRED_PREFIX = "missing_required="
 
@@ -816,22 +808,11 @@ def main(argv: list[str] | None = None) -> int:
                         )
                     digest_entry = candidate_incompatibility_digest.get(run_name, None)
                     if not isinstance(digest_entry, dict):
-                        gate_map = gates if isinstance(gates, dict) else {}
-                        incompatible_gates: list[str] = []
-                        for gate_name in _CANDIDATE_COMPARABILITY_GATES_ORDER:
-                            gate_status = gate_map.get(gate_name, None)
-                            gate_status_text = (
-                                str(gate_status).strip().lower()
-                                if isinstance(gate_status, str)
-                                else ""
-                            )
-                            if gate_status_text in {"missing", "mismatched"}:
-                                incompatible_gates.append(f"{gate_name}:{gate_status_text}")
-                        digest_entry = {
-                            "verdict": verdict if isinstance(verdict, str) and verdict else "pass",
-                            "incompatible_gates": incompatible_gates,
-                            "blocking_reasons": reasons if isinstance(reasons, list) else [],
-                        }
+                        digest_entry = _build_candidate_incompatibility_digest_entry_helper(
+                            verdict=verdict,
+                            gates=(gates if isinstance(gates, dict) else {}),
+                            blocking_reasons=(reasons if isinstance(reasons, list) else []),
+                        )
                     print(
                         "candidate_incompatibility_digest."
                         f"{run_name}={_format_candidate_incompatibility_digest(digest_entry)}"

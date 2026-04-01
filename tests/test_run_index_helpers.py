@@ -101,6 +101,38 @@ def test_format_candidate_comparability_gates_is_stable() -> None:
     )
 
 
+def test_build_candidate_incompatibility_digest_entry_derives_incompatible_gates() -> None:
+    from pyimgano.reporting.run_index_helpers import build_candidate_incompatibility_digest_entry
+
+    entry = build_candidate_incompatibility_digest_entry(
+        verdict="blocked",
+        gates={
+            "split": "matched",
+            "environment": "mismatched",
+            "target": "matched",
+            "target_dataset": "matched",
+            "target_category": "missing",
+            "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "unchecked",
+        },
+        blocking_reasons=["primary_metric:regressed"],
+        dataset_readiness_status="error",
+        dataset_issue_codes=["MISSING_TEST_ANOMALY"],
+    )
+
+    assert entry == {
+        "verdict": "blocked",
+        "incompatible_gates": [
+            "environment:mismatched",
+            "target_category:missing",
+        ],
+        "blocking_reasons": ["primary_metric:regressed"],
+        "dataset_readiness_status": "error",
+        "dataset_issue_codes": ["MISSING_TEST_ANOMALY"],
+    }
+
+
 def test_format_candidate_incompatibility_digest_is_stable() -> None:
     from pyimgano.reporting.run_index_helpers import format_candidate_incompatibility_digest
 
