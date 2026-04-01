@@ -58,7 +58,14 @@ def _report_dataset_readiness(root: Path) -> dict[str, Any] | None:
     readiness = report.get("dataset_readiness", None)
     if not isinstance(readiness, Mapping):
         return None
-    return dict(readiness)
+    payload = dict(readiness)
+    issue_codes = payload.get("issue_codes", None)
+    if not isinstance(issue_codes, list):
+        payload["issue_codes"] = []
+    issue_details = payload.get("issue_details", None)
+    if not isinstance(issue_details, list):
+        payload["issue_details"] = []
+    return payload
 
 
 def _validation_payload(rel_path: str) -> dict[str, Any]:

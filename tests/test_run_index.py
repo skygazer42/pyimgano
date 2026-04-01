@@ -505,6 +505,11 @@ def test_list_run_summaries_include_artifact_quality(tmp_path):
 
     assert items[0]["artifact_quality"]["status"] == "reproducible"
     assert items[0]["artifact_quality"]["missing_required"] == []
+    assert items[0]["dataset_readiness"] == {
+        "status": "warning",
+        "issue_codes": ["FEWSHOT_TRAIN_SET"],
+        "issue_details": [],
+    }
     assert items[0]["dataset_readiness_status"] == "warning"
     assert items[0]["dataset_issue_codes"] == ["FEWSHOT_TRAIN_SET"]
     assert items[0]["evaluation_contract"]["primary_metric"] == "auroc"

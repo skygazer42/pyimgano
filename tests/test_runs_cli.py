@@ -13,7 +13,22 @@ def test_runs_cli_list_json(tmp_path, capsys):
     run_dir = tmp_path / "run_a"
     run_dir.mkdir()
     (run_dir / "report.json").write_text(
-        json.dumps({"dataset": "mvtec", "model": "vision_patchcore", "results": {"auroc": 0.95}}),
+        json.dumps(
+            {
+                "dataset": "mvtec",
+                "model": "vision_patchcore",
+                "results": {"auroc": 0.95},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
         encoding="utf-8",
     )
 
@@ -21,6 +36,11 @@ def test_runs_cli_list_json(tmp_path, capsys):
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["runs"][0]["model_or_suite"] == "vision_patchcore"
+    assert out["runs"][0]["dataset_readiness"] == {
+        "status": "warning",
+        "issue_codes": ["FEWSHOT_TRAIN_SET"],
+        "issue_details": [],
+    }
 
 
 def test_runs_cli_compare_json(tmp_path, capsys):
@@ -303,8 +323,21 @@ def test_runs_cli_latest_json(tmp_path, capsys):
     )
     (newer / "report.json").write_text(
         json.dumps(
-            {"dataset": "mvtec", "model": "new", "timestamp_utc": "2026-03-17T10:00:00+00:00"}
+            {
+                "dataset": "mvtec",
+                "model": "new",
+                "timestamp_utc": "2026-03-17T10:00:00+00:00",
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
+            }
         ),
+        encoding="utf-8",
+    )
+    (newer / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (newer / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
         encoding="utf-8",
     )
 
@@ -312,6 +345,11 @@ def test_runs_cli_latest_json(tmp_path, capsys):
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["run"]["run_dir_name"] == newer.name
+    assert out["run"]["dataset_readiness"] == {
+        "status": "warning",
+        "issue_codes": ["FEWSHOT_TRAIN_SET"],
+        "issue_details": [],
+    }
 
 
 def test_runs_cli_latest_plain_output_prints_quality_and_trust(tmp_path, capsys):
