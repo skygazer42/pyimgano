@@ -1397,6 +1397,71 @@ def test_compare_run_summaries_emits_candidate_verdicts_and_blocking_reasons(tmp
     }
 
 
+def test_compare_run_summaries_emits_dataset_readiness_summary(tmp_path):
+    from pyimgano.reporting.run_index import compare_run_summaries
+
+    baseline = tmp_path / "baseline"
+    candidate = tmp_path / "candidate"
+    baseline.mkdir()
+    candidate.mkdir()
+    shared_report = {
+        "dataset": "mvtec",
+        "category": "bottle",
+        "split_fingerprint": {"sha256": "f" * 64},
+    }
+    (baseline / "report.json").write_text(
+        json.dumps(
+            {
+                **shared_report,
+                "model": "baseline",
+                "results": {"auroc": 0.91},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (candidate / "report.json").write_text(
+        json.dumps(
+            {
+                **shared_report,
+                "model": "candidate",
+                "results": {"auroc": 0.92},
+                "dataset_readiness": {
+                    "status": "error",
+                    "issue_codes": ["MISSING_TEST_ANOMALY"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = compare_run_summaries([baseline, candidate], baseline_run_dir=baseline)
+
+    summary = payload["summary"]
+    assert summary["baseline_dataset_readiness"] == {
+        "status": "warning",
+        "issue_codes": ["FEWSHOT_TRAIN_SET"],
+        "issue_details": [],
+    }
+    assert summary["candidate_dataset_readiness"] == {
+        "candidate": {
+            "status": "error",
+            "issue_codes": ["MISSING_TEST_ANOMALY"],
+            "issue_details": [],
+        }
+    }
+    assert summary["candidate_incompatibility_digest"]["candidate"] == {
+        "verdict": "pass",
+        "incompatible_gates": [],
+        "blocking_reasons": [],
+        "dataset_readiness_status": "error",
+        "dataset_issue_codes": ["MISSING_TEST_ANOMALY"],
+    }
+
+
 def test_compare_run_summaries_blocks_candidate_missing_operator_contract_when_baseline_consistent(
     tmp_path,
 ):

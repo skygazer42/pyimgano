@@ -580,6 +580,7 @@ def _build_candidate_incompatibility_digest(
     candidate_verdicts: Mapping[str, Any],
     candidate_blocking_reasons: Mapping[str, Any],
     candidate_comparability_gates: Mapping[str, Any],
+    candidate_dataset_readiness: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     candidate_names = sorted(
         {
@@ -607,12 +608,76 @@ def _build_candidate_incompatibility_digest(
             status_text = str(status).strip().lower() if status is not None else ""
             if status_text in {"missing", "mismatched"}:
                 incompatible_gates.append(f"{gate_name}:{status_text}")
-        digest[name] = {
+        digest_entry: dict[str, Any] = {
             "verdict": verdict,
             "incompatible_gates": incompatible_gates,
             "blocking_reasons": reasons,
         }
+        readiness = (
+            candidate_dataset_readiness.get(name, None)
+            if isinstance(candidate_dataset_readiness, Mapping)
+            else None
+        )
+        if isinstance(readiness, Mapping):
+            readiness_status = readiness.get("status", None)
+            if isinstance(readiness_status, str) and readiness_status:
+                digest_entry["dataset_readiness_status"] = readiness_status
+            issue_codes = readiness.get("issue_codes", None)
+            if isinstance(issue_codes, list):
+                digest_entry["dataset_issue_codes"] = [
+                    str(item) for item in issue_codes if str(item)
+                ]
+        digest[name] = digest_entry
     return digest
+
+
+def _dataset_readiness_payload(run: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(run, Mapping):
+        return None
+    raw = run.get("dataset_readiness", None)
+    if isinstance(raw, Mapping):
+        readiness = dict(raw)
+    else:
+        readiness = {}
+        status = run.get("dataset_readiness_status", None)
+        if isinstance(status, str) and status:
+            readiness["status"] = status
+        issue_codes = run.get("dataset_issue_codes", None)
+        if isinstance(issue_codes, list):
+            readiness["issue_codes"] = [str(item) for item in issue_codes if str(item)]
+    if not readiness:
+        return None
+    issue_codes = readiness.get("issue_codes", None)
+    readiness["issue_codes"] = [str(item) for item in issue_codes if str(item)] if isinstance(
+        issue_codes, list
+    ) else []
+    issue_details = readiness.get("issue_details", None)
+    readiness["issue_details"] = list(issue_details) if isinstance(issue_details, list) else []
+    status = readiness.get("status", None)
+    if (
+        not isinstance(status, str)
+        or not status
+    ) and not readiness["issue_codes"] and not readiness["issue_details"]:
+        return None
+    return readiness
+
+
+def _candidate_dataset_readiness_by_name(
+    runs: Sequence[Mapping[str, Any]],
+    *,
+    baseline_path_str: str | None,
+) -> dict[str, dict[str, Any]]:
+    payload: dict[str, dict[str, Any]] = {}
+    for run in runs:
+        if _is_baseline_run(run, baseline_path_str):
+            continue
+        run_dir_name = run.get("run_dir_name", None)
+        if not isinstance(run_dir_name, str) or not run_dir_name:
+            continue
+        readiness = _dataset_readiness_payload(run)
+        if isinstance(readiness, dict):
+            payload[run_dir_name] = readiness
+    return payload
 
 
 def _load_operator_contract_payload(
@@ -1644,6 +1709,9 @@ def _comparison_blocks(
 def _primary_metric_summary_fields(
     summary: dict[str, Any],
     *,
+    baseline_summary: Mapping[str, Any] | None,
+    runs: Sequence[Mapping[str, Any]],
+    baseline_path_str: str | None,
     evaluation_contract: Mapping[str, Any],
     metrics: Mapping[str, Mapping[str, Any]],
     trust_comparison: Mapping[str, Any],
@@ -1690,10 +1758,18 @@ def _primary_metric_summary_fields(
         summary,
         candidate_blocking_summary=candidate_blocking_summary,
     )
+    baseline_dataset_readiness = _dataset_readiness_payload(baseline_summary)
+    candidate_dataset_readiness = _candidate_dataset_readiness_by_name(
+        runs,
+        baseline_path_str=baseline_path_str,
+    )
+    summary["baseline_dataset_readiness"] = baseline_dataset_readiness
+    summary["candidate_dataset_readiness"] = candidate_dataset_readiness
     summary["candidate_incompatibility_digest"] = _build_candidate_incompatibility_digest(
         candidate_verdicts=summary["candidate_verdicts"],
         candidate_blocking_reasons=summary["candidate_blocking_reasons"],
         candidate_comparability_gates=summary["candidate_comparability_gates"],
+        candidate_dataset_readiness=candidate_dataset_readiness,
     )
 
 
@@ -2235,6 +2311,9 @@ def compare_run_summaries(
     )
     _primary_metric_summary_fields(
         summary,
+        baseline_summary=baseline_summary,
+        runs=runs,
+        baseline_path_str=baseline_path_str,
         evaluation_contract=evaluation_contract,
         metrics=metrics,
         trust_comparison=trust_comparison,

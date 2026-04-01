@@ -44,6 +44,7 @@ def test_format_compare_run_brief_line_includes_primary_metric_status() -> None:
             },
             "operator_contract_status": "consistent",
             "bundle_operator_contract_status": "consistent",
+            "dataset_readiness_status": "warning",
             "metrics": {"auroc": 0.97},
         },
         primary_metric_name="auroc",
@@ -54,6 +55,7 @@ def test_format_compare_run_brief_line_includes_primary_metric_status() -> None:
         "run_b: vision_patchcore quality=deployable trust=trust-signaled "
         "operator_contract=consistent primary_metric=auroc:0.97 "
         "primary_metric_status=improved primary_metric_delta=0.02 "
+        "dataset_readiness=warning "
         "bundle_operator_contract=consistent"
     )
 

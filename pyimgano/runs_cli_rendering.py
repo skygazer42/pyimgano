@@ -122,6 +122,9 @@ def format_compare_run_brief_line(
         delta = format_metric_value(primary_metric_row.get("delta_vs_baseline", None))
         if delta is not None and str(status) != "baseline":
             parts.append(f"primary_metric_delta={delta}")
+    dataset_readiness_status = run.get("dataset_readiness_status", None)
+    if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
+        parts.append(f"dataset_readiness={dataset_readiness_status}")
     parts.append(f"bundle_operator_contract={bundle_operator_contract_status}")
 
     return " ".join(parts)

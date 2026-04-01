@@ -2913,6 +2913,78 @@ def test_runs_cli_compare_plain_output_prints_structured_run_briefs(tmp_path, ca
     assert out.count("bundle_operator_contract=missing") >= 2
 
 
+def test_runs_cli_compare_plain_output_prints_dataset_readiness_summary(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    baseline = tmp_path / "baseline"
+    candidate = tmp_path / "candidate"
+    baseline.mkdir()
+    candidate.mkdir()
+    shared_report = {
+        "dataset": "mvtec",
+        "category": "bottle",
+        "split_fingerprint": {"sha256": "f" * 64},
+    }
+    (baseline / "report.json").write_text(
+        json.dumps(
+            {
+                **shared_report,
+                "model": "baseline",
+                "results": {"auroc": 0.91},
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (candidate / "report.json").write_text(
+        json.dumps(
+            {
+                **shared_report,
+                "model": "candidate",
+                "results": {"auroc": 0.92},
+                "dataset_readiness": {
+                    "status": "error",
+                    "issue_codes": ["MISSING_TEST_ANOMALY"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    for run_dir in (baseline, candidate):
+        (run_dir / "environment.json").write_text(
+            json.dumps({"fingerprint_sha256": "e" * 64}),
+            encoding="utf-8",
+        )
+
+    rc = main(
+        [
+            "compare",
+            str(baseline),
+            str(candidate),
+            "--baseline",
+            str(baseline),
+        ]
+    )
+    out = capsys.readouterr().out.lower()
+    assert rc == 0
+    assert "baseline_dataset_readiness_status=warning" in out
+    assert "baseline_dataset_issue_codes=fewshot_train_set" in out
+    assert "candidate_dataset_readiness_status.candidate=error" in out
+    assert "candidate_dataset_issue_codes.candidate=missing_test_anomaly" in out
+    assert "baseline: baseline quality=partial trust=partial operator_contract=missing" in out
+    assert "dataset_readiness=warning" in out
+    assert "candidate: candidate quality=partial trust=partial operator_contract=missing" in out
+    assert "dataset_readiness=error" in out
+    assert (
+        "candidate_incompatibility_digest.candidate="
+        "verdict:pass|incompatible_gates:none|blocking_reasons:none|"
+        "dataset_readiness_status:error|dataset_issue_codes:missing_test_anomaly"
+    ) in out
+
+
 def test_runs_cli_compare_plain_output_prints_comparability_gate_summary(tmp_path, capsys):
     from pyimgano.runs_cli import main
 

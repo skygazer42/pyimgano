@@ -180,11 +180,24 @@ def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     )
     incompatible_text = ",".join(incompatible_items) if incompatible_items else "none"
     blocking_text = ",".join(blocking_items) if blocking_items else "none"
-    return (
-        f"verdict:{verdict_text}|"
-        f"incompatible_gates:{incompatible_text}|"
-        f"blocking_reasons:{blocking_text}"
-    )
+    parts = [
+        f"verdict:{verdict_text}",
+        f"incompatible_gates:{incompatible_text}",
+        f"blocking_reasons:{blocking_text}",
+    ]
+    dataset_readiness_status = entry.get("dataset_readiness_status", None)
+    if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
+        parts.append(f"dataset_readiness_status:{dataset_readiness_status}")
+    if "dataset_issue_codes" in entry:
+        dataset_issue_codes = entry.get("dataset_issue_codes", [])
+        dataset_issue_items = (
+            [str(item) for item in dataset_issue_codes if str(item)]
+            if isinstance(dataset_issue_codes, list)
+            else []
+        )
+        dataset_issue_text = ",".join(dataset_issue_items) if dataset_issue_items else "none"
+        parts.append(f"dataset_issue_codes:{dataset_issue_text}")
+    return "|".join(parts)
 
 
 def _contract_incompat_summary_line(
@@ -634,11 +647,38 @@ def main(argv: list[str] | None = None) -> int:
                             print(f"primary_metric_delta.{run_dir_name}={delta}")
 
                 baseline_run = dict(payload.get("baseline_run", {}))
+                summary_payload = dict(payload.get("summary", {}))
                 baseline_quality = dict(baseline_run.get("artifact_quality", {}))
                 baseline_trust = dict(baseline_quality.get("trust_summary", {}))
                 baseline_quality_status = baseline_quality.get("status", None)
                 if isinstance(baseline_quality_status, str) and baseline_quality_status:
                     print(f"baseline_quality={baseline_quality_status}")
+                baseline_dataset_readiness_raw = summary_payload.get(
+                    "baseline_dataset_readiness",
+                    None,
+                )
+                baseline_dataset_readiness = (
+                    dict(baseline_dataset_readiness_raw)
+                    if isinstance(baseline_dataset_readiness_raw, Mapping)
+                    else {}
+                )
+                if baseline_dataset_readiness:
+                    baseline_dataset_status = baseline_dataset_readiness.get("status", None)
+                    if isinstance(baseline_dataset_status, str) and baseline_dataset_status:
+                        print(f"baseline_dataset_readiness_status={baseline_dataset_status}")
+                    baseline_dataset_issue_codes = [
+                        str(item)
+                        for item in baseline_dataset_readiness.get("issue_codes", [])
+                        if str(item)
+                    ]
+                    print(
+                        "baseline_dataset_issue_codes="
+                        + (
+                            ",".join(baseline_dataset_issue_codes)
+                            if baseline_dataset_issue_codes
+                            else "none"
+                        )
+                    )
                 baseline_trust_status = baseline_trust.get("status", None)
                 baseline_reasons = list(baseline_trust.get("status_reasons", []))
                 baseline_degraded_by = list(baseline_trust.get("degraded_by", []))
@@ -657,7 +697,6 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     if isinstance(trust_reason, str) and trust_reason:
                         print(f"comparison_trust_reason={trust_reason}")
-                summary_payload = dict(payload.get("summary", {}))
                 operator_contract_status = summary_payload.get("operator_contract_status", None)
                 if isinstance(operator_contract_status, str) and operator_contract_status:
                     print(f"comparison_operator_contract_status={operator_contract_status}")
@@ -755,6 +794,12 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_comparability_gates = dict(
                     summary.get("candidate_comparability_gates", {})
                 )
+                candidate_dataset_readiness_raw = summary.get("candidate_dataset_readiness", {})
+                candidate_dataset_readiness = (
+                    dict(candidate_dataset_readiness_raw)
+                    if isinstance(candidate_dataset_readiness_raw, Mapping)
+                    else {}
+                )
                 candidate_bundle_digest_statuses = dict(
                     summary.get("candidate_bundle_operator_contract_digest_statuses", {})
                 )
@@ -783,6 +828,19 @@ def main(argv: list[str] | None = None) -> int:
                         print(
                             "candidate_comparability_gates."
                             f"{run_name}={_format_candidate_comparability_gates(gates)}"
+                        )
+                    readiness = candidate_dataset_readiness.get(run_name, None)
+                    if isinstance(readiness, dict):
+                        readiness_status = readiness.get("status", None)
+                        if isinstance(readiness_status, str) and readiness_status:
+                            print(
+                                "candidate_dataset_readiness_status."
+                                f"{run_name}={readiness_status}"
+                            )
+                        issue_codes = [str(item) for item in readiness.get("issue_codes", []) if str(item)]
+                        print(
+                            "candidate_dataset_issue_codes."
+                            f"{run_name}=" + (",".join(issue_codes) if issue_codes else "none")
                         )
                     digest_entry = candidate_incompatibility_digest.get(run_name, None)
                     if not isinstance(digest_entry, dict):
