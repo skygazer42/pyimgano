@@ -25,6 +25,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 
 from pyimgano.models.base_dl import BaseVisionDeepDetector
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 
 class MultiScaleEncoder(nn.Module):
@@ -34,10 +35,7 @@ class MultiScaleEncoder(nn.Module):
         super().__init__()
 
         if backbone == "wide_resnet50":
-            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
-
-            weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
-            model = wide_resnet50_2(weights=weights)
+            model, _ = load_torchvision_model("wide_resnet50", pretrained=bool(pretrained))
 
             self.layer1 = nn.Sequential(
                 model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
@@ -47,10 +45,7 @@ class MultiScaleEncoder(nn.Module):
 
             self.out_channels = [256, 512, 1024]
         elif backbone == "resnet18":
-            from torchvision.models import ResNet18_Weights, resnet18
-
-            weights = ResNet18_Weights.DEFAULT if pretrained else None
-            model = resnet18(weights=weights)
+            model, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
 
             self.layer1 = nn.Sequential(
                 model.conv1, model.bn1, model.relu, model.maxpool, model.layer1
