@@ -2,6 +2,17 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+_CANDIDATE_COMPARABILITY_GATES_ORDER = (
+    "split",
+    "environment",
+    "target",
+    "target_dataset",
+    "target_category",
+    "robustness_protocol",
+    "operator_contract",
+    "bundle_operator_contract",
+)
+
 
 def format_metric_value(value: object) -> str | None:
     if not isinstance(value, (int, float)):
@@ -172,6 +183,15 @@ def compare_blocking_flags(
     return flags
 
 
+def format_candidate_comparability_gates(gates: dict[str, object]) -> str:
+    parts: list[str] = []
+    for key in _CANDIDATE_COMPARABILITY_GATES_ORDER:
+        value = gates.get(key, None)
+        if isinstance(value, str) and value:
+            parts.append(f"{key}:{value}")
+    return ",".join(parts) if parts else "none"
+
+
 def format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
     verdict = entry.get("verdict", None)
     verdict_text = str(verdict) if isinstance(verdict, str) and verdict else "pass"
@@ -212,6 +232,7 @@ __all__ = [
     "compare_blocking_flags",
     "comparison_trust_gate",
     "comparison_trust_reason",
+    "format_candidate_comparability_gates",
     "format_candidate_incompatibility_digest",
     "format_metric_value",
     "operator_contract_status_from_trust_summary",

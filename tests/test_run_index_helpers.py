@@ -79,6 +79,28 @@ def test_compare_blocking_flags_uses_incompatible_gate_states() -> None:
     ]
 
 
+def test_format_candidate_comparability_gates_is_stable() -> None:
+    from pyimgano.reporting.run_index_helpers import format_candidate_comparability_gates
+
+    gates = format_candidate_comparability_gates(
+        {
+            "split": "matched",
+            "environment": "matched",
+            "target": "mismatched",
+            "target_dataset": "matched",
+            "target_category": "mismatched",
+            "robustness_protocol": "unchecked",
+            "operator_contract": "unchecked",
+            "bundle_operator_contract": "missing",
+        }
+    )
+
+    assert (
+        gates
+        == "split:matched,environment:matched,target:mismatched,target_dataset:matched,target_category:mismatched,robustness_protocol:unchecked,operator_contract:unchecked,bundle_operator_contract:missing"
+    )
+
+
 def test_format_candidate_incompatibility_digest_is_stable() -> None:
     from pyimgano.reporting.run_index_helpers import format_candidate_incompatibility_digest
 

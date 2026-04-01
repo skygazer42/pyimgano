@@ -1494,6 +1494,7 @@ def test_runs_helper_modules_define_expected_public_exports() -> None:
             "compare_blocking_flags",
             "comparison_trust_gate",
             "comparison_trust_reason",
+            "format_candidate_comparability_gates",
             "format_candidate_incompatibility_digest",
             "format_metric_value",
             "operator_contract_status_from_trust_summary",

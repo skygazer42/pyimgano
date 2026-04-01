@@ -26,6 +26,9 @@ from pyimgano.reporting.run_index_helpers import (
     comparison_trust_reason as _comparison_trust_reason_helper,
 )
 from pyimgano.reporting.run_index_helpers import (
+    format_candidate_comparability_gates as _format_candidate_comparability_gates_helper,
+)
+from pyimgano.reporting.run_index_helpers import (
     format_candidate_incompatibility_digest as _format_candidate_incompatibility_digest_helper,
 )
 from pyimgano.reporting.run_index_helpers import (
@@ -162,12 +165,7 @@ def _format_compare_run_brief(
 
 
 def _format_candidate_comparability_gates(gates: dict[str, object]) -> str:
-    parts: list[str] = []
-    for key in _CANDIDATE_COMPARABILITY_GATES_ORDER:
-        value = gates.get(key, None)
-        if isinstance(value, str) and value:
-            parts.append(f"{key}:{value}")
-    return ",".join(parts) if parts else "none"
+    return _format_candidate_comparability_gates_helper(gates)
 
 
 def _format_candidate_incompatibility_digest(entry: dict[str, object]) -> str:
