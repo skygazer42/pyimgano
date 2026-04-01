@@ -9,6 +9,7 @@ Uses Bayesian learning to optimize prompt flows for zero-shot anomaly detection,
 enabling effective detection without any training on the target domain.
 """
 
+import logging
 from typing import Optional, cast
 
 import numpy as np
@@ -22,6 +23,8 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class BayesianPromptGenerator(nn.Module):
@@ -332,10 +335,10 @@ class VisionBayesianPF(BaseVisionDeepDetector):
                 "std": all_scores.std().item(),
             }
 
-        print(
-            f"Calibrated with normal samples: "
-            f"mean={self.reference_statistics_['mean']:.4f}, "
-            f"std={self.reference_statistics_['std']:.4f}"
+        logger.info(
+            "Calibrated with normal samples: mean=%.4f, std=%.4f",
+            self.reference_statistics_["mean"],
+            self.reference_statistics_["std"],
         )
 
         return self

@@ -9,6 +9,7 @@ Uses adaptive diffusion models at both global and local scales for improved
 anomaly detection and reconstruction.
 """
 
+import logging
 from typing import Optional, Tuple, cast
 
 import numpy as np
@@ -25,6 +26,8 @@ from ._batch_size import call_with_temporary_attr, validate_batch_size
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class SimplifiedDiffusionModel(nn.Module):
@@ -362,7 +365,7 @@ class VisionGLAD(BaseVisionDeepDetector):
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = total_loss / len(dataloader)
-                print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {avg_loss:.4f}")
+                logger.info("Epoch %d/%d, Loss: %.4f", epoch + 1, self.epochs, avg_loss)
 
         return self
 
