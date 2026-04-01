@@ -13,6 +13,8 @@ _TARGETS = [
     "pyimgano/models/simplenet.py",
     "pyimgano/models/patchcore.py",
     "pyimgano/models/one_svm_cnn.py",
+    "pyimgano/models/realnet.py",
+    "pyimgano/models/regad.py",
 ]
 
 
