@@ -15,6 +15,7 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+import logging
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -24,6 +25,8 @@ from sklearn.decomposition import PCA
 from pyimgano.models._legacy_x import MISSING
 
 from ..base import BaseVisionClassicalDetector
+
+logger = logging.getLogger(__name__)
 
 
 class SPC(BaseVisionClassicalDetector):
@@ -176,7 +179,7 @@ class SPC(BaseVisionClassicalDetector):
         """
         del y
         # Extract features
-        print("Extracting features...")
+        logger.info("Extracting features...")
         features = self._extract_features(x)
 
         # Apply PCA if specified

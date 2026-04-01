@@ -15,6 +15,7 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+import logging
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -23,6 +24,8 @@ from skimage import color
 
 from ..base import BaseVisionClassicalDetector
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+
+logger = logging.getLogger(__name__)
 
 
 class HistogramComparison(BaseVisionClassicalDetector):
@@ -238,14 +241,14 @@ class HistogramComparison(BaseVisionClassicalDetector):
         del y
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Compute histograms for all training samples
-        print("Computing reference histograms...")
+        logger.info("Computing reference histograms...")
         self.reference_histograms_ = []
         for i in range(len(x_value)):
             hist = self._compute_histogram(x_value[i])
             self.reference_histograms_.append(hist)
 
         # Compute threshold based on pairwise distances
-        print("Computing anomaly threshold...")
+        logger.info("Computing anomaly threshold...")
         distances = []
         for i in range(len(self.reference_histograms_)):
             for j in range(i + 1, len(self.reference_histograms_)):

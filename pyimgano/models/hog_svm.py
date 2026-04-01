@@ -16,6 +16,7 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+import logging
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -27,6 +28,8 @@ from sklearn.svm import OneClassSVM
 
 from ..base import BaseVisionClassicalDetector
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+
+logger = logging.getLogger(__name__)
 
 
 class HOG_SVM(BaseVisionClassicalDetector):  # NOSONAR - public API uses legacy underscore name
@@ -138,7 +141,7 @@ class HOG_SVM(BaseVisionClassicalDetector):  # NOSONAR - public API uses legacy 
         del y
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Extract HOG features for all images
-        print("Extracting HOG features...")
+        logger.info("Extracting HOG features...")
         hog_features = []
         for i in range(len(x_value)):
             features = self._extract_hog_features(x_value[i])
@@ -151,7 +154,7 @@ class HOG_SVM(BaseVisionClassicalDetector):  # NOSONAR - public API uses legacy 
         hog_features_scaled = self.scaler_.fit_transform(hog_features)
 
         # Fit One-Class SVM
-        print("Training One-Class SVM...")
+        logger.info("Training One-Class SVM...")
         self.svm_ = OneClassSVM(nu=self.nu, kernel=self.kernel, gamma=self.gamma)
         self.svm_.fit(hog_features_scaled)
 

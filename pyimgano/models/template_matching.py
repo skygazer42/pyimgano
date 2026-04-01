@@ -15,6 +15,7 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+import logging
 from typing import Literal, Optional, Tuple
 
 import cv2
@@ -24,6 +25,8 @@ from skimage import color
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateMatching(BaseDetector):
@@ -246,7 +249,7 @@ class TemplateMatching(BaseDetector):
         del y
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Preprocess all images
-        print("Preprocessing templates...")
+        logger.info("Preprocessing templates...")
         preprocessed = []
         for i in range(len(x_value)):
             img = self._preprocess_image(x_value[i])

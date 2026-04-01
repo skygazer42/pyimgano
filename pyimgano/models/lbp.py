@@ -16,6 +16,7 @@ Usage:
     >>> scores = model.predict(X_test)
 """
 
+import logging
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -27,6 +28,8 @@ from sklearn.preprocessing import StandardScaler
 
 from ..base import BaseVisionClassicalDetector
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+
+logger = logging.getLogger(__name__)
 
 
 class LBP(BaseVisionClassicalDetector):
@@ -154,7 +157,7 @@ class LBP(BaseVisionClassicalDetector):
         del y
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         # Extract LBP features
-        print("Extracting LBP features...")
+        logger.info("Extracting LBP features...")
         lbp_features = []
         for i in range(len(x_value)):
             features = self._extract_lbp_features(x_value[i])
@@ -167,7 +170,7 @@ class LBP(BaseVisionClassicalDetector):
         lbp_features_scaled = self.scaler_.fit_transform(lbp_features)
 
         # Fit detector
-        print(f"Training {self.detector_type}...")
+        logger.info("Training %s...", self.detector_type)
         if self.detector_type == "isolation_forest":
             self.detector_ = IsolationForest(contamination=self.contamination, random_state=42)
         elif self.detector_type == "one_class_svm":
