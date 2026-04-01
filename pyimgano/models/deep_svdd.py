@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Iterable
 
 import numpy as np
@@ -17,6 +18,8 @@ from ..utils.param_check import check_parameter
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 OPTIMIZER_DICT = {
     "sgd": optim.SGD,
@@ -277,7 +280,7 @@ class CoreDeepSVDD(BaseDetector):
                 self.best_model_state = self.model.state_dict()
 
             if self.verbose:
-                print(f"Epoch {epoch + 1}/{self.epochs} - Loss: {epoch_loss:.6f}")
+                logger.info("Epoch %d/%d - Loss: %.6f", epoch + 1, self.epochs, epoch_loss)
 
         if self.best_model_state is not None:
             self.model.load_state_dict(self.best_model_state)

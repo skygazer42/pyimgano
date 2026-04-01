@@ -63,3 +63,25 @@ def test_vision_deep_svdd_smoke_can_fit_with_dummy_features() -> None:
     scores = det.decision_function(test)
     assert scores.shape == (len(test),)
     assert np.isfinite(scores).all()
+
+
+def test_core_deep_svdd_fit_does_not_print_progress(capsys) -> None:
+    from pyimgano.models.deep_svdd import CoreDeepSVDD
+
+    rng = np.random.default_rng(4)
+    x = rng.normal(size=(20, 8)).astype(np.float32)
+
+    det = CoreDeepSVDD(
+        n_features=8,
+        hidden_neurons=[16, 8],
+        use_autoencoder=True,
+        epochs=2,
+        batch_size=4,
+        verbose=1,
+        random_state=0,
+        contamination=0.2,
+    )
+
+    det.fit(x)
+    out = capsys.readouterr().out
+    assert out == ""

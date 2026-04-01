@@ -14,6 +14,7 @@ Key Features:
 - Efficient training
 """
 
+import logging
 from typing import Optional, Tuple
 
 import numpy as np
@@ -26,6 +27,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class ImageDecomposer:
@@ -271,7 +274,7 @@ class RIADDetector(BaseVisionDeepDetector):
             y: Not used (unsupervised).
         """
         del y, kwargs
-        print("Training RIAD model...")
+        logger.info("Training RIAD model...")
         x = coerce_rgb_image_batch(x)
 
         if x.max() > 1.0:
@@ -330,10 +333,10 @@ class RIADDetector(BaseVisionDeepDetector):
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / len(dataloader)
-                print(f"Epoch [{epoch+1}/{self.epochs}] Loss: {avg_loss:.6f}")
+                logger.info("Epoch [%d/%d] Loss: %.6f", epoch + 1, self.epochs, avg_loss)
 
         self.model.eval()
-        print("Training completed!")
+        logger.info("Training completed!")
 
     def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
         """Predict anomaly scores.
