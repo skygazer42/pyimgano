@@ -1115,6 +1115,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             for item in acceptance.get("blocking_reasons", []):
                 print(f"blocking_reason={item}")
+            dataset_readiness = dict(dict(acceptance.get("quality", {})).get("dataset_readiness", {}))
+            if dataset_readiness:
+                print(f"dataset_readiness_status={dataset_readiness.get('status')}")
+                issue_codes = list(dataset_readiness.get("issue_codes", []))
+                if issue_codes:
+                    print("dataset_issue_codes=" + ",".join(str(item) for item in issue_codes))
             for item in infer_cfg.get("warnings", []):
                 print(f"infer_warning={item}")
             for item in infer_cfg.get("errors", []):

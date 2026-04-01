@@ -85,7 +85,10 @@ def test_format_acceptance_run_summary_line_includes_required_quality_and_bundle
         acceptance={
             "status": "ready",
             "required_quality": "audited",
-            "quality": {"status": "deployable"},
+            "quality": {
+                "status": "deployable",
+                "dataset_readiness": {"status": "warning"},
+            },
             "infer_config": {"selected_source": "deploy_bundle"},
             "bundle_weights": {"applicable": True, "status": "ready"},
         },
@@ -93,7 +96,7 @@ def test_format_acceptance_run_summary_line_includes_required_quality_and_bundle
 
     assert (
         line
-        == "run_a: kind=run status=ready required_quality=audited quality=deployable infer_config=deploy_bundle bundle_weights=ready"
+        == "run_a: kind=run status=ready required_quality=audited quality=deployable infer_config=deploy_bundle bundle_weights=ready dataset_readiness=warning"
     )
 
 

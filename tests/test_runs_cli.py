@@ -1025,6 +1025,76 @@ def test_runs_cli_acceptance_json_ready_for_audited_run(tmp_path, capsys):
     assert acceptance["infer_config"]["selected_source"] == "artifacts"
     assert acceptance["bundle_weights"]["applicable"] is False
     assert acceptance["blocking_reasons"] == []
+    assert acceptance["quality"]["dataset_readiness"] is None
+
+
+def test_runs_cli_acceptance_plain_output_prints_run_dataset_readiness(tmp_path, capsys):
+    from pyimgano.runs_cli import main
+
+    run_dir = tmp_path / "run_a"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "dataset": "custom",
+                "model": "vision_ecod",
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                    "issue_details": [],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"config": {}}), encoding="utf-8")
+    (run_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts").mkdir()
+    (run_dir / "artifacts" / "infer_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model": {"name": "vision_ecod", "model_kwargs": {}},
+                "threshold": 0.5,
+                "artifact_quality": {
+                    "status": "audited",
+                    "threshold_scope": "image",
+                    "has_threshold_provenance": True,
+                    "has_split_fingerprint": True,
+                    "has_prediction_policy": False,
+                    "has_operator_contract": False,
+                    "audit_refs": {"calibration_card": "artifacts/calibration_card.json"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "artifacts" / "calibration_card.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "split_fingerprint": {"sha256": "f" * 64},
+                "threshold_context": {"scope": "image", "category_count": 1},
+                "image_threshold": {
+                    "threshold": 0.5,
+                    "provenance": {"method": "fixed", "source": "test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(run_dir)])
+    out = capsys.readouterr().out.lower()
+
+    assert rc == 0
+    assert "kind=run" in out
+    assert "dataset_readiness=warning" in out
+    assert "dataset_readiness_status=warning" in out
+    assert "dataset_issue_codes=fewshot_train_set" in out
 
 
 def test_runs_cli_acceptance_json_includes_postprocess_contract_trust_signals(tmp_path, capsys):

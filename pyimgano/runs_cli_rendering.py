@@ -149,18 +149,25 @@ def format_acceptance_run_summary_line(
 ) -> str:
     infer_cfg = dict(acceptance.get("infer_config", {}))
     bundle_weights = dict(acceptance.get("bundle_weights", {}))
+    quality = dict(acceptance.get("quality", {}))
     bundle_status = (
         str(bundle_weights.get("status"))
         if bool(bundle_weights.get("applicable"))
         else "not_applicable"
     )
-    return (
+    line = (
         f"{run_name}: kind=run status={acceptance.get('status')} "
         f"required_quality={acceptance.get('required_quality')} "
-        f"quality={dict(acceptance.get('quality', {})).get('status')} "
+        f"quality={quality.get('status')} "
         f"infer_config={infer_cfg.get('selected_source')} "
         f"bundle_weights={bundle_status}"
     )
+    dataset_readiness = quality.get("dataset_readiness", None)
+    if isinstance(dataset_readiness, dict):
+        status = dataset_readiness.get("status", None)
+        if status is not None:
+            line += f" dataset_readiness={status}"
+    return line
 
 
 def format_publication_summary_line(
