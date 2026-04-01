@@ -8,6 +8,10 @@ _TARGETS = [
     "pyimgano/models/gcad.py",
     "pyimgano/models/realnet.py",
     "pyimgano/models/regad.py",
+    "pyimgano/models/bayesianpf.py",
+    "pyimgano/models/glad.py",
+    "pyimgano/models/panda.py",
+    "pyimgano/models/inctrl.py",
 ]
 
 
