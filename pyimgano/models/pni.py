@@ -27,6 +27,8 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from sklearn.neighbors import KDTree
 
+from pyimgano.utils.torchvision_safe import load_torchvision_model
+
 from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_dl import BaseVisionDeepDetector
 
@@ -45,15 +47,9 @@ class PyramidFeatureExtractor(nn.Module):
 
         # Load pre-trained backbone
         if backbone == "wide_resnet50":
-            from torchvision.models import Wide_ResNet50_2_Weights, wide_resnet50_2
-
-            weights = Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
-            model = wide_resnet50_2(weights=weights)
+            model, _ = load_torchvision_model("wide_resnet50", pretrained=bool(pretrained))
         elif backbone == "resnet18":
-            from torchvision.models import ResNet18_Weights, resnet18
-
-            weights = ResNet18_Weights.DEFAULT if pretrained else None
-            model = resnet18(weights=weights)
+            model, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 
