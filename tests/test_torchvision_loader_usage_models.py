@@ -191,6 +191,90 @@ def test_rdplusplus_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     assert calls == [("resnet18", False)]
 
 
+def test_bayesianpf_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.bayesianpf as bayesianpf_module
+    from pyimgano.models.bayesianpf import VisionBayesianPF
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(bayesianpf_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    det = VisionBayesianPF(backbone="resnet18", device="cpu", random_state=0)
+    extractor = det._build_feature_extractor()
+
+    assert isinstance(extractor, torch.nn.Sequential)
+    assert calls == [("resnet18", True)]
+
+
+def test_glad_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.glad as glad_module
+    from pyimgano.models.glad import VisionGLAD
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(glad_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    det = VisionGLAD(backbone="resnet18", device="cpu", random_state=0)
+    extractor = det._build_feature_extractor()
+
+    assert isinstance(extractor, torch.nn.Sequential)
+    assert calls == [("resnet18", True)]
+
+
+def test_panda_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.panda as panda_module
+    from pyimgano.models.panda import PrototypicalEncoder
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(panda_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    encoder = PrototypicalEncoder(backbone="resnet18", projection_dim=64)
+    out = encoder.backbone(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert tuple(out.shape) == (1, 3, 8, 8)
+    assert calls == [("resnet18", True)]
+
+
+def test_inctrl_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
+    import torch
+
+    import pyimgano.models.inctrl as inctrl_module
+    from pyimgano.models.inctrl import ResidualEncoder
+
+    calls: list[tuple[str, bool]] = []
+
+    def _fake_loader(name: str, *, pretrained: bool):
+        calls.append((name, pretrained))
+        return _fake_resnet(torch), None
+
+    monkeypatch.setattr(inctrl_module, "load_torchvision_model", _fake_loader, raising=False)
+
+    encoder = ResidualEncoder(backbone="resnet18", feature_dim=64)
+    out = encoder.backbone(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+
+    assert tuple(out.shape) == (1, 3, 8, 8)
+    assert calls == [("resnet18", True)]
+
+
 def test_ast_teacher_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     import torch
 
