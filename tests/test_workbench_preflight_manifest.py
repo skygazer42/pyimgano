@@ -71,6 +71,8 @@ def test_workbench_preflight_manifest_returns_report(tmp_path: Path) -> None:
     assert report.summary["mask_coverage"]["anomaly_test_total"] == 1
     assert report.summary["mask_coverage"]["anomaly_test_mask_exists"] == 1
     assert report.summary["pixel_metrics"]["enabled"] is True
+    assert report.summary["dataset_readiness"]["status"] == "warning"
+    assert report.summary["dataset_readiness"]["issue_codes"] == ["FEWSHOT_TRAIN_SET"]
 
 
 def test_workbench_preflight_manifest_detects_missing_files_and_duplicates(tmp_path: Path) -> None:
