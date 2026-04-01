@@ -8,7 +8,8 @@ from typing import Sequence, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import models
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from .baseCv import BaseVisionDeepDetector
 from .fastflow import ResNetFeatureExtractor
@@ -20,7 +21,7 @@ class StudentResNetExtractor(nn.Module):
 
     def __init__(self, layers: Sequence[str] = ("layer2", "layer3", "layer4")) -> None:
         super().__init__()
-        net = models.resnet18(weights=None)
+        net, _ = load_torchvision_model("resnet18", pretrained=False)
         self.stem = nn.Sequential(net.conv1, net.bn1, net.relu, net.maxpool)
         self.layer1 = net.layer1
         self.layer2 = net.layer2
