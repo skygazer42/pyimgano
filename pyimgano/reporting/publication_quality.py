@@ -439,6 +439,15 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
         }
 
     metadata = _load_json_dict(metadata_path)
+    dataset_readiness_raw = metadata.get("dataset_readiness", None)
+    dataset_readiness = (
+        dict(dataset_readiness_raw) if isinstance(dataset_readiness_raw, dict) else None
+    )
+    if isinstance(dataset_readiness, dict):
+        if not isinstance(dataset_readiness.get("issue_codes"), list):
+            dataset_readiness["issue_codes"] = []
+        if not isinstance(dataset_readiness.get("issue_details"), list):
+            dataset_readiness["issue_details"] = []
     artifact_quality = metadata.get("artifact_quality", None)
     benchmark_config = metadata.get("benchmark_config", None)
     declared_missing = []
@@ -573,6 +582,7 @@ def evaluate_publication_quality(path: str | Path) -> dict[str, Any]:
         "exported_files_present": exported_files_present,
         "exported_file_digests": exported_file_digests,
         "artifact_quality": artifact_quality_payload,
+        "dataset_readiness": dataset_readiness,
         "invalid_declared": invalid_declared,
         "asset_audit": asset_audit,
         "trust_signals": trust_signals,

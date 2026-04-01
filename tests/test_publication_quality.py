@@ -40,6 +40,11 @@ def test_evaluate_publication_quality_detects_ready_export(tmp_path: Path) -> No
                 "has_environment_fingerprint": True,
                 "has_split_fingerprint": True,
             },
+            "dataset_readiness": {
+                "status": "warning",
+                "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                "issue_details": [],
+            },
             "benchmark_config": {
                 "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
                 "official": True,
@@ -74,6 +79,11 @@ def test_evaluate_publication_quality_detects_ready_export(tmp_path: Path) -> No
 
     assert quality["status"] == "ready"
     assert quality["publication_ready"] is True
+    assert quality["dataset_readiness"] == {
+        "status": "warning",
+        "issue_codes": ["FEWSHOT_TRAIN_SET"],
+        "issue_details": [],
+    }
     assert quality["missing_required"] == []
     assert quality["exported_files_present"]["leaderboard_csv"] is True
     assert quality["trust_signals"] == {
@@ -145,6 +155,73 @@ def test_evaluate_publication_quality_reports_partial_export(tmp_path: Path) -> 
     assert quality["exported_files_present"]["leaderboard_csv"] is False
     assert quality["trust_signals"]["has_benchmark_provenance"] is False
     assert quality["trust_signals"]["has_exported_file_digests"] is False
+
+
+def test_evaluate_publication_quality_preserves_dataset_readiness_payload_when_present(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.reporting.publication_quality import evaluate_publication_quality
+
+    export_dir = tmp_path / "suite_export"
+    _write_run_artifacts(export_dir)
+    (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
+    _write_json(
+        export_dir / "leaderboard_metadata.json",
+        {
+            "artifact_quality": {
+                "required_files_present": True,
+                "missing_required": [],
+                "has_official_benchmark_config": True,
+                "has_environment_fingerprint": True,
+                "has_split_fingerprint": True,
+            },
+            "dataset_readiness": {
+                "status": "error",
+                "issue_codes": ["PIXEL_METRICS_UNAVAILABLE", "FEWSHOT_TRAIN_SET"],
+                "issue_details": [
+                    {
+                        "code": "PIXEL_METRICS_UNAVAILABLE",
+                        "message": "Pixel metrics are unavailable because anomaly masks are missing or no anomalous test samples carry masks.",
+                    }
+                ],
+            },
+            "benchmark_config": {
+                "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                "official": True,
+                "sha256": "a" * 64,
+            },
+            "environment_fingerprint_sha256": "f" * 64,
+            "split_fingerprint": {"sha256": "b" * 64},
+            "evaluation_contract": {"primary_metric": "auroc"},
+            "citation": {"project": "pyimgano"},
+            "publication_ready": True,
+            "audit_refs": {
+                "report_json": "report.json",
+                "config_json": "config.json",
+                "environment_json": "environment.json",
+            },
+            "audit_digests": _sha256_map(
+                report_json=export_dir / "report.json",
+                config_json=export_dir / "config.json",
+                environment_json=export_dir / "environment.json",
+            ),
+            "exported_files": {
+                "leaderboard_csv": str(export_dir / "leaderboard.csv"),
+                "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+            },
+            "exported_file_digests": {
+                "leaderboard_csv": _sha256(export_dir / "leaderboard.csv"),
+            },
+        },
+    )
+
+    quality = evaluate_publication_quality(export_dir)
+
+    assert quality["dataset_readiness"]["status"] == "error"
+    assert quality["dataset_readiness"]["issue_codes"] == [
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
 
 
 def test_evaluate_publication_quality_blocks_missing_citation_even_when_flagged_ready(

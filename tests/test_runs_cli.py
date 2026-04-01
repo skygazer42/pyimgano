@@ -3893,6 +3893,11 @@ def test_runs_cli_publication_json(tmp_path, capsys):
                     "official": True,
                     "sha256": "a" * 64,
                 },
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                    "issue_details": [],
+                },
                 "artifact_quality": {
                     "required_files_present": True,
                     "missing_required": [],
@@ -3932,6 +3937,7 @@ def test_runs_cli_publication_json(tmp_path, capsys):
     assert rc == 0
     assert out["publication"]["status"] == "ready"
     assert out["publication"]["publication_ready"] is True
+    assert out["publication"]["dataset_readiness"]["status"] == "warning"
     assert out["publication"]["trust_signals"]["has_evaluation_contract"] is True
     assert out["publication"]["trust_signals"]["has_benchmark_citation"] is True
     assert out["publication"]["trust_signals"]["has_benchmark_provenance"] is True
@@ -3963,6 +3969,11 @@ def test_runs_cli_acceptance_routes_suite_export_to_publication_gate(tmp_path, c
                     "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
                     "official": True,
                     "sha256": "a" * 64,
+                },
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                    "issue_details": [],
                 },
                 "artifact_quality": {
                     "required_files_present": True,
@@ -4077,6 +4088,11 @@ def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys
                     "official": True,
                     "sha256": "a" * 64,
                 },
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                    "issue_details": [],
+                },
                 "artifact_quality": {
                     "required_files_present": True,
                     "missing_required": [],
@@ -4116,6 +4132,8 @@ def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys
     assert rc == 0
     assert "status=ready" in out
     assert "publication_ready=true" in out
+    assert "dataset_readiness_status=warning" in out
+    assert "dataset_issue_codes=fewshot_train_set" in out
     assert "trust_signal.has_benchmark_provenance=true" in out
     assert (
         "audit_ref.benchmark_config_source=benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json"
