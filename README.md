@@ -517,6 +517,14 @@ pyimgano-runs acceptance /path/to/suite_export --json
 pyimgano-runs publication /path/to/suite_export --json
 ```
 
+`pyimgano-runs compare` now surfaces dataset readiness in both JSON and plain
+text: baseline summaries expose `baseline_dataset_readiness`,
+candidate summaries expose `candidate_dataset_readiness`, plain briefs include
+`dataset_readiness=...`, and shell-friendly compare logs print
+`baseline_dataset_readiness_status=...`,
+`candidate_dataset_readiness_status.<run>=...`, and `dataset_issue_codes=...`
+when those signals exist.
+
 </details>
 
 > Some suite entries are **optional** and are skipped if extras are missing (with hints like `pip install 'pyimgano[torch]'`).

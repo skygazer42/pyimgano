@@ -349,9 +349,13 @@ Notes:
 - JSON `summary` for `compare` now also includes machine-readable
   `regression_gate`, `comparability_gates`, `blocking_flags`, `verdict`,
   `primary_metric*`, `primary_metric_statuses`, `primary_metric_deltas`, and
-  `trust_*`, `candidate_verdicts`, `candidate_blocking_reasons`, and
-  `candidate_comparability_gates` fields so CI can consume the same gate
-  decision and baseline trust posture the plain-text output prints.
+  `trust_*`, `candidate_verdicts`, `candidate_blocking_reasons`,
+  `candidate_comparability_gates`, `baseline_dataset_readiness`, and
+  `candidate_dataset_readiness` fields so CI can consume the same gate
+  decision, dataset readiness posture, and baseline trust posture the plain-text
+  output prints. Candidate `candidate_incompatibility_digest` entries also carry
+  `dataset_readiness_status` / `dataset_issue_codes` when those signals are
+  available.
   When no `--baseline` is provided, `summary.baseline_checked=false`,
   `summary.regression_gate=unchecked`, and `summary.verdict=informational`.
 - Plain-text `list` / `latest` output now also includes `quality=...`, `trust=...`,
@@ -372,6 +376,11 @@ Notes:
   `candidate_comparability_gates.<run>=...` lines so shell logs can show
   exactly which run is blocked and whether it drifted on split, environment,
   target, or robustness protocol.
+- Plain-text `compare` also prints `baseline_dataset_readiness_status=...`,
+  `baseline_dataset_issue_codes=...`, plus per-candidate
+  `candidate_dataset_readiness_status.<run>=...` and
+  `candidate_dataset_issue_codes.<run>=...`; the leading per-run briefs now also
+  include `dataset_readiness=...` when the run quality report preserves it.
 - Plain-text `compare` also prints `comparison_trust_gate=trusted|limited`,
   `comparison_trust_status=...`, `comparison_trust_reason=...`,
   `comparison_trust_degraded_by=...`, and `comparison_trust_ref.*=...` to

@@ -68,6 +68,7 @@ pyimgano-runs compare runs/run_a runs/run_b --json
 The comparison payload includes:
 
 - run summaries (`dataset`, `category`, `model_or_suite`, `timestamp_utc`)
+- run-level `dataset_readiness`, `dataset_readiness_status`, and `dataset_issue_codes`
 - best-effort environment fingerprint from `environment.json`
 - aggregated metric ranges (`min` / `max`) across the selected runs
 - an `evaluation_contract` block describing primary metric, directionality, and comparability hints
@@ -129,9 +130,12 @@ When `--baseline` is set, the payload also includes:
   `comparability_gates`, `blocking_flags`, `verdict`, `primary_metric*`,
   `primary_metric_statuses`, `primary_metric_deltas`, `trust_*`,
   `candidate_verdicts`, `candidate_blocking_reasons`, and
-  `candidate_comparability_gates` fields for CI or release gating
+  `candidate_comparability_gates`, `baseline_dataset_readiness`, and
+  `candidate_dataset_readiness` fields for CI or release gating
   - when no baseline is provided, `baseline_checked=false`,
     `regression_gate=unchecked`, and `verdict=informational`
+  - candidate `candidate_incompatibility_digest` entries also include
+    `dataset_readiness_status` / `dataset_issue_codes` when those signals are present
 - split compatibility metadata:
   - baseline split fingerprint
   - per-run split status (`baseline`, `matched`, `mismatched`, `missing`, `unchecked`)
@@ -161,7 +165,10 @@ status / delta, structured per-run briefs at the top, plus a single
 `comparability_gates: ...` summary, `comparison_blocking_flags=...`, and an
 overall `comparison_verdict=...`, plus per-candidate
 `candidate_verdict.<run>=...`, `candidate_blocking_reasons.<run>=...`, and
-`candidate_comparability_gates.<run>=...`, plus `comparison_trust_gate=...`,
+`candidate_comparability_gates.<run>=...`, plus
+`baseline_dataset_readiness_status=...`, `baseline_dataset_issue_codes=...`,
+`candidate_dataset_readiness_status.<run>=...`, and
+`candidate_dataset_issue_codes.<run>=...`, plus `comparison_trust_gate=...`,
 `comparison_trust_status=...`, `comparison_trust_reason=...`,
 `comparison_trust_degraded_by=...`, and `comparison_trust_ref.*=...` so you can
 distinguish “comparable enough to evaluate” from “baseline trust is still only
