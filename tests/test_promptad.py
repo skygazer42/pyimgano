@@ -65,3 +65,31 @@ def test_promptad_build_feature_extractor_uses_shared_torchvision_loader(monkeyp
 
     assert isinstance(extractor, torch.nn.Sequential)
     assert calls == [("resnet18", True)]
+
+
+def test_promptad_fit_does_not_print_progress(monkeypatch, capsys) -> None:
+    import torch
+
+    from pyimgano.models.promptad import VisionPromptAD
+
+    class _DummyExtractor(torch.nn.Module):
+        def forward(self, x):  # noqa: ANN001
+            batch = int(x.shape[0])
+            return torch.ones((batch, 1024), dtype=torch.float32, device=x.device)
+
+    monkeypatch.setattr(VisionPromptAD, "_build_feature_extractor", lambda self: _DummyExtractor())
+
+    rng = np.random.default_rng(12)
+    train = rng.integers(0, 255, size=(4, 32, 32, 3), dtype=np.uint8)
+
+    det = VisionPromptAD(
+        backbone="wide_resnet50",
+        epochs=10,
+        batch_size=2,
+        device="cpu",
+        prompt_dim=512,
+    )
+
+    det.fit(train)
+    out = capsys.readouterr().out
+    assert out == ""

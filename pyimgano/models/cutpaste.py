@@ -16,6 +16,7 @@ Key Features:
 - Fast training and inference
 """
 
+import logging
 import os
 from typing import Optional, Tuple
 
@@ -32,6 +33,8 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class CutPasteAugmentation:
@@ -410,10 +413,12 @@ class CutPasteDetector(BaseVisionDeepDetector):
 
             if (epoch + 1) % 10 == 0:
                 acc = 100.0 * correct / total
-                print(
-                    f"Epoch [{epoch+1}/{self.epochs}] "
-                    f"Loss: {epoch_loss/len(dataloader):.4f} "
-                    f"Acc: {acc:.2f}%"
+                logger.info(
+                    "Epoch [%d/%d] Loss: %.4f Acc: %.2f%%",
+                    epoch + 1,
+                    self.epochs,
+                    epoch_loss / len(dataloader),
+                    acc,
                 )
 
         # Switch to eval mode

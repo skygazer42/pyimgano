@@ -9,6 +9,7 @@ Uses realistic synthetic anomalies and feature selection mechanisms to improve
 anomaly detection performance and generalization.
 """
 
+import logging
 from typing import Optional, Tuple, cast
 
 import numpy as np
@@ -25,6 +26,8 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
+
+logger = logging.getLogger(__name__)
 
 
 class FeatureExtractor(nn.Module):
@@ -400,7 +403,7 @@ class VisionRealNet(BaseVisionDeepDetector):
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = total_loss / len(dataloader)
-                print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {avg_loss:.4f}")
+                logger.info("Epoch %d/%d, Loss: %.4f", epoch + 1, self.epochs, avg_loss)
 
         # Build normal feature memory
         self._build_normal_memory(x_tensor)
