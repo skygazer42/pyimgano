@@ -15,6 +15,8 @@ _TARGETS = [
     "pyimgano/models/one_svm_cnn.py",
     "pyimgano/models/realnet.py",
     "pyimgano/models/regad.py",
+    "pyimgano/models/oneformore.py",
+    "pyimgano/models/gcad.py",
 ]
 
 
