@@ -55,7 +55,7 @@ class BaseDetector:
 
     # ---------------------------------------------------------------------
     # Shared helpers
-    def _set_n_classes(self, y: Any) -> "BaseDetector":
+    def _set_n_classes(self, y: Any, *, warn_on_labeled_y: bool = True) -> "BaseDetector":
         """Set the number of classes (compat hook).
 
         In unsupervised settings this is typically binary. Some utilities rely
@@ -68,7 +68,8 @@ class BaseDetector:
             # Best-effort: keep contract without pulling sklearn validation.
             unique = np.unique(y_arr)
             self._classes = int(len(unique))
-            warnings.warn("y should not be presented in unsupervised learning.")
+            if warn_on_labeled_y:
+                warnings.warn("y should not be presented in unsupervised learning.")
         return self
 
     def _process_decision_scores(self) -> "BaseDetector":

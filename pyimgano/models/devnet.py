@@ -341,7 +341,7 @@ class DevNetDetector(BaseVisionDeepDetector):
         print("Training completed!")
         self.decision_scores_ = np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
         self._process_decision_scores()
-        self._set_n_classes(y)
+        self._set_n_classes(y, warn_on_labeled_y=False)
         self.fitted_ = True
         return self
 

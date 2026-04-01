@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 pytest.importorskip("torch")
@@ -65,3 +67,35 @@ def test_vision_devnet_contract_fit_and_score() -> None:
     scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
+
+
+def test_vision_devnet_fit_does_not_warn_for_required_labels() -> None:
+    import numpy as np
+
+    from pyimgano.models import create_model
+
+    rng = np.random.default_rng(11)
+    normals = rng.integers(0, 255, size=(4, 32, 32, 3), dtype=np.uint8)
+    anomalies = normals.copy()
+    anomalies[:, 10:22, 10:22, :] = 255
+
+    x_train = np.concatenate([normals, anomalies], axis=0)
+    y_train = np.asarray([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.int64)
+    order = np.asarray([0, 4, 1, 5, 2, 6, 3, 7], dtype=np.int64)
+    x_train = x_train[order]
+    y_train = y_train[order]
+
+    det = create_model(
+        "vision_devnet",
+        pretrained=False,
+        epochs=1,
+        batch_size=2,
+        device="cpu",
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        det.fit(x_train, y_train)
+
+    messages = [str(item.message) for item in caught]
+    assert "y should not be presented in unsupervised learning." not in messages
