@@ -77,6 +77,11 @@ def test_workbench_category_report_builds_stamped_payload_with_dataset_summary()
             "reason": "No ground-truth test masks available.",
         },
     }
+    assert payload["dataset_readiness"]["status"] == "warning"
+    assert payload["dataset_readiness"]["issue_codes"] == [
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
     assert payload["training"] == {"fit_kwargs_used": {"epochs": 2}}
     assert payload["checkpoint"] == {"path": "checkpoints/custom/model.pt"}
     assert payload["schema_version"] == int(REPORT_SCHEMA_VERSION)

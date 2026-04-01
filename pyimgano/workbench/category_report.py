@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
@@ -53,6 +54,97 @@ def _build_dataset_summary(inputs: WorkbenchCategoryReportInputs) -> dict[str, A
     return dataset_summary
 
 
+def _fallback_dataset_readiness(dataset_summary: Mapping[str, Any]) -> dict[str, Any]:
+    issue_codes: list[str] = []
+    issue_details: list[dict[str, str]] = []
+
+    train_count = int(dataset_summary.get("train_count", 0) or 0)
+    test_count = int(dataset_summary.get("test_count", 0) or 0)
+    test_anomaly_count = int(dataset_summary.get("test_anomaly_count", 0) or 0)
+    test_normal_count = max(0, test_count - test_anomaly_count)
+    pixel_metrics = dict(dataset_summary.get("pixel_metrics", {}))
+
+    def _append(code: str, message: str) -> None:
+        if code in issue_codes:
+            return
+        issue_codes.append(code)
+        issue_details.append({"code": code, "message": message})
+
+    if train_count <= 0:
+        _append("MISSING_TRAIN_SPLIT", "Train split is missing; image-level benchmarking cannot run.")
+    if test_normal_count <= 0:
+        _append(
+            "MISSING_TEST_NORMAL",
+            "Test normal split is missing; false-positive estimates and image metrics are incomplete.",
+        )
+    if test_anomaly_count <= 0:
+        _append(
+            "MISSING_TEST_ANOMALY",
+            "Test anomaly split is missing; anomaly recall and AUROC cannot be computed.",
+        )
+    if not bool(pixel_metrics.get("enabled")):
+        _append(
+            "PIXEL_METRICS_UNAVAILABLE",
+            "Pixel metrics are unavailable because anomaly masks are missing or no anomalous test samples carry masks.",
+        )
+    if train_count < 16:
+        _append(
+            "FEWSHOT_TRAIN_SET",
+            "Train split has fewer than 16 normal samples; results may be unstable.",
+        )
+
+    if "MISSING_TRAIN_SPLIT" in issue_codes or "MISSING_TEST_ANOMALY" in issue_codes:
+        status = "error"
+    elif issue_codes:
+        status = "warning"
+    else:
+        status = "ok"
+
+    return {
+        "status": str(status),
+        "issue_codes": issue_codes,
+        "issue_details": issue_details,
+    }
+
+
+def _build_dataset_readiness(
+    *,
+    inputs: WorkbenchCategoryReportInputs,
+    dataset_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    try:
+        from pyimgano.datasets.inspection import profile_dataset_target
+
+        dataset_name = str(inputs.config.dataset.name)
+        category = str(inputs.category)
+        if dataset_name.lower() == "manifest":
+            manifest_path = inputs.config.dataset.manifest_path
+            if manifest_path is None:
+                raise ValueError("manifest_path missing from config")
+            if not Path(str(manifest_path)).exists():
+                raise FileNotFoundError(str(manifest_path))
+            payload = profile_dataset_target(
+                target=str(manifest_path),
+                dataset="manifest",
+                category=category,
+                root_fallback=str(inputs.config.dataset.root),
+            )
+        else:
+            if not Path(str(inputs.config.dataset.root)).exists():
+                raise FileNotFoundError(str(inputs.config.dataset.root))
+            payload = profile_dataset_target(
+                target=str(inputs.config.dataset.root),
+                dataset=dataset_name,
+                category=category,
+            )
+        readiness = payload.get("readiness", None)
+        if isinstance(readiness, dict):
+            return dict(readiness)
+    except Exception:
+        pass
+    return _fallback_dataset_readiness(dataset_summary)
+
+
 def _evaluation_metric_names(eval_results: Mapping[str, Any]) -> list[str]:
     names = [
         "auroc",
@@ -80,6 +172,10 @@ def build_workbench_category_report(
     inputs: WorkbenchCategoryReportInputs,
 ) -> dict[str, Any]:
     dataset_summary = _build_dataset_summary(inputs)
+    dataset_readiness = _build_dataset_readiness(
+        inputs=inputs,
+        dataset_summary=dataset_summary,
+    )
     payload: dict[str, Any] = {
         "dataset": str(inputs.config.dataset.name),
         "category": str(inputs.category),
@@ -102,6 +198,7 @@ def build_workbench_category_report(
             "calibration_count": int(inputs.calibration_count),
         },
         "dataset_summary": dataset_summary,
+        "dataset_readiness": dataset_readiness,
         "evaluation_contract": build_evaluation_contract(
             metric_names=_evaluation_metric_names(inputs.eval_results),
             primary_metric="auroc",

@@ -87,6 +87,7 @@ def test_workbench_report_includes_dataset_summary(tmp_path: Path) -> None:
         (out_dir / "categories" / "bottle" / "report.json").read_text(encoding="utf-8")
     )
     ds = cat_level["dataset_summary"]
+    readiness = cat_level["dataset_readiness"]
     assert ds["train_count"] == 1
     assert ds["calibration_count"] == 1
     assert ds["test_count"] == 2
@@ -94,6 +95,11 @@ def test_workbench_report_includes_dataset_summary(tmp_path: Path) -> None:
     assert np.isclose(ds["test_anomaly_ratio"], 0.5)
     assert ds["pixel_metrics"]["enabled"] is False
     assert "mask_path" in str(ds["pixel_metrics"]["reason"]).lower()
+    assert readiness["status"] == "warning"
+    assert readiness["issue_codes"] == [
+        "PIXEL_METRICS_UNAVAILABLE",
+        "FEWSHOT_TRAIN_SET",
+    ]
     assert len(str(cat_level["split_fingerprint"]["sha256"])) == 64
     assert cat_level["split_fingerprint"]["test_count"] == 2
     contract = cat_level["evaluation_contract"]
