@@ -39,3 +39,27 @@ def test_inctrl_preprocess_uses_shared_helper(monkeypatch) -> None:
     import pyimgano.models.inctrl as module
 
     _assert_preprocess_delegates(module=module, cls_name="VisionInCTRL", monkeypatch=monkeypatch)
+
+
+def test_ast_preprocess_uses_shared_helper(monkeypatch) -> None:
+    import pyimgano.models.ast as module
+
+    _assert_preprocess_delegates(module=module, cls_name="VisionAST", monkeypatch=monkeypatch)
+
+
+def test_dst_preprocess_uses_shared_helper(monkeypatch) -> None:
+    import pyimgano.models.dst as module
+
+    _assert_preprocess_delegates(module=module, cls_name="VisionDST", monkeypatch=monkeypatch)
+
+
+def test_favae_preprocess_uses_shared_helper(monkeypatch) -> None:
+    import pyimgano.models.favae as module
+
+    _assert_preprocess_delegates(module=module, cls_name="VisionFAVAE", monkeypatch=monkeypatch)
+
+
+def test_promptad_preprocess_uses_shared_helper(monkeypatch) -> None:
+    import pyimgano.models.promptad as module
+
+    _assert_preprocess_delegates(module=module, cls_name="VisionPromptAD", monkeypatch=monkeypatch)

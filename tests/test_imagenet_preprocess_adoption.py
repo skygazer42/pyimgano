@@ -12,6 +12,10 @@ _TARGETS = [
     "pyimgano/models/glad.py",
     "pyimgano/models/panda.py",
     "pyimgano/models/inctrl.py",
+    "pyimgano/models/ast.py",
+    "pyimgano/models/dst.py",
+    "pyimgano/models/favae.py",
+    "pyimgano/models/promptad.py",
 ]
 
 
