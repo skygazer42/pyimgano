@@ -168,10 +168,16 @@ def format_publication_summary_line(
     path_name: str,
     publication: dict[str, object],
 ) -> str:
-    return (
+    line = (
         f"{path_name}: status={publication.get('status')} "
         f"publication_ready={publication.get('publication_ready')}"
     )
+    dataset_readiness = publication.get("dataset_readiness", None)
+    if isinstance(dataset_readiness, dict):
+        status = dataset_readiness.get("status", None)
+        if status is not None:
+            line += f" dataset_readiness={status}"
+    return line
 
 
 __all__ = [

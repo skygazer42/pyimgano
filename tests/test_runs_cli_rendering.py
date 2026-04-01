@@ -102,7 +102,11 @@ def test_format_publication_summary_line_includes_status_and_ready_flag() -> Non
 
     line = format_publication_summary_line(
         path_name="suite_export",
-        publication={"status": "ready", "publication_ready": True},
+        publication={
+            "status": "ready",
+            "publication_ready": True,
+            "dataset_readiness": {"status": "warning"},
+        },
     )
 
-    assert line == "suite_export: status=ready publication_ready=True"
+    assert line == "suite_export: status=ready publication_ready=True dataset_readiness=warning"

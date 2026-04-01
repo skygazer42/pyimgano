@@ -4020,6 +4020,7 @@ def test_runs_cli_acceptance_routes_suite_export_to_publication_gate(tmp_path, c
     assert acceptance["blocking_reasons"] == []
     assert acceptance["publication"]["status"] == "ready"
     assert acceptance["publication"]["publication_ready"] is True
+    assert acceptance["publication"]["dataset_readiness"]["status"] == "warning"
 
 
 def test_runs_cli_acceptance_returns_nonzero_for_partial_suite_export(tmp_path, capsys):
@@ -4132,6 +4133,7 @@ def test_runs_cli_publication_plain_output_prints_trust_signals(tmp_path, capsys
     assert rc == 0
     assert "status=ready" in out
     assert "publication_ready=true" in out
+    assert "dataset_readiness=warning" in out
     assert "dataset_readiness_status=warning" in out
     assert "dataset_issue_codes=fewshot_train_set" in out
     assert "trust_signal.has_benchmark_provenance=true" in out
