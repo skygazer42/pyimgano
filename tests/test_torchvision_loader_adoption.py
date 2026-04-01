@@ -17,6 +17,8 @@ _TARGETS = [
     "pyimgano/models/regad.py",
     "pyimgano/models/oneformore.py",
     "pyimgano/models/gcad.py",
+    "pyimgano/models/promptad.py",
+    "pyimgano/models/fastflow.py",
 ]
 
 

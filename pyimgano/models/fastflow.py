@@ -12,7 +12,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchvision import models
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -177,17 +178,7 @@ class ResNetFeatureExtractor(nn.Module):
         super().__init__()
         if backbone != "resnet18":
             raise ValueError("Currently only resnet18 backbone is supported.")
-        weights = None
-        if pretrained:
-            try:  # torchvision>=0.13
-                weights = models.ResNet18_Weights.DEFAULT
-            except AttributeError:  # fallback older versions
-                weights = (
-                    models.ResNet18_Weights.IMAGENET1K_V1
-                    if hasattr(models, "ResNet18_Weights")
-                    else "DEFAULT"
-                )
-        net = models.resnet18(weights=weights)
+        net, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
         self.stem = nn.Sequential(net.conv1, net.bn1, net.relu, net.maxpool)
         self.layer1 = net.layer1
         self.layer2 = net.layer2
