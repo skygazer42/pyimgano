@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+
+_TARGETS = [
+    "pyimgano/models/spade.py",
+    "pyimgano/models/padim.py",
+    "pyimgano/models/dfm.py",
+    "pyimgano/models/cflow.py",
+    "pyimgano/models/stfpm.py",
+    "pyimgano/models/simplenet.py",
+]
+
+
+def test_selected_models_use_shared_torchvision_loader() -> None:
+    for rel_path in _TARGETS:
+        text = Path(rel_path).read_text(encoding="utf-8")
+        assert "load_torchvision_model" in text, rel_path
+        assert re.search(r"models\.[A-Za-z0-9_]+\(pretrained=", text) is None, rel_path

@@ -23,6 +23,7 @@ from numpy.typing import NDArray
 from sklearn.random_projection import GaussianRandomProjection
 
 from pyimgano.utils.optional_deps import require
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -39,24 +40,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Module:
-    models = require(
-        "torchvision.models",
-        extra="torch",
-        purpose="VisionPaDiM torchvision backbone",
-    )
-    if name == "resnet18":
-        try:
-            weights = models.ResNet18_Weights.DEFAULT if pretrained else None
-            return models.resnet18(weights=weights)
-        except Exception:  # pragma: no cover - fallback for older torchvision
-            return models.resnet18(pretrained=pretrained)
-    if name == "resnet50":
-        try:
-            weights = models.ResNet50_Weights.DEFAULT if pretrained else None
-            return models.resnet50(weights=weights)
-        except Exception:  # pragma: no cover - fallback for older torchvision
-            return models.resnet50(pretrained=pretrained)
-    raise ValueError(f"Unsupported backbone: {name!r}. Choose from: resnet18, resnet50")
+    if name not in {"resnet18", "resnet50"}:
+        raise ValueError(f"Unsupported backbone: {name!r}. Choose from: resnet18, resnet50")
+    model, _ = load_torchvision_model(name, pretrained=bool(pretrained))
+    return model
 
 
 @register_model(

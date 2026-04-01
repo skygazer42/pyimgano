@@ -21,7 +21,9 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.optim import SGD
 from torch.utils.data import DataLoader, Dataset
-from torchvision import models, transforms
+from torchvision import transforms
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
@@ -194,20 +196,16 @@ class VisionSTFPM(BaseVisionDeepDetector):
         """Build teacher and student networks."""
         if self.backbone_name == "resnet18":
             # Teacher network (frozen)
-            try:
-                weights = models.ResNet18_Weights.DEFAULT if self.pretrained_teacher else None
-                self.teacher = models.resnet18(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                self.teacher = models.resnet18(pretrained=self.pretrained_teacher)
+            self.teacher, _ = load_torchvision_model(
+                "resnet18",
+                pretrained=bool(self.pretrained_teacher),
+            )
             self.teacher.eval()
             for param in self.teacher.parameters():
                 param.requires_grad = False
 
             # Student network (trainable)
-            try:
-                self.student = models.resnet18(weights=None)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                self.student = models.resnet18(pretrained=False)
+            self.student, _ = load_torchvision_model("resnet18", pretrained=False)
             self.student.train()
         else:
             raise ValueError(

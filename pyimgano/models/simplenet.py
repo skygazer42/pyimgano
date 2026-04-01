@@ -21,7 +21,9 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
-from torchvision import models, transforms
+from torchvision import transforms
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -182,20 +184,16 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         """Build feature extractor and adapter network."""
         # Pre-trained feature extractor (frozen)
         if self.backbone_name == "wide_resnet50":
-            # TorchVision changed API from `pretrained=True` to `weights=...`.
-            # Keep backward compatibility with older torchvision versions.
-            try:
-                weights = models.Wide_ResNet50_2_Weights.DEFAULT if self.pretrained else None
-                backbone = models.wide_resnet50_2(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                backbone = models.wide_resnet50_2(pretrained=self.pretrained)
+            backbone, _ = load_torchvision_model(
+                "wide_resnet50",
+                pretrained=bool(self.pretrained),
+            )
             self.feature_dim_in = 1536  # layer2 (512) + layer3 (1024)
         elif self.backbone_name == "resnet50":
-            try:
-                weights = models.ResNet50_Weights.DEFAULT if self.pretrained else None
-                backbone = models.resnet50(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                backbone = models.resnet50(pretrained=self.pretrained)
+            backbone, _ = load_torchvision_model(
+                "resnet50",
+                pretrained=bool(self.pretrained),
+            )
             self.feature_dim_in = 1536
         else:
             raise ValueError(

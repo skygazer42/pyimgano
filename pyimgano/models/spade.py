@@ -25,7 +25,8 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from scipy.spatial import cKDTree
-from torchvision import models
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -35,24 +36,9 @@ logger = logging.getLogger(__name__)
 
 
 def _build_resnet_backbone(name: str, *, pretrained: bool) -> nn.Module:
-    if name == "wide_resnet50":
-        try:
-            weights = models.Wide_ResNet50_2_Weights.DEFAULT if pretrained else None
-            return models.wide_resnet50_2(weights=weights)
-        except Exception:  # pragma: no cover - fallback for older torchvision
-            return models.wide_resnet50_2(pretrained=pretrained)
-    if name == "resnet50":
-        try:
-            weights = models.ResNet50_Weights.DEFAULT if pretrained else None
-            return models.resnet50(weights=weights)
-        except Exception:  # pragma: no cover - fallback for older torchvision
-            return models.resnet50(pretrained=pretrained)
-    if name == "resnet18":
-        try:
-            weights = models.ResNet18_Weights.DEFAULT if pretrained else None
-            return models.resnet18(weights=weights)
-        except Exception:  # pragma: no cover - fallback for older torchvision
-            return models.resnet18(pretrained=pretrained)
+    if name in {"wide_resnet50", "resnet50", "resnet18"}:
+        model, _ = load_torchvision_model(name, pretrained=bool(pretrained))
+        return model
     raise ValueError(f"Unknown backbone: {name!r}")
 
 

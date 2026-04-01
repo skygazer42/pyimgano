@@ -22,7 +22,9 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
-from torchvision import models, transforms
+from torchvision import transforms
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -184,11 +186,10 @@ class VisionCFlow(BaseVisionDeepDetector):
         """Build feature extractor and flow model."""
         # Feature extractor (frozen)
         if self.backbone_name == "resnet18":
-            try:
-                weights = models.ResNet18_Weights.DEFAULT if self.pretrained_backbone else None
-                backbone = models.resnet18(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                backbone = models.resnet18(pretrained=self.pretrained_backbone)
+            backbone, _ = load_torchvision_model(
+                "resnet18",
+                pretrained=bool(self.pretrained_backbone),
+            )
             self.feature_extractor = nn.Sequential(*list(backbone.children())[:-2])
             self.feature_dim = 512
         else:

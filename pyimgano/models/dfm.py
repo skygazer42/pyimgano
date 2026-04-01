@@ -15,7 +15,9 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 from sklearn.covariance import LedoitWolf
-from torchvision import models, transforms
+from torchvision import transforms
+
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
@@ -107,17 +109,9 @@ class VisionDFM(BaseVisionDeepDetector):
     def _build_model(self):
         """Build feature extractor."""
         if self.backbone_name == "resnet18":
-            try:
-                weights = models.ResNet18_Weights.DEFAULT if self.pretrained else None
-                self.model = models.resnet18(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                self.model = models.resnet18(pretrained=self.pretrained)
+            self.model, _ = load_torchvision_model("resnet18", pretrained=bool(self.pretrained))
         elif self.backbone_name == "resnet50":
-            try:
-                weights = models.ResNet50_Weights.DEFAULT if self.pretrained else None
-                self.model = models.resnet50(weights=weights)
-            except Exception:  # pragma: no cover - fallback for older torchvision
-                self.model = models.resnet50(pretrained=self.pretrained)
+            self.model, _ = load_torchvision_model("resnet50", pretrained=bool(self.pretrained))
         else:
             raise ValueError(f"Unsupported backbone: {self.backbone_name}")
 
