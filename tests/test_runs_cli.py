@@ -4023,6 +4023,83 @@ def test_runs_cli_acceptance_routes_suite_export_to_publication_gate(tmp_path, c
     assert acceptance["publication"]["dataset_readiness"]["status"] == "warning"
 
 
+def test_runs_cli_acceptance_plain_output_prints_publication_dataset_readiness(
+    tmp_path, capsys
+):
+    from pyimgano.runs_cli import main
+
+    export_dir = tmp_path / "suite_export"
+    export_dir.mkdir()
+    (export_dir / "report.json").write_text(
+        json.dumps({"suite": "industrial-v4"}),
+        encoding="utf-8",
+    )
+    (export_dir / "config.json").write_text(
+        json.dumps({"config": {"seed": 123}}),
+        encoding="utf-8",
+    )
+    (export_dir / "environment.json").write_text(
+        json.dumps({"fingerprint_sha256": "f" * 64}),
+        encoding="utf-8",
+    )
+    (export_dir / "leaderboard.csv").write_text("name,auroc\nx,0.9\n", encoding="utf-8")
+    (export_dir / "leaderboard_metadata.json").write_text(
+        json.dumps(
+            {
+                "benchmark_config": {
+                    "source": "benchmarks/configs/official_mvtec_industrial_v4_cpu_offline.json",
+                    "official": True,
+                    "sha256": "a" * 64,
+                },
+                "dataset_readiness": {
+                    "status": "warning",
+                    "issue_codes": ["FEWSHOT_TRAIN_SET"],
+                    "issue_details": [],
+                },
+                "artifact_quality": {
+                    "required_files_present": True,
+                    "missing_required": [],
+                    "has_official_benchmark_config": True,
+                    "has_environment_fingerprint": True,
+                    "has_split_fingerprint": True,
+                },
+                "environment_fingerprint_sha256": "f" * 64,
+                "split_fingerprint": {"sha256": "b" * 64},
+                "evaluation_contract": {"primary_metric": "auroc"},
+                "citation": {"project": "pyimgano"},
+                "publication_ready": True,
+                "audit_refs": {
+                    "report_json": "report.json",
+                    "config_json": "config.json",
+                    "environment_json": "environment.json",
+                },
+                "audit_digests": {
+                    "report_json": _sha256_file(export_dir / "report.json"),
+                    "config_json": _sha256_file(export_dir / "config.json"),
+                    "environment_json": _sha256_file(export_dir / "environment.json"),
+                },
+                "exported_files": {
+                    "leaderboard_csv": str(export_dir / "leaderboard.csv"),
+                    "leaderboard_metadata_json": str(export_dir / "leaderboard_metadata.json"),
+                },
+                "exported_file_digests": {
+                    "leaderboard_csv": _sha256_file(export_dir / "leaderboard.csv"),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = main(["acceptance", str(export_dir)])
+    out = capsys.readouterr().out.lower()
+
+    assert rc == 0
+    assert "kind=publication" in out
+    assert "publication_ready=true" in out
+    assert "dataset_readiness_status=warning" in out
+    assert "dataset_issue_codes=fewshot_train_set" in out
+
+
 def test_runs_cli_acceptance_returns_nonzero_for_partial_suite_export(tmp_path, capsys):
     from pyimgano.runs_cli import main
 

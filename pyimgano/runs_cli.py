@@ -1086,6 +1086,12 @@ def main(argv: list[str] | None = None) -> int:
                 trust_signals = dict(publication.get("trust_signals", {}))
                 for key, value in trust_signals.items():
                     print(f"trust_signal.{key}={value}")
+                dataset_readiness = dict(publication.get("dataset_readiness", {}))
+                if dataset_readiness:
+                    print(f"dataset_readiness_status={dataset_readiness.get('status')}")
+                    issue_codes = list(dataset_readiness.get("issue_codes", []))
+                    if issue_codes:
+                        print("dataset_issue_codes=" + ",".join(str(item) for item in issue_codes))
                 audit_refs = dict(publication.get("audit_refs", {}))
                 for key, value in audit_refs.items():
                     print(f"audit_ref.{key}={value}")
