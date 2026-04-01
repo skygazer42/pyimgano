@@ -1218,6 +1218,7 @@ def test_pyim_modules_only_import_allowed_internal_modules() -> None:
             "pyimgano.pyim_contracts",
             "pyimgano.services.pyim_payload_collectors",
             "pyimgano.utils.extras",
+            "pyimgano.workflow_guidance",
         },
         "services/pyim_payload_collectors.py": {
             "pyimgano.datasets.converters",
@@ -1292,6 +1293,7 @@ def test_pyim_boundary_modules_define_expected_public_exports() -> None:
         "services/pyim_service.py": [
             "PyimListPayload",
             "PyimListRequest",
+            "collect_pyim_goal_payload",
             "collect_pyim_model_selection_payload",
             "collect_pyim_listing_payload",
         ],
