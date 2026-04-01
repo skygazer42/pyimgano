@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
+from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -215,17 +216,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
     def _preprocess(self, x: NDArray) -> torch.Tensor:
         """Preprocess images."""
-        # Convert to CHW format if needed
-        if x.shape[-1] == 3:
-            x = np.transpose(x, (0, 3, 1, 2))
-
-        # Normalize
-        x = x.astype(np.float32) / 255.0
-        mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
-        std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-        x = (x - mean) / std
-
-        return torch.from_numpy(x).float()
+        return preprocess_imagenet_batch(x)
 
     def _registration_loss(self, registered: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
