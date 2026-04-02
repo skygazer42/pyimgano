@@ -170,15 +170,30 @@ def test_format_extra_recommendation_lines_renders_suggested_commands() -> None:
             "target": "train",
             "required_extras": ["torch"],
             "recommended_extras": [],
+            "recipe_list_command": "pyimgano train --list-recipes",
+            "recipe_info_command": "pyimgano train --recipe-info industrial-adapt --json",
+            "recipe_run_command": (
+                "pyimgano train --config examples/configs/industrial_adapt_audited.json "
+                "--export-infer-config --export-deploy-bundle"
+            ),
             "suggested_commands": [
+                "pyimgano train --list-recipes",
+                "pyimgano train --recipe-info industrial-adapt --json",
                 "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
                 "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
             ],
         }
     )
 
+    assert "- recipe_list_command: pyimgano train --list-recipes" in lines
+    assert "- recipe_info_command: pyimgano train --recipe-info industrial-adapt --json" in lines
     assert (
-        "- suggested_commands: pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle; pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json"
+        "- recipe_run_command: pyimgano train --config examples/configs/industrial_adapt_audited.json "
+        "--export-infer-config --export-deploy-bundle"
+        in lines
+    )
+    assert (
+        "- suggested_commands: pyimgano train --list-recipes; pyimgano train --recipe-info industrial-adapt --json; pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle; pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json"
         in lines
     )
 

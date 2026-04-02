@@ -14,11 +14,20 @@ that is easy to inspect, compare, and hand off:
 - `artifacts/infer_config.json`
 - `artifacts/calibration_card.json`
 - `deploy_bundle/bundle_manifest.json`
+- `deploy_bundle/handoff_report.json`
 
 The recommended starting point is:
 
 ```text
 examples/configs/industrial_adapt_audited.json
+```
+
+If you want to inspect the available train recipes before running the audited path,
+use the umbrella CLI first:
+
+```bash
+pyimgano train --list-recipes
+pyimgano train --recipe-info industrial-adapt --json
 ```
 
 That example is tuned for the audited export path:
@@ -77,6 +86,12 @@ pyimgano-runs quality /path/to/run_dir --json
 - Lists every bundled file
 - Captures relative paths, sizes, and SHA256 digests
 - Intended for machine verification during release handoff
+
+`deploy_bundle/handoff_report.json`
+
+- Compact operator-facing summary of the bundle handoff
+- Mirrors the expected key refs for deploy validation
+- Helps downstream automation distinguish missing vs invalid handoff metadata
 
 ## Verification Loop
 

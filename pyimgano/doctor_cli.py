@@ -36,7 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--profile",
         default=None,
-        choices=["first-run", "benchmark", "deploy", "publish"],
+        choices=["first-run", "deploy-smoke", "benchmark", "deploy", "publish"],
         help="Optional guided workflow profile to validate and summarize.",
     )
     parser.add_argument(

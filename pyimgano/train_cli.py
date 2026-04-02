@@ -12,6 +12,92 @@ from pyimgano.train_cli_presentation import (
     emit_preflight_summary,
 )
 from pyimgano.train_progress import use_train_progress_reporter
+from pyimgano.utils.extras import extras_install_hint
+
+_RECIPE_INFO_METADATA_ORDER: tuple[tuple[str, str], ...] = (
+    ("default_config", "Default config"),
+    ("starter_configs", "Starter configs"),
+    ("starter_status", "Starter status"),
+    ("starter_reason", "Starter reason"),
+    ("runtime_profile", "Runtime profile"),
+    ("expected_artifacts", "Expected artifacts"),
+)
+
+
+def _recipe_sort_key(name: str) -> tuple[int, str]:
+    priority = {
+        "industrial-adapt": 0,
+        "industrial-adapt-fp40": 1,
+    }
+    return (priority.get(str(name), 10), str(name))
+
+
+def _ordered_recipe_names(names: list[str]) -> list[str]:
+    return sorted((str(name) for name in names), key=_recipe_sort_key)
+
+
+def _render_recipe_listing_line(name: str, metadata: dict[str, object]) -> str:
+    line = str(name)
+    default_config = str(metadata.get("default_config", "")).strip()
+    if default_config:
+        return f"{line} ({default_config})"
+    starter_status = str(metadata.get("starter_status", "")).strip()
+    if starter_status:
+        return f"{line} [{starter_status}]"
+    return line
+
+
+def _emit_recipe_info_field(label: str, value: object, *, indent: str = "") -> None:
+    if isinstance(value, (list, tuple)):
+        print(f"{indent}{label}:")
+        for item in value:
+            print(f"{indent}  - {item}")
+        return
+    print(f"{indent}{label}: {value}")
+
+
+def _build_recipe_info_payload(info: dict[str, object]) -> dict[str, object]:
+    payload = dict(info)
+    meta = dict(payload.get("metadata", {}))
+    payload["metadata"] = meta
+
+    default_config = str(meta.get("default_config", "")).strip()
+    if default_config:
+        payload["run_command"] = f"pyimgano train --config {default_config}"
+
+    requires_extra = str(meta.get("requires_extra", "")).strip()
+    if requires_extra:
+        payload["install_hint"] = extras_install_hint([requires_extra])
+
+    return payload
+
+
+def _emit_recipe_info_text(info: dict[str, object]) -> None:
+    payload = _build_recipe_info_payload(info)
+
+    print(f"Recipe: {payload.get('name')}")
+    tags = payload.get("tags", [])
+    if tags:
+        print(f"Tags: {', '.join(str(t) for t in tags)}")
+
+    meta = dict(payload.get("metadata", {}))
+    for key, label in _RECIPE_INFO_METADATA_ORDER:
+        if key not in meta:
+            continue
+        _emit_recipe_info_field(label, meta.pop(key))
+
+    run_command = str(payload.get("run_command", "")).strip()
+    if run_command:
+        print(f"Run command: {run_command}")
+
+    install_hint = str(payload.get("install_hint", "")).strip()
+    if install_hint:
+        print(f"Install hint: {install_hint}")
+
+    if meta:
+        print("Metadata:")
+        for key in sorted(meta):
+            _emit_recipe_info_field(str(key), meta[key], indent="  ")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -100,22 +186,20 @@ def main(argv: list[str] | None = None) -> int:
         import pyimgano.recipes  # noqa: F401
 
         if bool(args.list_recipes):
-            names = list_recipes()
+            names = _ordered_recipe_names(list_recipes())
+            if not bool(args.json):
+                for name in names:
+                    info = recipe_info(name)
+                    meta = dict(info.get("metadata", {}))
+                    print(_render_recipe_listing_line(str(name), meta))
+                return 0
             return cli_listing.emit_listing(names, json_output=bool(args.json))
 
         if args.recipe_info is not None:
             info = recipe_info(str(args.recipe_info))
             if bool(args.json):
-                return cli_output.emit_json(info)
-            print(f"Recipe: {info.get('name')}")
-            tags = info.get("tags", [])
-            if tags:
-                print(f"Tags: {', '.join(str(t) for t in tags)}")
-            meta = info.get("metadata", {})
-            if meta:
-                print("Metadata:")
-                for k in sorted(meta):
-                    print(f"  {k}: {meta[k]}")
+                return cli_output.emit_json(_build_recipe_info_payload(info))
+            _emit_recipe_info_text(info)
             return 0
 
         request = _build_train_request(args)

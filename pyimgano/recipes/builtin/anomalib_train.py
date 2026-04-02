@@ -12,6 +12,11 @@ from pyimgano.workbench.config import WorkbenchConfig
     metadata={
         "description": "Skeleton recipe for anomalib training (requires `pyimgano[anomalib]`).",
         "requires_extra": "anomalib",
+        "starter_status": "manual-only",
+        "starter_reason": (
+            "Optional placeholder recipe. This milestone does not ship a checked-in starter config; "
+            "train with anomalib directly and use pyimgano for evaluation/inference."
+        ),
     },
 )
 def anomalib_train(config: WorkbenchConfig) -> dict[str, Any]:

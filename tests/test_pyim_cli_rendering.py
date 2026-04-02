@@ -671,6 +671,8 @@ def test_emit_pyim_list_payload_text_renders_goal_context_and_goal_picks(capsys)
                     {
                         "name": "industrial-adapt",
                         "summary": "Audited train/export loop.",
+                        "config_path": "examples/configs/deploy_smoke_custom_cpu.json",
+                        "runtime_profile": "cpu-offline",
                     }
                 ],
                 "datasets": [
@@ -694,6 +696,8 @@ def test_emit_pyim_list_payload_text_renders_goal_context_and_goal_picks(capsys)
     assert "model=vision_ecod" in out
     assert "why=Native CPU route with minimal setup." in out
     assert "recipe=industrial-adapt" in out
+    assert "config=examples/configs/deploy_smoke_custom_cpu.json" in out
+    assert "profile=cpu-offline" in out
     assert "dataset=custom" in out
     assert "Suggested Commands" in out
     assert "install=None" not in out

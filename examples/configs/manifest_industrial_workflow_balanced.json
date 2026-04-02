@@ -1,6 +1,16 @@
 {
   "recipe": "industrial-adapt",
   "seed": 123,
+  "meta": {
+    "purpose": "manifest-deploy",
+    "runtime_profile": "manifest-balanced",
+    "required_extras": ["deploy"],
+    "expected_artifacts": [
+      "artifacts/infer_config.json",
+      "deploy_bundle/bundle_manifest.json",
+      "deploy_bundle/handoff_report.json"
+    ]
+  },
   "dataset": {
     "name": "manifest",
     "root": "/path/to/fallback_root",

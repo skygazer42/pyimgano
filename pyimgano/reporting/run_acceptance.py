@@ -20,6 +20,7 @@ _REASON_CODE_MAP = {
     "missing_infer_config": "BUNDLE_MISSING_INFER_CONFIG",
     "invalid_infer_config": "BUNDLE_INVALID_INFER_CONFIG",
     "bundle_weights_not_ready": "BUNDLE_WEIGHTS_NOT_READY",
+    "invalid_handoff_report": "BUNDLE_INVALID_HANDOFF_REPORT",
 }
 
 
@@ -155,6 +156,35 @@ def _reason_codes(blocking_reasons: list[str]) -> list[str]:
     return out
 
 
+def _acceptance_next_action(
+    root: Path,
+    *,
+    required_quality: str,
+    ready: bool,
+    blocking_reasons: list[str],
+    infer_config: dict[str, Any],
+) -> str:
+    if ready:
+        bundle_dir = root / "deploy_bundle"
+        if bundle_dir.is_dir() and (bundle_dir / "infer_config.json").is_file():
+            return (
+                f"pyimgano bundle run {bundle_dir} --image-dir /path/to/images "
+                "--output-dir ./bundle_run --json"
+            )
+        return (
+            f"pyimgano-infer --from-run {root} --input /path/to/images "
+            "--save-jsonl /tmp/pyimgano_results.jsonl"
+        )
+
+    if "bundle_weights_not_ready" in blocking_reasons:
+        return f"pyimgano weights audit-bundle {root / 'deploy_bundle'} --check-hashes --json"
+    if "invalid_infer_config" in blocking_reasons and isinstance(infer_config.get("path"), str):
+        return f"pyimgano validate-infer-config {infer_config['path']}"
+    if "invalid_handoff_report" in blocking_reasons:
+        return f"pyimgano bundle validate {root / 'deploy_bundle'} --json"
+    return f"pyimgano runs quality {root} --require-status {required_quality} --json"
+
+
 def evaluate_run_acceptance(
     run_dir: str | Path,
     *,
@@ -181,6 +211,8 @@ def evaluate_run_acceptance(
         blocking_reasons.append("invalid_infer_config")
     if bool(bundle_weights.get("applicable")) and bundle_weights.get("ready") is not True:
         blocking_reasons.append("bundle_weights_not_ready")
+    if str(quality.get("handoff_report_status")) == "invalid":
+        blocking_reasons.append("invalid_handoff_report")
 
     ready = len(blocking_reasons) == 0
     acceptance_state = _acceptance_state(
@@ -205,6 +237,14 @@ def evaluate_run_acceptance(
         "quality": quality,
         "infer_config": infer_config,
         "bundle_weights": bundle_weights,
+        "handoff_report_status": str(quality.get("handoff_report_status", "not_applicable")),
+        "next_action": _acceptance_next_action(
+            root,
+            required_quality=str(required_quality),
+            ready=bool(ready),
+            blocking_reasons=blocking_reasons,
+            infer_config=infer_config,
+        ),
         "blocking_reasons": list(dict.fromkeys(str(item) for item in blocking_reasons)),
     }
 

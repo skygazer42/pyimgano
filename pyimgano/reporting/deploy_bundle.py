@@ -47,10 +47,14 @@ _REPORT_JSON = "report.json"
 _CONFIG_JSON = "config.json"
 _ENVIRONMENT_JSON = "environment.json"
 _INFER_CONFIG_JSON = "infer_config.json"
+_BUNDLE_MANIFEST_JSON = "bundle_manifest.json"
 _CALIBRATION_CARD_JSON = "calibration_card.json"
 _OPERATOR_CONTRACT_JSON = "operator_contract.json"
+_HANDOFF_REPORT_JSON = "handoff_report.json"
 _MODEL_CARD_JSON = "model_card.json"
 _WEIGHTS_MANIFEST_JSON = "weights_manifest.json"
+_HANDOFF_REPORT_SCHEMA_VERSION = 1
+_HANDOFF_REPORT_STATUS = "draft"
 _REQUIRED_SOURCE_RUN_ARTIFACTS = ("report", "config", "environment", "infer_config")
 _REQUIRED_BUNDLE_ARTIFACTS = ("report", "config", "environment", "infer_config")
 
@@ -70,6 +74,7 @@ _BUNDLE_ARTIFACT_PATHS = {
     "infer_config": _INFER_CONFIG_JSON,
     "calibration_card": _CALIBRATION_CARD_JSON,
     "operator_contract": _OPERATOR_CONTRACT_JSON,
+    "handoff_report": _HANDOFF_REPORT_JSON,
     "model_card": _MODEL_CARD_JSON,
     "weights_manifest": _WEIGHTS_MANIFEST_JSON,
 }
@@ -223,6 +228,17 @@ def _build_output_contract(bundle_root: Path) -> dict[str, Any]:
     }
 
 
+def _bundle_checkpoint_refs(bundle_root: Path) -> list[str]:
+    refs: list[str] = []
+    for path in sorted(bundle_root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel_path = path.relative_to(bundle_root).as_posix()
+        if _classify_entry(rel_path) == "checkpoint":
+            refs.append(rel_path)
+    return refs
+
+
 def _build_evaluation_summary(bundle_root: Path) -> dict[str, Any]:
     threshold_summary = _build_threshold_summary(bundle_root)
     output_contract = _build_output_contract(bundle_root)
@@ -235,6 +251,108 @@ def _build_evaluation_summary(bundle_root: Path) -> dict[str, Any]:
         ),
         "supports_pixel_outputs": bool(output_contract.get("supports_pixel_outputs")),
     }
+
+
+def build_deploy_bundle_handoff_report(
+    *, bundle_dir: str | Path, source_run_dir: str | Path
+) -> dict[str, Any]:
+    bundle_root = Path(bundle_dir)
+    source_root = Path(source_run_dir)
+    infer_payload = _load_json_mapping_if_present(bundle_root / _INFER_CONFIG_JSON) or {}
+    model_payload = (
+        dict(infer_payload.get("model", {}))
+        if isinstance(infer_payload, Mapping) and isinstance(infer_payload.get("model"), Mapping)
+        else {}
+    )
+    files = _collect_existing_artifact_refs(bundle_root, paths=_BUNDLE_ARTIFACT_PATHS)
+    files["bundle_manifest"] = _BUNDLE_MANIFEST_JSON
+    files["handoff_report"] = _HANDOFF_REPORT_JSON
+    return {
+        "schema_version": int(_HANDOFF_REPORT_SCHEMA_VERSION),
+        "status": _HANDOFF_REPORT_STATUS,
+        "bundle_type": _DEPLOY_BUNDLE_TYPE,
+        "source_run": {
+            "run_dir": str(source_root),
+        },
+        "files": files,
+        "model": {
+            "name": _nonempty_str(model_payload.get("name", None)),
+            "checkpoint_refs": _bundle_checkpoint_refs(bundle_root),
+        },
+        "threshold_summary": _build_threshold_summary(bundle_root),
+        "output_contract": _build_output_contract(bundle_root),
+    }
+
+
+def validate_deploy_bundle_handoff_report(
+    report: Mapping[str, Any], *, bundle_dir: str | Path
+) -> list[str]:
+    bundle_root = Path(bundle_dir)
+    errors: list[str] = []
+
+    if int(report.get("schema_version", 0) or 0) != int(_HANDOFF_REPORT_SCHEMA_VERSION):
+        errors.append("Unsupported deploy bundle handoff_report schema_version.")
+    if report.get("status", None) != _HANDOFF_REPORT_STATUS:
+        errors.append(f"handoff_report.status must be {_HANDOFF_REPORT_STATUS!r}.")
+    if report.get("bundle_type", None) != _DEPLOY_BUNDLE_TYPE:
+        errors.append(f"handoff_report.bundle_type must be {_DEPLOY_BUNDLE_TYPE!r}.")
+
+    source_run = report.get("source_run", None)
+    if not isinstance(source_run, Mapping):
+        errors.append("handoff_report.source_run must be a JSON object/dict.")
+    elif _nonempty_str(source_run.get("run_dir", None)) is None:
+        errors.append("handoff_report.source_run.run_dir must be a non-empty string.")
+
+    files = report.get("files", None)
+    if not isinstance(files, Mapping):
+        errors.append("handoff_report.files must be a JSON object/dict.")
+    else:
+        expected = {
+            "infer_config": _INFER_CONFIG_JSON,
+            "bundle_manifest": _BUNDLE_MANIFEST_JSON,
+            "handoff_report": _HANDOFF_REPORT_JSON,
+        }
+        for key, rel_path in expected.items():
+            if files.get(key) != rel_path:
+                errors.append(f"handoff_report.files.{key} must be {rel_path!r}.")
+        errors.extend(
+            _validate_artifact_refs(
+                files,
+                field_name="handoff_report.files",
+                root=bundle_root,
+            )
+        )
+
+    model = report.get("model", None)
+    if not isinstance(model, Mapping):
+        errors.append("handoff_report.model must be a JSON object/dict.")
+    else:
+        checkpoint_refs = model.get("checkpoint_refs", None)
+        if not isinstance(checkpoint_refs, list):
+            errors.append("handoff_report.model.checkpoint_refs must be a list.")
+        infer_payload = _load_json_mapping_if_present(bundle_root / _INFER_CONFIG_JSON)
+        expected_model_name = None
+        if isinstance(infer_payload, Mapping) and isinstance(infer_payload.get("model"), Mapping):
+            expected_model_name = _nonempty_str(infer_payload["model"].get("name", None))
+        actual_model_name = _nonempty_str(model.get("name", None))
+        if expected_model_name is not None and actual_model_name != expected_model_name:
+            errors.append("handoff_report.model.name does not match infer_config.json.")
+
+    errors.extend(
+        _validate_exact_mapping(
+            report.get("threshold_summary", None),
+            field_name="handoff_report.threshold_summary",
+            expected=_build_threshold_summary(bundle_root),
+        )
+    )
+    errors.extend(
+        _validate_exact_mapping(
+            report.get("output_contract", None),
+            field_name="handoff_report.output_contract",
+            expected=_build_output_contract(bundle_root),
+        )
+    )
+    return errors
 
 
 def _build_operator_contract_digests(
@@ -298,6 +416,8 @@ def _classify_entry(rel_path: str) -> str:
         return "calibration_card"
     if rel_path == _OPERATOR_CONTRACT_JSON:
         return "operator_contract"
+    if rel_path == _HANDOFF_REPORT_JSON:
+        return "handoff_report"
     if rel_path == _MODEL_CARD_JSON:
         return "model_card"
     if rel_path == _WEIGHTS_MANIFEST_JSON:
@@ -784,6 +904,8 @@ def validate_deploy_bundle_manifest(
 
 __all__ = [
     "DEPLOY_BUNDLE_SCHEMA_VERSION",
+    "build_deploy_bundle_handoff_report",
     "build_deploy_bundle_manifest",
+    "validate_deploy_bundle_handoff_report",
     "validate_deploy_bundle_manifest",
 ]

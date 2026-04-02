@@ -107,6 +107,8 @@ def _help_text() -> str:
           pyimgano -- list models --json
           pyimgano --list models --family patchcore
           pyimgano train --help
+          pyimgano train --list-recipes
+          pyimgano train --recipe-info industrial-adapt --json
           pyimgano runs quality /path/to/run --json
 
         notes:

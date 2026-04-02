@@ -198,32 +198,39 @@ References:
 If you want the shortest production-oriented export flow, start from:
 
 ```text
-examples/configs/industrial_adapt_audited.json
+examples/configs/deploy_smoke_custom_cpu.json
 ```
 
 Then run:
 
 ```bash
 pyimgano-train \
-  --config examples/configs/industrial_adapt_audited.json \
+  --config examples/configs/deploy_smoke_custom_cpu.json \
+  --root ./_demo_custom_dataset \
   --export-infer-config \
   --export-deploy-bundle
 ```
 
-That path is intended to leave behind the audited artifact set:
+That CPU/offline-safe path is intended to leave behind the audited artifact set:
 
 - `artifacts/infer_config.json`
-- `artifacts/calibration_card.json`
 - `deploy_bundle/bundle_manifest.json`
+- `deploy_bundle/handoff_report.json`
 
 See `docs/INDUSTRIAL_FASTPATH.md` for the compact checklist and verification loop.
+
+If you want the heavier benchmark-style audited route instead, start from:
+
+```text
+examples/configs/industrial_adapt_audited.json
+```
 
 If you prefer to stay on the umbrella CLI instead of memorizing the dedicated
 entry points, the same operator loop is:
 
 ```bash
 pyimgano --help
-pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
+pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json --root ./_demo_custom_dataset --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano runs quality runs/<run_dir> --require-status audited --json
 pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
@@ -288,6 +295,23 @@ pyimgano-manifest \
   "model": {"name": "vision_patchcore", "device": "cuda", "contamination": 0.1}
 }
 ```
+
+3) Export an audited deploy bundle from the checked-in manifest-oriented example:
+
+```bash
+pyimgano-train \
+  --config examples/configs/manifest_industrial_workflow_balanced.json \
+  --export-infer-config \
+  --export-deploy-bundle
+pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
+pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+```
+
+That route is expected to leave behind:
+
+- `artifacts/infer_config.json`
+- `deploy_bundle/bundle_manifest.json`
+- `deploy_bundle/handoff_report.json`
 
 References:
 

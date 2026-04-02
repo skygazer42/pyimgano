@@ -22,8 +22,12 @@ def test_start_here_and_benchmark_getting_started_docs_exist() -> None:
     start_here = _read_text("docs/START_HERE.md")
     starter_paths = _read_text("docs/STARTER_PATHS.md")
     benchmark = _read_text("docs/BENCHMARK_GETTING_STARTED.md")
+    quickstart = _read_text("docs/QUICKSTART.md")
+    manifest_dataset = _read_text("docs/MANIFEST_DATASET.md")
 
     assert "pyimgano-doctor" in start_here
+    assert "pyimgano-doctor --profile deploy-smoke --json" in start_here
+    assert "deploy_smoke_custom_cpu.json" in start_here
     assert "pyimgano-doctor --profile first-run --json" in start_here
     assert "pyimgano-demo --smoke" in start_here
     assert "pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json" in start_here
@@ -42,3 +46,9 @@ def test_start_here_and_benchmark_getting_started_docs_exist() -> None:
     assert "optional_extras" in benchmark
     assert "optional_baseline_count" in benchmark
     assert "pyimgano-doctor --recommend-extras --for-command benchmark --json" in benchmark
+    assert "deploy_smoke_custom_cpu.json" in quickstart
+    assert "manifest_industrial_workflow_balanced.json" in quickstart
+    assert "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json" in quickstart
+    assert "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json" in quickstart
+    assert "pyimgano-train --config examples/configs/manifest_industrial_workflow_balanced.json --export-infer-config --export-deploy-bundle" in manifest_dataset
+    assert "deploy_bundle/handoff_report.json" in manifest_dataset

@@ -696,6 +696,11 @@ def test_runs_cli_quality_json(tmp_path, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out["quality"]["status"] == "reproducible"
     assert out["quality"]["missing_required"] == []
+    assert out["quality"]["handoff_report_status"] == "not_applicable"
+    assert (
+        out["quality"]["next_action"]
+        == f"Export infer-config and deploy bundle artifacts, then rerun pyimgano runs quality {run_dir} --json"
+    )
 
 
 def test_runs_cli_quality_returns_nonzero_for_partial_run(tmp_path, capsys):
@@ -959,6 +964,8 @@ def test_runs_cli_quality_plain_output_prints_trust_signals(tmp_path, capsys):
     out = capsys.readouterr().out.lower()
     assert "trust_signal.has_threshold_context=true" in out
     assert "trust_signal.has_split_fingerprint=true" in out
+    assert "handoff_report=not_applicable" in out
+    assert "next_action=" in out
     assert "dataset_readiness_status=warning" in out
     assert "dataset_issue_codes=fewshot_train_set" in out
     assert "ref=calibration_card_json:artifacts/calibration_card.json" in out
@@ -1025,6 +1032,11 @@ def test_runs_cli_acceptance_json_ready_for_audited_run(tmp_path, capsys):
     assert acceptance["infer_config"]["selected_source"] == "artifacts"
     assert acceptance["bundle_weights"]["applicable"] is False
     assert acceptance["blocking_reasons"] == []
+    assert acceptance["handoff_report_status"] == "not_applicable"
+    assert (
+        acceptance["next_action"]
+        == f"pyimgano-infer --from-run {run_dir} --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+    )
     assert acceptance["quality"]["dataset_readiness"] is None
 
 
@@ -1092,6 +1104,8 @@ def test_runs_cli_acceptance_plain_output_prints_run_dataset_readiness(tmp_path,
 
     assert rc == 0
     assert "kind=run" in out
+    assert "handoff_report=not_applicable" in out
+    assert "next_action=" in out
     assert "dataset_readiness=warning" in out
     assert "dataset_readiness_status=warning" in out
     assert "dataset_issue_codes=fewshot_train_set" in out

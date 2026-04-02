@@ -34,9 +34,13 @@ If you want examples that match the new `pyim --goal ...` discovery routes, use 
 - `pyim --goal first-run --json`
   Baseline: `embedding_plus_core_ecod.py`
   Optional backend upgrade: `openclip_plus_core_knn.py`
+- `pyim --goal cpu-screening --json`
+  Baseline: `embedding_plus_core_ecod.py`
+  Checked-in starter configs: `classical_colorhist_mahalanobis_cpu.json`, `classical_edge_ecod_cpu.json`, `classical_fft_lowfreq_ecod_cpu.json`, `classical_hog_ecod_cpu.json`, `classical_lbp_loop_cpu.json`, `classical_patch_stats_ecod_cpu.json`, `classical_structural_ecod_cpu.json`
 - `pyim --goal pixel-localization --json`
   Baseline: `embedding_plus_core_ecod.py`
   Stronger optional backend: `openclip_plus_core_knn.py`
+  Checked-in starter configs: `industrial_adapt_defects_fp40.json`, `industrial_adapt_defects_roi.json`, `industrial_adapt_maps_tiling.json`
 - `pyim --goal deployable --json`
   Baseline: `industrial_infer_numpy.py`
   Optional backend route: `openclip_plus_core_knn.py`

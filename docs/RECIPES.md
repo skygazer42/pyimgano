@@ -25,9 +25,20 @@ See `docs/CLI_REFERENCE.md` for CLI flags.
 ```bash
 pyimgano-train --list-recipes
 pyimgano-train --recipe-info industrial-adapt
+pyimgano-train --recipe-info anomalib-train
+pyimgano train --list-recipes
+pyimgano train --recipe-info industrial-adapt --json
 ```
 
 Add `--json` to emit machine-readable outputs.
+For `industrial-adapt`, the recipe metadata also surfaces the checked-in starter configs:
+`deploy_smoke_custom_cpu.json`, `industrial_adapt_audited.json`, and
+`manifest_industrial_workflow_balanced.json`.
+For starterless recipes such as `anomalib-train`, the same command surfaces
+`starter_status` and `starter_reason` so you can see that the recipe is
+`manual-only` before looking for a checked-in starter config.
+The text form of `pyimgano-train --list-recipes` also marks starterless entries
+with status tags such as `[manual-only]` and `[generated-at-runtime]`.
 
 ---
 
@@ -78,6 +89,56 @@ This recipe forces `defects.enabled=true` and applies best-effort FP40 defaults 
 - region merging + stable `max_regions`
 
 It also sets `adaptation.save_maps=true` so that infer-config can auto-enable maps/postprocess.
+Its recipe metadata surfaces the checked-in starter configs
+`industrial_adapt_defects_fp40.json` and `industrial_adapt_defects_roi.json`.
+
+### `classical-structural-ecod`
+
+CPU-friendly workbench recipe that fixes the detector family to structural
+features plus ECOD. Its recipe metadata surfaces the checked-in starter config
+`classical_structural_ecod_cpu.json`.
+
+### `classical-edge-ecod`
+
+CPU-friendly workbench recipe that fixes the feature extractor to edge statistics
+plus ECOD. Its recipe metadata surfaces the checked-in starter config
+`classical_edge_ecod_cpu.json`.
+
+### `classical-colorhist-mahalanobis`
+
+CPU-friendly workbench recipe that fixes the feature extractor to HSV color
+histograms plus Mahalanobis distance. Its recipe metadata surfaces the checked-in
+starter config `classical_colorhist_mahalanobis_cpu.json`.
+
+### `classical-fft-lowfreq-ecod`
+
+CPU-friendly workbench recipe that fixes the feature extractor to FFT
+low-frequency energy ratios plus ECOD. Its recipe metadata surfaces the
+checked-in starter config `classical_fft_lowfreq_ecod_cpu.json`.
+
+### `classical-hog-ecod`
+
+CPU-friendly workbench recipe that fixes the feature extractor to HOG plus ECOD.
+Its recipe metadata surfaces the checked-in starter config
+`classical_hog_ecod_cpu.json`.
+
+### `classical-lbp-loop`
+
+CPU-friendly workbench recipe that fixes the feature extractor to LBP plus LoOP.
+Its recipe metadata surfaces the checked-in starter config
+`classical_lbp_loop_cpu.json`.
+
+### `classical-patch-stats-ecod`
+
+CPU-friendly workbench recipe that fixes the feature extractor to patch-grid
+statistics plus ECOD. Its recipe metadata surfaces the checked-in starter
+config `classical_patch_stats_ecod_cpu.json`.
+
+### `industrial-embedding-core-fast`
+
+Embedding-plus-core workbench recipe that standardizes a safe-by-default
+`vision_embedding_core` route. Its recipe metadata surfaces the checked-in
+starter config `industrial_embedding_core_fast.json`.
 
 ### `micro-finetune-autoencoder`
 
@@ -90,6 +151,8 @@ inside `industrial-adapt`.
 ### `anomalib-train` (optional; placeholder)
 
 Recipe skeleton intended for future end-to-end anomalib training integration.
+Its recipe metadata explicitly marks it as `manual-only`: there is no checked-in
+starter config in this milestone.
 
 For now:
 

@@ -75,7 +75,17 @@ def test_collect_doctor_payload_recommends_train_commands() -> None:
     assert recommendation["target"] == "train"
     assert recommendation["required_extras"] == ["torch"]
     assert recommendation["workflow_stage"] == workflow_stage_for_command("train")
+    assert recommendation["recommended_extra_profiles"] == ["deploy", "tracking"]
+    assert recommendation["install_command"] == "pip install 'pyimgano[deploy]'"
+    assert recommendation["recipe_list_command"] == "pyimgano train --list-recipes"
+    assert recommendation["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
+    assert (
+        recommendation["recipe_run_command"]
+        == "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle"
+    )
     assert recommendation["suggested_commands"] == [
+        "pyimgano train --list-recipes",
+        "pyimgano train --recipe-info industrial-adapt --json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
     ]
@@ -98,6 +108,8 @@ def test_collect_doctor_payload_recommends_infer_commands() -> None:
     assert isinstance(recommendation, dict)
     assert recommendation["target"] == "infer"
     assert recommendation["recommended_extras"] == ["onnx", "openvino", "torch"]
+    assert recommendation["recommended_extra_profiles"] == ["deploy"]
+    assert recommendation["install_command"] == "pip install 'pyimgano[deploy]'"
     assert recommendation["workflow_stage"] == workflow_stage_for_command("infer")
     assert recommendation["suggested_commands"] == [
         "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
@@ -153,6 +165,8 @@ def test_collect_doctor_payload_recommends_starter_suite_extras_for_benchmark_co
     assert recommendation["target"] == "benchmark"
     assert recommendation["required_extras"] == []
     assert recommendation["recommended_extras"] == ["clip", "skimage", "torch"]
+    assert recommendation["recommended_extra_profiles"] == ["benchmark", "cpu-offline"]
+    assert recommendation["install_command"] == "pip install 'pyimgano[benchmark]'"
     assert recommendation["workflow_stage"] == workflow_stage_for_command("benchmark")
     assert recommendation["optional_baseline_count"] == 11
     assert recommendation["starter_configs"] == [
@@ -228,6 +242,42 @@ def test_collect_doctor_payload_first_run_profile_exposes_guided_path() -> None:
     assert isinstance(readiness, dict)
     assert readiness["target_kind"] == "profile"
     assert readiness["path"] == "first-run"
+    assert readiness["status"] == "ok"
+
+
+def test_collect_doctor_payload_deploy_smoke_profile_exposes_guided_path() -> None:
+    payload = collect_doctor_payload(profile="deploy-smoke")
+
+    workflow_profile = payload.get("workflow_profile")
+    assert isinstance(workflow_profile, dict)
+    assert workflow_profile["profile"] == "deploy-smoke"
+    assert workflow_profile["status"] == "ok"
+    assert workflow_profile["offline_safe"] is True
+    assert workflow_profile["target_kind"] == "profile"
+    assert workflow_profile["required_modules"] == ["cv2", "numpy", "sklearn"]
+    assert workflow_profile["missing_modules"] == []
+    assert workflow_profile["required_extras"] == []
+    assert workflow_profile["missing_extras"] == []
+    assert workflow_profile["starter_commands"] == [
+        "pyimgano-doctor --profile deploy-smoke --json",
+        "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained",
+        "pyimgano-train --config examples/configs/deploy_smoke_custom_cpu.json --root ./_demo_custom_dataset --export-infer-config --export-deploy-bundle",
+        "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+        "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
+        "pyimgano runs quality runs/<run_dir> --json",
+    ]
+    assert workflow_profile["artifact_hints"] == [
+        "report.json",
+        "config.json",
+        "environment.json",
+        "artifacts/infer_config.json",
+        "deploy_bundle/infer_config.json",
+        "deploy_bundle/bundle_manifest.json",
+    ]
+    readiness = payload.get("readiness")
+    assert isinstance(readiness, dict)
+    assert readiness["target_kind"] == "profile"
+    assert readiness["path"] == "deploy-smoke"
     assert readiness["status"] == "ok"
 
 

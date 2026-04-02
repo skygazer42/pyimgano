@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import pyimgano.services.pyim_payload_collectors as pyim_payload_collectors
+from pyimgano.config import load_config
 from pyimgano.pyim_contracts import PyimListPayload, PyimListRequest
 from pyimgano.utils.extras import extra_installed
 from pyimgano.utils.extras import extras_install_hint
+from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workflow_guidance import starter_path_by_name
 
 
 _DEFAULT_OBJECTIVE = "balanced"
 _DEFAULT_SELECTION_PROFILE = "balanced"
 _DEFAULT_TOPK = 5
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
     "balanced": {
@@ -70,6 +75,34 @@ _GOAL_SPECS: dict[str, dict[str, Any]] = {
         "starter_path": "benchmark",
         "recipe_picks": [
             {
+                "name": "classical-colorhist-mahalanobis",
+                "summary": "CPU-only screening recipe using HSV color histograms plus Mahalanobis distance.",
+            },
+            {
+                "name": "classical-edge-ecod",
+                "summary": "CPU-only screening recipe using edge-statistics features plus ECOD.",
+            },
+            {
+                "name": "classical-fft-lowfreq-ecod",
+                "summary": "CPU-only screening recipe using FFT low-frequency energy ratios plus ECOD.",
+            },
+            {
+                "name": "classical-hog-ecod",
+                "summary": "CPU-only screening recipe using HOG features plus ECOD.",
+            },
+            {
+                "name": "classical-lbp-loop",
+                "summary": "CPU-only screening recipe using LBP features plus LoOP.",
+            },
+            {
+                "name": "classical-patch-stats-ecod",
+                "summary": "CPU-only screening recipe using patch-grid statistics plus ECOD.",
+            },
+            {
+                "name": "classical-structural-ecod",
+                "summary": "Lowest-friction workbench recipe for CPU-only screening with structural features.",
+            },
+            {
                 "name": "industrial-adapt",
                 "summary": "Starter workbench recipe once CPU screening narrows the candidate set.",
             }
@@ -95,11 +128,20 @@ _GOAL_SPECS: dict[str, dict[str, Any]] = {
         "recipe_picks": [
             {
                 "name": "industrial-adapt-fp40",
-                "summary": "Deploy-style inference defaults for pixel-map and defect export loops.",
+                "expand_starter_configs": True,
+                "starter_summaries": {
+                    "examples/configs/industrial_adapt_defects_fp40.json": (
+                        "Deploy-style inference defaults for pixel-map and defect export loops."
+                    ),
+                    "examples/configs/industrial_adapt_defects_roi.json": (
+                        "ROI-first defect export starter when you want a simpler false-positive reduction path."
+                    ),
+                },
             },
             {
                 "name": "industrial-adapt",
                 "summary": "General workbench recipe when you need adaptation-first training plus maps.",
+                "config_path": "examples/configs/industrial_adapt_maps_tiling.json",
             },
         ],
         "dataset_picks": [
@@ -119,11 +161,22 @@ _GOAL_SPECS: dict[str, dict[str, Any]] = {
         "objective": "balanced",
         "selection_profile": "deploy-readiness",
         "topk": 4,
-        "starter_path": "deploy",
+        "starter_path": "deploy-smoke",
         "recipe_picks": [
             {
                 "name": "industrial-adapt",
-                "summary": "Default audited train/export recipe for deployable runs.",
+                "expand_starter_configs": True,
+                "starter_summaries": {
+                    "examples/configs/deploy_smoke_custom_cpu.json": (
+                        "Smallest offline-safe deploy-bundle smoke path."
+                    ),
+                    "examples/configs/industrial_adapt_audited.json": (
+                        "Audited GPU-backed train/export route for stronger deployable handoff coverage."
+                    ),
+                    "examples/configs/manifest_industrial_workflow_balanced.json": (
+                        "Manifest-first deploy route when ingestion must preserve explicit metadata and paths."
+                    ),
+                },
             }
         ],
         "dataset_picks": [
@@ -204,6 +257,123 @@ _CURATED_MODEL_PICKS: tuple[dict[str, Any], ...] = (
         "summary": "OpenCLIP localization route for foundation-model style inspection.",
     },
 )
+
+
+@lru_cache(maxsize=None)
+def _load_recipe_pick_config_meta(config_path: str) -> dict[str, Any]:
+    cfg = WorkbenchConfig.from_dict(load_config(_REPO_ROOT / str(config_path)))
+    return {
+        "name": str(cfg.recipe),
+        "purpose": cfg.meta.purpose,
+        "runtime_profile": cfg.meta.runtime_profile,
+        "required_extras": [str(item) for item in cfg.meta.required_extras],
+        "expected_artifacts": [str(item) for item in cfg.meta.expected_artifacts],
+    }
+
+
+@lru_cache(maxsize=None)
+def _load_recipe_metadata(recipe_name: str) -> dict[str, Any]:
+    import pyimgano.recipes  # noqa: F401
+    from pyimgano.recipes.registry import recipe_info as _recipe_info
+
+    info = _recipe_info(str(recipe_name))
+    return dict(info.get("metadata", {}) or {})
+
+
+def _build_goal_recipe_pick(spec: dict[str, Any]) -> dict[str, Any]:
+    enriched = dict(spec)
+    config_path = str(enriched.get("config_path", "")).strip()
+    if not config_path:
+        recipe_name = str(enriched.get("name", "")).strip()
+        if recipe_name:
+            try:
+                recipe_meta = _load_recipe_metadata(recipe_name)
+            except Exception:
+                recipe_meta = {}
+            config_path = str(recipe_meta.get("default_config", "")).strip()
+            if config_path:
+                enriched["config_path"] = config_path
+    if not config_path:
+        return enriched
+
+    try:
+        config_meta = _load_recipe_pick_config_meta(config_path)
+    except Exception:
+        return enriched
+
+    recipe_name = str(config_meta.get("name", "")).strip()
+    if recipe_name and not str(enriched.get("name", "")).strip():
+        enriched["name"] = recipe_name
+
+    for key in ("runtime_profile", "required_extras", "expected_artifacts"):
+        if not enriched.get(key):
+            enriched[key] = config_meta.get(key, enriched.get(key))
+
+    recipe_name = str(enriched.get("name", "")).strip()
+    required_extras = sorted(
+        {str(item) for item in enriched.get("required_extras", ()) or [] if str(item).strip()}
+    )
+    if required_extras:
+        enriched["required_extras"] = required_extras
+        enriched["install_hint"] = extras_install_hint(required_extras)
+    enriched["recipe_list_command"] = "pyimgano train --list-recipes"
+    if recipe_name:
+        enriched["recipe_info_command"] = f"pyimgano train --recipe-info {recipe_name} --json"
+    if config_path:
+        enriched["recipe_run_command"] = f"pyimgano train --config {config_path}"
+
+    return enriched
+
+
+def _expand_goal_recipe_picks(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    expanded: list[dict[str, Any]] = []
+    for raw_spec in specs:
+        spec = dict(raw_spec)
+        if not bool(spec.get("expand_starter_configs")):
+            expanded.append(_build_goal_recipe_pick(spec))
+            continue
+
+        recipe_name = str(spec.get("name", "")).strip()
+        starter_summaries = {
+            str(path): str(summary)
+            for path, summary in dict(spec.get("starter_summaries", {}) or {}).items()
+            if str(path).strip()
+        }
+
+        starter_configs: list[str] = []
+        try:
+            recipe_meta = _load_recipe_metadata(recipe_name)
+        except Exception:
+            recipe_meta = {}
+
+        starter_configs.extend(
+            str(item)
+            for item in recipe_meta.get("starter_configs", []) or []
+            if str(item).strip()
+        )
+        if not starter_configs:
+            default_config = str(recipe_meta.get("default_config", "")).strip()
+            if default_config:
+                starter_configs.append(default_config)
+
+        spec_template = {
+            key: value
+            for key, value in spec.items()
+            if key not in {"expand_starter_configs", "starter_summaries"}
+        }
+        if not starter_configs:
+            expanded.append(_build_goal_recipe_pick(spec_template))
+            continue
+
+        for config_path in starter_configs:
+            pick = dict(spec_template)
+            pick["config_path"] = str(config_path)
+            summary = starter_summaries.get(str(config_path), "").strip()
+            if summary:
+                pick["summary"] = summary
+            expanded.append(_build_goal_recipe_pick(pick))
+
+    return expanded
 
 
 def _normalize_objective(value: str | None) -> str:
@@ -379,6 +549,46 @@ def collect_pyim_model_selection_payload(request: PyimListRequest) -> dict[str, 
     }
 
 
+def _extend_goal_suggested_commands_with_recipe_followups(
+    commands: list[str],
+    recipe_picks: list[dict[str, Any]],
+) -> list[str]:
+    deduped = [str(item) for item in commands if str(item).strip()]
+    seen = set(deduped)
+    has_train_config_command = any(item.startswith("pyimgano train --config ") for item in deduped)
+
+    if not recipe_picks:
+        return deduped
+
+    top_recipe = next(
+        (
+            item
+            for item in recipe_picks
+            if isinstance(item, dict) and str(item.get("name", "")).strip()
+        ),
+        None,
+    )
+    if top_recipe is None:
+        return deduped
+
+    list_cmd = "pyimgano train --list-recipes"
+    if list_cmd not in seen:
+        deduped.append(list_cmd)
+        seen.add(list_cmd)
+
+    for key in ("recipe_info_command",):
+        cmd = str(top_recipe.get(key, "")).strip()
+        if cmd and cmd not in seen:
+            deduped.append(cmd)
+            seen.add(cmd)
+
+    run_cmd = str(top_recipe.get("recipe_run_command", "")).strip()
+    if run_cmd and run_cmd not in seen and not has_train_config_command:
+        deduped.append(run_cmd)
+
+    return deduped
+
+
 def collect_pyim_goal_payload(request: PyimListRequest) -> dict[str, Any]:
     if request.goal is None:
         raise ValueError("collect_pyim_goal_payload requires request.goal.")
@@ -389,6 +599,11 @@ def collect_pyim_goal_payload(request: PyimListRequest) -> dict[str, Any]:
     starter_path = starter_path_by_name(str(spec["starter_path"]))
     suggested_commands = (
         [] if starter_path is None else [str(item) for item in starter_path.commands]
+    )
+    recipe_picks = _expand_goal_recipe_picks([dict(item) for item in spec.get("recipe_picks", [])])
+    suggested_commands = _extend_goal_suggested_commands_with_recipe_followups(
+        suggested_commands,
+        recipe_picks,
     )
 
     return {
@@ -402,7 +617,7 @@ def collect_pyim_goal_payload(request: PyimListRequest) -> dict[str, Any]:
         },
         "goal_picks": {
             "models": list(selection_payload.get("starter_picks", [])),
-            "recipes": [dict(item) for item in spec.get("recipe_picks", [])],
+            "recipes": recipe_picks,
             "datasets": [dict(item) for item in spec.get("dataset_picks", [])],
         },
         "suggested_commands": suggested_commands,

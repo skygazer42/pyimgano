@@ -19,10 +19,17 @@ def test_pyproject_defines_torch_onnx_openvino_extras() -> None:
     assert "\ntorch = [" in pyproject or "\r\ntorch = [" in pyproject
     assert "\nonnx = [" in pyproject or "\r\nonnx = [" in pyproject
     assert "\nopenvino = [" in pyproject or "\r\nopenvino = [" in pyproject
+    assert "\ndeploy = [" in pyproject or "\r\ndeploy = [" in pyproject
+    assert "\nbenchmark = [" in pyproject or "\r\nbenchmark = [" in pyproject
+    assert "\ntracking = [" in pyproject or "\r\ntracking = [" in pyproject
+    assert "\ncpu-offline = [" in pyproject or "\r\ncpu-offline = [" in pyproject
 
     # Sanity: onnx extra should pull onnxruntime and onnxscript (torch.onnx exporter).
     assert "onnxruntime" in pyproject
     assert "onnxscript" in pyproject
+    assert "tensorboard" in pyproject
+    assert "wandb" in pyproject
+    assert "mlflow" in pyproject
 
     # Sanity: "all" should aggregate the new core extras.
     assert "pyimgano[backends" in pyproject

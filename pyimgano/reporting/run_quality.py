@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 
 from pyimgano.reporting.calibration_card import validate_calibration_card_payload
 from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
+from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_handoff_report
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
 
@@ -654,6 +655,64 @@ def _bundle_manifest_status(
     return bundle_manifest_payload
 
 
+def _handoff_report_status(root: Path) -> dict[str, Any]:
+    bundle_root = root / "deploy_bundle"
+    payload = {
+        "path": "deploy_bundle/handoff_report.json",
+        "present": False,
+        "valid": None,
+        "errors": [],
+        "status": "not_applicable",
+    }
+    if not bundle_root.is_dir():
+        return payload
+
+    handoff_path = bundle_root / "handoff_report.json"
+    payload["present"] = bool(handoff_path.is_file())
+    if not handoff_path.is_file():
+        payload["status"] = "missing"
+        return payload
+
+    try:
+        handoff_report = _load_json_dict(handoff_path)
+    except Exception as exc:  # noqa: BLE001 - reporting boundary
+        payload["valid"] = False
+        payload["errors"] = [str(exc)]
+        payload["status"] = "invalid"
+        return payload
+
+    errors = validate_deploy_bundle_handoff_report(handoff_report, bundle_dir=bundle_root)
+    payload["valid"] = len(errors) == 0
+    payload["errors"] = list(errors)
+    payload["status"] = "valid" if payload["valid"] else "invalid"
+    return payload
+
+
+def _quality_blocking_reasons(*, missing_required: Sequence[str]) -> list[str]:
+    return [f"missing_required:{item}" for item in missing_required if str(item).strip()]
+
+
+def _quality_next_action(
+    root: Path,
+    *,
+    status: str,
+    missing_required: Sequence[str],
+) -> str:
+    if missing_required:
+        return f"Restore missing run artifacts and rerun pyimgano runs quality {root} --json"
+    if status in {"audited", "deployable"}:
+        return (
+            f"pyimgano runs acceptance {root} --require-status audited "
+            "--check-bundle-hashes --json"
+        )
+    if status == "reproducible":
+        return (
+            "Export infer-config and deploy bundle artifacts, then rerun "
+            f"pyimgano runs quality {root} --json"
+        )
+    return f"Inspect run artifacts and rerun pyimgano runs quality {root} --json"
+
+
 def _bundle_operator_contract_flags(
     root: Path,
     *,
@@ -734,6 +793,7 @@ def evaluate_run_quality(
         artifacts=artifacts,
         check_bundle_hashes=bool(check_bundle_hashes),
     )
+    handoff_report = _handoff_report_status(root)
     (
         has_bundle_operator_contract,
         has_bundle_operator_contract_consistent,
@@ -795,6 +855,12 @@ def evaluate_run_quality(
         has_bundle_operator_contract_error=bundle_operator_contract_error_present,
         has_bundle_operator_contract_digest_error=bundle_operator_contract_digest_error_present,
     )
+    blocking_reasons = _quality_blocking_reasons(missing_required=missing_required)
+    next_action = _quality_next_action(
+        root,
+        status=str(status),
+        missing_required=missing_required,
+    )
 
     return {
         "run_dir": str(root),
@@ -810,8 +876,12 @@ def evaluate_run_quality(
         "calibration_audit": calibration_audit,
         "operator_contract_audit": operator_contract_audit,
         "bundle_manifest": bundle_manifest_payload,
+        "handoff_report": handoff_report,
+        "handoff_report_status": str(handoff_report.get("status", "not_applicable")),
         "weights_audit": weights_audit,
         "dataset_readiness": dataset_readiness,
+        "blocking_reasons": blocking_reasons,
+        "next_action": next_action,
         "trust_summary": trust_summary,
     }
 

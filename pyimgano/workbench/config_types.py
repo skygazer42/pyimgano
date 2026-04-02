@@ -162,6 +162,14 @@ class PredictionConfig:
 
 
 @dataclass(frozen=True)
+class MetaConfig:
+    purpose: str | None = None
+    runtime_profile: str | None = None
+    required_extras: tuple[str, ...] = ()
+    expected_artifacts: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class PreprocessingConfig:
     """Optional preprocessing configuration for industrial runs."""
 
@@ -174,6 +182,7 @@ class WorkbenchConfig:
     model: ModelConfig
     recipe: str = "industrial-adapt"
     seed: int | None = None
+    meta: MetaConfig = field(default_factory=MetaConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     adaptation: AdaptationConfig = field(default_factory=AdaptationConfig)
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
@@ -194,6 +203,7 @@ __all__ = [
     "MergeNearbyConfig",
     "DefectsConfig",
     "PredictionConfig",
+    "MetaConfig",
     "PreprocessingConfig",
     "WorkbenchConfig",
 ]

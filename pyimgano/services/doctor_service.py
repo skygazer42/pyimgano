@@ -25,6 +25,7 @@ from pyimgano.utils.optional_deps import optional_import
 from pyimgano.workflow_guidance import artifact_hints_for_command
 from pyimgano.workflow_guidance import command_workflow_guidance
 from pyimgano.workflow_guidance import default_starter_benchmark_name
+from pyimgano.workflow_guidance import deploy_smoke_commands
 from pyimgano.workflow_guidance import first_ten_minutes_commands
 from pyimgano.workflow_guidance import model_workflow_guidance
 from pyimgano.workflow_guidance import model_info_command_for_model
@@ -38,7 +39,7 @@ from pyimgano.workflow_guidance import starter_benchmark_run_command
 from pyimgano.workflow_guidance import workflow_stage_for_command
 from pyimgano.workflow_guidance import workflow_stage_for_model
 
-_DOCTOR_PROFILE_CHOICES = {"first-run", "benchmark", "deploy", "publish"}
+_DOCTOR_PROFILE_CHOICES = {"first-run", "deploy-smoke", "benchmark", "deploy", "publish"}
 
 
 def _dist_version(name: str) -> str | None:
@@ -1093,21 +1094,25 @@ _COMMAND_EXTRA_SPECS: dict[str, dict[str, Any]] = {
     "export-onnx": {
         "required_extras": ["onnx", "torch"],
         "recommended_extras": [],
+        "recommended_extra_profiles": ["deploy"],
         "notes": ["Exports require torch plus ONNX tooling."],
     },
     "export-torchscript": {
         "required_extras": ["torch"],
         "recommended_extras": [],
+        "recommended_extra_profiles": ["deploy"],
         "notes": ["TorchScript export depends on the torch extra."],
     },
     "train": {
         "required_extras": ["torch"],
         "recommended_extras": ["faiss"],
+        "recommended_extra_profiles": ["deploy", "tracking"],
         "notes": ["Most training-first deep workflows depend on torch."],
     },
     "infer": {
         "required_extras": [],
         "recommended_extras": ["torch", "onnx", "openvino"],
+        "recommended_extra_profiles": ["deploy"],
         "notes": ["Base install supports classical CPU inference; extras unlock deep and deploy runtimes."],
     },
     "runs": {
@@ -1118,6 +1123,7 @@ _COMMAND_EXTRA_SPECS: dict[str, dict[str, Any]] = {
     "demo": {
         "required_extras": [],
         "recommended_extras": [],
+        "recommended_extra_profiles": ["cpu-offline"],
         "notes": ["The smoke demo is designed to run on the base install."],
     },
 }
@@ -1133,6 +1139,7 @@ def _build_extra_recommendation_payload(
     target: str,
     required_extras: Sequence[str],
     recommended_extras: Sequence[str],
+    recommended_extra_profiles: Sequence[str] | None = None,
     notes: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     required = _sorted_unique(required_extras)
@@ -1140,15 +1147,23 @@ def _build_extra_recommendation_payload(
     combined = [*required, *recommended]
     missing = [extra for extra in combined if not extra_installed(extra)]
     available = [extra for extra in combined if extra not in missing]
+    profile_names = [
+        str(item)
+        for item in recommended_extra_profiles or []
+        if str(item).strip()
+    ]
     install_hint = extras_install_hint(missing or combined) if combined else None
+    install_command = extras_install_hint([profile_names[0]]) if profile_names else install_hint
     return {
         "target_kind": str(target_kind),
         "target": str(target),
         "required_extras": required,
         "recommended_extras": recommended,
+        "recommended_extra_profiles": profile_names,
         "missing_extras": missing,
         "available_extras": available,
         "install_hint": install_hint,
+        "install_command": install_command,
         "notes": [str(item) for item in (notes or []) if str(item).strip()],
     }
 
@@ -1180,6 +1195,7 @@ def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
             target=key,
             required_extras=[],
             recommended_extras=recommended_extras,
+            recommended_extra_profiles=["benchmark", "cpu-offline"],
             notes=[
                 "Starter CPU baselines run without extras; broader suites often benefit from clip, torch, and skimage."
             ],
@@ -1213,9 +1229,13 @@ def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
         target=key,
         required_extras=spec.get("required_extras", []),
         recommended_extras=spec.get("recommended_extras", []),
+        recommended_extra_profiles=spec.get("recommended_extra_profiles", []),
         notes=spec.get("notes", []),
     ) | {
         "workflow_stage": (None if guidance is None else guidance.workflow_stage),
+        "recipe_list_command": (None if guidance is None else guidance.recipe_list_command),
+        "recipe_info_command": (None if guidance is None else guidance.recipe_info_command),
+        "recipe_run_command": (None if guidance is None else guidance.recipe_run_command),
         "suggested_commands": ([] if guidance is None else list(guidance.suggested_commands)),
         "next_step_commands": ([] if guidance is None else list(guidance.next_step_commands)),
         "artifact_hints": ([] if guidance is None else list(guidance.artifact_hints)),
@@ -1533,6 +1553,47 @@ def _build_first_run_profile_payload(
     }
 
 
+def _build_deploy_smoke_profile_payload(
+    *,
+    optional_modules: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    module_state = _core_module_availability(optional_modules)
+    required_modules = sorted(module_state)
+    missing_modules = [name for name in required_modules if not bool(module_state.get(name))]
+    issues = [f"missing_core_module:{name}" for name in missing_modules]
+    status = "ok" if not issues else "error"
+    workflow_profile = {
+        "target_kind": "profile",
+        "profile": "deploy-smoke",
+        "status": str(status),
+        "summary": "doctor -> demo -> train/export bundle -> validate infer-config -> bundle validate -> runs quality",
+        "offline_safe": True,
+        "required_modules": required_modules,
+        "missing_modules": missing_modules,
+        "required_extras": [],
+        "recommended_extras": [],
+        "missing_extras": [],
+        "starter_commands": deploy_smoke_commands(),
+        "artifact_hints": [
+            "report.json",
+            "config.json",
+            "environment.json",
+            "artifacts/infer_config.json",
+            "deploy_bundle/infer_config.json",
+            "deploy_bundle/bundle_manifest.json",
+        ],
+        "issues": issues,
+    }
+    return {
+        "workflow_profile": workflow_profile,
+        "readiness": _profile_readiness_payload(
+            profile="deploy-smoke",
+            status=status,
+            issues=issues,
+        ),
+    }
+
+
 def _build_benchmark_profile_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     recommendation = _build_command_extra_recommendation("benchmark")
     dataset_target = payload.get("dataset_target")
@@ -1707,6 +1768,8 @@ def _resolve_doctor_profile_payload(
 
     if key == "first-run":
         return _build_first_run_profile_payload(optional_modules=optional_modules)
+    if key == "deploy-smoke":
+        return _build_deploy_smoke_profile_payload(optional_modules=optional_modules)
     if key == "benchmark":
         return _build_benchmark_profile_payload(payload)
     if key == "deploy":

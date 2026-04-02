@@ -32,6 +32,10 @@ EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
     "anomalib": ("anomalib", "torch"),
     # Meta-extras (allow `pyimgano-doctor --require-extras backends` style checks).
     "backends": ("anomalib", "faiss", "open_clip", "torch", "torchvision"),
+    "deploy": ("torch", "torchvision", "onnxruntime", "onnx", "onnxscript", "openvino"),
+    "benchmark": ("open_clip", "skimage", "torch", "torchvision"),
+    "tracking": ("tensorboard", "wandb", "mlflow", "torch", "torchvision"),
+    "cpu-offline": ("skimage", "numba"),
 }
 
 

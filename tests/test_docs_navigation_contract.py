@@ -63,9 +63,13 @@ def test_readme_and_start_here_document_guided_workflow() -> None:
 def test_starter_paths_doc_maps_goals_to_exact_command_sequences() -> None:
     text = _read_text("docs/STARTER_PATHS.md")
 
+    assert "Deployment Smoke Path" in text
     assert "First 10 Minutes" in text
     assert "Deployment Check" in text
     assert "Publication Gate" in text
+    assert "pyimgano --help" in text
+    assert "python -m pyimgano --help" not in text
+    assert "pyimgano-doctor --profile deploy-smoke --json" in text
     assert "pyimgano-doctor --profile first-run --json" in text
     assert "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json" in text
     assert "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json" in text

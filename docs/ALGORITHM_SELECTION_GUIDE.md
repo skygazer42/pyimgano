@@ -15,6 +15,18 @@ If you are starting from the CLI and want the shortest route to a reasonable fir
 
 If you are not sure about dependencies first, run `pyimgano-doctor --recommend-extras --for-model <MODEL> --json` before committing to a route.
 
+For the CPU-screening goal, the checked-in starter config is:
+
+```text
+examples/configs/classical_colorhist_mahalanobis_cpu.json
+examples/configs/classical_edge_ecod_cpu.json
+examples/configs/classical_fft_lowfreq_ecod_cpu.json
+examples/configs/classical_hog_ecod_cpu.json
+examples/configs/classical_lbp_loop_cpu.json
+examples/configs/classical_patch_stats_ecod_cpu.json
+examples/configs/classical_structural_ecod_cpu.json
+```
+
 If you want one task-oriented discovery command instead of manually combining `--objective` and `--selection-profile`, use:
 
 ```bash
@@ -22,6 +34,22 @@ pyim --goal first-run --json
 pyim --goal cpu-screening --json
 pyim --goal pixel-localization --json
 pyim --goal deployable --json
+```
+
+For the deployable goal, the checked-in starter configs are:
+
+```text
+examples/configs/deploy_smoke_custom_cpu.json
+examples/configs/industrial_adapt_audited.json
+examples/configs/manifest_industrial_workflow_balanced.json
+```
+
+For the pixel-localization goal, the checked-in starter configs are:
+
+```text
+examples/configs/industrial_adapt_defects_fp40.json
+examples/configs/industrial_adapt_defects_roi.json
+examples/configs/industrial_adapt_maps_tiling.json
 ```
 
 ## Quick Selection Table

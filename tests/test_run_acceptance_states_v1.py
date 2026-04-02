@@ -12,6 +12,7 @@ _ALLOWED_JSON_PATHS = {
     "calibration_card.json",
     "config.json",
     "environment.json",
+    "handoff_report.json",
     "infer_config.json",
     "report.json",
 }
@@ -75,6 +76,11 @@ def test_evaluate_run_acceptance_reports_audited_acceptance_state(tmp_path: Path
     acceptance = evaluate_run_acceptance(run_dir, required_quality="audited")
 
     assert acceptance["acceptance_state"] == "audited"
+    assert acceptance["handoff_report_status"] == "not_applicable"
+    assert (
+        acceptance["next_action"]
+        == f"pyimgano-infer --from-run {run_dir} --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+    )
     assert acceptance["reason_codes"] == []
 
 
@@ -132,6 +138,11 @@ def test_evaluate_run_acceptance_reports_deployable_acceptance_state(tmp_path: P
     acceptance = evaluate_run_acceptance(run_dir, required_quality="deployable")
 
     assert acceptance["acceptance_state"] == "deployable"
+    assert acceptance["handoff_report_status"] == "missing"
+    assert (
+        acceptance["next_action"]
+        == f"pyimgano bundle run {run_dir / 'deploy_bundle'} --image-dir /path/to/images --output-dir ./bundle_run --json"
+    )
     assert acceptance["reason_codes"] == []
 
 
@@ -148,6 +159,11 @@ def test_evaluate_run_acceptance_reports_blocked_reason_code_for_missing_infer_c
     acceptance = evaluate_run_acceptance(run_dir, required_quality="audited")
 
     assert acceptance["acceptance_state"] == "blocked"
+    assert acceptance["handoff_report_status"] == "not_applicable"
+    assert (
+        acceptance["next_action"]
+        == f"pyimgano runs quality {run_dir} --require-status audited --json"
+    )
     assert "BUNDLE_MISSING_INFER_CONFIG" in acceptance["reason_codes"]
 
 

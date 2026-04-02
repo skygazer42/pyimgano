@@ -10,6 +10,8 @@ def test_format_bundle_validate_lines_preserves_text_contract() -> None:
             "status": "ready",
             "ready": True,
             "reason_codes": ["BUNDLE_OK"],
+            "handoff_report_status": "valid",
+            "next_action": "pyimgano bundle run /tmp/deploy_bundle --image-dir /tmp/in --output-dir /tmp/out --json",
             "contract": {"bundle_type": "cpu-offline-qc"},
         }
     )
@@ -20,6 +22,8 @@ def test_format_bundle_validate_lines_preserves_text_contract() -> None:
         "ready=true",
         "reason_code=BUNDLE_OK",
         "bundle_type=cpu-offline-qc",
+        "handoff_report_status=valid",
+        "next_action=pyimgano bundle run /tmp/deploy_bundle --image-dir /tmp/in --output-dir /tmp/out --json",
     ]
 
 

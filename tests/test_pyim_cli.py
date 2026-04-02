@@ -123,8 +123,98 @@ def test_pyim_goal_json_returns_goal_context_and_goal_picks(capsys) -> None:
     assert payload["goal_context"]["objective"] == "localization"
     assert payload["goal_picks"]["models"][0]["name"] in {"ssim_template_map", "vision_patchcore"}
     assert isinstance(payload["goal_picks"]["recipes"], list)
+    recipe_by_config = {item["config_path"]: item for item in payload["goal_picks"]["recipes"]}
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"]["name"] == (
+        "industrial-adapt-fp40"
+    )
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"][
+        "runtime_profile"
+    ] == "gpu-defects"
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"]["name"] == (
+        "industrial-adapt-fp40"
+    )
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"][
+        "runtime_profile"
+    ] == "gpu-defects"
+    assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"]["name"] == (
+        "industrial-adapt"
+    )
+    assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"][
+        "runtime_profile"
+    ] == "gpu-localization"
     assert isinstance(payload["goal_picks"]["datasets"], list)
     assert payload["goal_picks"]["models"][0]["why_this_pick"]
+
+
+def test_pyim_goal_deployable_json_surfaces_multiple_recipe_starters(capsys) -> None:
+    from pyimgano.pyim_cli import main
+
+    code = main(["--goal", "deployable", "--json"])
+    assert code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    recipe_configs = {item["config_path"]: item for item in payload["goal_picks"]["recipes"]}
+    assert {
+        "examples/configs/deploy_smoke_custom_cpu.json",
+        "examples/configs/industrial_adapt_audited.json",
+        "examples/configs/manifest_industrial_workflow_balanced.json",
+    } <= set(recipe_configs)
+    assert recipe_configs["examples/configs/deploy_smoke_custom_cpu.json"]["runtime_profile"] == "cpu-offline"
+    assert recipe_configs["examples/configs/industrial_adapt_audited.json"]["runtime_profile"] == "gpu-audited"
+    assert (
+        recipe_configs["examples/configs/manifest_industrial_workflow_balanced.json"]["runtime_profile"]
+        == "manifest-balanced"
+    )
+
+
+def test_pyim_goal_cpu_screening_json_surfaces_classical_recipe_starter(capsys) -> None:
+    from pyimgano.pyim_cli import main
+
+    code = main(["--goal", "cpu-screening", "--json"])
+    assert code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    recipe_by_name = {item["name"]: item for item in payload["goal_picks"]["recipes"]}
+    assert recipe_by_name["classical-colorhist-mahalanobis"]["config_path"] == (
+        "examples/configs/classical_colorhist_mahalanobis_cpu.json"
+    )
+    assert recipe_by_name["classical-colorhist-mahalanobis"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-edge-ecod"]["config_path"] == (
+        "examples/configs/classical_edge_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-edge-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-fft-lowfreq-ecod"]["config_path"] == (
+        "examples/configs/classical_fft_lowfreq_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-fft-lowfreq-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-hog-ecod"]["config_path"] == (
+        "examples/configs/classical_hog_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-hog-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-lbp-loop"]["config_path"] == (
+        "examples/configs/classical_lbp_loop_cpu.json"
+    )
+    assert recipe_by_name["classical-lbp-loop"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-patch-stats-ecod"]["config_path"] == (
+        "examples/configs/classical_patch_stats_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-patch-stats-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-structural-ecod"]["config_path"] == (
+        "examples/configs/classical_structural_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-structural-ecod"]["runtime_profile"] == "cpu-screening"
+    assert (
+        recipe_by_name["classical-colorhist-mahalanobis"]["recipe_info_command"]
+        == "pyimgano train --recipe-info classical-colorhist-mahalanobis --json"
+    )
+    assert (
+        recipe_by_name["classical-colorhist-mahalanobis"]["recipe_list_command"]
+        == "pyimgano train --list-recipes"
+    )
+    assert (
+        recipe_by_name["classical-colorhist-mahalanobis"]["recipe_run_command"]
+        == "pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
+    )
 
 
 def test_pyim_goal_text_renders_goal_context_and_picks(capsys) -> None:
@@ -140,6 +230,50 @@ def test_pyim_goal_text_renders_goal_context_and_picks(capsys) -> None:
     assert "why=" in out
     assert "recipe=" in out
     assert "dataset=" in out
+    assert "install=pip install 'pyimgano[deploy]'" in out
+    assert "pyimgano train --list-recipes" in out
+    assert "pyimgano train --recipe-info industrial-adapt --json" in out
+    assert "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json" in out
+
+
+def test_pyim_goal_pixel_localization_text_surfaces_recipe_configs(capsys) -> None:
+    from pyimgano.pyim_cli import main
+
+    code = main(["--goal", "pixel-localization"])
+    assert code == 0
+
+    out = capsys.readouterr().out
+    assert "config=examples/configs/industrial_adapt_defects_fp40.json" in out
+    assert "profile=gpu-defects" in out
+    assert "config=examples/configs/industrial_adapt_defects_roi.json" in out
+    assert "config=examples/configs/industrial_adapt_maps_tiling.json" in out
+    assert "profile=gpu-localization" in out
+
+
+def test_pyim_goal_cpu_screening_text_surfaces_classical_recipe_config(capsys) -> None:
+    from pyimgano.pyim_cli import main
+
+    code = main(["--goal", "cpu-screening"])
+    assert code == 0
+
+    out = capsys.readouterr().out
+    assert "recipe=classical-colorhist-mahalanobis" in out
+    assert "config=examples/configs/classical_colorhist_mahalanobis_cpu.json" in out
+    assert "recipe=classical-edge-ecod" in out
+    assert "config=examples/configs/classical_edge_ecod_cpu.json" in out
+    assert "recipe=classical-fft-lowfreq-ecod" in out
+    assert "config=examples/configs/classical_fft_lowfreq_ecod_cpu.json" in out
+    assert "recipe=classical-hog-ecod" in out
+    assert "config=examples/configs/classical_hog_ecod_cpu.json" in out
+    assert "recipe=classical-lbp-loop" in out
+    assert "config=examples/configs/classical_lbp_loop_cpu.json" in out
+    assert "recipe=classical-patch-stats-ecod" in out
+    assert "config=examples/configs/classical_patch_stats_ecod_cpu.json" in out
+    assert "recipe=classical-structural-ecod" in out
+    assert "config=examples/configs/classical_structural_ecod_cpu.json" in out
+    assert "profile=cpu-screening" in out
+    assert "inspect=pyimgano train --recipe-info classical-colorhist-mahalanobis --json" in out
+    assert "run=pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json" in out
 
 
 def test_pyim_main_routes_app_errors_through_parser(monkeypatch, capsys) -> None:

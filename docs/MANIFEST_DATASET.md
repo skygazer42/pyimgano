@@ -153,6 +153,20 @@ Run:
 pyimgano-train --config cfg.json
 ```
 
+Deploy-oriented variant:
+
+```bash
+pyimgano-train --config examples/configs/manifest_industrial_workflow_balanced.json --export-infer-config --export-deploy-bundle
+pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
+pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+```
+
+Expected deploy artifacts include:
+
+- `artifacts/infer_config.json`
+- `deploy_bundle/bundle_manifest.json`
+- `deploy_bundle/handoff_report.json`
+
 ---
 
 ## Generate a Manifest (Custom Layout)

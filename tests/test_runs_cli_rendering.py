@@ -68,13 +68,14 @@ def test_format_quality_summary_line_includes_status_score_and_trust() -> None:
         quality={
             "status": "audited",
             "score": 0.75,
+            "handoff_report_status": "valid",
             "trust_summary": {"status": "limited"},
             "dataset_readiness": {"status": "warning", "issue_codes": ["FEWSHOT_TRAIN_SET"]},
         },
     )
 
     assert line == (
-        "run_a: status=audited score=0.75 trust=limited "
+        "run_a: status=audited score=0.75 trust=limited handoff_report=valid "
         "dataset_readiness=warning"
     )
 
@@ -92,13 +93,14 @@ def test_format_acceptance_run_summary_line_includes_required_quality_and_bundle
                 "dataset_readiness": {"status": "warning"},
             },
             "infer_config": {"selected_source": "deploy_bundle"},
+            "handoff_report_status": "valid",
             "bundle_weights": {"applicable": True, "status": "ready"},
         },
     )
 
     assert (
         line
-        == "run_a: kind=run status=ready required_quality=audited quality=deployable infer_config=deploy_bundle bundle_weights=ready dataset_readiness=warning"
+        == "run_a: kind=run status=ready required_quality=audited quality=deployable infer_config=deploy_bundle bundle_weights=ready handoff_report=valid dataset_readiness=warning"
     )
 
 

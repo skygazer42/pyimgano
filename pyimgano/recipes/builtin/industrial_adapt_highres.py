@@ -17,6 +17,11 @@ from pyimgano.workbench.config import WorkbenchConfig
             "Industrial adaptation recipe with high-resolution tiling defaults "
             "(tile_size/stride + seam-reducing map blending)."
         ),
+        "default_config": "examples/configs/industrial_adapt_highres.json",
+        "runtime_profile": "gpu-highres",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
     },
 )
 def industrial_adapt_highres(config: WorkbenchConfig) -> dict[str, Any]:

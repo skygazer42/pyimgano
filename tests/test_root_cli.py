@@ -38,8 +38,18 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert "runs acceptance" in out
     assert "weights audit-bundle" in out
     assert "starter paths:" in out.lower()
+    assert "deploy-smoke:" in out.lower()
     assert "first-run:" in out.lower()
     assert "publish:" in out.lower()
+    assert (
+        out.index("deploy-smoke:")
+        < out.index("first-run:")
+        < out.index("benchmark:")
+    )
+    assert "pyimgano-doctor --profile deploy-smoke --json" in out
+    assert "deploy_smoke_custom_cpu.json" in out
+    assert "pyimgano train --list-recipes" in out
+    assert "pyimgano train --recipe-info industrial-adapt --json" in out
     assert "\n  benchmark" in out
     assert "\n  bundle" in out
 
@@ -54,6 +64,7 @@ def test_root_cli_help_uses_shared_workflow_guidance_groups(monkeypatch, capsys)
         root_cli,
         "list_starter_paths",
         lambda: [
+            type("StarterPath", (), {"name": "deploy-smoke", "commands": ("deploy-smoke-cmd",)})(),
             type("StarterPath", (), {"name": "first-run", "commands": ("starter-path-cmd",)})()
         ],
     )
@@ -66,6 +77,7 @@ def test_root_cli_help_uses_shared_workflow_guidance_groups(monkeypatch, capsys)
     assert "fast-path-cmd" in out
     assert "bench-pub-cmd" in out
     assert "artifact-cmd" in out
+    assert "deploy-smoke-cmd" in out
     assert "starter-path-cmd" in out
 
 

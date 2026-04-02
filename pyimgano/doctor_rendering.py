@@ -78,6 +78,15 @@ def format_extra_recommendation_lines(recommendation: dict[str, object]) -> list
     starter_run_command = recommendation.get("starter_run_command")
     if starter_run_command:
         lines.append(f"- starter_run_command: {starter_run_command}")
+    recipe_list_command = recommendation.get("recipe_list_command")
+    if recipe_list_command:
+        lines.append(f"- recipe_list_command: {recipe_list_command}")
+    recipe_info_command = recommendation.get("recipe_info_command")
+    if recipe_info_command:
+        lines.append(f"- recipe_info_command: {recipe_info_command}")
+    recipe_run_command = recommendation.get("recipe_run_command")
+    if recipe_run_command:
+        lines.append(f"- recipe_run_command: {recipe_run_command}")
     suggested_commands = list(recommendation.get("suggested_commands", []) or [])
     if suggested_commands:
         lines.append(f"- suggested_commands: {'; '.join(str(item) for item in suggested_commands)}")

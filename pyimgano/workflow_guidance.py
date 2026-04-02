@@ -17,6 +17,9 @@ class CommandWorkflowGuidance:
     target_kind: str
     target: str
     workflow_stage: str
+    recipe_list_command: str | None = None
+    recipe_info_command: str | None = None
+    recipe_run_command: str | None = None
     suggested_commands: tuple[str, ...] = ()
     next_step_commands: tuple[str, ...] = ()
     artifact_hints: tuple[str, ...] = ()
@@ -70,6 +73,8 @@ _WORKFLOW_STAGES: tuple[WorkflowStage, ...] = (
         title="Train",
         commands=(
             "pyimgano doctor --recommend-extras --for-command train --json",
+            "pyimgano train --list-recipes",
+            "pyimgano train --recipe-info industrial-adapt --json",
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         ),
     ),
@@ -110,6 +115,8 @@ _INDUSTRIAL_FAST_PATH_COMMANDS: tuple[str, ...] = (
     "pyimgano doctor --recommend-extras --for-command train --json",
     "pyimgano doctor --recommend-extras --for-command infer --json",
     "pyimgano doctor --recommend-extras --for-command runs --json",
+    "pyimgano train --list-recipes",
+    "pyimgano train --recipe-info industrial-adapt --json",
     "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
     "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
     "pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json",
@@ -141,7 +148,22 @@ _FIRST_TEN_MINUTES_COMMANDS: tuple[str, ...] = (
     "pyimgano runs quality ./_demo_benchmark_run --json",
 )
 
+_DEPLOY_SMOKE_COMMANDS: tuple[str, ...] = (
+    "pyimgano-doctor --profile deploy-smoke --json",
+    "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained",
+    "pyimgano-train --config examples/configs/deploy_smoke_custom_cpu.json --root ./_demo_custom_dataset --export-infer-config --export-deploy-bundle",
+    "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+    "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
+    "pyimgano runs quality runs/<run_dir> --json",
+)
+
 _STARTER_PATHS: tuple[StarterPathGuidance, ...] = (
+    StarterPathGuidance(
+        name="deploy-smoke",
+        title="Deployment Smoke Path",
+        summary="Smallest offline-safe path from demo dataset creation to deploy bundle validation.",
+        commands=_DEPLOY_SMOKE_COMMANDS,
+    ),
     StarterPathGuidance(
         name="first-run",
         title="First 10 Minutes",
@@ -205,7 +227,15 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         target_kind="command",
         target="train",
         workflow_stage="train",
+        recipe_list_command="pyimgano train --list-recipes",
+        recipe_info_command="pyimgano train --recipe-info industrial-adapt --json",
+        recipe_run_command=(
+            "pyimgano train --config examples/configs/industrial_adapt_audited.json "
+            "--export-infer-config --export-deploy-bundle"
+        ),
         suggested_commands=(
+            "pyimgano train --list-recipes",
+            "pyimgano train --recipe-info industrial-adapt --json",
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
             "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
         ),
@@ -329,6 +359,10 @@ def first_ten_minutes_commands() -> list[str]:
     return list(_FIRST_TEN_MINUTES_COMMANDS)
 
 
+def deploy_smoke_commands() -> list[str]:
+    return list(_DEPLOY_SMOKE_COMMANDS)
+
+
 def list_starter_paths() -> list[StarterPathGuidance]:
     return list(_STARTER_PATHS)
 
@@ -414,6 +448,7 @@ __all__ = [
     "benchmark_publication_commands",
     "command_workflow_guidance",
     "default_starter_benchmark_name",
+    "deploy_smoke_commands",
     "first_ten_minutes_commands",
     "industrial_fast_path_commands",
     "list_starter_paths",

@@ -95,6 +95,21 @@ clip = [
     "pyimgano[torch]",
     "open_clip_torch>=2.0.0",
 ]
+deploy = [
+    "pyimgano[torch,onnx,openvino]",
+]
+benchmark = [
+    "pyimgano[clip,skimage]",
+]
+tracking = [
+    "pyimgano[torch]",
+    "tensorboard>=2.14.0",
+    "wandb>=0.17.0",
+    "mlflow>=2.11.0",
+]
+cpu-offline = [
+    "pyimgano[skimage,numba]",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

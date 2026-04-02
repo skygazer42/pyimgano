@@ -14,6 +14,8 @@ def test_cli_reference_documents_bundle_validate_and_run() -> None:
     assert "validate" in text
     assert "run" in text
     assert "bundle_manifest.json" in text
+    assert "handoff_report_status" in text
+    assert "next_action" in text
 
 
 def test_readme_mentions_bundle_validate_and_weights_audit() -> None:

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from pyimgano.config import load_config
+from pyimgano.reporting.deploy_bundle import build_deploy_bundle_handoff_report
 from pyimgano.reporting.deploy_bundle import build_deploy_bundle_manifest
 from pyimgano.reporting.report import save_run_report
 from pyimgano.services.train_export_helpers import (
@@ -30,6 +31,7 @@ from pyimgano.workbench.config import WorkbenchConfig
 _INFER_CONFIG_FILENAME = "infer_config.json"
 _CALIBRATION_CARD_FILENAME = "calibration_card.json"
 _OPERATOR_CONTRACT_FILENAME = "operator_contract.json"
+_HANDOFF_REPORT_FILENAME = "handoff_report.json"
 
 
 @dataclass(frozen=True)
@@ -215,6 +217,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
     )
 
     save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
+    save_run_report(
+        bundle_dir / _HANDOFF_REPORT_FILENAME,
+        build_deploy_bundle_handoff_report(bundle_dir=bundle_dir, source_run_dir=run_dir),
+    )
     bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
     _apply_bundle_manifest_metadata_helper(bundle_payload, bundle_manifest)
     save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)

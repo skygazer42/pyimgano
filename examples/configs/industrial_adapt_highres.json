@@ -1,0 +1,29 @@
+{
+  "recipe": "industrial-adapt-highres",
+  "seed": 123,
+  "meta": {
+    "purpose": "highres-tiling",
+    "runtime_profile": "gpu-highres",
+    "expected_artifacts": [
+      "artifacts/infer_config.json"
+    ]
+  },
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [512, 512],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_patchcore",
+    "device": "cuda",
+    "preset": "industrial-balanced",
+    "pretrained": true,
+    "contamination": 0.1
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}

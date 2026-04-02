@@ -1,0 +1,41 @@
+{
+  "recipe": "industrial-adapt",
+  "seed": 123,
+  "meta": {
+    "purpose": "deploy-smoke",
+    "runtime_profile": "cpu-offline",
+    "required_extras": ["deploy"],
+    "expected_artifacts": [
+      "artifacts/infer_config.json",
+      "deploy_bundle/bundle_manifest.json",
+      "deploy_bundle/handoff_report.json"
+    ]
+  },
+  "dataset": {
+    "name": "custom",
+    "root": "/path/to/custom_dataset_root",
+    "category": "all",
+    "resize": [32, 32],
+    "input_mode": "paths",
+    "limit_train": 2,
+    "limit_test": 2
+  },
+  "model": {
+    "name": "vision_template_ncc_map",
+    "device": "cpu",
+    "pretrained": false,
+    "contamination": 0.1
+  },
+  "defects": {
+    "enabled": true,
+    "pixel_threshold": 0.5,
+    "pixel_threshold_strategy": "fixed",
+    "mask_format": "png",
+    "min_area": 1,
+    "max_regions": 20
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}

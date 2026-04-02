@@ -14,6 +14,7 @@ _ALLOWED_JSON_PATHS = {
     "calibration_card.json",
     "config.json",
     "environment.json",
+    "handoff_report.json",
     "infer_config.json",
     "report.json",
 }
@@ -207,6 +208,11 @@ def test_bundle_cli_validate_reports_ready_bundle(tmp_path: Path, capsys) -> Non
     assert payload["reason_codes"] == []
     assert payload["bundle_manifest"]["present"] is True
     assert payload["bundle_manifest"]["valid"] is True
+    assert payload["handoff_report_status"] == "missing"
+    assert (
+        payload["next_action"]
+        == f"pyimgano bundle run {bundle_dir} --image-dir /path/to/images --output-dir ./bundle_run --json"
+    )
     assert payload["contract"]["bundle_type"] == "cpu-offline-qc"
     assert payload["contract"]["output_contract"]["primary_result_file"] == "results.jsonl"
 
@@ -226,6 +232,29 @@ def test_bundle_cli_validate_reports_missing_manifest_reason_code(tmp_path: Path
     assert payload["exit_code"] == 1
     assert payload["ready"] is False
     assert "BUNDLE_MISSING_MANIFEST" in payload["reason_codes"]
+
+
+def test_bundle_cli_validate_blocks_invalid_handoff_report(tmp_path: Path, capsys) -> None:
+    from pyimgano.bundle_cli import main
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    _write_json(
+        bundle_dir,
+        "handoff_report.json",
+        {
+            "schema_version": 1,
+            "bundle_type": "cpu-offline-qc",
+            "files": {"infer_config": "infer_config.json"},
+            "threshold_summary": {"scope": "pixel"},
+        },
+    )
+
+    rc = main(["validate", str(bundle_dir), "--json"])
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["handoff_report_status"] == "invalid"
+    assert "invalid_handoff_report" in payload["blocking_reasons"]
 
 
 def test_bundle_cli_text_uses_validate_rendering_helper(monkeypatch, capsys, tmp_path: Path) -> None:

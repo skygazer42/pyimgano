@@ -33,7 +33,6 @@ Common usage:
 
 ```bash
 pyimgano --help
-python -m pyimgano --help
 pyimgano --list
 pyimgano list models
 pyimgano -- list models --json
@@ -63,6 +62,7 @@ Common usage:
 ```bash
 pyimgano-doctor
 pyimgano-doctor --json
+pyimgano-doctor --profile deploy-smoke --json
 pyimgano-doctor --profile first-run --json
 pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json
 pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json
@@ -77,13 +77,18 @@ pyimgano-doctor --deploy-bundle /path/to/deploy_bundle --json   # validate deplo
 ```
 
 Notes:
-- `--profile first-run|benchmark|deploy|publish` emits a guided workflow profile and a readiness summary for that operator path.
+- `--profile first-run|deploy-smoke|benchmark|deploy|publish` emits a guided workflow profile and a readiness summary for that operator path.
 - `--require-extras` accepts comma-separated values and is repeatable.
 - `--recommend-extras` can be paired with `--for-command` or `--for-model` to turn extras discovery into a copy-pasteable install hint.
 - For `--for-command benchmark`, the recommendation payload also surfaces `starter_configs`, `optional_baseline_count`, `starter_list_command`, and `starter_info_command` so you can see how much of the starter suite is gated behind optional extras and jump straight to the next benchmark command.
 - Command recommendations also carry a `workflow_stage` hint so automation or UI layers can place the recommendation inside the broader `discover / benchmark / train / infer / validate / gate` flow.
 - For `--for-command train|infer|runs`, the recommendation payload also surfaces `suggested_commands` so the text/JSON output tells you the next concrete command to run.
+- For `--for-command train`, those suggested commands now start with `pyimgano train --list-recipes`, then `pyimgano train --recipe-info industrial-adapt --json`, ahead of the audited starter run command so operators can discover and inspect the recipe contract before running it.
+- For `--for-command train`, the payload also includes structured `recipe_list_command`, `recipe_info_command`, and `recipe_run_command` fields so automation can surface the same recipe discovery path without parsing `suggested_commands`.
+- The root help fast-path examples also surface `pyimgano train --list-recipes` and `pyimgano train --recipe-info industrial-adapt --json` so the same discovery and inspection steps are visible even before opening the train-specific reference.
+- The root help `guided next steps` block now mirrors the same train-stage sequence: `doctor -> train --list-recipes -> train --recipe-info -> audited train run`.
 - Command recommendations also surface `next_step_commands` for the likely follow-up stage after the current command succeeds.
+- Command recommendations now also surface `recommended_extra_profiles` and `install_command`, so operators can choose a task-oriented alias like `pyimgano[deploy]` or `pyimgano[benchmark]` instead of assembling extras manually.
 - For `--for-command train|infer|runs`, the payload also includes `artifact_hints` so the operator can see which files or directories are expected to matter after the command runs.
 - For `--for-model NAME`, the recommendation payload now also includes `workflow_stage=discover`, `supports_pixel_map`, `tested_runtime`, and a `model_info_command` plus suggested follow-up commands.
 - Export recommendations follow the same structure, including example outputs like `embed.onnx` and `embed.ts` plus the likely follow-up infer recommendation.
@@ -156,9 +161,26 @@ Notes:
 - `--tags a,b --tags c` works for model and feature discovery and is repeatable.
 - `--deployable-only` restricts preprocessing output to infer/workbench-safe presets.
 - `--goal first-run|cpu-screening|pixel-localization|deployable` emits task-oriented picks across models, recipes, and datasets in one payload.
+- For `--goal cpu-screening`, the recipe picks surface the checked-in starter config
+  `examples/configs/classical_colorhist_mahalanobis_cpu.json` and
+  `examples/configs/classical_edge_ecod_cpu.json` and
+  `examples/configs/classical_fft_lowfreq_ecod_cpu.json` and
+  `examples/configs/classical_hog_ecod_cpu.json` and
+  `examples/configs/classical_lbp_loop_cpu.json` and
+  `examples/configs/classical_patch_stats_ecod_cpu.json` and
+  `examples/configs/classical_structural_ecod_cpu.json`.
+- For `--goal deployable`, the recipe picks surface three checked-in starter configs:
+  `examples/configs/deploy_smoke_custom_cpu.json`,
+  `examples/configs/industrial_adapt_audited.json`, and
+  `examples/configs/manifest_industrial_workflow_balanced.json`.
+- For `--goal pixel-localization`, the recipe picks surface the checked-in starter configs
+  `examples/configs/industrial_adapt_defects_fp40.json`,
+  `examples/configs/industrial_adapt_defects_roi.json`, and
+  `examples/configs/industrial_adapt_maps_tiling.json`.
 - `--objective`, `--selection-profile`, and `--topk` add starter-pick guidance for `--list models` without changing the default discovery shape for other list kinds.
 - In text output, `pyim` renders a `Selection Context` block ahead of starter picks so the chosen objective/profile/topk are visible in the terminal transcript.
 - In text output, `pyim --goal ...` also renders `Goal Context` and `Goal Picks` blocks so the operator can see the chosen route and the concrete model/recipe/dataset recommendations together.
+- When goal recipe picks are present in `--json` output, each recipe pick now also includes `recipe_list_command`, `install_hint`, `recipe_info_command`, and `recipe_run_command` so recipe discovery, required extras, and the next inspection or execution step can be copied directly.
 - When available, `pyim` also renders a `Suggested Commands` block with the next inspection commands for the top pick (for example `pyimgano-doctor --recommend-extras --for-model ...` and `pyimgano-benchmark --model-info ...`).
 - In text output, starter picks now show compact hints like `runtime=numpy`, `pixel_map=yes|no`, `family=...`, `why=...`, and an install hint when extras are required.
 - When starter picks are present in `--json` output, each pick includes lightweight deployment hints such as `supports_pixel_map`, `tested_runtime`, `deployment_family`, and `why_this_pick`.
@@ -396,10 +418,14 @@ Notes:
 - `pyimgano-runs quality` validates the top-level `artifacts/calibration_card.json` when present, so an invalid threshold-audit card keeps a run at `reproducible` instead of `audited`.
 - `pyimgano-runs quality` also inspects optional `deploy_bundle/model_card.json` and `deploy_bundle/weights_manifest.json`;
   if either file is present but invalid, the run does not qualify as `deployable`.
+- `pyimgano-runs quality` now also surfaces `handoff_report_status`, `blocking_reasons`, and
+  `next_action` in JSON output so release automation can see both the current gate state and the
+  next suggested operator step.
 - When `report.json` carries `dataset_readiness`, `pyimgano-runs quality` now preserves it in JSON output and prints `dataset_readiness_status=...` / `dataset_issue_codes=...` in plain text.
 - `pyimgano-runs quality --require-status reproducible|audited|deployable` returns exit code `1`
   unless the run reaches at least the requested artifact quality level.
 - `pyimgano-runs acceptance` is the aggregated handoff gate: it auto-detects run directories vs suite exports, reuses `quality` for runs, validates the selected `infer_config.json` (preferring `deploy_bundle/` when present), and only blocks on bundle weight metadata when `model_card.json` or `weights_manifest.json` actually exist.
+- `pyimgano-runs acceptance` now also exposes `handoff_report_status` and `next_action` in JSON output.
 - `pyimgano-runs publication` inspects `leaderboard_metadata.json` and returns exit code `1`
   unless the export is publication-ready; that now requires benchmark provenance
   (`benchmark_config.source` + `sha256`), `evaluation_contract`, `citation`,
@@ -791,6 +817,8 @@ Notes:
 
 - `validate` checks `infer_config.json`, `bundle_manifest.json`, and optional bundle weight audit files as one deploy-bundle contract.
 - `validate` also checks `bundle_manifest.json` refs/roles/completeness flags and operator-contract digest consistency when those fields are present.
+- `validate` now also reports `handoff_report_status` and `next_action` in JSON output; when present,
+  `handoff_report.json` is validated as part of the deploy-bundle handoff contract.
 - `run` executes offline inference from the bundle and writes `results.jsonl` plus `run_report.json` under `--output-dir`.
 - Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
 - Use `pyimgano-weights audit-bundle` when you want a weights/model-card-focused audit without running bundle validation or inference.
@@ -811,6 +839,12 @@ See also: `docs/RECIPES.md`
 - List recipes (JSON): `pyimgano-train --list-recipes --json`
 - Recipe info: `pyimgano-train --recipe-info industrial-adapt`
 - Recipe info (JSON): `pyimgano-train --recipe-info industrial-adapt --json`
+- The same discovery flow is also available from the umbrella CLI: `pyimgano train --list-recipes` and `pyimgano train --recipe-info industrial-adapt --json`.
+- Text `--list-recipes` output appends `[manual-only]` or `[generated-at-runtime]` when a recipe does not ship a checked-in starter config.
+- Recipe info metadata now includes `default_config`, `starter_configs`, `runtime_profile`, and `expected_artifacts` for built-in starter recipes such as `industrial-adapt`.
+- Starterless or generated recipes also surface `starter_status` and `starter_reason` so operators can tell whether a recipe is manual-only or generated at runtime before looking for a checked-in config.
+- Text `--recipe-info` output also surfaces a `Run command:` line when a default starter config exists, and an `Install hint:` line for optional recipes that require an extra such as `pyimgano[anomalib]`.
+- `pyimgano-train --recipe-info NAME --json` also includes computed helper fields such as `run_command` and optional `install_hint` for automation or wrappers; those computed command helpers now prefer the umbrella form (`pyimgano train ...`).
 
 ### Run a recipe
 
@@ -822,7 +856,7 @@ Common outputs:
 
 - `--export-infer-config` — write `artifacts/infer_config.json` into the run directory
 - `--export-infer-config` also writes `artifacts/calibration_card.json` when threshold provenance is available
-- `--export-deploy-bundle` — write `deploy_bundle/` (includes `infer_config.json` + referenced checkpoints)
+- `--export-deploy-bundle` — write `deploy_bundle/` (includes `infer_config.json`, `bundle_manifest.json`, `handoff_report.json`, and referenced checkpoints)
   - deploy bundles also include `calibration_card.json` when it exists in the run artifacts
   - Validate the bundle with: `pyimgano-validate-infer-config deploy_bundle/infer_config.json`
 - See `docs/CALIBRATION_AUDIT.md` for how to review threshold provenance, score summaries, and split context.

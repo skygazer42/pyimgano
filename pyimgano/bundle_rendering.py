@@ -17,6 +17,12 @@ def format_bundle_validate_lines(payload: dict[str, Any]) -> list[str]:
         bundle_type = contract.get("bundle_type")
         if bundle_type is not None:
             lines.append(f"bundle_type={bundle_type}")
+    handoff_status = payload.get("handoff_report_status")
+    if handoff_status is not None:
+        lines.append(f"handoff_report_status={handoff_status}")
+    next_action = payload.get("next_action")
+    if isinstance(next_action, str) and next_action:
+        lines.append(f"next_action={next_action}")
     return lines
 
 

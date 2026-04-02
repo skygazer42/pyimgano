@@ -20,15 +20,22 @@ def test_cli_reference_documents_doctor_extras_and_readiness() -> None:
     assert "starter_list_command" in text
     assert "starter_info_command" in text
     assert "suggested_commands" in text
+    assert "recipe_list_command" in text
+    assert "recipe_info_command" in text
+    assert "recipe_run_command" in text
     assert "artifact_hints" in text
     assert "workflow_stage" in text
     assert "next_step_commands" in text
+    assert "recommended_extra_profiles" in text
+    assert "install_command" in text
     assert "model_info_command" in text
     assert "supports_pixel_map" in text
     assert "tested_runtime" in text
     assert "leaderboard_metadata.json" in text
     assert "embed.onnx" in text
     assert "embed.ts" in text
+    assert "pyimgano train --recipe-info industrial-adapt --json" in text
+    assert "pyimgano train --list-recipes" in text
     assert "--accelerators" in text
     assert "--run-dir" in text
     assert "--deploy-bundle" in text
@@ -40,6 +47,10 @@ def test_readme_mentions_doctor_require_extras_and_readiness() -> None:
     assert "pyimgano-doctor" in text
     assert "--suite industrial-v4" in text
     assert "--recommend-extras" in text
+    assert 'pip install "pyimgano[deploy]"' in text
+    assert 'pip install "pyimgano[benchmark]"' in text
+    assert 'pip install "pyimgano[tracking]"' in text
+    assert 'pip install "pyimgano[cpu-offline]"' in text
     assert "--for-command train" in text
     assert "--for-command infer" in text
     assert "--for-command runs" in text

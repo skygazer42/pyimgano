@@ -20,8 +20,15 @@ def test_workflow_guidance_includes_export_recommendation_commands() -> None:
     from pyimgano.workflow_guidance import list_workflow_stages
 
     stages = {stage.key: stage for stage in list_workflow_stages()}
+    train = stages["train"]
     export = stages["export"]
 
+    assert list(train.commands) == [
+        "pyimgano doctor --recommend-extras --for-command train --json",
+        "pyimgano train --list-recipes",
+        "pyimgano train --recipe-info industrial-adapt --json",
+        "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
+    ]
     assert export.title == "Export"
     assert list(export.commands) == [
         "pyimgano doctor --recommend-extras --for-command export-onnx --json",
@@ -73,6 +80,8 @@ def test_workflow_guidance_exposes_command_stage_and_next_steps() -> None:
         "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",
     ]
     assert suggested_commands_for_command("train") == [
+        "pyimgano train --list-recipes",
+        "pyimgano train --recipe-info industrial-adapt --json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
     ]
@@ -138,6 +147,8 @@ def test_workflow_guidance_exposes_root_help_command_groups() -> None:
         "pyimgano doctor --recommend-extras --for-command train --json",
         "pyimgano doctor --recommend-extras --for-command infer --json",
         "pyimgano doctor --recommend-extras --for-command runs --json",
+        "pyimgano train --list-recipes",
+        "pyimgano train --recipe-info industrial-adapt --json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
         "pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json",
@@ -156,6 +167,23 @@ def test_workflow_guidance_exposes_root_help_command_groups() -> None:
     assert artifact_acceptance_commands() == [
         "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
         "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",
+    ]
+
+
+def test_workflow_guidance_exposes_deploy_smoke_starter_path() -> None:
+    from pyimgano.workflow_guidance import starter_path_by_name
+
+    deploy_smoke = starter_path_by_name("deploy-smoke")
+
+    assert deploy_smoke is not None
+    assert deploy_smoke.title == "Deployment Smoke Path"
+    assert list(deploy_smoke.commands) == [
+        "pyimgano-doctor --profile deploy-smoke --json",
+        "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained",
+        "pyimgano-train --config examples/configs/deploy_smoke_custom_cpu.json --root ./_demo_custom_dataset --export-infer-config --export-deploy-bundle",
+        "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+        "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
+        "pyimgano runs quality runs/<run_dir> --json",
     ]
 
 
@@ -202,7 +230,18 @@ def test_workflow_guidance_exposes_named_starter_paths() -> None:
     from pyimgano.workflow_guidance import starter_path_by_name
 
     paths = list_starter_paths()
-    assert [path.name for path in paths] == ["first-run", "benchmark", "deploy", "publish"]
+    assert [path.name for path in paths] == [
+        "deploy-smoke",
+        "first-run",
+        "benchmark",
+        "deploy",
+        "publish",
+    ]
+
+    deploy_smoke = starter_path_by_name("deploy-smoke")
+    assert deploy_smoke is not None
+    assert deploy_smoke.title == "Deployment Smoke Path"
+    assert list(deploy_smoke.commands)[0] == "pyimgano-doctor --profile deploy-smoke --json"
 
     first_run = starter_path_by_name("first-run")
     assert first_run is not None

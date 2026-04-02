@@ -1050,6 +1050,9 @@ def main(argv: list[str] | None = None) -> int:
             dataset_readiness = (
                 dict(raw_dataset_readiness) if isinstance(raw_dataset_readiness, dict) else {}
             )
+            handoff_report_status = quality.get("handoff_report_status", None)
+            if handoff_report_status is not None:
+                print(f"handoff_report_status={handoff_report_status}")
             if dataset_readiness:
                 print(f"dataset_readiness_status={dataset_readiness.get('status')}")
                 issue_codes = list(dataset_readiness.get("issue_codes", []))
@@ -1062,6 +1065,9 @@ def main(argv: list[str] | None = None) -> int:
             audit_refs = dict(trust_summary.get("audit_refs", {}))
             for key, value in audit_refs.items():
                 print(f"ref={key}:{value}")
+            next_action = quality.get("next_action", None)
+            if isinstance(next_action, str) and next_action:
+                print(f"next_action={next_action}")
             missing_required = list(quality.get("missing_required", []))
             if missing_required:
                 print(_MISSING_REQUIRED_PREFIX + ", ".join(str(item) for item in missing_required))
@@ -1126,6 +1132,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             for item in acceptance.get("blocking_reasons", []):
                 print(f"blocking_reason={item}")
+            handoff_report_status = acceptance.get("handoff_report_status", None)
+            if handoff_report_status is not None:
+                print(f"handoff_report_status={handoff_report_status}")
             dataset_readiness = dict(dict(acceptance.get("quality", {})).get("dataset_readiness", {}))
             if dataset_readiness:
                 print(f"dataset_readiness_status={dataset_readiness.get('status')}")
@@ -1143,6 +1152,9 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"bundle_warning={item}")
                 for item in bundle_weights.get("errors", []):
                     print(f"bundle_error={item}")
+            next_action = acceptance.get("next_action", None)
+            if isinstance(next_action, str) and next_action:
+                print(f"next_action={next_action}")
             return 0 if bool(acceptance.get("ready")) else 1
 
         if str(args.cmd) == "publication":

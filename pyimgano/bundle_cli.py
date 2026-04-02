@@ -29,6 +29,7 @@ from pyimgano.datasets.manifest_tools import iter_manifest_rows
 from pyimgano.infer_cli_inputs import collect_image_paths
 from pyimgano.inference.validate_infer_config import validate_infer_config_file
 from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
+from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_handoff_report
 from pyimgano.utils.security import FileHasher
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
@@ -41,6 +42,7 @@ _VALIDATE_REASON_CODE_MAP = {
     "invalid_infer_config": "BUNDLE_INVALID_INFER_CONFIG",
     "missing_manifest": "BUNDLE_MISSING_MANIFEST",
     "invalid_manifest": "BUNDLE_INVALID_MANIFEST",
+    "invalid_handoff_report": "BUNDLE_INVALID_HANDOFF_REPORT",
     "required_artifacts_missing": "BUNDLE_REQUIRED_ARTIFACTS_MISSING",
     "bundle_weights_not_ready": "BUNDLE_WEIGHTS_NOT_READY",
 }
@@ -330,13 +332,58 @@ def _evaluate_bundle_artifacts(
     bundle_root: Path,
     *,
     check_hashes: bool,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     if not bundle_root.is_dir():
-        return {}, {}, _default_bundle_weights_payload(bundle_root)
+        return {}, {}, _default_bundle_weights_payload(bundle_root), {
+            "path": str(bundle_root / "handoff_report.json"),
+            "present": False,
+            "valid": None,
+            "errors": [],
+            "status": "not_applicable",
+        }
     infer_config = _evaluate_infer_config(bundle_root)
     bundle_manifest = _evaluate_bundle_manifest(bundle_root, check_hashes=bool(check_hashes))
     bundle_weights = _bundle_weights_payload(bundle_root, check_hashes=bool(check_hashes))
-    return infer_config, bundle_manifest, bundle_weights
+    handoff_report = _evaluate_handoff_report(bundle_root)
+    return infer_config, bundle_manifest, bundle_weights, handoff_report
+
+
+def _evaluate_handoff_report(bundle_root: Path) -> dict[str, Any]:
+    payload = {
+        "path": str(bundle_root / "handoff_report.json"),
+        "present": False,
+        "valid": None,
+        "errors": [],
+        "status": "not_applicable",
+    }
+    if not bundle_root.is_dir():
+        return payload
+
+    handoff_path = bundle_root / "handoff_report.json"
+    payload["present"] = bool(handoff_path.is_file())
+    if not handoff_path.is_file():
+        payload["status"] = "missing"
+        return payload
+
+    try:
+        handoff_report = json.loads(handoff_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - validation boundary
+        payload["valid"] = False
+        payload["errors"] = [str(exc)]
+        payload["status"] = "invalid"
+        return payload
+
+    if not isinstance(handoff_report, Mapping):
+        payload["valid"] = False
+        payload["errors"] = ["handoff_report.json must be a JSON object."]
+        payload["status"] = "invalid"
+        return payload
+
+    errors = validate_deploy_bundle_handoff_report(handoff_report, bundle_dir=bundle_root)
+    payload["valid"] = len(errors) == 0
+    payload["errors"] = list(errors)
+    payload["status"] = "valid" if payload["valid"] else "invalid"
+    return payload
 
 
 def _collect_bundle_blocking_reasons(
@@ -345,6 +392,7 @@ def _collect_bundle_blocking_reasons(
     infer_config: Mapping[str, Any],
     bundle_manifest: Mapping[str, Any],
     bundle_weights: Mapping[str, Any],
+    handoff_report: Mapping[str, Any],
 ) -> tuple[list[str], str]:
     blocking_reasons: list[str] = []
     status = "partial"
@@ -373,6 +421,8 @@ def _collect_bundle_blocking_reasons(
 
     if bool(bundle_weights.get("applicable")) and bundle_weights.get("ready") is not True:
         blocking_reasons.append("bundle_weights_not_ready")
+    if handoff_report.get("status") == "invalid":
+        blocking_reasons.append("invalid_handoff_report")
 
     return blocking_reasons, status
 
@@ -407,7 +457,7 @@ def evaluate_bundle(
     check_hashes: bool = False,
 ) -> dict[str, Any]:
     bundle_root = Path(bundle_dir)
-    infer_config, bundle_manifest, bundle_weights = _evaluate_bundle_artifacts(
+    infer_config, bundle_manifest, bundle_weights, handoff_report = _evaluate_bundle_artifacts(
         bundle_root,
         check_hashes=bool(check_hashes),
     )
@@ -416,6 +466,7 @@ def evaluate_bundle(
         infer_config=infer_config,
         bundle_manifest=bundle_manifest,
         bundle_weights=bundle_weights,
+        handoff_report=handoff_report,
     )
 
     ready = len(blocking_reasons) == 0
@@ -434,9 +485,24 @@ def evaluate_bundle(
         "exit_code": int(_validate_exit_code({"ready": bool(ready)})),
         "reason_codes": _reason_codes(blocking_reasons, mapping=_VALIDATE_REASON_CODE_MAP),
         "blocking_reasons": list(dict.fromkeys(str(item) for item in blocking_reasons)),
+        "handoff_report_status": str(handoff_report.get("status", "not_applicable")),
+        "next_action": (
+            f"pyimgano bundle run {bundle_root} --image-dir /path/to/images --output-dir ./bundle_run --json"
+            if ready
+            else (
+                f"pyimgano weights audit-bundle {bundle_root} --check-hashes --json"
+                if "bundle_weights_not_ready" in blocking_reasons
+                else (
+                    f"pyimgano validate-infer-config {bundle_root / 'infer_config.json'}"
+                    if "invalid_infer_config" in blocking_reasons
+                    else f"pyimgano bundle validate {bundle_root} --json"
+                )
+            )
+        ),
         "contract": contract,
         "infer_config": infer_config,
         "bundle_manifest": bundle_manifest,
+        "handoff_report": handoff_report,
         "bundle_weights": bundle_weights,
     }
 

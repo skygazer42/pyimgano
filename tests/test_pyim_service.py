@@ -411,12 +411,164 @@ def test_collect_pyim_goal_payload_returns_goal_context_and_cross_section_picks(
     assert picks["models"]
     assert isinstance(picks["recipes"], list)
     assert picks["recipes"]
+    recipe_by_config = {item["config_path"]: item for item in picks["recipes"]}
+    assert {
+        "examples/configs/deploy_smoke_custom_cpu.json",
+        "examples/configs/industrial_adapt_audited.json",
+        "examples/configs/manifest_industrial_workflow_balanced.json",
+    } <= set(recipe_by_config)
+    assert recipe_by_config["examples/configs/deploy_smoke_custom_cpu.json"]["runtime_profile"] == "cpu-offline"
+    assert recipe_by_config["examples/configs/industrial_adapt_audited.json"]["runtime_profile"] == "gpu-audited"
+    assert (
+        recipe_by_config["examples/configs/manifest_industrial_workflow_balanced.json"]["runtime_profile"]
+        == "manifest-balanced"
+    )
+    assert "deploy_bundle/handoff_report.json" in recipe_by_config[
+        "examples/configs/deploy_smoke_custom_cpu.json"
+    ]["expected_artifacts"]
+    assert "deploy_bundle/handoff_report.json" in recipe_by_config[
+        "examples/configs/industrial_adapt_audited.json"
+    ]["expected_artifacts"]
+    assert "deploy_bundle/handoff_report.json" in recipe_by_config[
+        "examples/configs/manifest_industrial_workflow_balanced.json"
+    ]["expected_artifacts"]
     assert isinstance(picks["datasets"], list)
     assert picks["datasets"]
     assert isinstance(payload["suggested_commands"], list)
     assert payload["suggested_commands"]
+    assert payload["suggested_commands"][0] == "pyimgano-doctor --profile deploy-smoke --json"
     dataset_names = {item["name"] for item in picks["datasets"]}
     assert {"custom", "manifest"} <= dataset_names or {"custom", "mvtec"} <= dataset_names
+
+
+def test_collect_pyim_goal_payload_can_expand_recipe_starter_configs_from_metadata(
+    monkeypatch,
+) -> None:
+    import pyimgano.services.pyim_service as pyim_service
+    from pyimgano.pyim_contracts import PyimListRequest
+
+    goal_spec = dict(pyim_service._GOAL_SPECS["deployable"])
+    monkeypatch.setitem(
+        pyim_service._GOAL_SPECS,
+        "deployable",
+        {
+            **goal_spec,
+            "recipe_picks": [
+                {
+                    "name": "industrial-adapt",
+                    "expand_starter_configs": True,
+                    "starter_summaries": {
+                        "examples/configs/deploy_smoke_custom_cpu.json": "Smallest offline-safe deploy-bundle smoke path.",
+                        "examples/configs/industrial_adapt_audited.json": "Audited GPU-backed train/export route for stronger deployable handoff coverage.",
+                        "examples/configs/manifest_industrial_workflow_balanced.json": "Manifest-first deploy route when ingestion must preserve explicit metadata and paths.",
+                    },
+                }
+            ],
+        },
+    )
+
+    payload = pyim_service.collect_pyim_goal_payload(PyimListRequest(goal="deployable"))
+
+    recipe_configs = {
+        str(item.get("config_path"))
+        for item in payload["goal_picks"]["recipes"]
+        if isinstance(item, dict)
+    }
+    assert {
+        "examples/configs/deploy_smoke_custom_cpu.json",
+        "examples/configs/industrial_adapt_audited.json",
+        "examples/configs/manifest_industrial_workflow_balanced.json",
+    } <= recipe_configs
+
+
+def test_collect_pyim_goal_payload_uses_recipe_default_config_when_goal_spec_omits_it() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_goal_payload
+
+    payload = collect_pyim_goal_payload(PyimListRequest(goal="first-run"))
+
+    recipe_pick = payload["goal_picks"]["recipes"][0]
+    assert recipe_pick["name"] == "industrial-adapt"
+    assert recipe_pick["config_path"] == "examples/configs/deploy_smoke_custom_cpu.json"
+    assert recipe_pick["runtime_profile"] == "cpu-offline"
+    assert "deploy_bundle/handoff_report.json" in recipe_pick["expected_artifacts"]
+    assert recipe_pick["install_hint"] == "pip install 'pyimgano[deploy]'"
+    assert recipe_pick["recipe_list_command"] == "pyimgano train --list-recipes"
+    assert recipe_pick["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
+    assert (
+        recipe_pick["recipe_run_command"]
+        == "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json"
+    )
+    assert "pyimgano train --list-recipes" in payload["suggested_commands"]
+    assert recipe_pick["recipe_info_command"] in payload["suggested_commands"]
+    assert recipe_pick["recipe_run_command"] in payload["suggested_commands"]
+
+
+def test_collect_pyim_goal_payload_surfaces_cpu_screening_recipe_config() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_goal_payload
+
+    payload = collect_pyim_goal_payload(PyimListRequest(goal="cpu-screening"))
+
+    recipe_by_name = {item["name"]: item for item in payload["goal_picks"]["recipes"]}
+    assert recipe_by_name["classical-colorhist-mahalanobis"]["config_path"] == (
+        "examples/configs/classical_colorhist_mahalanobis_cpu.json"
+    )
+    assert recipe_by_name["classical-colorhist-mahalanobis"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-edge-ecod"]["config_path"] == (
+        "examples/configs/classical_edge_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-edge-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-fft-lowfreq-ecod"]["config_path"] == (
+        "examples/configs/classical_fft_lowfreq_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-fft-lowfreq-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-hog-ecod"]["config_path"] == (
+        "examples/configs/classical_hog_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-hog-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-lbp-loop"]["config_path"] == (
+        "examples/configs/classical_lbp_loop_cpu.json"
+    )
+    assert recipe_by_name["classical-lbp-loop"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-patch-stats-ecod"]["config_path"] == (
+        "examples/configs/classical_patch_stats_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-patch-stats-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["classical-structural-ecod"]["config_path"] == (
+        "examples/configs/classical_structural_ecod_cpu.json"
+    )
+    assert recipe_by_name["classical-structural-ecod"]["runtime_profile"] == "cpu-screening"
+    assert recipe_by_name["industrial-adapt"]["config_path"] == (
+        "examples/configs/deploy_smoke_custom_cpu.json"
+    )
+
+
+def test_collect_pyim_goal_payload_uses_pixel_localization_specific_recipe_configs() -> None:
+    from pyimgano.pyim_contracts import PyimListRequest
+    from pyimgano.services.pyim_service import collect_pyim_goal_payload
+
+    payload = collect_pyim_goal_payload(PyimListRequest(goal="pixel-localization"))
+
+    recipe_by_config = {item["config_path"]: item for item in payload["goal_picks"]["recipes"]}
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"]["name"] == (
+        "industrial-adapt-fp40"
+    )
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"][
+        "runtime_profile"
+    ] == "gpu-defects"
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"]["name"] == (
+        "industrial-adapt-fp40"
+    )
+    assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"][
+        "runtime_profile"
+    ] == "gpu-defects"
+    assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"]["name"] == (
+        "industrial-adapt"
+    )
+    assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"][
+        "runtime_profile"
+    ] == "gpu-localization"
 
 
 def test_pyim_list_payload_builds_all_json_payload_without_model_preset_infos() -> None:

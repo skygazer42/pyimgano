@@ -108,6 +108,7 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
     assert manifest["bundle_artifact_refs"]["infer_config"] == "infer_config.json"
     assert manifest["bundle_artifact_refs"]["calibration_card"] == "calibration_card.json"
     assert manifest["bundle_artifact_refs"]["operator_contract"] == "operator_contract.json"
+    assert manifest["bundle_artifact_refs"]["handoff_report"] == "handoff_report.json"
     assert manifest["required_source_artifacts_present"] is True
     assert manifest["required_bundle_artifacts_present"] is True
     digests = manifest["operator_contract_digests"]
@@ -119,10 +120,19 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
     assert manifest["artifact_roles"]["infer_config"] == ["infer_config.json"]
     assert manifest["artifact_roles"]["calibration_card"] == ["calibration_card.json"]
     assert manifest["artifact_roles"]["operator_contract"] == ["operator_contract.json"]
+    assert manifest["artifact_roles"]["handoff_report"] == ["handoff_report.json"]
     assert any(path.endswith("model.pt") for path in manifest["artifact_roles"]["checkpoint"])
+    assert (bundle_dir / "handoff_report.json").exists()
+    handoff_report = json.loads((bundle_dir / "handoff_report.json").read_text(encoding="utf-8"))
+    assert handoff_report["schema_version"] == 1
+    assert handoff_report["bundle_type"] == "cpu-offline-qc"
+    assert handoff_report["files"]["bundle_manifest"] == "bundle_manifest.json"
+    assert handoff_report["files"]["infer_config"] == "infer_config.json"
+    assert handoff_report["files"]["handoff_report"] == "handoff_report.json"
     assert "infer_config.json" in rel_paths
     assert "calibration_card.json" in rel_paths
     assert "operator_contract.json" in rel_paths
+    assert "handoff_report.json" in rel_paths
     assert "report.json" in rel_paths
     assert "config.json" in rel_paths
     assert "environment.json" in rel_paths

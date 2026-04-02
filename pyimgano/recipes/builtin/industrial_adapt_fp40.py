@@ -23,6 +23,17 @@ from pyimgano.workbench.config import (
             "Industrial adaptation recipe with FP40 defaults for inference export "
             "(defects ROI/border/smoothing/hysteresis/shape filters)."
         ),
+        "default_config": "examples/configs/industrial_adapt_defects_fp40.json",
+        "starter_configs": [
+            "examples/configs/industrial_adapt_defects_fp40.json",
+            "examples/configs/industrial_adapt_defects_roi.json",
+        ],
+        "runtime_profile": "gpu-defects",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+            "deploy_bundle/bundle_manifest.json",
+            "deploy_bundle/handoff_report.json",
+        ],
     },
 )
 def industrial_adapt_fp40(config: WorkbenchConfig) -> dict[str, Any]:

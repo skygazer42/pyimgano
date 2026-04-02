@@ -1,6 +1,17 @@
 {
   "recipe": "industrial-adapt",
   "seed": 123,
+  "meta": {
+    "purpose": "audited-deploy",
+    "runtime_profile": "gpu-audited",
+    "required_extras": ["deploy"],
+    "expected_artifacts": [
+      "artifacts/infer_config.json",
+      "artifacts/calibration_card.json",
+      "deploy_bundle/bundle_manifest.json",
+      "deploy_bundle/handoff_report.json"
+    ]
+  },
   "dataset": {
     "name": "mvtec",
     "root": "/path/to/mvtec_ad",

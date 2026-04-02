@@ -1,6 +1,16 @@
 {
-  "recipe": "industrial-adapt",
+  "recipe": "industrial-adapt-fp40",
   "seed": 123,
+  "meta": {
+    "purpose": "defects-fp40",
+    "runtime_profile": "gpu-defects",
+    "required_extras": ["deploy"],
+    "expected_artifacts": [
+      "artifacts/infer_config.json",
+      "deploy_bundle/bundle_manifest.json",
+      "deploy_bundle/handoff_report.json"
+    ]
+  },
   "dataset": {
     "name": "mvtec",
     "root": "/path/to/mvtec_ad",

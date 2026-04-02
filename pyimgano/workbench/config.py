@@ -10,6 +10,7 @@ from pyimgano.workbench.config_types import (
     DefectsConfig,
     HysteresisConfig,
     MapSmoothingConfig,
+    MetaConfig,
     MergeNearbyConfig,
     ModelConfig,
     OutputConfig,
@@ -46,6 +47,7 @@ __all__ = [
     "MergeNearbyConfig",
     "DefectsConfig",
     "PredictionConfig",
+    "MetaConfig",
     "PreprocessingConfig",
     "WorkbenchConfig",
 ]

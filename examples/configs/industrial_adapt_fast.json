@@ -1,6 +1,13 @@
 {
   "recipe": "industrial-adapt",
   "seed": 123,
+  "meta": {
+    "purpose": "fast-screening",
+    "runtime_profile": "gpu-fast",
+    "expected_artifacts": [
+      "artifacts/infer_config.json"
+    ]
+  },
   "dataset": {
     "name": "mvtec",
     "root": "/path/to/mvtec_ad",
@@ -20,4 +27,3 @@
     "per_image_jsonl": true
   }
 }
-

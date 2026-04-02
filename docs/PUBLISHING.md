@@ -52,13 +52,31 @@ Before tagging a release, verify:
 ```bash
 python -m build
 twine check dist/*
-python tools/audit_repo_links.py
-python tools/audit_public_api.py
-python tools/audit_registry.py
+python3 tools/audit_repo_links.py
+python3 tools/audit_public_api.py
+python3 tools/audit_registry.py
+python3 tools/audit_release_surface.py
+python3 tools/audit_adoption_docs.py
+python3 tools/audit_audited_fastpath_docs.py
+python3 tools/audit_deploy_smoke_docs.py
+python3 tools/audit_release_checklist.py
 ```
 
 If the release includes benchmark-facing changes, also keep the benchmark docs
 and official preset references aligned.
+
+For deploy-facing releases, also run the shortest audited handoff gate:
+
+```bash
+pyimgano-doctor --profile deploy-smoke --json
+pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
+pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
+```
+
+That checklist should leave the deploy bundle carrying:
+
+- `deploy_bundle/bundle_manifest.json`
+- `deploy_bundle/handoff_report.json`
 
 For benchmark-facing releases, also verify the trust contract surfaces are present:
 
@@ -135,6 +153,13 @@ This repository includes a publish workflow:
 
 It publishes to **PyPI** when a **GitHub Release** is published, and can publish
 to **TestPyPI** via manual dispatch.
+
+Before build/upload, the workflow now runs a **Release Readiness** job that:
+
+- audits release/docs surfaces (`audit_release_surface`, `audit_adoption_docs`, `audit_audited_fastpath_docs`, `audit_deploy_smoke_docs`, `audit_release_checklist`)
+- runs the deploy-smoke chain end-to-end
+- requires `pyimgano bundle validate ./_release_deploy_smoke_run/deploy_bundle --json`
+- requires `pyimgano runs acceptance ./_release_deploy_smoke_run --require-status audited --check-bundle-hashes --json`
 
 ### One-time setup (GitHub Secrets)
 

@@ -74,6 +74,11 @@ def _create_detector(config: WorkbenchConfig) -> Any:
     tags=("builtin", "training"),
     metadata={
         "description": "Micro-finetune recipe intended for small autoencoder-style models (best-effort).",
+        "default_config": "examples/configs/micro_finetune_autoencoder.json",
+        "runtime_profile": "gpu-training",
+        "expected_artifacts": [
+            "checkpoints/model.pt",
+        ],
     },
 )
 def micro_finetune_autoencoder(config: WorkbenchConfig) -> dict[str, Any]:

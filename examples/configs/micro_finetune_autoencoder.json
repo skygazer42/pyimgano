@@ -1,6 +1,13 @@
 {
   "recipe": "micro-finetune-autoencoder",
   "seed": 123,
+  "meta": {
+    "purpose": "micro-finetune",
+    "runtime_profile": "gpu-training",
+    "expected_artifacts": [
+      "checkpoints/model.pt"
+    ]
+  },
   "dataset": {
     "name": "custom",
     "root": "/path/to/custom_dataset",
@@ -25,4 +32,3 @@
     "per_image_jsonl": false
   }
 }
-

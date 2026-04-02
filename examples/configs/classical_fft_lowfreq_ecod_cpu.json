@@ -1,0 +1,28 @@
+{
+  "recipe": "classical-fft-lowfreq-ecod",
+  "seed": 123,
+  "meta": {
+    "purpose": "cpu-screening",
+    "runtime_profile": "cpu-screening",
+    "expected_artifacts": [
+      "artifacts/infer_config.json"
+    ]
+  },
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_ecod",
+    "device": "cpu",
+    "pretrained": false,
+    "contamination": 0.1
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}

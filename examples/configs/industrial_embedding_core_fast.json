@@ -1,0 +1,38 @@
+{
+  "recipe": "industrial-embedding-core-fast",
+  "seed": 123,
+  "meta": {
+    "purpose": "embedding-core",
+    "runtime_profile": "gpu-embeddings",
+    "expected_artifacts": [
+      "artifacts/infer_config.json"
+    ]
+  },
+  "dataset": {
+    "name": "mvtec",
+    "root": "/path/to/mvtec_ad",
+    "category": "bottle",
+    "resize": [256, 256],
+    "input_mode": "paths"
+  },
+  "model": {
+    "name": "vision_embedding_core",
+    "device": "cuda",
+    "pretrained": false,
+    "contamination": 0.1,
+    "model_kwargs": {
+      "embedding_extractor": "torchvision_backbone",
+      "embedding_kwargs": {
+        "backbone": "resnet18",
+        "pretrained": false,
+        "pool": "avg",
+        "device": "cuda"
+      },
+      "core_detector": "core_ecod"
+    }
+  },
+  "output": {
+    "save_run": true,
+    "per_image_jsonl": true
+  }
+}

@@ -1,6 +1,13 @@
 {
   "recipe": "industrial-adapt",
   "seed": 123,
+  "meta": {
+    "purpose": "manifest-fast",
+    "runtime_profile": "manifest-fast",
+    "expected_artifacts": [
+      "artifacts/infer_config.json"
+    ]
+  },
   "dataset": {
     "name": "manifest",
     "root": "/path/to/fallback_root",
@@ -27,4 +34,3 @@
     "per_image_jsonl": true
   }
 }
-

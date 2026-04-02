@@ -31,7 +31,7 @@ def _parse_optional_dependency_extras(pyproject_text: str) -> set[str]:
         if line.startswith("[") and line.endswith("]"):
             break
 
-        m = re.match(r"^(\w+)\s*=\s*\[", line)
+        m = re.match(r"^([A-Za-z0-9_-]+)\s*=\s*\[", line)
         if m:
             keys.add(m.group(1))
 
@@ -73,3 +73,6 @@ def test_extra_for_root_module_covers_common_roots() -> None:
     assert extra_for_root_module("diffusers") == "diffusion"
     assert extra_for_root_module("anomalib") == "anomalib"
     assert extra_for_root_module("patchcore") == "patchcore_inspection"
+    assert extra_for_root_module("tensorboard") == "tracking"
+    assert extra_for_root_module("mlflow") == "tracking"
+    assert extra_for_root_module("wandb") == "tracking"

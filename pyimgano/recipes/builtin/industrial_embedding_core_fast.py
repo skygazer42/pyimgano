@@ -16,6 +16,11 @@ from pyimgano.workbench.config import ModelConfig, WorkbenchConfig
             "Industrial baseline recipe: deep embeddings + classical core detector "
             "(safe-by-default; no implicit weight downloads)."
         ),
+        "default_config": "examples/configs/industrial_embedding_core_fast.json",
+        "runtime_profile": "gpu-embeddings",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
     },
 )
 def industrial_embedding_core_fast(config: WorkbenchConfig) -> dict[str, Any]:

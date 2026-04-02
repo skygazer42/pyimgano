@@ -145,6 +145,15 @@ graph LR
 pip install pyimgano
 ```
 
+Task-oriented install aliases:
+
+```bash
+pip install "pyimgano[deploy]"       # train + infer + export deploy runtimes
+pip install "pyimgano[benchmark]"    # benchmark-friendly vision extras
+pip install "pyimgano[tracking]"     # tensorboard + wandb + mlflow tracking
+pip install "pyimgano[cpu-offline]"  # richer CPU/offline-safe classical extras
+```
+
 <details>
 <summary><b>Install from source (latest dev)</b></summary>
 
@@ -163,6 +172,10 @@ pip install -e ".[dev]"
 pip install "pyimgano[torch]"       # PyTorch deep backends + TorchScript export
 pip install "pyimgano[onnx]"        # ONNX runtime
 pip install "pyimgano[openvino]"    # OpenVINO runtime
+pip install "pyimgano[deploy]"      # train + infer + export deploy bundle path
+pip install "pyimgano[benchmark]"   # clip + skimage benchmark expansion
+pip install "pyimgano[tracking]"    # tracking backends for workbench training
+pip install "pyimgano[cpu-offline]" # skimage + numba CPU-first local workflows
 pip install "pyimgano[skimage]"     # scikit-image baselines (SSIM/HOG/LBP/Gabor…)
 pip install "pyimgano[numba]"       # Numba-accelerated baselines
 pip install "pyimgano[viz]"         # matplotlib / seaborn plots
@@ -182,6 +195,7 @@ See `docs/OPTIONAL_DEPENDENCIES.md` for the full extras map.
 <summary><b>Task-oriented install checks</b></summary>
 
 ```bash
+pyimgano-doctor --profile deploy-smoke --json
 pyimgano-doctor --recommend-extras --for-command export-onnx --json
 pyimgano-doctor --recommend-extras --for-command benchmark --json
 pyimgano-doctor --recommend-extras --for-command train --json
@@ -289,6 +303,9 @@ If you want one compact command chain to follow:
   `pyimgano-doctor --recommend-extras --for-command benchmark --json`
 - `Train`:
   `pyimgano-doctor --recommend-extras --for-command train --json`
+  Inspect recipes first with:
+  `pyimgano train --list-recipes`
+  `pyimgano train --recipe-info industrial-adapt --json`
 - `Export`:
   `pyimgano-doctor --recommend-extras --for-command export-onnx --json`
 - `Infer`:
@@ -346,6 +363,8 @@ handoff, the root CLI now exposes it directly:
 ```bash
 pyimgano --help
 pyimgano -- list preprocessing --deployable-only
+pyimgano train --list-recipes
+pyimgano train --recipe-info industrial-adapt --json
 pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano-bundle validate runs/<run_dir>/deploy_bundle --json
@@ -358,6 +377,8 @@ That flow uses the checked-in
 [`industrial_adapt_audited.json`](examples/configs/industrial_adapt_audited.json)
 example and is described in more detail in
 [`docs/INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md).
+New deploy bundles also include `handoff_report.json`, a compact operator-facing
+summary next to `infer_config.json` and `bundle_manifest.json`.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

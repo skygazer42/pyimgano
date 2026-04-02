@@ -186,6 +186,21 @@ def _render_goal_picks(goal_payload: Mapping[str, Any]) -> None:
         summary = str(item.get("summary", "")).strip()
         if summary:
             line += f" summary={summary}"
+        config_path = str(item.get("config_path", "")).strip()
+        if config_path:
+            line += f" config={config_path}"
+        runtime_profile = str(item.get("runtime_profile", "")).strip()
+        if runtime_profile:
+            line += f" profile={runtime_profile}"
+        install_hint = str(item.get("install_hint", "")).strip()
+        if install_hint:
+            line += f" install={install_hint}"
+        recipe_info_command = str(item.get("recipe_info_command", "")).strip()
+        if recipe_info_command:
+            line += f" inspect={recipe_info_command}"
+        recipe_run_command = str(item.get("recipe_run_command", "")).strip()
+        if recipe_run_command:
+            line += f" run={recipe_run_command}"
         lines.append(line)
     for item in picks.get("datasets", []) or []:
         if not isinstance(item, Mapping):

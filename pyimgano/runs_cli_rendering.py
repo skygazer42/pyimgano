@@ -137,6 +137,9 @@ def format_quality_summary_line(*, run_name: str, quality: dict[str, object]) ->
         f"score={quality.get('score')} "
         f"trust={trust_status}"
     )
+    handoff_report_status = quality.get("handoff_report_status", None)
+    if handoff_report_status is not None:
+        line += f" handoff_report={handoff_report_status}"
     dataset_readiness = quality.get("dataset_readiness", None)
     if isinstance(dataset_readiness, dict):
         status = dataset_readiness.get("status", None)
@@ -165,6 +168,9 @@ def format_acceptance_run_summary_line(
         f"infer_config={infer_cfg.get('selected_source')} "
         f"bundle_weights={bundle_status}"
     )
+    handoff_report_status = acceptance.get("handoff_report_status", None)
+    if handoff_report_status is not None:
+        line += f" handoff_report={handoff_report_status}"
     dataset_readiness = quality.get("dataset_readiness", None)
     if isinstance(dataset_readiness, dict):
         status = dataset_readiness.get("status", None)

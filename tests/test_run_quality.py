@@ -13,6 +13,7 @@ _ALLOWED_JSON_PATHS = {
     "calibration_card.json",
     "config.json",
     "environment.json",
+    "handoff_report.json",
     "infer_config.json",
     "model_card.json",
     "operator_contract.json",
@@ -100,6 +101,11 @@ def test_evaluate_run_quality_detects_deployable_run(tmp_path: Path) -> None:
     assert quality["artifacts"]["calibration_card"]["valid"] is True
     assert quality["artifacts"]["deploy_bundle_manifest"]["present"] is True
     assert quality["bundle_manifest"]["valid"] is True
+    assert quality["handoff_report_status"] == "missing"
+    assert (
+        quality["next_action"]
+        == f"pyimgano runs acceptance {run_dir} --require-status audited --check-bundle-hashes --json"
+    )
     assert quality["trust_summary"]["status"] == "trust-signaled"
 
 
@@ -136,6 +142,14 @@ def test_evaluate_run_quality_reports_partial_run(tmp_path: Path) -> None:
     assert quality["artifacts"]["environment"]["present"] is False
     assert quality["dataset_readiness"]["status"] == "warning"
     assert quality["dataset_readiness"]["issue_codes"] == ["FEWSHOT_TRAIN_SET"]
+    assert quality["blocking_reasons"] == [
+        "missing_required:config.json",
+        "missing_required:environment.json",
+    ]
+    assert (
+        quality["next_action"]
+        == f"Restore missing run artifacts and rerun pyimgano runs quality {run_dir} --json"
+    )
     assert quality["trust_summary"]["status"] == "partial"
 
 

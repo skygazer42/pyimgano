@@ -170,6 +170,29 @@ def test_doctor_cli_passes_profile_flag_to_service(monkeypatch) -> None:
     ]
 
 
+def test_doctor_cli_passes_deploy_smoke_profile_flag_to_service(monkeypatch) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    calls = []
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **kwargs: calls.append(dict(kwargs))
+        or {
+            "tool": "pyimgano-doctor",
+            "python": {},
+            "platform": {},
+            "optional_modules": [],
+            "baselines": {},
+        },
+    )
+
+    rc = doctor_cli.main(["--json", "--profile", "deploy-smoke"])
+
+    assert rc == 0
+    assert calls[0]["profile"] == "deploy-smoke"
+
+
 def test_doctor_cli_passes_publication_target_to_service(monkeypatch) -> None:
     import pyimgano.doctor_cli as doctor_cli
 
@@ -423,7 +446,15 @@ def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -
                 "target": "train",
                 "required_extras": ["torch"],
                 "recommended_extras": [],
+                "recipe_list_command": "pyimgano train --list-recipes",
+                "recipe_info_command": "pyimgano train --recipe-info industrial-adapt --json",
+                "recipe_run_command": (
+                    "pyimgano train --config examples/configs/industrial_adapt_audited.json "
+                    "--export-infer-config --export-deploy-bundle"
+                ),
                 "suggested_commands": [
+                    "pyimgano train --list-recipes",
+                    "pyimgano train --recipe-info industrial-adapt --json",
                     "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
                     "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
                 ],
@@ -440,6 +471,14 @@ def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -
     assert rc == 0
     out = capsys.readouterr().out
     assert "suggested_commands:" in out
+    assert "recipe_list_command: pyimgano train --list-recipes" in out
+    assert "recipe_info_command: pyimgano train --recipe-info industrial-adapt --json" in out
+    assert (
+        "recipe_run_command: pyimgano train --config examples/configs/industrial_adapt_audited.json "
+        "--export-infer-config --export-deploy-bundle"
+    ) in out
+    assert "pyimgano train --list-recipes" in out
+    assert "pyimgano train --recipe-info industrial-adapt --json" in out
     assert "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle" in out
     assert "artifact_hints: artifacts/infer_config.json; deploy_bundle/bundle_manifest.json" in out
 

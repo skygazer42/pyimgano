@@ -10,6 +10,13 @@ Primary entrypoint:
 pyimgano-train --config cfg.json
 ```
 
+Recipe discovery is also available from the umbrella CLI:
+
+```bash
+pyimgano train --list-recipes
+pyimgano train --recipe-info industrial-adapt --json
+```
+
 See also:
 
 - `docs/RECIPES.md` (config schema + builtin recipes)
@@ -74,6 +81,8 @@ pyimgano-validate-infer-config /path/to/run_dir/deploy_bundle/infer_config.json
 The deploy bundle now also includes `bundle_manifest.json`, which records the
 bundled files, their relative paths, sizes, and SHA256 digests for auditability.
 This manifest is intended to be machine-verifiable as well as human-readable.
+It also includes `handoff_report.json`, a compact operator-facing summary of the
+bundle contents, threshold context, and expected handoff refs.
 When available, `deploy_bundle/` also carries `calibration_card.json` so the
 image-threshold context travels with the exported inference bundle.
 If you also place `model_card.json` or `weights_manifest.json` in the bundle
@@ -124,18 +133,42 @@ Notes:
   it’s a minimal “what inference needs” payload and includes `threshold_provenance` for auditing.
 - `artifacts/calibration_card.json` is the compact threshold-audit companion artifact for review,
   release notes, and deploy-bundle handoff.
+- `deploy_bundle/handoff_report.json` is the short machine-readable delivery note for operators and
+  release checklists.
 - See `docs/CALIBRATION_AUDIT.md` for the review checklist and expected quality states.
 - Use `pyimgano-runs list` / `pyimgano-runs compare` to inspect and compare saved run directories
   without opening `report.json` by hand.
 - The same workflow is available from the umbrella CLI:
   `pyimgano train ...`, `pyimgano validate-infer-config ...`, and
   `pyimgano runs quality ...`.
+- `pyimgano bundle validate ...`, `pyimgano runs quality ...`, and `pyimgano runs acceptance ...`
+  now expose `handoff_report_status` and `next_action` in JSON output so automation can distinguish
+  “missing handoff note” from “invalid handoff note” and suggest the next operator step.
 - Future infer-config schema versions are rejected explicitly when the installed pyimgano build does
   not support them, rather than being silently accepted.
 - For high-resolution inference, you can still use `pyimgano-infer` tiling flags (see
   `docs/INDUSTRIAL_INFERENCE.md`).
 - When using `preprocessing.illumination_contrast`, the detector must support numpy inputs (tag: `numpy`).
   Otherwise, preflight/CLI will emit `PREPROCESSING_REQUIRES_NUMPY_MODEL`.
+
+## Weights And Cache Policy
+
+`pyimgano` does **not** ship model weights inside the wheel.
+
+The workbench run directory is meant to stay reviewable and portable:
+
+- `checkpoints/<cat>/...` is for small run-local checkpoints that a recipe writes explicitly.
+- `pyimgano-infer --from-run` can reuse those run-local checkpoints when the detector supports checkpoint restore.
+- large pretrained weights still live in the cache locations used by the underlying runtime libraries.
+
+For models that fetch upstream weights, cache placement is controlled by the usual environment variables:
+
+- `TORCH_HOME`
+- `HF_HOME` / `TRANSFORMERS_CACHE`
+- `XDG_CACHE_HOME`
+
+This split keeps deploy bundles and saved runs focused on reproducible artifacts, while heavyweight upstream
+weights remain under the standard cache policy for the environment.
 
 ## Manifest datasets (JSONL)
 

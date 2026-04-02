@@ -40,7 +40,14 @@ def _run_structural_iforest_synthetic_manifest(
 @register_recipe(
     "classical-hog-ecod",
     tags=("builtin", "classical"),
-    metadata={"description": "Classical baseline: HOG features + ECOD"},
+    metadata={
+        "description": "Classical baseline: HOG features + ECOD",
+        "default_config": "examples/configs/classical_hog_ecod_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-hog-ecod"
@@ -57,7 +64,14 @@ def classical_hog_ecod(config: WorkbenchConfig) -> dict[str, Any]:
 @register_recipe(
     "classical-structural-ecod",
     tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: structural features + ECOD"},
+    metadata={
+        "description": "CPU-friendly baseline: structural features + ECOD",
+        "default_config": "examples/configs/classical_structural_ecod_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_structural_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-structural-ecod"
@@ -74,7 +88,14 @@ def classical_structural_ecod(config: WorkbenchConfig) -> dict[str, Any]:
 @register_recipe(
     "classical-edge-ecod",
     tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: edge statistics features + ECOD"},
+    metadata={
+        "description": "CPU-friendly baseline: edge statistics features + ECOD",
+        "default_config": "examples/configs/classical_edge_ecod_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_edge_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-edge-ecod"
@@ -95,7 +116,14 @@ def classical_edge_ecod(config: WorkbenchConfig) -> dict[str, Any]:
 @register_recipe(
     "classical-patch-stats-ecod",
     tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: patch-grid statistics features + ECOD"},
+    metadata={
+        "description": "CPU-friendly baseline: patch-grid statistics features + ECOD",
+        "default_config": "examples/configs/classical_patch_stats_ecod_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_patch_stats_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-patch-stats-ecod"
@@ -120,7 +148,14 @@ def classical_patch_stats_ecod(config: WorkbenchConfig) -> dict[str, Any]:
 @register_recipe(
     "classical-fft-lowfreq-ecod",
     tags=("builtin", "classical", "cpu"),
-    metadata={"description": "CPU-friendly baseline: FFT low-frequency energy ratios + ECOD"},
+    metadata={
+        "description": "CPU-friendly baseline: FFT low-frequency energy ratios + ECOD",
+        "default_config": "examples/configs/classical_fft_lowfreq_ecod_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_fft_lowfreq_ecod(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-fft-lowfreq-ecod"
@@ -138,7 +173,14 @@ def classical_fft_lowfreq_ecod(config: WorkbenchConfig) -> dict[str, Any]:
 @register_recipe(
     "classical-lbp-loop",
     tags=("builtin", "classical"),
-    metadata={"description": "Classical baseline: LBP features + LoOP"},
+    metadata={
+        "description": "Classical baseline: LBP features + LoOP",
+        "default_config": "examples/configs/classical_lbp_loop_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-lbp-loop"
@@ -157,7 +199,14 @@ def classical_lbp_loop(config: WorkbenchConfig) -> dict[str, Any]:
 @register_recipe(
     "classical-colorhist-mahalanobis",
     tags=("builtin", "classical"),
-    metadata={"description": "Classical baseline: HSV color hist + Mahalanobis"},
+    metadata={
+        "description": "Classical baseline: HSV color hist + Mahalanobis",
+        "default_config": "examples/configs/classical_colorhist_mahalanobis_cpu.json",
+        "runtime_profile": "cpu-screening",
+        "expected_artifacts": [
+            "artifacts/infer_config.json",
+        ],
+    },
 )
 def classical_colorhist_mahalanobis(config: WorkbenchConfig) -> dict[str, Any]:
     recipe_name = "classical-colorhist-mahalanobis"
@@ -181,7 +230,12 @@ def classical_colorhist_mahalanobis(config: WorkbenchConfig) -> dict[str, Any]:
         "description": (
             "One-click demo: generate a tiny synthetic dataset from a flat folder of normal images "
             "and run a structural-features IForest baseline on the resulting manifest."
-        )
+        ),
+        "starter_status": "generated-at-runtime",
+        "starter_reason": (
+            "This recipe generates a temporary synthetic dataset from user-supplied normals, "
+            "so it does not have a stable checked-in starter config."
+        ),
     },
 )
 def classical_struct_iforest_synth(config: WorkbenchConfig) -> dict[str, Any]:

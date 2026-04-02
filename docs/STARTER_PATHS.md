@@ -5,7 +5,20 @@ Use this page when you already know your goal and want one exact command chain.
 If you want the umbrella entrypoint first, run:
 
 ```bash
-python -m pyimgano --help
+pyimgano --help
+```
+
+## Deployment Smoke Path
+
+Smallest offline-safe path from demo dataset creation to deploy bundle validation.
+
+```bash
+pyimgano-doctor --profile deploy-smoke --json
+pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset --output-dir ./_demo_suite_run --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps --no-pretrained
+pyimgano-train --config examples/configs/deploy_smoke_custom_cpu.json --root ./_demo_custom_dataset --export-infer-config --export-deploy-bundle
+pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
+pyimgano bundle validate runs/<run_dir>/deploy_bundle --json
+pyimgano runs quality runs/<run_dir> --json
 ```
 
 ## First 10 Minutes

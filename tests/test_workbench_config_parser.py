@@ -24,6 +24,15 @@ def test_workbench_config_parser_builds_compatible_workbench_config() -> None:
     raw = {
         "recipe": "industrial-adapt",
         "seed": 123,
+        "meta": {
+            "purpose": "deploy-smoke",
+            "runtime_profile": "cpu-offline",
+            "required_extras": ["deploy"],
+            "expected_artifacts": [
+                "artifacts/infer_config.json",
+                "deploy_bundle/handoff_report.json",
+            ],
+        },
         "dataset": {
             "name": "custom",
             "root": "/tmp/data",
@@ -85,6 +94,13 @@ def test_workbench_config_parser_builds_compatible_workbench_config() -> None:
     assert isinstance(cfg, WorkbenchConfigType)
     assert isinstance(cfg, WorkbenchConfig)
     assert cfg == WorkbenchConfig.from_dict(raw)
+    assert cfg.meta.purpose == "deploy-smoke"
+    assert cfg.meta.runtime_profile == "cpu-offline"
+    assert cfg.meta.required_extras == ("deploy",)
+    assert cfg.meta.expected_artifacts == (
+        "artifacts/infer_config.json",
+        "deploy_bundle/handoff_report.json",
+    )
     assert cfg.dataset.resize == (128, 256)
     assert cfg.dataset.split_policy.seed == 123
     assert cfg.training.enabled is True
