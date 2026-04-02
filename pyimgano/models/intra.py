@@ -17,6 +17,7 @@ Implementation includes:
 - Reconstruction-based anomaly scoring
 """
 
+import logging
 import math
 from typing import Optional, Tuple
 
@@ -27,6 +28,8 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 
 from pyimgano.models.base_dl import BaseVisionDeepDetector
+
+logger = logging.getLogger(__name__)
 
 
 class PatchEmbedding(nn.Module):
@@ -376,7 +379,12 @@ class InTraDetector(BaseVisionDeepDetector):
                 num_batches += 1
 
             if (epoch + 1) % 10 == 0:
-                print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {epoch_loss / num_batches:.4f}")
+                logger.info(
+                    "Epoch %d/%d, Loss: %.4f",
+                    epoch + 1,
+                    self.epochs,
+                    epoch_loss / num_batches,
+                )
 
         # Evaluation mode
         self.encoder.eval()

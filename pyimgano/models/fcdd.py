@@ -15,6 +15,7 @@ Usage:
     >>> scores, maps = model.predict_with_map(X_test)
 """
 
+import logging
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -25,6 +26,8 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..base import BaseVisionDeepDetector
+
+logger = logging.getLogger(__name__)
 
 
 class FCDDNetwork(nn.Module):
@@ -224,7 +227,7 @@ class FCDD(BaseVisionDeepDetector):
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / len(dataloader)
-                print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {avg_loss:.4f}")
+                logger.info("Epoch [%d/%d], Loss: %.4f", epoch + 1, self.epochs, avg_loss)
 
         self.is_fitted_ = True
         return self
