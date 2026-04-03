@@ -245,6 +245,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional override for watch state path. Default: <output-dir>/watch_state.json",
     )
     watch_parser.add_argument(
+        "--webhook-url",
+        default=None,
+        help="Optional callback URL. When set, each processed watch record is POSTed as JSON.",
+    )
+    watch_parser.add_argument(
+        "--webhook-timeout-seconds",
+        type=_parse_nonnegative_float_arg,
+        default=5.0,
+        help="Timeout for webhook POST requests. Default: 5.0.",
+    )
+    watch_parser.add_argument(
         "--check-hashes",
         action="store_true",
         help="Verify recorded bundle hashes before polling.",
@@ -1349,6 +1360,10 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
         export_masks=bool(args.export_masks),
         export_overlays=bool(args.export_overlays),
         export_defects_regions=bool(args.export_defects_regions),
+        webhook_url=(
+            str(args.webhook_url) if getattr(args, "webhook_url", None) is not None else None
+        ),
+        webhook_timeout_seconds=float(args.webhook_timeout_seconds),
         max_anomaly_rate=(
             float(args.max_anomaly_rate) if getattr(args, "max_anomaly_rate", None) is not None else None
         ),

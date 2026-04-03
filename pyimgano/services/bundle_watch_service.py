@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib import request as urllib_request
 
 from pyimgano.infer_cli_inputs import collect_image_paths
 from pyimgano.services.bundle_run_service import BundleInferenceBatchRequest, run_bundle_inference_batch
@@ -16,6 +17,7 @@ _WATCH_REASON_CODE_MAP = {
     "watch_input_not_found": "WATCH_INPUT_NOT_FOUND",
     "watch_processing_errors": "WATCH_PROCESSING_ERRORS",
     "watch_batch_blocked": "WATCH_BATCH_BLOCKED",
+    "watch_webhook_errors": "WATCH_WEBHOOK_ERRORS",
 }
 
 
@@ -32,6 +34,8 @@ class BundleWatchRequest:
     export_masks: bool = False
     export_overlays: bool = False
     export_defects_regions: bool = False
+    webhook_url: str | None = None
+    webhook_timeout_seconds: float = 5.0
     max_anomaly_rate: float | None = None
     max_reject_rate: float | None = None
     max_error_rate: float | None = None
@@ -130,6 +134,22 @@ def _append_existing_jsonl(src: Path, dst: Path) -> None:
     _append_jsonl_rows(dst, rows)
 
 
+def _jsonl_row_by_ref(ref: str) -> dict[str, Any]:
+    path_text, sep, line_text = str(ref).rpartition("#L")
+    if not sep:
+        raise ValueError(f"Invalid result ref: {ref!r}")
+    line_no = int(line_text)
+    path = Path(path_text)
+    for idx, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if idx != line_no or not line.strip():
+            continue
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise ValueError("Referenced JSONL line must contain a JSON object.")
+        return payload
+    raise ValueError(f"Result ref not found: {ref!r}")
+
+
 def _watch_record_for_path(*, watch_dir: Path, path: Path) -> dict[str, Any]:
     resolved_path = path.resolve()
     rel_path = resolved_path.relative_to(watch_dir.resolve()).as_posix()
@@ -200,6 +220,15 @@ def _watch_counts(entries: Mapping[str, Any]) -> dict[str, int]:
     return counts
 
 
+def _watch_delivery_counts(entries: Mapping[str, Any]) -> dict[str, int]:
+    counts = {"delivered": 0, "pending": 0, "error": 0, "not_requested": 0}
+    for entry in entries.values():
+        delivery_status = str(dict(entry).get("delivery_status", "not_requested"))
+        if delivery_status in counts:
+            counts[delivery_status] += 1
+    return counts
+
+
 def _watch_batch_gate_namespace(request: BundleWatchRequest) -> Any:
     return type(
         "_WatchBatchGateArgs",
@@ -215,6 +244,14 @@ def _watch_batch_gate_namespace(request: BundleWatchRequest) -> Any:
 
 def _watch_exit_code(*, status: str) -> int:
     return 0 if str(status) in {"completed", "running"} else 1
+
+
+def _webhook_enabled(request: BundleWatchRequest) -> bool:
+    return bool(str(request.webhook_url or "").strip())
+
+
+def _default_delivery_status(request: BundleWatchRequest) -> str:
+    return "pending" if _webhook_enabled(request) else "not_requested"
 
 
 def _emit_watch_event(
@@ -243,6 +280,106 @@ def _emit_watch_event(
     _append_jsonl_line(artifacts["watch_events_jsonl"], payload)
 
 
+def _build_watch_webhook_payload(
+    *,
+    request: BundleWatchRequest,
+    relative_path: str,
+    fingerprint: str,
+    result_ref: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": int(_WATCH_SCHEMA_VERSION),
+        "tool": "pyimgano-bundle",
+        "command": "watch",
+        "event": "processed",
+        "bundle_dir": str(Path(request.bundle_dir)),
+        "watch_dir": str(Path(request.watch_dir)),
+        "output_dir": str(Path(request.output_dir)),
+        "relative_path": str(relative_path),
+        "fingerprint": str(fingerprint),
+        "result_ref": str(result_ref),
+        "result": _jsonl_row_by_ref(result_ref),
+    }
+
+
+def _send_watch_webhook(payload: dict[str, Any], url: str, timeout: float) -> None:
+    req = urllib_request.Request(
+        url=str(url),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib_request.urlopen(req, timeout=float(timeout)) as response:
+        status = int(getattr(response, "status", response.getcode()))
+        if not 200 <= status < 300:
+            raise RuntimeError(f"webhook returned HTTP {status}")
+
+
+def _entry_needs_webhook_delivery(entry: Mapping[str, Any], request: BundleWatchRequest) -> bool:
+    if not _webhook_enabled(request):
+        return False
+    if str(entry.get("status", "")) != "processed":
+        return False
+    if not str(entry.get("last_result_ref", "")).strip():
+        return False
+    delivery_status = str(entry.get("delivery_status", "pending")).strip() or "pending"
+    return delivery_status != "delivered"
+
+
+def _deliver_entry_webhook(
+    *,
+    request: BundleWatchRequest,
+    entry: dict[str, Any],
+    relative_path: str,
+    fingerprint: str,
+    now: float,
+    artifacts: Mapping[str, Path],
+    send_webhook_impl: Callable[[dict[str, Any], str, float], None],
+) -> tuple[bool, str | None]:
+    payload = _build_watch_webhook_payload(
+        request=request,
+        relative_path=relative_path,
+        fingerprint=fingerprint,
+        result_ref=str(entry["last_result_ref"]),
+    )
+    entry["delivery_attempts"] = int(entry.get("delivery_attempts", 0)) + 1
+    try:
+        send_webhook_impl(
+            payload,
+            str(request.webhook_url),
+            float(request.webhook_timeout_seconds),
+        )
+    except Exception as exc:  # noqa: BLE001 - network boundary
+        entry["delivery_status"] = "error"
+        entry["last_delivery_error"] = f"{type(exc).__name__}: {exc}"
+        entry["last_delivery_at"] = now
+        _emit_watch_event(
+            artifacts=artifacts,
+            event="webhook_error",
+            relative_path=relative_path,
+            fingerprint=fingerprint,
+            now=now,
+            status="processed",
+            detail=str(entry["last_delivery_error"]),
+            last_result_ref=str(entry["last_result_ref"]),
+        )
+        return False, str(entry["last_delivery_error"])
+
+    entry["delivery_status"] = "delivered"
+    entry["last_delivery_error"] = None
+    entry["last_delivery_at"] = now
+    _emit_watch_event(
+        artifacts=artifacts,
+        event="webhook_delivered",
+        relative_path=relative_path,
+        fingerprint=fingerprint,
+        now=now,
+        status="processed",
+        last_result_ref=str(entry["last_result_ref"]),
+    )
+    return True, None
+
+
 def _build_watch_report(
     *,
     request: BundleWatchRequest,
@@ -256,12 +393,15 @@ def _build_watch_report(
     batch_gate_summary: Mapping[str, Any],
     batch_gate_reason_codes: list[str],
     cycle_errors: int,
+    webhook_delivery_count: int,
+    webhook_error_count: int,
     status: str,
     reason_codes: list[str],
     last_success_at: float | None,
     last_error_at: float | None,
 ) -> dict[str, Any]:
     counts = _watch_counts(dict(state.get("entries", {})))
+    delivery_counts = _watch_delivery_counts(dict(state.get("entries", {})))
     report = {
         "schema_version": int(_WATCH_SCHEMA_VERSION),
         "tool": "pyimgano-bundle",
@@ -277,6 +417,11 @@ def _build_watch_report(
         "processed": int(processed_now),
         "pending": int(counts["pending"]),
         "error": int(counts["error"]),
+        "webhook_enabled": bool(_webhook_enabled(request)),
+        "webhook_url": (str(request.webhook_url) if _webhook_enabled(request) else None),
+        "webhook_delivery_count": int(webhook_delivery_count),
+        "webhook_error_count": int(webhook_error_count),
+        "delivery_summary": delivery_counts,
         "poll_seconds": float(request.poll_seconds),
         "settle_seconds": float(request.settle_seconds),
         "last_poll_at": state.get("last_poll_at"),
@@ -323,9 +468,12 @@ def run_bundle_watch_once(
     now_fn: Callable[[], float] | None = None,
     validate_bundle_impl: Callable[..., dict[str, Any]] | None = None,
     batch_gate_evaluator: Callable[..., tuple[dict[str, Any], str, list[str]]] | None = None,
+    send_webhook_impl: Callable[[dict[str, Any], str, float], None] | None = None,
 ) -> dict[str, Any]:
     if now_fn is None:
         now_fn = time.time
+    if send_webhook_impl is None:
+        send_webhook_impl = _send_watch_webhook
 
     output_dir = Path(request.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -367,6 +515,8 @@ def run_bundle_watch_once(
             batch_gate_summary={},
             batch_gate_reason_codes=[],
             cycle_errors=0,
+            webhook_delivery_count=0,
+            webhook_error_count=0,
             status="blocked",
             reason_codes=list(bundle_validation.get("reason_codes", [])),
             last_success_at=None,
@@ -379,6 +529,8 @@ def run_bundle_watch_once(
     processed_rows: list[dict[str, Any]] = []
     processed_now = 0
     cycle_errors = 0
+    webhook_delivery_count = 0
+    webhook_error_count = 0
     last_success_at: float | None = None
     last_error_at: float | None = None
 
@@ -397,6 +549,8 @@ def run_bundle_watch_once(
             batch_gate_summary={},
             batch_gate_reason_codes=[],
             cycle_errors=0,
+            webhook_delivery_count=0,
+            webhook_error_count=0,
             status="failed",
             reason_codes=[_WATCH_REASON_CODE_MAP["watch_input_not_found"]],
             last_success_at=None,
@@ -418,6 +572,8 @@ def run_bundle_watch_once(
             mtime_ns=int(stat.st_mtime_ns),
         )
         existing = dict(entries.get(rel_path, {}))
+        if existing:
+            entries[rel_path] = existing
         if existing.get("fingerprint") != fingerprint:
             existing = {
                 "relative_path": rel_path,
@@ -426,6 +582,10 @@ def run_bundle_watch_once(
                 "first_seen_at": now,
                 "last_attempt_at": None,
                 "last_result_ref": None,
+                "delivery_status": _default_delivery_status(request),
+                "delivery_attempts": 0,
+                "last_delivery_error": None,
+                "last_delivery_at": None,
                 "last_size_bytes": int(stat.st_size),
                 "last_mtime_ns": int(stat.st_mtime_ns),
                 "last_skip_reason": None,
@@ -439,6 +599,24 @@ def run_bundle_watch_once(
                 now=now,
                 status="pending",
             )
+
+        if _entry_needs_webhook_delivery(existing, request):
+            delivered, _error_text = _deliver_entry_webhook(
+                request=request,
+                entry=existing,
+                relative_path=rel_path,
+                fingerprint=fingerprint,
+                now=now,
+                artifacts=artifacts,
+                send_webhook_impl=send_webhook_impl,
+            )
+            if delivered:
+                webhook_delivery_count += 1
+                last_success_at = now
+            else:
+                webhook_error_count += 1
+                last_error_at = now
+            continue
 
         if str(existing.get("status", "pending")) in {"processed", "error"}:
             if existing.get("last_skip_reason") != "already_processed":
@@ -525,6 +703,7 @@ def run_bundle_watch_once(
         last_success_at = now
         existing["status"] = "processed"
         existing["last_result_ref"] = f"{artifacts['results_jsonl']}#L{start_line}"
+        existing["delivery_status"] = _default_delivery_status(request)
         _emit_watch_event(
             artifacts=artifacts,
             event="processed",
@@ -534,6 +713,21 @@ def run_bundle_watch_once(
             status="processed",
             last_result_ref=str(existing["last_result_ref"]),
         )
+        if _entry_needs_webhook_delivery(existing, request):
+            delivered, _error_text = _deliver_entry_webhook(
+                request=request,
+                entry=existing,
+                relative_path=rel_path,
+                fingerprint=fingerprint,
+                now=now,
+                artifacts=artifacts,
+                send_webhook_impl=send_webhook_impl,
+            )
+            if delivered:
+                webhook_delivery_count += 1
+            else:
+                webhook_error_count += 1
+                last_error_at = now
         shutil.rmtree(staging_dir, ignore_errors=True)
 
     batch_gate_summary, batch_verdict, batch_gate_reason_codes = batch_gate_evaluator(
@@ -549,11 +743,13 @@ def run_bundle_watch_once(
         reason_codes.extend(batch_gate_reason_codes)
     elif cycle_errors > 0:
         reason_codes.append(_WATCH_REASON_CODE_MAP["watch_processing_errors"])
+    elif webhook_error_count > 0:
+        reason_codes.append(_WATCH_REASON_CODE_MAP["watch_webhook_errors"])
 
     status = "completed"
     if str(batch_verdict) == "blocked":
         status = "blocked"
-    elif cycle_errors > 0:
+    elif cycle_errors > 0 or webhook_error_count > 0:
         status = "failed"
 
     report = _build_watch_report(
@@ -568,6 +764,8 @@ def run_bundle_watch_once(
         batch_gate_summary=batch_gate_summary,
         batch_gate_reason_codes=batch_gate_reason_codes,
         cycle_errors=cycle_errors,
+        webhook_delivery_count=webhook_delivery_count,
+        webhook_error_count=webhook_error_count,
         status=status,
         reason_codes=reason_codes,
         last_success_at=last_success_at,

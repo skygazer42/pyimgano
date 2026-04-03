@@ -402,6 +402,58 @@ def test_bundle_cli_watch_once_processes_stable_backlog_and_writes_artifacts(
     assert len(calls) == 1
 
 
+def test_bundle_cli_watch_forwards_webhook_settings_to_service(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    import pyimgano.bundle_cli as bundle_cli
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    output_dir = tmp_path / "watch_out"
+    captured: dict[str, object] = {}
+
+    def _fake_watch(request):  # noqa: ANN001 - test stub
+        captured["request"] = request
+        return {
+            "tool": "pyimgano-bundle",
+            "command": "watch",
+            "bundle_dir": str(bundle_dir),
+            "watch_dir": str(watch_dir),
+            "output_dir": str(output_dir),
+            "status": "completed",
+            "ready": True,
+            "exit_code": 0,
+            "processed": 0,
+            "pending": 0,
+            "error": 0,
+            "artifacts": {"results_jsonl": str(output_dir / "results.jsonl")},
+        }
+
+    monkeypatch.setattr(bundle_cli.bundle_watch_service, "run_bundle_watch_once", _fake_watch)
+
+    rc = bundle_cli.main(
+        [
+            "watch",
+            str(bundle_dir),
+            "--watch-dir",
+            str(watch_dir),
+            "--output-dir",
+            str(output_dir),
+            "--once",
+            "--webhook-url",
+            "https://example.invalid/hook",
+            "--webhook-timeout-seconds",
+            "7.5",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    request = captured["request"]
+    assert request.webhook_url == "https://example.invalid/hook"
+    assert request.webhook_timeout_seconds == 7.5
+
+
 def test_bundle_watch_service_skips_processed_fingerprint_and_reprocesses_changed_file(
     tmp_path: Path,
 ) -> None:
@@ -475,6 +527,113 @@ def test_bundle_watch_service_does_not_retry_same_failed_fingerprint(tmp_path: P
     assert len(calls) == 1
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["bad.png"]["status"] == "error"
+
+
+def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path) -> None:
+    from pyimgano.services.bundle_watch_service import BundleWatchRequest, run_bundle_watch_once
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    image_path = watch_dir / "sample.png"
+    _write_png(image_path)
+    output_dir = tmp_path / "watch_out"
+    deliveries: list[dict[str, object]] = []
+
+    def _fake_infer(argv: list[str]) -> int:
+        args = list(argv)
+        results_path = Path(args[args.index("--save-jsonl") + 1])
+        _write_jsonl(results_path, [{"score": 0.25, "label": 0}])
+        return 0
+
+    def _fake_webhook(payload: dict[str, object], url: str, timeout: float) -> None:
+        deliveries.append({"payload": dict(payload), "url": url, "timeout": timeout})
+
+    request = BundleWatchRequest(
+        bundle_dir=bundle_dir,
+        watch_dir=watch_dir,
+        output_dir=output_dir,
+        settle_seconds=0.0,
+        once=True,
+        webhook_url="https://example.invalid/hook",
+        webhook_timeout_seconds=6.0,
+    )
+
+    report = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_fake_webhook,
+    )
+
+    assert report["status"] == "completed"
+    assert report["processed"] == 1
+    assert report["webhook_delivery_count"] == 1
+    assert report["webhook_error_count"] == 0
+    assert len(deliveries) == 1
+    assert deliveries[0]["url"] == "https://example.invalid/hook"
+    assert deliveries[0]["timeout"] == 6.0
+    payload = deliveries[0]["payload"]
+    assert payload["event"] == "processed"
+    assert payload["result"]["image_path"] == str(image_path)
+    state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
+    assert state["entries"]["sample.png"]["delivery_status"] == "delivered"
+
+
+def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_path: Path) -> None:
+    from pyimgano.services.bundle_watch_service import BundleWatchRequest, run_bundle_watch_once
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    image_path = watch_dir / "sample.png"
+    _write_png(image_path)
+    output_dir = tmp_path / "watch_out"
+    infer_calls: list[list[str]] = []
+    delivery_attempts: list[dict[str, object]] = []
+
+    def _fake_infer(argv: list[str]) -> int:
+        infer_calls.append(list(argv))
+        args = list(argv)
+        results_path = Path(args[args.index("--save-jsonl") + 1])
+        _write_jsonl(results_path, [{"score": 0.8, "label": 1}])
+        return 0
+
+    def _flaky_webhook(payload: dict[str, object], url: str, timeout: float) -> None:
+        delivery_attempts.append({"payload": dict(payload), "url": url, "timeout": timeout})
+        if len(delivery_attempts) == 1:
+            raise RuntimeError("temporary webhook outage")
+
+    request = BundleWatchRequest(
+        bundle_dir=bundle_dir,
+        watch_dir=watch_dir,
+        output_dir=output_dir,
+        settle_seconds=0.0,
+        once=True,
+        webhook_url="https://example.invalid/hook",
+    )
+
+    first = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_flaky_webhook,
+    )
+    second = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_flaky_webhook,
+    )
+
+    assert first["status"] == "failed"
+    assert first["processed"] == 1
+    assert first["webhook_delivery_count"] == 0
+    assert first["webhook_error_count"] == 1
+    assert second["status"] == "completed"
+    assert second["processed"] == 0
+    assert second["webhook_delivery_count"] == 1
+    assert second["webhook_error_count"] == 0
+    assert len(infer_calls) == 1
+    assert len(delivery_attempts) == 2
+    state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
+    assert state["entries"]["sample.png"]["status"] == "processed"
+    assert state["entries"]["sample.png"]["delivery_status"] == "delivered"
 
 
 def test_bundle_cli_run_writes_results_and_run_report_for_image_dir(

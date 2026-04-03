@@ -386,6 +386,10 @@ into a polling runtime that appends `results.jsonl`, `watch_events.jsonl`, and
 `watch_state.json` under one output directory. A minimal containerized example is
 included in [`Dockerfile.bundle-watch`](Dockerfile.bundle-watch) and
 [`compose.bundle-watch.yml`](compose.bundle-watch.yml).
+When you want a downstream system callback without adding MQTT or RTSP yet, pass
+`--webhook-url https://example.internal/qc-hook`; successful watch records are
+POSTed as JSON, and failed deliveries are retried on later polling cycles without
+rerunning inference for the same fingerprint.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

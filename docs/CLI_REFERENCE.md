@@ -828,6 +828,8 @@ Notes:
 - `watch` polls `--watch-dir`, waits for files to stay stable for `--settle-seconds`, and appends stable inputs to aggregate watch artifacts under `--output-dir`.
 - `watch` writes `results.jsonl`, `watch_report.json`, `watch_state.json`, and `watch_events.jsonl`; when requested it also writes `masks/`, `overlays/`, and `defects_regions.jsonl`.
 - `watch_state.json` stores the per-file fingerprint/state ledger so already-processed and failed fingerprints are not retried until the file changes.
+- `watch --webhook-url URL` POSTs each processed result as JSON for downstream systems; webhook delivery failures are retried on later polling cycles without rerunning inference for the same fingerprint.
+- `--webhook-timeout-seconds` controls the POST timeout for those callbacks.
 - `watch --once` processes only the current stable backlog and exits; omit `--once` to keep polling with `--poll-seconds`.
 - Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
 - The same batch gates also apply to `watch`, but only to the current polling cycle.
