@@ -19,6 +19,7 @@ class CommandWorkflowGuidance:
     workflow_stage: str
     recipe_list_command: str | None = None
     recipe_info_command: str | None = None
+    dry_run_command: str | None = None
     recipe_run_command: str | None = None
     preset_infer_command: str | None = None
     from_run_infer_command: str | None = None
@@ -80,6 +81,7 @@ _WORKFLOW_STAGES: tuple[WorkflowStage, ...] = (
             "pyimgano doctor --recommend-extras --for-command train --json",
             "pyimgano train --list-recipes",
             "pyimgano train --recipe-info industrial-adapt --json",
+            "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         ),
     ),
@@ -122,6 +124,7 @@ _INDUSTRIAL_FAST_PATH_COMMANDS: tuple[str, ...] = (
     "pyimgano doctor --recommend-extras --for-command runs --json",
     "pyimgano train --list-recipes",
     "pyimgano train --recipe-info industrial-adapt --json",
+    "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
     "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
     "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
     "pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json",
@@ -234,6 +237,7 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         workflow_stage="train",
         recipe_list_command="pyimgano train --list-recipes",
         recipe_info_command="pyimgano train --recipe-info industrial-adapt --json",
+        dry_run_command="pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
         recipe_run_command=(
             "pyimgano train --config examples/configs/industrial_adapt_audited.json "
             "--export-infer-config --export-deploy-bundle"
@@ -241,6 +245,7 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         suggested_commands=(
             "pyimgano train --list-recipes",
             "pyimgano train --recipe-info industrial-adapt --json",
+            "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
             "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
         ),

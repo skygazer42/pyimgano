@@ -59,7 +59,9 @@ def test_readme_and_workbench_document_umbrella_train_discovery_commands() -> No
 
     assert "pyimgano train --list-recipes" in readme
     assert "pyimgano train --recipe-info industrial-adapt --json" in readme
+    assert "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json" in readme
     assert "pyimgano train --list-recipes" in workbench
     assert "pyimgano train --recipe-info industrial-adapt --json" in workbench
     assert "pyimgano train --list-recipes" in fastpath
     assert "pyimgano train --recipe-info industrial-adapt --json" in fastpath
+    assert "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json" in fastpath

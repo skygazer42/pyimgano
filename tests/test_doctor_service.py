@@ -80,12 +80,17 @@ def test_collect_doctor_payload_recommends_train_commands() -> None:
     assert recommendation["recipe_list_command"] == "pyimgano train --list-recipes"
     assert recommendation["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
     assert (
+        recommendation["dry_run_command"]
+        == "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json"
+    )
+    assert (
         recommendation["recipe_run_command"]
         == "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle"
     )
     assert recommendation["suggested_commands"] == [
         "pyimgano train --list-recipes",
         "pyimgano train --recipe-info industrial-adapt --json",
+        "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
     ]

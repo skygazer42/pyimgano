@@ -365,6 +365,7 @@ pyimgano --help
 pyimgano -- list preprocessing --deployable-only
 pyimgano train --list-recipes
 pyimgano train --recipe-info industrial-adapt --json
+pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json
 pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano-bundle validate runs/<run_dir>/deploy_bundle --json

@@ -27,6 +27,7 @@ def test_workflow_guidance_includes_export_recommendation_commands() -> None:
         "pyimgano doctor --recommend-extras --for-command train --json",
         "pyimgano train --list-recipes",
         "pyimgano train --recipe-info industrial-adapt --json",
+        "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
     ]
     assert export.title == "Export"
@@ -82,6 +83,7 @@ def test_workflow_guidance_exposes_command_stage_and_next_steps() -> None:
     assert suggested_commands_for_command("train") == [
         "pyimgano train --list-recipes",
         "pyimgano train --recipe-info industrial-adapt --json",
+        "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
     ]
@@ -149,6 +151,7 @@ def test_workflow_guidance_exposes_root_help_command_groups() -> None:
         "pyimgano doctor --recommend-extras --for-command runs --json",
         "pyimgano train --list-recipes",
         "pyimgano train --recipe-info industrial-adapt --json",
+        "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
         "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
         "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json",
         "pyimgano bundle run runs/<run_dir>/deploy_bundle --image-dir /path/to/images --output-dir ./bundle_run --json",

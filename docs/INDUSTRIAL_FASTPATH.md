@@ -28,6 +28,7 @@ use the umbrella CLI first:
 ```bash
 pyimgano train --list-recipes
 pyimgano train --recipe-info industrial-adapt --json
+pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json
 ```
 
 That example is tuned for the audited export path:

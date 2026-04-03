@@ -84,6 +84,9 @@ def format_extra_recommendation_lines(recommendation: dict[str, object]) -> list
     recipe_info_command = recommendation.get("recipe_info_command")
     if recipe_info_command:
         lines.append(f"- recipe_info_command: {recipe_info_command}")
+    dry_run_command = recommendation.get("dry_run_command")
+    if dry_run_command:
+        lines.append(f"- dry_run_command: {dry_run_command}")
     recipe_run_command = recommendation.get("recipe_run_command")
     if recipe_run_command:
         lines.append(f"- recipe_run_command: {recipe_run_command}")
