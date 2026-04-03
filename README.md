@@ -404,6 +404,9 @@ headers so downstream systems can dedupe retries safely.
 If a receiver outage would make per-poll retries too noisy, add
 `--webhook-retry-min-seconds ...` to enforce a minimum delay before retrying the
 same failed delivery.
+When backoff is active, failed entries now record `next_delivery_attempt_after`
+and `watch_report.json` includes a `delivery_summary.pending_retry` count so operators
+can see why a retry was deferred.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

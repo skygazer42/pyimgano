@@ -839,6 +839,7 @@ Notes:
 - `--webhook-timeout-seconds` controls the POST timeout for those callbacks.
 - `--webhook-retry-min-seconds N` enforces a minimum delay before retrying the same failed webhook delivery; `0` preserves the current per-poll retry behavior.
 - Webhook payloads now include `delivery_id` and `delivery_attempt`, and the same values are also emitted as `X-PyImgAno-Delivery-Id` / `X-PyImgAno-Delivery-Attempt` headers for downstream idempotency handling.
+- When retry backoff is active, failed entries also carry `next_delivery_attempt_after`, and `watch_report.json` surfaces `delivery_summary.pending_retry` so operators can see deferred retries.
 - `watch --once` processes only the current stable backlog and exits; omit `--once` to keep polling with `--poll-seconds`.
 - Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
 - The same batch gates also apply to `watch`, but only to the current polling cycle.

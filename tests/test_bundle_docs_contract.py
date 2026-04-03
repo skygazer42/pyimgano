@@ -25,6 +25,7 @@ def test_cli_reference_documents_bundle_validate_run_and_watch() -> None:
     assert "webhook-retry-min-seconds" in text
     assert "delivery_id" in text
     assert "delivery_attempt" in text
+    assert "next_delivery_attempt_after" in text
     assert "bundle_manifest.json" in text
     assert "handoff_report_status" in text
     assert "next_action" in text

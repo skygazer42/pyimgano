@@ -227,11 +227,20 @@ def _watch_counts(entries: Mapping[str, Any]) -> dict[str, int]:
 
 
 def _watch_delivery_counts(entries: Mapping[str, Any]) -> dict[str, int]:
-    counts = {"delivered": 0, "pending": 0, "error": 0, "not_requested": 0}
+    counts = {
+        "delivered": 0,
+        "pending": 0,
+        "error": 0,
+        "not_requested": 0,
+        "pending_retry": 0,
+    }
     for entry in entries.values():
-        delivery_status = str(dict(entry).get("delivery_status", "not_requested"))
+        entry_map = dict(entry)
+        delivery_status = str(entry_map.get("delivery_status", "not_requested"))
         if delivery_status in counts:
             counts[delivery_status] += 1
+        if delivery_status == "error" and entry_map.get("next_delivery_attempt_after") is not None:
+            counts["pending_retry"] += 1
     return counts
 
 
@@ -393,6 +402,13 @@ def _webhook_retry_allowed(*, entry: Mapping[str, Any], request: BundleWatchRequ
     return float(now) >= float(last_delivery_at) + retry_min_seconds
 
 
+def _next_delivery_attempt_after(*, request: BundleWatchRequest, now: float) -> float | None:
+    retry_min_seconds = float(request.webhook_retry_min_seconds)
+    if retry_min_seconds <= 0.0:
+        return None
+    return float(now) + retry_min_seconds
+
+
 def _resolve_delivery_id(*, entry: dict[str, Any], fingerprint: str, result_ref: str) -> str:
     delivery_id = str(entry.get("delivery_id", "")).strip()
     if delivery_id:
@@ -443,6 +459,7 @@ def _deliver_entry_webhook(
         entry["delivery_status"] = "error"
         entry["last_delivery_error"] = f"{type(exc).__name__}: {exc}"
         entry["last_delivery_at"] = now
+        entry["next_delivery_attempt_after"] = _next_delivery_attempt_after(request=request, now=now)
         _emit_watch_event(
             artifacts=artifacts,
             event="webhook_error",
@@ -458,6 +475,7 @@ def _deliver_entry_webhook(
     entry["delivery_status"] = "delivered"
     entry["last_delivery_error"] = None
     entry["last_delivery_at"] = now
+    entry["next_delivery_attempt_after"] = None
     _emit_watch_event(
         artifacts=artifacts,
         event="webhook_delivered",
@@ -676,6 +694,7 @@ def run_bundle_watch_once(
                 "delivery_attempts": 0,
                 "last_delivery_error": None,
                 "last_delivery_at": None,
+                "next_delivery_attempt_after": None,
                 "last_size_bytes": int(stat.st_size),
                 "last_mtime_ns": int(stat.st_mtime_ns),
                 "last_skip_reason": None,
