@@ -217,6 +217,10 @@ def test_bundle_cli_validate_reports_ready_bundle(tmp_path: Path, capsys) -> Non
         payload["next_action"]
         == f"pyimgano bundle run {bundle_dir} --image-dir /path/to/images --output-dir ./bundle_run --json"
     )
+    assert (
+        payload["watch_command"]
+        == f"pyimgano bundle watch {bundle_dir} --watch-dir /path/to/inbox --output-dir ./bundle_watch --once --json"
+    )
     assert payload["contract"]["bundle_type"] == "cpu-offline-qc"
     assert payload["contract"]["output_contract"]["primary_result_file"] == "results.jsonl"
     assert payload["contract"]["runtime_policy"] == {
@@ -334,6 +338,143 @@ def test_bundle_cli_text_uses_validate_rendering_helper(monkeypatch, capsys, tmp
     assert rc == 0
     out = capsys.readouterr().out
     assert "bundle_dir=delegated" in out
+
+
+def test_bundle_cli_watch_once_processes_stable_backlog_and_writes_artifacts(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    import pyimgano.infer_cli as infer_cli
+    from pyimgano.bundle_cli import main
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inbox"
+    _write_png(watch_dir / "a.png")
+    output_dir = tmp_path / "bundle_watch_run"
+    calls: list[list[str]] = []
+
+    def _fake_main(argv: list[str]) -> int:
+        calls.append(list(argv))
+        args = list(argv)
+        results_path = Path(args[args.index("--save-jsonl") + 1])
+        _write_jsonl(results_path, [{"score": 0.1, "label": 0}])
+        return 0
+
+    monkeypatch.setattr(infer_cli, "main", _fake_main)
+
+    rc = main(
+        [
+            "watch",
+            str(bundle_dir),
+            "--watch-dir",
+            str(watch_dir),
+            "--output-dir",
+            str(output_dir),
+            "--settle-seconds",
+            "0",
+            "--once",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["tool"] == "pyimgano-bundle"
+    assert payload["command"] == "watch"
+    assert payload["status"] == "completed"
+    assert payload["watch_dir"] == str(watch_dir)
+    assert payload["processed"] == 1
+    assert payload["pending"] == 0
+    assert payload["error"] == 0
+    assert payload["artifacts"]["results_jsonl"] == str(output_dir / "results.jsonl")
+    assert (output_dir / "results.jsonl").exists()
+    assert (output_dir / "watch_report.json").exists()
+    assert (output_dir / "watch_state.json").exists()
+    assert (output_dir / "watch_events.jsonl").exists()
+    rows = [
+        json.loads(line)
+        for line in (output_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 1
+    assert rows[0]["id"] == "a.png"
+    assert rows[0]["image_path"] == str(watch_dir / "a.png")
+    state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
+    assert state["entries"]["a.png"]["status"] == "processed"
+    assert len(calls) == 1
+
+
+def test_bundle_watch_service_skips_processed_fingerprint_and_reprocesses_changed_file(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.services.bundle_watch_service import BundleWatchRequest, run_bundle_watch_once
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    image_path = watch_dir / "sample.png"
+    _write_png(image_path)
+    output_dir = tmp_path / "watch_out"
+    calls: list[list[str]] = []
+
+    def _fake_main(argv: list[str]) -> int:
+        calls.append(list(argv))
+        args = list(argv)
+        results_path = Path(args[args.index("--save-jsonl") + 1])
+        _write_jsonl(results_path, [{"score": float(len(calls)), "label": 0}])
+        return 0
+
+    request = BundleWatchRequest(
+        bundle_dir=bundle_dir,
+        watch_dir=watch_dir,
+        output_dir=output_dir,
+        settle_seconds=0.0,
+        once=True,
+    )
+
+    first = run_bundle_watch_once(request, infer_main_impl=_fake_main)
+    second = run_bundle_watch_once(request, infer_main_impl=_fake_main)
+    image_path.write_bytes(image_path.read_bytes() + b"\x00")
+    third = run_bundle_watch_once(request, infer_main_impl=_fake_main)
+
+    assert first["processed"] == 1
+    assert second["processed"] == 0
+    assert third["processed"] == 1
+    assert len(calls) == 2
+    rows = [
+        json.loads(line)
+        for line in (output_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 2
+
+
+def test_bundle_watch_service_does_not_retry_same_failed_fingerprint(tmp_path: Path) -> None:
+    from pyimgano.services.bundle_watch_service import BundleWatchRequest, run_bundle_watch_once
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    image_path = watch_dir / "bad.png"
+    _write_png(image_path)
+    output_dir = tmp_path / "watch_out"
+    calls: list[list[str]] = []
+
+    def _fake_main(argv: list[str]) -> int:
+        calls.append(list(argv))
+        return 2
+
+    request = BundleWatchRequest(
+        bundle_dir=bundle_dir,
+        watch_dir=watch_dir,
+        output_dir=output_dir,
+        settle_seconds=0.0,
+        once=True,
+    )
+
+    first = run_bundle_watch_once(request, infer_main_impl=_fake_main)
+    second = run_bundle_watch_once(request, infer_main_impl=_fake_main)
+
+    assert first["error"] == 1
+    assert second["error"] == 1
+    assert len(calls) == 1
+    state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
+    assert state["entries"]["bad.png"]["status"] == "error"
 
 
 def test_bundle_cli_run_writes_results_and_run_report_for_image_dir(

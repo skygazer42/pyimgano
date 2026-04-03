@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import pyimgano.bundle_rendering as bundle_rendering
 import pyimgano.cli_output as cli_output
-import pyimgano.infer_cli as infer_cli
+import pyimgano.services.bundle_watch_service as bundle_watch_service
 from pyimgano.bundle_cli_helpers import (
     build_batch_gate_summary as _build_batch_gate_summary_helper,
 )
@@ -33,6 +34,8 @@ from pyimgano.reporting.deploy_bundle import (
     validate_deploy_bundle_manifest,
     validate_deploy_bundle_handoff_report,
 )
+from pyimgano.services.bundle_run_service import BundleInferenceBatchRequest
+from pyimgano.services.bundle_run_service import run_bundle_inference_batch
 from pyimgano.utils.security import FileHasher
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
@@ -88,6 +91,16 @@ def _parse_min_processed_arg(text: str) -> int:
     if value < 1:
         raise argparse.ArgumentTypeError("must be an integer greater than or equal to 1.")
     return int(value)
+
+
+def _parse_nonnegative_float_arg(text: str) -> float:
+    try:
+        value = float(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a float greater than or equal to 0.") from exc
+    if value < 0.0:
+        raise argparse.ArgumentTypeError("must be a float greater than or equal to 0.")
+    return float(value)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -192,6 +205,93 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit run_report.json payload to stdout after writing it.",
+    )
+
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="Poll a hot folder and append stable inputs to deploy-bundle inference outputs.",
+    )
+    watch_parser.add_argument("bundle_dir", help="Path to deploy bundle directory.")
+    watch_parser.add_argument(
+        "--watch-dir",
+        required=True,
+        help="Directory to scan recursively for image inputs.",
+    )
+    watch_parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Output directory. Writes aggregate watch artifacts here.",
+    )
+    watch_parser.add_argument(
+        "--poll-seconds",
+        type=_parse_nonnegative_float_arg,
+        default=1.0,
+        help="Seconds to sleep between scans in long-running mode. Default: 1.0.",
+    )
+    watch_parser.add_argument(
+        "--settle-seconds",
+        type=_parse_nonnegative_float_arg,
+        default=2.0,
+        help="Minimum stable age before a file is processed. Default: 2.0.",
+    )
+    watch_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Process only the current stable backlog, then exit.",
+    )
+    watch_parser.add_argument(
+        "--state-file",
+        default=None,
+        help="Optional override for watch state path. Default: <output-dir>/watch_state.json",
+    )
+    watch_parser.add_argument(
+        "--check-hashes",
+        action="store_true",
+        help="Verify recorded bundle hashes before polling.",
+    )
+    watch_parser.add_argument(
+        "--max-anomaly-rate",
+        type=_parse_rate_arg,
+        default=None,
+        help="Block the current watch cycle if anomalous / processed exceeds this rate (0-1).",
+    )
+    watch_parser.add_argument(
+        "--max-reject-rate",
+        type=_parse_rate_arg,
+        default=None,
+        help="Block the current watch cycle if rejected / processed exceeds this rate (0-1).",
+    )
+    watch_parser.add_argument(
+        "--max-error-rate",
+        type=_parse_rate_arg,
+        default=None,
+        help="Block the current watch cycle if error / processed exceeds this rate (0-1).",
+    )
+    watch_parser.add_argument(
+        "--min-processed",
+        type=_parse_min_processed_arg,
+        default=None,
+        help="Block the current watch cycle if fewer than this many records are processed.",
+    )
+    watch_parser.add_argument(
+        "--export-masks",
+        action="store_true",
+        help="Write defect masks to <output-dir>/masks when the bundle supports pixel outputs.",
+    )
+    watch_parser.add_argument(
+        "--export-overlays",
+        action="store_true",
+        help="Write inspection overlays to <output-dir>/overlays when the bundle supports pixel outputs.",
+    )
+    watch_parser.add_argument(
+        "--export-defects-regions",
+        action="store_true",
+        help="Write aggregate defect regions JSONL to <output-dir>/defects_regions.jsonl.",
+    )
+    watch_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit watch_report.json payload to stdout after the current cycle or `--once` run.",
     )
     return parser
 
@@ -514,6 +614,11 @@ def evaluate_bundle(
                     else f"pyimgano bundle validate {bundle_root} --json"
                 )
             )
+        ),
+        "watch_command": (
+            f"pyimgano bundle watch {bundle_root} --watch-dir /path/to/inbox --output-dir ./bundle_watch --once --json"
+            if ready
+            else None
         ),
         "contract": contract,
         "infer_config": infer_config,
@@ -1050,6 +1155,16 @@ def _emit_run_report(report: dict[str, Any], *, json_output: bool) -> int:
     return status_code
 
 
+def _emit_watch_report(report: dict[str, Any], *, json_output: bool) -> int:
+    status_code = int(report.get("exit_code", 1))
+    if bool(json_output):
+        return cli_output.emit_json(report, status_code=status_code, indent=None)
+
+    for line in bundle_rendering.format_bundle_watch_lines(report):
+        print(line)
+    return status_code
+
+
 def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
     bundle_root = Path(str(args.bundle_dir))
     output_dir = Path(str(args.output_dir))
@@ -1144,29 +1259,30 @@ def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
         _write_run_report(report, output_dir=output_dir)
         return report
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     results_path = output_dir / "results.jsonl"
-    infer_argv = [
-        "--infer-config",
-        str(bundle_root / "infer_config.json"),
-        "--save-jsonl",
-        str(results_path),
-    ]
-    for input_record in input_records:
-        infer_argv.extend(["--input", str(input_record["resolved_input_path"])])
-
-    if _requested_pixel_exports(args):
-        infer_argv.append("--defects")
-    if optional_artifacts.get("masks_dir") is not None:
-        infer_argv.extend(["--save-masks", str(optional_artifacts["masks_dir"])])
-    if optional_artifacts.get("overlays_dir") is not None:
-        infer_argv.extend(["--save-overlays", str(optional_artifacts["overlays_dir"])])
-    if optional_artifacts.get("defects_regions_jsonl") is not None:
-        infer_argv.extend(
-            ["--defects-regions-jsonl", str(optional_artifacts["defects_regions_jsonl"])]
+    rc = run_bundle_inference_batch(
+        BundleInferenceBatchRequest(
+            bundle_dir=bundle_root,
+            input_records=input_records,
+            results_jsonl=results_path,
+            defects_enabled=bool(_requested_pixel_exports(args)),
+            masks_dir=(
+                str(optional_artifacts["masks_dir"])
+                if optional_artifacts.get("masks_dir") is not None
+                else None
+            ),
+            overlays_dir=(
+                str(optional_artifacts["overlays_dir"])
+                if optional_artifacts.get("overlays_dir") is not None
+                else None
+            ),
+            defects_regions_jsonl=(
+                str(optional_artifacts["defects_regions_jsonl"])
+                if optional_artifacts.get("defects_regions_jsonl") is not None
+                else None
+            ),
         )
-
-    rc = int(infer_cli.main(infer_argv))
+    )
     if rc != 0:
         report = _build_run_report(
             bundle_validation=bundle_validation,
@@ -1220,6 +1336,49 @@ def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.BundleWatchRequest:
+    return bundle_watch_service.BundleWatchRequest(
+        bundle_dir=str(args.bundle_dir),
+        watch_dir=str(args.watch_dir),
+        output_dir=str(args.output_dir),
+        poll_seconds=float(args.poll_seconds),
+        settle_seconds=float(args.settle_seconds),
+        once=bool(args.once),
+        state_file=(str(args.state_file) if getattr(args, "state_file", None) is not None else None),
+        check_hashes=bool(args.check_hashes),
+        export_masks=bool(args.export_masks),
+        export_overlays=bool(args.export_overlays),
+        export_defects_regions=bool(args.export_defects_regions),
+        max_anomaly_rate=(
+            float(args.max_anomaly_rate) if getattr(args, "max_anomaly_rate", None) is not None else None
+        ),
+        max_reject_rate=(
+            float(args.max_reject_rate) if getattr(args, "max_reject_rate", None) is not None else None
+        ),
+        max_error_rate=(
+            float(args.max_error_rate) if getattr(args, "max_error_rate", None) is not None else None
+        ),
+        min_processed=(
+            int(args.min_processed) if getattr(args, "min_processed", None) is not None else None
+        ),
+    )
+
+
+def _watch_bundle(args: argparse.Namespace) -> dict[str, Any]:
+    request = _watch_request_from_args(args)
+    report = bundle_watch_service.run_bundle_watch_once(request)
+    if bool(request.once):
+        return report
+
+    while True:
+        try:
+            time.sleep(float(request.poll_seconds))
+            report = bundle_watch_service.run_bundle_watch_once(request)
+        except KeyboardInterrupt:
+            break
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
@@ -1229,6 +1388,10 @@ def main(argv: list[str] | None = None) -> int:
             check_hashes=bool(getattr(args, "check_hashes", False)),
         )
         return _emit_validate_payload(payload, json_output=bool(getattr(args, "json", False)))
+
+    if str(args.command) == "watch":
+        report = _watch_bundle(args)
+        return _emit_watch_report(report, json_output=bool(getattr(args, "json", False)))
 
     report = _run_bundle(args)
     return _emit_run_report(report, json_output=bool(getattr(args, "json", False)))

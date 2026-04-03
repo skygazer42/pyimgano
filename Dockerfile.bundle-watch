@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+
+COPY . /app
+
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && pip install -e .
+
+ENTRYPOINT ["pyimgano-bundle", "watch"]

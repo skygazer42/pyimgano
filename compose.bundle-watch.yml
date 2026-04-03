@@ -1,0 +1,19 @@
+services:
+  pyimgano-bundle-watch:
+    build:
+      context: .
+      dockerfile: Dockerfile.bundle-watch
+    command:
+      - /runtime/deploy_bundle
+      - --watch-dir
+      - /runtime/inbox
+      - --output-dir
+      - /runtime/output
+      - --poll-seconds
+      - "1.0"
+      - --settle-seconds
+      - "2.0"
+    volumes:
+      - ./runtime/deploy_bundle:/runtime/deploy_bundle:ro
+      - ./runtime/inbox:/runtime/inbox
+      - ./runtime/output:/runtime/output

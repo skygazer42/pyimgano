@@ -369,6 +369,7 @@ pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json
 pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle
 pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json
 pyimgano-bundle validate runs/<run_dir>/deploy_bundle --json
+pyimgano-bundle watch runs/<run_dir>/deploy_bundle --watch-dir /path/to/inbox --output-dir ./bundle_watch --once --json
 pyimgano runs quality runs/<run_dir> --require-status audited --json
 pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
 pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
@@ -380,6 +381,11 @@ example and is described in more detail in
 [`docs/INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md).
 New deploy bundles also include `handoff_report.json`, a compact operator-facing
 summary next to `infer_config.json` and `bundle_manifest.json`.
+For hot-folder deployment, `pyimgano-bundle watch ...` turns the same deploy bundle
+into a polling runtime that appends `results.jsonl`, `watch_events.jsonl`, and
+`watch_state.json` under one output directory. A minimal containerized example is
+included in [`Dockerfile.bundle-watch`](Dockerfile.bundle-watch) and
+[`compose.bundle-watch.yml`](compose.bundle-watch.yml).
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

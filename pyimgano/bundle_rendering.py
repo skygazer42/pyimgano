@@ -23,6 +23,9 @@ def format_bundle_validate_lines(payload: dict[str, Any]) -> list[str]:
     next_action = payload.get("next_action")
     if isinstance(next_action, str) and next_action:
         lines.append(f"next_action={next_action}")
+    watch_command = payload.get("watch_command")
+    if isinstance(watch_command, str) and watch_command:
+        lines.append(f"watch_command={watch_command}")
     return lines
 
 
@@ -43,7 +46,26 @@ def format_bundle_run_lines(report: dict[str, Any]) -> list[str]:
     return lines
 
 
+def format_bundle_watch_lines(report: dict[str, Any]) -> list[str]:
+    lines = [
+        f"bundle_dir={report.get('bundle_dir')}",
+        f"watch_dir={report.get('watch_dir')}",
+        f"output_dir={report.get('output_dir')}",
+        f"status={report.get('status')}",
+        f"processed={report.get('processed')}",
+        f"pending={report.get('pending')}",
+        f"error={report.get('error')}",
+    ]
+    for code in report.get("reason_codes", []):
+        lines.append(f"reason_code={code}")
+    artifacts = report.get("artifacts", {})
+    if isinstance(artifacts, Mapping) and artifacts.get("results_jsonl") is not None:
+        lines.append(f"results_jsonl={artifacts.get('results_jsonl')}")
+    return lines
+
+
 __all__ = [
     "format_bundle_run_lines",
+    "format_bundle_watch_lines",
     "format_bundle_validate_lines",
 ]

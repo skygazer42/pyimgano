@@ -814,6 +814,7 @@ pyimgano-bundle validate ./deploy_bundle --json
 pyimgano-bundle validate ./deploy_bundle --check-hashes --json
 pyimgano-bundle run ./deploy_bundle --image-dir ./inputs --output-dir ./bundle_run --json
 pyimgano-bundle run ./deploy_bundle --input-manifest ./input_manifest.jsonl --output-dir ./bundle_run --json
+pyimgano-bundle watch ./deploy_bundle --watch-dir ./inbox --output-dir ./bundle_watch --once --json
 ```
 
 Notes:
@@ -822,8 +823,14 @@ Notes:
 - `validate` also checks `bundle_manifest.json` refs/roles/completeness flags and operator-contract digest consistency when those fields are present.
 - `validate` now also reports `handoff_report_status` and `next_action` in JSON output; when present,
   `handoff_report.json` is validated as part of the deploy-bundle handoff contract.
+- `validate --json` also reports `watch_command` so wrappers can surface the hot-folder runtime path separately from the one-shot `run` path.
 - `run` executes offline inference from the bundle and writes `results.jsonl` plus `run_report.json` under `--output-dir`.
+- `watch` polls `--watch-dir`, waits for files to stay stable for `--settle-seconds`, and appends stable inputs to aggregate watch artifacts under `--output-dir`.
+- `watch` writes `results.jsonl`, `watch_report.json`, `watch_state.json`, and `watch_events.jsonl`; when requested it also writes `masks/`, `overlays/`, and `defects_regions.jsonl`.
+- `watch_state.json` stores the per-file fingerprint/state ledger so already-processed and failed fingerprints are not retried until the file changes.
+- `watch --once` processes only the current stable backlog and exits; omit `--once` to keep polling with `--poll-seconds`.
 - Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
+- The same batch gates also apply to `watch`, but only to the current polling cycle.
 - Use `pyimgano-weights audit-bundle` when you want a weights/model-card-focused audit without running bundle validation or inference.
 
 ---
