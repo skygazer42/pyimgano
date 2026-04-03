@@ -337,6 +337,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Timeout for webhook POST requests. Default: 5.0.",
     )
     watch_parser.add_argument(
+        "--webhook-retry-min-seconds",
+        type=_parse_nonnegative_float_arg,
+        default=0.0,
+        help="Minimum seconds between retry attempts for the same failed webhook delivery. Default: 0.0.",
+    )
+    watch_parser.add_argument(
         "--check-hashes",
         action="store_true",
         help="Verify recorded bundle hashes before polling.",
@@ -1489,6 +1495,7 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
             for key, value in (list(getattr(args, "webhook_header", []) or []))
         },
         webhook_timeout_seconds=float(args.webhook_timeout_seconds),
+        webhook_retry_min_seconds=float(args.webhook_retry_min_seconds),
         max_anomaly_rate=(
             float(args.max_anomaly_rate) if getattr(args, "max_anomaly_rate", None) is not None else None
         ),

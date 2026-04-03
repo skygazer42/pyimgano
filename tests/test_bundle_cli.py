@@ -454,6 +454,8 @@ def test_bundle_cli_watch_forwards_webhook_settings_to_service(
             "X-Station=cam-7",
             "--webhook-timeout-seconds",
             "7.5",
+            "--webhook-retry-min-seconds",
+            "30",
             "--json",
         ]
     )
@@ -468,6 +470,7 @@ def test_bundle_cli_watch_forwards_webhook_settings_to_service(
         "X-Station": "cam-7",
     }
     assert request.webhook_timeout_seconds == 7.5
+    assert request.webhook_retry_min_seconds == 30.0
 
 
 def test_bundle_cli_watch_resolves_webhook_secrets_from_env(
@@ -810,6 +813,7 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     watch_dir = tmp_path / "watch_inputs"
     image_path = watch_dir / "sample.png"
     _write_png(image_path)
+    os.utime(image_path, (90, 90))
     output_dir = tmp_path / "watch_out"
     infer_calls: list[list[str]] = []
     delivery_attempts: list[dict[str, object]] = []
@@ -889,6 +893,84 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["status"] == "processed"
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"
+
+
+def test_bundle_watch_service_respects_webhook_retry_backoff(tmp_path: Path) -> None:
+    from pyimgano.services.bundle_watch_service import BundleWatchRequest, run_bundle_watch_once
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    image_path = watch_dir / "sample.png"
+    _write_png(image_path)
+    os.utime(image_path, (90, 90))
+    output_dir = tmp_path / "watch_out"
+    infer_calls: list[list[str]] = []
+    delivery_attempts: list[dict[str, object]] = []
+
+    def _fake_infer(argv: list[str]) -> int:
+        infer_calls.append(list(argv))
+        args = list(argv)
+        results_path = Path(args[args.index("--save-jsonl") + 1])
+        _write_jsonl(results_path, [{"score": 0.4, "label": 0}])
+        return 0
+
+    def _flaky_webhook(
+        payload: dict[str, object],
+        url: str,
+        timeout: float,
+        headers: dict[str, str],
+        body: str,
+    ) -> None:
+        delivery_attempts.append(
+            {
+                "payload": dict(payload),
+                "url": url,
+                "timeout": timeout,
+                "headers": dict(headers),
+                "body": str(body),
+            }
+        )
+        if len(delivery_attempts) == 1:
+            raise RuntimeError("temporary webhook outage")
+
+    request = BundleWatchRequest(
+        bundle_dir=bundle_dir,
+        watch_dir=watch_dir,
+        output_dir=output_dir,
+        settle_seconds=0.0,
+        once=True,
+        webhook_url="https://example.invalid/hook",
+        webhook_retry_min_seconds=30.0,
+    )
+
+    first = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_flaky_webhook,
+        now_fn=lambda: 100.0,
+    )
+    second = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_flaky_webhook,
+        now_fn=lambda: 110.0,
+    )
+    third = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_flaky_webhook,
+        now_fn=lambda: 131.0,
+    )
+
+    assert first["status"] == "failed"
+    assert second["status"] == "completed"
+    assert second["webhook_delivery_count"] == 0
+    assert second["webhook_error_count"] == 0
+    assert third["webhook_delivery_count"] == 1
+    assert len(infer_calls) == 1
+    assert len(delivery_attempts) == 2
+    state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
+    assert state["entries"]["sample.png"]["delivery_attempts"] == 2
 
 
 def test_bundle_cli_run_writes_results_and_run_report_for_image_dir(

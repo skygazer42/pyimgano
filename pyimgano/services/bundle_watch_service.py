@@ -41,6 +41,7 @@ class BundleWatchRequest:
     webhook_signing_secret: str | None = None
     webhook_headers: dict[str, str] | None = None
     webhook_timeout_seconds: float = 5.0
+    webhook_retry_min_seconds: float = 0.0
     max_anomaly_rate: float | None = None
     max_reject_rate: float | None = None
     max_error_rate: float | None = None
@@ -382,6 +383,16 @@ def _entry_needs_webhook_delivery(entry: Mapping[str, Any], request: BundleWatch
     return delivery_status != "delivered"
 
 
+def _webhook_retry_allowed(*, entry: Mapping[str, Any], request: BundleWatchRequest, now: float) -> bool:
+    retry_min_seconds = float(request.webhook_retry_min_seconds)
+    if retry_min_seconds <= 0.0:
+        return True
+    last_delivery_at = entry.get("last_delivery_at")
+    if last_delivery_at is None:
+        return True
+    return float(now) >= float(last_delivery_at) + retry_min_seconds
+
+
 def _resolve_delivery_id(*, entry: dict[str, Any], fingerprint: str, result_ref: str) -> str:
     delivery_id = str(entry.get("delivery_id", "")).strip()
     if delivery_id:
@@ -680,6 +691,8 @@ def run_bundle_watch_once(
             )
 
         if _entry_needs_webhook_delivery(existing, request):
+            if not _webhook_retry_allowed(entry=existing, request=request, now=now):
+                continue
             delivered, _error_text = _deliver_entry_webhook(
                 request=request,
                 entry=existing,
@@ -793,6 +806,8 @@ def run_bundle_watch_once(
             last_result_ref=str(existing["last_result_ref"]),
         )
         if _entry_needs_webhook_delivery(existing, request):
+            if not _webhook_retry_allowed(entry=existing, request=request, now=now):
+                continue
             delivered, _error_text = _deliver_entry_webhook(
                 request=request,
                 entry=existing,

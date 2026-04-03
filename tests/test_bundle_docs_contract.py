@@ -22,6 +22,7 @@ def test_cli_reference_documents_bundle_validate_run_and_watch() -> None:
     assert "webhook-signing-secret-env" in text
     assert "webhook-bearer-token-file" in text
     assert "webhook-signing-secret-file" in text
+    assert "webhook-retry-min-seconds" in text
     assert "delivery_id" in text
     assert "delivery_attempt" in text
     assert "bundle_manifest.json" in text

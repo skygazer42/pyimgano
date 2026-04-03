@@ -401,6 +401,9 @@ If your runtime mounts secrets as files instead, use
 Webhook payloads now also carry `delivery_id` and `delivery_attempt`, and the same
 values are mirrored into `X-PyImgAno-Delivery-Id` / `X-PyImgAno-Delivery-Attempt`
 headers so downstream systems can dedupe retries safely.
+If a receiver outage would make per-poll retries too noisy, add
+`--webhook-retry-min-seconds ...` to enforce a minimum delay before retrying the
+same failed delivery.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:
