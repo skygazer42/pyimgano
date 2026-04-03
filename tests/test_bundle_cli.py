@@ -779,9 +779,12 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
     assert len(deliveries) == 1
     assert deliveries[0]["url"] == "https://example.invalid/hook"
     assert deliveries[0]["timeout"] == 6.0
+    payload = deliveries[0]["payload"]
     assert deliveries[0]["headers"] == {
         "Authorization": "Bearer secret-token",
         "Content-Type": "application/json",
+        "X-PyImgAno-Delivery-Attempt": "1",
+        "X-PyImgAno-Delivery-Id": payload["delivery_id"],
         "X-PyImgAno-Signature": hmac.new(
             b"sign-me",
             f"1700000000.{deliveries[0]['body']}".encode("utf-8"),
@@ -790,11 +793,14 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
         "X-PyImgAno-Timestamp": "1700000000",
         "X-Line": "alpha",
     }
-    payload = deliveries[0]["payload"]
     assert payload["event"] == "processed"
+    assert payload["delivery_attempt"] == 1
+    assert isinstance(payload["delivery_id"], str)
+    assert payload["delivery_id"]
     assert payload["result"]["image_path"] == str(image_path)
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"
+    assert state["entries"]["sample.png"]["delivery_id"] == payload["delivery_id"]
 
 
 def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_path: Path) -> None:
@@ -869,8 +875,17 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     assert len(delivery_attempts) == 2
     assert delivery_attempts[0]["headers"]["Authorization"] == "Bearer secret-token"
     assert delivery_attempts[0]["headers"]["X-Line"] == "alpha"
+    assert delivery_attempts[0]["headers"]["X-PyImgAno-Delivery-Attempt"] == "1"
+    assert delivery_attempts[1]["headers"]["X-PyImgAno-Delivery-Attempt"] == "2"
+    assert (
+        delivery_attempts[0]["headers"]["X-PyImgAno-Delivery-Id"]
+        == delivery_attempts[1]["headers"]["X-PyImgAno-Delivery-Id"]
+    )
     assert delivery_attempts[0]["headers"]["X-PyImgAno-Timestamp"]
     assert delivery_attempts[0]["headers"]["X-PyImgAno-Signature"]
+    assert delivery_attempts[0]["payload"]["delivery_attempt"] == 1
+    assert delivery_attempts[1]["payload"]["delivery_attempt"] == 2
+    assert delivery_attempts[0]["payload"]["delivery_id"] == delivery_attempts[1]["payload"]["delivery_id"]
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["status"] == "processed"
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"

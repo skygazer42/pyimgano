@@ -398,6 +398,9 @@ For container/runtime deployments, you can also resolve secrets from env vars vi
 `--webhook-bearer-token-env ...` and `--webhook-signing-secret-env ...`.
 If your runtime mounts secrets as files instead, use
 `--webhook-bearer-token-file ...` and `--webhook-signing-secret-file ...`.
+Webhook payloads now also carry `delivery_id` and `delivery_attempt`, and the same
+values are mirrored into `X-PyImgAno-Delivery-Id` / `X-PyImgAno-Delivery-Attempt`
+headers so downstream systems can dedupe retries safely.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

@@ -332,6 +332,8 @@ def _build_watch_webhook_payload(
     relative_path: str,
     fingerprint: str,
     result_ref: str,
+    delivery_id: str,
+    delivery_attempt: int,
 ) -> dict[str, Any]:
     return {
         "schema_version": int(_WATCH_SCHEMA_VERSION),
@@ -343,6 +345,8 @@ def _build_watch_webhook_payload(
         "output_dir": str(Path(request.output_dir)),
         "relative_path": str(relative_path),
         "fingerprint": str(fingerprint),
+        "delivery_id": str(delivery_id),
+        "delivery_attempt": int(delivery_attempt),
         "result_ref": str(result_ref),
         "result": _jsonl_row_by_ref(result_ref),
     }
@@ -378,6 +382,15 @@ def _entry_needs_webhook_delivery(entry: Mapping[str, Any], request: BundleWatch
     return delivery_status != "delivered"
 
 
+def _resolve_delivery_id(*, entry: dict[str, Any], fingerprint: str, result_ref: str) -> str:
+    delivery_id = str(entry.get("delivery_id", "")).strip()
+    if delivery_id:
+        return delivery_id
+    delivery_id = hashlib.sha256(f"{fingerprint}|{result_ref}".encode("utf-8")).hexdigest()
+    entry["delivery_id"] = delivery_id
+    return delivery_id
+
+
 def _deliver_entry_webhook(
     *,
     request: BundleWatchRequest,
@@ -388,15 +401,25 @@ def _deliver_entry_webhook(
     artifacts: Mapping[str, Path],
     send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str], str], None],
 ) -> tuple[bool, str | None]:
+    entry["delivery_attempts"] = int(entry.get("delivery_attempts", 0)) + 1
+    delivery_attempt = int(entry["delivery_attempts"])
+    delivery_id = _resolve_delivery_id(
+        entry=entry,
+        fingerprint=fingerprint,
+        result_ref=str(entry["last_result_ref"]),
+    )
     payload = _build_watch_webhook_payload(
         request=request,
         relative_path=relative_path,
         fingerprint=fingerprint,
         result_ref=str(entry["last_result_ref"]),
+        delivery_id=delivery_id,
+        delivery_attempt=delivery_attempt,
     )
     body = _build_webhook_body(payload)
     headers = _resolve_signed_webhook_headers(request, body=body, now=now)
-    entry["delivery_attempts"] = int(entry.get("delivery_attempts", 0)) + 1
+    headers["X-PyImgAno-Delivery-Id"] = str(delivery_id)
+    headers["X-PyImgAno-Delivery-Attempt"] = str(delivery_attempt)
     try:
         send_webhook_impl(
             payload,

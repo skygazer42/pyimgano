@@ -837,6 +837,7 @@ Notes:
 - `--webhook-signing-secret-file PATH` resolves that signing secret from a file instead of the command line.
 - `--webhook-header KEY=VALUE` is repeatable and adds custom headers to webhook requests.
 - `--webhook-timeout-seconds` controls the POST timeout for those callbacks.
+- Webhook payloads now include `delivery_id` and `delivery_attempt`, and the same values are also emitted as `X-PyImgAno-Delivery-Id` / `X-PyImgAno-Delivery-Attempt` headers for downstream idempotency handling.
 - `watch --once` processes only the current stable backlog and exits; omit `--once` to keep polling with `--poll-seconds`.
 - Batch gates such as `--max-anomaly-rate`, `--max-reject-rate`, `--max-error-rate`, and `--min-processed` only affect run verdicts, not the underlying bundle contract.
 - The same batch gates also apply to `watch`, but only to the current polling cycle.
