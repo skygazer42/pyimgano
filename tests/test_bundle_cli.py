@@ -965,13 +965,16 @@ def test_bundle_watch_service_respects_webhook_retry_backoff(tmp_path: Path) -> 
 
     assert first["status"] == "failed"
     assert first["delivery_summary"]["pending_retry"] == 1
+    assert first["next_delivery_attempt_after_min"] == 130.0
     assert second["status"] == "completed"
     assert second["webhook_delivery_count"] == 0
     assert second["webhook_error_count"] == 0
     assert second["delivery_summary"]["pending_retry"] == 1
+    assert second["next_delivery_attempt_after_min"] == 130.0
     assert state["entries"]["sample.png"]["next_delivery_attempt_after"] == 130.0
     assert third["webhook_delivery_count"] == 1
     assert third["delivery_summary"]["pending_retry"] == 0
+    assert third["next_delivery_attempt_after_min"] is None
     assert len(infer_calls) == 1
     assert len(delivery_attempts) == 2
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))

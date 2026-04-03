@@ -67,6 +67,8 @@ def test_format_bundle_watch_lines_preserves_text_contract() -> None:
             "processed": 3,
             "pending": 1,
             "error": 0,
+            "delivery_summary": {"pending_retry": 1},
+            "next_delivery_attempt_after_min": 130.0,
             "artifacts": {"results_jsonl": "/tmp/output/results.jsonl"},
         }
     )
@@ -79,5 +81,7 @@ def test_format_bundle_watch_lines_preserves_text_contract() -> None:
         "processed=3",
         "pending=1",
         "error=0",
+        "pending_retry=1",
+        "next_retry_after=130.0",
         "results_jsonl=/tmp/output/results.jsonl",
     ]
