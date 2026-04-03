@@ -87,6 +87,9 @@ def format_extra_recommendation_lines(recommendation: dict[str, object]) -> list
     dry_run_command = recommendation.get("dry_run_command")
     if dry_run_command:
         lines.append(f"- dry_run_command: {dry_run_command}")
+    preflight_command = recommendation.get("preflight_command")
+    if preflight_command:
+        lines.append(f"- preflight_command: {preflight_command}")
     recipe_run_command = recommendation.get("recipe_run_command")
     if recipe_run_command:
         lines.append(f"- recipe_run_command: {recipe_run_command}")

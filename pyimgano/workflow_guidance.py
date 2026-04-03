@@ -20,6 +20,7 @@ class CommandWorkflowGuidance:
     recipe_list_command: str | None = None
     recipe_info_command: str | None = None
     dry_run_command: str | None = None
+    preflight_command: str | None = None
     recipe_run_command: str | None = None
     export_command: str | None = None
     infer_followup_command: str | None = None
@@ -240,6 +241,9 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         recipe_list_command="pyimgano train --list-recipes",
         recipe_info_command="pyimgano train --recipe-info industrial-adapt --json",
         dry_run_command="pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
+        preflight_command=(
+            "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json"
+        ),
         recipe_run_command=(
             "pyimgano train --config examples/configs/industrial_adapt_audited.json "
             "--export-infer-config --export-deploy-bundle"
@@ -248,6 +252,7 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "pyimgano train --list-recipes",
             "pyimgano train --recipe-info industrial-adapt --json",
             "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
+            "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json",
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
             "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
         ),

@@ -455,6 +455,9 @@ def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -
                 "dry_run_command": (
                     "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json"
                 ),
+                "preflight_command": (
+                    "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json"
+                ),
                 "recipe_run_command": (
                     "pyimgano train --config examples/configs/industrial_adapt_audited.json "
                     "--export-infer-config --export-deploy-bundle"
@@ -463,6 +466,7 @@ def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -
                     "pyimgano train --list-recipes",
                     "pyimgano train --recipe-info industrial-adapt --json",
                     "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json",
+                    "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json",
                     "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
                     "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
                 ],
@@ -486,12 +490,17 @@ def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -
         in out
     )
     assert (
+        "preflight_command: pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json"
+        in out
+    )
+    assert (
         "recipe_run_command: pyimgano train --config examples/configs/industrial_adapt_audited.json "
         "--export-infer-config --export-deploy-bundle"
     ) in out
     assert "pyimgano train --list-recipes" in out
     assert "pyimgano train --recipe-info industrial-adapt --json" in out
     assert "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json" in out
+    assert "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json" in out
     assert "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle" in out
     assert "artifact_hints: artifacts/infer_config.json; deploy_bundle/bundle_manifest.json" in out
 
