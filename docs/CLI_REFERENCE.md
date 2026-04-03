@@ -830,6 +830,7 @@ Notes:
 - `watch_state.json` stores the per-file fingerprint/state ledger so already-processed and failed fingerprints are not retried until the file changes.
 - `watch --webhook-url URL` POSTs each processed result as JSON for downstream systems; webhook delivery failures are retried on later polling cycles without rerunning inference for the same fingerprint.
 - `--webhook-bearer-token TOKEN` adds `Authorization: Bearer <token>` to those webhook requests.
+- `--webhook-signing-secret SECRET` adds `X-PyImgAno-Timestamp` and `X-PyImgAno-Signature`, where the signature is `HMAC-SHA256(<timestamp>.<raw_json_body>)`.
 - `--webhook-header KEY=VALUE` is repeatable and adds custom headers to webhook requests.
 - `--webhook-timeout-seconds` controls the POST timeout for those callbacks.
 - `watch --once` processes only the current stable backlog and exits; omit `--once` to keep polling with `--poll-seconds`.

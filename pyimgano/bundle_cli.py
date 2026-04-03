@@ -266,6 +266,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional bearer token added as Authorization: Bearer <token> for webhook delivery.",
     )
     watch_parser.add_argument(
+        "--webhook-signing-secret",
+        default=None,
+        help="Optional HMAC secret used to emit signed webhook headers.",
+    )
+    watch_parser.add_argument(
         "--webhook-header",
         action="append",
         default=None,
@@ -1390,6 +1395,11 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
         webhook_bearer_token=(
             str(args.webhook_bearer_token)
             if getattr(args, "webhook_bearer_token", None) is not None
+            else None
+        ),
+        webhook_signing_secret=(
+            str(args.webhook_signing_secret)
+            if getattr(args, "webhook_signing_secret", None) is not None
             else None
         ),
         webhook_headers={

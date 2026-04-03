@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import shutil
 import time
@@ -36,6 +38,7 @@ class BundleWatchRequest:
     export_defects_regions: bool = False
     webhook_url: str | None = None
     webhook_bearer_token: str | None = None
+    webhook_signing_secret: str | None = None
     webhook_headers: dict[str, str] | None = None
     webhook_timeout_seconds: float = 5.0
     max_anomaly_rate: float | None = None
@@ -265,6 +268,38 @@ def _resolve_webhook_headers(request: BundleWatchRequest) -> dict[str, str]:
     return headers
 
 
+def _build_webhook_body(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _sign_webhook_body(*, secret: str, timestamp: str, body: str) -> str:
+    return hmac.new(
+        str(secret).encode("utf-8"),
+        f"{timestamp}.{body}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _resolve_signed_webhook_headers(
+    request: BundleWatchRequest,
+    *,
+    body: str,
+    now: float,
+) -> dict[str, str]:
+    headers = _resolve_webhook_headers(request)
+    secret = str(request.webhook_signing_secret or "").strip()
+    if not secret:
+        return headers
+    timestamp = str(int(now))
+    headers["X-PyImgAno-Timestamp"] = timestamp
+    headers["X-PyImgAno-Signature"] = _sign_webhook_body(
+        secret=secret,
+        timestamp=timestamp,
+        body=body,
+    )
+    return headers
+
+
 def _emit_watch_event(
     *,
     artifacts: Mapping[str, Path],
@@ -313,10 +348,16 @@ def _build_watch_webhook_payload(
     }
 
 
-def _send_watch_webhook(payload: dict[str, Any], url: str, timeout: float, headers: dict[str, str]) -> None:
+def _send_watch_webhook(
+    payload: dict[str, Any],
+    url: str,
+    timeout: float,
+    headers: dict[str, str],
+    body: str,
+) -> None:
     req = urllib_request.Request(
         url=str(url),
-        data=json.dumps(payload).encode("utf-8"),
+        data=str(body).encode("utf-8"),
         headers=dict(headers),
         method="POST",
     )
@@ -345,7 +386,7 @@ def _deliver_entry_webhook(
     fingerprint: str,
     now: float,
     artifacts: Mapping[str, Path],
-    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str]], None],
+    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str], str], None],
 ) -> tuple[bool, str | None]:
     payload = _build_watch_webhook_payload(
         request=request,
@@ -353,7 +394,8 @@ def _deliver_entry_webhook(
         fingerprint=fingerprint,
         result_ref=str(entry["last_result_ref"]),
     )
-    headers = _resolve_webhook_headers(request)
+    body = _build_webhook_body(payload)
+    headers = _resolve_signed_webhook_headers(request, body=body, now=now)
     entry["delivery_attempts"] = int(entry.get("delivery_attempts", 0)) + 1
     try:
         send_webhook_impl(
@@ -361,6 +403,7 @@ def _deliver_entry_webhook(
             str(request.webhook_url),
             float(request.webhook_timeout_seconds),
             headers,
+            body,
         )
     except Exception as exc:  # noqa: BLE001 - network boundary
         entry["delivery_status"] = "error"
@@ -481,7 +524,7 @@ def run_bundle_watch_once(
     now_fn: Callable[[], float] | None = None,
     validate_bundle_impl: Callable[..., dict[str, Any]] | None = None,
     batch_gate_evaluator: Callable[..., tuple[dict[str, Any], str, list[str]]] | None = None,
-    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str]], None] | None = None,
+    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str], str], None] | None = None,
 ) -> dict[str, Any]:
     if now_fn is None:
         now_fn = time.time

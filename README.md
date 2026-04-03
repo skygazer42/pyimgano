@@ -391,6 +391,9 @@ When you want a downstream system callback without adding MQTT or RTSP yet, pass
 POSTed as JSON, and failed deliveries are retried on later polling cycles without
 rerunning inference for the same fingerprint. For auth and plant-specific routing,
 you can add `--webhook-bearer-token ...` and repeat `--webhook-header KEY=VALUE`.
+If the receiver needs tamper checking, add `--webhook-signing-secret ...`; the
+request then carries `X-PyImgAno-Timestamp` and `X-PyImgAno-Signature`
+(`HMAC-SHA256` over `<timestamp>.<raw_json_body>`).
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

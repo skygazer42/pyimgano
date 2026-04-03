@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hmac
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -444,6 +446,8 @@ def test_bundle_cli_watch_forwards_webhook_settings_to_service(
             "https://example.invalid/hook",
             "--webhook-bearer-token",
             "secret-token",
+            "--webhook-signing-secret",
+            "sign-me",
             "--webhook-header",
             "X-Line=alpha",
             "--webhook-header",
@@ -458,6 +462,7 @@ def test_bundle_cli_watch_forwards_webhook_settings_to_service(
     request = captured["request"]
     assert request.webhook_url == "https://example.invalid/hook"
     assert request.webhook_bearer_token == "secret-token"
+    assert request.webhook_signing_secret == "sign-me"
     assert request.webhook_headers == {
         "X-Line": "alpha",
         "X-Station": "cam-7",
@@ -547,6 +552,7 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
     watch_dir = tmp_path / "watch_inputs"
     image_path = watch_dir / "sample.png"
     _write_png(image_path)
+    os.utime(image_path, (1699999990, 1699999990))
     output_dir = tmp_path / "watch_out"
     deliveries: list[dict[str, object]] = []
 
@@ -561,6 +567,7 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
         url: str,
         timeout: float,
         headers: dict[str, str],
+        body: str,
     ) -> None:
         deliveries.append(
             {
@@ -568,6 +575,7 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
                 "url": url,
                 "timeout": timeout,
                 "headers": dict(headers),
+                "body": str(body),
             }
         )
 
@@ -579,6 +587,7 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
         once=True,
         webhook_url="https://example.invalid/hook",
         webhook_bearer_token="secret-token",
+        webhook_signing_secret="sign-me",
         webhook_headers={"X-Line": "alpha"},
         webhook_timeout_seconds=6.0,
     )
@@ -587,6 +596,7 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
         request,
         infer_main_impl=_fake_infer,
         send_webhook_impl=_fake_webhook,
+        now_fn=lambda: 1700000000.0,
     )
 
     assert report["status"] == "completed"
@@ -599,6 +609,12 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
     assert deliveries[0]["headers"] == {
         "Authorization": "Bearer secret-token",
         "Content-Type": "application/json",
+        "X-PyImgAno-Signature": hmac.new(
+            b"sign-me",
+            f"1700000000.{deliveries[0]['body']}".encode("utf-8"),
+            "sha256",
+        ).hexdigest(),
+        "X-PyImgAno-Timestamp": "1700000000",
         "X-Line": "alpha",
     }
     payload = deliveries[0]["payload"]
@@ -631,6 +647,7 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
         url: str,
         timeout: float,
         headers: dict[str, str],
+        body: str,
     ) -> None:
         delivery_attempts.append(
             {
@@ -638,6 +655,7 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
                 "url": url,
                 "timeout": timeout,
                 "headers": dict(headers),
+                "body": str(body),
             }
         )
         if len(delivery_attempts) == 1:
@@ -651,6 +669,7 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
         once=True,
         webhook_url="https://example.invalid/hook",
         webhook_bearer_token="secret-token",
+        webhook_signing_secret="sign-me",
         webhook_headers={"X-Line": "alpha"},
     )
 
@@ -677,6 +696,8 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     assert len(delivery_attempts) == 2
     assert delivery_attempts[0]["headers"]["Authorization"] == "Bearer secret-token"
     assert delivery_attempts[0]["headers"]["X-Line"] == "alpha"
+    assert delivery_attempts[0]["headers"]["X-PyImgAno-Timestamp"]
+    assert delivery_attempts[0]["headers"]["X-PyImgAno-Signature"]
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["status"] == "processed"
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"
