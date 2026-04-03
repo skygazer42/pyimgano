@@ -61,6 +61,10 @@ def format_bundle_watch_lines(report: dict[str, Any]) -> list[str]:
         lines.append(f"pending_retry={delivery_summary.get('pending_retry')}")
     if report.get("next_delivery_attempt_after_min") is not None:
         lines.append(f"next_retry_after={report.get('next_delivery_attempt_after_min')}")
+    if report.get("last_delivery_error_path") is not None:
+        lines.append(f"last_delivery_error_path={report.get('last_delivery_error_path')}")
+    if report.get("last_delivery_error") is not None:
+        lines.append(f"last_delivery_error={report.get('last_delivery_error')}")
     for code in report.get("reason_codes", []):
         lines.append(f"reason_code={code}")
     artifacts = report.get("artifacts", {})

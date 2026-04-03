@@ -409,6 +409,8 @@ and `watch_report.json` includes a `delivery_summary.pending_retry` count so ope
 can see why a retry was deferred.
 The same report also surfaces `next_delivery_attempt_after_min` so dashboards or
 plain-text operators can see the earliest retry horizon without scanning the full state file.
+For faster triage, `watch_report.json` now also carries the latest aggregated
+`last_delivery_error` and `last_delivery_error_path`.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

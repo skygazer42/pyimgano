@@ -256,6 +256,23 @@ def _next_delivery_attempt_after_min(entries: Mapping[str, Any]) -> float | None
     return min(candidates)
 
 
+def _latest_delivery_error(entries: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    latest_path: str | None = None
+    latest_error: str | None = None
+    latest_at: float | None = None
+    for path, raw_entry in entries.items():
+        entry = dict(raw_entry)
+        error_text = entry.get("last_delivery_error")
+        error_at = entry.get("last_delivery_at")
+        if error_text is None or error_at is None:
+            continue
+        if latest_at is None or float(error_at) >= float(latest_at):
+            latest_at = float(error_at)
+            latest_path = str(path)
+            latest_error = str(error_text)
+    return latest_path, latest_error
+
+
 def _watch_batch_gate_namespace(request: BundleWatchRequest) -> Any:
     return type(
         "_WatchBatchGateArgs",
@@ -524,6 +541,7 @@ def _build_watch_report(
     entries = dict(state.get("entries", {}))
     delivery_counts = _watch_delivery_counts(entries)
     next_retry_after_min = _next_delivery_attempt_after_min(entries)
+    last_delivery_error_path, last_delivery_error = _latest_delivery_error(entries)
     report = {
         "schema_version": int(_WATCH_SCHEMA_VERSION),
         "tool": "pyimgano-bundle",
@@ -545,6 +563,8 @@ def _build_watch_report(
         "webhook_error_count": int(webhook_error_count),
         "delivery_summary": delivery_counts,
         "next_delivery_attempt_after_min": next_retry_after_min,
+        "last_delivery_error_path": last_delivery_error_path,
+        "last_delivery_error": last_delivery_error,
         "poll_seconds": float(request.poll_seconds),
         "settle_seconds": float(request.settle_seconds),
         "last_poll_at": state.get("last_poll_at"),
