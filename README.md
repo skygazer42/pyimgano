@@ -389,7 +389,8 @@ included in [`Dockerfile.bundle-watch`](Dockerfile.bundle-watch) and
 When you want a downstream system callback without adding MQTT or RTSP yet, pass
 `--webhook-url https://example.internal/qc-hook`; successful watch records are
 POSTed as JSON, and failed deliveries are retried on later polling cycles without
-rerunning inference for the same fingerprint.
+rerunning inference for the same fingerprint. For auth and plant-specific routing,
+you can add `--webhook-bearer-token ...` and repeat `--webhook-header KEY=VALUE`.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

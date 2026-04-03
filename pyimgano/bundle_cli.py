@@ -103,6 +103,17 @@ def _parse_nonnegative_float_arg(text: str) -> float:
     return float(value)
 
 
+def _parse_webhook_header_arg(text: str) -> tuple[str, str]:
+    key, sep, value = str(text).partition("=")
+    if not sep:
+        raise argparse.ArgumentTypeError("--webhook-header must use KEY=VALUE syntax.")
+    key = key.strip()
+    value = value.strip()
+    if not key:
+        raise argparse.ArgumentTypeError("--webhook-header key must be non-empty.")
+    return key, value
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyimgano-bundle",
@@ -248,6 +259,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--webhook-url",
         default=None,
         help="Optional callback URL. When set, each processed watch record is POSTed as JSON.",
+    )
+    watch_parser.add_argument(
+        "--webhook-bearer-token",
+        default=None,
+        help="Optional bearer token added as Authorization: Bearer <token> for webhook delivery.",
+    )
+    watch_parser.add_argument(
+        "--webhook-header",
+        action="append",
+        default=None,
+        type=_parse_webhook_header_arg,
+        metavar="KEY=VALUE",
+        help="Repeatable custom header for webhook delivery.",
     )
     watch_parser.add_argument(
         "--webhook-timeout-seconds",
@@ -1363,6 +1387,15 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
         webhook_url=(
             str(args.webhook_url) if getattr(args, "webhook_url", None) is not None else None
         ),
+        webhook_bearer_token=(
+            str(args.webhook_bearer_token)
+            if getattr(args, "webhook_bearer_token", None) is not None
+            else None
+        ),
+        webhook_headers={
+            str(key): str(value)
+            for key, value in (list(getattr(args, "webhook_header", []) or []))
+        },
         webhook_timeout_seconds=float(args.webhook_timeout_seconds),
         max_anomaly_rate=(
             float(args.max_anomaly_rate) if getattr(args, "max_anomaly_rate", None) is not None else None

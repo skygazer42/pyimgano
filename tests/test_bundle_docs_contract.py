@@ -15,6 +15,8 @@ def test_cli_reference_documents_bundle_validate_run_and_watch() -> None:
     assert "run" in text
     assert "watch" in text
     assert "webhook" in text
+    assert "webhook-header" in text
+    assert "webhook-bearer-token" in text
     assert "bundle_manifest.json" in text
     assert "handoff_report_status" in text
     assert "next_action" in text
@@ -28,4 +30,5 @@ def test_readme_mentions_bundle_validate_watch_and_weights_audit() -> None:
     assert "pyimgano-bundle" in text or "pyimgano bundle" in text
     assert "bundle watch" in text
     assert "webhook" in text
+    assert "webhook-header" in text
     assert "audit-bundle" in text

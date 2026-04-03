@@ -442,6 +442,12 @@ def test_bundle_cli_watch_forwards_webhook_settings_to_service(
             "--once",
             "--webhook-url",
             "https://example.invalid/hook",
+            "--webhook-bearer-token",
+            "secret-token",
+            "--webhook-header",
+            "X-Line=alpha",
+            "--webhook-header",
+            "X-Station=cam-7",
             "--webhook-timeout-seconds",
             "7.5",
             "--json",
@@ -451,6 +457,11 @@ def test_bundle_cli_watch_forwards_webhook_settings_to_service(
     assert rc == 0
     request = captured["request"]
     assert request.webhook_url == "https://example.invalid/hook"
+    assert request.webhook_bearer_token == "secret-token"
+    assert request.webhook_headers == {
+        "X-Line": "alpha",
+        "X-Station": "cam-7",
+    }
     assert request.webhook_timeout_seconds == 7.5
 
 
@@ -545,8 +556,20 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
         _write_jsonl(results_path, [{"score": 0.25, "label": 0}])
         return 0
 
-    def _fake_webhook(payload: dict[str, object], url: str, timeout: float) -> None:
-        deliveries.append({"payload": dict(payload), "url": url, "timeout": timeout})
+    def _fake_webhook(
+        payload: dict[str, object],
+        url: str,
+        timeout: float,
+        headers: dict[str, str],
+    ) -> None:
+        deliveries.append(
+            {
+                "payload": dict(payload),
+                "url": url,
+                "timeout": timeout,
+                "headers": dict(headers),
+            }
+        )
 
     request = BundleWatchRequest(
         bundle_dir=bundle_dir,
@@ -555,6 +578,8 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
         settle_seconds=0.0,
         once=True,
         webhook_url="https://example.invalid/hook",
+        webhook_bearer_token="secret-token",
+        webhook_headers={"X-Line": "alpha"},
         webhook_timeout_seconds=6.0,
     )
 
@@ -571,6 +596,11 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
     assert len(deliveries) == 1
     assert deliveries[0]["url"] == "https://example.invalid/hook"
     assert deliveries[0]["timeout"] == 6.0
+    assert deliveries[0]["headers"] == {
+        "Authorization": "Bearer secret-token",
+        "Content-Type": "application/json",
+        "X-Line": "alpha",
+    }
     payload = deliveries[0]["payload"]
     assert payload["event"] == "processed"
     assert payload["result"]["image_path"] == str(image_path)
@@ -596,8 +626,20 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
         _write_jsonl(results_path, [{"score": 0.8, "label": 1}])
         return 0
 
-    def _flaky_webhook(payload: dict[str, object], url: str, timeout: float) -> None:
-        delivery_attempts.append({"payload": dict(payload), "url": url, "timeout": timeout})
+    def _flaky_webhook(
+        payload: dict[str, object],
+        url: str,
+        timeout: float,
+        headers: dict[str, str],
+    ) -> None:
+        delivery_attempts.append(
+            {
+                "payload": dict(payload),
+                "url": url,
+                "timeout": timeout,
+                "headers": dict(headers),
+            }
+        )
         if len(delivery_attempts) == 1:
             raise RuntimeError("temporary webhook outage")
 
@@ -608,6 +650,8 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
         settle_seconds=0.0,
         once=True,
         webhook_url="https://example.invalid/hook",
+        webhook_bearer_token="secret-token",
+        webhook_headers={"X-Line": "alpha"},
     )
 
     first = run_bundle_watch_once(
@@ -631,6 +675,8 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     assert second["webhook_error_count"] == 0
     assert len(infer_calls) == 1
     assert len(delivery_attempts) == 2
+    assert delivery_attempts[0]["headers"]["Authorization"] == "Bearer secret-token"
+    assert delivery_attempts[0]["headers"]["X-Line"] == "alpha"
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["status"] == "processed"
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"

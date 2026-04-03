@@ -35,6 +35,8 @@ class BundleWatchRequest:
     export_overlays: bool = False
     export_defects_regions: bool = False
     webhook_url: str | None = None
+    webhook_bearer_token: str | None = None
+    webhook_headers: dict[str, str] | None = None
     webhook_timeout_seconds: float = 5.0
     max_anomaly_rate: float | None = None
     max_reject_rate: float | None = None
@@ -254,6 +256,15 @@ def _default_delivery_status(request: BundleWatchRequest) -> str:
     return "pending" if _webhook_enabled(request) else "not_requested"
 
 
+def _resolve_webhook_headers(request: BundleWatchRequest) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if request.webhook_bearer_token is not None and str(request.webhook_bearer_token).strip():
+        headers["Authorization"] = f"Bearer {str(request.webhook_bearer_token).strip()}"
+    for key, value in dict(request.webhook_headers or {}).items():
+        headers[str(key)] = str(value)
+    return headers
+
+
 def _emit_watch_event(
     *,
     artifacts: Mapping[str, Path],
@@ -302,11 +313,11 @@ def _build_watch_webhook_payload(
     }
 
 
-def _send_watch_webhook(payload: dict[str, Any], url: str, timeout: float) -> None:
+def _send_watch_webhook(payload: dict[str, Any], url: str, timeout: float, headers: dict[str, str]) -> None:
     req = urllib_request.Request(
         url=str(url),
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers=dict(headers),
         method="POST",
     )
     with urllib_request.urlopen(req, timeout=float(timeout)) as response:
@@ -334,7 +345,7 @@ def _deliver_entry_webhook(
     fingerprint: str,
     now: float,
     artifacts: Mapping[str, Path],
-    send_webhook_impl: Callable[[dict[str, Any], str, float], None],
+    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str]], None],
 ) -> tuple[bool, str | None]:
     payload = _build_watch_webhook_payload(
         request=request,
@@ -342,12 +353,14 @@ def _deliver_entry_webhook(
         fingerprint=fingerprint,
         result_ref=str(entry["last_result_ref"]),
     )
+    headers = _resolve_webhook_headers(request)
     entry["delivery_attempts"] = int(entry.get("delivery_attempts", 0)) + 1
     try:
         send_webhook_impl(
             payload,
             str(request.webhook_url),
             float(request.webhook_timeout_seconds),
+            headers,
         )
     except Exception as exc:  # noqa: BLE001 - network boundary
         entry["delivery_status"] = "error"
@@ -468,7 +481,7 @@ def run_bundle_watch_once(
     now_fn: Callable[[], float] | None = None,
     validate_bundle_impl: Callable[..., dict[str, Any]] | None = None,
     batch_gate_evaluator: Callable[..., tuple[dict[str, Any], str, list[str]]] | None = None,
-    send_webhook_impl: Callable[[dict[str, Any], str, float], None] | None = None,
+    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str]], None] | None = None,
 ) -> dict[str, Any]:
     if now_fn is None:
         now_fn = time.time
