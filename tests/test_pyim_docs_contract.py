@@ -24,6 +24,7 @@ def test_cli_reference_documents_pyim_starter_pick_metadata() -> None:
     assert "Suggested Commands" in text
     assert "recipe_list_command" in text
     assert "recipe_info_command" in text
+    assert "dry_run_command" in text
     assert "recipe_run_command" in text
 
 

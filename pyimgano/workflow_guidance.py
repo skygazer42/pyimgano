@@ -21,6 +21,8 @@ class CommandWorkflowGuidance:
     recipe_info_command: str | None = None
     dry_run_command: str | None = None
     recipe_run_command: str | None = None
+    export_command: str | None = None
+    infer_followup_command: str | None = None
     preset_infer_command: str | None = None
     from_run_infer_command: str | None = None
     quality_command: str | None = None
@@ -261,6 +263,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         target_kind="command",
         target="export-onnx",
         workflow_stage="validate",
+        export_command="pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
+        infer_followup_command="pyimgano-doctor --recommend-extras --for-command infer --json",
         suggested_commands=(
             "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
             "pyimgano-doctor --recommend-extras --for-command infer --json",
@@ -275,6 +279,8 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         target_kind="command",
         target="export-torchscript",
         workflow_stage="validate",
+        export_command="pyimgano-export-torchscript --backbone resnet18 --output /tmp/embed.ts --no-pretrained",
+        infer_followup_command="pyimgano-doctor --recommend-extras --for-command infer --json",
         suggested_commands=(
             "pyimgano-export-torchscript --backbone resnet18 --output /tmp/embed.ts --no-pretrained",
             "pyimgano-doctor --recommend-extras --for-command infer --json",

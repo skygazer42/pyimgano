@@ -71,6 +71,8 @@ def test_format_extra_recommendation_lines_renders_install_hint_and_missing() ->
             "workflow_stage": "validate",
             "required_extras": ["torch", "onnx"],
             "recommended_extras": [],
+            "export_command": "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
+            "infer_followup_command": "pyimgano-doctor --recommend-extras --for-command infer --json",
             "suggested_commands": [
                 "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
                 "pyimgano-doctor --recommend-extras --for-command infer --json",
@@ -95,6 +97,8 @@ def test_format_extra_recommendation_lines_renders_install_hint_and_missing() ->
         "- target: export-onnx",
         "- workflow_stage: validate",
         "- required_extras: torch, onnx",
+        "- export_command: pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
+        "- infer_followup_command: pyimgano-doctor --recommend-extras --for-command infer --json",
         "- suggested_commands: pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained; pyimgano-doctor --recommend-extras --for-command infer --json",
         "- next_step_commands: pyimgano-doctor --recommend-extras --for-command infer --json",
         "- artifact_hints: embed.onnx; onnx sweep JSON (optional)",

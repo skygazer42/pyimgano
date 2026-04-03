@@ -85,6 +85,7 @@ Notes:
 - For `--for-command train|infer|runs`, the recommendation payload also surfaces `suggested_commands` so the text/JSON output tells you the next concrete command to run.
 - For `--for-command train`, those suggested commands now start with `pyimgano train --list-recipes`, then `pyimgano train --recipe-info industrial-adapt --json`, ahead of the audited starter run command so operators can discover and inspect the recipe contract before running it.
 - For `--for-command train`, the payload also includes structured `recipe_list_command`, `recipe_info_command`, `dry_run_command`, and `recipe_run_command` fields so automation can surface the same recipe discovery path without parsing `suggested_commands`.
+- For `--for-command export-onnx|export-torchscript`, the payload also includes `export_command` and `infer_followup_command` so the primary export action and the recommended infer-stage follow-up are available as separate fields.
 - For `--for-command infer`, the payload also includes `preset_infer_command` and `from_run_infer_command` so UIs or wrappers can surface the direct preset-based route and the run-reuse route separately.
 - For `--for-command runs`, the payload also includes `quality_command`, `acceptance_command`, and `bundle_audit_command` so the main run-quality, acceptance, and bundle-audit gates can be surfaced separately from the flat `suggested_commands` list.
 - The root help fast-path examples also surface `pyimgano train --list-recipes` and `pyimgano train --recipe-info industrial-adapt --json` so the same discovery and inspection steps are visible even before opening the train-specific reference.
@@ -182,7 +183,7 @@ Notes:
 - `--objective`, `--selection-profile`, and `--topk` add starter-pick guidance for `--list models` without changing the default discovery shape for other list kinds.
 - In text output, `pyim` renders a `Selection Context` block ahead of starter picks so the chosen objective/profile/topk are visible in the terminal transcript.
 - In text output, `pyim --goal ...` also renders `Goal Context` and `Goal Picks` blocks so the operator can see the chosen route and the concrete model/recipe/dataset recommendations together.
-- When goal recipe picks are present in `--json` output, each recipe pick now also includes `recipe_list_command`, `install_hint`, `recipe_info_command`, and `recipe_run_command` so recipe discovery, required extras, and the next inspection or execution step can be copied directly.
+- When goal recipe picks are present in `--json` output, each recipe pick now also includes `recipe_list_command`, `install_hint`, `recipe_info_command`, `dry_run_command`, and `recipe_run_command` so recipe discovery, required extras, validation, and the next execution step can be copied directly.
 - When available, `pyim` also renders a `Suggested Commands` block with the next inspection commands for the top pick (for example `pyimgano-doctor --recommend-extras --for-model ...` and `pyimgano-benchmark --model-info ...`).
 - In text output, starter picks now show compact hints like `runtime=numpy`, `pixel_map=yes|no`, `family=...`, `why=...`, and an install hint when extras are required.
 - When starter picks are present in `--json` output, each pick includes lightweight deployment hints such as `supports_pixel_map`, `tested_runtime`, `deployment_family`, and `why_this_pick`.

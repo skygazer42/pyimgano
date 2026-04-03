@@ -344,6 +344,8 @@ def test_doctor_cli_text_renders_extras_recommendation(monkeypatch, capsys) -> N
                 "workflow_stage": "validate",
                 "required_extras": ["torch", "onnx"],
                 "recommended_extras": [],
+                "export_command": "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
+                "infer_followup_command": "pyimgano-doctor --recommend-extras --for-command infer --json",
                 "suggested_commands": [
                     "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained",
                     "pyimgano-doctor --recommend-extras --for-command infer --json",
@@ -371,6 +373,8 @@ def test_doctor_cli_text_renders_extras_recommendation(monkeypatch, capsys) -> N
     assert "target: export-onnx" in out
     assert "pip install 'pyimgano[onnx,torch]'" in out
     assert "workflow_stage: validate" in out
+    assert "export_command: pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained" in out
+    assert "infer_followup_command: pyimgano-doctor --recommend-extras --for-command infer --json" in out
     assert "artifact_hints: embed.onnx; onnx sweep JSON (optional)" in out
 
 

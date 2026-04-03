@@ -212,6 +212,10 @@ def test_pyim_goal_cpu_screening_json_surfaces_classical_recipe_starter(capsys) 
         == "pyimgano train --list-recipes"
     )
     assert (
+        recipe_by_name["classical-colorhist-mahalanobis"]["dry_run_command"]
+        == "pyimgano train --dry-run --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
+    )
+    assert (
         recipe_by_name["classical-colorhist-mahalanobis"]["recipe_run_command"]
         == "pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
     )
@@ -233,6 +237,7 @@ def test_pyim_goal_text_renders_goal_context_and_picks(capsys) -> None:
     assert "install=pip install 'pyimgano[deploy]'" in out
     assert "pyimgano train --list-recipes" in out
     assert "pyimgano train --recipe-info industrial-adapt --json" in out
+    assert "pyimgano train --dry-run --config examples/configs/deploy_smoke_custom_cpu.json" in out
     assert "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json" in out
 
 
@@ -273,6 +278,7 @@ def test_pyim_goal_cpu_screening_text_surfaces_classical_recipe_config(capsys) -
     assert "config=examples/configs/classical_structural_ecod_cpu.json" in out
     assert "profile=cpu-screening" in out
     assert "inspect=pyimgano train --recipe-info classical-colorhist-mahalanobis --json" in out
+    assert "dry_run=pyimgano train --dry-run --config examples/configs/classical_colorhist_mahalanobis_cpu.json" in out
     assert "run=pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json" in out
 
 

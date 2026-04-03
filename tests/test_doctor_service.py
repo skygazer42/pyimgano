@@ -39,6 +39,14 @@ def test_collect_doctor_payload_recommends_extras_for_export_onnx_command(
     assert recommendation["required_extras"] == ["onnx", "torch"]
     assert recommendation["workflow_stage"] == workflow_stage_for_command("export-onnx")
     assert recommendation["workflow_stage"] == guidance.workflow_stage
+    assert (
+        recommendation["export_command"]
+        == "pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained"
+    )
+    assert (
+        recommendation["infer_followup_command"]
+        == "pyimgano-doctor --recommend-extras --for-command infer --json"
+    )
     assert recommendation["suggested_commands"] == suggested_commands_for_command("export-onnx")
     assert recommendation["suggested_commands"] == list(guidance.suggested_commands)
     assert recommendation["next_step_commands"] == next_step_commands_for_command("export-onnx")
@@ -60,6 +68,14 @@ def test_collect_doctor_payload_recommends_extras_for_export_torchscript_command
     assert recommendation["target"] == "export-torchscript"
     assert recommendation["required_extras"] == ["torch"]
     assert recommendation["workflow_stage"] == workflow_stage_for_command("export-torchscript")
+    assert (
+        recommendation["export_command"]
+        == "pyimgano-export-torchscript --backbone resnet18 --output /tmp/embed.ts --no-pretrained"
+    )
+    assert (
+        recommendation["infer_followup_command"]
+        == "pyimgano-doctor --recommend-extras --for-command infer --json"
+    )
     assert recommendation["suggested_commands"] == suggested_commands_for_command("export-torchscript")
     assert recommendation["artifact_hints"] == artifact_hints_for_command("export-torchscript")
 

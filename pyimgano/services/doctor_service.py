@@ -1244,6 +1244,8 @@ def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
         "recipe_info_command": (None if guidance is None else guidance.recipe_info_command),
         "dry_run_command": (None if guidance is None else guidance.dry_run_command),
         "recipe_run_command": (None if guidance is None else guidance.recipe_run_command),
+        "export_command": (None if guidance is None else guidance.export_command),
+        "infer_followup_command": (None if guidance is None else guidance.infer_followup_command),
         "preset_infer_command": (None if guidance is None else guidance.preset_infer_command),
         "from_run_infer_command": (None if guidance is None else guidance.from_run_infer_command),
         "quality_command": (None if guidance is None else guidance.quality_command),

@@ -320,6 +320,8 @@ def _build_goal_recipe_pick(spec: dict[str, Any]) -> dict[str, Any]:
     if recipe_name:
         enriched["recipe_info_command"] = f"pyimgano train --recipe-info {recipe_name} --json"
     if config_path:
+        enriched["dry_run_command"] = f"pyimgano train --dry-run --config {config_path}"
+    if config_path:
         enriched["recipe_run_command"] = f"pyimgano train --config {config_path}"
 
     return enriched
@@ -581,6 +583,11 @@ def _extend_goal_suggested_commands_with_recipe_followups(
         if cmd and cmd not in seen:
             deduped.append(cmd)
             seen.add(cmd)
+
+    dry_run_cmd = str(top_recipe.get("dry_run_command", "")).strip()
+    if dry_run_cmd and dry_run_cmd not in seen:
+        deduped.append(dry_run_cmd)
+        seen.add(dry_run_cmd)
 
     run_cmd = str(top_recipe.get("recipe_run_command", "")).strip()
     if run_cmd and run_cmd not in seen and not has_train_config_command:

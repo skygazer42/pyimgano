@@ -90,6 +90,12 @@ def format_extra_recommendation_lines(recommendation: dict[str, object]) -> list
     recipe_run_command = recommendation.get("recipe_run_command")
     if recipe_run_command:
         lines.append(f"- recipe_run_command: {recipe_run_command}")
+    export_command = recommendation.get("export_command")
+    if export_command:
+        lines.append(f"- export_command: {export_command}")
+    infer_followup_command = recommendation.get("infer_followup_command")
+    if infer_followup_command:
+        lines.append(f"- infer_followup_command: {infer_followup_command}")
     preset_infer_command = recommendation.get("preset_infer_command")
     if preset_infer_command:
         lines.append(f"- preset_infer_command: {preset_infer_command}")

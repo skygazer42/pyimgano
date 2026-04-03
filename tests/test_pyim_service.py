@@ -496,11 +496,16 @@ def test_collect_pyim_goal_payload_uses_recipe_default_config_when_goal_spec_omi
     assert recipe_pick["recipe_list_command"] == "pyimgano train --list-recipes"
     assert recipe_pick["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
     assert (
+        recipe_pick["dry_run_command"]
+        == "pyimgano train --dry-run --config examples/configs/deploy_smoke_custom_cpu.json"
+    )
+    assert (
         recipe_pick["recipe_run_command"]
         == "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json"
     )
     assert "pyimgano train --list-recipes" in payload["suggested_commands"]
     assert recipe_pick["recipe_info_command"] in payload["suggested_commands"]
+    assert recipe_pick["dry_run_command"] in payload["suggested_commands"]
     assert recipe_pick["recipe_run_command"] in payload["suggested_commands"]
 
 
