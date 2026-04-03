@@ -65,6 +65,10 @@ def format_bundle_watch_lines(report: dict[str, Any]) -> list[str]:
         lines.append(f"last_delivery_error_path={report.get('last_delivery_error_path')}")
     if report.get("last_delivery_error") is not None:
         lines.append(f"last_delivery_error={report.get('last_delivery_error')}")
+    if report.get("last_delivery_success_path") is not None:
+        lines.append(f"last_delivery_success_path={report.get('last_delivery_success_path')}")
+    if report.get("last_delivery_success_at") is not None:
+        lines.append(f"last_delivery_success_at={report.get('last_delivery_success_at')}")
     for code in report.get("reason_codes", []):
         lines.append(f"reason_code={code}")
     artifacts = report.get("artifacts", {})

@@ -71,6 +71,8 @@ def test_format_bundle_watch_lines_preserves_text_contract() -> None:
             "next_delivery_attempt_after_min": 130.0,
             "last_delivery_error_path": "sample.png",
             "last_delivery_error": "RuntimeError: temporary webhook outage",
+            "last_delivery_success_path": "ok.png",
+            "last_delivery_success_at": 131.0,
             "artifacts": {"results_jsonl": "/tmp/output/results.jsonl"},
         }
     )
@@ -87,5 +89,7 @@ def test_format_bundle_watch_lines_preserves_text_contract() -> None:
         "next_retry_after=130.0",
         "last_delivery_error_path=sample.png",
         "last_delivery_error=RuntimeError: temporary webhook outage",
+        "last_delivery_success_path=ok.png",
+        "last_delivery_success_at=131.0",
         "results_jsonl=/tmp/output/results.jsonl",
     ]

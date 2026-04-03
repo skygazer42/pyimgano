@@ -411,6 +411,8 @@ The same report also surfaces `next_delivery_attempt_after_min` so dashboards or
 plain-text operators can see the earliest retry horizon without scanning the full state file.
 For faster triage, `watch_report.json` now also carries the latest aggregated
 `last_delivery_error` and `last_delivery_error_path`.
+It also carries `last_delivery_success_path` and `last_delivery_success_at`, so the
+same report shows the latest successful webhook handoff alongside the latest failure.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

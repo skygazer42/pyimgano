@@ -779,6 +779,10 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
     assert report["processed"] == 1
     assert report["webhook_delivery_count"] == 1
     assert report["webhook_error_count"] == 0
+    assert report["last_delivery_success_path"] == "sample.png"
+    assert report["last_delivery_success_at"] == 1700000000.0
+    assert report["last_delivery_error_path"] is None
+    assert report["last_delivery_error"] is None
     assert len(deliveries) == 1
     assert deliveries[0]["url"] == "https://example.invalid/hook"
     assert deliveries[0]["timeout"] == 6.0
@@ -968,6 +972,8 @@ def test_bundle_watch_service_respects_webhook_retry_backoff(tmp_path: Path) -> 
     assert first["next_delivery_attempt_after_min"] == 130.0
     assert first["last_delivery_error_path"] == "sample.png"
     assert "temporary webhook outage" in first["last_delivery_error"]
+    assert first["last_delivery_success_path"] is None
+    assert first["last_delivery_success_at"] is None
     assert second["status"] == "completed"
     assert second["webhook_delivery_count"] == 0
     assert second["webhook_error_count"] == 0
@@ -975,12 +981,16 @@ def test_bundle_watch_service_respects_webhook_retry_backoff(tmp_path: Path) -> 
     assert second["next_delivery_attempt_after_min"] == 130.0
     assert second["last_delivery_error_path"] == "sample.png"
     assert "temporary webhook outage" in second["last_delivery_error"]
+    assert second["last_delivery_success_path"] is None
+    assert second["last_delivery_success_at"] is None
     assert state["entries"]["sample.png"]["next_delivery_attempt_after"] == 130.0
     assert third["webhook_delivery_count"] == 1
     assert third["delivery_summary"]["pending_retry"] == 0
     assert third["next_delivery_attempt_after_min"] is None
     assert third["last_delivery_error_path"] is None
     assert third["last_delivery_error"] is None
+    assert third["last_delivery_success_path"] == "sample.png"
+    assert third["last_delivery_success_at"] == 131.0
     assert len(infer_calls) == 1
     assert len(delivery_attempts) == 2
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
