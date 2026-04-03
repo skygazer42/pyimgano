@@ -29,6 +29,7 @@ def test_cli_reference_documents_bundle_validate_run_and_watch() -> None:
     assert "next_delivery_attempt_after_min" in text
     assert "last_delivery_error" in text
     assert "last_delivery_success_at" in text
+    assert "watch_events.jsonl" in text
     assert "bundle_manifest.json" in text
     assert "handoff_report_status" in text
     assert "next_action" in text

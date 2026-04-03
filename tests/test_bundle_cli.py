@@ -808,6 +808,13 @@ def test_bundle_watch_service_sends_webhook_for_processed_record(tmp_path: Path)
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"
     assert state["entries"]["sample.png"]["delivery_id"] == payload["delivery_id"]
+    event_rows = [
+        json.loads(line)
+        for line in (output_dir / "watch_events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    delivered_event = next(row for row in event_rows if row["event"] == "webhook_delivered")
+    assert delivered_event["delivery_id"] == payload["delivery_id"]
+    assert delivered_event["delivery_attempt"] == 1
 
 
 def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_path: Path) -> None:
@@ -894,6 +901,16 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     assert delivery_attempts[0]["payload"]["delivery_attempt"] == 1
     assert delivery_attempts[1]["payload"]["delivery_attempt"] == 2
     assert delivery_attempts[0]["payload"]["delivery_id"] == delivery_attempts[1]["payload"]["delivery_id"]
+    event_rows = [
+        json.loads(line)
+        for line in (output_dir / "watch_events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    error_event = next(row for row in event_rows if row["event"] == "webhook_error")
+    delivered_event = next(row for row in event_rows if row["event"] == "webhook_delivered")
+    assert error_event["delivery_id"] == delivered_event["delivery_id"]
+    assert error_event["delivery_attempt"] == 1
+    assert "next_delivery_attempt_after" not in error_event
+    assert delivered_event["delivery_attempt"] == 2
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["status"] == "processed"
     assert state["entries"]["sample.png"]["delivery_status"] == "delivered"

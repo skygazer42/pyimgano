@@ -365,6 +365,9 @@ def _emit_watch_event(
     status: str | None = None,
     detail: str | None = None,
     last_result_ref: str | None = None,
+    delivery_id: str | None = None,
+    delivery_attempt: int | None = None,
+    next_delivery_attempt_after: float | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "event": str(event),
@@ -378,6 +381,12 @@ def _emit_watch_event(
         payload["detail"] = str(detail)
     if last_result_ref is not None:
         payload["last_result_ref"] = str(last_result_ref)
+    if delivery_id is not None:
+        payload["delivery_id"] = str(delivery_id)
+    if delivery_attempt is not None:
+        payload["delivery_attempt"] = int(delivery_attempt)
+    if next_delivery_attempt_after is not None:
+        payload["next_delivery_attempt_after"] = float(next_delivery_attempt_after)
     _append_jsonl_line(artifacts["watch_events_jsonl"], payload)
 
 
@@ -514,6 +523,9 @@ def _deliver_entry_webhook(
             status="processed",
             detail=str(entry["last_delivery_error"]),
             last_result_ref=str(entry["last_result_ref"]),
+            delivery_id=str(delivery_id),
+            delivery_attempt=int(delivery_attempt),
+            next_delivery_attempt_after=entry["next_delivery_attempt_after"],
         )
         return False, str(entry["last_delivery_error"])
 
@@ -529,6 +541,8 @@ def _deliver_entry_webhook(
         now=now,
         status="processed",
         last_result_ref=str(entry["last_result_ref"]),
+        delivery_id=str(delivery_id),
+        delivery_attempt=int(delivery_attempt),
     )
     return True, None
 
