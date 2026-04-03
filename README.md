@@ -394,6 +394,8 @@ you can add `--webhook-bearer-token ...` and repeat `--webhook-header KEY=VALUE`
 If the receiver needs tamper checking, add `--webhook-signing-secret ...`; the
 request then carries `X-PyImgAno-Timestamp` and `X-PyImgAno-Signature`
 (`HMAC-SHA256` over `<timestamp>.<raw_json_body>`).
+For container/runtime deployments, you can also resolve secrets from env vars via
+`--webhook-bearer-token-env ...` and `--webhook-signing-secret-env ...`.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -112,6 +113,25 @@ def _parse_webhook_header_arg(text: str) -> tuple[str, str]:
     if not key:
         raise argparse.ArgumentTypeError("--webhook-header key must be non-empty.")
     return key, value
+
+
+def _resolve_secret_from_cli_or_env(
+    *,
+    value: str | None,
+    env_var: str | None,
+    option_name: str,
+    env_option_name: str,
+) -> str | None:
+    if value is not None:
+        return str(value)
+    if env_var is None:
+        return None
+    raw = os.environ.get(str(env_var))
+    if raw is None or not str(raw).strip():
+        raise ValueError(
+            f"{env_option_name} requires a non-empty environment variable: {env_var}"
+        )
+    return str(raw)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -266,9 +286,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional bearer token added as Authorization: Bearer <token> for webhook delivery.",
     )
     watch_parser.add_argument(
+        "--webhook-bearer-token-env",
+        default=None,
+        help="Environment variable name used to resolve the webhook bearer token.",
+    )
+    watch_parser.add_argument(
         "--webhook-signing-secret",
         default=None,
         help="Optional HMAC secret used to emit signed webhook headers.",
+    )
+    watch_parser.add_argument(
+        "--webhook-signing-secret-env",
+        default=None,
+        help="Environment variable name used to resolve the webhook signing secret.",
     )
     watch_parser.add_argument(
         "--webhook-header",
@@ -1392,15 +1422,33 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
         webhook_url=(
             str(args.webhook_url) if getattr(args, "webhook_url", None) is not None else None
         ),
-        webhook_bearer_token=(
-            str(args.webhook_bearer_token)
-            if getattr(args, "webhook_bearer_token", None) is not None
-            else None
+        webhook_bearer_token=_resolve_secret_from_cli_or_env(
+            value=(
+                str(args.webhook_bearer_token)
+                if getattr(args, "webhook_bearer_token", None) is not None
+                else None
+            ),
+            env_var=(
+                str(args.webhook_bearer_token_env)
+                if getattr(args, "webhook_bearer_token_env", None) is not None
+                else None
+            ),
+            option_name="--webhook-bearer-token",
+            env_option_name="--webhook-bearer-token-env",
         ),
-        webhook_signing_secret=(
-            str(args.webhook_signing_secret)
-            if getattr(args, "webhook_signing_secret", None) is not None
-            else None
+        webhook_signing_secret=_resolve_secret_from_cli_or_env(
+            value=(
+                str(args.webhook_signing_secret)
+                if getattr(args, "webhook_signing_secret", None) is not None
+                else None
+            ),
+            env_var=(
+                str(args.webhook_signing_secret_env)
+                if getattr(args, "webhook_signing_secret_env", None) is not None
+                else None
+            ),
+            option_name="--webhook-signing-secret",
+            env_option_name="--webhook-signing-secret-env",
         ),
         webhook_headers={
             str(key): str(value)
@@ -1438,7 +1486,8 @@ def _watch_bundle(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
 
     if str(args.command) == "validate":
         payload = evaluate_bundle(
@@ -1448,7 +1497,10 @@ def main(argv: list[str] | None = None) -> int:
         return _emit_validate_payload(payload, json_output=bool(getattr(args, "json", False)))
 
     if str(args.command) == "watch":
-        report = _watch_bundle(args)
+        try:
+            report = _watch_bundle(args)
+        except ValueError as exc:
+            parser.error(str(exc))
         return _emit_watch_report(report, json_output=bool(getattr(args, "json", False)))
 
     report = _run_bundle(args)
