@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-04-03
+
+### Added
+- Added a hot-folder deploy runtime via `pyimgano-bundle watch`, so validated deploy bundles can poll an inbox directory and append aggregate runtime artifacts without rerunning training/export flows.
+- Added webhook delivery for `bundle watch`, including:
+  - direct webhook URL delivery
+  - bearer-token authentication
+  - HMAC signing (`X-PyImgAno-Timestamp` / `X-PyImgAno-Signature`)
+  - secrets resolved from direct CLI values, environment variables, or mounted files
+  - stable `delivery_id` / `delivery_attempt` metadata in payloads and headers
+  - configurable retry backoff for failed deliveries
+- Added container-oriented runtime examples for the hot-folder bundle path:
+  - `Dockerfile.bundle-watch`
+  - `compose.bundle-watch.yml`
+- Added richer operator workflow guidance across root CLI, `doctor`, and `pyim`, including:
+  - structured train/infer/runs follow-up commands
+  - train recipe discovery guidance (`list-recipes`, `recipe-info`, `dry-run`, `preflight`)
+  - `pyim --goal ...` recipe picks carrying structured train follow-up commands
+
+### Changed
+- Expanded `bundle watch` observability so operators can inspect delivery health from aggregate outputs instead of parsing per-entry state manually:
+  - `watch_report.json` now exposes pending retry counts and the earliest retry horizon
+  - `watch_report.json` now aggregates the latest webhook delivery error and the latest successful delivery
+  - plain-text `pyimgano-bundle watch` output now surfaces the same retry/error/success summaries
+  - `watch_events.jsonl` webhook events now carry delivery correlation metadata for retry-chain auditing
+- Surfaced dataset-readiness metadata more broadly across train/workbench/runs/publication flows so operator gates preserve dataset trust context instead of dropping it in later-stage summaries.
+- Continued the import/runtime hardening work by consolidating torchvision/pretrained loading paths, broadening shared preprocessing reuse, and replacing residual progress prints with structured logging.
+
+### Fixed
+- Fixed safe checkpoint loading for numpy-backed payloads in compatibility restore paths.
+- Suppressed noisy warnings around DevNet unsupervised usage and TorchScript deprecation paths so CLI/runtime logs stay cleaner in production workflows.
+
 ## [0.8.0] - 2026-03-31
 
 ### Synthesis
@@ -1055,6 +1087,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor**: New features, backward compatible
 - **Patch**: Bug fixes, backward compatible
 
-[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.9.0
 [0.8.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.8.0
 [0.1.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.1.0
