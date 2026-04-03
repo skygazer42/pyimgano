@@ -523,6 +523,81 @@ def test_doctor_cli_text_renders_model_recommendation_context(monkeypatch, capsy
     assert "model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json" in out
 
 
+def test_doctor_cli_text_renders_infer_structured_commands(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "extras_recommendation": {
+                "target_kind": "command",
+                "target": "infer",
+                "preset_infer_command": (
+                    "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir "
+                    "/path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+                ),
+                "from_run_infer_command": (
+                    "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images "
+                    "--save-jsonl /tmp/pyimgano_results.jsonl"
+                ),
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--recommend-extras", "--for-command", "infer"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "preset_infer_command:" in out
+    assert "from_run_infer_command:" in out
+
+
+def test_doctor_cli_text_renders_runs_structured_commands(monkeypatch, capsys) -> None:
+    import pyimgano.doctor_cli as doctor_cli
+
+    monkeypatch.setattr(
+        doctor_cli.doctor_service,
+        "collect_doctor_payload",
+        lambda **_kwargs: {
+            "tool": "pyimgano-doctor",
+            "pyimgano_version": "0.0.0",
+            "python": {"version": "3.10"},
+            "platform": {"system": "Linux", "release": "x", "machine": "x86_64"},
+            "optional_modules": [],
+            "baselines": {"suites": [], "sweeps": []},
+            "extras_recommendation": {
+                "target_kind": "command",
+                "target": "runs",
+                "quality_command": (
+                    "pyimgano runs quality runs/<run_dir> --require-status audited --json"
+                ),
+                "acceptance_command": (
+                    "pyimgano runs acceptance runs/<run_dir> --require-status audited "
+                    "--check-bundle-hashes --json"
+                ),
+                "bundle_audit_command": (
+                    "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json"
+                ),
+            },
+        },
+    )
+
+    rc = doctor_cli.main(["--recommend-extras", "--for-command", "runs"])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "quality_command:" in out
+    assert "acceptance_command:" in out
+    assert "bundle_audit_command:" in out
+
+
 def test_doctor_cli_text_uses_readiness_rendering_helper(monkeypatch, capsys) -> None:
     import pyimgano.doctor_cli as doctor_cli
 

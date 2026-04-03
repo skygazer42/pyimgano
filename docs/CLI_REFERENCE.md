@@ -85,6 +85,8 @@ Notes:
 - For `--for-command train|infer|runs`, the recommendation payload also surfaces `suggested_commands` so the text/JSON output tells you the next concrete command to run.
 - For `--for-command train`, those suggested commands now start with `pyimgano train --list-recipes`, then `pyimgano train --recipe-info industrial-adapt --json`, ahead of the audited starter run command so operators can discover and inspect the recipe contract before running it.
 - For `--for-command train`, the payload also includes structured `recipe_list_command`, `recipe_info_command`, and `recipe_run_command` fields so automation can surface the same recipe discovery path without parsing `suggested_commands`.
+- For `--for-command infer`, the payload also includes `preset_infer_command` and `from_run_infer_command` so UIs or wrappers can surface the direct preset-based route and the run-reuse route separately.
+- For `--for-command runs`, the payload also includes `quality_command`, `acceptance_command`, and `bundle_audit_command` so the main run-quality, acceptance, and bundle-audit gates can be surfaced separately from the flat `suggested_commands` list.
 - The root help fast-path examples also surface `pyimgano train --list-recipes` and `pyimgano train --recipe-info industrial-adapt --json` so the same discovery and inspection steps are visible even before opening the train-specific reference.
 - The root help `guided next steps` block now mirrors the same train-stage sequence: `doctor -> train --list-recipes -> train --recipe-info -> audited train run`.
 - Command recommendations also surface `next_step_commands` for the likely follow-up stage after the current command succeeds.

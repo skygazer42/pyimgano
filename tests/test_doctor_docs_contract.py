@@ -23,6 +23,11 @@ def test_cli_reference_documents_doctor_extras_and_readiness() -> None:
     assert "recipe_list_command" in text
     assert "recipe_info_command" in text
     assert "recipe_run_command" in text
+    assert "preset_infer_command" in text
+    assert "from_run_infer_command" in text
+    assert "quality_command" in text
+    assert "acceptance_command" in text
+    assert "bundle_audit_command" in text
     assert "artifact_hints" in text
     assert "workflow_stage" in text
     assert "next_step_commands" in text

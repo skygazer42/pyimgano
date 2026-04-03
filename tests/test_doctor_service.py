@@ -111,6 +111,14 @@ def test_collect_doctor_payload_recommends_infer_commands() -> None:
     assert recommendation["recommended_extra_profiles"] == ["deploy"]
     assert recommendation["install_command"] == "pip install 'pyimgano[deploy]'"
     assert recommendation["workflow_stage"] == workflow_stage_for_command("infer")
+    assert (
+        recommendation["preset_infer_command"]
+        == "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+    )
+    assert (
+        recommendation["from_run_infer_command"]
+        == "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+    )
     assert recommendation["suggested_commands"] == [
         "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
         "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
@@ -135,6 +143,18 @@ def test_collect_doctor_payload_recommends_runs_commands() -> None:
     assert recommendation["target"] == "runs"
     assert recommendation["required_extras"] == []
     assert recommendation["workflow_stage"] == workflow_stage_for_command("runs")
+    assert (
+        recommendation["quality_command"]
+        == "pyimgano runs quality runs/<run_dir> --require-status audited --json"
+    )
+    assert (
+        recommendation["acceptance_command"]
+        == "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json"
+    )
+    assert (
+        recommendation["bundle_audit_command"]
+        == "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json"
+    )
     assert recommendation["suggested_commands"] == [
         "pyimgano runs quality runs/<run_dir> --require-status audited --json",
         "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",

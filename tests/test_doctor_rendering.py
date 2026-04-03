@@ -215,6 +215,37 @@ def test_format_extra_recommendation_lines_renders_artifact_hints() -> None:
     assert "- artifact_hints: results.jsonl; masks/ (optional)" in lines
 
 
+def test_format_extra_recommendation_lines_renders_infer_structured_commands() -> None:
+    from pyimgano.doctor_rendering import format_extra_recommendation_lines
+
+    lines = format_extra_recommendation_lines(
+        {
+            "target_kind": "command",
+            "target": "infer",
+            "preset_infer_command": (
+                "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir "
+                "/path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+            ),
+            "from_run_infer_command": (
+                "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images "
+                "--save-jsonl /tmp/pyimgano_results.jsonl"
+            ),
+        }
+    )
+
+    assert (
+        "- preset_infer_command: pyimgano-infer --model-preset industrial-template-ncc-map "
+        "--train-dir /path/to/train/normal --input /path/to/images "
+        "--save-jsonl /tmp/pyimgano_results.jsonl"
+        in lines
+    )
+    assert (
+        "- from_run_infer_command: pyimgano-infer --from-run runs/<run_dir> --input /path/to/images "
+        "--save-jsonl /tmp/pyimgano_results.jsonl"
+        in lines
+    )
+
+
 def test_format_extra_recommendation_lines_renders_model_recommendation_context() -> None:
     from pyimgano.doctor_rendering import format_extra_recommendation_lines
 
@@ -241,3 +272,34 @@ def test_format_extra_recommendation_lines_renders_model_recommendation_context(
     assert "- supports_pixel_map: True" in lines
     assert "- tested_runtime: torch" in lines
     assert "- model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json" in lines
+
+
+def test_format_extra_recommendation_lines_renders_runs_structured_commands() -> None:
+    from pyimgano.doctor_rendering import format_extra_recommendation_lines
+
+    lines = format_extra_recommendation_lines(
+        {
+            "target_kind": "command",
+            "target": "runs",
+            "quality_command": "pyimgano runs quality runs/<run_dir> --require-status audited --json",
+            "acceptance_command": (
+                "pyimgano runs acceptance runs/<run_dir> --require-status audited "
+                "--check-bundle-hashes --json"
+            ),
+            "bundle_audit_command": (
+                "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json"
+            ),
+        }
+    )
+
+    assert "- quality_command: pyimgano runs quality runs/<run_dir> --require-status audited --json" in lines
+    assert (
+        "- acceptance_command: pyimgano runs acceptance runs/<run_dir> --require-status audited "
+        "--check-bundle-hashes --json"
+        in lines
+    )
+    assert (
+        "- bundle_audit_command: pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle "
+        "--check-hashes --json"
+        in lines
+    )

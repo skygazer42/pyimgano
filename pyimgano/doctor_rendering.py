@@ -87,6 +87,21 @@ def format_extra_recommendation_lines(recommendation: dict[str, object]) -> list
     recipe_run_command = recommendation.get("recipe_run_command")
     if recipe_run_command:
         lines.append(f"- recipe_run_command: {recipe_run_command}")
+    preset_infer_command = recommendation.get("preset_infer_command")
+    if preset_infer_command:
+        lines.append(f"- preset_infer_command: {preset_infer_command}")
+    from_run_infer_command = recommendation.get("from_run_infer_command")
+    if from_run_infer_command:
+        lines.append(f"- from_run_infer_command: {from_run_infer_command}")
+    quality_command = recommendation.get("quality_command")
+    if quality_command:
+        lines.append(f"- quality_command: {quality_command}")
+    acceptance_command = recommendation.get("acceptance_command")
+    if acceptance_command:
+        lines.append(f"- acceptance_command: {acceptance_command}")
+    bundle_audit_command = recommendation.get("bundle_audit_command")
+    if bundle_audit_command:
+        lines.append(f"- bundle_audit_command: {bundle_audit_command}")
     suggested_commands = list(recommendation.get("suggested_commands", []) or [])
     if suggested_commands:
         lines.append(f"- suggested_commands: {'; '.join(str(item) for item in suggested_commands)}")

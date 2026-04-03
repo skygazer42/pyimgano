@@ -20,6 +20,11 @@ class CommandWorkflowGuidance:
     recipe_list_command: str | None = None
     recipe_info_command: str | None = None
     recipe_run_command: str | None = None
+    preset_infer_command: str | None = None
+    from_run_infer_command: str | None = None
+    quality_command: str | None = None
+    acceptance_command: str | None = None
+    bundle_audit_command: str | None = None
     suggested_commands: tuple[str, ...] = ()
     next_step_commands: tuple[str, ...] = ()
     artifact_hints: tuple[str, ...] = ()
@@ -276,6 +281,14 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         target_kind="command",
         target="infer",
         workflow_stage="infer",
+        preset_infer_command=(
+            "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir "
+            "/path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl"
+        ),
+        from_run_infer_command=(
+            "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images "
+            "--save-jsonl /tmp/pyimgano_results.jsonl"
+        ),
         suggested_commands=(
             "pyimgano-infer --model-preset industrial-template-ncc-map --train-dir /path/to/train/normal --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
             "pyimgano-infer --from-run runs/<run_dir> --input /path/to/images --save-jsonl /tmp/pyimgano_results.jsonl",
@@ -292,6 +305,13 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
         target_kind="command",
         target="runs",
         workflow_stage="gate",
+        quality_command="pyimgano runs quality runs/<run_dir> --require-status audited --json",
+        acceptance_command=(
+            "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json"
+        ),
+        bundle_audit_command=(
+            "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json"
+        ),
         suggested_commands=(
             "pyimgano runs quality runs/<run_dir> --require-status audited --json",
             "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
