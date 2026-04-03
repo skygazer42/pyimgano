@@ -396,6 +396,8 @@ request then carries `X-PyImgAno-Timestamp` and `X-PyImgAno-Signature`
 (`HMAC-SHA256` over `<timestamp>.<raw_json_body>`).
 For container/runtime deployments, you can also resolve secrets from env vars via
 `--webhook-bearer-token-env ...` and `--webhook-signing-secret-env ...`.
+If your runtime mounts secrets as files instead, use
+`--webhook-bearer-token-file ...` and `--webhook-signing-secret-file ...`.
 
 For reproducible benchmark reporting, pair that operator loop with the built-in
 official preset discovery and publication gate:

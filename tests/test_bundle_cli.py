@@ -526,6 +526,64 @@ def test_bundle_cli_watch_resolves_webhook_secrets_from_env(
     assert request.webhook_signing_secret == "env-sign"
 
 
+def test_bundle_cli_watch_resolves_webhook_secrets_from_files(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    import pyimgano.bundle_cli as bundle_cli
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    output_dir = tmp_path / "watch_out"
+    bearer_path = tmp_path / "bearer.secret"
+    signing_path = tmp_path / "signing.secret"
+    bearer_path.write_text("file-token\n", encoding="utf-8")
+    signing_path.write_text("file-sign\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def _fake_watch(request):  # noqa: ANN001 - test stub
+        captured["request"] = request
+        return {
+            "tool": "pyimgano-bundle",
+            "command": "watch",
+            "bundle_dir": str(bundle_dir),
+            "watch_dir": str(watch_dir),
+            "output_dir": str(output_dir),
+            "status": "completed",
+            "ready": True,
+            "exit_code": 0,
+            "processed": 0,
+            "pending": 0,
+            "error": 0,
+            "artifacts": {"results_jsonl": str(output_dir / "results.jsonl")},
+        }
+
+    monkeypatch.setattr(bundle_cli.bundle_watch_service, "run_bundle_watch_once", _fake_watch)
+
+    rc = bundle_cli.main(
+        [
+            "watch",
+            str(bundle_dir),
+            "--watch-dir",
+            str(watch_dir),
+            "--output-dir",
+            str(output_dir),
+            "--once",
+            "--webhook-url",
+            "https://example.invalid/hook",
+            "--webhook-bearer-token-file",
+            str(bearer_path),
+            "--webhook-signing-secret-file",
+            str(signing_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    request = captured["request"]
+    assert request.webhook_bearer_token == "file-token"
+    assert request.webhook_signing_secret == "file-sign"
+
+
 def test_bundle_cli_watch_rejects_missing_webhook_secret_env(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -550,6 +608,35 @@ def test_bundle_cli_watch_rejects_missing_webhook_secret_env(
                 "https://example.invalid/hook",
                 "--webhook-bearer-token-env",
                 "PYIMGANO_WEBHOOK_TOKEN",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+
+
+def test_bundle_cli_watch_rejects_missing_webhook_secret_file(
+    tmp_path: Path,
+) -> None:
+    import pyimgano.bundle_cli as bundle_cli
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    output_dir = tmp_path / "watch_out"
+
+    with pytest.raises(SystemExit) as exc_info:
+        bundle_cli.main(
+            [
+                "watch",
+                str(bundle_dir),
+                "--watch-dir",
+                str(watch_dir),
+                "--output-dir",
+                str(output_dir),
+                "--once",
+                "--webhook-url",
+                "https://example.invalid/hook",
+                "--webhook-bearer-token-file",
+                str(tmp_path / "missing.secret"),
             ]
         )
 

@@ -119,18 +119,30 @@ def _resolve_secret_from_cli_or_env(
     *,
     value: str | None,
     env_var: str | None,
+    file_path: str | None,
     option_name: str,
     env_option_name: str,
+    file_option_name: str,
 ) -> str | None:
     if value is not None:
         return str(value)
     if env_var is None:
-        return None
-    raw = os.environ.get(str(env_var))
-    if raw is None or not str(raw).strip():
-        raise ValueError(
-            f"{env_option_name} requires a non-empty environment variable: {env_var}"
-        )
+        if file_path is None:
+            return None
+    else:
+        raw = os.environ.get(str(env_var))
+        if raw is None or not str(raw).strip():
+            raise ValueError(
+                f"{env_option_name} requires a non-empty environment variable: {env_var}"
+            )
+        return str(raw)
+
+    path = Path(str(file_path))
+    if not path.is_file():
+        raise ValueError(f"{file_option_name} requires an existing file: {path}")
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        raise ValueError(f"{file_option_name} requires a non-empty file: {path}")
     return str(raw)
 
 
@@ -291,6 +303,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Environment variable name used to resolve the webhook bearer token.",
     )
     watch_parser.add_argument(
+        "--webhook-bearer-token-file",
+        default=None,
+        help="File path used to resolve the webhook bearer token.",
+    )
+    watch_parser.add_argument(
         "--webhook-signing-secret",
         default=None,
         help="Optional HMAC secret used to emit signed webhook headers.",
@@ -299,6 +316,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--webhook-signing-secret-env",
         default=None,
         help="Environment variable name used to resolve the webhook signing secret.",
+    )
+    watch_parser.add_argument(
+        "--webhook-signing-secret-file",
+        default=None,
+        help="File path used to resolve the webhook signing secret.",
     )
     watch_parser.add_argument(
         "--webhook-header",
@@ -1433,8 +1455,14 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
                 if getattr(args, "webhook_bearer_token_env", None) is not None
                 else None
             ),
+            file_path=(
+                str(args.webhook_bearer_token_file)
+                if getattr(args, "webhook_bearer_token_file", None) is not None
+                else None
+            ),
             option_name="--webhook-bearer-token",
             env_option_name="--webhook-bearer-token-env",
+            file_option_name="--webhook-bearer-token-file",
         ),
         webhook_signing_secret=_resolve_secret_from_cli_or_env(
             value=(
@@ -1447,8 +1475,14 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
                 if getattr(args, "webhook_signing_secret_env", None) is not None
                 else None
             ),
+            file_path=(
+                str(args.webhook_signing_secret_file)
+                if getattr(args, "webhook_signing_secret_file", None) is not None
+                else None
+            ),
             option_name="--webhook-signing-secret",
             env_option_name="--webhook-signing-secret-env",
+            file_option_name="--webhook-signing-secret-file",
         ),
         webhook_headers={
             str(key): str(value)
