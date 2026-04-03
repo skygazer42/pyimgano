@@ -216,6 +216,10 @@ def test_pyim_goal_cpu_screening_json_surfaces_classical_recipe_starter(capsys) 
         == "pyimgano train --dry-run --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
     )
     assert (
+        recipe_by_name["classical-colorhist-mahalanobis"]["preflight_command"]
+        == "pyimgano train --preflight --config examples/configs/classical_colorhist_mahalanobis_cpu.json --json"
+    )
+    assert (
         recipe_by_name["classical-colorhist-mahalanobis"]["recipe_run_command"]
         == "pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
     )
@@ -238,6 +242,10 @@ def test_pyim_goal_text_renders_goal_context_and_picks(capsys) -> None:
     assert "pyimgano train --list-recipes" in out
     assert "pyimgano train --recipe-info industrial-adapt --json" in out
     assert "pyimgano train --dry-run --config examples/configs/deploy_smoke_custom_cpu.json" in out
+    assert (
+        "preflight=pyimgano train --preflight --config "
+        "examples/configs/deploy_smoke_custom_cpu.json --json"
+    ) in out
     assert "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json" in out
 
 

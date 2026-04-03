@@ -500,13 +500,25 @@ def test_collect_pyim_goal_payload_uses_recipe_default_config_when_goal_spec_omi
         == "pyimgano train --dry-run --config examples/configs/deploy_smoke_custom_cpu.json"
     )
     assert (
+        recipe_pick["preflight_command"]
+        == "pyimgano train --preflight --config examples/configs/deploy_smoke_custom_cpu.json --json"
+    )
+    assert (
         recipe_pick["recipe_run_command"]
         == "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json"
     )
-    assert "pyimgano train --list-recipes" in payload["suggested_commands"]
-    assert recipe_pick["recipe_info_command"] in payload["suggested_commands"]
-    assert recipe_pick["dry_run_command"] in payload["suggested_commands"]
-    assert recipe_pick["recipe_run_command"] in payload["suggested_commands"]
+    commands = payload["suggested_commands"]
+    assert "pyimgano train --list-recipes" in commands
+    assert recipe_pick["recipe_info_command"] in commands
+    assert recipe_pick["dry_run_command"] in commands
+    assert recipe_pick["preflight_command"] in commands
+    assert recipe_pick["recipe_run_command"] in commands
+    assert commands.index(recipe_pick["dry_run_command"]) < commands.index(
+        recipe_pick["preflight_command"]
+    )
+    assert commands.index(recipe_pick["preflight_command"]) < commands.index(
+        recipe_pick["recipe_run_command"]
+    )
 
 
 def test_collect_pyim_goal_payload_surfaces_cpu_screening_recipe_config() -> None:

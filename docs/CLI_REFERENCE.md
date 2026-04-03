@@ -183,7 +183,7 @@ Notes:
 - `--objective`, `--selection-profile`, and `--topk` add starter-pick guidance for `--list models` without changing the default discovery shape for other list kinds.
 - In text output, `pyim` renders a `Selection Context` block ahead of starter picks so the chosen objective/profile/topk are visible in the terminal transcript.
 - In text output, `pyim --goal ...` also renders `Goal Context` and `Goal Picks` blocks so the operator can see the chosen route and the concrete model/recipe/dataset recommendations together.
-- When goal recipe picks are present in `--json` output, each recipe pick now also includes `recipe_list_command`, `install_hint`, `recipe_info_command`, `dry_run_command`, and `recipe_run_command` so recipe discovery, required extras, validation, and the next execution step can be copied directly.
+- When goal recipe picks are present in `--json` output, each recipe pick now also includes `recipe_list_command`, `install_hint`, `recipe_info_command`, `dry_run_command`, `preflight_command`, and `recipe_run_command` so recipe discovery, required extras, validation, and the next execution step can be copied directly.
 - When available, `pyim` also renders a `Suggested Commands` block with the next inspection commands for the top pick (for example `pyimgano-doctor --recommend-extras --for-model ...` and `pyimgano-benchmark --model-info ...`).
 - In text output, starter picks now show compact hints like `runtime=numpy`, `pixel_map=yes|no`, `family=...`, `why=...`, and an install hint when extras are required.
 - When starter picks are present in `--json` output, each pick includes lightweight deployment hints such as `supports_pixel_map`, `tested_runtime`, `deployment_family`, and `why_this_pick`.

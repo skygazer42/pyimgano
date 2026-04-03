@@ -201,6 +201,9 @@ def _render_goal_picks(goal_payload: Mapping[str, Any]) -> None:
         dry_run_command = str(item.get("dry_run_command", "")).strip()
         if dry_run_command:
             line += f" dry_run={dry_run_command}"
+        preflight_command = str(item.get("preflight_command", "")).strip()
+        if preflight_command:
+            line += f" preflight={preflight_command}"
         recipe_run_command = str(item.get("recipe_run_command", "")).strip()
         if recipe_run_command:
             line += f" run={recipe_run_command}"
