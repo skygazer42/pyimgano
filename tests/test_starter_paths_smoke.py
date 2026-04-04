@@ -95,6 +95,94 @@ def test_first_run_command_chain_smoke(tmp_path: Path, capsys) -> None:
     assert quality_payload["quality"]["status"] in {"reproducible", "audited", "deployable", "limited"}
 
 
+def test_deploy_smoke_command_chain_smoke(tmp_path: Path, capsys) -> None:
+    from pyimgano.bundle_cli import main as bundle_main
+    from pyimgano.demo_cli import main as demo_main
+    from pyimgano.doctor_cli import main as doctor_main
+    from pyimgano.runs_cli import main as runs_main
+    from pyimgano.train_cli import main as train_main
+    from pyimgano.validate_infer_config_cli import main as validate_main
+
+    rc = doctor_main(["--json", "--profile", "deploy-smoke"])
+    assert rc == 0
+    deploy_smoke_payload = json.loads(capsys.readouterr().out)
+    assert deploy_smoke_payload["workflow_profile"]["profile"] == "deploy-smoke"
+
+    dataset_root = tmp_path / "demo_dataset"
+    demo_run = tmp_path / "demo_suite"
+    rc = demo_main(
+        [
+            "--smoke",
+            "--dataset-root",
+            str(dataset_root),
+            "--output-dir",
+            str(demo_run),
+            "--no-pretrained",
+        ]
+    )
+    assert rc == 0
+    capsys.readouterr()
+
+    deploy_run = tmp_path / "deploy_run"
+    cfg_path = tmp_path / "deploy_smoke.json"
+    cfg = json.loads(
+        Path("examples/configs/deploy_smoke_custom_cpu.json").read_text(encoding="utf-8")
+    )
+    cfg["dataset"]["root"] = str(dataset_root)
+    cfg["output"]["output_dir"] = str(deploy_run)
+    cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    rc = train_main(
+        [
+            "--config",
+            str(cfg_path),
+            "--export-infer-config",
+            "--export-deploy-bundle",
+            "--json",
+        ]
+    )
+    assert rc == 0
+    train_payload = json.loads(capsys.readouterr().out)
+    assert train_payload["run_dir"] == str(deploy_run)
+
+    bundle_dir = deploy_run / "deploy_bundle"
+    infer_config_path = bundle_dir / "infer_config.json"
+
+    rc = validate_main([str(infer_config_path), "--json"])
+    assert rc == 0
+    validate_payload = json.loads(capsys.readouterr().out)
+    assert validate_payload["model"]["name"] == "vision_template_ncc_map"
+    assert validate_payload["validation_trust"]["status"] in {"partial", "trust-signaled"}
+
+    rc = bundle_main(["validate", str(bundle_dir), "--json"])
+    assert rc == 0
+    bundle_validate_payload = json.loads(capsys.readouterr().out)
+    assert bundle_validate_payload["ready"] is True
+
+    bundle_run_dir = tmp_path / "bundle_run"
+    rc = bundle_main(
+        [
+            "run",
+            str(bundle_dir),
+            "--image-dir",
+            str(dataset_root / "test"),
+            "--output-dir",
+            str(bundle_run_dir),
+            "--json",
+        ]
+    )
+    assert rc == 0
+    bundle_run_payload = json.loads(capsys.readouterr().out)
+    assert bundle_run_payload["status"] == "completed"
+    assert bundle_run_payload["processed"] == 2
+    assert (bundle_run_dir / "results.jsonl").exists()
+
+    rc = runs_main(["quality", str(deploy_run), "--json"])
+    assert rc == 0
+    quality_payload = json.loads(capsys.readouterr().out)
+    assert quality_payload["quality"]["status"] == "deployable"
+
+
 def test_publish_command_chain_smoke(tmp_path: Path, capsys) -> None:
     from pyimgano.doctor_cli import main as doctor_main
     from pyimgano.runs_cli import main as runs_main

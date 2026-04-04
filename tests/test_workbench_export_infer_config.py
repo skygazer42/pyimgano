@@ -673,6 +673,122 @@ def test_train_cli_export_deploy_bundle_writes_bundle_manifest(tmp_path):
     assert "operator_contract.json" in paths
 
 
+def test_train_cli_export_deploy_bundle_runs_fit_only_detector_via_bundle_cli(
+    tmp_path, capsys
+):
+    import cv2
+
+    from pyimgano.bundle_cli import main as bundle_main
+    from pyimgano.train_cli import main as train_main
+
+    class _CheckpointRequiredMapDetector:
+        def __init__(self, **kwargs):  # noqa: ANN003 - test stub
+            self.kwargs = dict(kwargs)
+            self._ready = False
+            self.threshold_ = None
+
+        def fit(self, X):  # noqa: ANN001 - test stub
+            self.fit_inputs = list(X)
+            self._ready = True
+            return self
+
+        def save_checkpoint(self, path):  # noqa: ANN001 - test stub
+            Path(path).write_text("ready", encoding="utf-8")
+
+        def load_checkpoint(self, path):  # noqa: ANN001 - test stub
+            assert Path(path).read_text(encoding="utf-8") == "ready"
+            self._ready = True
+
+        def get_anomaly_map(self, item):  # noqa: ANN001 - test stub
+            _ = item
+            if not self._ready:
+                raise RuntimeError("Detector must be fitted before calling get_anomaly_map")
+            return np.zeros((4, 4), dtype=np.float32)
+
+        def decision_function(self, X):  # noqa: ANN001
+            items = list(X)
+            if not self._ready:
+                raise RuntimeError("Detector must be fitted before calling decision_function")
+            return np.asarray(
+                [float(np.mean(self.get_anomaly_map(item))) for item in items],
+                dtype=np.float32,
+            )
+
+    MODEL_REGISTRY.register(
+        "test_export_deploy_bundle_fit_only_checkpoint_detector",
+        _CheckpointRequiredMapDetector,
+        tags=("vision", "classical", "pixel_map"),
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    for rel, value in [
+        ("train/normal/train_0.png", 120),
+        ("train/normal/train_1.png", 121),
+        ("test/normal/good_0.png", 120),
+        ("test/anomaly/bad_0.png", 240),
+    ]:
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        img = np.ones((16, 16, 3), dtype=np.uint8) * int(value)
+        cv2.imwrite(str(p), img)
+
+    run_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "industrial-adapt",
+        "seed": 123,
+        "dataset": {
+            "name": "custom",
+            "root": str(root),
+            "category": "custom",
+            "resize": [16, 16],
+            "input_mode": "paths",
+            "limit_train": 2,
+            "limit_test": 2,
+        },
+        "model": {
+            "name": "test_export_deploy_bundle_fit_only_checkpoint_detector",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
+        "output": {
+            "output_dir": str(run_dir),
+            "save_run": True,
+            "per_image_jsonl": False,
+        },
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = train_main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+    capsys.readouterr()
+
+    bundle_dir = run_dir / "deploy_bundle"
+    assert (bundle_dir / "checkpoints" / "custom" / "model.pt").exists()
+
+    output_dir = tmp_path / "bundle_run"
+    code = bundle_main(
+        [
+            "run",
+            str(bundle_dir),
+            "--image-dir",
+            str(root / "test"),
+            "--output-dir",
+            str(output_dir),
+            "--json",
+        ]
+    )
+    assert code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "completed"
+    assert payload["processed"] == 2
+    assert payload["reason_codes"] == []
+    assert (output_dir / "results.jsonl").exists()
+
+
 def test_validate_cli_accepts_legacy_deploy_bundle_without_schema_version(tmp_path, capsys):
     from pyimgano.validate_infer_config_cli import main
 
