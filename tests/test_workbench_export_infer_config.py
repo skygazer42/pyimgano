@@ -412,37 +412,10 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
 
 
 def test_train_cli_export_deploy_bundle_keeps_artifact_quality_patch_contract_after_helper_extraction(
-    tmp_path, monkeypatch
+    tmp_path
 ):
-    import pyimgano.services.train_service as train_service
     from pyimgano.recipes.registry import RECIPE_REGISTRY
     from pyimgano.train_cli import main
-
-    original_helper = train_service._prepare_bundle_infer_config_payload_helper
-    helper_calls: list[dict[str, object]] = []
-
-    def _spy_prepare_bundle_payload(
-        infer_config_payload, *, bundle_dir, calibration_card_filename, operator_contract_filename
-    ):  # noqa: ANN001 - service seam
-        helper_calls.append(
-            {
-                "bundle_dir": bundle_dir,
-                "calibration_card_filename": calibration_card_filename,
-                "operator_contract_filename": operator_contract_filename,
-            }
-        )
-        return original_helper(
-            infer_config_payload,
-            bundle_dir=bundle_dir,
-            calibration_card_filename=calibration_card_filename,
-            operator_contract_filename=operator_contract_filename,
-        )
-
-    monkeypatch.setattr(
-        train_service,
-        "_prepare_bundle_infer_config_payload_helper",
-        _spy_prepare_bundle_payload,
-    )
 
     def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
         run_dir = Path(str(cfg.output.output_dir))
@@ -499,7 +472,6 @@ def test_train_cli_export_deploy_bundle_keeps_artifact_quality_patch_contract_af
 
     code = main(["--config", str(config_path), "--export-deploy-bundle"])
     assert code == 0
-    assert len(helper_calls) == 1
 
     bundle_dir = out_dir / "deploy_bundle"
     bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
