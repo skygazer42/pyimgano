@@ -195,16 +195,30 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         infer_src=infer_src,
     )
 
-    save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
-    save_run_report(
-        bundle_dir / _HANDOFF_REPORT_FILENAME,
-        build_deploy_bundle_handoff_report(bundle_dir=bundle_dir, source_run_dir=run_dir),
+    infer_config_bundle_path = bundle_dir / _INFER_CONFIG_FILENAME
+    handoff_report_bundle_path = bundle_dir / _HANDOFF_REPORT_FILENAME
+    bundle_manifest_path = bundle_dir / "bundle_manifest.json"
+
+    save_run_report(infer_config_bundle_path, bundle_payload)
+    handoff_report_payload = build_deploy_bundle_handoff_report(
+        bundle_dir=bundle_dir,
+        source_run_dir=run_dir,
     )
-    bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
-    _apply_bundle_manifest_metadata_helper(bundle_payload, bundle_manifest)
-    save_run_report(bundle_dir / _INFER_CONFIG_FILENAME, bundle_payload)
-    bundle_manifest = build_deploy_bundle_manifest(bundle_dir=bundle_dir, source_run_dir=run_dir)
-    save_run_report(bundle_dir / "bundle_manifest.json", bundle_manifest)
+    save_run_report(
+        handoff_report_bundle_path,
+        handoff_report_payload,
+    )
+    initial_bundle_manifest = build_deploy_bundle_manifest(
+        bundle_dir=bundle_dir,
+        source_run_dir=run_dir,
+    )
+    _apply_bundle_manifest_metadata_helper(bundle_payload, initial_bundle_manifest)
+    save_run_report(infer_config_bundle_path, bundle_payload)
+    final_bundle_manifest = build_deploy_bundle_manifest(
+        bundle_dir=bundle_dir,
+        source_run_dir=run_dir,
+    )
+    save_run_report(bundle_manifest_path, final_bundle_manifest)
     return bundle_dir
 
 
