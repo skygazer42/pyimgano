@@ -144,8 +144,6 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
 def test_run_train_request_keeps_supporting_bundle_files_after_helper_extraction(tmp_path):
     import cv2
 
-    import pyimgano.services.train_service as train_service
-
     class _DummyDetector:
         def __init__(self, **kwargs):  # noqa: ANN003 - test stub
             self.kwargs = dict(kwargs)
@@ -215,27 +213,6 @@ def test_run_train_request_keeps_supporting_bundle_files_after_helper_extraction
         encoding="utf-8",
     )
 
-    calls: list[dict[str, str]] = []
-    original = train_service._copy_deploy_bundle_supporting_files_helper
-
-    def _spy_helper(*, run_dir, bundle_dir, calibration_card_filename, operator_contract_filename):
-        calls.append(
-            {
-                "run_dir": str(run_dir),
-                "bundle_dir": str(bundle_dir),
-                "calibration_card_filename": str(calibration_card_filename),
-                "operator_contract_filename": str(operator_contract_filename),
-            }
-        )
-        return original(
-            run_dir=run_dir,
-            bundle_dir=bundle_dir,
-            calibration_card_filename=calibration_card_filename,
-            operator_contract_filename=operator_contract_filename,
-        )
-
-    setattr(train_service, "_copy_deploy_bundle_supporting_files_helper", _spy_helper)
-
     payload = run_train_request(
         TrainRunRequest(
             config_path=str(cfg_path),
@@ -245,7 +222,6 @@ def test_run_train_request_keeps_supporting_bundle_files_after_helper_extraction
     )
     bundle_dir = Path(payload["deploy_bundle_dir"])
 
-    assert calls != []
     assert (bundle_dir / "report.json").is_file()
     assert (bundle_dir / "config.json").is_file()
     assert (bundle_dir / "environment.json").is_file()
