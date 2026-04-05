@@ -72,6 +72,44 @@ def copy_deploy_bundle_supporting_files(
         shutil.copy2(operator_contract_src, bundle_dir / str(operator_contract_filename))
 
 
+def prepare_bundle_infer_config_payload(
+    infer_config_payload: dict[str, Any],
+    *,
+    bundle_dir: Path,
+    calibration_card_filename: str,
+    operator_contract_filename: str,
+) -> dict[str, Any]:
+    bundle_payload = deepcopy(infer_config_payload)
+    artifact_quality = bundle_payload.get("artifact_quality", None)
+    if not isinstance(artifact_quality, dict):
+        return bundle_payload
+
+    audit_refs = artifact_quality.get("audit_refs", None)
+    if isinstance(audit_refs, dict):
+        rewritten_audit_refs = dict(audit_refs)
+        if (
+            "calibration_card" in rewritten_audit_refs
+            and (bundle_dir / str(calibration_card_filename)).is_file()
+        ):
+            rewritten_audit_refs["calibration_card"] = str(calibration_card_filename)
+        if (
+            "operator_contract" in rewritten_audit_refs
+            and (bundle_dir / str(operator_contract_filename)).is_file()
+        ):
+            rewritten_audit_refs["operator_contract"] = str(operator_contract_filename)
+        artifact_quality["audit_refs"] = rewritten_audit_refs
+
+    deploy_refs = artifact_quality.get("deploy_refs", None)
+    rewritten_deploy_refs = dict(deploy_refs) if isinstance(deploy_refs, dict) else {}
+    rewritten_deploy_refs["bundle_manifest"] = "bundle_manifest.json"
+    artifact_quality["deploy_refs"] = rewritten_deploy_refs
+    artifact_quality["has_deploy_bundle"] = True
+    artifact_quality["has_bundle_manifest"] = True
+    artifact_quality["required_bundle_artifacts_present"] = False
+    artifact_quality["bundle_artifact_roles"] = {}
+    return bundle_payload
+
+
 def rewrite_bundle_paths(
     infer_config_payload: dict[str, Any],
     *,
@@ -197,6 +235,7 @@ __all__ = [
     "apply_bundle_manifest_metadata",
     "build_optional_calibration_card_payload",
     "copy_deploy_bundle_supporting_files",
+    "prepare_bundle_infer_config_payload",
     "require_run_dir",
     "rewrite_bundle_paths",
     "validate_export_request",

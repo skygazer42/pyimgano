@@ -170,3 +170,42 @@ def test_copy_deploy_bundle_supporting_files_copies_run_metadata_and_optional_au
     assert (bundle_dir / "environment.json").is_file()
     assert (bundle_dir / "calibration_card.json").is_file()
     assert (bundle_dir / "operator_contract.json").is_file()
+
+
+def test_prepare_bundle_infer_config_payload_rewrites_audit_refs_and_deploy_flags(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.services.train_export_helpers import prepare_bundle_infer_config_payload
+
+    bundle_dir = tmp_path / "deploy_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "calibration_card.json").write_text("card", encoding="utf-8")
+    (bundle_dir / "operator_contract.json").write_text("contract", encoding="utf-8")
+
+    infer_config_payload = {
+        "artifact_quality": {
+            "audit_refs": {
+                "calibration_card": "artifacts/calibration_card.json",
+                "operator_contract": "artifacts/operator_contract.json",
+            },
+            "deploy_refs": {},
+            "has_deploy_bundle": False,
+            "has_bundle_manifest": False,
+        }
+    }
+
+    rewritten = prepare_bundle_infer_config_payload(
+        infer_config_payload,
+        bundle_dir=bundle_dir,
+        calibration_card_filename="calibration_card.json",
+        operator_contract_filename="operator_contract.json",
+    )
+
+    artifact_quality = rewritten["artifact_quality"]
+    assert artifact_quality["audit_refs"]["calibration_card"] == "calibration_card.json"
+    assert artifact_quality["audit_refs"]["operator_contract"] == "operator_contract.json"
+    assert artifact_quality["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
+    assert artifact_quality["has_deploy_bundle"] is True
+    assert artifact_quality["has_bundle_manifest"] is True
+    assert artifact_quality["required_bundle_artifacts_present"] is False
+    assert artifact_quality["bundle_artifact_roles"] == {}
