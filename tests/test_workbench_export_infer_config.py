@@ -411,6 +411,106 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
     assert copied_ckpt.read_text(encoding="utf-8") == "ckpt"
 
 
+def test_train_cli_export_deploy_bundle_keeps_artifact_quality_patch_contract_after_helper_extraction(
+    tmp_path, monkeypatch
+):
+    import pyimgano.services.train_service as train_service
+    from pyimgano.recipes.registry import RECIPE_REGISTRY
+    from pyimgano.train_cli import main
+
+    original_helper = train_service._prepare_bundle_infer_config_payload_helper
+    helper_calls: list[dict[str, object]] = []
+
+    def _spy_prepare_bundle_payload(
+        infer_config_payload, *, bundle_dir, calibration_card_filename, operator_contract_filename
+    ):  # noqa: ANN001 - service seam
+        helper_calls.append(
+            {
+                "bundle_dir": bundle_dir,
+                "calibration_card_filename": calibration_card_filename,
+                "operator_contract_filename": operator_contract_filename,
+            }
+        )
+        return original_helper(
+            infer_config_payload,
+            bundle_dir=bundle_dir,
+            calibration_card_filename=calibration_card_filename,
+            operator_contract_filename=operator_contract_filename,
+        )
+
+    monkeypatch.setattr(
+        train_service,
+        "_prepare_bundle_infer_config_payload_helper",
+        _spy_prepare_bundle_payload,
+    )
+
+    def _dummy_recipe(cfg):  # noqa: ANN001 - test stub
+        run_dir = Path(str(cfg.output.output_dir))
+        run_dir.mkdir(parents=True, exist_ok=True)
+        ckpt = run_dir / "checkpoints" / "custom" / "model.pt"
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_text("ckpt", encoding="utf-8")
+        return {
+            "run_dir": str(run_dir),
+            "dataset": str(cfg.dataset.name),
+            "category": str(cfg.dataset.category),
+            "model": str(cfg.model.name),
+            "threshold": 0.5,
+            "threshold_provenance": {"method": "fixed", "source": "test"},
+            "checkpoint": {"path": "checkpoints/custom/model.pt"},
+        }
+
+    RECIPE_REGISTRY.register(
+        "test_export_deploy_bundle_artifact_quality_patch_contract_recipe",
+        _dummy_recipe,
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    root.mkdir(parents=True, exist_ok=True)
+
+    out_dir = tmp_path / "run_out"
+    cfg = {
+        "recipe": "test_export_deploy_bundle_artifact_quality_patch_contract_recipe",
+        "seed": 123,
+        "dataset": {
+            "name": "custom",
+            "root": str(root),
+            "category": "custom",
+            "resize": [16, 16],
+            "input_mode": "paths",
+            "limit_train": 1,
+            "limit_test": 1,
+        },
+        "model": {
+            "name": "vision_ecod",
+            "device": "cpu",
+            "pretrained": False,
+            "contamination": 0.1,
+        },
+        "output": {
+            "output_dir": str(out_dir),
+            "save_run": True,
+            "per_image_jsonl": False,
+        },
+    }
+    config_path = tmp_path / "cfg.json"
+    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+    code = main(["--config", str(config_path), "--export-deploy-bundle"])
+    assert code == 0
+    assert len(helper_calls) == 1
+
+    bundle_dir = out_dir / "deploy_bundle"
+    bundle_payload = json.loads((bundle_dir / "infer_config.json").read_text(encoding="utf-8"))
+    artifact_quality = bundle_payload["artifact_quality"]
+    assert artifact_quality["audit_refs"]["calibration_card"] == "calibration_card.json"
+    assert artifact_quality["audit_refs"]["operator_contract"] == "operator_contract.json"
+    assert artifact_quality["deploy_refs"]["bundle_manifest"] == "bundle_manifest.json"
+    assert artifact_quality["has_deploy_bundle"] is True
+    assert artifact_quality["has_bundle_manifest"] is True
+
+
 def test_train_cli_export_deploy_bundle_copies_model_checkpoint_path_artifact(tmp_path):
     from pyimgano.recipes.registry import RECIPE_REGISTRY
     from pyimgano.train_cli import main

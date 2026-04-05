@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +16,9 @@ from pyimgano.services.train_export_helpers import (
 )
 from pyimgano.services.train_export_helpers import (
     copy_deploy_bundle_supporting_files as _copy_deploy_bundle_supporting_files_helper,
+)
+from pyimgano.services.train_export_helpers import (
+    prepare_bundle_infer_config_payload as _prepare_bundle_infer_config_payload_helper,
 )
 from pyimgano.services.train_export_helpers import (
     require_run_dir as _require_run_dir_helper,
@@ -181,31 +183,12 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         operator_contract_filename=_OPERATOR_CONTRACT_FILENAME,
     )
 
-    bundle_payload = deepcopy(infer_config_payload)
-    artifact_quality = bundle_payload.get("artifact_quality", None)
-    if isinstance(artifact_quality, dict):
-        audit_refs = artifact_quality.get("audit_refs", None)
-        if isinstance(audit_refs, dict):
-            rewritten_audit_refs = dict(audit_refs)
-            if (
-                "calibration_card" in rewritten_audit_refs
-                and (bundle_dir / _CALIBRATION_CARD_FILENAME).is_file()
-            ):
-                rewritten_audit_refs["calibration_card"] = _CALIBRATION_CARD_FILENAME
-            if (
-                "operator_contract" in rewritten_audit_refs
-                and (bundle_dir / _OPERATOR_CONTRACT_FILENAME).is_file()
-            ):
-                rewritten_audit_refs["operator_contract"] = _OPERATOR_CONTRACT_FILENAME
-            artifact_quality["audit_refs"] = rewritten_audit_refs
-        deploy_refs = artifact_quality.get("deploy_refs", None)
-        rewritten_deploy_refs = dict(deploy_refs) if isinstance(deploy_refs, dict) else {}
-        rewritten_deploy_refs["bundle_manifest"] = "bundle_manifest.json"
-        artifact_quality["deploy_refs"] = rewritten_deploy_refs
-        artifact_quality["has_deploy_bundle"] = True
-        artifact_quality["has_bundle_manifest"] = True
-        artifact_quality["required_bundle_artifacts_present"] = False
-        artifact_quality["bundle_artifact_roles"] = {}
+    bundle_payload = _prepare_bundle_infer_config_payload_helper(
+        infer_config_payload,
+        bundle_dir=bundle_dir,
+        calibration_card_filename=_CALIBRATION_CARD_FILENAME,
+        operator_contract_filename=_OPERATOR_CONTRACT_FILENAME,
+    )
     bundle_payload = _rewrite_bundle_paths_helper(
         bundle_payload,
         bundle_dir=bundle_dir,
