@@ -139,3 +139,34 @@ def test_apply_bundle_manifest_metadata_updates_artifact_quality_fields() -> Non
         "infer_config": ["infer_config.json"],
         "operator_contract": ["operator_contract.json"],
     }
+
+
+def test_copy_deploy_bundle_supporting_files_copies_run_metadata_and_optional_audit_artifacts(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.services.train_export_helpers import copy_deploy_bundle_supporting_files
+
+    run_dir = tmp_path / "run"
+    artifacts_dir = run_dir / "artifacts"
+    bundle_dir = tmp_path / "deploy_bundle"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+
+    (run_dir / "report.json").write_text("report", encoding="utf-8")
+    (run_dir / "config.json").write_text("config", encoding="utf-8")
+    (run_dir / "environment.json").write_text("environment", encoding="utf-8")
+    (artifacts_dir / "calibration_card.json").write_text("calibration", encoding="utf-8")
+    (artifacts_dir / "operator_contract.json").write_text("contract", encoding="utf-8")
+
+    copy_deploy_bundle_supporting_files(
+        run_dir=run_dir,
+        bundle_dir=bundle_dir,
+        calibration_card_filename="calibration_card.json",
+        operator_contract_filename="operator_contract.json",
+    )
+
+    assert (bundle_dir / "report.json").is_file()
+    assert (bundle_dir / "config.json").is_file()
+    assert (bundle_dir / "environment.json").is_file()
+    assert (bundle_dir / "calibration_card.json").is_file()
+    assert (bundle_dir / "operator_contract.json").is_file()

@@ -51,6 +51,27 @@ def build_optional_calibration_card_payload(
         return None
 
 
+def copy_deploy_bundle_supporting_files(
+    *,
+    run_dir: Path,
+    bundle_dir: Path,
+    calibration_card_filename: str,
+    operator_contract_filename: str,
+) -> None:
+    for name in ("report.json", "config.json", "environment.json"):
+        src = run_dir / name
+        if src.exists():
+            shutil.copy2(src, bundle_dir / name)
+
+    calibration_card_src = run_dir / "artifacts" / str(calibration_card_filename)
+    if calibration_card_src.exists():
+        shutil.copy2(calibration_card_src, bundle_dir / str(calibration_card_filename))
+
+    operator_contract_src = run_dir / "artifacts" / str(operator_contract_filename)
+    if operator_contract_src.exists():
+        shutil.copy2(operator_contract_src, bundle_dir / str(operator_contract_filename))
+
+
 def rewrite_bundle_paths(
     infer_config_payload: dict[str, Any],
     *,
@@ -175,6 +196,7 @@ def apply_bundle_manifest_metadata(payload: dict[str, Any], manifest: dict[str, 
 __all__ = [
     "apply_bundle_manifest_metadata",
     "build_optional_calibration_card_payload",
+    "copy_deploy_bundle_supporting_files",
     "require_run_dir",
     "rewrite_bundle_paths",
     "validate_export_request",
