@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -15,6 +14,9 @@ from pyimgano.services.train_export_helpers import (
 )
 from pyimgano.services.train_export_helpers import (
     build_optional_calibration_card_payload as _build_optional_calibration_card_payload_helper,
+)
+from pyimgano.services.train_export_helpers import (
+    copy_deploy_bundle_supporting_files as _copy_deploy_bundle_supporting_files_helper,
 )
 from pyimgano.services.train_export_helpers import (
     require_run_dir as _require_run_dir_helper,
@@ -172,18 +174,12 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
     if not infer_src.exists():
         raise FileNotFoundError(f"{_INFER_CONFIG_FILENAME} not found: {infer_src}")
 
-    for name in ("report.json", "config.json", "environment.json"):
-        src = run_dir / name
-        if src.exists():
-            shutil.copy2(src, bundle_dir / name)
-
-    calibration_card_src = run_dir / "artifacts" / _CALIBRATION_CARD_FILENAME
-    if calibration_card_src.exists():
-        shutil.copy2(calibration_card_src, bundle_dir / _CALIBRATION_CARD_FILENAME)
-
-    operator_contract_src = run_dir / "artifacts" / _OPERATOR_CONTRACT_FILENAME
-    if operator_contract_src.exists():
-        shutil.copy2(operator_contract_src, bundle_dir / _OPERATOR_CONTRACT_FILENAME)
+    _copy_deploy_bundle_supporting_files_helper(
+        run_dir=run_dir,
+        bundle_dir=bundle_dir,
+        calibration_card_filename=_CALIBRATION_CARD_FILENAME,
+        operator_contract_filename=_OPERATOR_CONTRACT_FILENAME,
+    )
 
     bundle_payload = deepcopy(infer_config_payload)
     artifact_quality = bundle_payload.get("artifact_quality", None)

@@ -141,6 +141,118 @@ def test_run_train_request_writes_deploy_bundle_manifest(tmp_path):
     assert all(len(str(item["sha256"])) == 64 for item in entries)
 
 
+def test_run_train_request_keeps_supporting_bundle_files_after_helper_extraction(tmp_path):
+    import cv2
+
+    import pyimgano.services.train_service as train_service
+
+    class _DummyDetector:
+        def __init__(self, **kwargs):  # noqa: ANN003 - test stub
+            self.kwargs = dict(kwargs)
+            self.threshold_ = None
+
+        def fit(self, X, *, epochs=None, lr=None):  # noqa: ANN001 - test stub
+            _ = epochs, lr
+            self.fit_inputs = list(X)
+            return self
+
+        def decision_function(self, X):  # noqa: ANN001
+            return np.linspace(0.0, 1.0, num=len(list(X)), dtype=np.float32)
+
+        def save_checkpoint(self, path):  # noqa: ANN001 - test stub
+            Path(path).write_text("ckpt", encoding="utf-8")
+
+    MODEL_REGISTRY.register(
+        "test_deploy_bundle_supporting_files_dummy_detector",
+        _DummyDetector,
+        tags=("vision",),
+        overwrite=True,
+    )
+
+    root = tmp_path / "custom"
+    for rel, value in [
+        ("train/normal/train_0.png", 120),
+        ("train/normal/train_1.png", 121),
+        ("test/normal/good_0.png", 120),
+        ("test/anomaly/bad_0.png", 240),
+    ]:
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        img = np.ones((16, 16, 3), dtype=np.uint8) * int(value)
+        cv2.imwrite(str(p), img)
+
+    run_dir = tmp_path / "run_out"
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "recipe": "industrial-adapt",
+                "seed": 123,
+                "dataset": {
+                    "name": "custom",
+                    "root": str(root),
+                    "category": "custom",
+                    "resize": [16, 16],
+                    "input_mode": "paths",
+                    "limit_train": 2,
+                    "limit_test": 2,
+                },
+                "model": {
+                    "name": "test_deploy_bundle_supporting_files_dummy_detector",
+                    "device": "cpu",
+                    "pretrained": False,
+                    "contamination": 0.1,
+                },
+                "training": {
+                    "enabled": True,
+                    "epochs": 2,
+                    "lr": 0.001,
+                    "checkpoint_name": "model.pt",
+                },
+                "output": {"output_dir": str(run_dir), "save_run": True, "per_image_jsonl": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    calls: list[dict[str, str]] = []
+    original = train_service._copy_deploy_bundle_supporting_files_helper
+
+    def _spy_helper(*, run_dir, bundle_dir, calibration_card_filename, operator_contract_filename):
+        calls.append(
+            {
+                "run_dir": str(run_dir),
+                "bundle_dir": str(bundle_dir),
+                "calibration_card_filename": str(calibration_card_filename),
+                "operator_contract_filename": str(operator_contract_filename),
+            }
+        )
+        return original(
+            run_dir=run_dir,
+            bundle_dir=bundle_dir,
+            calibration_card_filename=calibration_card_filename,
+            operator_contract_filename=operator_contract_filename,
+        )
+
+    setattr(train_service, "_copy_deploy_bundle_supporting_files_helper", _spy_helper)
+
+    payload = run_train_request(
+        TrainRunRequest(
+            config_path=str(cfg_path),
+            export_infer_config=True,
+            export_deploy_bundle=True,
+        )
+    )
+    bundle_dir = Path(payload["deploy_bundle_dir"])
+
+    assert calls != []
+    assert (bundle_dir / "report.json").is_file()
+    assert (bundle_dir / "config.json").is_file()
+    assert (bundle_dir / "environment.json").is_file()
+    assert (bundle_dir / "calibration_card.json").is_file()
+    assert (bundle_dir / "operator_contract.json").is_file()
+
+
 def test_run_train_request_rejects_invalid_deploy_bundle_request_before_recipe_runs(tmp_path):
     from pyimgano.recipes.registry import RECIPE_REGISTRY
 
