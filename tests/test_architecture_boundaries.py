@@ -1023,6 +1023,10 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
             "pyimgano.services.dataset_split_service",
             "pyimgano.services.model_options",
         },
+        "bundle_run_service.py": set(),
+        "bundle_watch_service.py": {
+            "pyimgano.services.bundle_run_service",
+        },
         "discovery_service.py": set(),
         "doctor_service.py": {
             "pyimgano.services.discovery_service",
@@ -1221,6 +1225,7 @@ def test_pyim_modules_only_import_allowed_internal_modules() -> None:
             "pyimgano.workflow_guidance",
         },
         "services/pyim_payload_collectors.py": {
+            "pyimgano.config",
             "pyimgano.datasets.converters",
             "pyimgano.discovery",
             "pyimgano.models.registry",
@@ -1230,6 +1235,7 @@ def test_pyim_modules_only_import_allowed_internal_modules() -> None:
             "pyimgano.recipes",
             "pyimgano.recipes.registry",
             "pyimgano.services.discovery_service",
+            "pyimgano.workbench.config",
         },
         "services/pyim_audit_service.py": {
             "pyimgano.models.registry",
@@ -1564,6 +1570,7 @@ def test_bundle_helper_modules_define_expected_public_exports() -> None:
     expected_public_exports: dict[str, list[str]] = {
         "bundle_rendering.py": [
             "format_bundle_run_lines",
+            "format_bundle_watch_lines",
             "format_bundle_validate_lines",
         ],
         "bundle_cli_helpers.py": [
@@ -1597,6 +1604,8 @@ def test_train_export_helper_modules_define_expected_public_exports() -> None:
         "services/train_export_helpers.py": [
             "apply_bundle_manifest_metadata",
             "build_optional_calibration_card_payload",
+            "copy_deploy_bundle_supporting_files",
+            "prepare_bundle_infer_config_payload",
             "require_run_dir",
             "rewrite_bundle_paths",
             "validate_export_request",

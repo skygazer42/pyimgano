@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from pyimgano.pyim_contracts import (
@@ -13,6 +15,7 @@ from pyimgano.pyim_contracts import (
 from pyimgano.pyim_list_spec import ALL_PAYLOAD_FIELDS
 
 PyimPayloadFieldCollector = Callable[[PyimListRequest], Any]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _normalize_tags(tags: list[str] | None) -> list[str]:
@@ -73,6 +76,30 @@ def _virtual_dataset_summaries() -> list[PyimDatasetSummary]:
             requires_category=True,
         ),
     ]
+
+
+@lru_cache(maxsize=None)
+def load_recipe_pick_config_meta(config_path: str) -> dict[str, Any]:
+    from pyimgano.config import load_config
+    from pyimgano.workbench.config import WorkbenchConfig
+
+    cfg = WorkbenchConfig.from_dict(load_config(_REPO_ROOT / str(config_path)))
+    return {
+        "name": str(cfg.recipe),
+        "purpose": cfg.meta.purpose,
+        "runtime_profile": cfg.meta.runtime_profile,
+        "required_extras": [str(item) for item in cfg.meta.required_extras],
+        "expected_artifacts": [str(item) for item in cfg.meta.expected_artifacts],
+    }
+
+
+@lru_cache(maxsize=None)
+def load_recipe_metadata(recipe_name: str) -> dict[str, Any]:
+    import pyimgano.recipes  # noqa: F401
+    from pyimgano.recipes.registry import recipe_info as _recipe_info
+
+    info = _recipe_info(str(recipe_name))
+    return dict(info.get("metadata", {}) or {})
 
 
 def empty_pyim_payload_kwargs() -> dict[str, Any]:

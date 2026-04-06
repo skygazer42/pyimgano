@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 import pyimgano.services.pyim_payload_collectors as pyim_payload_collectors
-from pyimgano.config import load_config
 from pyimgano.pyim_contracts import PyimListPayload, PyimListRequest
 from pyimgano.utils.extras import extra_installed
 from pyimgano.utils.extras import extras_install_hint
-from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workflow_guidance import starter_path_by_name
 
 
 _DEFAULT_OBJECTIVE = "balanced"
 _DEFAULT_SELECTION_PROFILE = "balanced"
 _DEFAULT_TOPK = 5
-_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
     "balanced": {
@@ -259,27 +254,6 @@ _CURATED_MODEL_PICKS: tuple[dict[str, Any], ...] = (
 )
 
 
-@lru_cache(maxsize=None)
-def _load_recipe_pick_config_meta(config_path: str) -> dict[str, Any]:
-    cfg = WorkbenchConfig.from_dict(load_config(_REPO_ROOT / str(config_path)))
-    return {
-        "name": str(cfg.recipe),
-        "purpose": cfg.meta.purpose,
-        "runtime_profile": cfg.meta.runtime_profile,
-        "required_extras": [str(item) for item in cfg.meta.required_extras],
-        "expected_artifacts": [str(item) for item in cfg.meta.expected_artifacts],
-    }
-
-
-@lru_cache(maxsize=None)
-def _load_recipe_metadata(recipe_name: str) -> dict[str, Any]:
-    import pyimgano.recipes  # noqa: F401
-    from pyimgano.recipes.registry import recipe_info as _recipe_info
-
-    info = _recipe_info(str(recipe_name))
-    return dict(info.get("metadata", {}) or {})
-
-
 def _build_goal_recipe_pick(spec: dict[str, Any]) -> dict[str, Any]:
     enriched = dict(spec)
     config_path = str(enriched.get("config_path", "")).strip()
@@ -287,7 +261,7 @@ def _build_goal_recipe_pick(spec: dict[str, Any]) -> dict[str, Any]:
         recipe_name = str(enriched.get("name", "")).strip()
         if recipe_name:
             try:
-                recipe_meta = _load_recipe_metadata(recipe_name)
+                recipe_meta = pyim_payload_collectors.load_recipe_metadata(recipe_name)
             except Exception:
                 recipe_meta = {}
             config_path = str(recipe_meta.get("default_config", "")).strip()
@@ -297,7 +271,7 @@ def _build_goal_recipe_pick(spec: dict[str, Any]) -> dict[str, Any]:
         return enriched
 
     try:
-        config_meta = _load_recipe_pick_config_meta(config_path)
+        config_meta = pyim_payload_collectors.load_recipe_pick_config_meta(config_path)
     except Exception:
         return enriched
 
@@ -348,7 +322,7 @@ def _expand_goal_recipe_picks(specs: list[dict[str, Any]]) -> list[dict[str, Any
 
         starter_configs: list[str] = []
         try:
-            recipe_meta = _load_recipe_metadata(recipe_name)
+            recipe_meta = pyim_payload_collectors.load_recipe_metadata(recipe_name)
         except Exception:
             recipe_meta = {}
 

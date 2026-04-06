@@ -36,6 +36,7 @@ What this does:
 Recommended next steps:
 
 - Root CLI discovery: `pyimgano --help`
+- Python module entrypoint: `python -m pyimgano --help`
 - Export extras readiness: `pyimgano-doctor --recommend-extras --for-command export-onnx --json`
 - Train extras readiness: `pyimgano-doctor --recommend-extras --for-command train --json`
 - Model discovery: `pyim --list models --objective latency --selection-profile cpu-screening --topk 5`

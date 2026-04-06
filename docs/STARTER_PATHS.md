@@ -6,6 +6,7 @@ If you want the umbrella entrypoint first, run:
 
 ```bash
 pyimgano --help
+python -m pyimgano --help
 ```
 
 ## Deployment Smoke Path
