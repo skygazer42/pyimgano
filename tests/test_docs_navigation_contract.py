@@ -68,7 +68,7 @@ def test_starter_paths_doc_maps_goals_to_exact_command_sequences() -> None:
     assert "Deployment Check" in text
     assert "Publication Gate" in text
     assert "pyimgano --help" in text
-    assert "python -m pyimgano --help" not in text
+    assert "python -m pyimgano --help" in text
     assert "pyimgano-doctor --profile deploy-smoke --json" in text
     assert "pyimgano-doctor --profile first-run --json" in text
     assert "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json" in text
