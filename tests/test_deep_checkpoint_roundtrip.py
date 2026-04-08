@@ -10,6 +10,24 @@ def _write_rgb(path, array: np.ndarray) -> None:  # noqa: ANN001 - test helper
     Image.fromarray(array, mode="RGB").save(path)
 
 
+def _make_small_image_paths(tmp_path):
+    train_paths = []
+    for idx, value in enumerate((80, 82, 84, 86), start=1):
+        path = tmp_path / f"train_{idx}.png"
+        img = np.full((32, 32, 3), value, dtype=np.uint8)
+        _write_rgb(path, img)
+        train_paths.append(str(path))
+
+    eval_paths = []
+    for idx, value in enumerate((81, 90), start=1):
+        path = tmp_path / f"eval_{idx}.png"
+        img = np.full((32, 32, 3), value, dtype=np.uint8)
+        _write_rgb(path, img)
+        eval_paths.append(str(path))
+
+    return train_paths, eval_paths
+
+
 class _DummyDinoModel:
     def __init__(self, torch_module, *, channels: int = 8) -> None:  # noqa: ANN001
         self._torch = torch_module
@@ -200,6 +218,70 @@ def test_draem_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     np.testing.assert_allclose(restored_scores, expected_scores, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(restored_maps, expected_maps, rtol=1e-5, atol=1e-5)
     assert float(restored.threshold_) == pytest.approx(expected_threshold)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "kwargs"),
+    [
+        (
+            "vision_cutpaste",
+            {
+                "contamination": 0.25,
+                "epochs": 1,
+                "batch_size": 2,
+                "device": "cpu",
+                "pretrained": False,
+            },
+        ),
+        (
+            "vision_differnet",
+            {
+                "pretrained": False,
+                "epochs": 1,
+                "batch_size": 2,
+                "device": "cpu",
+                "random_state": 0,
+            },
+        ),
+        (
+            "vision_memseg",
+            {
+                "pretrained": False,
+                "device": "cpu",
+                "memory_size": 32,
+                "k_neighbors": 1,
+                "use_segmentation_head": False,
+            },
+        ),
+    ],
+)
+def test_selected_deep_models_checkpoint_roundtrip_on_image_paths(
+    tmp_path,
+    model_name: str,
+    kwargs: dict[str, object],
+) -> None:
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+
+    import pyimgano.models  # noqa: F401
+    from pyimgano.models import create_model
+    from pyimgano.training.checkpointing import save_checkpoint
+    from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
+
+    train_paths, eval_paths = _make_small_image_paths(tmp_path)
+
+    detector = create_model(model_name, **kwargs)
+    detector.fit(train_paths)
+    expected_scores = np.asarray(detector.decision_function(eval_paths), dtype=np.float64)
+
+    ckpt_path = tmp_path / f"{model_name}.ckpt"
+    save_checkpoint(detector, ckpt_path)
+
+    restored = create_model(model_name, **kwargs)
+    load_checkpoint_into_detector(restored, ckpt_path)
+
+    restored_scores = np.asarray(restored.decision_function(eval_paths), dtype=np.float64)
+    np.testing.assert_allclose(restored_scores, expected_scores, rtol=1e-6, atol=1e-6)
 
 
 def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:

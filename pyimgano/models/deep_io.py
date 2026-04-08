@@ -7,9 +7,9 @@ This is intentionally conservative:
 - does not bundle weights into the package (user provides checkpoint paths)
 """
 
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
-from contextlib import nullcontext
 
 
 def _require_torch():
@@ -48,6 +48,27 @@ def save_deep_detector(
     }
     torch.save(payload, str(p))
     return p
+
+
+def export_module_state_dict(module: Any) -> dict[str, object]:
+    """Return a CPU-friendly copy of a torch module state dict."""
+
+    state_dict = getattr(module, "state_dict", None)
+    if not callable(state_dict):
+        raise TypeError("Module does not expose state_dict().")
+
+    normalized: dict[str, object] = {}
+    for key, value in dict(state_dict()).items():
+        detach = getattr(value, "detach", None)
+        cpu = getattr(value, "cpu", None)
+        if callable(detach) and callable(cpu):
+            try:
+                normalized[str(key)] = detach().cpu()
+                continue
+            except Exception:
+                pass
+        normalized[str(key)] = value
+    return normalized
 
 
 def safe_torch_load(path: str | Path, *, map_location: str | None = "cpu") -> Any:
@@ -121,4 +142,9 @@ def load_deep_detector(detector: Any, path: str | Path, *, map_location: str | N
     return detector
 
 
-__all__ = ["save_deep_detector", "safe_torch_load", "load_deep_detector"]
+__all__ = [
+    "export_module_state_dict",
+    "save_deep_detector",
+    "safe_torch_load",
+    "load_deep_detector",
+]

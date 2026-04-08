@@ -15,7 +15,8 @@ Key Features:
 """
 
 import logging
-from typing import List, Optional, Tuple, cast
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -28,6 +29,7 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 from ._image_batch import coerce_rgb_image_batch
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import export_module_state_dict, safe_torch_load
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -407,6 +409,114 @@ class MemSegDetector(BaseVisionDeepDetector):
     ) -> NDArray:
         del batch_size
         return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        memory_filled = {
+            layer: int(bank.memory_filled)
+            for layer, bank in self.feature_extractor.memory_banks.items()
+        }
+        if not any(value > 0 for value in memory_filled.values()):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        from pyimgano.utils.optional_deps import require
+
+        torch_runtime = require("torch", extra="torch", purpose="save MemSeg checkpoint")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": 1,
+            "detector": "vision_memseg",
+            "config": {
+                "contamination": float(self.contamination),
+                "backbone": str(self.backbone_name),
+                "memory_size": int(self.memory_size),
+                "k_neighbors": int(self.k_neighbors),
+                "pretrained": bool(self.pretrained),
+                "use_segmentation_head": bool(self.use_segmentation_head),
+                "device": str(self.device),
+            },
+            "state": {
+                "feature_extractor_state_dict": export_module_state_dict(self.feature_extractor),
+                "seg_head_state_dict": (
+                    export_module_state_dict(self.seg_head) if self.seg_head is not None else None
+                ),
+                "memory_filled": memory_filled,
+                "decision_scores_": (
+                    np.asarray(self.decision_scores_, dtype=np.float64)
+                    if getattr(self, "decision_scores_", None) is not None
+                    else None
+                ),
+                "threshold_": (
+                    float(self.threshold_)
+                    if getattr(self, "threshold_", None) is not None
+                    else None
+                ),
+                "labels_": (
+                    np.asarray(self.labels_, dtype=np.int64)
+                    if getattr(self, "labels_", None) is not None
+                    else None
+                ),
+            },
+        }
+        torch_runtime.save(payload, out_path)
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        payload = safe_torch_load(path, map_location="cpu")
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid MemSeg checkpoint payload: expected a dict.")
+        if str(payload.get("detector", "")) not in {"vision_memseg", "memseg"}:
+            raise ValueError("Invalid MemSeg checkpoint payload: detector marker mismatch.")
+
+        config = payload.get("config", None)
+        if not isinstance(config, dict):
+            raise ValueError("Invalid MemSeg checkpoint payload: missing config.")
+
+        self.contamination = float(config.get("contamination", self.contamination))
+        self.backbone_name = str(config.get("backbone", self.backbone_name))
+        self.memory_size = int(config.get("memory_size", self.memory_size))
+        self.k_neighbors = int(config.get("k_neighbors", self.k_neighbors))
+        self.pretrained = bool(config.get("pretrained", self.pretrained))
+        self.use_segmentation_head = bool(
+            config.get("use_segmentation_head", self.use_segmentation_head)
+        )
+        self.device = torch.device(str(config.get("device", self.device)))
+        self._build_model()
+
+        state = payload.get("state", None)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid MemSeg checkpoint payload: missing state.")
+
+        feature_state = state.get("feature_extractor_state_dict", None)
+        if not isinstance(feature_state, dict):
+            raise ValueError("Invalid MemSeg checkpoint payload: missing feature extractor state.")
+        self.feature_extractor.load_state_dict(dict(feature_state), strict=False)
+        self.feature_extractor.to(self.device)
+        self.feature_extractor.eval()
+
+        seg_head_state = state.get("seg_head_state_dict", None)
+        if self.seg_head is not None and seg_head_state is not None:
+            if not isinstance(seg_head_state, dict):
+                raise ValueError("Invalid MemSeg checkpoint payload: invalid segmentation head state.")
+            self.seg_head.load_state_dict(dict(seg_head_state), strict=False)
+            self.seg_head.to(self.device)
+            self.seg_head.eval()
+
+        memory_filled = state.get("memory_filled", None)
+        if not isinstance(memory_filled, dict):
+            raise ValueError("Invalid MemSeg checkpoint payload: missing memory_filled.")
+        for layer, value in memory_filled.items():
+            if layer not in self.feature_extractor.memory_banks:
+                continue
+            self.feature_extractor.memory_banks[layer].memory_filled = int(value)
+
+        if state.get("decision_scores_", None) is not None:
+            self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        if state.get("threshold_", None) is not None:
+            self.threshold_ = float(state["threshold_"])
+        if state.get("labels_", None) is not None:
+            self.labels_ = np.asarray(state["labels_"], dtype=np.int64)
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> List[NDArray]:
         """Predict pixel-level anomaly maps.

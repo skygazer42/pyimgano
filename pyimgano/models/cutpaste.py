@@ -18,6 +18,7 @@ Key Features:
 
 import logging
 import os
+from pathlib import Path
 from typing import Optional, Tuple
 
 import cv2
@@ -32,6 +33,7 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import export_module_state_dict, safe_torch_load
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -488,6 +490,97 @@ class CutPasteDetector(BaseVisionDeepDetector):
     def decision_function(self, x: NDArray, batch_size: int | None = None, **kwargs) -> NDArray:
         del batch_size
         return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if not hasattr(self, "reference_mean") or not hasattr(self, "reference_std"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        from pyimgano.utils.optional_deps import require
+
+        torch_runtime = require("torch", extra="torch", purpose="save CutPaste checkpoint")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": 1,
+            "detector": "vision_cutpaste",
+            "config": {
+                "contamination": float(self.contamination),
+                "backbone": str(self.backbone_name),
+                "embedding_dim": int(self.embedding_dim),
+                "augment_type": str(self.augment_type),
+                "pretrained": bool(self.pretrained),
+                "freeze_backbone": bool(self.freeze_backbone),
+                "epochs": int(self.epochs),
+                "batch_size": int(self.batch_size),
+                "learning_rate": float(self.learning_rate),
+                "device": str(self.device),
+            },
+            "state": {
+                "backbone_state_dict": export_module_state_dict(self.backbone),
+                "projection_head_state_dict": export_module_state_dict(self.projection_head),
+                "reference_mean": np.asarray(self.reference_mean, dtype=np.float32),
+                "reference_std": np.asarray(self.reference_std, dtype=np.float32),
+                "decision_scores_": (
+                    np.asarray(self.decision_scores_, dtype=np.float64)
+                    if getattr(self, "decision_scores_", None) is not None
+                    else None
+                ),
+                "threshold_": (
+                    float(self.threshold_)
+                    if getattr(self, "threshold_", None) is not None
+                    else None
+                ),
+            },
+        }
+        torch_runtime.save(payload, out_path)
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        payload = safe_torch_load(path, map_location="cpu")
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid CutPaste checkpoint payload: expected a dict.")
+        if str(payload.get("detector", "")) not in {"vision_cutpaste", "cutpaste"}:
+            raise ValueError("Invalid CutPaste checkpoint payload: detector marker mismatch.")
+
+        config = payload.get("config", None)
+        if not isinstance(config, dict):
+            raise ValueError("Invalid CutPaste checkpoint payload: missing config.")
+
+        self.contamination = float(config.get("contamination", self.contamination))
+        self.backbone_name = str(config.get("backbone", self.backbone_name))
+        self.embedding_dim = int(config.get("embedding_dim", self.embedding_dim))
+        self.augment_type = str(config.get("augment_type", self.augment_type))
+        self.pretrained = bool(config.get("pretrained", self.pretrained))
+        self.freeze_backbone = bool(config.get("freeze_backbone", self.freeze_backbone))
+        self.epochs = int(config.get("epochs", self.epochs))
+        self.batch_size = int(config.get("batch_size", self.batch_size))
+        self.learning_rate = float(config.get("learning_rate", self.learning_rate))
+        self.device = torch.device(str(config.get("device", self.device)))
+        self._build_model()
+
+        state = payload.get("state", None)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid CutPaste checkpoint payload: missing state.")
+
+        backbone_state = state.get("backbone_state_dict", None)
+        projection_head_state = state.get("projection_head_state_dict", None)
+        if not isinstance(backbone_state, dict) or not isinstance(projection_head_state, dict):
+            raise ValueError("Invalid CutPaste checkpoint payload: missing model state.")
+
+        self.backbone.load_state_dict(dict(backbone_state), strict=False)
+        self.projection_head.load_state_dict(dict(projection_head_state), strict=False)
+        self.backbone.to(self.device)
+        self.projection_head.to(self.device)
+        self.backbone.eval()
+        self.projection_head.eval()
+
+        self.reference_mean = np.asarray(state["reference_mean"], dtype=np.float32)
+        self.reference_std = np.asarray(state["reference_std"], dtype=np.float32)
+        if state.get("decision_scores_", None) is not None:
+            self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        if state.get("threshold_", None) is not None:
+            self.threshold_ = float(state["threshold_"])
 
     def _get_transform(self):
         """Get data transform."""

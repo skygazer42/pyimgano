@@ -15,7 +15,8 @@ Key Features:
 """
 
 import logging
-from typing import Optional, Tuple, cast
+from pathlib import Path
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -29,6 +30,7 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 from ._image_batch import coerce_rgb_image_batch
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import export_module_state_dict, safe_torch_load
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -519,6 +521,135 @@ class DifferNetDetector(BaseVisionDeepDetector):
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
         return np.asarray(self.predict_proba(x_array), dtype=np.float64).reshape(-1)
+
+    def save_checkpoint(self, path: str | Path) -> Path:
+        if self.memory_bank is None or self.kd_trees is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+
+        from pyimgano.utils.optional_deps import require
+
+        torch_runtime = require("torch", extra="torch", purpose="save DifferNet checkpoint")
+
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": 1,
+            "detector": "vision_differnet",
+            "config": {
+                "contamination": float(self.contamination),
+                "backbone": str(self.backbone_name),
+                "pretrained": bool(self.pretrained),
+                "k_neighbors": int(self.k_neighbors),
+                "feature_layer": str(self.feature_layer),
+                "train_difference": bool(self.train_difference),
+                "epochs": int(self.epochs),
+                "batch_size": int(self.batch_size),
+                "learning_rate": float(self.learning_rate),
+                "device": str(self.device),
+                "random_state": self.random_state,
+            },
+            "state": {
+                "feature_extractor_state_dict": export_module_state_dict(self.feature_extractor),
+                "diff_modules_state_dict": (
+                    export_module_state_dict(self.diff_modules)
+                    if self.train_difference and hasattr(self, "diff_modules")
+                    else None
+                ),
+                "memory_bank": {
+                    str(layer): np.asarray(bank, dtype=np.float32)
+                    for layer, bank in self.memory_bank.items()
+                },
+                "decision_scores_": (
+                    np.asarray(self.decision_scores_, dtype=np.float64)
+                    if getattr(self, "decision_scores_", None) is not None
+                    else None
+                ),
+                "threshold_": (
+                    float(self.threshold_)
+                    if getattr(self, "threshold_", None) is not None
+                    else None
+                ),
+                "labels_": (
+                    np.asarray(self.labels_, dtype=np.int64)
+                    if getattr(self, "labels_", None) is not None
+                    else None
+                ),
+                "fitted_": bool(self.fitted_),
+            },
+        }
+        torch_runtime.save(payload, out_path)
+        return out_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        payload = safe_torch_load(path, map_location="cpu")
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid DifferNet checkpoint payload: expected a dict.")
+        if str(payload.get("detector", "")) not in {"vision_differnet", "differnet"}:
+            raise ValueError("Invalid DifferNet checkpoint payload: detector marker mismatch.")
+
+        config = payload.get("config", None)
+        if not isinstance(config, dict):
+            raise ValueError("Invalid DifferNet checkpoint payload: missing config.")
+
+        self.contamination = float(config.get("contamination", self.contamination))
+        self.backbone_name = str(config.get("backbone", self.backbone_name))
+        self.pretrained = bool(config.get("pretrained", self.pretrained))
+        self.k_neighbors = int(config.get("k_neighbors", self.k_neighbors))
+        self.feature_layer = str(config.get("feature_layer", self.feature_layer))
+        self.train_difference = bool(config.get("train_difference", self.train_difference))
+        self.epochs = int(config.get("epochs", self.epochs))
+        self.batch_size = int(config.get("batch_size", self.batch_size))
+        self.learning_rate = float(config.get("learning_rate", self.learning_rate))
+        self.random_state = config.get("random_state", self.random_state)
+        self.rng = np.random.default_rng(self.random_state)
+        self.device = torch.device(str(config.get("device", self.device)))
+        self._build_model()
+
+        state = payload.get("state", None)
+        if not isinstance(state, dict):
+            raise ValueError("Invalid DifferNet checkpoint payload: missing state.")
+
+        feature_state = state.get("feature_extractor_state_dict", None)
+        if not isinstance(feature_state, dict):
+            raise ValueError("Invalid DifferNet checkpoint payload: missing feature extractor state.")
+        self.feature_extractor.load_state_dict(dict(feature_state), strict=False)
+        self.feature_extractor.to(self.device)
+        self.feature_extractor.eval()
+
+        diff_state = state.get("diff_modules_state_dict", None)
+        if self.train_difference and hasattr(self, "diff_modules"):
+            if not isinstance(diff_state, dict):
+                raise ValueError("Invalid DifferNet checkpoint payload: missing diff module state.")
+            self.diff_modules.load_state_dict(dict(diff_state), strict=False)
+            self.diff_modules.to(self.device)
+            self.diff_modules.eval()
+
+        memory_bank_raw = state.get("memory_bank", None)
+        if not isinstance(memory_bank_raw, dict):
+            raise ValueError("Invalid DifferNet checkpoint payload: missing memory bank.")
+        self.memory_bank = {
+            str(layer): np.asarray(bank, dtype=np.float32)
+            for layer, bank in memory_bank_raw.items()
+        }
+        self.kd_trees = {
+            layer: cKDTree(bank) for layer, bank in self.memory_bank.items()
+        }
+        if self.feature_layer != "all":
+            if self.feature_layer not in self.kd_trees:
+                raise ValueError(
+                    f"Invalid DifferNet checkpoint payload: missing kNN index for {self.feature_layer!r}."
+                )
+            self.kd_tree = self.kd_trees[self.feature_layer]
+        else:
+            self.kd_tree = None
+
+        if state.get("decision_scores_", None) is not None:
+            self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
+        if state.get("threshold_", None) is not None:
+            self.threshold_ = float(state["threshold_"])
+        if state.get("labels_", None) is not None:
+            self.labels_ = np.asarray(state["labels_"], dtype=np.int64)
+        self.fitted_ = bool(state.get("fitted_", True))
 
     def _infer_image_hw(self, image: np.ndarray) -> tuple[int, int]:
         arr = np.asarray(image)
