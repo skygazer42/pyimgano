@@ -27,8 +27,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
 
-from .baseCv import BaseVisionDeepDetector
-from .baseml import BaseVisionDetector
 from .registry import MODEL_REGISTRY, create_model, list_models, register_model
 
 _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
@@ -384,6 +382,8 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS: dict[str, str] = {
+    "BaseVisionDetector": "baseml",
+    "BaseVisionDeepDetector": "baseCv",
     # Optional re-exports: keep `import pyimgano.models` lightweight by avoiding
     # importing these modules unless the symbols are accessed explicitly.
     "VisionLODA": "loda",

@@ -58,8 +58,11 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
    # Run the focused tests for your change first
    pytest tests/test_<your_area>.py -v
 
-   # Then run the full suite
+   # Then run the default suite (no coverage by default)
    pytest
+
+   # Run coverage explicitly when you need the report / gate
+   tox -e coverage
 
    # Check code formatting
    black --check pyimgano tests
@@ -118,11 +121,11 @@ pre-commit install
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests (default path; no coverage by default)
 pytest
 
-# Run with coverage
-pytest --cov=pyimgano --cov-report=html
+# Run with coverage explicitly
+tox -e coverage
 
 # Run specific test file
 pytest tests/test_augmentation_registry.py

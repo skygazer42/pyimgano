@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 
@@ -37,9 +38,11 @@ class FeatureRegistry:
         overwrite: bool = False,
     ) -> None:
         if not overwrite and name in self._registry:
-            raise KeyError(
-                f"Feature extractor {name!r} already exists. Set overwrite=True to replace it."
-            )
+            existing = self._registry[name]
+            if not bool(existing.metadata.get("_lazy_placeholder", False)):
+                raise KeyError(
+                    f"Feature extractor {name!r} already exists. Set overwrite=True to replace it."
+                )
         self._registry[name] = FeatureEntry(
             name=str(name),
             constructor=constructor,
@@ -94,6 +97,27 @@ class FeatureRegistry:
 FEATURE_REGISTRY = FeatureRegistry()
 
 
+def materialize_feature_extractor(name: str) -> Callable[..., Any]:
+    """Return the real feature extractor constructor, importing its module if needed."""
+
+    entry = FEATURE_REGISTRY.info(str(name))
+    if bool(entry.metadata.get("_lazy_placeholder", False)):
+        module_name = str(entry.metadata.get("_lazy_module", "")).strip()
+        if module_name:
+            try:
+                import_module(f"pyimgano.features.{module_name}")
+            except ModuleNotFoundError as exc:
+                from pyimgano.utils.extras import extra_for_root_module
+
+                missing = getattr(exc, "name", None)
+                root = str(missing).split(".", 1)[0].strip() if missing else ""
+                if extra_for_root_module(root) is None:
+                    raise
+                return entry.constructor
+            entry = FEATURE_REGISTRY.info(str(name))
+    return entry.constructor
+
+
 def register_feature_extractor(
     name: str,
     *,
@@ -119,7 +143,7 @@ def register_feature_extractor(
 def create_feature_extractor(name: str, *args, **kwargs):
     """Create a feature extractor instance from its registered name."""
 
-    ctor = FEATURE_REGISTRY.get(name)
+    ctor = materialize_feature_extractor(name)
     return ctor(*args, **kwargs)
 
 
@@ -132,6 +156,7 @@ def list_feature_extractors(*, tags: Optional[Iterable[str]] = None) -> List[str
 def feature_info(name: str) -> Dict[str, Any]:
     """Return a stable, JSON-friendly feature extractor info payload."""
 
+    materialize_feature_extractor(name)
     return FEATURE_REGISTRY.feature_info(name)
 
 
