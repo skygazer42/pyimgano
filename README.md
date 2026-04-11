@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="pyimgano banner" width="100%"/>
+  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/banner.svg" alt="pyimgano banner" width="100%"/>
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
   <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/v/pyimgano.svg?style=flat-square&logo=pypi&logoColor=white&label=PyPI" alt="PyPI"/></a>
   <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/pyversions/pyimgano.svg?style=flat-square&logo=python&logoColor=white" alt="Python"/></a>
   <a href="https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/skygazer42/pyimgano/ci.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI" alt="CI"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"/></a>
+  <a href="https://github.com/skygazer42/pyimgano/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"/></a>
   <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="Code style: black"/></a>
   <a href="https://pepy.tech/project/pyimgano"><img src="https://img.shields.io/pepy/dt/pyimgano?style=flat-square&logo=python&logoColor=white&label=Downloads" alt="Downloads"/></a>
 </p>
@@ -27,11 +27,11 @@
 </p>
 
 <p align="center">
-  <b>Start Here:</b> <a href="docs/START_HERE.md">First-run guide</a> · <a href="docs/STARTER_PATHS.md">Starter paths</a> · <a href="docs/BENCHMARK_GETTING_STARTED.md">Benchmark starter guide</a> · <a href="docs/CLI_REFERENCE.md">CLI reference</a> · <a href="docs/ALGORITHM_SELECTION_GUIDE.md">Selection guide</a>
+  <b>Start Here:</b> <a href="https://github.com/skygazer42/pyimgano/blob/main/docs/START_HERE.md">First-run guide</a> · <a href="https://github.com/skygazer42/pyimgano/blob/main/docs/STARTER_PATHS.md">Starter paths</a> · <a href="https://github.com/skygazer42/pyimgano/blob/main/docs/BENCHMARK_GETTING_STARTED.md">Benchmark starter guide</a> · <a href="https://github.com/skygazer42/pyimgano/blob/main/docs/CLI_REFERENCE.md">CLI reference</a> · <a href="https://github.com/skygazer42/pyimgano/blob/main/docs/ALGORITHM_SELECTION_GUIDE.md">Selection guide</a>
 </p>
 
 <p align="center">
-  <b>Translations:</b> <a href="README_cn.md">中文</a> · <a href="README_ja.md">日本語</a> · <a href="README_ko.md">한국어</a>
+  <b>Translations:</b> <a href="https://github.com/skygazer42/pyimgano/blob/main/README_cn.md">中文</a> · <a href="https://github.com/skygazer42/pyimgano/blob/main/README_ja.md">日本語</a> · <a href="https://github.com/skygazer42/pyimgano/blob/main/README_ko.md">한국어</a>
 </p>
 
 ---
@@ -55,7 +55,7 @@ Most anomaly detection libraries target either **research** (maximizing paper me
 ## ✨ Key Features
 
 <p align="center">
-  <img src="assets/features.svg" alt="Key Features" width="100%"/>
+  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/features.svg" alt="Key Features" width="100%"/>
 </p>
 
 <table>
@@ -105,7 +105,7 @@ Most anomaly detection libraries target either **research** (maximizing paper me
 ## 🏗️ Architecture
 
 <p align="center">
-  <img src="assets/architecture.svg" alt="Architecture Overview" width="100%"/>
+  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/architecture.svg" alt="Architecture Overview" width="100%"/>
 </p>
 
 <details>
@@ -376,16 +376,16 @@ pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json
 ```
 
 That flow uses the checked-in
-[`industrial_adapt_audited.json`](examples/configs/industrial_adapt_audited.json)
+[`industrial_adapt_audited.json`](https://github.com/skygazer42/pyimgano/blob/main/examples/configs/industrial_adapt_audited.json)
 example and is described in more detail in
-[`docs/INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md).
+[`docs/INDUSTRIAL_FASTPATH.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_FASTPATH.md).
 New deploy bundles also include `handoff_report.json`, a compact operator-facing
 summary next to `infer_config.json` and `bundle_manifest.json`.
 For hot-folder deployment, `pyimgano-bundle watch ...` turns the same deploy bundle
 into a polling runtime that appends `results.jsonl`, `watch_events.jsonl`, and
 `watch_state.json` under one output directory. A minimal containerized example is
-included in [`Dockerfile.bundle-watch`](Dockerfile.bundle-watch) and
-[`compose.bundle-watch.yml`](compose.bundle-watch.yml).
+included in [`Dockerfile.bundle-watch`](https://github.com/skygazer42/pyimgano/blob/main/Dockerfile.bundle-watch) and
+[`compose.bundle-watch.yml`](https://github.com/skygazer42/pyimgano/blob/main/compose.bundle-watch.yml).
 When you want a downstream system callback without adding MQTT or RTSP yet, pass
 `--webhook-url https://example.internal/qc-hook`; successful watch records are
 POSTed as JSON, and failed deliveries are retried on later polling cycles without
@@ -451,7 +451,7 @@ are verified before a suite export is treated as publication-ready.
 ### Algorithm Capability Matrix
 
 <p align="center">
-  <img src="assets/algo_matrix.svg" alt="Algorithm Capability Matrix" width="100%"/>
+  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/algo_matrix.svg" alt="Algorithm Capability Matrix" width="100%"/>
 </p>
 
 ### Recommended Baselines
@@ -692,32 +692,32 @@ pyimgano-weights validate ./weights_manifest.json --check-files --json
 <td width="33%">
 
 **Getting Started**
-- [`START_HERE.md`](docs/START_HERE.md)
-- [`BENCHMARK_GETTING_STARTED.md`](docs/BENCHMARK_GETTING_STARTED.md)
-- [`QUICKSTART.md`](docs/QUICKSTART.md)
-- [`WORKBENCH.md`](docs/WORKBENCH.md)
-- [`CLI_REFERENCE.md`](docs/CLI_REFERENCE.md)
-- [`STABILITY.md`](docs/STABILITY.md)
+- [`START_HERE.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/START_HERE.md)
+- [`BENCHMARK_GETTING_STARTED.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/BENCHMARK_GETTING_STARTED.md)
+- [`QUICKSTART.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/QUICKSTART.md)
+- [`WORKBENCH.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/WORKBENCH.md)
+- [`CLI_REFERENCE.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/CLI_REFERENCE.md)
+- [`STABILITY.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/STABILITY.md)
 
 </td>
 <td width="33%">
 
 **Industrial / Production**
-- [`INDUSTRIAL_INFERENCE.md`](docs/INDUSTRIAL_INFERENCE.md)
-- [`INDUSTRIAL_FASTPATH.md`](docs/INDUSTRIAL_FASTPATH.md)
-- Example config: [`industrial_adapt_audited.json`](examples/configs/industrial_adapt_audited.json)
-- [`ROBUSTNESS_BENCHMARK.md`](docs/ROBUSTNESS_BENCHMARK.md)
-- [`FALSE_POSITIVE_DEBUGGING.md`](docs/FALSE_POSITIVE_DEBUGGING.md)
+- [`INDUSTRIAL_INFERENCE.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_INFERENCE.md)
+- [`INDUSTRIAL_FASTPATH.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_FASTPATH.md)
+- Example config: [`industrial_adapt_audited.json`](https://github.com/skygazer42/pyimgano/blob/main/examples/configs/industrial_adapt_audited.json)
+- [`ROBUSTNESS_BENCHMARK.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/ROBUSTNESS_BENCHMARK.md)
+- [`FALSE_POSITIVE_DEBUGGING.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/FALSE_POSITIVE_DEBUGGING.md)
 
 </td>
 <td width="33%">
 
 **Reference**
-- [`MODEL_INDEX.md`](docs/MODEL_INDEX.md)
-- [`ALGORITHM_SELECTION_GUIDE.md`](docs/ALGORITHM_SELECTION_GUIDE.md)
-- [`EVALUATION_AND_BENCHMARK.md`](docs/EVALUATION_AND_BENCHMARK.md)
-- [`PUBLISHING.md`](docs/PUBLISHING.md)
-- [`examples/README.md`](examples/README.md)
+- [`MODEL_INDEX.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/MODEL_INDEX.md)
+- [`ALGORITHM_SELECTION_GUIDE.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/ALGORITHM_SELECTION_GUIDE.md)
+- [`EVALUATION_AND_BENCHMARK.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/EVALUATION_AND_BENCHMARK.md)
+- [`PUBLISHING.md`](https://github.com/skygazer42/pyimgano/blob/main/docs/PUBLISHING.md)
+- [`examples/README.md`](https://github.com/skygazer42/pyimgano/blob/main/examples/README.md)
 
 </td>
 </tr>
@@ -729,9 +729,9 @@ pyimgano-weights validate ./weights_manifest.json --check-files --json
 
 We welcome contributions! Please see:
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — development workflow
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-- [`SECURITY.md`](SECURITY.md)
+- [`CONTRIBUTING.md`](https://github.com/skygazer42/pyimgano/blob/main/CONTRIBUTING.md) — development workflow
+- [`CODE_OF_CONDUCT.md`](https://github.com/skygazer42/pyimgano/blob/main/CODE_OF_CONDUCT.md)
+- [`SECURITY.md`](https://github.com/skygazer42/pyimgano/blob/main/SECURITY.md)
 
 For SonarCloud-related changes, the repository includes a local reproduction path:
 
@@ -744,13 +744,13 @@ SONAR_TOKEN=... python3 tools/fetch_sonar_issues.py --project-key skygazer42_pyi
 
 ## 📄 License
 
-[MIT](LICENSE)
+[MIT](https://github.com/skygazer42/pyimgano/blob/main/LICENSE)
 
 ---
 
 ## 📝 Citation
 
-GitHub citation metadata is provided via [`CITATION.cff`](CITATION.cff).
+GitHub citation metadata is provided via [`CITATION.cff`](https://github.com/skygazer42/pyimgano/blob/main/CITATION.cff).
 
 ```bibtex
 @software{pyimgano2026,

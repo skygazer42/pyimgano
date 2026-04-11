@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_README_ALLOWED_PREFIXES = ("https://", "http://", "mailto:", "tel:", "#")
 
 
 def _read_text(path: str) -> str:
@@ -71,6 +71,41 @@ def _run_help(module: str) -> str:
     return proc.stdout
 
 
+def _is_publish_safe_link(destination: str) -> bool:
+    return destination.startswith(PACKAGE_README_ALLOWED_PREFIXES)
+
+
+def _find_package_readme_link_issues(text: str) -> list[str]:
+    issues: list[str] = []
+    html_link_pattern = re.compile(r'(?P<attr>href|src)="(?P<dest>[^"]+)"')
+    markdown_link_pattern = re.compile(r'!?\[[^\]]+\]\((?P<dest>[^)\s]+)')
+
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        for match in html_link_pattern.finditer(line):
+            destination = match.group("dest").strip()
+            if _is_publish_safe_link(destination):
+                continue
+            issues.append(
+                "README.md:"
+                f"{lineno}: package_readme_relative_{match.group('attr')}: "
+                f"found relative publish path {destination!r}; "
+                "use an absolute GitHub/blob URL for links or raw.githubusercontent URL for images"
+            )
+
+        for match in markdown_link_pattern.finditer(line):
+            destination = match.group("dest").strip()
+            if _is_publish_safe_link(destination):
+                continue
+            issues.append(
+                "README.md:"
+                f"{lineno}: package_readme_relative_markdown_link: "
+                f"found relative publish path {destination!r}; "
+                "use an absolute GitHub/blob URL"
+            )
+
+    return issues
+
+
 def main() -> int:
     issues: list[str] = []
 
@@ -81,6 +116,7 @@ def main() -> int:
         issues.append("pyproject [project].readme must stay 'README.md'.")
 
     readme = _read_text("README.md")
+    issues.extend(_find_package_readme_link_issues(readme))
     cli_reference = _read_text("docs/CLI_REFERENCE.md")
     root_help = _run_help("pyimgano")
     doctor_help = _run_help("pyimgano.doctor_cli")
