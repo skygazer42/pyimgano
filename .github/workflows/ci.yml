@@ -99,7 +99,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -e .[dev,skimage]
+          pip install -e .[dev,torch,skimage]
 
       - name: Audit public API
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'

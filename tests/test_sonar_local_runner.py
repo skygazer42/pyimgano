@@ -33,7 +33,12 @@ def test_run_sonar_local_dry_run_prints_pytest_and_scanner_steps() -> None:
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "pip install -e .[dev,torch,skimage]" in proc.stdout
-    assert "pytest -v --cov=pyimgano --cov-report=xml --cov-report=term-missing" in proc.stdout
+    assert "coverage erase" in proc.stdout
+    assert "pytest -v --cov=pyimgano --cov-report= --cov-append tests/contracts" in proc.stdout
+    assert (
+        "pytest -v --cov=pyimgano --cov-report= --cov-append tests/test_[a-cA-C]*.py" in proc.stdout
+    )
+    assert "coverage xml" in proc.stdout
     assert "docker run --rm" in proc.stdout
     assert "-Dsonar.scanner.skipJreProvisioning=true" in proc.stdout
 

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")
 
 
 def _assert_preprocess_delegates(*, module, cls_name: str, monkeypatch) -> None:

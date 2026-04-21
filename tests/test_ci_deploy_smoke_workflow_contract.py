@@ -39,3 +39,9 @@ def test_ci_workflow_build_job_waits_for_deploy_smoke() -> None:
     workflow = _read_ci_workflow()
 
     assert "needs: [quality, test, deploy_smoke]" in workflow
+
+
+def test_ci_workflow_test_matrix_installs_torch_and_skimage_extras() -> None:
+    workflow = _read_ci_workflow()
+
+    assert "pip install -e .[dev,torch,skimage]" in workflow
