@@ -1,10 +1,48 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+from typing import Any
 
 import pyimgano.cli_output as cli_output
 import pyimgano.doctor_rendering as doctor_rendering
-import pyimgano.services.doctor_service as doctor_service
+
+
+class _LazyModuleProxy:
+    def __init__(self, module_path: str) -> None:
+        self._module_path = str(module_path)
+        self._module = None
+        self._overrides: dict[str, Any] = {}
+
+    def _load(self):
+        module = self._module
+        if module is None:
+            module = importlib.import_module(self._module_path)
+            self._module = module
+        return module
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self._overrides:
+            return self._overrides[name]
+        return getattr(self._load(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_"):
+            object.__setattr__(self, name, value)
+            return
+        self._overrides[name] = value
+
+    def __delattr__(self, name: str) -> None:
+        if name.startswith("_"):
+            object.__delattr__(self, name)
+            return
+        if name in self._overrides:
+            del self._overrides[name]
+            return
+        delattr(self._load(), name)
+
+
+doctor_service = _LazyModuleProxy("pyimgano.services.doctor_service")
 
 
 def _build_parser() -> argparse.ArgumentParser:
