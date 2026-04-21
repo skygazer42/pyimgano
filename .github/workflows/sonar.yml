@@ -85,7 +85,7 @@ jobs:
           exit 1
 
       - name: Run test suite with coverage
-        run: pytest -v --cov=pyimgano --cov-report=xml --cov-report=term-missing
+        run: bash tools/run_sonar_local.sh --skip-install --skip-scan
 
       - name: SonarQube Cloud Scan
         env:
