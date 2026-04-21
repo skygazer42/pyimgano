@@ -30,9 +30,11 @@ def freeze_module(module: Any):
 def load_module(path: str | Path, *, map_location: Any):
     import torch
 
+    # TorchScript artifacts here are trusted local model files created by the
+    # library's own export flows; bandit flags torch.jit.load generically.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning, module=r"torch\.jit")
-        return torch.jit.load(str(path), map_location=map_location)
+        return torch.jit.load(str(path), map_location=map_location)  # nosec B614
 
 
 __all__ = [

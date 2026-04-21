@@ -32,7 +32,22 @@ cd "$repo_root"
 
 python_bin="${PYIMGANO_SONAR_PYTHON_BIN:-python3}"
 install_cmd="${PYIMGANO_SONAR_INSTALL_COMMAND:-${python_bin} -m pip install --upgrade pip setuptools wheel && pip install -e .[dev,torch,skimage]}"
-pytest_cmd="${PYIMGANO_SONAR_PYTEST_COMMAND:-pytest -v --cov=pyimgano --cov-report=xml --cov-report=term-missing}"
+if [ -n "${PYIMGANO_SONAR_PYTEST_COMMAND:-}" ]; then
+  pytest_cmd="${PYIMGANO_SONAR_PYTEST_COMMAND}"
+else
+  pytest_cmd="$(cat <<'EOF'
+coverage erase
+pytest -v --cov=pyimgano --cov-report= --cov-append tests/contracts
+pytest -v --cov=pyimgano --cov-report= --cov-append tests/test_[a-cA-C]*.py
+pytest -v --cov=pyimgano --cov-report= --cov-append tests/test_[d-fD-F]*.py
+pytest -v --cov=pyimgano --cov-report= --cov-append tests/test_[g-lG-L]*.py
+pytest -v --cov=pyimgano --cov-report= --cov-append tests/test_[m-rM-R]*.py
+pytest -v --cov=pyimgano --cov-report= --cov-append tests/test_[s-zS-Z]*.py
+coverage xml
+coverage report -m
+EOF
+)"
+fi
 scanner_image="${SONAR_SCANNER_IMAGE:-sonarsource/sonar-scanner-cli}"
 host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
 project_key="${SONAR_PROJECT_KEY:-skygazer42_pyimgano}"
