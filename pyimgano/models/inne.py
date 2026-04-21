@@ -99,7 +99,10 @@ class CoreINNE:
 
     def _fit_ensemble(self, x: NDArray[np.float64]) -> None:
         n_samples, n_features = map(int, x.shape)
-        assert self.max_samples_ is not None
+        if self.max_samples_ is None:
+            raise RuntimeError(
+                "Internal error: max_samples_ is not initialized before _fit_ensemble()."
+            )
 
         self._centroids = np.empty(
             (self.n_estimators, self.max_samples_, n_features), dtype=np.float64
@@ -134,7 +137,8 @@ class CoreINNE:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         x = check_array(x, accept_sparse=False, dtype=np.float64)
-        assert self.max_samples_ is not None
+        if self.max_samples_ is None:
+            raise RuntimeError("Internal error: max_samples_ is not initialized after fit().")
 
         isolation_scores = np.ones((self.n_estimators, x.shape[0]), dtype=np.float64)
 

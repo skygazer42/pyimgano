@@ -175,7 +175,8 @@ class EfficientADDetector(BaseVisionDeepDetector):
     def _teacher_features(self, images):  # noqa: ANN001
         import torch
 
-        assert self.teacher is not None
+        if self.teacher is None:
+            raise RuntimeError("Teacher network is not initialized. Call fit() first.")
         with torch.no_grad():
             out = self.teacher(images)
             out_t = torch.as_tensor(out)
@@ -189,7 +190,10 @@ class EfficientADDetector(BaseVisionDeepDetector):
         images, _targets = batch
         images = images.to(self.device)
 
-        assert self.optimizer is not None
+        if self.optimizer is None:
+            raise RuntimeError(
+                "Optimizer is not initialized. Call fit() before training_forward()."
+            )
         self.optimizer.zero_grad(set_to_none=True)
 
         t_feat = self._teacher_features(images)

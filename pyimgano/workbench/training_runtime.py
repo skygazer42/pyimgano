@@ -231,6 +231,25 @@ def _build_checkpoint_meta(*, saved: Path, run_dir: Path) -> dict[str, Any]:
         return {"path": str(saved)}
 
 
+def _save_checkpoint_best_effort(
+    *,
+    detector: Any,
+    run_dir: Path,
+    category: str,
+    checkpoint_name: str,
+) -> dict[str, Any] | None:
+    from pyimgano.training.checkpointing import save_checkpoint
+
+    cat_ckpt_dir = build_workbench_run_paths(run_dir).checkpoints_dir / str(category)
+    cat_ckpt_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = cat_ckpt_dir / str(checkpoint_name)
+    try:
+        saved = save_checkpoint(detector, ckpt_path)
+    except NotImplementedError:
+        return None
+    return _build_checkpoint_meta(saved=saved, run_dir=run_dir)
+
+
 def run_workbench_training(
     *,
     detector: Any,
@@ -241,7 +260,6 @@ def run_workbench_training(
 ) -> WorkbenchTrainingResult:
     reporter = get_active_train_progress_reporter()
     if bool(getattr(config, "training", None) and config.training.enabled):
-        from pyimgano.training.checkpointing import save_checkpoint
         from pyimgano.training.runner import micro_finetune
 
         checkpoint_restore = restore_training_checkpoint_if_requested(
@@ -284,12 +302,11 @@ def run_workbench_training(
         checkpoint_meta = None
         if run_dir is not None and bool(config.output.save_run):
             run_path = Path(run_dir)
-            cat_ckpt_dir = build_workbench_run_paths(run_path).checkpoints_dir / str(category)
-            cat_ckpt_dir.mkdir(parents=True, exist_ok=True)
-            ckpt_path = cat_ckpt_dir / str(config.training.checkpoint_name)
-            checkpoint_meta = _build_checkpoint_meta(
-                saved=save_checkpoint(detector, ckpt_path),
+            checkpoint_meta = _save_checkpoint_best_effort(
+                detector=detector,
                 run_dir=run_path,
+                category=category,
+                checkpoint_name=str(config.training.checkpoint_name),
             )
 
         return WorkbenchTrainingResult(
@@ -308,19 +325,13 @@ def run_workbench_training(
     detector.fit(train_inputs)
     checkpoint_meta = None
     if run_dir is not None and bool(config.output.save_run):
-        from pyimgano.training.checkpointing import save_checkpoint
-
         run_path = Path(run_dir)
-        cat_ckpt_dir = build_workbench_run_paths(run_path).checkpoints_dir / str(category)
-        cat_ckpt_dir.mkdir(parents=True, exist_ok=True)
-        ckpt_path = cat_ckpt_dir / str(config.training.checkpoint_name)
-        try:
-            checkpoint_meta = _build_checkpoint_meta(
-                saved=save_checkpoint(detector, ckpt_path),
-                run_dir=run_path,
-            )
-        except NotImplementedError:
-            checkpoint_meta = None
+        checkpoint_meta = _save_checkpoint_best_effort(
+            detector=detector,
+            run_dir=run_path,
+            category=category,
+            checkpoint_name=str(config.training.checkpoint_name),
+        )
     return WorkbenchTrainingResult(
         detector=detector,
         training_report=None,

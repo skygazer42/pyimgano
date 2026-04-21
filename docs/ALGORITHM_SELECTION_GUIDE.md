@@ -76,7 +76,7 @@ start with these “pixel-first” detectors (designed for MVTec AD / VisA-style
 |----------|---------------|-------|
 | `vision_patchcore` | Strong default pixel localization | Training-free (memory bank) baseline; supports `feature_projection_dim` + `memory_bank_dtype` for speed/memory tradeoffs |
 | `vision_softpatch` | “Noisy normal” training set | Filters outlier patches in the memory bank for robustness |
-| `vision_anomalydino` | Few-shot / small normal set | DINOv2 patch embeddings + kNN; pass a custom embedder for offline usage |
+| `vision_anomalydino` | Few-shot / small normal set | DINOv2 patch embeddings + kNN; pass a custom embedder for offline usage. Custom embedders are runtime-only and are not serialized into checkpoints, so workbench runs will skip checkpoint artifacts unless you use the built-in `TorchHubDinoV2Embedder`. |
 | `vision_openclip_patchknn` | Semantics-driven patch kNN | Requires `pyimgano[clip]` (OpenCLIP) or an injected embedder |
 | `vision_dinomaly_anomalib`, `vision_cfa_anomalib` | You already use anomalib | Inference wrappers; require `pyimgano[anomalib]` + a trained checkpoint |
 

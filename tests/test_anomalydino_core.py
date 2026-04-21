@@ -1,3 +1,5 @@
+import pickle
+
 import numpy as np
 import pytest
 
@@ -92,3 +94,33 @@ def test_vision_anomalydino_coreset_sampling_reduces_memory_bank():
     det_half.fit(["a.png", "b.png", "c.png"])
 
     assert det_half.memory_bank_size_ < det_full.memory_bank_size_
+
+
+def test_vision_anomalydino_checkpoint_rejects_unsafe_pickle_embedder(tmp_path) -> None:
+    from pyimgano.models.anomalydino import VisionAnomalyDINO
+    from pyimgano.training.checkpointing import save_checkpoint
+
+    model = VisionAnomalyDINO(
+        embedder=_FakePatchEmbedder(),
+        contamination=0.1,
+        knn_backend="sklearn",
+        n_neighbors=1,
+        aggregation_method="topk_mean",
+        aggregation_topk=0.25,
+    )
+    model.fit(["train_1.png", "train_2.png"])
+
+    with pytest.raises(NotImplementedError, match="TorchHubDinoV2Embedder"):
+        save_checkpoint(model, tmp_path / "anomalydino.ckpt")
+
+
+def test_anomalydino_rejects_legacy_pickle_embedder_payload() -> None:
+    from pyimgano.models.anomalydino import _embedder_from_checkpoint_payload
+
+    with pytest.raises(ValueError, match="legacy pickle embedder payloads are disabled"):
+        _embedder_from_checkpoint_payload(
+            {
+                "type": "pickle",
+                "blob": pickle.dumps(_FakePatchEmbedder(), protocol=pickle.HIGHEST_PROTOCOL),
+            }
+        )

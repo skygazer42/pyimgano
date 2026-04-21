@@ -74,3 +74,12 @@ def test_algorithm_selection_guide_and_examples_document_pyim_goals() -> None:
     assert "industrial_adapt_maps_tiling.json" in examples
     assert "baseline" in examples.lower()
     assert "optional backend" in examples.lower()
+
+
+def test_algorithm_selection_guide_documents_anomalydino_custom_embedder_checkpoint_limit() -> None:
+    guide = _read_text("docs/ALGORITHM_SELECTION_GUIDE.md")
+
+    assert "pass a custom embedder for offline usage" in guide
+    assert "Custom embedders are runtime-only and are not serialized into checkpoints" in guide
+    assert "skip checkpoint artifacts" in guide
+    assert "TorchHubDinoV2Embedder" in guide

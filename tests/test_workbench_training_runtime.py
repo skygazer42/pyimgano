@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from pyimgano.workbench.config import WorkbenchConfig
 from pyimgano.workbench.training_runtime import run_workbench_training
 
@@ -554,6 +556,92 @@ def test_workbench_training_runtime_fit_only_checkpoint_save_is_best_effort(
     )
 
     assert detector.fit_inputs == ["train_only.png"]
+    assert result.checkpoint_meta is None
+
+
+def test_workbench_training_runtime_micro_finetune_checkpoint_save_is_best_effort(
+    monkeypatch, tmp_path: Path
+) -> None:
+    def _fake_micro_finetune(
+        detector,
+        train_inputs,
+        *,
+        seed=None,
+        fit_kwargs=None,
+        callbacks=None,
+        tracker=None,
+    ):  # noqa: ANN001
+        _ = train_inputs, seed, fit_kwargs, callbacks, tracker
+        return {"trained": True, "detector": detector}
+
+    def _fake_save_checkpoint(detector, path):  # noqa: ANN001
+        _ = detector, path
+        raise NotImplementedError("unsupported detector checkpoint")
+
+    import pyimgano.training.checkpointing as checkpointing_module
+    import pyimgano.training.runner as training_runner_module
+
+    monkeypatch.setattr(training_runner_module, "micro_finetune", _fake_micro_finetune)
+    monkeypatch.setattr(checkpointing_module, "save_checkpoint", _fake_save_checkpoint)
+
+    class _DummyDetector:
+        pass
+
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "dataset": {"name": "custom", "root": str(tmp_path), "category": "custom"},
+            "model": {"name": "vision_ecod"},
+            "training": {"enabled": True, "epochs": 1},
+            "output": {"save_run": True},
+        }
+    )
+
+    result = run_workbench_training(
+        detector=_DummyDetector(),
+        train_inputs=["train_only.png"],
+        config=cfg,
+        category="custom",
+        run_dir=tmp_path / "run_out",
+    )
+
+    assert result.training_report == {"trained": True, "detector": result.detector}
+    assert result.checkpoint_meta is None
+
+
+def test_workbench_training_runtime_skips_custom_anomalydino_checkpoint_save(
+    tmp_path: Path,
+) -> None:
+    from pyimgano.models.anomalydino import VisionAnomalyDINO
+
+    class _FakeEmbedder:
+        def embed(self, image):  # noqa: ANN001 - test stub
+            _ = image
+            return np.zeros((4, 2), dtype=np.float32), (2, 2), (8, 8)
+
+    detector = VisionAnomalyDINO(
+        embedder=_FakeEmbedder(),
+        contamination=0.1,
+        knn_backend="sklearn",
+        n_neighbors=1,
+    )
+    cfg = WorkbenchConfig.from_dict(
+        {
+            "recipe": "industrial-adapt",
+            "dataset": {"name": "custom", "root": str(tmp_path), "category": "custom"},
+            "model": {"name": "vision_anomalydino"},
+            "output": {"save_run": True},
+        }
+    )
+
+    result = run_workbench_training(
+        detector=detector,
+        train_inputs=["train_only.png"],
+        config=cfg,
+        category="custom",
+        run_dir=tmp_path / "run_out",
+    )
+
     assert result.checkpoint_meta is None
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional, Protocol, Tuple, Union, cast
@@ -23,8 +22,7 @@ class PatchEmbedder(Protocol):
 
     def embed(
         self, image: Union[str, np.ndarray]
-    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]:
-        ...
+    ) -> Tuple[NDArray, Tuple[int, int], Tuple[int, int]]: ...
 
 
 @dataclass
@@ -65,23 +63,18 @@ def _embedder_to_checkpoint_payload(embedder: PatchEmbedder) -> dict[str, object
             payload["model_state_dict"] = normalized_state
         return payload
 
-    return {
-        "type": "pickle",
-        "blob": pickle.dumps(embedder, protocol=pickle.HIGHEST_PROTOCOL),
-    }
+    raise NotImplementedError(
+        "VisionAnomalyDINO checkpointing only supports TorchHubDinoV2Embedder.\n"
+        "Custom embedder pickle payloads are disabled because they are unsafe to deserialize."
+    )
 
 
 def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedder:
     payload_type = str(payload.get("type", ""))
     if payload_type == "pickle":
-        blob = payload.get("blob", None)
-        if not isinstance(blob, (bytes, bytearray)):
-            raise ValueError("Invalid pickled embedder checkpoint payload.")
-        return cast(
-            PatchEmbedder,
-            pickle.loads(
-                blob
-            ),  # nosec B301 - embedder payload comes from trusted local checkpoints
+        raise ValueError(
+            "VisionAnomalyDINO legacy pickle embedder payloads are disabled.\n"
+            "Re-export the checkpoint with a TorchHubDinoV2Embedder-based detector."
         )
 
     if payload_type != "torchhub_dinov2":
@@ -188,6 +181,8 @@ class VisionAnomalyDINO:
         if self.threshold_ is None:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
+        embedder_payload = _embedder_to_checkpoint_payload(self.embedder)
+
         from pyimgano.utils.optional_deps import require
 
         torch = require("torch", extra="torch", purpose="VisionAnomalyDINO checkpoint saving")
@@ -196,7 +191,7 @@ class VisionAnomalyDINO:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
-                "embedder": _embedder_to_checkpoint_payload(self.embedder),
+                "embedder": embedder_payload,
                 "memory_bank": np.asarray(self._memory_bank, dtype=np.float32),
                 "n_neighbors_fit": int(self._n_neighbors_fit),
                 "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),

@@ -167,7 +167,10 @@ class OptimizedAEDetector(BaseVisionDeepDetector):
         images = images.to(self.device)
         targets = targets.to(self.device)
 
-        assert self.optimizer is not None
+        if self.optimizer is None:
+            raise RuntimeError(
+                "Optimizer is not initialized. Call fit() before training_forward()."
+            )
         self.optimizer.zero_grad(set_to_none=True)
 
         recon = self.model(images)  # type: ignore[operator]
