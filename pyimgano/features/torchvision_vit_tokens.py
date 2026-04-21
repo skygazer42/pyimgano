@@ -8,7 +8,7 @@ import numpy as np
 from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 
-from .torchvision_backbone import _as_pil_rgb, _make_device
+from .torchvision_backbone import _as_pil_rgb, _make_device, _require_initialized
 
 _InputColor = Literal["rgb", "bgr"]
 _Pool = Literal["cls", "mean"]
@@ -76,7 +76,7 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
 
             if hasattr(model, "heads"):
                 model.heads = nn.Identity()  # type: ignore[attr-defined]
-        except Exception:
+        except Exception:  # nosec B110 - best-effort classifier-head removal
             pass
 
         dev = _make_device(str(self.device))
@@ -107,12 +107,18 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
             return np.zeros((0, 1), dtype=np.float64)
 
         self._ensure_ready()
-        assert self._model is not None
-        assert self._transform is not None
-        assert self._device is not None
-        assert self._torch is not None
-
-        torch = self._torch
+        model = _require_initialized(
+            self._model, owner="TorchvisionViTTokensExtractor", attribute="_model"
+        )
+        transform = _require_initialized(
+            self._transform, owner="TorchvisionViTTokensExtractor", attribute="_transform"
+        )
+        device = _require_initialized(
+            self._device, owner="TorchvisionViTTokensExtractor", attribute="_device"
+        )
+        torch = _require_initialized(
+            self._torch, owner="TorchvisionViTTokensExtractor", attribute="_torch"
+        )
         bs = max(1, int(self.batch_size))
         pool = str(self.pool).strip().lower()
         if pool not in ("cls", "mean"):
@@ -121,25 +127,25 @@ class TorchvisionViTTokensExtractor(BaseFeatureExtractor):
         rows: list[np.ndarray] = []
         from pyimgano.utils.torch_infer import torch_inference
 
-        with torch_inference(self._model):
+        with torch_inference(model):
             for i in range(0, len(items), bs):
                 batch_items = items[i : i + bs]
                 pil_imgs = [_as_pil_rgb(it, input_color=self.input_color) for it in batch_items]
-                x = torch.stack([self._transform(im) for im in pil_imgs], dim=0).to(self._device)
+                x = torch.stack([transform(im) for im in pil_imgs], dim=0).to(device)
 
                 # Token extraction (cls + patch tokens).
-                if not hasattr(self._model, "_process_input"):
+                if not hasattr(model, "_process_input"):
                     raise TypeError(
                         "Backbone does not support ViT token extraction (missing _process_input)."
                     )
-                if not hasattr(self._model, "encoder") or not hasattr(self._model, "class_token"):
+                if not hasattr(model, "encoder") or not hasattr(model, "class_token"):
                     raise TypeError("Backbone does not look like a torchvision VisionTransformer.")
 
-                xt = self._model._process_input(x)  # type: ignore[attr-defined]
+                xt = model._process_input(x)  # type: ignore[attr-defined]
                 n = int(xt.shape[0])
-                cls = self._model.class_token.expand(n, -1, -1)  # type: ignore[attr-defined]
+                cls = model.class_token.expand(n, -1, -1)  # type: ignore[attr-defined]
                 tokens = torch.cat([cls, xt], dim=1)
-                tokens = self._model.encoder(tokens)  # type: ignore[attr-defined]
+                tokens = model.encoder(tokens)  # type: ignore[attr-defined]
 
                 if pool == "cls":
                     emb = tokens[:, 0, :]

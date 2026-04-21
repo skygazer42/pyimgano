@@ -292,7 +292,8 @@ class CoreROD:
             ):
                 raise RuntimeError("Internal error: missing fitted parameters")
 
-        assert self.subspaces_ is not None
+        if self.subspaces_ is None:
+            raise RuntimeError("Internal error: missing subspaces")
         subspace_scores: list[np.ndarray] = []
 
         # Fit params per subspace during training; reuse on later calls.

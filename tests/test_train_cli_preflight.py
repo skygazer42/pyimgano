@@ -185,7 +185,9 @@ def test_train_cli_preflight_json_preserves_machine_payload(tmp_path: Path, caps
     ]
 
 
-def test_train_cli_preflight_text_surfaces_dataset_readiness_issue_codes(tmp_path: Path, capsys) -> None:
+def test_train_cli_preflight_text_surfaces_dataset_readiness_issue_codes(
+    tmp_path: Path, capsys
+) -> None:
     from pyimgano.train_cli import main
 
     root = tmp_path / "custom"
@@ -216,4 +218,7 @@ def test_train_cli_preflight_text_surfaces_dataset_readiness_issue_codes(tmp_pat
 
     out = capsys.readouterr().out
     assert "dataset_readiness=error" in out
-    assert "dataset_issue_codes=MISSING_TEST_ANOMALY,PIXEL_METRICS_UNAVAILABLE,FEWSHOT_TRAIN_SET" in out
+    assert (
+        "dataset_issue_codes=MISSING_TEST_ANOMALY,PIXEL_METRICS_UNAVAILABLE,FEWSHOT_TRAIN_SET"
+        in out
+    )

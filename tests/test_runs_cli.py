@@ -4179,9 +4179,7 @@ def test_runs_cli_acceptance_routes_suite_export_to_publication_gate(tmp_path, c
     assert acceptance["publication"]["dataset_readiness"]["status"] == "warning"
 
 
-def test_runs_cli_acceptance_plain_output_prints_publication_dataset_readiness(
-    tmp_path, capsys
-):
+def test_runs_cli_acceptance_plain_output_prints_publication_dataset_readiness(tmp_path, capsys):
     from pyimgano.runs_cli import main
 
     export_dir = tmp_path / "suite_export"

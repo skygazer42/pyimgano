@@ -26,10 +26,9 @@ import torch.nn.functional as F
 from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 
-from pyimgano.utils.torchvision_safe import load_torchvision_model
-
 from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_dl import BaseVisionDeepDetector
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 
 class SpectralResidual:

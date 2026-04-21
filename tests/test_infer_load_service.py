@@ -82,13 +82,13 @@ def test_load_config_backed_infer_detector_merges_context_base_user_kwargs() -> 
 
     load_config_backed_infer_detector(
         ConfigBackedInferLoadRequest(
-                context=ConfigBackedInferContext(
-                    model_name="vision_ecod",
-                    preset=None,
-                    device="cpu",
-                    contamination=0.2,
-                    pretrained=False,
-                    base_user_kwargs={"n_jobs": 2},
+            context=ConfigBackedInferContext(
+                model_name="vision_ecod",
+                preset=None,
+                device="cpu",
+                contamination=0.2,
+                pretrained=False,
+                base_user_kwargs={"n_jobs": 2},
                 checkpoint_path=None,
                 trained_checkpoint_path=None,
                 threshold=None,
@@ -101,7 +101,7 @@ def test_load_config_backed_infer_detector_merges_context_base_user_kwargs() -> 
                 enable_maps_by_default=False,
                 warnings=(),
             ),
-                user_kwargs={"eps": 0.05},
+            user_kwargs={"eps": 0.05},
         ),
         create_detector=lambda name, **kwargs: created.update(
             name=str(name),

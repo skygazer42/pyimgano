@@ -9,7 +9,7 @@ from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 from pyimgano.utils.optional_deps import require
 
-from .torchvision_backbone import _as_pil_rgb, _make_device
+from .torchvision_backbone import _as_pil_rgb, _make_device, _require_initialized
 
 _InputColor = Literal["rgb", "bgr"]
 
@@ -85,24 +85,24 @@ class OpenCLIPExtractor(BaseFeatureExtractor):
             return np.zeros((0, 1), dtype=np.float64)
 
         self._ensure_ready()
-        assert self._model is not None
-        assert self._preprocess is not None
-        assert self._device is not None
-        assert self._torch is not None
-
-        torch = self._torch
+        model = _require_initialized(self._model, owner="OpenCLIPExtractor", attribute="_model")
+        preprocess = _require_initialized(
+            self._preprocess, owner="OpenCLIPExtractor", attribute="_preprocess"
+        )
+        device = _require_initialized(self._device, owner="OpenCLIPExtractor", attribute="_device")
+        torch = _require_initialized(self._torch, owner="OpenCLIPExtractor", attribute="_torch")
         bs = max(1, int(self.batch_size))
 
         rows: list[np.ndarray] = []
         from pyimgano.utils.torch_infer import torch_inference
 
-        with torch_inference(self._model):
+        with torch_inference(model):
             for i in range(0, len(items), bs):
                 batch_items = items[i : i + bs]
                 pil_imgs = [_as_pil_rgb(it, input_color=self.input_color) for it in batch_items]
-                x = torch.stack([self._preprocess(im) for im in pil_imgs], dim=0).to(self._device)
+                x = torch.stack([preprocess(im) for im in pil_imgs], dim=0).to(device)
 
-                emb = self._model.encode_image(x)
+                emb = model.encode_image(x)
                 emb = torch.as_tensor(emb)
                 if self.normalize:
                     emb = emb / torch.clamp(emb.norm(dim=1, keepdim=True), min=1e-12)

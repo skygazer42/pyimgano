@@ -127,21 +127,24 @@ def test_pyim_goal_json_returns_goal_context_and_goal_picks(capsys) -> None:
     assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"]["name"] == (
         "industrial-adapt-fp40"
     )
-    assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"][
-        "runtime_profile"
-    ] == "gpu-defects"
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"]["runtime_profile"]
+        == "gpu-defects"
+    )
     assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"]["name"] == (
         "industrial-adapt-fp40"
     )
-    assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"][
-        "runtime_profile"
-    ] == "gpu-defects"
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"]["runtime_profile"]
+        == "gpu-defects"
+    )
     assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"]["name"] == (
         "industrial-adapt"
     )
-    assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"][
-        "runtime_profile"
-    ] == "gpu-localization"
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"]["runtime_profile"]
+        == "gpu-localization"
+    )
     assert isinstance(payload["goal_picks"]["datasets"], list)
     assert payload["goal_picks"]["models"][0]["why_this_pick"]
 
@@ -159,10 +162,18 @@ def test_pyim_goal_deployable_json_surfaces_multiple_recipe_starters(capsys) -> 
         "examples/configs/industrial_adapt_audited.json",
         "examples/configs/manifest_industrial_workflow_balanced.json",
     } <= set(recipe_configs)
-    assert recipe_configs["examples/configs/deploy_smoke_custom_cpu.json"]["runtime_profile"] == "cpu-offline"
-    assert recipe_configs["examples/configs/industrial_adapt_audited.json"]["runtime_profile"] == "gpu-audited"
     assert (
-        recipe_configs["examples/configs/manifest_industrial_workflow_balanced.json"]["runtime_profile"]
+        recipe_configs["examples/configs/deploy_smoke_custom_cpu.json"]["runtime_profile"]
+        == "cpu-offline"
+    )
+    assert (
+        recipe_configs["examples/configs/industrial_adapt_audited.json"]["runtime_profile"]
+        == "gpu-audited"
+    )
+    assert (
+        recipe_configs["examples/configs/manifest_industrial_workflow_balanced.json"][
+            "runtime_profile"
+        ]
         == "manifest-balanced"
     )
 
@@ -286,8 +297,14 @@ def test_pyim_goal_cpu_screening_text_surfaces_classical_recipe_config(capsys) -
     assert "config=examples/configs/classical_structural_ecod_cpu.json" in out
     assert "profile=cpu-screening" in out
     assert "inspect=pyimgano train --recipe-info classical-colorhist-mahalanobis --json" in out
-    assert "dry_run=pyimgano train --dry-run --config examples/configs/classical_colorhist_mahalanobis_cpu.json" in out
-    assert "run=pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json" in out
+    assert (
+        "dry_run=pyimgano train --dry-run --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
+        in out
+    )
+    assert (
+        "run=pyimgano train --config examples/configs/classical_colorhist_mahalanobis_cpu.json"
+        in out
+    )
 
 
 def test_pyim_main_routes_app_errors_through_parser(monkeypatch, capsys) -> None:
@@ -445,7 +462,10 @@ def test_pyim_list_models_can_emit_selection_json(capsys):
     assert payload["starter_picks"][0]["name"] == "vision_ecod"
     assert payload["starter_picks"][0]["tested_runtime"] == "numpy"
     assert payload["starter_picks"][0]["supports_pixel_map"] is False
-    assert payload["suggested_commands"][0] == "pyimgano-doctor --recommend-extras --for-model vision_ecod --json"
+    assert (
+        payload["suggested_commands"][0]
+        == "pyimgano-doctor --recommend-extras --for-model vision_ecod --json"
+    )
 
 
 def test_pyim_list_models_text_can_render_starter_picks(capsys):

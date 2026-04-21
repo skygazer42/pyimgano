@@ -79,7 +79,10 @@ def test_export_suite_tables_writes_metadata_json(tmp_path):
     assert metadata["benchmark_config"]["starter_tier"] == "starter"
     assert metadata["benchmark_config"]["optional_extras"] == ["clip", "skimage", "torch"]
     assert metadata["benchmark_config"]["optional_baseline_count"] == 11
-    assert metadata["benchmark_config"]["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
+    assert (
+        metadata["benchmark_config"]["starter_list_command"]
+        == "pyimgano benchmark --list-starter-configs"
+    )
     assert metadata["environment_fingerprint_sha256"] == "f" * 64
     assert metadata["split_fingerprint"]["sha256"] == "b" * 64
     assert metadata["dataset_profile"]["pixel_metrics_available"] is True

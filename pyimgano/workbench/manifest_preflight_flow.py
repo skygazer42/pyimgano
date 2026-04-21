@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 
-def resolve_manifest_preflight_source_or_summary(source: Mapping[str, Any]) -> dict[str, Any] | None:
+def resolve_manifest_preflight_source_or_summary(
+    source: Mapping[str, Any],
+) -> dict[str, Any] | None:
     summary = source.get("summary", None)
     return dict(summary) if isinstance(summary, Mapping) else None
 

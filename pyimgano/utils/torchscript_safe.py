@@ -6,9 +6,9 @@ These wrappers keep current TorchScript-based workflows stable while avoiding
 test and CLI noise from deprecation warnings emitted by recent torch versions.
 """
 
+import warnings
 from pathlib import Path
 from typing import Any
-import warnings
 
 
 def trace_module(model: Any, example_inputs: Any):

@@ -27,10 +27,9 @@ from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from sklearn.neighbors import KDTree
 
-from pyimgano.utils.torchvision_safe import load_torchvision_model
-
 from pyimgano.models._legacy_x import MISSING, resolve_legacy_x_keyword
 from pyimgano.models.base_dl import BaseVisionDeepDetector
+from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 
 class PyramidFeatureExtractor(nn.Module):
@@ -186,7 +185,8 @@ class PNIDetector(BaseVisionDeepDetector):
         if weights is None:
             self.weights = [1.0 / len(feature_levels)] * len(feature_levels)
         else:
-            assert len(weights) == len(feature_levels)
+            if len(weights) != len(feature_levels):
+                raise ValueError("weights must have the same length as feature_levels")
             self.weights = weights
 
         # Initialize feature extractor

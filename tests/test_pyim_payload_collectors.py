@@ -42,7 +42,7 @@ def test_collect_pyim_payload_field_builds_typed_dataset_items(monkeypatch) -> N
             name="custom",
             description="Custom dataset",
             requires_category=True,
-        )
+        ),
     ]
 
 

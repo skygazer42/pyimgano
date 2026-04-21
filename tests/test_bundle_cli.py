@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -304,7 +304,9 @@ def test_bundle_cli_validate_blocks_invalid_handoff_report(tmp_path: Path, capsy
     assert "invalid_handoff_report" in payload["blocking_reasons"]
 
 
-def test_bundle_cli_text_uses_validate_rendering_helper(monkeypatch, capsys, tmp_path: Path) -> None:
+def test_bundle_cli_text_uses_validate_rendering_helper(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
     import pyimgano.bundle_cli as bundle_cli
 
     monkeypatch.setattr(
@@ -587,9 +589,7 @@ def test_bundle_cli_watch_resolves_webhook_secrets_from_files(
     assert request.webhook_signing_secret == "file-sign"
 
 
-def test_bundle_cli_watch_rejects_missing_webhook_secret_env(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_bundle_cli_watch_rejects_missing_webhook_secret_env(tmp_path: Path, monkeypatch) -> None:
     import pyimgano.bundle_cli as bundle_cli
 
     bundle_dir = _make_ready_bundle(tmp_path)
@@ -900,7 +900,10 @@ def test_bundle_watch_service_retries_webhook_without_rerunning_inference(tmp_pa
     assert delivery_attempts[0]["headers"]["X-PyImgAno-Signature"]
     assert delivery_attempts[0]["payload"]["delivery_attempt"] == 1
     assert delivery_attempts[1]["payload"]["delivery_attempt"] == 2
-    assert delivery_attempts[0]["payload"]["delivery_id"] == delivery_attempts[1]["payload"]["delivery_id"]
+    assert (
+        delivery_attempts[0]["payload"]["delivery_id"]
+        == delivery_attempts[1]["payload"]["delivery_id"]
+    )
     event_rows = [
         json.loads(line)
         for line in (output_dir / "watch_events.jsonl").read_text(encoding="utf-8").splitlines()
@@ -1013,6 +1016,64 @@ def test_bundle_watch_service_respects_webhook_retry_backoff(tmp_path: Path) -> 
     state = json.loads((output_dir / "watch_state.json").read_text(encoding="utf-8"))
     assert state["entries"]["sample.png"]["delivery_attempts"] == 2
     assert state["entries"]["sample.png"]["next_delivery_attempt_after"] is None
+
+
+def test_bundle_watch_service_rejects_non_http_webhook_scheme(tmp_path: Path) -> None:
+    from pyimgano.services.bundle_watch_service import BundleWatchRequest, run_bundle_watch_once
+
+    bundle_dir = _make_ready_bundle(tmp_path)
+    watch_dir = tmp_path / "watch_inputs"
+    image_path = watch_dir / "sample.png"
+    _write_png(image_path)
+    os.utime(image_path, (1699999990, 1699999990))
+    output_dir = tmp_path / "watch_out"
+    deliveries: list[dict[str, object]] = []
+
+    def _fake_infer(argv: list[str]) -> int:
+        args = list(argv)
+        results_path = Path(args[args.index("--save-jsonl") + 1])
+        _write_jsonl(results_path, [{"score": 0.25, "label": 0}])
+        return 0
+
+    def _fake_webhook(
+        payload: dict[str, object],
+        url: str,
+        timeout: float,
+        headers: dict[str, str],
+        body: str,
+    ) -> None:
+        deliveries.append(
+            {
+                "payload": dict(payload),
+                "url": url,
+                "timeout": timeout,
+                "headers": dict(headers),
+                "body": str(body),
+            }
+        )
+
+    request = BundleWatchRequest(
+        bundle_dir=bundle_dir,
+        watch_dir=watch_dir,
+        output_dir=output_dir,
+        settle_seconds=0.0,
+        once=True,
+        webhook_url="file:///tmp/hook",
+    )
+
+    report = run_bundle_watch_once(
+        request,
+        infer_main_impl=_fake_infer,
+        send_webhook_impl=_fake_webhook,
+        now_fn=lambda: 1700000000.0,
+    )
+
+    assert report["status"] == "failed"
+    assert report["webhook_delivery_count"] == 0
+    assert report["webhook_error_count"] == 1
+    assert report["last_delivery_error_path"] == "sample.png"
+    assert "http" in str(report["last_delivery_error"]).lower()
+    assert deliveries == []
 
 
 def test_bundle_cli_run_writes_results_and_run_report_for_image_dir(

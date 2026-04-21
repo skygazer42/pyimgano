@@ -94,7 +94,9 @@ def test_profile_dataset_target_emits_readiness_issue_codes_for_fewshot_custom_l
     ]
 
 
-def test_lint_dataset_target_emits_error_issue_codes_for_missing_test_anomaly(tmp_path: Path) -> None:
+def test_lint_dataset_target_emits_error_issue_codes_for_missing_test_anomaly(
+    tmp_path: Path,
+) -> None:
     from pyimgano.datasets.inspection import lint_dataset_target
 
     root = tmp_path / "custom"

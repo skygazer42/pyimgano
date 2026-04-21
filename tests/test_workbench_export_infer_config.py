@@ -412,7 +412,7 @@ def test_train_cli_export_deploy_bundle_copies_infer_config_and_checkpoint(tmp_p
 
 
 def test_train_cli_export_deploy_bundle_keeps_artifact_quality_patch_contract_after_helper_extraction(
-    tmp_path
+    tmp_path,
 ):
     from pyimgano.recipes.registry import RECIPE_REGISTRY
     from pyimgano.train_cli import main
@@ -745,9 +745,7 @@ def test_train_cli_export_deploy_bundle_writes_bundle_manifest(tmp_path):
     assert "operator_contract.json" in paths
 
 
-def test_train_cli_export_deploy_bundle_runs_fit_only_detector_via_bundle_cli(
-    tmp_path, capsys
-):
+def test_train_cli_export_deploy_bundle_runs_fit_only_detector_via_bundle_cli(tmp_path, capsys):
     import cv2
 
     from pyimgano.bundle_cli import main as bundle_main

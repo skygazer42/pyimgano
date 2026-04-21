@@ -92,7 +92,12 @@ def test_first_run_command_chain_smoke(tmp_path: Path, capsys) -> None:
     rc = runs_main(["quality", str(benchmark_run), "--json"])
     assert rc == 0
     quality_payload = json.loads(capsys.readouterr().out)
-    assert quality_payload["quality"]["status"] in {"reproducible", "audited", "deployable", "limited"}
+    assert quality_payload["quality"]["status"] in {
+        "reproducible",
+        "audited",
+        "deployable",
+        "limited",
+    }
 
 
 def test_deploy_smoke_command_chain_smoke(tmp_path: Path, capsys) -> None:

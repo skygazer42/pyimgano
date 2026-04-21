@@ -488,7 +488,9 @@ def test_emit_pyim_list_payload_json_can_include_goal_payload(monkeypatch) -> No
     )
 
     rc = rendering.emit_pyim_list_payload(
-        PyimListPayload(models=["vision_ecod"], recipes=[{"name": "industrial-adapt", "metadata": {}}]),
+        PyimListPayload(
+            models=["vision_ecod"], recipes=[{"name": "industrial-adapt", "metadata": {}}]
+        ),
         list_kind="all",
         json_output=True,
         goal_payload={

@@ -72,7 +72,10 @@ def test_starter_paths_doc_maps_goals_to_exact_command_sequences() -> None:
     assert "pyimgano-doctor --profile deploy-smoke --json" in text
     assert "pyimgano-doctor --profile first-run --json" in text
     assert "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json" in text
-    assert "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json" in text
+    assert (
+        "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json"
+        in text
+    )
 
 
 def test_examples_index_mentions_goal_based_routes() -> None:

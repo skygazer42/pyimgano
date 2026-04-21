@@ -12,31 +12,25 @@ from typing import Any
 import pyimgano.bundle_rendering as bundle_rendering
 import pyimgano.cli_output as cli_output
 import pyimgano.services.bundle_watch_service as bundle_watch_service
-from pyimgano.bundle_cli_helpers import (
-    build_batch_gate_summary as _build_batch_gate_summary_helper,
-)
+from pyimgano.bundle_cli_helpers import build_batch_gate_summary as _build_batch_gate_summary_helper
 from pyimgano.bundle_cli_helpers import (
     build_input_source_summary as _build_input_source_summary_helper,
 )
-from pyimgano.bundle_cli_helpers import (
-    build_reason_codes as _build_reason_codes_helper,
-)
-from pyimgano.bundle_cli_helpers import (
-    run_exit_code as _run_exit_code_helper,
-)
-from pyimgano.bundle_cli_helpers import (
-    validate_exit_code as _validate_exit_code_helper,
-)
+from pyimgano.bundle_cli_helpers import build_reason_codes as _build_reason_codes_helper
+from pyimgano.bundle_cli_helpers import run_exit_code as _run_exit_code_helper
+from pyimgano.bundle_cli_helpers import validate_exit_code as _validate_exit_code_helper
 from pyimgano.datasets.manifest_tools import iter_manifest_rows
 from pyimgano.infer_cli_inputs import collect_image_paths
 from pyimgano.inference.validate_infer_config import validate_infer_config_file
 from pyimgano.reporting.deploy_bundle import (
     normalize_deploy_bundle_runtime_policy,
-    validate_deploy_bundle_manifest,
     validate_deploy_bundle_handoff_report,
+    validate_deploy_bundle_manifest,
 )
-from pyimgano.services.bundle_run_service import BundleInferenceBatchRequest
-from pyimgano.services.bundle_run_service import run_bundle_inference_batch
+from pyimgano.services.bundle_run_service import (
+    BundleInferenceBatchRequest,
+    run_bundle_inference_batch,
+)
 from pyimgano.utils.security import FileHasher
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
@@ -541,13 +535,18 @@ def _evaluate_bundle_artifacts(
     check_hashes: bool,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     if not bundle_root.is_dir():
-        return {}, {}, _default_bundle_weights_payload(bundle_root), {
-            "path": str(bundle_root / "handoff_report.json"),
-            "present": False,
-            "valid": None,
-            "errors": [],
-            "status": "not_applicable",
-        }
+        return (
+            {},
+            {},
+            _default_bundle_weights_payload(bundle_root),
+            {
+                "path": str(bundle_root / "handoff_report.json"),
+                "present": False,
+                "valid": None,
+                "errors": [],
+                "status": "not_applicable",
+            },
+        )
     infer_config = _evaluate_infer_config(bundle_root)
     bundle_manifest = _evaluate_bundle_manifest(bundle_root, check_hashes=bool(check_hashes))
     bundle_weights = _bundle_weights_payload(bundle_root, check_hashes=bool(check_hashes))
@@ -1442,7 +1441,9 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
         poll_seconds=float(args.poll_seconds),
         settle_seconds=float(args.settle_seconds),
         once=bool(args.once),
-        state_file=(str(args.state_file) if getattr(args, "state_file", None) is not None else None),
+        state_file=(
+            str(args.state_file) if getattr(args, "state_file", None) is not None else None
+        ),
         check_hashes=bool(args.check_hashes),
         export_masks=bool(args.export_masks),
         export_overlays=bool(args.export_overlays),
@@ -1491,19 +1492,24 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
             file_option_name="--webhook-signing-secret-file",
         ),
         webhook_headers={
-            str(key): str(value)
-            for key, value in (list(getattr(args, "webhook_header", []) or []))
+            str(key): str(value) for key, value in (list(getattr(args, "webhook_header", []) or []))
         },
         webhook_timeout_seconds=float(args.webhook_timeout_seconds),
         webhook_retry_min_seconds=float(args.webhook_retry_min_seconds),
         max_anomaly_rate=(
-            float(args.max_anomaly_rate) if getattr(args, "max_anomaly_rate", None) is not None else None
+            float(args.max_anomaly_rate)
+            if getattr(args, "max_anomaly_rate", None) is not None
+            else None
         ),
         max_reject_rate=(
-            float(args.max_reject_rate) if getattr(args, "max_reject_rate", None) is not None else None
+            float(args.max_reject_rate)
+            if getattr(args, "max_reject_rate", None) is not None
+            else None
         ),
         max_error_rate=(
-            float(args.max_error_rate) if getattr(args, "max_error_rate", None) is not None else None
+            float(args.max_error_rate)
+            if getattr(args, "max_error_rate", None) is not None
+            else None
         ),
         min_processed=(
             int(args.min_processed) if getattr(args, "min_processed", None) is not None else None

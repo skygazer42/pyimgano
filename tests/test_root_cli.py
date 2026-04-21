@@ -30,7 +30,9 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert "infer:" in out.lower()
     assert "validate:" in out.lower()
     assert "gate:" in out.lower()
-    assert "pyim --list models --objective latency --selection-profile cpu-screening --topk 5" in out
+    assert (
+        "pyim --list models --objective latency --selection-profile cpu-screening --topk 5" in out
+    )
     assert "doctor --recommend-extras --for-command export-onnx --json" in out
     assert "doctor --recommend-extras --for-command export-torchscript --json" in out
     assert "industrial_adapt_audited.json" in out
@@ -41,11 +43,7 @@ def test_root_cli_prints_help_with_command_index(capsys):
     assert "deploy-smoke:" in out.lower()
     assert "first-run:" in out.lower()
     assert "publish:" in out.lower()
-    assert (
-        out.index("deploy-smoke:")
-        < out.index("first-run:")
-        < out.index("benchmark:")
-    )
+    assert out.index("deploy-smoke:") < out.index("first-run:") < out.index("benchmark:")
     assert "pyimgano-doctor --profile deploy-smoke --json" in out
     assert "deploy_smoke_custom_cpu.json" in out
     assert "pyimgano train --list-recipes" in out
@@ -65,7 +63,7 @@ def test_root_cli_help_uses_shared_workflow_guidance_groups(monkeypatch, capsys)
         "list_starter_paths",
         lambda: [
             type("StarterPath", (), {"name": "deploy-smoke", "commands": ("deploy-smoke-cmd",)})(),
-            type("StarterPath", (), {"name": "first-run", "commands": ("starter-path-cmd",)})()
+            type("StarterPath", (), {"name": "first-run", "commands": ("starter-path-cmd",)})(),
         ],
     )
     monkeypatch.setattr(root_cli, "list_workflow_stages", lambda: [])

@@ -57,8 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     from pyimgano.utils.optional_deps import require
 
     torch = require("torch", extra="torch", purpose="pyimgano-export-torchscript")
-    from pyimgano.utils.torchscript_safe import freeze_module
-    from pyimgano.utils.torchscript_safe import trace_module
+    from pyimgano.utils.torchscript_safe import freeze_module, trace_module
 
     dev = str(args.device).strip().lower()
     if dev == "cuda" and not torch.cuda.is_available():

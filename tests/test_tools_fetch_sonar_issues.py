@@ -58,16 +58,17 @@ def test_fetch_sonar_issues_json_output_includes_project_status_and_issues(
         if api_path.startswith("/api/qualitygates/project_status"):
             return {"projectStatus": {"status": "OK"}}
         if api_path.startswith("/api/issues/search"):
-            return {"total": 1, "issues": [{"rule": "python:S7519", "message": "Replace with dict fromkeys."}]}
+            return {
+                "total": 1,
+                "issues": [{"rule": "python:S7519", "message": "Replace with dict fromkeys."}],
+            }
         raise AssertionError(api_path)
 
     monkeypatch.setenv("SONAR_TOKEN", "token")
     monkeypatch.setattr(fetch_sonar_issues, "fetch_json", _fake_fetch_json)
 
     assert (
-        fetch_sonar_issues.main(
-            ["--project-key", "skygazer42_pyimgano", "--limit", "1", "--json"]
-        )
+        fetch_sonar_issues.main(["--project-key", "skygazer42_pyimgano", "--limit", "1", "--json"])
         == 0
     )
 

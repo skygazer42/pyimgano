@@ -87,7 +87,8 @@ def extract_features_with_array_cache(
             cache.save(arrays_list[idx], row)
             cached_rows[idx] = row
 
-    assert all(r is not None for r in cached_rows)
+    if any(r is None for r in cached_rows):
+        raise RuntimeError("Array feature cache left unresolved rows after extraction.")
     return np.stack([np.asarray(r) for r in cached_rows], axis=0)
 
 

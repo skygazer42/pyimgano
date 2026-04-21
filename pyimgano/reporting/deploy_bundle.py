@@ -7,8 +7,14 @@ from typing import Any, Mapping
 
 from pyimgano.reporting.deploy_bundle_contract_helpers import (
     build_artifact_digests as _build_artifact_digests_helper,
+)
+from pyimgano.reporting.deploy_bundle_contract_helpers import (
     build_artifact_roles as _build_artifact_roles_helper,
+)
+from pyimgano.reporting.deploy_bundle_contract_helpers import (
     collect_existing_artifact_refs as _collect_existing_artifact_refs_helper,
+)
+from pyimgano.reporting.deploy_bundle_contract_helpers import (
     required_artifacts_present as _required_artifacts_present_helper,
 )
 from pyimgano.reporting.deploy_bundle_validation_helpers import (
@@ -678,6 +684,8 @@ def _operator_contract_digest_actual(
         bundle_root=bundle_root,
     )
     return actual, source_available
+
+
 def _validate_operator_contract_digests(
     value: Any,
     *,

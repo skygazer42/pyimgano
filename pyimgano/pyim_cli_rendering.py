@@ -140,7 +140,11 @@ def _render_starter_picks(selection_payload: Mapping[str, Any]) -> None:
 
 
 def _render_suggested_commands(selection_payload: Mapping[str, Any]) -> None:
-    commands = [str(item) for item in selection_payload.get("suggested_commands", []) or [] if str(item).strip()]
+    commands = [
+        str(item)
+        for item in selection_payload.get("suggested_commands", []) or []
+        if str(item).strip()
+    ]
     if commands:
         _print_named_block("Suggested Commands", commands)
 

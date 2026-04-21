@@ -10,9 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib import request as urllib_request
+from urllib.parse import urlparse
 
 from pyimgano.infer_cli_inputs import collect_image_paths
-from pyimgano.services.bundle_run_service import BundleInferenceBatchRequest, run_bundle_inference_batch
+from pyimgano.services.bundle_run_service import (
+    BundleInferenceBatchRequest,
+    run_bundle_inference_batch,
+)
 
 _WATCH_SCHEMA_VERSION = 1
 _WATCH_REASON_CODE_MAP = {
@@ -81,7 +85,9 @@ def _default_watch_state(
     }
 
 
-def _load_watch_state(request: BundleWatchRequest, *, output_dir: Path) -> tuple[dict[str, Any], Path]:
+def _load_watch_state(
+    request: BundleWatchRequest, *, output_dir: Path
+) -> tuple[dict[str, Any], Path]:
     state_path = _state_file_path(request, output_dir=output_dir)
     if not state_path.is_file():
         return _default_watch_state(request, state_path=state_path), state_path
@@ -110,7 +116,9 @@ def _append_jsonl_rows(path: Path, rows: list[dict[str, Any]]) -> tuple[int, int
     path.parent.mkdir(parents=True, exist_ok=True)
     start_line = 1
     if path.is_file():
-        start_line += sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+        start_line += sum(
+            1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+        )
     with path.open("a", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True))
@@ -314,6 +322,16 @@ def _default_delivery_status(request: BundleWatchRequest) -> str:
     return "pending" if _webhook_enabled(request) else "not_requested"
 
 
+def _validated_webhook_url(url: str) -> str:
+    normalized = str(url).strip()
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("webhook_url must use http or https.")
+    if not parsed.netloc:
+        raise ValueError("webhook_url must include a network location.")
+    return normalized
+
+
 def _resolve_webhook_headers(request: BundleWatchRequest) -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
     if request.webhook_bearer_token is not None and str(request.webhook_bearer_token).strip():
@@ -423,13 +441,16 @@ def _send_watch_webhook(
     headers: dict[str, str],
     body: str,
 ) -> None:
+    _validated_webhook_url(url)
     req = urllib_request.Request(
         url=str(url),
         data=str(body).encode("utf-8"),
         headers=dict(headers),
         method="POST",
     )
-    with urllib_request.urlopen(req, timeout=float(timeout)) as response:
+    with urllib_request.urlopen(
+        req, timeout=float(timeout)
+    ) as response:  # nosec B310 - URL scheme validated above
         status = int(getattr(response, "status", response.getcode()))
         if not 200 <= status < 300:
             raise RuntimeError(f"webhook returned HTTP {status}")
@@ -446,7 +467,9 @@ def _entry_needs_webhook_delivery(entry: Mapping[str, Any], request: BundleWatch
     return delivery_status != "delivered"
 
 
-def _webhook_retry_allowed(*, entry: Mapping[str, Any], request: BundleWatchRequest, now: float) -> bool:
+def _webhook_retry_allowed(
+    *, entry: Mapping[str, Any], request: BundleWatchRequest, now: float
+) -> bool:
     retry_min_seconds = float(request.webhook_retry_min_seconds)
     if retry_min_seconds <= 0.0:
         return True
@@ -502,9 +525,10 @@ def _deliver_entry_webhook(
     headers["X-PyImgAno-Delivery-Id"] = str(delivery_id)
     headers["X-PyImgAno-Delivery-Attempt"] = str(delivery_attempt)
     try:
+        webhook_url = _validated_webhook_url(str(request.webhook_url))
         send_webhook_impl(
             payload,
-            str(request.webhook_url),
+            webhook_url,
             float(request.webhook_timeout_seconds),
             headers,
             body,
@@ -513,7 +537,9 @@ def _deliver_entry_webhook(
         entry["delivery_status"] = "error"
         entry["last_delivery_error"] = f"{type(exc).__name__}: {exc}"
         entry["last_delivery_at"] = now
-        entry["next_delivery_attempt_after"] = _next_delivery_attempt_after(request=request, now=now)
+        entry["next_delivery_attempt_after"] = _next_delivery_attempt_after(
+            request=request, now=now
+        )
         _emit_watch_event(
             artifacts=artifacts,
             event="webhook_error",
@@ -610,7 +636,9 @@ def _build_watch_report(
         },
         "batch_verdict": str(batch_verdict),
         "batch_gate_summary": dict(batch_gate_summary),
-        "batch_gate_reason_codes": list(dict.fromkeys(str(item) for item in batch_gate_reason_codes)),
+        "batch_gate_reason_codes": list(
+            dict.fromkeys(str(item) for item in batch_gate_reason_codes)
+        ),
         "cycle_error_count": int(cycle_errors),
         "artifacts": {
             "results_jsonl": str(artifacts["results_jsonl"]),
@@ -618,7 +646,9 @@ def _build_watch_report(
             "watch_state_json": str(artifacts["watch_state_json"]),
             "watch_events_jsonl": str(artifacts["watch_events_jsonl"]),
             "defects_regions_jsonl": (
-                str(artifacts["defects_regions_jsonl"]) if bool(request.export_defects_regions) else None
+                str(artifacts["defects_regions_jsonl"])
+                if bool(request.export_defects_regions)
+                else None
             ),
             "masks_dir": str(artifacts["masks_dir"]) if bool(request.export_masks) else None,
             "overlays_dir": (
@@ -644,7 +674,9 @@ def run_bundle_watch_once(
     now_fn: Callable[[], float] | None = None,
     validate_bundle_impl: Callable[..., dict[str, Any]] | None = None,
     batch_gate_evaluator: Callable[..., tuple[dict[str, Any], str, list[str]]] | None = None,
-    send_webhook_impl: Callable[[dict[str, Any], str, float, dict[str, str], str], None] | None = None,
+    send_webhook_impl: (
+        Callable[[dict[str, Any], str, float, dict[str, str], str], None] | None
+    ) = None,
 ) -> dict[str, Any]:
     if now_fn is None:
         now_fn = time.time
@@ -810,7 +842,9 @@ def run_bundle_watch_once(
                 )
             continue
 
-        settled_after = max(float(existing.get("first_seen_at", now)), float(stat.st_mtime_ns) / 1_000_000_000.0)
+        settled_after = max(
+            float(existing.get("first_seen_at", now)), float(stat.st_mtime_ns) / 1_000_000_000.0
+        )
         if now < settled_after + float(request.settle_seconds):
             if existing.get("last_skip_reason") != "unsettled":
                 existing["last_skip_reason"] = "unsettled"

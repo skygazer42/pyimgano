@@ -149,10 +149,16 @@ class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):
 
     def _extract_feat_map(self, rgb_u8_hwc: np.ndarray):  # noqa: ANN001, ANN201 - torch tensor
         self._ensure_ready()
-        assert self._torch is not None
-        assert self._model is not None
-        assert self._transform is not None
-        assert self._device_obj is not None
+        if (
+            self._torch is None
+            or self._model is None
+            or self._transform is None
+            or self._device_obj is None
+        ):
+            raise RuntimeError(
+                "VisionRefPatchDistanceMapDetector internal state is not initialized. "
+                "Call _ensure_ready() before extracting feature maps."
+            )
 
         from PIL import Image
 
@@ -165,8 +171,10 @@ class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):
         return feat
 
     def _distance_map(self, q_feat, r_feat, *, out_hw: tuple[int, int]):  # noqa: ANN001, ANN201
-        assert self._torch is not None
-        assert self._F is not None
+        if self._torch is None or self._F is None:
+            raise RuntimeError(
+                "VisionRefPatchDistanceMapDetector internal torch state is not initialized."
+            )
 
         q = q_feat
         r = r_feat

@@ -18,15 +18,13 @@ def _load_audit_release_surface_module():
 
 def test_package_readme_link_audit_flags_relative_publish_paths() -> None:
     module = _load_audit_release_surface_module()
-    issues = module._find_package_readme_link_issues(
-        """
+    issues = module._find_package_readme_link_issues("""
 <img src="assets/banner.svg" alt="banner"/>
 <a href="docs/START_HERE.md">Docs</a>
 [Quickstart](docs/QUICKSTART.md)
 [License](LICENSE)
 <a href="#top">Top</a>
-        """.strip()
-    )
+        """.strip())
 
     assert any("assets/banner.svg" in issue for issue in issues)
     assert any("docs/START_HERE.md" in issue for issue in issues)
@@ -37,14 +35,12 @@ def test_package_readme_link_audit_flags_relative_publish_paths() -> None:
 
 def test_package_readme_link_audit_accepts_absolute_urls_and_anchors() -> None:
     module = _load_audit_release_surface_module()
-    issues = module._find_package_readme_link_issues(
-        """
+    issues = module._find_package_readme_link_issues("""
 <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/banner.svg" alt="banner"/>
 <a href="https://github.com/skygazer42/pyimgano/blob/main/docs/START_HERE.md">Docs</a>
 [Quickstart](https://github.com/skygazer42/pyimgano/blob/main/docs/QUICKSTART.md)
 [Top](#top)
-        """.strip()
-    )
+        """.strip())
 
     assert issues == []
 

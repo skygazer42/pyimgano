@@ -71,7 +71,9 @@ def test_maybe_apply_onnx_session_options_and_sweep_returns_original_without_opt
     assert resolved is not user_kwargs
 
 
-def test_maybe_apply_onnx_session_options_and_sweep_applies_cli_session_options(monkeypatch) -> None:
+def test_maybe_apply_onnx_session_options_and_sweep_applies_cli_session_options(
+    monkeypatch,
+) -> None:
     import pyimgano.infer_cli_onnx as infer_cli_onnx
 
     calls: list[tuple[str, object]] = []

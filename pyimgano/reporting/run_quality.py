@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from pyimgano.reporting.calibration_card import validate_calibration_card_payload
-from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_manifest
-from pyimgano.reporting.deploy_bundle import validate_deploy_bundle_handoff_report
+from pyimgano.reporting.deploy_bundle import (
+    validate_deploy_bundle_handoff_report,
+    validate_deploy_bundle_manifest,
+)
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
 

@@ -23,6 +23,7 @@ include tox.ini
 # Include documentation (Sphinx source + markdown docs).
 # Keep this list tight to avoid noisy sdist build warnings.
 recursive-include docs *.md *.rst *.html *.py *.gitkeep
+prune docs/build
 
 # Include tests (for source distributions)
 recursive-include tests *.py

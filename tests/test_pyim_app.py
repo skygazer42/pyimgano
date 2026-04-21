@@ -295,7 +295,11 @@ def test_run_pyim_command_goal_flow_delegates_goal_payload(monkeypatch) -> None:
                     lambda request: goal_calls.append(dict(request.__dict__))
                     or {
                         "goal_context": {"goal": "deployable"},
-                        "goal_picks": {"models": [{"name": "vision_ecod"}], "recipes": [], "datasets": []},
+                        "goal_picks": {
+                            "models": [{"name": "vision_ecod"}],
+                            "recipes": [],
+                            "datasets": [],
+                        },
                     }
                 ),
             },
@@ -340,7 +344,11 @@ def test_run_pyim_command_goal_flow_delegates_goal_payload(monkeypatch) -> None:
                 "selection_payload": None,
                 "goal_payload": {
                     "goal_context": {"goal": "deployable"},
-                    "goal_picks": {"models": [{"name": "vision_ecod"}], "recipes": [], "datasets": []},
+                    "goal_picks": {
+                        "models": [{"name": "vision_ecod"}],
+                        "recipes": [],
+                        "datasets": [],
+                    },
                 },
             },
         )

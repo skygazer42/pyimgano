@@ -16,28 +16,23 @@ from pyimgano.services.doctor_service_helpers import (
 from pyimgano.services.doctor_service_helpers import (
     build_require_extras_check as _build_require_extras_check_helper,
 )
-from pyimgano.services.doctor_service_helpers import (
-    split_csv_args as _split_csv_args_helper,
-)
-from pyimgano.utils.extras import extra_installed
-from pyimgano.utils.extras import extras_install_hint
+from pyimgano.services.doctor_service_helpers import split_csv_args as _split_csv_args_helper
+from pyimgano.utils.extras import extra_installed, extras_install_hint
 from pyimgano.utils.optional_deps import optional_import
-from pyimgano.workflow_guidance import artifact_hints_for_command
-from pyimgano.workflow_guidance import command_workflow_guidance
-from pyimgano.workflow_guidance import default_starter_benchmark_name
-from pyimgano.workflow_guidance import deploy_smoke_commands
-from pyimgano.workflow_guidance import first_ten_minutes_commands
-from pyimgano.workflow_guidance import model_workflow_guidance
-from pyimgano.workflow_guidance import model_info_command_for_model
-from pyimgano.workflow_guidance import next_step_commands_for_command
-from pyimgano.workflow_guidance import next_step_commands_for_model
-from pyimgano.workflow_guidance import suggested_commands_for_command
-from pyimgano.workflow_guidance import suggested_commands_for_model
-from pyimgano.workflow_guidance import starter_benchmark_info_command
-from pyimgano.workflow_guidance import starter_benchmark_list_command
-from pyimgano.workflow_guidance import starter_benchmark_run_command
-from pyimgano.workflow_guidance import workflow_stage_for_command
-from pyimgano.workflow_guidance import workflow_stage_for_model
+from pyimgano.workflow_guidance import (
+    artifact_hints_for_command,
+    command_workflow_guidance,
+    default_starter_benchmark_name,
+    deploy_smoke_commands,
+    first_ten_minutes_commands,
+    model_workflow_guidance,
+    next_step_commands_for_command,
+    starter_benchmark_info_command,
+    starter_benchmark_list_command,
+    starter_benchmark_run_command,
+    suggested_commands_for_command,
+    workflow_stage_for_command,
+)
 
 _DOCTOR_PROFILE_CHOICES = {"first-run", "deploy-smoke", "benchmark", "deploy", "publish"}
 
@@ -1051,7 +1046,9 @@ def _build_dataset_target_payload(
     readiness_payload = dict(profile_payload.get("readiness", {}) or {})
     issues = [str(item) for item in readiness_payload.get("issues", []) if str(item).strip()]
     status = str(readiness_payload.get("status", "ok") or "ok")
-    issue_codes = [str(item) for item in readiness_payload.get("issue_codes", []) if str(item).strip()]
+    issue_codes = [
+        str(item) for item in readiness_payload.get("issue_codes", []) if str(item).strip()
+    ]
     issue_details = [
         dict(item)
         for item in readiness_payload.get("issue_details", [])
@@ -1120,7 +1117,9 @@ _COMMAND_EXTRA_SPECS: dict[str, dict[str, Any]] = {
         "required_extras": [],
         "recommended_extras": ["torch", "onnx", "openvino"],
         "recommended_extra_profiles": ["deploy"],
-        "notes": ["Base install supports classical CPU inference; extras unlock deep and deploy runtimes."],
+        "notes": [
+            "Base install supports classical CPU inference; extras unlock deep and deploy runtimes."
+        ],
     },
     "runs": {
         "required_extras": [],
@@ -1154,11 +1153,7 @@ def _build_extra_recommendation_payload(
     combined = [*required, *recommended]
     missing = [extra for extra in combined if not extra_installed(extra)]
     available = [extra for extra in combined if extra not in missing]
-    profile_names = [
-        str(item)
-        for item in recommended_extra_profiles or []
-        if str(item).strip()
-    ]
+    profile_names = [str(item) for item in recommended_extra_profiles or [] if str(item).strip()]
     install_hint = extras_install_hint(missing or combined) if combined else None
     install_command = extras_install_hint([profile_names[0]]) if profile_names else install_hint
     return {
@@ -1774,9 +1769,7 @@ def _resolve_doctor_profile_payload(
 
     key = str(profile).strip().lower()
     if key not in _DOCTOR_PROFILE_CHOICES:
-        raise ValueError(
-            f"profile must be one of: {', '.join(sorted(_DOCTOR_PROFILE_CHOICES))}"
-        )
+        raise ValueError(f"profile must be one of: {', '.join(sorted(_DOCTOR_PROFILE_CHOICES))}")
 
     optional_modules = payload.get("optional_modules", [])
     if not isinstance(optional_modules, Sequence):

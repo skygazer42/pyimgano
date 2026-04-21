@@ -211,7 +211,8 @@ class _BaseSSIMMapDetector(BaseDetector):
                 best_sim = sim_f
                 best_map = np.asarray(sim_map, dtype=np.float32)
 
-        assert best_map is not None
+        if best_map is None:
+            raise RuntimeError("Internal error: failed to select an SSIM reference map.")
         # Convert similarity map to anomaly map (higher => more anomalous).
         am = 1.0 - best_map
         am = np.clip(am, 0.0, 1.0).astype(np.float32)

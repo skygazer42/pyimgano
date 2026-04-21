@@ -279,7 +279,10 @@ def test_doctor_cli_text_renders_workflow_profile(monkeypatch, capsys) -> None:
     assert "workflow_profile:" in out
     assert "- profile: first-run" in out
     assert "- summary: doctor -> demo -> benchmark -> infer -> runs quality" in out
-    assert "pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps" in out
+    assert (
+        "pyimgano-demo --smoke --summary-json /tmp/pyimgano_demo_summary.json --emit-next-steps"
+        in out
+    )
     assert "artifact_hints: ./_demo_suite_run/report.json" in out
 
 
@@ -373,8 +376,14 @@ def test_doctor_cli_text_renders_extras_recommendation(monkeypatch, capsys) -> N
     assert "target: export-onnx" in out
     assert "pip install 'pyimgano[onnx,torch]'" in out
     assert "workflow_stage: validate" in out
-    assert "export_command: pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained" in out
-    assert "infer_followup_command: pyimgano-doctor --recommend-extras --for-command infer --json" in out
+    assert (
+        "export_command: pyimgano-export-onnx --backbone resnet18 --output /tmp/embed.onnx --no-pretrained"
+        in out
+    )
+    assert (
+        "infer_followup_command: pyimgano-doctor --recommend-extras --for-command infer --json"
+        in out
+    )
     assert "artifact_hints: embed.onnx; onnx sweep JSON (optional)" in out
 
 
@@ -426,9 +435,17 @@ def test_doctor_cli_text_renders_benchmark_recommendation_context(monkeypatch, c
     assert "optional_baseline_count: 11" in out
     assert "starter_configs: official_mvtec_industrial_v4_cpu_offline.json" in out
     assert "starter_list_command: pyimgano benchmark --list-starter-configs" in out
-    assert "starter_run_command: pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json" in out
-    assert "suggested_commands: pyimgano benchmark --list-starter-configs; pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json" in out
-    assert "next_step_commands: pyimgano-doctor --recommend-extras --for-command train --json" in out
+    assert (
+        "starter_run_command: pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
+        in out
+    )
+    assert (
+        "suggested_commands: pyimgano benchmark --list-starter-configs; pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
+        in out
+    )
+    assert (
+        "next_step_commands: pyimgano-doctor --recommend-extras --for-command train --json" in out
+    )
     assert "artifact_hints: leaderboard.csv; leaderboard_metadata.json" in out
 
 
@@ -500,8 +517,14 @@ def test_doctor_cli_text_renders_train_suggested_commands(monkeypatch, capsys) -
     assert "pyimgano train --list-recipes" in out
     assert "pyimgano train --recipe-info industrial-adapt --json" in out
     assert "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json" in out
-    assert "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json" in out
-    assert "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle" in out
+    assert (
+        "pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json"
+        in out
+    )
+    assert (
+        "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle"
+        in out
+    )
     assert "artifact_hints: artifacts/infer_config.json; deploy_bundle/bundle_manifest.json" in out
 
 
@@ -542,7 +565,10 @@ def test_doctor_cli_text_renders_model_recommendation_context(monkeypatch, capsy
     assert rc == 0
     out = capsys.readouterr().out
     assert "workflow_stage: discover" in out
-    assert "model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json" in out
+    assert (
+        "model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json"
+        in out
+    )
 
 
 def test_doctor_cli_text_renders_infer_structured_commands(monkeypatch, capsys) -> None:

@@ -72,7 +72,8 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
 
-        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if embed_dim % num_heads != 0:
+            raise ValueError("embed_dim must be divisible by num_heads")
 
         self.qkv = nn.Linear(embed_dim, embed_dim * 3)
         self.proj = nn.Linear(embed_dim, embed_dim)

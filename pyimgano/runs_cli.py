@@ -34,9 +34,7 @@ from pyimgano.reporting.run_index_helpers import (
 from pyimgano.reporting.run_index_helpers import (
     format_candidate_incompatibility_digest as _format_candidate_incompatibility_digest_helper,
 )
-from pyimgano.reporting.run_index_helpers import (
-    format_metric_value as _format_metric_value_helper,
-)
+from pyimgano.reporting.run_index_helpers import format_metric_value as _format_metric_value_helper
 from pyimgano.reporting.run_quality import evaluate_run_quality
 
 _QUALITY_STATUS_RANK = {
@@ -801,7 +799,9 @@ def main(argv: list[str] | None = None) -> int:
                                 "candidate_dataset_readiness_status."
                                 f"{run_name}={readiness_status}"
                             )
-                        issue_codes = [str(item) for item in readiness.get("issue_codes", []) if str(item)]
+                        issue_codes = [
+                            str(item) for item in readiness.get("issue_codes", []) if str(item)
+                        ]
                         print(
                             "candidate_dataset_issue_codes."
                             f"{run_name}=" + (",".join(issue_codes) if issue_codes else "none")
@@ -1135,7 +1135,9 @@ def main(argv: list[str] | None = None) -> int:
             handoff_report_status = acceptance.get("handoff_report_status", None)
             if handoff_report_status is not None:
                 print(f"handoff_report_status={handoff_report_status}")
-            dataset_readiness = dict(dict(acceptance.get("quality", {})).get("dataset_readiness", {}))
+            dataset_readiness = dict(
+                dict(acceptance.get("quality", {})).get("dataset_readiness", {})
+            )
             if dataset_readiness:
                 print(f"dataset_readiness_status={dataset_readiness.get('status')}")
                 issue_codes = list(dataset_readiness.get("issue_codes", []))

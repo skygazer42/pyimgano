@@ -246,7 +246,8 @@ class VisionTemplateNCCMapDetector(BaseDetector):
                 best_sim = sim
                 best_ncc = ncc
 
-        assert best_ncc is not None
+        if best_ncc is None:
+            raise RuntimeError("Internal error: failed to compute a template NCC map.")
         am = (1.0 - best_ncc) * 0.5
         am = np.clip(am, 0.0, 1.0).astype(np.float32)
 

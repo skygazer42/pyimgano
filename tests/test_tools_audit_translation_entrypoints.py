@@ -31,4 +31,3 @@ def test_audit_translation_entrypoints_current_repo_passes() -> None:
 
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "OK" in proc.stdout
-

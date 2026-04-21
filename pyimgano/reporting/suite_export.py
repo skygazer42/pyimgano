@@ -823,9 +823,11 @@ def export_suite_tables(
     dataset_readiness = (
         dict(payload.get("dataset_readiness", {}))
         if isinstance(payload.get("dataset_readiness"), Mapping)
-        else dict(payload.get("readiness", {}))
-        if isinstance(payload.get("readiness"), Mapping)
-        else None
+        else (
+            dict(payload.get("readiness", {}))
+            if isinstance(payload.get("readiness"), Mapping)
+            else None
+        )
     )
     deployment_summary = _build_deployment_summary(rows_norm)
     upstream_coverage_summary = _build_upstream_coverage_summary(rows_norm)

@@ -58,11 +58,17 @@ def test_build_artifact_digests_maps_paths_to_sha256() -> None:
 def test_required_artifacts_present_requires_all_named_refs() -> None:
     from pyimgano.reporting.deploy_bundle_contract_helpers import required_artifacts_present
 
-    assert required_artifacts_present(
-        {"report": "report.json", "config": "config.json"},
-        required_names=("report", "config"),
-    ) is True
-    assert required_artifacts_present(
-        {"report": "report.json"},
-        required_names=("report", "config"),
-    ) is False
+    assert (
+        required_artifacts_present(
+            {"report": "report.json", "config": "config.json"},
+            required_names=("report", "config"),
+        )
+        is True
+    )
+    assert (
+        required_artifacts_present(
+            {"report": "report.json"},
+            required_names=("report", "config"),
+        )
+        is False
+    )

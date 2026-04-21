@@ -101,7 +101,7 @@ def _comparison_trust_gate(trust_status: object) -> str | None:
 
 
 def _operator_contract_status_from_trust_summary(
-    trust_summary: Mapping[str, Any]
+    trust_summary: Mapping[str, Any],
 ) -> tuple[str, bool]:
     return _operator_contract_status_from_trust_summary_helper(trust_summary)
 
@@ -476,9 +476,9 @@ def _set_bundle_operator_contract_candidate_state(
         status=status,
     )
     if isinstance(run_dir_name, str) and run_dir_name in candidate_bundle_digest_statuses:
-        candidate_bundle_digest_statuses[
-            run_dir_name
-        ] = _run_bundle_operator_contract_digest_status(run)
+        candidate_bundle_digest_statuses[run_dir_name] = (
+            _run_bundle_operator_contract_digest_status(run)
+        )
 
 
 def _append_bundle_operator_contract_status_reasons(
@@ -640,16 +640,17 @@ def _dataset_readiness_payload(run: Mapping[str, Any] | None) -> dict[str, Any] 
     if not readiness:
         return None
     issue_codes = readiness.get("issue_codes", None)
-    readiness["issue_codes"] = [str(item) for item in issue_codes if str(item)] if isinstance(
-        issue_codes, list
-    ) else []
+    readiness["issue_codes"] = (
+        [str(item) for item in issue_codes if str(item)] if isinstance(issue_codes, list) else []
+    )
     issue_details = readiness.get("issue_details", None)
     readiness["issue_details"] = list(issue_details) if isinstance(issue_details, list) else []
     status = readiness.get("status", None)
     if (
-        not isinstance(status, str)
-        or not status
-    ) and not readiness["issue_codes"] and not readiness["issue_details"]:
+        (not isinstance(status, str) or not status)
+        and not readiness["issue_codes"]
+        and not readiness["issue_details"]
+    ):
         return None
     return readiness
 

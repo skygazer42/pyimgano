@@ -13,8 +13,7 @@ from pyimgano.workbench.config_section_parsers import (
     _parse_preprocessing_config,
     _parse_training_config,
 )
-from pyimgano.workbench.config_types import MetaConfig
-from pyimgano.workbench.config_types import WorkbenchConfig
+from pyimgano.workbench.config_types import MetaConfig, WorkbenchConfig
 
 WorkbenchConfigT = TypeVar("WorkbenchConfigT", bound=WorkbenchConfig)
 

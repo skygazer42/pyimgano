@@ -17,11 +17,13 @@ def test_collect_doctor_payload_recommends_extras_for_export_onnx_command(
     monkeypatch,
 ) -> None:
     import pyimgano.services.doctor_service as doctor_service
-    from pyimgano.workflow_guidance import artifact_hints_for_command
-    from pyimgano.workflow_guidance import command_workflow_guidance
-    from pyimgano.workflow_guidance import next_step_commands_for_command
-    from pyimgano.workflow_guidance import suggested_commands_for_command
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        artifact_hints_for_command,
+        command_workflow_guidance,
+        next_step_commands_for_command,
+        suggested_commands_for_command,
+        workflow_stage_for_command,
+    )
 
     monkeypatch.setattr(
         doctor_service,
@@ -57,9 +59,11 @@ def test_collect_doctor_payload_recommends_extras_for_export_onnx_command(
 
 
 def test_collect_doctor_payload_recommends_extras_for_export_torchscript_command() -> None:
-    from pyimgano.workflow_guidance import artifact_hints_for_command
-    from pyimgano.workflow_guidance import suggested_commands_for_command
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        artifact_hints_for_command,
+        suggested_commands_for_command,
+        workflow_stage_for_command,
+    )
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="export-torchscript")
 
@@ -76,13 +80,17 @@ def test_collect_doctor_payload_recommends_extras_for_export_torchscript_command
         recommendation["infer_followup_command"]
         == "pyimgano-doctor --recommend-extras --for-command infer --json"
     )
-    assert recommendation["suggested_commands"] == suggested_commands_for_command("export-torchscript")
+    assert recommendation["suggested_commands"] == suggested_commands_for_command(
+        "export-torchscript"
+    )
     assert recommendation["artifact_hints"] == artifact_hints_for_command("export-torchscript")
 
 
 def test_collect_doctor_payload_recommends_train_commands() -> None:
-    from pyimgano.workflow_guidance import next_step_commands_for_command
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        next_step_commands_for_command,
+        workflow_stage_for_command,
+    )
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="train")
 
@@ -94,7 +102,10 @@ def test_collect_doctor_payload_recommends_train_commands() -> None:
     assert recommendation["recommended_extra_profiles"] == ["deploy", "tracking"]
     assert recommendation["install_command"] == "pip install 'pyimgano[deploy]'"
     assert recommendation["recipe_list_command"] == "pyimgano train --list-recipes"
-    assert recommendation["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
+    assert (
+        recommendation["recipe_info_command"]
+        == "pyimgano train --recipe-info industrial-adapt --json"
+    )
     assert (
         recommendation["dry_run_command"]
         == "pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json"
@@ -125,8 +136,10 @@ def test_collect_doctor_payload_recommends_train_commands() -> None:
 
 
 def test_collect_doctor_payload_recommends_infer_commands() -> None:
-    from pyimgano.workflow_guidance import next_step_commands_for_command
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        next_step_commands_for_command,
+        workflow_stage_for_command,
+    )
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="infer")
 
@@ -159,8 +172,10 @@ def test_collect_doctor_payload_recommends_infer_commands() -> None:
 
 
 def test_collect_doctor_payload_recommends_runs_commands() -> None:
-    from pyimgano.workflow_guidance import next_step_commands_for_command
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        next_step_commands_for_command,
+        workflow_stage_for_command,
+    )
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="runs")
 
@@ -195,12 +210,14 @@ def test_collect_doctor_payload_recommends_runs_commands() -> None:
 
 
 def test_collect_doctor_payload_recommends_starter_suite_extras_for_benchmark_command() -> None:
-    from pyimgano.workflow_guidance import artifact_hints_for_command
-    from pyimgano.workflow_guidance import default_starter_benchmark_name
-    from pyimgano.workflow_guidance import next_step_commands_for_command
-    from pyimgano.workflow_guidance import suggested_commands_for_command
-    from pyimgano.workflow_guidance import starter_benchmark_guidance
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        artifact_hints_for_command,
+        default_starter_benchmark_name,
+        next_step_commands_for_command,
+        starter_benchmark_guidance,
+        suggested_commands_for_command,
+        workflow_stage_for_command,
+    )
 
     payload = collect_doctor_payload(recommend_extras=True, for_command="benchmark")
     guidance = starter_benchmark_guidance(default_starter_benchmark_name())
@@ -230,8 +247,7 @@ def test_collect_doctor_payload_recommends_starter_suite_extras_for_benchmark_co
 
 def test_collect_doctor_payload_recommends_extras_for_model(monkeypatch) -> None:
     import pyimgano.services.doctor_service as doctor_service
-    from pyimgano.workflow_guidance import model_workflow_guidance
-    from pyimgano.workflow_guidance import model_info_command_for_model
+    from pyimgano.workflow_guidance import model_info_command_for_model, model_workflow_guidance
 
     monkeypatch.setattr(
         doctor_service,
@@ -251,7 +267,9 @@ def test_collect_doctor_payload_recommends_extras_for_model(monkeypatch) -> None
     assert recommendation["missing_extras"] == ["clip", "torch"]
     assert recommendation["supports_pixel_map"] is True
     assert recommendation["tested_runtime"] == "torch"
-    assert recommendation["model_info_command"] == model_info_command_for_model("vision_openclip_patch_map")
+    assert recommendation["model_info_command"] == model_info_command_for_model(
+        "vision_openclip_patch_map"
+    )
     assert recommendation["suggested_commands"] == list(guidance.suggested_commands)
     assert recommendation["next_step_commands"] == list(guidance.next_step_commands)
     assert recommendation["install_hint"] == "pip install 'pyimgano[clip,torch]'"

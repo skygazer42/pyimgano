@@ -611,7 +611,9 @@ class DifferNetDetector(BaseVisionDeepDetector):
 
         feature_state = state.get("feature_extractor_state_dict", None)
         if not isinstance(feature_state, dict):
-            raise ValueError("Invalid DifferNet checkpoint payload: missing feature extractor state.")
+            raise ValueError(
+                "Invalid DifferNet checkpoint payload: missing feature extractor state."
+            )
         self.feature_extractor.load_state_dict(dict(feature_state), strict=False)
         self.feature_extractor.to(self.device)
         self.feature_extractor.eval()
@@ -631,9 +633,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
             str(layer): np.asarray(bank, dtype=np.float32)
             for layer, bank in memory_bank_raw.items()
         }
-        self.kd_trees = {
-            layer: cKDTree(bank) for layer, bank in self.memory_bank.items()
-        }
+        self.kd_trees = {layer: cKDTree(bank) for layer, bank in self.memory_bank.items()}
         if self.feature_layer != "all":
             if self.feature_layer not in self.kd_trees:
                 raise ValueError(

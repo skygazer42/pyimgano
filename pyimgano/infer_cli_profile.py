@@ -12,17 +12,14 @@ def format_infer_profile_summary(
     artifacts: float,
     total: float,
 ) -> str:
-    return (
-        "profile: "
-        + " ".join(
-            [
-                f"load_model={float(load_model):.3f}s",
-                f"fit_calibrate={float(fit_calibrate):.3f}s",
-                f"infer={float(infer):.3f}s",
-                f"artifacts={float(artifacts):.3f}s",
-                f"total={float(total):.3f}s",
-            ]
-        )
+    return "profile: " + " ".join(
+        [
+            f"load_model={float(load_model):.3f}s",
+            f"fit_calibrate={float(fit_calibrate):.3f}s",
+            f"infer={float(infer):.3f}s",
+            f"artifacts={float(artifacts):.3f}s",
+            f"total={float(total):.3f}s",
+        ]
     )
 
 

@@ -71,7 +71,9 @@ def _fallback_dataset_readiness(dataset_summary: Mapping[str, Any]) -> dict[str,
         issue_details.append({"code": code, "message": message})
 
     if train_count <= 0:
-        _append("MISSING_TRAIN_SPLIT", "Train split is missing; image-level benchmarking cannot run.")
+        _append(
+            "MISSING_TRAIN_SPLIT", "Train split is missing; image-level benchmarking cannot run."
+        )
     if test_normal_count <= 0:
         _append(
             "MISSING_TEST_NORMAL",

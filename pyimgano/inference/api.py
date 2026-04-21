@@ -19,9 +19,7 @@ from pyimgano.inference.runtime_support import (
 from pyimgano.inference.runtime_support import (
     best_effort_label_confidence as _best_effort_label_confidence_shared,
 )
-from pyimgano.inference.runtime_support import (
-    normalize_inputs as _normalize_inputs_shared,
-)
+from pyimgano.inference.runtime_support import normalize_inputs as _normalize_inputs_shared
 from pyimgano.inference.runtime_support import (
     resolve_rejection_threshold as _resolve_rejection_threshold_shared,
 )
@@ -112,7 +110,8 @@ def collect_calibration_scores(
 
     chunks = [normalized] if bs is None or bs >= len(normalized) else []
     if not chunks:
-        assert bs is not None
+        if bs is None:
+            raise RuntimeError("Internal error: batch size normalization produced no chunks.")
         for start in range(0, len(normalized), bs):
             chunks.append(normalized[start : start + bs])
 
@@ -124,7 +123,7 @@ def collect_calibration_scores(
     scores = np.concatenate(scores_all, axis=0)
     if scores.size == 0:
         raise ValueError("No scores produced for calibration inputs.")
-    return np.asarray(scores, dtype=np.float64).reshape(-1)
+    return cast(np.ndarray, np.asarray(scores, dtype=np.float64).reshape(-1))
 
 
 def _torch_inference_context(*, amp: bool) -> ExitStack:

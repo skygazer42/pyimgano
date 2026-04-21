@@ -76,7 +76,7 @@ class BaseFeatureExtractor(ABC):
                 try:
                     for nk, nv in v.get_params(deep=True).items():  # type: ignore[call-arg]
                         nested[f"{k}__{nk}"] = nv
-                except Exception:
+                except Exception:  # nosec B112 - sklearn-style best-effort nested param expansion
                     continue
         out.update(nested)
         return out

@@ -91,7 +91,9 @@ def test_train_cli_recipe_info_outputs_curated_text_sections(capsys):
     assert "  - artifacts/infer_config.json" in out
     assert "  - deploy_bundle/bundle_manifest.json" in out
     assert "  - deploy_bundle/handoff_report.json" in out
-    assert "Run command: pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json" in out
+    assert (
+        "Run command: pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json" in out
+    )
     assert "Metadata:" in out
     assert (
         "  description: Adaptation-first industrial workbench recipe "

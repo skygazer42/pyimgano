@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 _TARGETS = [
     "pyimgano/models/spade.py",
     "pyimgano/models/padim.py",

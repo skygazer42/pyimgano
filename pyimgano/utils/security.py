@@ -70,7 +70,9 @@ class SecurityValidator:
             # Check for path traversal
             if base_dir:
                 base_dir = Path(base_dir).resolve()
-                if not str(path).startswith(str(base_dir)):
+                try:
+                    path.relative_to(base_dir)
+                except ValueError:
                     return False, "Path traversal attempt detected"
 
             # Check for suspicious patterns

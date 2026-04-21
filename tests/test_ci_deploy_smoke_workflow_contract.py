@@ -15,8 +15,14 @@ def test_ci_workflow_includes_deploy_smoke_job() -> None:
     assert "pyimgano-doctor --profile deploy-smoke --json" in workflow
     assert "pyimgano-demo --smoke --dataset-root ./_demo_custom_dataset" in workflow
     assert "deploy_smoke_custom_cpu.json" in workflow
-    assert "pyimgano-train --config /tmp/deploy_smoke_ci.json --export-infer-config --export-deploy-bundle" in workflow
-    assert "pyimgano validate-infer-config ./_deploy_smoke_run/deploy_bundle/infer_config.json" in workflow
+    assert (
+        "pyimgano-train --config /tmp/deploy_smoke_ci.json --export-infer-config --export-deploy-bundle"
+        in workflow
+    )
+    assert (
+        "pyimgano validate-infer-config ./_deploy_smoke_run/deploy_bundle/infer_config.json"
+        in workflow
+    )
     assert "pyimgano bundle validate ./_deploy_smoke_run/deploy_bundle --json" in workflow
     assert "pyimgano runs acceptance ./_deploy_smoke_run --json" in workflow
 

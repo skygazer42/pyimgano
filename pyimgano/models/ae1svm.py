@@ -3,7 +3,6 @@ import numpy as np
 import torch
 from torch import nn
 
-from ..utils.pairwise import pairwise_distances_no_broadcast
 from ..utils.torch_activations import get_activation_by_name
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model

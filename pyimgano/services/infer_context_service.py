@@ -213,7 +213,9 @@ def _build_config_backed_context(context_payload: dict[str, Any]) -> ConfigBacke
         ),
         illumination_contrast_knobs=context_payload.get("illumination_contrast_knobs"),
         tiling_payload=_copy_optional_mapping(context_payload.get("tiling_payload")),
-        infer_config_postprocess=_copy_optional_mapping(context_payload.get("infer_config_postprocess")),
+        infer_config_postprocess=_copy_optional_mapping(
+            context_payload.get("infer_config_postprocess")
+        ),
         enable_maps_by_default=bool(context_payload.get("enable_maps_by_default", False)),
         postprocess_summary=_copy_optional_mapping(context_payload.get("postprocess_summary")),
         warnings=_normalize_warnings(context_payload.get("warnings", ())),

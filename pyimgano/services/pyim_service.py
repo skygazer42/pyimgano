@@ -4,10 +4,8 @@ from typing import Any
 
 import pyimgano.services.pyim_payload_collectors as pyim_payload_collectors
 from pyimgano.pyim_contracts import PyimListPayload, PyimListRequest
-from pyimgano.utils.extras import extra_installed
-from pyimgano.utils.extras import extras_install_hint
+from pyimgano.utils.extras import extra_installed, extras_install_hint
 from pyimgano.workflow_guidance import starter_path_by_name
-
 
 _DEFAULT_OBJECTIVE = "balanced"
 _DEFAULT_SELECTION_PROFILE = "balanced"
@@ -100,7 +98,7 @@ _GOAL_SPECS: dict[str, dict[str, Any]] = {
             {
                 "name": "industrial-adapt",
                 "summary": "Starter workbench recipe once CPU screening narrows the candidate set.",
-            }
+            },
         ],
         "dataset_picks": [
             {
@@ -296,9 +294,7 @@ def _build_goal_recipe_pick(spec: dict[str, Any]) -> dict[str, Any]:
     if config_path:
         enriched["dry_run_command"] = f"pyimgano train --dry-run --config {config_path}"
     if config_path:
-        enriched["preflight_command"] = (
-            f"pyimgano train --preflight --config {config_path} --json"
-        )
+        enriched["preflight_command"] = f"pyimgano train --preflight --config {config_path} --json"
     if config_path:
         enriched["recipe_run_command"] = f"pyimgano train --config {config_path}"
 
@@ -327,9 +323,7 @@ def _expand_goal_recipe_picks(specs: list[dict[str, Any]]) -> list[dict[str, Any
             recipe_meta = {}
 
         starter_configs.extend(
-            str(item)
-            for item in recipe_meta.get("starter_configs", []) or []
-            if str(item).strip()
+            str(item) for item in recipe_meta.get("starter_configs", []) or [] if str(item).strip()
         )
         if not starter_configs:
             default_config = str(recipe_meta.get("default_config", "")).strip()
@@ -393,7 +387,9 @@ def _build_pick_payload(spec: dict[str, Any]) -> dict[str, Any]:
     required = sorted({str(item) for item in spec.get("required_extras", ()) if str(item).strip()})
     recommended = [
         item
-        for item in sorted({str(item) for item in spec.get("recommended_extras", ()) if str(item).strip()})
+        for item in sorted(
+            {str(item) for item in spec.get("recommended_extras", ()) if str(item).strip()}
+        )
         if item not in required
     ]
     combined = [*required, *recommended]
@@ -414,9 +410,7 @@ def _build_pick_payload(spec: dict[str, Any]) -> dict[str, Any]:
         "supports_pixel_map": bool(info.get("supports_pixel_map", False)),
         "tested_runtime": str(deployment_profile.get("tested_runtime", "")),
         "deployment_family": [str(item) for item in deployment_profile.get("family", [])],
-        "doctor_command": (
-            f"pyimgano-doctor --recommend-extras --for-model {spec['name']} --json"
-        ),
+        "doctor_command": (f"pyimgano-doctor --recommend-extras --for-model {spec['name']} --json"),
         "model_info_command": f"pyimgano-benchmark --model-info {spec['name']} --json",
     }
 

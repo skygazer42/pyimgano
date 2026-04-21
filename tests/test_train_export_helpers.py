@@ -88,7 +88,9 @@ def test_rewrite_bundle_paths_copies_relative_checkpoint_and_preserves_relative_
     )
 
     assert rewritten["checkpoint"]["path"] == "checkpoints/custom/model.pt"
-    assert (bundle_dir / "checkpoints" / "custom" / "model.pt").read_text(encoding="utf-8") == "ckpt"
+    assert (bundle_dir / "checkpoints" / "custom" / "model.pt").read_text(
+        encoding="utf-8"
+    ) == "ckpt"
 
 
 def test_rewrite_bundle_paths_rewrites_absolute_model_checkpoint(tmp_path: Path) -> None:
@@ -112,7 +114,9 @@ def test_rewrite_bundle_paths_rewrites_absolute_model_checkpoint(tmp_path: Path)
     )
 
     assert rewritten["model"]["checkpoint_path"] == "artifacts_abs/abs_backbone.onnx"
-    assert (bundle_dir / "artifacts_abs" / "abs_backbone.onnx").read_text(encoding="utf-8") == "onnx_abs"
+    assert (bundle_dir / "artifacts_abs" / "abs_backbone.onnx").read_text(
+        encoding="utf-8"
+    ) == "onnx_abs"
 
 
 def test_apply_bundle_manifest_metadata_updates_artifact_quality_fields() -> None:

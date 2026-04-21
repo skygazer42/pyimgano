@@ -244,7 +244,9 @@ def _build_next_steps(
         steps = []
         if run_dir is not None:
             rerun_path = (
-                (infer_dir / "rerun_results.jsonl") if infer_dir is not None else (run_dir / "rerun_results.jsonl")
+                (infer_dir / "rerun_results.jsonl")
+                if infer_dir is not None
+                else (run_dir / "rerun_results.jsonl")
             )
             steps.append(
                 "pyimgano-infer "

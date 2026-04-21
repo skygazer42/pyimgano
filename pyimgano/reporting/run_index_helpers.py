@@ -28,7 +28,7 @@ def comparison_trust_gate(trust_status: object) -> str | None:
 
 
 def operator_contract_status_from_trust_summary(
-    trust_summary: Mapping[str, Any]
+    trust_summary: Mapping[str, Any],
 ) -> tuple[str, bool]:
     trust_signals = trust_summary.get("trust_signals", None)
     signal_map = dict(trust_signals) if isinstance(trust_signals, Mapping) else {}
@@ -221,9 +221,11 @@ def build_candidate_incompatibility_digest_entry(
     if isinstance(dataset_readiness_status, str) and dataset_readiness_status:
         entry["dataset_readiness_status"] = dataset_readiness_status
     if dataset_issue_codes is not None:
-        entry["dataset_issue_codes"] = [
-            str(item) for item in dataset_issue_codes if str(item)
-        ] if isinstance(dataset_issue_codes, list) else []
+        entry["dataset_issue_codes"] = (
+            [str(item) for item in dataset_issue_codes if str(item)]
+            if isinstance(dataset_issue_codes, list)
+            else []
+        )
     return entry
 
 

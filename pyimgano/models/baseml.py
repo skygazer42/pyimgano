@@ -40,7 +40,9 @@ class BaseVisionDetector(BaseDetector):
         # Allow JSON-friendly specs: {"name": "...", "kwargs": {...}}.
         feature_extractor = resolve_feature_extractor(feature_extractor)
         if not isinstance(feature_extractor, FeatureExtractor):
-            raise TypeError("feature_extractor 闊洤鎳橀妴蹇曗偓鍦仧楠?.extract(inputs) -> np.ndarray")
+            raise TypeError(
+                "feature_extractor 闊洤鎳橀妴蹇曗偓鍦仧楠?.extract(inputs) -> np.ndarray"
+            )
         self._base_feature_extractor = feature_extractor
         self.feature_extractor = feature_extractor
         self._feature_extractor_fitted = False
@@ -110,7 +112,9 @@ class BaseVisionDetector(BaseDetector):
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
         extractor = self.feature_extractor
         if extractor is None or not isinstance(extractor, FeatureExtractor):
-            raise TypeError("feature_extractor 闊洤鎳橀妴蹇曗偓鍦仧楠?.extract(inputs) -> np.ndarray")
+            raise TypeError(
+                "feature_extractor 闊洤鎳橀妴蹇曗偓鍦仧楠?.extract(inputs) -> np.ndarray"
+            )
 
         # Optional: allow extractors to learn normalization/projection from the training set.
         if (not self._feature_extractor_fitted) and isinstance(extractor, FittableFeatureExtractor):

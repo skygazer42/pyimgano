@@ -13,6 +13,8 @@ import pyimgano.cli_output as cli_output
 from pyimgano.models.registry import create_model
 from pyimgano.utils.optional_deps import optional_import
 
+__all__ = ["create_model", "main"]
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pyimgano-benchmark")
@@ -870,7 +872,9 @@ def main(argv: list[str] | None = None) -> int:
                 starter_info_command = str(item.get("starter_info_command", "")).strip()
                 suffix = f"dataset={dataset}; runtime={runtime}"
                 if optional_extras:
-                    suffix += f"; optional_extras={','.join(str(extra) for extra in optional_extras)}"
+                    suffix += (
+                        f"; optional_extras={','.join(str(extra) for extra in optional_extras)}"
+                    )
                 if optional_baseline_count:
                     suffix += f"; optional_baselines={optional_baseline_count}"
                 if starter_list_command:

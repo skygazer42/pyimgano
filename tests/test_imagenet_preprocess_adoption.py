@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 _TARGETS = [
     "pyimgano/models/oneformore.py",
     "pyimgano/models/gcad.py",

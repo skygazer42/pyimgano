@@ -339,10 +339,7 @@ def test_collect_pyim_model_selection_payload_prefers_curated_candidates() -> No
         picks[0]["doctor_command"]
         == "pyimgano-doctor --recommend-extras --for-model vision_ecod --json"
     )
-    assert (
-        picks[0]["model_info_command"]
-        == "pyimgano-benchmark --model-info vision_ecod --json"
-    )
+    assert picks[0]["model_info_command"] == "pyimgano-benchmark --model-info vision_ecod --json"
     assert payload["suggested_commands"] == [
         "pyimgano-doctor --recommend-extras --for-model vision_ecod --json",
         "pyimgano-benchmark --model-info vision_ecod --json",
@@ -417,21 +414,34 @@ def test_collect_pyim_goal_payload_returns_goal_context_and_cross_section_picks(
         "examples/configs/industrial_adapt_audited.json",
         "examples/configs/manifest_industrial_workflow_balanced.json",
     } <= set(recipe_by_config)
-    assert recipe_by_config["examples/configs/deploy_smoke_custom_cpu.json"]["runtime_profile"] == "cpu-offline"
-    assert recipe_by_config["examples/configs/industrial_adapt_audited.json"]["runtime_profile"] == "gpu-audited"
     assert (
-        recipe_by_config["examples/configs/manifest_industrial_workflow_balanced.json"]["runtime_profile"]
+        recipe_by_config["examples/configs/deploy_smoke_custom_cpu.json"]["runtime_profile"]
+        == "cpu-offline"
+    )
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_audited.json"]["runtime_profile"]
+        == "gpu-audited"
+    )
+    assert (
+        recipe_by_config["examples/configs/manifest_industrial_workflow_balanced.json"][
+            "runtime_profile"
+        ]
         == "manifest-balanced"
     )
-    assert "deploy_bundle/handoff_report.json" in recipe_by_config[
-        "examples/configs/deploy_smoke_custom_cpu.json"
-    ]["expected_artifacts"]
-    assert "deploy_bundle/handoff_report.json" in recipe_by_config[
-        "examples/configs/industrial_adapt_audited.json"
-    ]["expected_artifacts"]
-    assert "deploy_bundle/handoff_report.json" in recipe_by_config[
-        "examples/configs/manifest_industrial_workflow_balanced.json"
-    ]["expected_artifacts"]
+    assert (
+        "deploy_bundle/handoff_report.json"
+        in recipe_by_config["examples/configs/deploy_smoke_custom_cpu.json"]["expected_artifacts"]
+    )
+    assert (
+        "deploy_bundle/handoff_report.json"
+        in recipe_by_config["examples/configs/industrial_adapt_audited.json"]["expected_artifacts"]
+    )
+    assert (
+        "deploy_bundle/handoff_report.json"
+        in recipe_by_config["examples/configs/manifest_industrial_workflow_balanced.json"][
+            "expected_artifacts"
+        ]
+    )
     assert isinstance(picks["datasets"], list)
     assert picks["datasets"]
     assert isinstance(payload["suggested_commands"], list)
@@ -494,7 +504,9 @@ def test_collect_pyim_goal_payload_uses_recipe_default_config_when_goal_spec_omi
     assert "deploy_bundle/handoff_report.json" in recipe_pick["expected_artifacts"]
     assert recipe_pick["install_hint"] == "pip install 'pyimgano[deploy]'"
     assert recipe_pick["recipe_list_command"] == "pyimgano train --list-recipes"
-    assert recipe_pick["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
+    assert (
+        recipe_pick["recipe_info_command"] == "pyimgano train --recipe-info industrial-adapt --json"
+    )
     assert (
         recipe_pick["dry_run_command"]
         == "pyimgano train --dry-run --config examples/configs/deploy_smoke_custom_cpu.json"
@@ -571,21 +583,24 @@ def test_collect_pyim_goal_payload_uses_pixel_localization_specific_recipe_confi
     assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"]["name"] == (
         "industrial-adapt-fp40"
     )
-    assert recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"][
-        "runtime_profile"
-    ] == "gpu-defects"
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_defects_fp40.json"]["runtime_profile"]
+        == "gpu-defects"
+    )
     assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"]["name"] == (
         "industrial-adapt-fp40"
     )
-    assert recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"][
-        "runtime_profile"
-    ] == "gpu-defects"
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_defects_roi.json"]["runtime_profile"]
+        == "gpu-defects"
+    )
     assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"]["name"] == (
         "industrial-adapt"
     )
-    assert recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"][
-        "runtime_profile"
-    ] == "gpu-localization"
+    assert (
+        recipe_by_config["examples/configs/industrial_adapt_maps_tiling.json"]["runtime_profile"]
+        == "gpu-localization"
+    )
 
 
 def test_pyim_list_payload_builds_all_json_payload_without_model_preset_infos() -> None:

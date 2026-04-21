@@ -15,4 +15,3 @@ def test_examples_index_documents_goal_dependency_and_offline_safety() -> None:
     assert "Offline-safe" in text
     assert "quick_start.py" in text
     assert "industrial_infer_numpy.py" in text
-

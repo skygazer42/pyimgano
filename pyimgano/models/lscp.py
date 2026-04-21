@@ -160,8 +160,8 @@ class CoreLSCP:
         return self._get_decision_scores(x)
 
     def _get_decision_scores(self, x_test: NDArray[np.float64]) -> NDArray[np.float64]:
-        assert self.x_train_ is not None
-        assert self.train_scores_ is not None
+        if self.x_train_ is None or self.train_scores_ is None:
+            raise RuntimeError("Internal error: LSCP training state is not initialized.")
 
         _, _ = map(int, self.x_train_.shape)
 
@@ -202,7 +202,8 @@ class CoreLSCP:
         return pred
 
     def _get_local_regions(self, x_test: NDArray[np.float64]) -> List[List[int]]:
-        assert self.x_train_ is not None
+        if self.x_train_ is None:
+            raise RuntimeError("Internal error: LSCP training data is not initialized.")
 
         rng = check_random_state(self.random_state)
 

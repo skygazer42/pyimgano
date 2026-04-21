@@ -140,7 +140,10 @@ def test_benchmark_cli_can_list_starter_configs_text(capsys) -> None:
     assert "optional_extras=clip,skimage,torch" in out
     assert "optional_baselines=11" in out
     assert "list=pyimgano benchmark --list-starter-configs" in out
-    assert "inspect=pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json" in out
+    assert (
+        "inspect=pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
+        in out
+    )
 
 
 def test_benchmark_cli_starter_config_info_outputs_json(capsys) -> None:
@@ -165,7 +168,10 @@ def test_benchmark_cli_starter_config_info_outputs_json(capsys) -> None:
     assert payload["optional_baseline_count"] == 11
     assert payload["starter_list_command"] == "pyimgano benchmark --list-starter-configs"
     assert payload["starter_info_command"].endswith("--json")
-    assert payload["starter_run_command"] == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
+    assert (
+        payload["starter_run_command"]
+        == "pyimgano-benchmark --config official_mvtec_industrial_v4_cpu_offline.json"
+    )
 
 
 def test_benchmark_cli_starter_config_info_text_surfaces_optional_extras(capsys) -> None:
@@ -185,7 +191,10 @@ def test_benchmark_cli_starter_config_info_text_surfaces_optional_extras(capsys)
     assert "Optional baselines: 11" in out
     assert "Suggested commands:" in out
     assert "pyimgano benchmark --list-starter-configs" in out
-    assert "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json" in out
+    assert (
+        "pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
+        in out
+    )
 
 
 def test_benchmark_cli_official_config_info_outputs_json(capsys) -> None:

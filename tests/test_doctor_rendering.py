@@ -21,23 +21,29 @@ def test_format_suite_check_line_renders_missing_extras_suffix() -> None:
 def test_format_require_extras_line_handles_missing_and_ok() -> None:
     from pyimgano.doctor_rendering import format_require_extras_line
 
-    assert format_require_extras_line(
-        {
-            "required": ["torch"],
-            "missing": [],
-            "ok": True,
-            "install_hint": None,
-        }
-    ) == "require_extras: OK"
+    assert (
+        format_require_extras_line(
+            {
+                "required": ["torch"],
+                "missing": [],
+                "ok": True,
+                "install_hint": None,
+            }
+        )
+        == "require_extras: OK"
+    )
 
-    assert format_require_extras_line(
-        {
-            "required": ["torch", "faiss"],
-            "missing": ["faiss"],
-            "ok": False,
-            "install_hint": "pip install 'pyimgano[faiss]'",
-        }
-    ) == "require_extras: MISSING (faiss) -> pip install 'pyimgano[faiss]'"
+    assert (
+        format_require_extras_line(
+            {
+                "required": ["torch", "faiss"],
+                "missing": ["faiss"],
+                "ok": False,
+                "install_hint": "pip install 'pyimgano[faiss]'",
+            }
+        )
+        == "require_extras: MISSING (faiss) -> pip install 'pyimgano[faiss]'"
+    )
 
 
 def test_format_readiness_lines_renders_status_and_issues() -> None:
@@ -161,7 +167,10 @@ def test_format_extra_recommendation_lines_renders_starter_benchmark_context() -
         "- suggested_commands: pyimgano benchmark --list-starter-configs; pyimgano benchmark --starter-config-info official_mvtec_industrial_v4_cpu_offline.json --json"
         in lines
     )
-    assert "- next_step_commands: pyimgano-doctor --recommend-extras --for-command train --json" in lines
+    assert (
+        "- next_step_commands: pyimgano-doctor --recommend-extras --for-command train --json"
+        in lines
+    )
     assert "- artifact_hints: leaderboard.csv; leaderboard_metadata.json" in lines
 
 
@@ -207,8 +216,7 @@ def test_format_extra_recommendation_lines_renders_suggested_commands() -> None:
     )
     assert (
         "- recipe_run_command: pyimgano train --config examples/configs/industrial_adapt_audited.json "
-        "--export-infer-config --export-deploy-bundle"
-        in lines
+        "--export-infer-config --export-deploy-bundle" in lines
     )
     assert (
         "- suggested_commands: pyimgano train --list-recipes; pyimgano train --recipe-info industrial-adapt --json; pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json; pyimgano train --preflight --config examples/configs/industrial_adapt_audited.json --json; pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle; pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json"
@@ -254,13 +262,11 @@ def test_format_extra_recommendation_lines_renders_infer_structured_commands() -
     assert (
         "- preset_infer_command: pyimgano-infer --model-preset industrial-template-ncc-map "
         "--train-dir /path/to/train/normal --input /path/to/images "
-        "--save-jsonl /tmp/pyimgano_results.jsonl"
-        in lines
+        "--save-jsonl /tmp/pyimgano_results.jsonl" in lines
     )
     assert (
         "- from_run_infer_command: pyimgano-infer --from-run runs/<run_dir> --input /path/to/images "
-        "--save-jsonl /tmp/pyimgano_results.jsonl"
-        in lines
+        "--save-jsonl /tmp/pyimgano_results.jsonl" in lines
     )
 
 
@@ -289,7 +295,10 @@ def test_format_extra_recommendation_lines_renders_model_recommendation_context(
     assert "- workflow_stage: discover" in lines
     assert "- supports_pixel_map: True" in lines
     assert "- tested_runtime: torch" in lines
-    assert "- model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json" in lines
+    assert (
+        "- model_info_command: pyimgano-benchmark --model-info vision_openclip_patch_map --json"
+        in lines
+    )
 
 
 def test_format_extra_recommendation_lines_renders_runs_structured_commands() -> None:
@@ -310,14 +319,15 @@ def test_format_extra_recommendation_lines_renders_runs_structured_commands() ->
         }
     )
 
-    assert "- quality_command: pyimgano runs quality runs/<run_dir> --require-status audited --json" in lines
     assert (
-        "- acceptance_command: pyimgano runs acceptance runs/<run_dir> --require-status audited "
-        "--check-bundle-hashes --json"
+        "- quality_command: pyimgano runs quality runs/<run_dir> --require-status audited --json"
         in lines
     )
     assert (
+        "- acceptance_command: pyimgano runs acceptance runs/<run_dir> --require-status audited "
+        "--check-bundle-hashes --json" in lines
+    )
+    assert (
         "- bundle_audit_command: pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle "
-        "--check-hashes --json"
-        in lines
+        "--check-hashes --json" in lines
     )

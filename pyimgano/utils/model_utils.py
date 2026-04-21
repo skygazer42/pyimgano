@@ -40,12 +40,13 @@ def save_model(
     """
     save_path = Path(path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
+    from pyimgano import __version__ as pyimgano_version
 
     save_dict = {
         "model": model,
         "metadata": metadata or {},
         "timestamp": time.time(),
-        "pyimgano_version": "0.2.4",
+        "pyimgano_version": pyimgano_version,
     }
 
     protocol = pickle.HIGHEST_PROTOCOL if compression else pickle.DEFAULT_PROTOCOL

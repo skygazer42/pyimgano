@@ -4,6 +4,7 @@
 #   pip install "pyimgano[torch]"
 #   pip install "pyimgano[onnx]"
 #   pip install "pyimgano[openvino]"
+defusedxml>=0.7.1
 joblib>=1.0.0
 numpy>=1.19
 opencv-python>=4.5.0

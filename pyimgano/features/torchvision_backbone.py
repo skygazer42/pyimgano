@@ -14,6 +14,15 @@ _InputColor = Literal["rgb", "bgr"]
 _Pool = Literal["avg", "max", "gem", "cls"]
 
 
+def _require_initialized(value: Any, *, owner: str, attribute: str) -> Any:
+    if value is None:
+        raise RuntimeError(
+            f"{owner} internal state is not initialized: missing {attribute}. "
+            "Call _ensure_ready() before extract/embed operations."
+        )
+    return value
+
+
 def _looks_like_torch_tensor(x: Any) -> bool:
     """Best-effort torch.Tensor detection without importing torch."""
 
@@ -232,7 +241,9 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         if bool(self.channels_last):
             try:  # pragma: no cover - best-effort
                 model.to(memory_format=torch.channels_last)
-            except Exception:
+            except (
+                Exception
+            ):  # nosec B110 - optional optimization should never block extractor setup
                 pass
 
         if (
@@ -242,7 +253,9 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
         ):
             try:  # pragma: no cover - compilation is backend dependent
                 model = torch.compile(model, mode="reduce-overhead")  # type: ignore[assignment]
-            except Exception:
+            except (
+                Exception
+            ):  # nosec B110 - optional compilation should not break feature extraction
                 # Best-effort: keep uncompiled model.
                 pass
 
@@ -309,34 +322,41 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
 
     def _extract_uncached(self, items: list[Any]) -> np.ndarray:
         self._ensure_ready()
-        assert self._model is not None
-        assert self._transform is not None
-        assert self._device is not None
-
-        torch = self._torch
-        f = self._F
+        model = _require_initialized(
+            self._model, owner="TorchvisionBackboneExtractor", attribute="_model"
+        )
+        transform = _require_initialized(
+            self._transform, owner="TorchvisionBackboneExtractor", attribute="_transform"
+        )
+        device = _require_initialized(
+            self._device, owner="TorchvisionBackboneExtractor", attribute="_device"
+        )
+        torch = _require_initialized(
+            self._torch, owner="TorchvisionBackboneExtractor", attribute="_torch"
+        )
+        f = _require_initialized(self._F, owner="TorchvisionBackboneExtractor", attribute="_F")
         bs = max(1, int(self.batch_size))
         pool = str(self.pool).strip().lower()
 
         rows: list[np.ndarray] = []
         from pyimgano.utils.torch_infer import torch_inference
 
-        with torch_inference(self._model):
+        with torch_inference(model):
             for i in range(0, len(items), bs):
                 batch_items = items[i : i + bs]
                 pil_imgs = [_as_pil_rgb(it, input_color=self.input_color) for it in batch_items]
-                x = torch.stack([self._transform(im) for im in pil_imgs], dim=0)
-                x = x.to(self._device)
+                x = torch.stack([transform(im) for im in pil_imgs], dim=0)
+                x = x.to(device)
 
                 if bool(self.channels_last):
                     try:  # pragma: no cover - best-effort
                         x = x.contiguous(memory_format=torch.channels_last)
-                    except Exception:
+                    except Exception:  # nosec B110 - memory-format optimization is optional
                         pass
 
                 with _maybe_autocast(torch, device=self._device, enabled=bool(self.amp)):
                     if pool == "gem":
-                        out = self._model(x)["feat"]
+                        out = model(x)["feat"]
                         out_t = torch.as_tensor(out)
                         if out_t.ndim == 4:
                             from pyimgano.features.pooling import gem_pool2d
@@ -347,7 +367,7 @@ class TorchvisionBackboneExtractor(BaseFeatureExtractor):
                     elif pool == "cls":
                         emb = self._vit_cls_embedding(x)
                     else:
-                        out = self._model(x)
+                        out = model(x)
                         if isinstance(out, (tuple, list)):
                             out = out[0]
                         out_t = torch.as_tensor(out)

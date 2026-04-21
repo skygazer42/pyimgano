@@ -74,13 +74,10 @@ def _run_pyim_listing(command: PyimCommand) -> int:
     goal_payload = None
     if getattr(list_options, "goal", None) is not None:
         goal_payload = pyim_service.collect_pyim_goal_payload(request)
-    elif (
-        list_options.list_kind == "models"
-        and (
-            list_options.objective is not None
-            or list_options.selection_profile is not None
-            or list_options.topk is not None
-        )
+    elif list_options.list_kind == "models" and (
+        list_options.objective is not None
+        or list_options.selection_profile is not None
+        or list_options.topk is not None
     ):
         selection_payload = pyim_service.collect_pyim_model_selection_payload(request)
     render_kwargs = {

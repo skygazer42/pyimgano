@@ -6,11 +6,13 @@ import importlib
 import sys
 from textwrap import dedent, indent
 
-from pyimgano.workflow_guidance import artifact_acceptance_commands
-from pyimgano.workflow_guidance import benchmark_publication_commands
-from pyimgano.workflow_guidance import industrial_fast_path_commands
-from pyimgano.workflow_guidance import list_starter_paths
-from pyimgano.workflow_guidance import list_workflow_stages
+from pyimgano.workflow_guidance import (
+    artifact_acceptance_commands,
+    benchmark_publication_commands,
+    industrial_fast_path_commands,
+    list_starter_paths,
+    list_workflow_stages,
+)
 
 _COMMANDS: dict[str, tuple[str, str]] = {
     "benchmark": ("pyimgano.cli", "Benchmarking, suites, and benchmark discovery."),
@@ -69,8 +71,7 @@ def _help_text() -> str:
         for command in path.commands:
             starter_path_lines.append(f"    {command}")
     starter_paths_block = indent("\n".join(starter_path_lines), "        ")
-    return dedent(
-        f"""\
+    return dedent(f"""\
         usage:
           pyimgano --list [KIND] [filters...]
           pyimgano list [KIND] [filters...]
@@ -115,8 +116,7 @@ def _help_text() -> str:
           - `pyim` remains available as the short discovery alias.
           - `pyimgano list ...` and `pyimgano -- list ...` are aliases for `pyimgano --list ...`.
           - Existing `pyimgano-*` entry points remain supported.
-        """
-    )
+        """)
 
 
 def _print_help() -> None:

@@ -39,15 +39,17 @@ def test_workflow_guidance_includes_export_recommendation_commands() -> None:
 
 
 def test_workflow_guidance_exposes_command_stage_and_next_steps() -> None:
-    from pyimgano.workflow_guidance import artifact_hints_for_command
-    from pyimgano.workflow_guidance import command_workflow_guidance
-    from pyimgano.workflow_guidance import model_info_command_for_model
-    from pyimgano.workflow_guidance import next_step_commands_for_model
-    from pyimgano.workflow_guidance import suggested_commands_for_model
-    from pyimgano.workflow_guidance import workflow_stage_for_model
-    from pyimgano.workflow_guidance import next_step_commands_for_command
-    from pyimgano.workflow_guidance import suggested_commands_for_command
-    from pyimgano.workflow_guidance import workflow_stage_for_command
+    from pyimgano.workflow_guidance import (
+        artifact_hints_for_command,
+        command_workflow_guidance,
+        model_info_command_for_model,
+        next_step_commands_for_command,
+        next_step_commands_for_model,
+        suggested_commands_for_command,
+        suggested_commands_for_model,
+        workflow_stage_for_command,
+        workflow_stage_for_model,
+    )
 
     assert workflow_stage_for_command("benchmark") == "benchmark"
     assert workflow_stage_for_command("train") == "train"
@@ -143,9 +145,11 @@ def test_workflow_guidance_exposes_structured_model_guidance() -> None:
 
 
 def test_workflow_guidance_exposes_root_help_command_groups() -> None:
-    from pyimgano.workflow_guidance import artifact_acceptance_commands
-    from pyimgano.workflow_guidance import benchmark_publication_commands
-    from pyimgano.workflow_guidance import industrial_fast_path_commands
+    from pyimgano.workflow_guidance import (
+        artifact_acceptance_commands,
+        benchmark_publication_commands,
+        industrial_fast_path_commands,
+    )
 
     assert industrial_fast_path_commands() == [
         "pyimgano doctor --recommend-extras --for-command train --json",
@@ -194,11 +198,13 @@ def test_workflow_guidance_exposes_deploy_smoke_starter_path() -> None:
 
 
 def test_workflow_guidance_exposes_shared_starter_benchmark_commands() -> None:
-    from pyimgano.workflow_guidance import default_starter_benchmark_name
-    from pyimgano.workflow_guidance import starter_benchmark_guidance
-    from pyimgano.workflow_guidance import starter_benchmark_info_command
-    from pyimgano.workflow_guidance import starter_benchmark_list_command
-    from pyimgano.workflow_guidance import starter_benchmark_run_command
+    from pyimgano.workflow_guidance import (
+        default_starter_benchmark_name,
+        starter_benchmark_guidance,
+        starter_benchmark_info_command,
+        starter_benchmark_list_command,
+        starter_benchmark_run_command,
+    )
 
     assert default_starter_benchmark_name() == "official_mvtec_industrial_v4_cpu_offline.json"
     assert starter_benchmark_list_command() == "pyimgano benchmark --list-starter-configs"
@@ -232,8 +238,7 @@ def test_workflow_guidance_exposes_first_ten_minutes_path() -> None:
 
 
 def test_workflow_guidance_exposes_named_starter_paths() -> None:
-    from pyimgano.workflow_guidance import list_starter_paths
-    from pyimgano.workflow_guidance import starter_path_by_name
+    from pyimgano.workflow_guidance import list_starter_paths, starter_path_by_name
 
     paths = list_starter_paths()
     assert [path.name for path in paths] == [

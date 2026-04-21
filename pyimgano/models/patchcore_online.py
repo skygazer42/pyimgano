@@ -97,7 +97,8 @@ class CorePatchCoreOnline(BaseDetector):
 
         # Training scores: use 2-NN when possible to avoid self==0.
         nn = self.nn_
-        assert nn is not None
+        if nn is None:
+            raise RuntimeError("Internal error: nearest-neighbor index was not initialized.")
         n = int(self.memory_bank_.shape[0])
         dist, _ = nn.kneighbors(x_arr, n_neighbors=2 if n > 1 else 1, return_distance=True)
         dist = np.asarray(dist, dtype=np.float64)

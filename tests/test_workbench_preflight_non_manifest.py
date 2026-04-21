@@ -82,7 +82,9 @@ def test_workbench_preflight_custom_dataset_structure_validation(tmp_path: Path)
     codes = {i.code for i in report.issues}
     assert "CUSTOM_DATASET_INVALID_STRUCTURE" in codes
     assert report.summary["dataset_readiness"]["status"] == "error"
-    assert report.summary["dataset_readiness"]["issue_codes"] == ["CUSTOM_DATASET_INVALID_STRUCTURE"]
+    assert report.summary["dataset_readiness"]["issue_codes"] == [
+        "CUSTOM_DATASET_INVALID_STRUCTURE"
+    ]
 
 
 def test_workbench_preflight_non_manifest_uses_workbench_category_boundary(

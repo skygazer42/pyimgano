@@ -20,9 +20,7 @@ from pyimgano.inference.runtime_support import (
 from pyimgano.inference.runtime_support import (
     best_effort_label_confidence as _best_effort_label_confidence_shared,
 )
-from pyimgano.inference.runtime_support import (
-    normalize_inputs as _normalize_inputs_shared,
-)
+from pyimgano.inference.runtime_support import normalize_inputs as _normalize_inputs_shared
 from pyimgano.inference.runtime_support import (
     resolve_rejection_threshold as _resolve_rejection_threshold_shared,
 )

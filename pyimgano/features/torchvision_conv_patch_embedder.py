@@ -20,7 +20,12 @@ from typing import Any, Literal, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from .torchvision_backbone import _as_pil_rgb, _load_torchvision_backbone, _make_device
+from .torchvision_backbone import (
+    _as_pil_rgb,
+    _load_torchvision_backbone,
+    _make_device,
+    _require_initialized,
+)
 
 _InputColor = Literal["rgb", "bgr"]
 
@@ -120,20 +125,27 @@ class TorchvisionConvPatchEmbedder:
         """
 
         self._ensure_ready()
-        assert self._model is not None
-        assert self._transform is not None
-        assert self._device is not None
-        assert self._torch is not None
+        model = _require_initialized(
+            self._model, owner="TorchvisionConvPatchEmbedder", attribute="_model"
+        )
+        transform = _require_initialized(
+            self._transform, owner="TorchvisionConvPatchEmbedder", attribute="_transform"
+        )
+        device = _require_initialized(
+            self._device, owner="TorchvisionConvPatchEmbedder", attribute="_device"
+        )
+        torch = _require_initialized(
+            self._torch, owner="TorchvisionConvPatchEmbedder", attribute="_torch"
+        )
 
         pil_img = _as_pil_rgb(image, input_color=str(self.input_color))
         orig_w, orig_h = pil_img.size
 
-        torch = self._torch
         from pyimgano.utils.torch_infer import torch_inference
 
-        with torch_inference(self._model):
-            x = self._transform(pil_img).unsqueeze(0).to(self._device)
-            out = self._model(x)["feat"]
+        with torch_inference(model):
+            x = transform(pil_img).unsqueeze(0).to(device)
+            out = model(x)["feat"]
             ft = torch.as_tensor(out)
 
         if ft.ndim != 4:

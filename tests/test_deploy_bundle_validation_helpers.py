@@ -38,9 +38,7 @@ def test_validate_artifact_refs_requires_existing_manifest_entries(tmp_path) -> 
         entry_paths={"infer_config.json"},
     )
 
-    assert errors == [
-        "bundle_artifact_refs.calibration_card points to missing file: missing.json"
-    ]
+    assert errors == ["bundle_artifact_refs.calibration_card points to missing file: missing.json"]
 
 
 def test_validate_operator_contract_digests_skips_source_run_values_when_source_missing(

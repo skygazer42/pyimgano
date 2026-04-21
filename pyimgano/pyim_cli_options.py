@@ -151,9 +151,7 @@ def resolve_pyim_list_options(
         goal_defaults = _GOAL_DEFAULTS[goal_value]
         objective = goal_defaults["objective"] if objective is None else objective
         selection_profile = (
-            goal_defaults["selection_profile"]
-            if selection_profile is None
-            else selection_profile
+            goal_defaults["selection_profile"] if selection_profile is None else selection_profile
         )
         topk = goal_defaults["topk"] if topk is None else topk
         if list_kind is None:

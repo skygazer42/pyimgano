@@ -108,9 +108,7 @@ _WORKFLOW_STAGES: tuple[WorkflowStage, ...] = (
     WorkflowStage(
         key="validate",
         title="Validate",
-        commands=(
-            "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
-        ),
+        commands=("pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",),
     ),
     WorkflowStage(
         key="gate",
@@ -258,7 +256,9 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "pyimgano train --config examples/configs/industrial_adapt_audited.json --export-infer-config --export-deploy-bundle",
             "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
         ),
-        next_step_commands=("pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",),
+        next_step_commands=(
+            "pyimgano validate-infer-config runs/<run_dir>/deploy_bundle/infer_config.json",
+        ),
         artifact_hints=(
             "artifacts/infer_config.json",
             "artifacts/calibration_card.json",
@@ -334,7 +334,9 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "pyimgano runs quality runs/<run_dir> --require-status audited --json",
             "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json",
         ),
-        next_step_commands=("pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",),
+        next_step_commands=(
+            "pyimgano weights audit-bundle runs/<run_dir>/deploy_bundle --check-hashes --json",
+        ),
         artifact_hints=(
             "report.json",
             "config.json",
@@ -342,7 +344,9 @@ _COMMAND_WORKFLOW_GUIDANCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "leaderboard_metadata.json (suite exports)",
         ),
     ),
-    "demo": CommandWorkflowGuidance(target_kind="command", target="demo", workflow_stage="discover"),
+    "demo": CommandWorkflowGuidance(
+        target_kind="command", target="demo", workflow_stage="discover"
+    ),
 }
 
 _MODEL_WORKFLOW_STAGE = "discover"

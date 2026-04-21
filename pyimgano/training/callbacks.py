@@ -7,8 +7,7 @@ from typing import Any, Iterable, Mapping, Protocol
 
 
 class TrainingCallback(Protocol):
-    def on_train_start(self, *, context: Mapping[str, Any]) -> None:
-        ...
+    def on_train_start(self, *, context: Mapping[str, Any]) -> None: ...
 
     def on_epoch_end(
         self,
@@ -16,14 +15,11 @@ class TrainingCallback(Protocol):
         epoch: int,
         metrics: Mapping[str, float],
         context: Mapping[str, Any],
-    ) -> None:
-        ...
+    ) -> None: ...
 
-    def on_train_end(self, *, report: Mapping[str, Any], context: Mapping[str, Any]) -> None:
-        ...
+    def on_train_end(self, *, report: Mapping[str, Any], context: Mapping[str, Any]) -> None: ...
 
-    def on_exception(self, *, error: Exception, context: Mapping[str, Any]) -> None:
-        ...
+    def on_exception(self, *, error: Exception, context: Mapping[str, Any]) -> None: ...
 
 
 def run_callback_hook(

@@ -167,7 +167,10 @@ def extract_onnx_checkpoint_path_for_sweep(user_kwargs: dict[str, Any]) -> str |
             return str(checkpoint_path)
 
     feature_extractor = user_kwargs.get("feature_extractor", None)
-    if isinstance(feature_extractor, dict) and str(feature_extractor.get("name", "")).strip() == "onnx_embed":
+    if (
+        isinstance(feature_extractor, dict)
+        and str(feature_extractor.get("name", "")).strip() == "onnx_embed"
+    ):
         kwargs = feature_extractor.get("kwargs", None)
         if isinstance(kwargs, dict):
             checkpoint_path = kwargs.get("checkpoint_path", None)
@@ -189,7 +192,10 @@ def extract_session_options_for_sweep(user_kwargs: dict[str, Any]) -> dict[str, 
             return dict(session_options)
 
     feature_extractor = user_kwargs.get("feature_extractor", None)
-    if isinstance(feature_extractor, dict) and str(feature_extractor.get("name", "")).strip() == "onnx_embed":
+    if (
+        isinstance(feature_extractor, dict)
+        and str(feature_extractor.get("name", "")).strip() == "onnx_embed"
+    ):
         kwargs = feature_extractor.get("kwargs", None)
         if isinstance(kwargs, dict):
             session_options = kwargs.get("session_options", None)
@@ -229,9 +235,7 @@ def maybe_apply_onnx_session_options_and_sweep(
             else default_onnx_sweep_intra_values()
         )
         opt_levels = (
-            parse_csv_strs_arg(
-                str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels"
-            )
+            parse_csv_strs_arg(str(args.onnx_sweep_opt_levels), arg_name="--onnx-sweep-opt-levels")
             if getattr(args, "onnx_sweep_opt_levels", None)
             else ["all", "extended"]
         )

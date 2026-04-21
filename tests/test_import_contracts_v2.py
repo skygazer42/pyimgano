@@ -46,8 +46,7 @@ def _run_py(code: str) -> dict[str, object]:
 def test_import_contracts_keep_core_packages_lazy(
     module_name: str, heavy_roots: list[str], must_not_load: list[str]
 ) -> None:
-    payload = _run_py(
-        f"""
+    payload = _run_py(f"""
 import importlib
 import json
 import sys
@@ -68,8 +67,7 @@ def _is_loaded(root: str) -> bool:
 present = [root for root in heavy_roots if _is_loaded(root)]
 loaded = [name for name in must_not_load if name in sys.modules]
 print(json.dumps({{"present": present, "loaded": loaded}}))
-"""
-    )
+""")
 
     assert payload["present"] == [], f"Unexpected heavy imports: {payload['present']}"
     assert payload["loaded"] == [], f"Unexpected eager module imports: {payload['loaded']}"
@@ -106,7 +104,16 @@ print(json.dumps({{"present": present, "loaded": loaded}}))
         ),
         (
             "pyimgano.pyim_cli",
-            ["torch", "torchvision", "cv2", "open_clip", "onnxruntime", "openvino", "faiss", 'anomalib'],
+            [
+                "torch",
+                "torchvision",
+                "cv2",
+                "open_clip",
+                "onnxruntime",
+                "openvino",
+                "faiss",
+                "anomalib",
+            ],
             "payload['has_main'] is True",
         ),
     ],
@@ -114,8 +121,7 @@ print(json.dumps({{"present": present, "loaded": loaded}}))
 def test_other_package_surfaces_stay_lightweight(
     module_name: str, heavy_roots: list[str], payload_checks: str
 ) -> None:
-    payload = _run_py(
-        f"""
+    payload = _run_py(f"""
 import importlib
 import json
 import sys
@@ -141,16 +147,14 @@ payload = {{
     "has_main": hasattr(module, "main"),
 }}
 print(json.dumps(payload))
-"""
-    )
+""")
 
     assert payload["present"] == [], f"Unexpected heavy imports: {payload['present']}"
     assert eval(payload_checks, {"__builtins__": {}}, {"payload": payload})
 
 
 def test_models_discovery_keeps_optional_openclip_variants_registered() -> None:
-    payload = _run_py(
-        """
+    payload = _run_py("""
 import json
 
 import pyimgano.models as models
@@ -166,8 +170,7 @@ print(
         }
     )
 )
-"""
-    )
+""")
 
     assert payload == {
         "patchknn": True,

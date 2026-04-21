@@ -8,7 +8,12 @@ import numpy as np
 from pyimgano.features.base import BaseFeatureExtractor
 from pyimgano.features.registry import register_feature_extractor
 
-from .torchvision_backbone import _as_pil_rgb, _load_torchvision_backbone, _make_device
+from .torchvision_backbone import (
+    _as_pil_rgb,
+    _load_torchvision_backbone,
+    _make_device,
+    _require_initialized,
+)
 
 _InputColor = Literal["rgb", "bgr"]
 
@@ -95,24 +100,30 @@ class TorchvisionPatchTokensExtractor(BaseFeatureExtractor):
             return np.zeros((0, 1), dtype=np.float64)
 
         self._ensure_ready()
-        assert self._model is not None
-        assert self._transform is not None
-        assert self._device is not None
-        assert self._torch is not None
-
-        torch = self._torch
+        model = _require_initialized(
+            self._model, owner="TorchvisionPatchTokensExtractor", attribute="_model"
+        )
+        transform = _require_initialized(
+            self._transform, owner="TorchvisionPatchTokensExtractor", attribute="_transform"
+        )
+        device = _require_initialized(
+            self._device, owner="TorchvisionPatchTokensExtractor", attribute="_device"
+        )
+        torch = _require_initialized(
+            self._torch, owner="TorchvisionPatchTokensExtractor", attribute="_torch"
+        )
         bs = max(1, int(self.batch_size))
 
         rows: list[np.ndarray] = []
         from pyimgano.utils.torch_infer import torch_inference
 
-        with torch_inference(self._model):
+        with torch_inference(model):
             for i in range(0, len(items), bs):
                 batch_items = items[i : i + bs]
                 pil_imgs = [_as_pil_rgb(it, input_color=self.input_color) for it in batch_items]
-                x = torch.stack([self._transform(im) for im in pil_imgs], dim=0).to(self._device)
+                x = torch.stack([transform(im) for im in pil_imgs], dim=0).to(device)
 
-                out = self._model(x)["feat"]
+                out = model(x)["feat"]
                 out_t = torch.as_tensor(out)
                 if out_t.ndim == 4:
                     n, c, h, w = out_t.shape

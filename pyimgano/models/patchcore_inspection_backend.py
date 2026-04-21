@@ -242,7 +242,8 @@ class VisionPatchCoreInspectionCheckpoint:
 
     def get_anomaly_map(self, image_path: str) -> NDArray:
         pred = self._predict([str(image_path)], return_maps=True)
-        assert pred.maps is not None
+        if pred.maps is None:
+            raise RuntimeError("PatchCore Inspection backend did not return anomaly maps.")
         return pred.maps[0]
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
@@ -253,5 +254,6 @@ class VisionPatchCoreInspectionCheckpoint:
             )
         )
         pred = self._predict(paths, return_maps=True)
-        assert pred.maps is not None
+        if pred.maps is None:
+            raise RuntimeError("PatchCore Inspection backend did not return anomaly maps.")
         return pred.maps

@@ -155,9 +155,7 @@ def _format_workflow_profile_lines(profile: dict[str, object]) -> list[str]:
         lines.append(f"- required_extras: {', '.join(str(item) for item in required_extras)}")
     recommended_extras = list(profile.get("recommended_extras", []) or [])
     if recommended_extras:
-        lines.append(
-            f"- recommended_extras: {', '.join(str(item) for item in recommended_extras)}"
-        )
+        lines.append(f"- recommended_extras: {', '.join(str(item) for item in recommended_extras)}")
     starter_config = profile.get("starter_config")
     if starter_config:
         lines.append(f"- starter_config: {starter_config}")

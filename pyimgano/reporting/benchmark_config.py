@@ -7,9 +7,11 @@ from typing import Any, Mapping
 
 from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.utils.extras import extras_install_hint
-from pyimgano.workflow_guidance import starter_benchmark_info_command
-from pyimgano.workflow_guidance import starter_benchmark_list_command
-from pyimgano.workflow_guidance import starter_benchmark_run_command
+from pyimgano.workflow_guidance import (
+    starter_benchmark_info_command,
+    starter_benchmark_list_command,
+    starter_benchmark_run_command,
+)
 
 
 def _official_benchmark_config_dir(directory: str | Path | None = None) -> Path:
@@ -230,7 +232,9 @@ def _starter_metadata_for_benchmark_config(
         except Exception:
             suite_info = {}
         for baseline in suite_info.get("baselines", []) if isinstance(suite_info, Mapping) else []:
-            requires_extras = [str(extra).strip() for extra in baseline.get("requires_extras", []) or []]
+            requires_extras = [
+                str(extra).strip() for extra in baseline.get("requires_extras", []) or []
+            ]
             requires_extras = [extra for extra in requires_extras if extra]
             if requires_extras:
                 optional_baseline_count += 1
@@ -245,7 +249,9 @@ def _starter_metadata_for_benchmark_config(
         "starter": starter,
         "starter_tier": ("starter" if starter else None),
         "estimated_runtime": (
-            str(meta.get("estimated_runtime", "cpu-friendly starter benchmark")) if starter else None
+            str(meta.get("estimated_runtime", "cpu-friendly starter benchmark"))
+            if starter
+            else None
         ),
         "recommended_for": [str(item) for item in meta.get("recommended_for", [])],
         "notes": [str(item) for item in meta.get("notes", [])],
@@ -255,9 +261,7 @@ def _starter_metadata_for_benchmark_config(
             extras_install_hint(optional_extras) if optional_extras else None
         ),
         "starter_list_command": (starter_benchmark_list_command() if starter else None),
-        "starter_info_command": (
-            starter_benchmark_info_command(starter_name) if starter else None
-        ),
+        "starter_info_command": (starter_benchmark_info_command(starter_name) if starter else None),
         "starter_run_command": (starter_benchmark_run_command(starter_name) if starter else None),
     }
 

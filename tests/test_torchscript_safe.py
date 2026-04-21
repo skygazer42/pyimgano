@@ -10,9 +10,7 @@ def test_torchscript_safe_wrappers_suppress_deprecation_warnings(tmp_path: Path)
     torch = pytest.importorskip("torch")
     nn = torch.nn
 
-    from pyimgano.utils.torchscript_safe import freeze_module
-    from pyimgano.utils.torchscript_safe import load_module
-    from pyimgano.utils.torchscript_safe import trace_module
+    from pyimgano.utils.torchscript_safe import freeze_module, load_module, trace_module
 
     class ToyEmbed(nn.Module):
         def __init__(self) -> None:

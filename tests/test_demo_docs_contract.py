@@ -30,7 +30,10 @@ def test_start_here_and_benchmark_getting_started_docs_exist() -> None:
     assert "deploy_smoke_custom_cpu.json" in start_here
     assert "pyimgano-doctor --profile first-run --json" in start_here
     assert "pyimgano-demo --smoke" in start_here
-    assert "pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json" in start_here
+    assert (
+        "pyimgano-doctor --profile benchmark --dataset-target ./_demo_custom_dataset --json"
+        in start_here
+    )
     assert "pyimgano-benchmark --dataset custom --root ./_demo_custom_dataset" in start_here
     assert "pyimgano runs quality ./_demo_benchmark_run --json" in start_here
     assert "pyimgano-doctor --recommend-extras --for-command benchmark --json" in start_here
@@ -39,7 +42,10 @@ def test_start_here_and_benchmark_getting_started_docs_exist() -> None:
     assert "pyimgano-doctor --recommend-extras --for-command runs --json" in start_here
     assert "--publication-target" in _read_text("docs/CLI_REFERENCE.md")
     assert "--profile publish" in _read_text("docs/CLI_REFERENCE.md")
-    assert "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json" in starter_paths
+    assert (
+        "pyimgano-doctor --profile publish --publication-target /path/to/suite_export --json"
+        in starter_paths
+    )
     assert "pyimgano-doctor --profile deploy --run-dir runs/<run_dir> --json" in starter_paths
     assert "--list-starter-configs" in benchmark
     assert "--starter-config-info" in benchmark
@@ -49,6 +55,12 @@ def test_start_here_and_benchmark_getting_started_docs_exist() -> None:
     assert "deploy_smoke_custom_cpu.json" in quickstart
     assert "manifest_industrial_workflow_balanced.json" in quickstart
     assert "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json" in quickstart
-    assert "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json" in quickstart
-    assert "pyimgano-train --config examples/configs/manifest_industrial_workflow_balanced.json --export-infer-config --export-deploy-bundle" in manifest_dataset
+    assert (
+        "pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json"
+        in quickstart
+    )
+    assert (
+        "pyimgano-train --config examples/configs/manifest_industrial_workflow_balanced.json --export-infer-config --export-deploy-bundle"
+        in manifest_dataset
+    )
     assert "deploy_bundle/handoff_report.json" in manifest_dataset

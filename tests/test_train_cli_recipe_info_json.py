@@ -16,7 +16,10 @@ def test_train_cli_recipe_info_json_includes_callable_path(capsys):
         "examples/configs/industrial_adapt_audited.json",
         "examples/configs/manifest_industrial_workflow_balanced.json",
     ]
-    assert parsed["run_command"] == "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json"
+    assert (
+        parsed["run_command"]
+        == "pyimgano train --config examples/configs/deploy_smoke_custom_cpu.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "cpu-offline"
     assert "deploy_bundle/handoff_report.json" in parsed["metadata"]["expected_artifacts"]
 
@@ -28,7 +31,10 @@ def test_train_cli_recipe_info_json_surfaces_fp40_starter_configs(capsys):
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "industrial-adapt-fp40"
-    assert parsed["metadata"]["default_config"] == "examples/configs/industrial_adapt_defects_fp40.json"
+    assert (
+        parsed["metadata"]["default_config"]
+        == "examples/configs/industrial_adapt_defects_fp40.json"
+    )
     assert parsed["metadata"]["starter_configs"] == [
         "examples/configs/industrial_adapt_defects_fp40.json",
         "examples/configs/industrial_adapt_defects_roi.json",
@@ -55,7 +61,10 @@ def test_train_cli_recipe_info_json_surfaces_classical_structural_default_config
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "classical-structural-ecod"
-    assert parsed["metadata"]["default_config"] == "examples/configs/classical_structural_ecod_cpu.json"
+    assert (
+        parsed["metadata"]["default_config"]
+        == "examples/configs/classical_structural_ecod_cpu.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "cpu-screening"
     assert "artifacts/infer_config.json" in parsed["metadata"]["expected_artifacts"]
 
@@ -79,7 +88,10 @@ def test_train_cli_recipe_info_json_surfaces_classical_colorhist_default_config(
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "classical-colorhist-mahalanobis"
-    assert parsed["metadata"]["default_config"] == "examples/configs/classical_colorhist_mahalanobis_cpu.json"
+    assert (
+        parsed["metadata"]["default_config"]
+        == "examples/configs/classical_colorhist_mahalanobis_cpu.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "cpu-screening"
     assert "artifacts/infer_config.json" in parsed["metadata"]["expected_artifacts"]
 
@@ -91,7 +103,10 @@ def test_train_cli_recipe_info_json_surfaces_classical_fft_lowfreq_default_confi
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "classical-fft-lowfreq-ecod"
-    assert parsed["metadata"]["default_config"] == "examples/configs/classical_fft_lowfreq_ecod_cpu.json"
+    assert (
+        parsed["metadata"]["default_config"]
+        == "examples/configs/classical_fft_lowfreq_ecod_cpu.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "cpu-screening"
     assert "artifacts/infer_config.json" in parsed["metadata"]["expected_artifacts"]
 
@@ -127,7 +142,10 @@ def test_train_cli_recipe_info_json_surfaces_classical_patch_stats_default_confi
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "classical-patch-stats-ecod"
-    assert parsed["metadata"]["default_config"] == "examples/configs/classical_patch_stats_ecod_cpu.json"
+    assert (
+        parsed["metadata"]["default_config"]
+        == "examples/configs/classical_patch_stats_ecod_cpu.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "cpu-screening"
     assert "artifacts/infer_config.json" in parsed["metadata"]["expected_artifacts"]
 
@@ -139,7 +157,9 @@ def test_train_cli_recipe_info_json_surfaces_micro_finetune_default_config(capsy
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "micro-finetune-autoencoder"
-    assert parsed["metadata"]["default_config"] == "examples/configs/micro_finetune_autoencoder.json"
+    assert (
+        parsed["metadata"]["default_config"] == "examples/configs/micro_finetune_autoencoder.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "gpu-training"
     assert "checkpoints/model.pt" in parsed["metadata"]["expected_artifacts"]
 
@@ -174,6 +194,9 @@ def test_train_cli_recipe_info_json_surfaces_embedding_core_default_config(capsy
     assert code == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "industrial-embedding-core-fast"
-    assert parsed["metadata"]["default_config"] == "examples/configs/industrial_embedding_core_fast.json"
+    assert (
+        parsed["metadata"]["default_config"]
+        == "examples/configs/industrial_embedding_core_fast.json"
+    )
     assert parsed["metadata"]["runtime_profile"] == "gpu-embeddings"
     assert "artifacts/infer_config.json" in parsed["metadata"]["expected_artifacts"]

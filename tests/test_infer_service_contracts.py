@@ -66,7 +66,9 @@ def test_build_infer_result_artifact_request_from_options_copies_mutable_option_
         InferResultArtifactAssemblyRequest(
             index=0,
             input_path="sample.png",
-            result=InferenceResult(score=0.5, label=0, anomaly_map=np.zeros((2, 2), dtype=np.float32)),
+            result=InferenceResult(
+                score=0.5, label=0, anomaly_map=np.zeros((2, 2), dtype=np.float32)
+            ),
             options=InferArtifactOptions(
                 defects_enabled=True,
                 pixel_threshold_value=0.5,

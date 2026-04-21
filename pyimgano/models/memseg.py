@@ -498,7 +498,9 @@ class MemSegDetector(BaseVisionDeepDetector):
         seg_head_state = state.get("seg_head_state_dict", None)
         if self.seg_head is not None and seg_head_state is not None:
             if not isinstance(seg_head_state, dict):
-                raise ValueError("Invalid MemSeg checkpoint payload: invalid segmentation head state.")
+                raise ValueError(
+                    "Invalid MemSeg checkpoint payload: invalid segmentation head state."
+                )
             self.seg_head.load_state_dict(dict(seg_head_state), strict=False)
             self.seg_head.to(self.device)
             self.seg_head.eval()
