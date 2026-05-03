@@ -40,7 +40,6 @@ CHANNEL_REDUCE_ERROR = "channel_reduce must be one of: max, mean, l2"
 EMPTY_TRAINING_SET_ERROR = "Training set cannot be empty"
 GET_ANOMALY_MAP_BEFORE_FIT_ERROR = "Detector must be fitted before calling get_anomaly_map"
 
-
 _Color = Literal["gray", "rgb"]
 _Reduction = Literal["max", "mean", "topk_mean"]
 _ChannelReduce = Literal["max", "mean", "l2"]

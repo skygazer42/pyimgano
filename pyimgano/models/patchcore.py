@@ -27,7 +27,6 @@ from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
 
-
 logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - typing-only dependency

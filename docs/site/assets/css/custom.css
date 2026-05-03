@@ -1,0 +1,174 @@
+/* pyimgano docs custom styles */
+
+/* Hero section */
+.pyimgano-hero {
+  text-align: center;
+  padding: 2rem 1rem 3rem;
+}
+
+.pyimgano-hero h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.pyimgano-hero .hero-subtitle {
+  font-size: 1.2rem;
+  opacity: 0.8;
+  margin-bottom: 1.5rem;
+}
+
+.pyimgano-hero .hero-badges {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.pyimgano-hero .hero-badges img {
+  height: 20px;
+}
+
+/* Feature cards grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.grid .card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+
+.grid .card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.grid .card h3 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+.grid .card p {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin-bottom: 0.5rem;
+}
+
+.grid .card a {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Model type badges */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.badge-classical {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.badge-deep {
+  background-color: #fce4ec;
+  color: #c62828;
+}
+
+.badge-vlm {
+  background-color: #f3e5f5;
+  color: #6a1b9a;
+}
+
+.badge-pixel-map {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-numpy {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+[data-md-color-scheme="slate"] .badge-classical {
+  background-color: #1a3a5c;
+  color: #90caf9;
+}
+
+[data-md-color-scheme="slate"] .badge-deep {
+  background-color: #5c1a2a;
+  color: #ef9a9a;
+}
+
+[data-md-color-scheme="slate"] .badge-vlm {
+  background-color: #4a1a5c;
+  color: #ce93d8;
+}
+
+[data-md-color-scheme="slate"] .badge-pixel-map {
+  background-color: #1a3c1a;
+  color: #a5d6a7;
+}
+
+[data-md-color-scheme="slate"] .badge-numpy {
+  background-color: #5c3a1a;
+  color: #ffcc80;
+}
+
+/* Version badge */
+.version-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background-color: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+/* CLI command highlight */
+.cli-cmd {
+  font-family: var(--md-code-font-family);
+  font-size: 0.85rem;
+  background-color: var(--md-code-bg-color);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.2rem;
+}
+
+/* Capability matrix table */
+.capability-matrix {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.capability-matrix th {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.capability-matrix td:not(:first-child) {
+  text-align: center;
+}
+
+/* Compact tables for model lists */
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 0.5rem 0.75rem;
+}
+
+/* Content tab improvements */
+.md-typeset .tabbed-set {
+  margin-top: 0.5rem;
+}

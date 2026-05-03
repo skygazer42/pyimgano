@@ -1,0 +1,138 @@
+site_name: pyimgano
+site_url: https://skygazer42.github.io/pyimgano/
+site_description: 企业级视觉异常检测工具包 | Enterprise-Grade Visual Anomaly Detection Toolkit
+site_author: PyImgAno Contributors
+repo_name: skygazer42/pyimgano
+repo_url: https://github.com/skygazer42/pyimgano
+
+docs_dir: docs/site
+
+theme:
+  name: material
+  language: zh
+  font:
+    text: Noto Sans SC
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换至暗色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换至亮色模式
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - assets/css/custom.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - def_list
+  - footnotes
+
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+  - minify:
+      minify_html: true
+
+nav:
+  - 首页: index.md
+  - 快速开始:
+    - getting-started/index.md
+    - 安装指南: getting-started/installation.md
+    - 5 分钟体验: getting-started/quickstart.md
+    - 首次运行: getting-started/first-run.md
+  - 使用指南:
+    - guide/index.md
+    - Python API: guide/python-api.md
+    - CLI 工作流: guide/cli-overview.md
+    - 训练: guide/training.md
+    - 推理: guide/inference.md
+    - 校准与阈值: guide/calibration.md
+    - 缺陷检测: guide/defects.md
+    - 合成异常: guide/synthesis.md
+    - 基准测试: guide/benchmarking.md
+  - 模型库:
+    - models/index.md
+    - 经典模型: models/classical.md
+    - 深度学习模型: models/deep.md
+    - 视觉语言模型: models/vlm.md
+    - 完整模型注册表: models/registry.md
+  - 部署指南:
+    - deployment/index.md
+    - 模型导出: deployment/export.md
+    - Deploy Bundle: deployment/bundle.md
+    - 工业生产部署: deployment/industrial.md
+  - 参考文档:
+    - reference/index.md
+    - CLI 参考: reference/cli.md
+    - Python API 参考: reference/python-api.md
+    - 配置参考: reference/configuration.md
+    - ImageFormat 规范: reference/image-format.md
+    - 可选依赖: reference/optional-deps.md
+  - 实战配方:
+    - recipes/index.md
+    - 工业 MVP Loop: recipes/mvp-loop.md
+    - 工业检测: recipes/industrial-inspection.md
+    - Embedding + Core: recipes/embedding-core.md
+    - 像素级基线: recipes/pixel-baselines.md
+    - 误报调优: recipes/false-positive-debugging.md
+  - 高级用法:
+    - advanced/index.md
+    - 预处理: advanced/preprocessing.md
+    - 特征提取器: advanced/feature-extractors.md
+    - 阈值校准审计: advanced/calibration-audit.md
+    - 插件系统: advanced/plugins.md
+    - 鲁棒性测试: advanced/robustness.md
+    - 权重管理: advanced/weights.md
+  - 更新日志: changelog.md
+  - FAQ: faq.md

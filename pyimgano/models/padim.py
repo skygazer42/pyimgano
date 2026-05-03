@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
 
-
 if TYPE_CHECKING:  # pragma: no cover
     import torch
 

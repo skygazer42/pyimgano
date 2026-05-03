@@ -139,24 +139,6 @@ python tools/audit_registry.py
 python tools/audit_repo_links.py
 ```
 
-### SonarCloud Workflow Checks
-
-When you need to reproduce the SonarCloud workflow locally before pushing:
-
-```bash
-# Reproduce the Sonar pytest/coverage phase locally
-bash tools/run_sonar_local.sh --skip-scan
-
-# Run the same flow and submit a local SonarCloud scan
-SONAR_TOKEN=... bash tools/run_sonar_local.sh
-
-# After push, fetch the current quality gate and open issues
-SONAR_TOKEN=... python3 tools/fetch_sonar_issues.py --project-key skygazer42_pyimgano --limit 10
-```
-
-`Dockerfile.sonar` provides a focused container image for the same local Sonar
-reproduction path.
-
 ### Code Style
 
 We use the following tools to maintain code quality:
