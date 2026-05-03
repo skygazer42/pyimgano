@@ -18,7 +18,7 @@ hide:
   <a href="https://github.com/skygazer42/pyimgano/blob/main/LICENSE"><img src="https://img.shields.io/github/license/skygazer42/pyimgano" alt="License"></a>
 </div>
 
-<span class="version-badge">v0.9.0</span>
+<span class="version-badge">v0.9.1</span>
 
 </div>
 

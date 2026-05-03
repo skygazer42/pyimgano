@@ -52,6 +52,7 @@ Before tagging a release, verify:
 ```bash
 python -m build
 twine check dist/*
+python3 tools/audit_release_version.py --tag vX.Y.Z
 python3 tools/audit_repo_links.py
 python3 tools/audit_public_api.py
 python3 tools/audit_registry.py
@@ -179,10 +180,25 @@ radius if a token is ever leaked.
 
 ### Publish to PyPI (official)
 
-1) Tag and push a release (for example `v0.6.38`).
-2) Create a GitHub Release for that tag and click **Publish release**.
+1) Pick a package version that has never been uploaded to PyPI.
+2) Update `pyproject.toml` and `pyimgano/__init__.py`, then verify:
+
+```bash
+python3 tools/audit_release_version.py --tag vX.Y.Z
+```
+
+For prereleases, keep the package version PEP 440-compatible. For example,
+`version = "0.9.1rc1"` may be released with tag `v0.9.1-rc1`.
+
+3) Tag and push a release (for example `v0.9.1`).
+4) Create a GitHub Release for that tag and click **Publish release**.
 
 That triggers the workflow and uploads to PyPI automatically.
+
+Pushing a git tag by itself is not enough for this workflow; it listens for the
+GitHub Release **published** event. PyPI also does not allow overwriting files
+for an already-uploaded version, so use a new patch/minor/prerelease version for
+any package content that differs from the current PyPI release.
 
 ### Publish to TestPyPI (optional)
 

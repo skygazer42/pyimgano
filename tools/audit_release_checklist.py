@@ -17,6 +17,7 @@ DEFAULT_RULES = (
         path="docs/PUBLISHING.md",
         required=(
             "python3 tools/audit_release_surface.py",
+            "python3 tools/audit_release_version.py --tag vX.Y.Z",
             "python3 tools/audit_adoption_docs.py",
             "python3 tools/audit_deploy_smoke_docs.py",
             "pyimgano-doctor --profile deploy-smoke --json",

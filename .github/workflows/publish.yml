@@ -24,6 +24,10 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Check release tag matches package version
+        if: github.event_name == 'release'
+        run: python tools/audit_release_version.py --tag "$GITHUB_REF_NAME"
+
       - name: Install system dependencies
         run: |
           sudo apt-get update

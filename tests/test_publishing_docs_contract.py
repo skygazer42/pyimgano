@@ -12,6 +12,7 @@ def test_publishing_doc_mentions_release_gate_commands() -> None:
 
     assert "python3 tools/audit_deploy_smoke_docs.py" in text
     assert "python3 tools/audit_adoption_docs.py" in text
+    assert "python3 tools/audit_release_version.py --tag vX.Y.Z" in text
     assert "python3 tools/audit_release_surface.py" in text
     assert "pyimgano-doctor --profile deploy-smoke --json" in text
     assert "pyimgano bundle validate runs/<run_dir>/deploy_bundle --json" in text

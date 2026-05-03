@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-03
+
+### Changed
+- Prepared the post-0.9.0 release line under a new package version so PyPI can publish
+  the current main branch without attempting to overwrite the existing `0.9.0` files.
+- Added a release-version audit to the PyPI workflow so GitHub Release tags must match
+  `pyproject.toml` and `pyimgano.__version__` before upload.
+
+### Fixed
+- Kept release readiness checks from drifting away from the package version/tag contract,
+  including prerelease tags such as `vX.Y.Z-rcN`.
+
 ## [0.9.0] - 2026-04-03
 
 ### Added
@@ -1087,7 +1099,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor**: New features, backward compatible
 - **Patch**: Bug fixes, backward compatible
 
-[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/skygazer42/pyimgano/releases/tag/v0.9.1
 [0.9.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.9.0
 [0.8.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.8.0
 [0.1.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.1.0

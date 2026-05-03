@@ -16,6 +16,24 @@ title: 更新日志
 
 ---
 
+## v0.9.1 — 2026-05-03
+
+### 发布对齐 / Release Alignment
+
+=== "中文"
+
+    - 将 post-0.9.0 的 main 分支内容准备为新的 `0.9.1` 包版本，避免 PyPI 重复上传已存在的 `0.9.0` 文件
+    - 发布 workflow 新增版本/tag 审计：GitHub Release tag 必须匹配 `pyproject.toml` 与 `pyimgano.__version__`
+    - 发布文档明确：仅 push git tag 不会触发 PyPI 上传，必须发布 GitHub Release
+
+=== "English"
+
+    - Prepared post-0.9.0 main-branch changes as package version `0.9.1`, avoiding attempts to overwrite existing PyPI `0.9.0` files
+    - Added a version/tag audit to the release workflow so GitHub Release tags must match `pyproject.toml` and `pyimgano.__version__`
+    - Clarified that pushing a git tag alone does not upload to PyPI; publishing a GitHub Release is required
+
+---
+
 ## v0.9.0 — 2026-04-03
 
 ### 热文件夹运行时 / Hot-folder Runtime
