@@ -1,6 +1,18 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/banner.svg" alt="pyimgano banner" width="100%"/>
-</p>
+<details open>
+<summary><b>GPT Image 2 prompt: README banner</b></summary>
+
+```text
+Create a wide GitHub README banner for an open-source Python package named pyimgano.
+
+Format: 1800 x 440 px PNG, documentation-friendly, crisp at small sizes, centered composition, no mock browser chrome.
+Visual direction: polished Python developer tool asset for production-oriented visual anomaly detection and industrial inspection. Use a precise technical illustration style, clean geometry, calm spacing, and restrained gradients.
+Composition: dark slate technical canvas with a subtle inspection grid. Left side: a simplified industrial image tile grid with one highlighted defect region, a small scan lens, and thin detection lines. Center: exact wordmark "pyimgano" as the primary text, with the secondary line "VISUAL ANOMALY DETECTION". Right side: three compact technical pills reading "120+ Models", "Image + Pixel", and "Deploy-ready".
+Palette: slate #0f172a and #1e293b, cyan #38bdf8, indigo #818cf8, pink #f472b6, muted gray #94a3b8. Use glow only as a thin accent, not a heavy shadow.
+Typography: sharp developer-tool typography, monospaced accents where useful, high legibility, no distorted letters.
+Avoid: marketing landing-page energy, photoreal scenes, people, factory photos, dense dashboards, fake app windows, noisy textures, heavy shadows, watermarks, extra slogans, and any text not listed above.
+```
+
+</details>
 
 <p align="center">
   <strong>Production-oriented visual anomaly detection for industrial inspection.</strong><br/>
@@ -8,11 +20,11 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/v/pyimgano.svg?style=flat-square&logo=pypi&logoColor=white&label=PyPI" alt="PyPI"/></a>
-  <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/pyversions/pyimgano.svg?style=flat-square&logo=python&logoColor=white" alt="Python"/></a>
+  <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/v/pyimgano?style=flat-square&logo=pypi&logoColor=white&label=PyPI" alt="PyPI"/></a>
+  <a href="https://pypi.org/project/pyimgano/"><img src="https://img.shields.io/pypi/pyversions/pyimgano?style=flat-square&logo=python&logoColor=white" alt="Python"/></a>
   <a href="https://github.com/skygazer42/pyimgano/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/skygazer42/pyimgano/ci.yml?style=flat-square&logo=githubactions&logoColor=white&label=CI" alt="CI"/></a>
-  <a href="https://github.com/skygazer42/pyimgano/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"/></a>
-  <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="Code style: black"/></a>
+  <a href="https://github.com/skygazer42/pyimgano/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License: MIT"/></a>
+  <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000?style=flat-square" alt="Code style: black"/></a>
   <a href="https://pepy.tech/project/pyimgano"><img src="https://img.shields.io/pepy/dt/pyimgano?style=flat-square&logo=python&logoColor=white&label=Downloads" alt="Downloads"/></a>
 </p>
 
@@ -54,9 +66,21 @@ Most anomaly detection libraries target either **research** (maximizing paper me
 
 ## ✨ Key Features
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/features.svg" alt="Key Features" width="100%"/>
-</p>
+<details>
+<summary><b>GPT Image 2 prompt: key features visual</b></summary>
+
+```text
+Create a polished GitHub README feature visual for pyimgano, an open-source Python visual anomaly detection package.
+
+Format: 1760 x 520 px PNG, clean technical illustration, precise rectangular grid, readable at README width.
+Composition: two-row matrix of eight compact feature tiles on a dark slate developer-tool background. Each tile has a small symbolic mark, one short title, and one concise supporting line. Use these exact tile titles: "120+ Models", "Pixel-level Maps", "Full CLI", "Deploy-ready", "Industrial IO", "Metrics", "Synthesis", "Ecosystem".
+Content cues: model registry, image and pixel anomaly detection, train/infer/benchmark CLI, ONNX/OpenVINO/TorchScript export, NumPy-first industrial image formats, AUROC/AP/AUPRO/F1 metrics, synthetic anomalies, integrations with Anomalib/OpenCLIP/FAISS.
+Palette: dark slate foundation with restrained cyan, indigo, green, pink, amber, and violet accents. Keep generous internal spacing and crisp divider lines.
+Style: premium open-source Python package README asset, vector-inspired, calm, minimal, technically credible.
+Avoid: screenshots, fake dashboards, browser chrome, stock icons, long paragraphs, busy backgrounds, heavy shadows, people, photoreal factory scenes, watermark, and extra labels beyond the requested tile titles.
+```
+
+</details>
 
 <table>
 <tr>
@@ -104,9 +128,25 @@ Most anomaly detection libraries target either **research** (maximizing paper me
 
 ## 🏗️ Architecture
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/architecture.svg" alt="Architecture Overview" width="100%"/>
-</p>
+<details>
+<summary><b>GPT Image 2 prompt: architecture visual</b></summary>
+
+```text
+Create a clean architecture diagram image for the pyimgano README.
+
+Format: 1760 x 840 px PNG, documentation-friendly, high legibility, exact horizontal alignment, no perspective distortion.
+Title text: "PYIMGANO ARCHITECTURE".
+Layout: four stacked technical bands connected by thin arrows.
+Band 1: "INPUT LAYER" with compact chips for "Image Paths", "NumPy Arrays", "JSONL Manifest", "Video Frames", and "ImageFormat: RGB/BGR / HWC".
+Band 2: split into "PREPROCESSING" with chips "Resize", "Normalize", "Augment", "Tiling", and "FEATURE EXTRACTION" with chips "ResNet", "WideResNet", "DINOv2", "OpenCLIP".
+Band 3: "MODEL ZOO | 120+ Detectors" with five groups: "Classical", "Memory Bank", "Student-Teacher", "Flow-based", "VLM / Other".
+Band 4: "OUTPUT & DEPLOYMENT" with chips "Anomaly Score", "Pixel Map", "Defect Regions", "JSONL", "ONNX", "OpenVINO", "Report".
+Visual style: crisp dark technical diagram, thin strokes, small rounded rectangles, restrained glow, developer documentation aesthetic.
+Palette: slate #0f172a/#1e293b, cyan #38bdf8, indigo #818cf8, pink #f472b6, green #34d399, orange #fb923c, muted gray labels.
+Avoid: 3D, photorealism, people, factory scenes, device mockups, browser chrome, clutter, illegible microtext, decorative blobs, heavy shadows, and any text not listed above.
+```
+
+</details>
 
 <details>
 <summary><b>Pipeline flow (Mermaid)</b></summary>
@@ -450,9 +490,29 @@ are verified before a suite export is treated as publication-ready.
 
 ### Algorithm Capability Matrix
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/algo_matrix.svg" alt="Algorithm Capability Matrix" width="100%"/>
-</p>
+<details>
+<summary><b>GPT Image 2 prompt: algorithm capability matrix visual</b></summary>
+
+```text
+Create a GitHub README capability matrix image for pyimgano's anomaly detection model zoo.
+
+Format: 1760 x 760 px PNG, crisp table layout, highly readable, documentation-friendly.
+Title text: "ALGORITHM CAPABILITY MATRIX".
+Table columns: "Category", "Algorithms", "Image Score", "Pixel Map", "CPU", "GPU", "Few-shot", "Deploy".
+Rows:
+1. "Statistical", "ECOD / COPOD / KDE / GMM / MCD", Image Score yes, Pixel Map no, CPU yes, GPU no, Few-shot yes, Deploy yes.
+2. "Proximity", "KNN / LOF / COF / ODIN / INNE", Image Score yes, Pixel Map no, CPU yes, GPU no, Few-shot yes, Deploy yes.
+3. "Memory Bank", "PatchCore / PaDiM / SPADE / SoftPatch", Image Score yes, Pixel Map yes, CPU partial, GPU yes, Few-shot yes, Deploy yes.
+4. "Student-Teacher", "STFPM / RD / EfficientAD / AST", Image Score yes, Pixel Map yes, CPU no, GPU yes, Few-shot no, Deploy yes.
+5. "Flow-based", "FastFlow / CFlow / CS-Flow", Image Score yes, Pixel Map yes, CPU no, GPU yes, Few-shot no, Deploy yes.
+6. "Reconstruction", "AE / VAE / DRAEM / MemSeg", Image Score yes, Pixel Map yes, CPU no, GPU yes, Few-shot no, Deploy partial.
+7. "VLM / Zero-shot", "WinCLIP / AnomalyDINO / PromptAD", Image Score yes, Pixel Map yes, CPU no, GPU yes, Few-shot yes, Deploy partial.
+Visual language: precise dark technical table with subtle alternating rows, thin dividers, colored row accents, compact yes/no/partial glyphs, and a small legend for yes, partial, and not applicable.
+Palette: slate background, cyan, indigo, pink, amber, green, muted gray. Keep contrast high and text clean.
+Avoid: decorative charts, fake dashboards, browser chrome, dense paragraphs, 3D effects, photorealism, people, watermarks, and any extra categories or columns.
+```
+
+</details>
 
 ### Recommended Baselines
 
