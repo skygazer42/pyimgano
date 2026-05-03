@@ -74,5 +74,5 @@ def test_audit_release_version_accepts_hyphenated_rc_tag_for_pep440_rc(
 def test_publish_workflow_checks_release_tag_before_upload() -> None:
     workflow = Path(".github/workflows/publish.yml").read_text(encoding="utf-8")
 
-    assert "python tools/audit_release_version.py --tag \"$GITHUB_REF_NAME\"" in workflow
+    assert 'python tools/audit_release_version.py --tag "$GITHUB_REF_NAME"' in workflow
     assert "if: github.event_name == 'release'" in workflow
