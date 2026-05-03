@@ -8,8 +8,7 @@ from pathlib import Path
 
 
 def test_feature_info_materializes_only_requested_extractor_module() -> None:
-    payload = _run_py(
-        """
+    payload = _run_py("""
 import json
 import sys
 
@@ -25,8 +24,7 @@ after = {
     "torchvision_backbone": "pyimgano.features.torchvision_backbone" in sys.modules,
 }
 print(json.dumps({"before": before, "after": after, "accepted_kwargs": info["accepted_kwargs"]}))
-"""
-    )
+""")
 
     assert payload["before"] == {
         "pca_projector": False,
@@ -40,8 +38,7 @@ print(json.dumps({"before": before, "after": after, "accepted_kwargs": info["acc
 
 
 def test_models_package_materializes_base_vision_detector_on_attribute_access() -> None:
-    payload = _run_py(
-        """
+    payload = _run_py("""
 import json
 import sys
 
@@ -57,8 +54,7 @@ after = {
     "baseCv": "pyimgano.models.baseCv" in sys.modules,
 }
 print(json.dumps({"before": before, "after": after, "name": base.__name__}))
-"""
-    )
+""")
 
     assert payload["before"] == {"baseml": False, "baseCv": False}
     assert payload["name"] == "BaseVisionDetector"
@@ -66,8 +62,7 @@ print(json.dumps({"before": before, "after": after, "name": base.__name__}))
 
 
 def test_models_package_materializes_base_vision_deep_detector_on_attribute_access() -> None:
-    payload = _run_py(
-        """
+    payload = _run_py("""
 import json
 import sys
 
@@ -77,8 +72,7 @@ before = {"baseCv": "pyimgano.models.baseCv" in sys.modules}
 base = models.BaseVisionDeepDetector
 after = {"baseCv": "pyimgano.models.baseCv" in sys.modules}
 print(json.dumps({"before": before, "after": after, "name": base.__name__}))
-"""
-    )
+""")
 
     assert payload["before"] == {"baseCv": False}
     assert payload["name"] == "BaseVisionDeepDetector"

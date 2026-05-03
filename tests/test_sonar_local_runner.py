@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="tools/run_sonar_local.sh is exercised in the Linux Sonar workflow only.",
+)
 
 
 def _clean_runner_env(**overrides: str) -> dict[str, str]:

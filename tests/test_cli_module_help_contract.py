@@ -34,8 +34,7 @@ def test_python_module_pyim_help_mentions_selection_flags() -> None:
 
 
 def test_python_module_doctor_help_does_not_require_cv2() -> None:
-    code = textwrap.dedent(
-        """
+    code = textwrap.dedent("""
         import importlib.abc
         import importlib.machinery
         import runpy
@@ -60,8 +59,7 @@ def test_python_module_doctor_help_does_not_require_cv2() -> None:
         sys.meta_path.insert(0, _BlockFinder())
         sys.argv = ["pyimgano.doctor_cli", "--help"]
         runpy.run_module("pyimgano.doctor_cli", run_name="__main__")
-        """
-    )
+        """)
     completed = subprocess.run(
         [sys.executable, "-c", code],
         check=False,

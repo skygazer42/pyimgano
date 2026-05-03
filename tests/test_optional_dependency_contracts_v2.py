@@ -99,8 +99,7 @@ def test_utils_lazy_exports_report_actionable_hints(
     blocked_roots: set[str], attr_name: str, expected_hint: str
 ) -> None:
     blocked_roots_literal = sorted(blocked_roots)
-    payload = _run_py(
-        f"""
+    payload = _run_py(f"""
 import importlib.abc
 import importlib.machinery
 import json
@@ -142,7 +141,6 @@ except Exception as exc:
     err = f"{{type(exc).__name__}}: {{exc}}"
 
 print(json.dumps({{"ok": ok, "error": err}}))
-"""
-    )
+""")
 
     assert payload.get("ok") is True, payload.get("error")

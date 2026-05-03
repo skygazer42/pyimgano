@@ -11,7 +11,9 @@ import numpy as np
 from pyimgano.inference.api import InferenceResult, InferenceTiming
 from pyimgano.inference.decision_summary import maybe_build_decision_summary
 from pyimgano.inference.runtime_adapter import extract_maps_best_effort, score_and_maps
-from pyimgano.inference.runtime_support import ImageInput
+from pyimgano.inference.runtime_support import (
+    ImageInput,
+)
 from pyimgano.inference.runtime_support import (
     apply_rejection_policy as _apply_rejection_policy_shared,
 )

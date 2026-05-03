@@ -20,8 +20,7 @@ def _run_python(script: str) -> dict[str, object]:
 
 
 def test_importing_workbench_package_does_not_eagerly_import_runner_or_preflight() -> None:
-    payload = _run_python(
-        """
+    payload = _run_python("""
 import json
 import sys
 import pyimgano.workbench as workbench
@@ -31,8 +30,7 @@ print(json.dumps({
     "preflight_loaded": "pyimgano.workbench.preflight" in sys.modules,
     "workbench_loaded": "pyimgano.workbench" in sys.modules,
 }))
-"""
-    )
+""")
 
     assert payload == {
         "runner_loaded": False,
@@ -83,8 +81,7 @@ def test_workbench_package_declares_grouped_export_spec() -> None:
 
 
 def test_workbench_package_resolves_exports_without_loading_unrelated_modules() -> None:
-    payload = _run_python(
-        """
+    payload = _run_python("""
 import json
 import sys
 import pyimgano.workbench as workbench
@@ -96,8 +93,7 @@ print(json.dumps({
     "runner_loaded": "pyimgano.workbench.runner" in sys.modules,
     "preflight_loaded": "pyimgano.workbench.preflight" in sys.modules,
 }))
-"""
-    )
+""")
 
     assert payload == {
         "config_loaded": True,
@@ -109,8 +105,7 @@ print(json.dumps({
 def test_workbench_package_resolves_preflight_type_exports_without_loading_preflight_runtime() -> (
     None
 ):
-    payload = _run_python(
-        """
+    payload = _run_python("""
 import json
 import sys
 import pyimgano.workbench as workbench
@@ -121,8 +116,7 @@ print(json.dumps({
     "preflight_types_loaded": "pyimgano.workbench.preflight_types" in sys.modules,
     "preflight_loaded": "pyimgano.workbench.preflight" in sys.modules,
 }))
-"""
-    )
+""")
 
     assert payload == {
         "preflight_types_loaded": True,

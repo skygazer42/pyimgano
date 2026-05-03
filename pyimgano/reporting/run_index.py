@@ -9,7 +9,9 @@ from pyimgano.reporting.evaluation_contract import build_evaluation_contract
 from pyimgano.reporting.run_index_helpers import (
     build_candidate_incompatibility_digest_entry as _build_candidate_incompatibility_digest_entry_helper,
 )
-from pyimgano.reporting.run_index_helpers import build_trust_comparison
+from pyimgano.reporting.run_index_helpers import (
+    build_trust_comparison,
+)
 from pyimgano.reporting.run_index_helpers import (
     bundle_operator_contract_status_from_trust_summary as _bundle_operator_contract_status_from_trust_summary_helper,
 )

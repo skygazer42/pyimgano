@@ -71,8 +71,7 @@ def _help_text() -> str:
         for command in path.commands:
             starter_path_lines.append(f"    {command}")
     starter_paths_block = indent("\n".join(starter_path_lines), "        ")
-    return dedent(
-        f"""\
+    return dedent(f"""\
         usage:
           pyimgano --list [KIND] [filters...]
           pyimgano list [KIND] [filters...]
@@ -117,8 +116,7 @@ def _help_text() -> str:
           - `pyim` remains available as the short discovery alias.
           - `pyimgano list ...` and `pyimgano -- list ...` are aliases for `pyimgano --list ...`.
           - Existing `pyimgano-*` entry points remain supported.
-        """
-    )
+        """)
 
 
 def _print_help() -> None:
