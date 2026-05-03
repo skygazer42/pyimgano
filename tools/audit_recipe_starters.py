@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +11,12 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from pyimgano.config import load_config
+
+
+@dataclass(frozen=True)
+class _RecipeMetadataEntry:
+    recipe_name: str
+    metadata: dict[str, object]
 
 
 def _validate_recipe_config_path(
@@ -72,18 +80,120 @@ def _validate_recipe_metadata(
     return issues
 
 
-def _audit_recipe_metadata(*, repo_root: Path) -> list[str]:
-    import pyimgano.recipes  # noqa: F401
-    from pyimgano.recipes.registry import list_recipes, recipe_info
-
+def _extract_recipe_metadata_from_file(path: Path) -> tuple[list[_RecipeMetadataEntry], list[str]]:
+    entries: list[_RecipeMetadataEntry] = []
     issues: list[str] = []
-    for recipe_name in list_recipes():
-        info = recipe_info(recipe_name)
-        metadata = dict(info.get("metadata", {}) or {})
+
+    try:
+        module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except Exception as exc:  # noqa: BLE001 - tool boundary
+        return entries, [f"{path}: failed to parse builtin recipe metadata: {exc}"]
+
+    for node in ast.walk(module):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+
+            func = decorator.func
+            if not (
+                isinstance(func, ast.Name)
+                and str(func.id) == "register_recipe"
+            ):
+                continue
+
+            recipe_name: str | None = None
+            metadata: dict[str, object] = {}
+
+            if decorator.args:
+                try:
+                    raw_name = ast.literal_eval(decorator.args[0])
+                except Exception as exc:  # noqa: BLE001 - tool boundary
+                    issues.append(
+                        f"{path}: register_recipe first argument for {node.name} must be a string literal: {exc}"
+                    )
+                    continue
+                if not isinstance(raw_name, str):
+                    issues.append(
+                        f"{path}: register_recipe first argument for {node.name} must be a string literal"
+                    )
+                    continue
+                recipe_name = raw_name
+
+            for kw in decorator.keywords:
+                if kw.arg == "name":
+                    try:
+                        raw_name = ast.literal_eval(kw.value)
+                    except Exception as exc:  # noqa: BLE001 - tool boundary
+                        issues.append(
+                            f"{path}: register_recipe name= for {node.name} must be a string literal: {exc}"
+                        )
+                        recipe_name = None
+                        break
+                    if not isinstance(raw_name, str):
+                        issues.append(
+                            f"{path}: register_recipe name= for {node.name} must be a string literal"
+                        )
+                        recipe_name = None
+                        break
+                    recipe_name = raw_name
+                if kw.arg == "metadata":
+                    try:
+                        raw_metadata = ast.literal_eval(kw.value)
+                    except Exception as exc:  # noqa: BLE001 - tool boundary
+                        issues.append(
+                            f"{path}: register_recipe metadata for {node.name} must be literal-only: {exc}"
+                        )
+                        recipe_name = None
+                        break
+                    if not isinstance(raw_metadata, dict):
+                        issues.append(
+                            f"{path}: register_recipe metadata for {node.name} must be a dict literal"
+                        )
+                        recipe_name = None
+                        break
+                    metadata = dict(raw_metadata)
+
+            if recipe_name is None:
+                continue
+
+            entries.append(_RecipeMetadataEntry(recipe_name=recipe_name, metadata=metadata))
+
+    return entries, issues
+
+
+def _iter_builtin_recipe_metadata(*, repo_root: Path) -> tuple[list[_RecipeMetadataEntry], list[str]]:
+    builtin_dir = repo_root / "pyimgano" / "recipes" / "builtin"
+    entries: list[_RecipeMetadataEntry] = []
+    issues: list[str] = []
+    seen: set[str] = set()
+
+    for path in sorted(builtin_dir.glob("*.py")):
+        if path.name == "__init__.py":
+            continue
+        file_entries, file_issues = _extract_recipe_metadata_from_file(path)
+        issues.extend(file_issues)
+        for entry in file_entries:
+            if entry.recipe_name in seen:
+                issues.append(f"{entry.recipe_name}: duplicate builtin recipe metadata registration found in {path}")
+                continue
+            seen.add(entry.recipe_name)
+            entries.append(entry)
+
+    return entries, issues
+
+
+def _audit_recipe_metadata(*, repo_root: Path) -> list[str]:
+    issues: list[str] = []
+    entries, parse_issues = _iter_builtin_recipe_metadata(repo_root=repo_root)
+    issues.extend(parse_issues)
+    for entry in entries:
         issues.extend(
             _validate_recipe_metadata(
-                recipe_name=str(recipe_name),
-                metadata=metadata,
+                recipe_name=str(entry.recipe_name),
+                metadata=dict(entry.metadata),
                 repo_root=repo_root,
             )
         )
