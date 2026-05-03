@@ -24,6 +24,7 @@ include tox.ini
 # Keep this list tight to avoid noisy sdist build warnings.
 recursive-include docs *.md *.rst *.html *.py *.gitkeep
 prune docs/build
+prune docs/site
 
 # Include tests (for source distributions)
 recursive-include tests *.py

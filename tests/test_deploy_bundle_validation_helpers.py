@@ -2,9 +2,7 @@ from __future__ import annotations
 
 
 def test_validate_required_presence_flag_matches_boolean_contract() -> None:
-    from pyimgano.reporting.deploy_bundle_validation_helpers import (
-        validate_required_presence_flag,
-    )
+    from pyimgano.reporting.deploy_bundle_validation_helpers import validate_required_presence_flag
 
     assert validate_required_presence_flag(True, field_name="required_flag", actual=True) == []
     assert validate_required_presence_flag(False, field_name="required_flag", actual=True) == [

@@ -26,9 +26,7 @@ def test_resolve_manifest_preflight_source_or_summary_returns_none_when_no_summa
 
 
 def test_resolve_manifest_record_preflight_summary_returns_summary_early() -> None:
-    from pyimgano.workbench.manifest_preflight_flow import (
-        resolve_manifest_record_preflight_summary,
-    )
+    from pyimgano.workbench.manifest_preflight_flow import resolve_manifest_record_preflight_summary
 
     record_preflight = {"summary": {"status": "error"}}
 

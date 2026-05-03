@@ -7,7 +7,8 @@ This is intentionally conservative:
 - does not bundle weights into the package (user provides checkpoint paths)
 """
 
-from contextlib import nullcontext
+import codecs
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,34 @@ def _require_torch():
     from pyimgano.utils.optional_deps import require
 
     return require("torch", extra="torch", purpose="deep model IO")
+
+
+@contextmanager
+def _torch_safe_globals_context(torch: Any, safe_globals: list[object]):
+    safe_globals_ctx = getattr(torch.serialization, "safe_globals", None)
+    if callable(safe_globals_ctx):
+        with safe_globals_ctx(safe_globals):
+            yield
+        return
+
+    add_safe_globals = getattr(torch.serialization, "add_safe_globals", None)
+    get_safe_globals = getattr(torch.serialization, "get_safe_globals", None)
+    clear_safe_globals = getattr(torch.serialization, "clear_safe_globals", None)
+    if not (
+        callable(add_safe_globals) and callable(get_safe_globals) and callable(clear_safe_globals)
+    ):
+        with nullcontext():
+            yield
+        return
+
+    previous = list(get_safe_globals())
+    add_safe_globals(safe_globals)
+    try:
+        yield
+    finally:
+        clear_safe_globals()
+        if previous:
+            add_safe_globals(previous)
 
 
 def save_deep_detector(
@@ -84,6 +113,7 @@ def safe_torch_load(path: str | Path, *, map_location: str | None = "cpu") -> An
             import numpy as np
 
             safe_globals = [
+                codecs.encode,
                 np._core.multiarray._reconstruct,
                 np.ndarray,
                 np.dtype,
@@ -98,9 +128,7 @@ def safe_torch_load(path: str | Path, *, map_location: str | None = "cpu") -> An
         except Exception:
             safe_globals = []
 
-        safe_globals_ctx = getattr(torch.serialization, "safe_globals", None)
-        ctx = safe_globals_ctx(safe_globals) if callable(safe_globals_ctx) else nullcontext()
-        with ctx:
+        with _torch_safe_globals_context(torch, safe_globals):
             return torch.load(str(p), map_location=map_location, weights_only=True)
     except TypeError as exc:
         raise RuntimeError(

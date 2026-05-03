@@ -6,6 +6,9 @@ accelerators (e.g. `anomalib`, `faiss`) are supported via extras.
 
 from __future__ import annotations
 
+import io
+import sys
+from contextlib import redirect_stderr
 from importlib import import_module
 from types import ModuleType
 from typing import Optional, Tuple
@@ -27,10 +30,14 @@ _PIP_NAME_OVERRIDES = {
 def optional_import(module_name: str) -> Tuple[Optional[ModuleType], Optional[BaseException]]:
     """Attempt to import a module, returning (module, error)."""
 
+    captured_stderr = io.StringIO()
     try:
-        return import_module(module_name), None
+        with redirect_stderr(captured_stderr):
+            module = import_module(module_name)
     except Exception as exc:  # noqa: BLE001 - return import error without swallowing BaseException
         return None, exc
+    sys.stderr.write(captured_stderr.getvalue())
+    return module, None
 
 
 def require(

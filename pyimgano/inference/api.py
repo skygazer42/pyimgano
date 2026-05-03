@@ -10,9 +10,7 @@ import numpy as np
 
 from pyimgano.inference.decision_summary import maybe_build_decision_summary
 from pyimgano.inference.runtime_adapter import extract_maps_best_effort, score_and_maps
-from pyimgano.inference.runtime_support import (
-    ImageInput,
-)
+from pyimgano.inference.runtime_support import ImageInput
 from pyimgano.inference.runtime_support import (
     apply_rejection_policy as _apply_rejection_policy_shared,
 )
@@ -51,7 +49,10 @@ def _normalize_inputs(
     input_format: str | ImageFormat | None,
     u16_max: int | None = None,
 ) -> list[str] | list[np.ndarray]:
-    return _normalize_inputs_shared(inputs, input_format=input_format, u16_max=u16_max)
+    normalized: list[str] | list[np.ndarray] = _normalize_inputs_shared(
+        inputs, input_format=input_format, u16_max=u16_max
+    )
+    return normalized
 
 
 def calibrate_threshold(
@@ -205,16 +206,18 @@ def _best_effort_label_confidence(
     scores: np.ndarray,
     labels: np.ndarray | None,
 ) -> np.ndarray | None:
-    return _best_effort_label_confidence_shared(
+    confidences: np.ndarray | None = _best_effort_label_confidence_shared(
         detector,
         inputs,
         scores=scores,
         labels=labels,
     )
+    return confidences
 
 
 def _resolve_rejection_threshold(value: float | None) -> float | None:
-    return _resolve_rejection_threshold_shared(value)
+    threshold: float | None = _resolve_rejection_threshold_shared(value)
+    return threshold
 
 
 def _apply_rejection_policy(
@@ -225,13 +228,14 @@ def _apply_rejection_policy(
     reject_confidence_below: float | None,
     reject_label: int | None,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
-    return _apply_rejection_policy_shared(
+    rejection_result: tuple[np.ndarray | None, np.ndarray | None] = _apply_rejection_policy_shared(
         detector=detector,
         labels=labels,
         confidences=confidences,
         reject_confidence_below=reject_confidence_below,
         reject_label=reject_label,
     )
+    return rejection_result
 
 
 def _copy_optional_summary(summary: dict[str, Any] | None) -> dict[str, Any] | None:

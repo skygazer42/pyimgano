@@ -20,7 +20,8 @@ def _run_python(script: str) -> dict[str, object]:
 
 
 def test_importing_services_package_does_not_eagerly_import_benchmark_service() -> None:
-    payload = _run_python("""
+    payload = _run_python(
+        """
 import json
 import sys
 import pyimgano.services
@@ -29,7 +30,8 @@ print(json.dumps({
     "benchmark_loaded": "pyimgano.services.benchmark_service" in sys.modules,
     "doctor_loaded": "pyimgano.services.doctor_service" in sys.modules,
 }))
-""")
+"""
+    )
 
     assert payload == {
         "benchmark_loaded": False,
@@ -76,7 +78,8 @@ def test_services_package_declares_grouped_export_spec() -> None:
 
 
 def test_services_package_resolves_exports_without_loading_unrelated_service_modules() -> None:
-    payload = _run_python("""
+    payload = _run_python(
+        """
 import json
 import sys
 import pyimgano.services as services
@@ -87,7 +90,8 @@ print(json.dumps({
     "benchmark_loaded": "pyimgano.services.benchmark_service" in sys.modules,
     "model_options_loaded": "pyimgano.services.model_options" in sys.modules,
 }))
-""")
+"""
+    )
 
     assert payload == {
         "benchmark_loaded": False,

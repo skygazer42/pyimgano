@@ -286,7 +286,8 @@ def model_metadata_contract() -> list[dict[str, Any]]:
 
     from pyimgano.models.metadata_contract import metadata_contract_fields
 
-    return metadata_contract_fields()
+    fields: list[dict[str, Any]] = metadata_contract_fields()
+    return fields
 
 
 def audit_model_metadata(
@@ -299,4 +300,5 @@ def audit_model_metadata(
     from pyimgano.models.metadata_contract import audit_metadata_contract
 
     selected = None if names is None else list(names)
-    return audit_metadata_contract(MODEL_REGISTRY, names=selected, limit=limit)
+    payload: dict[str, Any] = audit_metadata_contract(MODEL_REGISTRY, names=selected, limit=limit)
+    return payload

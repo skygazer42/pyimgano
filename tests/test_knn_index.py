@@ -23,14 +23,14 @@ def test_build_knn_index_sklearn():
 
 
 def test_build_knn_index_faiss_optional():
-    pytest.importorskip("faiss")
+    pytest.importorskip("faiss", exc_type=ImportError)
 
     index = build_knn_index(backend="faiss", n_neighbors=3)
     assert isinstance(index, FaissKNNIndex)
 
 
 def test_faiss_knn_index_optional():
-    pytest.importorskip("faiss")
+    pytest.importorskip("faiss", exc_type=ImportError)
 
     rng = np.random.default_rng(0)
     x = rng.random((20, 4)).astype(np.float32)

@@ -64,15 +64,9 @@ def _try_load_state_dict(model: Any, path: Path) -> bool:
     if not callable(getattr(model, "load_state_dict", None)):
         return False
 
-    from pyimgano.utils.optional_deps import require
+    from pyimgano.models.deep_io import safe_torch_load
 
-    torch = require(
-        "torch",
-        extra="torch",
-        purpose="load checkpoints via detector.model.load_state_dict",
-    )
-
-    state = torch.load(path, map_location="cpu")
+    state = safe_torch_load(path, map_location="cpu")
     state = _normalize_torch_state_dict(state)
     try:
         model.load_state_dict(state)

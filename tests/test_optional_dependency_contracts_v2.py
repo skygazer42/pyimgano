@@ -42,6 +42,37 @@ def test_optional_import_and_require_basic_contracts() -> None:
     assert hasattr(mod, "sqrt")
 
 
+def test_optional_import_suppresses_failed_import_stderr(capsys) -> None:
+    module_name = "pyimgano__optional_native_backend_with_noisy_import__"
+
+    class _NoisyImportLoader(importlib.abc.Loader):
+        def create_module(self, spec):
+            return None
+
+        def exec_module(self, module) -> None:
+            print("native extension traceback detail", file=sys.stderr)
+            raise ImportError("native extension failed")
+
+    class _NoisyImportFinder(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path=None, target=None):
+            if fullname == module_name:
+                return importlib.machinery.ModuleSpec(fullname, _NoisyImportLoader())
+            return None
+
+    finder = _NoisyImportFinder()
+    sys.meta_path.insert(0, finder)
+    try:
+        mod, err = optional_deps.optional_import(module_name)
+    finally:
+        sys.meta_path.remove(finder)
+        sys.modules.pop(module_name, None)
+
+    captured = capsys.readouterr()
+    assert mod is None
+    assert isinstance(err, ImportError)
+    assert captured.err == ""
+
+
 def test_require_reports_actionable_install_hints() -> None:
     with pytest.raises(ImportError) as excinfo:
         optional_deps.require("pyimgano__definitely_missing_module__xyz")
@@ -68,7 +99,8 @@ def test_utils_lazy_exports_report_actionable_hints(
     blocked_roots: set[str], attr_name: str, expected_hint: str
 ) -> None:
     blocked_roots_literal = sorted(blocked_roots)
-    payload = _run_py(f"""
+    payload = _run_py(
+        f"""
 import importlib.abc
 import importlib.machinery
 import json
@@ -110,6 +142,7 @@ except Exception as exc:
     err = f"{{type(exc).__name__}}: {{exc}}"
 
 print(json.dumps({{"ok": ok, "error": err}}))
-""")
+"""
+    )
 
     assert payload.get("ok") is True, payload.get("error")

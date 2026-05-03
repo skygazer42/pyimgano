@@ -26,6 +26,7 @@ def test_save_checkpoint_prefers_detector_method(tmp_path):
 
 def test_save_checkpoint_falls_back_to_torch_state_dict(tmp_path):
     torch = pytest.importorskip("torch")
+    from pyimgano.models.deep_io import safe_torch_load
 
     class _Detector:
         def __init__(self):
@@ -36,7 +37,7 @@ def test_save_checkpoint_falls_back_to_torch_state_dict(tmp_path):
     assert saved == out
     assert out.exists()
 
-    state = torch.load(out, map_location="cpu")
+    state = safe_torch_load(out, map_location="cpu")
     assert "weight" in state
     assert "bias" in state
 
