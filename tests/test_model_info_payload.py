@@ -45,6 +45,7 @@ def test_registry_model_info_distinguishes_papers_from_related_references() -> N
 
     ocsvm = model_info("vision_ocsvm")
     fastflow = model_info("vision_fastflow")
+    cflow = model_info("vision_cflow")
     dbscan = model_info("vision_dbscan")
     deep_svdd = model_info("vision_deep_svdd")
 
@@ -54,6 +55,10 @@ def test_registry_model_info_distinguishes_papers_from_related_references() -> N
     assert fastflow["metadata"]["year"] == 2021
     assert "FastFlow" in fastflow["metadata"]["paper"]
     assert fastflow["metadata"]["paper_fidelity"] == "paper-adaptation"
+
+    assert cflow["metadata"]["year"] == 2022
+    assert "CFLOW-AD" in cflow["metadata"]["paper"]
+    assert cflow["metadata"]["paper_fidelity"] == "core-aligned"
 
     assert dbscan["metadata"]["year"] == 1996
     assert "Density-Based Algorithm" in dbscan["metadata"]["paper"]

@@ -305,8 +305,18 @@ def test_dfm_and_cflow_do_not_turn_input_failures_into_normal_scores(tmp_path):
     with pytest.raises(ValueError, match="bad image"):
         VisionDFM.decision_function(dfm, [missing])
 
-    cflow = _make_instance_without_init(VisionCFlow)
+    cflow = VisionCFlow(
+        backbone="resnet18",
+        pool_layers=1,
+        n_flows=1,
+        condition_dim=8,
+        soft_permutation=False,
+        image_size=32,
+        epochs=0,
+        batch_size=1,
+        device="cpu",
+        verbose=0,
+    )
     cflow._is_fitted = True
-    cflow.flow = type("FlowStub", (), {"eval": lambda self: None})()
     with pytest.raises(ValueError, match="Failed to load image"):
         VisionCFlow.decision_function(cflow, [missing])

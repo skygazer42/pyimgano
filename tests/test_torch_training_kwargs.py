@@ -99,9 +99,15 @@ def test_cflow_fit_passes_explicit_weight_decay(tmp_path, monkeypatch) -> None:
     detector = cflow_module.VisionCFlow(
         backbone="resnet18",
         pretrained_backbone=False,
+        pool_layers=1,
         n_flows=1,
+        condition_dim=8,
+        soft_permutation=False,
+        image_size=32,
         epochs=0,
+        sub_epochs=1,
         batch_size=1,
+        fiber_batch_size=1,
         device="cpu",
     )
     monkeypatch.setattr(

@@ -24,6 +24,7 @@ The complete, generated inventory is in [MODEL_INDEX.md](MODEL_INDEX.md).
 - `vision_patchcore`
 - `vision_padim`
 - `vision_stfpm`
+- `vision_cflow`
 - `vision_reverse_distillation` / `vision_reverse_dist`
 - `vision_simplenet`
 - `vision_spade`
@@ -43,6 +44,7 @@ and evaluation protocol.
 | `vision_padim` | fixed random channel subset, per-location Gaussian, Mahalanobis map, Gaussian smoothing; resize 256 then crop 224 at default size | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
 | `vision_spade` | global KNN retrieval, retrieved-image pyramid gallery, dense correspondence, sigma-4 smoothing; resize 256 then crop 224 | Paper experiments require ImageNet WRN50x2 weights; offline default is `pretrained=False` |
 | `vision_stfpm` | frozen teacher/random student, first three ResNet-18 blocks, normalized feature loss, multiplicative map, 80/20 validation checkpoint selection | Exact paper path requires `pretrained_teacher=True` |
+| `vision_cflow` | frozen ResNet layer2--layer4 pyramid, 128-D sinusoidal position conditions, three independent eight-block conditional flows, normalized likelihood objective, summed multi-scale probability maps | Set `pretrained_backbone=True` and use the authors' category-specific input size and evaluation protocol for published MVTec experiments |
 | `vision_reverse_distillation` | ImageNet WideResNet50-2 teacher stages 1--3, exact released OCBE and reverse-WRN block counts/channels, cosine loss, additive cosine maps, sigma-4 smoothing; 256px, Adam 0.005, batch 16, 200 epochs | Published metrics still require the MVTec category protocol and matching ImageNet weights |
 | `vision_simplenet` | WRN50-2 layer2/layer3 padded 3x3 neighborhoods, 1536-d MeanMapper/Aggregator embedding, bias-free 1536-d adapter, Linear-BN-LeakyReLU-Linear discriminator, sigma-0.015 feature noise and truncated L1 objective; 256-to-224 input, 160 epochs, batch 4 | Set `pretrained=True` to use the paper's ImageNet feature extractor; local default remains offline-safe |
 | `vision_cutpaste` | CutPaste and scar geometry, patch jitter, 3-way objective, 256px input, 65,536-update default schedule, cosine decay, Gaussian feature density | Paper does not publish global translation/jitter amplitudes; local values remain configurable; patch-localization branch is not implemented |
@@ -53,6 +55,7 @@ certificate. The primary references are the
 [PaDiM paper](https://arxiv.org/abs/2011.08785),
 [SPADE paper](https://arxiv.org/abs/2005.02357),
 [STFPM paper](https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf),
+[CFLOW-AD paper and author code](https://github.com/gudovskiy/cflow-ad),
 [Reverse Distillation paper and author code](https://github.com/hq-deng/RD4AD),
 [SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),
 [CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html).
@@ -62,7 +65,17 @@ certificate. The primary references are the
 - Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
   `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fastflow`,
   `vision_fcdd`.
-- Partial variants: `vision_cflow`, `vision_dfm`, `vision_softpatch`.
+- Partial variants: `vision_dfm`, `vision_softpatch`.
+
+The native CFLOW-AD entry implements the authors' released ResNet path: frozen
+layer2--layer4 features, 128-D sinusoidal 2-D positional conditions, one
+independent eight-block conditional FrEIA-equivalent decoder per scale, the
+normalized likelihood objective, cosine schedule with warmup, and summed
+multi-scale probability maps. The default WideResNet50-2 architecture and
+decoder hyperparameters follow the author configuration. ImageNet downloads
+remain opt-in, while the paper's published MVTec protocol also uses
+category-specific input sizes; `core-aligned` therefore describes the defining
+algorithm, not reproduction of the reported AUC.
 
 The native FastFlow entry now implements the paper's CNN path: frozen
 ResNet18 or WideResNet50-2 features from residual stages 1--3 at 256px, one

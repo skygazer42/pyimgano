@@ -39,6 +39,7 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_patchcore` | 局部补丁聚合、coreset、近邻重加权 |
 | `vision_padim` | 固定通道采样和逐位置高斯分布 |
 | `vision_stfpm` | 多层师生特征匹配和乘积异常图 |
+| `vision_cflow` | 三尺度条件归一化流与位置编码 |
 | `vision_devnet` | 2021 图像网络、两尺度 top-K MIL 与偏差损失（无定位接口） |
 | `vision_reverse_distillation` | WRN50-2 教师、OCBE 与反向 WRN 解码器 |
 | `vision_simplenet` | 论文 3×3 补丁嵌入、特征适配器与噪声判别器 |
@@ -83,7 +84,10 @@ maps = model.predict_anomaly_map(test_images)
   `vision_fcdd` 已对齐 MVTec 的截断 VGG11-BN、pseudo-Huber/HSC 目标、
   confetti 参数、优化计划和感受野高斯热图，但离线默认不加载 ImageNet 权重，
   且在传入的正常样本上估计类别归一化范围。
-- `partial`: `vision_cflow`, `vision_dfm`, `vision_softpatch`。
+- `core-aligned`: `vision_cflow` 已对齐作者 ResNet 路径的 layer2--layer4
+  特征金字塔、二维位置条件、每尺度八个条件流块、归一化似然目标和多尺度概率图；
+  论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议。
+- `partial`: `vision_dfm`, `vision_softpatch`。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, `vision_winclip`。

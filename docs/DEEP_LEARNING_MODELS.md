@@ -22,6 +22,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_patchcore` | `core-aligned` | Patch memory and localization |
 | `vision_padim` | `core-aligned` | Per-location Gaussian modeling |
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
+| `vision_cflow` | `core-aligned` | Multi-scale conditional normalizing flows |
 | `core_deep_svdd` | `paper-adaptation` | Both paper objectives on a generic feature MLP |
 | `vision_devnet` | `paper-adaptation` | Paper image network and detection path; localization is not exposed |
 | `vision_differnet` | `paper-adaptation` | Paper detection path; gradient-map localization is not exposed |
@@ -59,8 +60,13 @@ preprocessing, training schedule, score normalization, and metric protocol.
 
 ## When the native entry is adapted, partial, or experimental
 
-- `vision_cflow`, `vision_dfm`, and `vision_softpatch` are compact/partial
-  variants.
+- `vision_dfm` and `vision_softpatch` are compact/partial variants.
+- `vision_cflow` follows the authors' ResNet path: frozen layer2--layer4
+  features, sinusoidal 2-D conditions, one eight-block conditional flow per
+  scale, normalized likelihood training, and summed multi-scale probability
+  maps. Its offline default does not download ImageNet weights, and published
+  MVTec results also require the authors' category-specific input sizes and
+  benchmark protocol.
 - `vision_fastflow` now follows the paper's ResNet18/WideResNet50-2 stages
   1--3, native feature widths, eight ActNorm/permutation/affine-coupling steps,
   3x3-only or alternating 3x3/1x1 subnets, 2-D likelihood objective, and
