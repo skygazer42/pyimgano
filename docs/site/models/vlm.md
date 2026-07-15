@@ -22,15 +22,15 @@ title: 视觉-语言模型
 |:---|:---|:---|:---|:---:|:---|
 | WinCLIP / WinCLIP+ | `winclip` / `vision_winclip` | `paper-adaptation` | OpenCLIP ViT-B/16+ | 是 | `open_clip` |
 | WinCLIP upstream | `vision_winclip_anomalib` | `external-backend` | anomalib | 是 | `anomalib` |
-| AnomalyDINO-style kNN | `vision_anomalydino` | `inspired` | DINOv2 | 是 | `torch` |
+| AnomalyDINO | `vision_anomalydino` | `paper-adaptation` | DINOv2 ViT-S/14 | 是 | `torch` |
 | OpenCLIP PatchKNN | `vision_openclip_patch_map` | `not-applicable` | OpenCLIP | 是 | `open_clip` |
 | PromptAD | `vision_promptad` | `paper-adaptation` | VV-CLIP ViT-B/16+ | 是 | `open_clip` |
 
-!!! note "零样本说明"
-    AnomalyDINO 的零样本模式需要至少 1 张参考图进行阈值校准，但不需要传统意义上的"训练"。
+!!! note "少样本说明"
+    AnomalyDINO 是无需参数训练的少样本方法，但仍需要至少 1 张正常参考图建立 patch 记忆库。
 
 !!! warning "论文复现状态"
-    本地 `vision_winclip` 是论文适配实现；`vision_anomalydino` 仍是实验代理。
+    本地 `vision_winclip` 与 `vision_anomalydino` 均为论文适配实现。
     论文关系以 `model_info(...)["metadata"]["paper_fidelity"]` 为准。
     `vision_promptad` 也是论文适配实现，但其图像级与像素级提示需分别训练。
 
@@ -117,17 +117,18 @@ model = create_model("winclip",
 
 ---
 
-## AnomalyDINO-style kNN proxy
+## AnomalyDINO
 
 === "中文"
 
-    本地实现是 DINOv2 补丁嵌入 + kNN 基线，适合少样本实验，但没有复现
-    AnomalyDINO 论文的完整方法。
+    本地实现采用论文的 DINOv2-S/14 patch 特征、余弦近邻、最高 1% 尾部均值、
+    参考图旋转、类别条件 PCA 前景掩码，以及 σ=4 的像素图平滑。
 
 === "English"
 
-    The local implementation is a DINOv2 patch-embedding + kNN baseline. It is
-    useful for few-shot experiments but does not reproduce the full AnomalyDINO method.
+    The local implementation follows the paper's DINOv2-S/14 patch features,
+    cosine nearest neighbours, top-1% tail mean, reference rotations,
+    category-conditioned PCA foreground masks, and sigma-4 map smoothing.
 
 ### 关键参数
 
@@ -138,8 +139,13 @@ model = create_model("winclip",
 | `dino_model_name` | `"dinov2_vits14"` | DINOv2 模型变体 |
 | `n_neighbors` | `1` | kNN 近邻数 |
 | `coreset_sampling_ratio` | `1.0` | coreset 子采样比例 |
-| `image_size` | `518` | 输入图像尺寸 |
-| `aggregation_method` | `"topk_mean"` | 异常图聚合策略 |
+| `image_size` | `448` | 论文默认短边分辨率；保持宽高比后裁到 14 的倍数 |
+| `aggregation_method` | `"topk_mean"` | 图像分数采用 patch 距离最高 1% 的均值 |
+| `aggregation_topk` | `0.01` | 论文尾部比例 |
+| `reference_rotations` | 8 个 45° 间隔角度 | 内置 DINOv2 的论文默认参考增强 |
+| `class_name` | `None` | MVTec/VisA 类别名；用于论文表中的自动掩码选择 |
+| `masking` | auto | 可显式覆盖 PCA 前景掩码开关 |
+| `gaussian_sigma` | `4.0` | 上采样异常图的论文平滑参数 |
 | `device` | `"cpu"` | 计算设备 |
 
 ### 基本用法
@@ -149,6 +155,7 @@ from pyimgano import create_model
 
 model = create_model("vision_anomalydino",
                      pretrained=True,
+                     class_name="capsule",
                      n_neighbors=1,
                      device="cuda")
 
@@ -178,7 +185,7 @@ from pyimgano.models.anomalydino import TorchHubDinoV2Embedder
 embedder = TorchHubDinoV2Embedder(
     model_name="dinov2_vits14",
     device="cuda",
-    image_size=518,
+    image_size=448,
 )
 
 model = create_model("vision_anomalydino",
@@ -306,7 +313,7 @@ pip install pyimgano[clip,torch]
         - **WinCLIP 零样本论文路径**: -> `winclip` (k_shot=0)
         - **WinCLIP+ 少样本论文路径**: -> `winclip` (k_shot=1/2/4)
         - **少量参考图 (1-10 张) 的 kNN 基线**: -> `vision_anomalydino`
-        - **需要像素定位 + 无训练**: -> `vision_anomalydino`
+        - **需要像素定位 + 少样本免训练**: -> `vision_anomalydino`
         - **自定义语义描述**: -> `winclip` (自定义 text_prompts)
         - **PromptAD 少样本论文路径**: -> `vision_promptad`
 
@@ -315,6 +322,6 @@ pip install pyimgano[clip,torch]
         - **WinCLIP zero-shot paper path**: -> `winclip` (k_shot=0)
         - **WinCLIP+ few-shot paper path**: -> `winclip` (k_shot=1/2/4)
         - **Few-reference kNN baseline (1-10)**: -> `vision_anomalydino`
-        - **Pixel localization + no training**: -> `vision_anomalydino`
+        - **Pixel localization + training-free few-shot**: -> `vision_anomalydino`
         - **Custom semantic descriptions**: -> `winclip` (custom text_prompts)
         - **PromptAD paper path**: -> `vision_promptad`

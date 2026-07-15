@@ -269,7 +269,7 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
     ("preset", "model_name", "expected_subset"),
     [
         ("industrial-fast", "vision_spade", {"backbone": "resnet18", "k_neighbors": 20}),
-        ("industrial-fast", "vision_anomalydino", {"knn_backend": "custom-knn", "image_size": 336}),
+        ("industrial-fast", "vision_anomalydino", {"knn_backend": "custom-knn", "image_size": 224}),
         (
             "industrial-fast",
             "vision_softpatch",
@@ -314,7 +314,7 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
         (
             "industrial-accurate",
             "vision_anomalydino",
-            {"knn_backend": "custom-knn", "image_size": 518},
+            {"knn_backend": "custom-knn", "image_size": 672},
         ),
         (
             "industrial-accurate",

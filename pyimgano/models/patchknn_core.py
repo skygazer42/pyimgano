@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from typing import Literal
 
 import numpy as np
@@ -98,7 +97,7 @@ def aggregate_patch_scores(
         if not (0.0 < topk_float <= 1.0):
             raise ValueError("topk must be a fraction in (0, 1].")
 
-        k = max(1, int(math.ceil(topk_float * scores.size)))
+        k = max(1, int(topk_float * scores.size))
         k = min(k, scores.size)
 
         top_scores = np.partition(scores, -k)[-k:]

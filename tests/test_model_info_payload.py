@@ -138,9 +138,8 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert "Cross-Scale" in csflow_alias["metadata"]["paper"]
 
     assert anomalydino["metadata"]["year"] == 2025
-    assert "paper" not in anomalydino["metadata"]
-    assert "AnomalyDINO" in anomalydino["metadata"]["related_paper"]
-    assert anomalydino["metadata"]["paper_fidelity"] == "inspired"
+    assert "AnomalyDINO" in anomalydino["metadata"]["paper"]
+    assert anomalydino["metadata"]["paper_fidelity"] == "paper-adaptation"
 
     assert dfm["metadata"]["year"] == 2019
     assert "Probabilistic Modeling of Deep Features" in dfm["metadata"]["paper"]

@@ -271,7 +271,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 | 名称 | 标签 | 说明 |
 |------|------|------|
 | `vision_simplenet` | deep, vision, pixel_map | 论文结构对齐的 SimpleNet（CVPR 2023） |
-| `vision_anomalydino` | deep, vision, pixel_map | AnomalyDINO 相关 DINOv2-kNN 代理（inspired） |
+| `vision_anomalydino` | deep, vision, pixel_map | AnomalyDINO DINOv2-S/14 论文适配实现 |
 
 ### 其他深度方法
 
@@ -295,7 +295,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `winclip` | vision, deep, clip, pixel_map | 同一论文适配实现（别名） |
 | `vision_openclip_patch_map` | vision, deep, clip, pixel_map | OpenCLIP patch 模板距离检测 |
 | `vision_promptad` | vision, deep, clip, few-shot, pixel_map | PromptAD VV-CLIP + SC/EAM 论文适配实现 |
-| `vision_anomalydino` | vision, deep, dinov2, pixel_map | AnomalyDINO 相关 DINOv2-kNN 代理（inspired） |
+| `vision_anomalydino` | vision, deep, dinov2, pixel_map | AnomalyDINO 论文适配实现 |
 
 ---
 

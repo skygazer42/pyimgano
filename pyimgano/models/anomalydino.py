@@ -3,11 +3,13 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional, Protocol, Tuple, Union, cast
+from typing import Any, Iterable, Optional, Protocol, Sequence, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.ndimage import gaussian_filter
 
+from ._image_batch import _coerce_single_rgb_image
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .deep_io import safe_torch_load
 from .knn_index import KNNIndex, build_knn_index
@@ -15,6 +17,37 @@ from .patchknn_core import AggregationMethod, aggregate_patch_scores, reshape_pa
 from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
+PAPER_MODEL_NAME = "dinov2_vits14"
+PAPER_IMAGE_SIZE = 448
+PAPER_ROTATIONS = (0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0)
+PAPER_GAUSSIAN_SIGMA = 4.0
+PAPER_MASKED_CLASSES = frozenset(
+    {
+        "capsule",
+        "hazelnut",
+        "pill",
+        "screw",
+        "toothbrush",
+        "candle",
+        "capsules",
+        "cashew",
+        "chewinggum",
+        "fryum",
+        "macaroni1",
+        "macaroni2",
+        "pcb1",
+        "pcb2",
+        "pcb3",
+        "pcb4",
+        "pipefryum",
+    }
+)
+
+
+def _normalize_rows(values: NDArray) -> NDArray[np.float32]:
+    rows = np.asarray(values, dtype=np.float32)
+    norms = np.linalg.norm(rows, axis=1, keepdims=True)
+    return np.divide(rows, norms, out=np.zeros_like(rows), where=norms > 0)
 
 
 class PatchEmbedder(Protocol):
@@ -30,6 +63,7 @@ class _EmbeddedImage:
     patch_embeddings: NDArray
     grid_shape: Tuple[int, int]
     original_size: Tuple[int, int]
+    patch_mask: NDArray[np.bool_]
 
 
 def _embedder_to_checkpoint_payload(embedder: PatchEmbedder) -> dict[str, object]:
@@ -82,9 +116,9 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
 
     config = dict(cast(dict[str, object], payload.get("config", {})))
     embedder = TorchHubDinoV2Embedder(
-        model_name=str(config.get("model_name", "dinov2_vits14")),
+        model_name=str(config.get("model_name", PAPER_MODEL_NAME)),
         device=str(config.get("device", "cpu")),
-        image_size=int(config.get("image_size", 518)),
+        image_size=int(config.get("image_size", PAPER_IMAGE_SIZE)),
         hub_repo=str(config.get("hub_repo", "facebookresearch/dinov2")),
     )
 
@@ -105,23 +139,41 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
 
 @register_model(
     "vision_anomalydino",
-    tags=("vision", "deep", "anomalydino", "knn", "dinov2", "numpy", "pixel_map", "neighbors"),
+    tags=(
+        "vision",
+        "deep",
+        "anomalydino",
+        "knn",
+        "dinov2",
+        "few-shot",
+        "numpy",
+        "pixel_map",
+        "neighbors",
+        "wacv2025",
+    ),
     metadata={
-        "description": "DINOv2 patch-kNN baseline inspired by AnomalyDINO; not a paper reproduction",
-        "related_paper": "AnomalyDINO: Boosting Patch-based Few-shot Anomaly Detection with DINOv2",
+        "description": "Native AnomalyDINO DINOv2 patch-memory and preprocessing adaptation",
+        "paper": "AnomalyDINO: Boosting Patch-based Few-shot Anomaly Detection with DINOv2",
+        "paper_url": "https://openaccess.thecvf.com/content/WACV2025/html/Damm_AnomalyDINO_Boosting_Patch-Based_Few-Shot_Anomaly_Detection_with_DINOv2_WACV_2025_paper.html",
         "year": 2025,
-        "implementation_status": "experimental-dinov2-knn-proxy",
-        "paper_fidelity": "inspired",
+        "conference": "WACV",
+        "implementation_status": "native-paper-method-dinov2-adaptation",
+        "paper_fidelity": "paper-adaptation",
+        "type": "nearest-neighbor",
+        "supervision": "few-shot",
+        "supports_pixel_map": True,
+        "requires_checkpoint": True,
+        "weights_source": "DINOv2 dinov2_vits14 LVD-142M weights",
     },
 )
 class VisionAnomalyDINO:
-    """DINOv2 patch-kNN anomaly detector (AnomalyDINO-style).
+    """AnomalyDINO paper adaptation for training-free few-shot detection.
 
     Notes
     -----
     - The embedder is injectable so unit tests can run without torch.
-    - This implementation is inference-first and calibrates a simple threshold
-      on the training set.
+    - Paper rotations are enabled for the built-in DINOv2 embedder. Injected
+      custom embedders retain one unmodified reference unless requested.
     """
 
     def __init__(
@@ -137,11 +189,19 @@ class VisionAnomalyDINO:
         aggregation_method: AggregationMethod = "topk_mean",
         aggregation_topk: float = 0.01,
         device: str = "cpu",
-        image_size: int = 518,
-        dino_model_name: str = "dinov2_vits14",
+        image_size: int = PAPER_IMAGE_SIZE,
+        dino_model_name: str = PAPER_MODEL_NAME,
+        reference_rotations: Optional[Sequence[float]] = None,
+        class_name: Optional[str] = None,
+        masking: Optional[bool] = None,
+        mask_reference_images: bool = False,
+        gaussian_sigma: float = PAPER_GAUSSIAN_SIGMA,
     ) -> None:
+        uses_builtin_embedder = embedder is None or isinstance(embedder, TorchHubDinoV2Embedder)
         if embedder is None:
             if bool(pretrained):
+                if int(image_size) <= 0:
+                    raise ValueError("image_size must be positive")
                 embedder = TorchHubDinoV2Embedder(
                     model_name=dino_model_name,
                     device=device,
@@ -161,6 +221,8 @@ class VisionAnomalyDINO:
         self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
         self.n_neighbors = int(n_neighbors)
+        if self.n_neighbors < 1:
+            raise ValueError(f"n_neighbors must be >= 1. Got {n_neighbors}.")
         self.coreset_sampling_ratio = float(coreset_sampling_ratio)
         if not (0.0 < self.coreset_sampling_ratio <= 1.0):
             raise ValueError(
@@ -169,6 +231,28 @@ class VisionAnomalyDINO:
         self.random_seed = int(random_seed)
         self.aggregation_method = aggregation_method
         self.aggregation_topk = float(aggregation_topk)
+        if not 0.0 < self.aggregation_topk <= 1.0:
+            raise ValueError("aggregation_topk must be in (0, 1].")
+        rotations = PAPER_ROTATIONS if uses_builtin_embedder else (0.0,)
+        if reference_rotations is not None:
+            rotations = tuple(float(angle) for angle in reference_rotations)
+        if not rotations or not np.isfinite(rotations).all():
+            raise ValueError("reference_rotations must contain finite angles")
+        self.reference_rotations = tuple(rotations)
+        self.class_name = None if class_name is None else str(class_name)
+        normalized_class = (
+            ""
+            if self.class_name is None
+            else self.class_name.lower().replace("_", "").replace(" ", "")
+        )
+        auto_masking = normalized_class in PAPER_MASKED_CLASSES and callable(
+            getattr(self.embedder, "foreground_mask", None)
+        )
+        self.masking = auto_masking if masking is None else bool(masking)
+        self.mask_reference_images = bool(mask_reference_images)
+        self.gaussian_sigma = float(gaussian_sigma)
+        if not np.isfinite(self.gaussian_sigma) or self.gaussian_sigma < 0:
+            raise ValueError("gaussian_sigma must be finite and non-negative")
 
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
@@ -212,7 +296,7 @@ class VisionAnomalyDINO:
         if not isinstance(embedder_payload, dict):
             raise ValueError("VisionAnomalyDINO checkpoint is missing embedder payload.")
         self.embedder = _embedder_from_checkpoint_payload(dict(embedder_payload))
-        self._memory_bank = np.asarray(state["memory_bank"], dtype=np.float32)
+        self._memory_bank = _normalize_rows(np.asarray(state["memory_bank"], dtype=np.float32))
         self._n_neighbors_fit = min(
             int(state.get("n_neighbors_fit", self.n_neighbors)),
             int(self._memory_bank.shape[0]),
@@ -231,13 +315,24 @@ class VisionAnomalyDINO:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         return int(self._memory_bank.shape[0])
 
-    def _embed(self, image: Union[str, np.ndarray]) -> _EmbeddedImage:
+    def _embed(
+        self,
+        image: Union[str, np.ndarray],
+        *,
+        apply_mask: bool = False,
+    ) -> _EmbeddedImage:
         patch_embeddings, grid_shape, original_size = self.embedder.embed(image)
         patch_embeddings_np = np.asarray(patch_embeddings, dtype=np.float32)
-        if patch_embeddings_np.ndim != 2:
-            raise ValueError(f"Expected 2D patch embeddings, got shape {patch_embeddings_np.shape}")
+        if patch_embeddings_np.ndim != 2 or 0 in patch_embeddings_np.shape:
+            raise ValueError(
+                f"Expected non-empty 2D patch embeddings, got shape {patch_embeddings_np.shape}"
+            )
+        if not np.isfinite(patch_embeddings_np).all():
+            raise ValueError("Patch embeddings must contain only finite values")
 
         grid_h, grid_w = int(grid_shape[0]), int(grid_shape[1])
+        if grid_h <= 0 or grid_w <= 0:
+            raise ValueError(f"Invalid grid_shape: {grid_shape}")
         if patch_embeddings_np.shape[0] != grid_h * grid_w:
             raise ValueError(
                 "Patch embedding count does not match grid shape. "
@@ -248,11 +343,50 @@ class VisionAnomalyDINO:
         if original_h <= 0 or original_w <= 0:
             raise ValueError(f"Invalid original_size: {original_size}")
 
+        patch_mask = np.ones(patch_embeddings_np.shape[0], dtype=bool)
+        if apply_mask:
+            foreground_mask = getattr(self.embedder, "foreground_mask", None)
+            if not callable(foreground_mask):
+                raise TypeError("masking=True requires an embedder with foreground_mask(...)")
+            patch_mask = np.asarray(
+                foreground_mask(patch_embeddings_np, (grid_h, grid_w)),
+                dtype=bool,
+            ).reshape(-1)
+            if patch_mask.shape[0] != patch_embeddings_np.shape[0]:
+                raise ValueError("foreground_mask must return one value per patch")
+            if not patch_mask.any():
+                raise ValueError("foreground_mask removed every patch")
+
         return _EmbeddedImage(
             patch_embeddings=patch_embeddings_np,
             grid_shape=(grid_h, grid_w),
             original_size=(original_h, original_w),
+            patch_mask=patch_mask,
         )
+
+    def _reference_variants(
+        self,
+        item: Union[str, np.ndarray],
+    ) -> list[Union[str, np.ndarray]]:
+        if self.reference_rotations == (0.0,):
+            return [item]
+
+        import cv2
+
+        from pyimgano.preprocessing.augmentation import rotate_image
+
+        image = np.ascontiguousarray(_coerce_single_rgb_image(item))
+        height, width = image.shape[:2]
+        center = (width / 2.0, height / 2.0)
+        return [
+            rotate_image(
+                image,
+                angle,
+                center=center,
+                border_mode=cv2.BORDER_DEFAULT,
+            )
+            for angle in self.reference_rotations
+        ]
 
     def fit(self, x: object = MISSING, y=None, **kwargs: object):
         del y
@@ -265,8 +399,19 @@ class VisionAnomalyDINO:
         if not items:
             raise ValueError("X must contain at least one training image.")
 
-        embedded_train = [self._embed(item) for item in items]
-        memory_bank = np.concatenate([e.patch_embeddings for e in embedded_train], axis=0)
+        embedded_train = [
+            self._embed(
+                variant,
+                apply_mask=self.masking and self.mask_reference_images,
+            )
+            for item in items
+            for variant in self._reference_variants(item)
+        ]
+        memory_bank = np.concatenate(
+            [embedded.patch_embeddings[embedded.patch_mask] for embedded in embedded_train],
+            axis=0,
+        )
+        memory_bank = _normalize_rows(memory_bank)
 
         if self.coreset_sampling_ratio < 1.0:
             rng = np.random.default_rng(self.random_seed)
@@ -295,16 +440,26 @@ class VisionAnomalyDINO:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         if self._n_neighbors_fit is None:
             raise RuntimeError("Internal error: missing fitted neighbor count.")
+        if self._memory_bank is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
-        distances, _indices = self._knn_index.kneighbors(
-            embedded.patch_embeddings,
+        query = _normalize_rows(embedded.patch_embeddings[embedded.patch_mask])
+        _distances, indices = self._knn_index.kneighbors(
+            query,
             n_neighbors=self._n_neighbors_fit,
         )
-        distances_np = np.asarray(distances, dtype=np.float32)
-        if distances_np.ndim != 2:
-            raise RuntimeError(f"Expected 2D kNN distances, got shape {distances_np.shape}")
+        indices_np = np.asarray(indices, dtype=np.int64)
+        if indices_np.ndim != 2:
+            raise RuntimeError(f"Expected 2D kNN indices, got shape {indices_np.shape}")
 
-        return distances_np.min(axis=1)
+        neighbors = self._memory_bank[indices_np]
+        cosine = np.einsum("nd,nkd->nk", query, neighbors)
+        both_zero = ~query.any(axis=1, keepdims=True) & ~neighbors.any(axis=2)
+        cosine[both_zero] = 1.0
+        selected_scores = (1.0 - np.clip(cosine, -1.0, 1.0)).mean(axis=1)
+        patch_scores = np.zeros(embedded.patch_embeddings.shape[0], dtype=np.float32)
+        patch_scores[embedded.patch_mask] = selected_scores.astype(np.float32, copy=False)
+        return patch_scores
 
     def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
@@ -315,7 +470,7 @@ class VisionAnomalyDINO:
         )
         scores = np.zeros(len(items), dtype=np.float64)
         for i, item in enumerate(items):
-            embedded = self._embed(item)
+            embedded = self._embed(item, apply_mask=self.masking)
             patch_scores = self._patch_scores(embedded)
             scores[i] = aggregate_patch_scores(
                 patch_scores,
@@ -336,7 +491,7 @@ class VisionAnomalyDINO:
         return (scores > self.threshold_).astype(np.int64)
 
     def get_anomaly_map(self, image: Union[str, np.ndarray]) -> NDArray:
-        embedded = self._embed(image)
+        embedded = self._embed(image, apply_mask=self.masking)
         patch_scores = self._patch_scores(embedded)
         patch_grid = reshape_patch_scores(
             patch_scores,
@@ -359,6 +514,8 @@ class VisionAnomalyDINO:
             (original_w, original_h),
             interpolation=cv2.INTER_LINEAR,
         )
+        if self.gaussian_sigma > 0:
+            upsampled = gaussian_filter(upsampled, sigma=self.gaussian_sigma)
         return np.asarray(upsampled, dtype=np.float32)
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
@@ -380,9 +537,9 @@ class TorchHubDinoV2Embedder:
     until the first call to :meth:`embed`.
     """
 
-    model_name: str = "dinov2_vits14"
+    model_name: str = PAPER_MODEL_NAME
     device: str = "cpu"
-    image_size: int = 518
+    image_size: int = PAPER_IMAGE_SIZE
     hub_repo: str = "facebookresearch/dinov2"
 
     _model: Any = None
@@ -390,6 +547,10 @@ class TorchHubDinoV2Embedder:
     _patch_size: Optional[int] = None
 
     _legacy_attr_aliases = {"_Image": "_image_cls"}
+
+    def __post_init__(self) -> None:
+        if int(self.image_size) <= 0:
+            raise ValueError("image_size must be positive")
 
     def __getattr__(self, name: str):
         alias = type(self)._legacy_attr_aliases.get(name)
@@ -425,7 +586,11 @@ class TorchHubDinoV2Embedder:
 
         self._transform = transforms.Compose(
             [
-                transforms.Resize((int(self.image_size), int(self.image_size))),
+                transforms.Resize(
+                    int(self.image_size),
+                    interpolation=transforms.InterpolationMode.BICUBIC,
+                    antialias=True,
+                ),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=(0.485, 0.456, 0.406),
@@ -435,8 +600,7 @@ class TorchHubDinoV2Embedder:
         )
 
         model = torch.hub.load(self.hub_repo, self.model_name)
-        model.eval()
-        model.to(self.device)
+        model.requires_grad_(False).eval().to(self.device)
         self._model = model
 
         patch_size = None
@@ -463,35 +627,31 @@ class TorchHubDinoV2Embedder:
             image = self._image_cls.open(str(image)).convert("RGB")
         original_w, original_h = image.size
 
-        x = self._transform(image).unsqueeze(0).to(self.device)
-        with self._torch.no_grad():
-            features = self._model.forward_features(x)  # type: ignore[no-any-return]
-
-        patch_tokens = None
-        if isinstance(features, dict):
-            for key in ("x_norm_patchtokens", "x_norm_patch_tokens", "patch_tokens"):
-                if key in features:
-                    patch_tokens = features[key]
-                    break
+        if not self._patch_size:
+            raise RuntimeError("DINOv2 model does not expose its patch size")
+        x = self._transform(image)
+        height, width = x.shape[-2:]
+        cropped_height = height - height % self._patch_size
+        cropped_width = width - width % self._patch_size
+        if cropped_height <= 0 or cropped_width <= 0:
+            raise ValueError("Image is too small for the DINOv2 patch size")
+        x = x[:, :cropped_height, :cropped_width].unsqueeze(0).to(self.device)
+        with self._torch.inference_mode():
+            if hasattr(self._model, "get_intermediate_layers"):
+                outputs = self._model.get_intermediate_layers(x)
+                patch_tokens = outputs[0] if outputs else None
+            else:
+                features = self._model.forward_features(x)
+                patch_tokens = features.get("x_norm_patchtokens")
         if patch_tokens is None:
             raise RuntimeError(
                 "Unable to extract patch tokens from DINOv2 output. "
                 "Please provide a custom embedder via embedder=..."
             )
-
         patch_embeddings = patch_tokens[0].detach().cpu().numpy().astype(np.float32, copy=False)
         num_patches = int(patch_embeddings.shape[0])
-
-        if self._patch_size:
-            grid_h = int(self.image_size) // int(self._patch_size)
-            grid_w = int(self.image_size) // int(self._patch_size)
-            if grid_h * grid_w != num_patches:
-                grid_h = int(round(math.sqrt(num_patches)))
-                grid_w = grid_h
-        else:
-            grid_h = int(round(math.sqrt(num_patches)))
-            grid_w = grid_h
-
+        grid_h = cropped_height // self._patch_size
+        grid_w = cropped_width // self._patch_size
         if grid_h * grid_w != num_patches:
             raise RuntimeError(
                 f"Unable to infer patch grid shape from {num_patches} patches. "
@@ -499,3 +659,39 @@ class TorchHubDinoV2Embedder:
             )
 
         return patch_embeddings, (grid_h, grid_w), (int(original_h), int(original_w))
+
+    def foreground_mask(
+        self,
+        patch_embeddings: NDArray,
+        grid_shape: Tuple[int, int],
+        *,
+        threshold: float = 10.0,
+        kernel_size: int = 3,
+        center_border: float = 0.2,
+    ) -> NDArray[np.bool_]:
+        """Paper PCA foreground mask with center check and morphology."""
+
+        import cv2
+        from sklearn.decomposition import PCA
+
+        features = np.asarray(patch_embeddings, dtype=np.float32)
+        grid_h, grid_w = int(grid_shape[0]), int(grid_shape[1])
+        if features.shape[0] != grid_h * grid_w:
+            raise ValueError("Patch count does not match grid_shape")
+        if kernel_size < 1 or kernel_size % 2 == 0:
+            raise ValueError("kernel_size must be a positive odd integer")
+        if not 0 <= center_border < 0.5:
+            raise ValueError("center_border must be in [0, 0.5)")
+
+        component = PCA(n_components=1, svd_solver="randomized").fit_transform(features)
+        component = component.reshape(grid_h, grid_w)
+        mask = (component > float(threshold)).astype(np.uint8)
+        y0, y1 = int(grid_h * center_border), int(grid_h * (1 - center_border))
+        x0, x1 = int(grid_w * center_border), int(grid_w * (1 - center_border))
+        center = mask[y0:y1, x0:x1]
+        if center.size and center.sum() <= center.size * 0.35:
+            mask = (-component > float(threshold)).astype(np.uint8)
+        kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
+        mask = cv2.dilate(mask, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        return mask.reshape(-1).astype(bool, copy=False)

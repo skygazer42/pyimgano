@@ -46,7 +46,8 @@ title: 模型总览
 | CPU 快速筛查 / CPU screening | `vision_ecod`, `ssim_template_map` | 毫秒级推理，无 GPU 依赖 |
 | 部署就绪 / Deploy-ready | `vision_ecod`, `vision_onnx_ecod` | 支持 ONNX 导出 |
 | 零参数调优 / No parameter tuning | `vision_ecod`, `vision_copod` | parameter-free 标签 |
-| 零样本 / Zero-shot | `winclip`, `vision_anomalydino` | 无需训练数据 (VLM) |
+| 零样本 / Zero-shot | `winclip` | 无需正常参考图 |
+| 少样本 / Few-shot | `vision_anomalydino` | 至少 1 张正常参考图，无需参数训练 |
 
 ---
 
@@ -57,10 +58,11 @@ flowchart TD
     A["开始选择模型"] --> B{"需要像素级定位?"}
     B -->|是| C{"有 GPU?"}
     B -->|否| D{"追求最快速度?"}
-    C -->|是| E{"有训练数据?"}
+    C -->|是| E{"有正常参考图?"}
     C -->|否| F["ssim_template_map\nvision_pixel_gaussian_map"]
-    E -->|是| G["vision_patchcore\nvision_softpatch"]
-    E -->|否/少量| H["vision_anomalydino\nwinclip"]
+    E -->|充足| G["vision_patchcore\nvision_softpatch"]
+    E -->|少量| H["vision_anomalydino"]
+    E -->|没有| M["winclip"]
     D -->|是| I["vision_ecod\nvision_copod"]
     D -->|否| J{"需要高精度?"}
     J -->|是| K["vision_patchcore\nvision_simplenet"]
@@ -69,6 +71,7 @@ flowchart TD
     style A fill:#e1f5fe
     style G fill:#c8e6c9
     style H fill:#c8e6c9
+    style M fill:#c8e6c9
     style I fill:#c8e6c9
     style F fill:#c8e6c9
     style K fill:#c8e6c9

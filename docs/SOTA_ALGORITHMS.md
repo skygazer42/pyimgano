@@ -208,6 +208,12 @@ windows, harmonic overlap/cross-scale aggregation, and WinCLIP+ three-memory
 few-shot fusion. It uses the supplementary 240px OpenCLIP preprocessing and
 non-square tiling policy.
 
+The native AnomalyDINO entry implements the paper's frozen DINOv2-S/14 path at
+shorter-edge resolution 448, eight reference rotations, category-conditioned
+PCA masking, cosine patch nearest neighbors, top-1% tail scoring, and σ=4
+smoothed localization. Automatic masking follows the published MVTec/VisA
+table when `class_name` is supplied; custom categories can set `masking`.
+
 Primary references for these boundaries are the
 [image DevNet paper](https://arxiv.org/abs/2108.00462) and
 [author-endorsed image code](https://github.com/Choubo/deviation-network-image),
@@ -228,6 +234,9 @@ and [author code](https://github.com/MediaBrain-SJTU/RegAD), plus the
 [PromptAD paper](https://openaccess.thecvf.com/content/CVPR2024/html/Li_PromptAD_Learning_Prompts_with_only_Normal_Samples_for_Few-Shot_Anomaly_CVPR_2024_paper.html)
 and [author code](https://github.com/FuNz-0/PromptAD), plus the
 [WinCLIP paper](https://openaccess.thecvf.com/content/CVPR2023/html/Jeong_WinCLIP_Zero-Few-Shot_Anomaly_Classification_and_Segmentation_CVPR_2023_paper.html).
+The AnomalyDINO boundary follows the
+[WACV 2025 paper](https://openaccess.thecvf.com/content/WACV2025/html/Damm_AnomalyDINO_Boosting_Patch-Based_Few-Shot_Anomaly_Detection_with_DINOv2_WACV_2025_paper.html)
+and [author repository](https://github.com/dammsi/AnomalyDINO).
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.
@@ -249,7 +258,7 @@ The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`
-- `vision_anomalydino`, `vision_patchcore_lite_map`
+- `vision_patchcore_lite_map`
 - `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`, `vision_visionad`
 

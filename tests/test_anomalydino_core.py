@@ -10,6 +10,27 @@ def test_anomalydino_aggregate_topk_mean():
     patch_scores = np.arange(10, dtype=np.float32)
     assert np.isclose(aggregate_patch_scores(patch_scores, method="topk_mean", topk=0.2), 8.5)
     assert np.isclose(aggregate_patch_scores(patch_scores, method="topk_mean", topk=0.01), 9.0)
+    paper_grid = np.arange(225, dtype=np.float32)
+    assert np.isclose(
+        aggregate_patch_scores(paper_grid, method="topk_mean", topk=0.01),
+        223.5,
+    )
+
+
+def test_anomalydino_paper_defaults_and_registry_metadata() -> None:
+    from pyimgano.models.anomalydino import PAPER_ROTATIONS, VisionAnomalyDINO
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    model = VisionAnomalyDINO(pretrained=True, class_name="capsules")
+
+    assert model.embedder.model_name == "dinov2_vits14"
+    assert model.embedder.image_size == 448
+    assert model.reference_rotations == PAPER_ROTATIONS
+    assert model.masking is True
+    assert model.gaussian_sigma == 4.0
+    assert (
+        MODEL_REGISTRY.info("vision_anomalydino").metadata["paper_fidelity"] == "paper-adaptation"
+    )
 
 
 def test_anomalydino_reshape_patch_scores():
@@ -94,6 +115,37 @@ def test_vision_anomalydino_coreset_sampling_reduces_memory_bank():
     det_half.fit(["a.png", "b.png", "c.png"])
 
     assert det_half.memory_bank_size_ < det_full.memory_bank_size_
+
+
+def test_anomalydino_reference_rotations_populate_memory_bank() -> None:
+    from pyimgano.models.anomalydino import VisionAnomalyDINO
+
+    class _ArrayEmbedder:
+        def embed(self, image):
+            assert isinstance(image, np.ndarray)
+            return np.tile([[1.0, 0.0]], (4, 1)), (2, 2), image.shape[:2]
+
+    detector = VisionAnomalyDINO(
+        embedder=_ArrayEmbedder(),
+        reference_rotations=(0, 90),
+    )
+    detector.fit([np.zeros((8, 8, 3), dtype=np.uint8)])
+
+    assert detector.memory_bank_size_ == 8
+
+
+def test_anomalydino_pca_foreground_mask_keeps_center_object() -> None:
+    from pyimgano.models.anomalydino import TorchHubDinoV2Embedder
+
+    features = np.zeros((225, 2), dtype=np.float32)
+    foreground = np.zeros((15, 15), dtype=bool)
+    foreground[4:11, 4:11] = True
+    features[foreground.reshape(-1), 0] = 100.0
+
+    mask = TorchHubDinoV2Embedder().foreground_mask(features, (15, 15)).reshape(15, 15)
+
+    assert mask[7, 7]
+    assert not mask[0, 0]
 
 
 def test_vision_anomalydino_checkpoint_rejects_unsafe_pickle_embedder(tmp_path) -> None:

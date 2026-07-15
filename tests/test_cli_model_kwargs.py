@@ -394,7 +394,7 @@ def test_resolve_preset_kwargs_anomalydino_includes_balanced_defaults(monkeypatc
     monkeypatch.setattr(cli, "_faiss_available", lambda: False, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_anomalydino")
     assert kwargs["knn_backend"] == "sklearn"
-    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.2)
+    assert "coreset_sampling_ratio" not in kwargs
     assert kwargs["image_size"] == 448
 
 
@@ -487,8 +487,8 @@ def test_resolve_preset_kwargs_accurate_anomalydino_includes_accuracy_defaults(m
     monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-accurate", "vision_anomalydino")
     assert kwargs["knn_backend"] == "faiss"
-    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.5)
-    assert kwargs["image_size"] == 518
+    assert "coreset_sampling_ratio" not in kwargs
+    assert kwargs["image_size"] == 672
 
 
 def test_resolve_preset_kwargs_reverse_dist_alias_matches_across_presets():

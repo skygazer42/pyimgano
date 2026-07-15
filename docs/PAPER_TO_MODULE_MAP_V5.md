@@ -17,10 +17,12 @@ This is a planning + onboarding aid, not an exhaustive bibliography.
 ### AnomalyDINO (WACV 2025; DINOv2 patch-kNN)
 
 **Concept:**
-- Extract DINOv2 patch tokens
+- Extract DINOv2-S/14 patch tokens at shorter-edge resolution 448
 - Build a memory bank on normal patches
-- Score each patch by NN distance
-- Aggregate to image score + upsample to pixel anomaly map
+- Score each patch by cosine 1-NN distance
+- Average the highest 1% patch distances for the image score
+- Bilinearly upsample and Gaussian-smooth (σ=4) the pixel map
+- Optionally apply the paper's reference rotations and PCA foreground mask
 
 **pyimgano mapping:**
 - Model: `pyimgano/models/anomalydino.py` (`vision_anomalydino`)
@@ -76,4 +78,3 @@ This is a planning + onboarding aid, not an exhaustive bibliography.
 - When a model cannot work offline without weights, make that requirement explicit:
   raise a clear error early (constructor) or mark `requires_checkpoint` in registry metadata
   and enforce via CLI.
-

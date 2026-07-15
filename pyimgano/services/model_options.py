@@ -246,8 +246,7 @@ def _resolve_industrial_fast_kwargs(
     if model_name == "vision_anomalydino":
         return {
             "knn_backend": knn_backend(),
-            "coreset_sampling_ratio": 0.1,
-            "image_size": 336,
+            "image_size": 224,
         }
     if model_name == "vision_softpatch":
         return {
@@ -320,7 +319,6 @@ def _resolve_industrial_balanced_kwargs(
     if model_name == "vision_anomalydino":
         return {
             "knn_backend": knn_backend(),
-            "coreset_sampling_ratio": 0.2,
             "image_size": 448,
         }
     if model_name == "vision_softpatch":
@@ -392,8 +390,7 @@ def _resolve_industrial_accurate_kwargs(
     if model_name == "vision_anomalydino":
         return {
             "knn_backend": knn_backend(),
-            "coreset_sampling_ratio": 0.5,
-            "image_size": 518,
+            "image_size": 672,
         }
     if model_name == "vision_softpatch":
         return {

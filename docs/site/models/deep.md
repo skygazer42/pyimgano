@@ -46,6 +46,7 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_spade` | WRN50-2 ImageNet-V1 图像检索与平方 L2 深层金字塔对应 |
 | `vision_cutpaste` | ResNet-18 CutPaste 三分类自监督与高斯密度评分 |
 | `vision_efficientad` | 论文 S/M PDN、双头学生、64 维 AE 与双异常图（需外部教师权重） |
+| `vision_anomalydino` | DINOv2-S/14 余弦 patch 记忆、论文预处理、尾部评分与定位 |
 
 !!! warning "预训练权重"
     多数模型默认 `pretrained=False`，用于离线安全和测试。结构正确不等于实验有效；

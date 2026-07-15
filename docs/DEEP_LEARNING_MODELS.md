@@ -34,6 +34,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_spade` | `core-aligned` | WRN50-2 ImageNet-V1 retrieval and squared-L2 deep-pyramid correspondences |
 | `vision_cutpaste` | `core-aligned` | ResNet-18 CutPaste 3-way learning and Gaussian-density scoring |
 | `vision_efficientad` | `paper-adaptation` | Paper S/M PDNs, dual-head student, 64-D autoencoder, three losses, calibrated dual maps |
+| `vision_anomalydino` | `paper-adaptation` | DINOv2-S/14 cosine patch memory, paper preprocessing, tail scoring, and localization |
 
 `pretrained=False` is the offline-safe default for most native vision models,
 including SimpleNet. Reverse Distillation instead defaults to the paper's
