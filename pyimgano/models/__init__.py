@@ -136,7 +136,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "pni",  # Unregistered multi-scale feature kNN baseline
     "rdplusplus",  # Unregistered reverse-distillation proxy
     "realnet",  # RealNet AFS/reconstruction/RRS path (external SDAS pairs)
-    "regad",  # Experimental RegAD-related STN proxy
+    "regad",  # RegAD ResNet-18/STN few-shot paper adaptation
     "reverse_distillation",  # Reverse Distillation
     "riad",  # RIAD disjoint masked-inpainting paper adaptation
     "simplenet",  # SimpleNet ultra-fast detector (CVPR 2023)

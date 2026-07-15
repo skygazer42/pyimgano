@@ -216,7 +216,9 @@ and [author code](https://github.com/marco-rudolph/AST), the
 [RIAD paper](https://doi.org/10.1016/j.patcog.2020.107706), and the
 [FastFlow paper](https://arxiv.org/abs/2111.07677), plus the
 [PANDA paper](https://openaccess.thecvf.com/content/CVPR2021/html/Reiss_PANDA_Adapting_Pretrained_Features_for_Anomaly_Detection_and_Segmentation_CVPR_2021_paper.html)
-and [RealNet paper](https://openaccess.thecvf.com/content/CVPR2024/html/Zhang_RealNet_A_Feature_Selection_Network_with_Realistic_Synthetic_Anomaly_for_CVPR_2024_paper.html).
+and [RealNet paper](https://openaccess.thecvf.com/content/CVPR2024/html/Zhang_RealNet_A_Feature_Selection_Network_with_Realistic_Synthetic_Anomaly_for_CVPR_2024_paper.html),
+plus the [RegAD paper](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136840300.pdf)
+and [author code](https://github.com/MediaBrain-SJTU/RegAD).
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.
@@ -238,7 +240,7 @@ The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`
-- `vision_promptad`, `vision_regad`
+- `vision_promptad`
 - `vision_winclip`, `winclip`
 - `vision_anomalydino`, `vision_patchcore_lite_map`
 - `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`

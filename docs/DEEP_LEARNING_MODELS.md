@@ -135,8 +135,16 @@ preprocessing, training schedule, score normalization, and metric protocol.
   1,000-epoch defaults. Fitting strictly requires paired anomaly images and
   masks from the separate SDAS/SIA stage; it does not synthesize a different
   corruption or reproduce the authors' labeled validation checkpoint choice.
+- `vision_regad` implements the ECCV 2022 ResNet-18 registration path with an
+  STN after each of the first three residual stages, the convolutional SimSiam
+  loss, the published 50-epoch momentum-SGD defaults, support augmentation,
+  positional Gaussian estimation, and Mahalanobis anomaly maps. `fit` requires
+  source-category labels and an explicit target normal support set; the support
+  set can later be replaced with `set_support` without network fine-tuning.
+  Published numbers still require the leave-one-category-out split and ten
+  support rounds; this API does not select checkpoints using labeled test AUC.
 - `vision_promptad`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, `vision_regad`, and `vision_winclip` are
+  `vision_oneformore`, and `vision_winclip` are
   experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and
   `vision_visionad` expose injectable scoring hooks; they are not native paper

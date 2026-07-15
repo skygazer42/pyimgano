@@ -170,30 +170,45 @@ def test_regad_fit_passes_explicit_weight_decay(monkeypatch) -> None:
     import pyimgano.models.regad as regad_module
 
     observed: dict[str, float | None] = {}
-    original_adam = regad_module.torch.optim.Adam
+    original_sgd = regad_module.torch.optim.SGD
 
-    def _recording_adam(*args, **kwargs):
+    def _recording_sgd(*args, **kwargs):
         observed["weight_decay"] = kwargs.get("weight_decay")
-        return original_adam(*args, **kwargs)
+        observed["lr"] = kwargs.get("lr")
+        observed["momentum"] = kwargs.get("momentum")
+        return original_sgd(*args, **kwargs)
 
-    class _FakeRegNet(torch.nn.Module):
+    class _FakeRegADModel(torch.nn.Module):
         def __init__(self) -> None:
             super().__init__()
-            self.stn = torch.nn.Conv2d(1, 1, kernel_size=1)
+            self.weight = torch.nn.Parameter(torch.ones(()))
 
-        def forward(self, x: torch.Tensor):
-            registered = x[:, :1, :, :]
-            return registered, registered
+        def registration_loss(self, query: torch.Tensor, support: torch.Tensor):
+            del query, support
+            return self.weight.square()
 
-    monkeypatch.setattr(regad_module.torch.optim, "Adam", _recording_adam)
+    monkeypatch.setattr(regad_module.torch.optim, "SGD", _recording_sgd)
 
-    detector = regad_module.VisionRegAD(device="cpu", epochs=0, batch_size=1)
-    detector.reg_network_ = _FakeRegNet()
-    detector._preprocess = lambda X: torch.zeros((len(X), 3, 4, 4), dtype=torch.float32)  # type: ignore[method-assign]
+    detector = regad_module.VisionRegAD(
+        pretrained=False,
+        image_size=32,
+        device="cpu",
+        epochs=1,
+        batch_size=2,
+    )
+    detector.model_ = _FakeRegADModel()
+    detector._preprocess = lambda x: torch.zeros((len(x), 3, 32, 32))  # type: ignore[method-assign]
+    detector.set_support = lambda x: detector  # type: ignore[method-assign]
 
-    detector.fit(np.zeros((2, 16, 16, 3), dtype=np.uint8))
+    detector.fit(
+        np.zeros((4, 32, 32, 3), dtype=np.uint8),
+        np.asarray([0, 0, 1, 1]),
+        support_images=np.zeros((2, 32, 32, 3), dtype=np.uint8),
+    )
 
     assert observed["weight_decay"] == pytest.approx(0.0)
+    assert observed["lr"] == pytest.approx(1e-4)
+    assert observed["momentum"] == pytest.approx(0.9)
 
 
 def test_oneformore_fit_passes_explicit_weight_decay(monkeypatch) -> None:

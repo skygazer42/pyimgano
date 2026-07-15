@@ -108,9 +108,13 @@ maps = model.predict_anomaly_map(test_images)
   64-batch AFS、四个独立重建 U-Net、max/mean RRS、联合重建/分割损失及
   1,000 epoch 默认值。训练必须显式提供离线 SDAS/SIA 异常图与掩码配对，
   且不复现作者用有标签验证集选择最佳 checkpoint 的评测流程。
+- `paper-adaptation`: `vision_regad` 已对齐 ECCV 2022 的 ResNet-18 三段
+  STN、卷积式 SimSiam 注册损失、50 epoch momentum SGD、支持集增强、
+  逐位置高斯与 Mahalanobis 异常图。`fit` 必须提供源类别标签及目标正常
+  支持集；`set_support` 可在不微调网络的情况下切换目标类别。论文数值仍需
+  leave-one-category-out 与十轮支持集协议，本 API 不用带标签测试 AUC 选 checkpoint。
 - `inspired`: `vision_promptad`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, `vision_regad`,
-  `vision_winclip`。
+  `vision_oneformore`, `vision_winclip`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 
