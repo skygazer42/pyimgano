@@ -23,6 +23,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_padim` | `core-aligned` | Per-location Gaussian modeling |
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
 | `vision_cflow` | `core-aligned` | Multi-scale conditional normalizing flows |
+| `vision_dfm` | `paper-adaptation` | PCA and full Gaussian likelihood on one deep layer |
 | `core_deep_svdd` | `paper-adaptation` | Both paper objectives on a generic feature MLP |
 | `vision_devnet` | `paper-adaptation` | Paper image network and detection path; localization is not exposed |
 | `vision_differnet` | `paper-adaptation` | Paper detection path; gradient-map localization is not exposed |
@@ -60,7 +61,12 @@ preprocessing, training schedule, score normalization, and metric protocol.
 
 ## When the native entry is adapted, partial, or experimental
 
-- `vision_dfm` and `vision_softpatch` are compact/partial variants.
+- `vision_softpatch` is a compact/partial variant.
+- `vision_dfm` now implements the paper's Gaussian branch: one independently
+  selected ResNet layer, factor-4 average pooling, 99.5%-variance PCA, MLE
+  covariance in PCA space, and the full Gaussian negative log-likelihood. Its
+  normal-only detector contract and offline-safe weight default remain local
+  adaptations of the paper's supervised class-conditional experiments.
 - `vision_cflow` follows the authors' ResNet path: frozen layer2--layer4
   features, sinusoidal 2-D conditions, one eight-block conditional flow per
   scale, normalized likelihood training, and summed multi-scale probability

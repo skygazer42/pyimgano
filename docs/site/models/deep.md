@@ -70,7 +70,9 @@ maps = model.predict_anomaly_map(test_images)
 
 - `paper-adaptation`: `core_deep_svdd` 与 `vision_deep_svdd` 已实现论文的
   one-class/soft-boundary 目标、无偏置最终线性编码器、中心初始化和半径评分，
-  但仍是通用特征 MLP 而非论文的 MNIST/CIFAR-10 LeNet；`vision_devnet`
+  但仍是通用特征 MLP 而非论文的 MNIST/CIFAR-10 LeNet；`vision_dfm`
+  已实现单层特征、4 倍平均池化、99.5% PCA、MLE 高斯与完整负对数似然，
+  但正常类接口、224px 输入和离线权重默认值属于本项目适配；`vision_devnet`
   已对齐 2021 图像论文的端到端 ResNet-18、1x1 patch 打分、两尺度
   top-10% MIL、偏差损失与训练默认值，
   但未暴露平滑输入梯度定位图；`vision_differnet` 已对齐论文检测网络与
@@ -87,7 +89,7 @@ maps = model.predict_anomaly_map(test_images)
 - `core-aligned`: `vision_cflow` 已对齐作者 ResNet 路径的 layer2--layer4
   特征金字塔、二维位置条件、每尺度八个条件流块、归一化似然目标和多尺度概率图；
   论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议。
-- `partial`: `vision_dfm`, `vision_softpatch`。
+- `partial`: `vision_softpatch`。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, `vision_winclip`。

@@ -4,6 +4,7 @@ Tests for deep learning vision anomaly detection models.
 Tests cover PatchCore, STFPM, SimpleNet, and other DL-based detectors.
 """
 
+import inspect
 import math
 import os
 import tempfile
@@ -307,6 +308,8 @@ class TestDFM:
 
     @pytest.mark.parametrize("device", ["cpu"])
     def test_initialization(self, device):
+        from pyimgano.models.dfm import VisionDFM
+
         detector = create_model(
             "vision_dfm",
             backbone="resnet18",
@@ -316,6 +319,26 @@ class TestDFM:
 
         assert detector is not None
         assert detector.backbone_name == "resnet18"
+        assert detector.layer == "layer4"
+        assert detector.pooling_kernel_size == 4
+        assert detector.pca_variance == pytest.approx(0.995)
+        assert inspect.signature(VisionDFM).parameters["backbone"].default == "resnet50"
+
+    def test_full_gaussian_nll_in_pca_space(self):
+        from pyimgano.models.dfm import VisionDFM
+
+        detector = VisionDFM.__new__(VisionDFM)
+        detector.pca_mean_ = np.zeros(2, dtype=np.float64)
+        detector.pca_components_ = np.eye(2, dtype=np.float64)
+        detector.gaussian_mean_ = np.zeros(2, dtype=np.float64)
+        detector.gaussian_variance_ = np.array([1.0, 4.0], dtype=np.float64)
+        features = np.array([[0.0, 0.0], [1.0, 2.0]], dtype=np.float64)
+
+        normal_nll = math.log(2.0 * math.pi) + 0.5 * math.log(4.0)
+        np.testing.assert_allclose(
+            detector._score_features(features),
+            np.array([normal_nll, normal_nll + 1.0]),
+        )
 
     @pytest.mark.slow
     def test_fit_predict(self, sample_images):
@@ -326,10 +349,18 @@ class TestDFM:
             device="cpu",
         )
 
+        for index, path in enumerate(sample_images["normal"]):
+            image = cv2.imread(path)
+            image[10:20, 10 + index : 20 + index] = 128 + 20 * index
+            cv2.imwrite(path, image)
+
         detector.fit(sample_images["normal"])
+        assert detector.pca_mean_.shape == (512,)
+        assert 1 <= detector.pca_components_.shape[0] < len(sample_images["normal"])
 
         scores = detector.decision_function(sample_images["all"])
         assert scores.shape == (len(sample_images["all"]),)
+        assert np.isfinite(scores).all()
         assert all(isinstance(s, (int, float)) for s in scores)
 
         labels = detector.predict(sample_images["all"])

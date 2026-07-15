@@ -280,7 +280,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `vision_deep_svdd` | deep, vision, one-class | DeepSVDD 视觉包装器 |
 | `vision_padim` | deep, vision, pixel_map | PaDiM 概率嵌入 |
 | `vision_padim_lite` | classical, vision, gaussian | PaDiM 相关图像级高斯代理（inspired） |
-| `vision_dfm` | deep, vision | DFM 全局高斯紧凑变体（partial） |
+| `vision_dfm` | deep, vision | DFM 单层 PCA 与完整高斯似然适配实现 |
 | `vision_patchcore_lite` | classical, vision, memory_bank | PatchCore 相关图像级代理（inspired） |
 | `vision_patchcore_online` | classical, vision, memory_bank, online | 在线图像级记忆库变体（inspired） |
 

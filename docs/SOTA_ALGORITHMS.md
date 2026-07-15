@@ -63,9 +63,20 @@ certificate. The primary references are the
 ## Adaptations and compact variants
 
 - Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
-  `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fastflow`,
+  `vision_dfm`, `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fastflow`,
   `vision_fcdd`.
-- Partial variants: `vision_dfm`, `vision_softpatch`.
+- Partial variants: `vision_softpatch`.
+
+The native DFM entry implements the Gaussian branch of the
+[DFM paper](https://arxiv.org/abs/1909.11786): it extracts one independently
+selected ResNet block, applies the paper's factor-4 average pooling and 99.5%
+PCA variance retention, estimates the Gaussian by maximum likelihood, and
+scores with the full negative log-likelihood including the log-determinant.
+The default backbone/layer is ResNet50 `layer4`, one of the paper's three final
+residual blocks. The repository API fits only the supplied normal class, uses a
+contamination threshold, resizes industrial images to 224px, and keeps
+pretrained weights opt-in, so this is a `paper-adaptation`, not a reproduction
+of the paper's labeled CIFAR experiments.
 
 The native CFLOW-AD entry implements the authors' released ResNet path: frozen
 layer2--layer4 features, 128-D sinusoidal 2-D positional conditions, one

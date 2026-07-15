@@ -299,8 +299,10 @@ def test_dfm_and_cflow_do_not_turn_input_failures_into_normal_scores(tmp_path):
     missing = str(tmp_path / "missing.png")
 
     dfm = _make_instance_without_init(VisionDFM)
-    dfm.mean = np.zeros(1, dtype=np.float64)
-    dfm.inv_cov = np.eye(1, dtype=np.float64)
+    dfm.pca_mean_ = np.zeros(1, dtype=np.float64)
+    dfm.pca_components_ = np.eye(1, dtype=np.float64)
+    dfm.gaussian_mean_ = np.zeros(1, dtype=np.float64)
+    dfm.gaussian_variance_ = np.ones(1, dtype=np.float64)
     dfm._extract_features = lambda _path: (_ for _ in ()).throw(ValueError("bad image"))
     with pytest.raises(ValueError, match="bad image"):
         VisionDFM.decision_function(dfm, [missing])

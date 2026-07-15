@@ -142,9 +142,8 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert anomalydino["metadata"]["paper_fidelity"] == "inspired"
 
     assert dfm["metadata"]["year"] == 2019
-    assert "paper" not in dfm["metadata"]
-    assert "Probabilistic Modeling of Deep Features" in dfm["metadata"]["related_paper"]
-    assert dfm["metadata"]["paper_fidelity"] == "partial"
+    assert "Probabilistic Modeling of Deep Features" in dfm["metadata"]["paper"]
+    assert dfm["metadata"]["paper_fidelity"] == "paper-adaptation"
 
     assert dfm_alias["metadata"]["year"] == 2019
     assert "Probabilistic Modeling of Deep Features" in dfm_alias["metadata"]["paper"]
