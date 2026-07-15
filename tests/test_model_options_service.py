@@ -273,7 +273,7 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
         (
             "industrial-fast",
             "vision_softpatch",
-            {"knn_backend": "custom-knn", "train_patch_outlier_quantile": 0.1},
+            {"knn_backend": "custom-knn", "train_patch_outlier_quantile": 0.15},
         ),
         ("industrial-fast", "vision_simplenet", {"backbone": "resnet50", "epochs": 5}),
         ("industrial-fast", "vision_fastflow", {"epoch_num": 5, "n_flow_steps": 4}),
@@ -292,7 +292,7 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
         (
             "industrial-balanced",
             "vision_softpatch",
-            {"knn_backend": "custom-knn", "train_patch_outlier_quantile": 0.1},
+            {"knn_backend": "custom-knn", "train_patch_outlier_quantile": 0.15},
         ),
         ("industrial-balanced", "vision_simplenet", {"backbone": "resnet50", "epochs": 10}),
         ("industrial-balanced", "vision_fastflow", {"epoch_num": 10, "n_flow_steps": 6}),
@@ -315,7 +315,7 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
         (
             "industrial-accurate",
             "vision_softpatch",
-            {"knn_backend": "custom-knn", "train_patch_outlier_quantile": 0.05},
+            {"knn_backend": "custom-knn", "train_patch_outlier_quantile": 0.15},
         ),
         ("industrial-accurate", "vision_simplenet", {"backbone": "wide_resnet50", "epochs": 20}),
         ("industrial-accurate", "vision_fastflow", {"epoch_num": 20, "n_flow_steps": 8}),

@@ -253,8 +253,8 @@ def _resolve_industrial_fast_kwargs(
         return {
             "knn_backend": knn_backend(),
             "coreset_sampling_ratio": 0.1,
-            "train_patch_outlier_quantile": 0.1,
-            "image_size": 336,
+            "train_patch_outlier_quantile": 0.15,
+            "image_size": 224,
         }
     if model_name == "vision_simplenet":
         return {
@@ -326,9 +326,9 @@ def _resolve_industrial_balanced_kwargs(
     if model_name == "vision_softpatch":
         return {
             "knn_backend": knn_backend(),
-            "coreset_sampling_ratio": 0.2,
-            "train_patch_outlier_quantile": 0.1,
-            "image_size": 448,
+            "coreset_sampling_ratio": 0.1,
+            "train_patch_outlier_quantile": 0.15,
+            "image_size": 224,
         }
     if model_name == "vision_simplenet":
         return {
@@ -398,9 +398,9 @@ def _resolve_industrial_accurate_kwargs(
     if model_name == "vision_softpatch":
         return {
             "knn_backend": knn_backend(),
-            "coreset_sampling_ratio": 0.5,
-            "train_patch_outlier_quantile": 0.05,
-            "image_size": 518,
+            "coreset_sampling_ratio": 0.1,
+            "train_patch_outlier_quantile": 0.15,
+            "image_size": 224,
         }
     if model_name == "vision_simplenet":
         return {

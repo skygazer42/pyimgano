@@ -231,7 +231,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 | 名称 | 标签 | 说明 |
 |------|------|------|
 | `vision_patchcore` | deep, vision, memory_bank, pixel_map | PatchCore（CVPR 2022） |
-| `vision_softpatch` | deep, vision, memory_bank, pixel_map | SoftPatch 鲁棒记忆库 |
+| `vision_softpatch` | deep, vision, memory_bank, pixel_map | 论文对齐 SoftPatch：逐位置 LOF 去噪 + 加权记忆库 |
 | `vision_spade` | deep, vision, neighbors, pixel_map | SPADE 子图像异常检测 |
 
 ### 师生网络方法

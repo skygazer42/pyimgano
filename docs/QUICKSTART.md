@@ -803,8 +803,9 @@ split = load_benchmark_split(
 detector = create_model(
     "vision_softpatch",
     contamination=0.1,
-    train_patch_outlier_quantile=0.1,
-    coreset_sampling_ratio=0.5,
+    pretrained=True,
+    train_patch_outlier_quantile=0.15,
+    coreset_sampling_ratio=0.1,
 )
 
 postprocess = AnomalyMapPostprocess(

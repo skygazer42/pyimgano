@@ -455,7 +455,6 @@ def test_softpatch_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) ->
             pretrained=True,
             device="cpu",
             image_size=32,
-            dino_model_name="dinov2_vits14",
         )
 
     detector = _make_detector()

@@ -404,9 +404,9 @@ def test_resolve_preset_kwargs_softpatch_includes_robust_defaults(monkeypatch):
     monkeypatch.setattr(cli, "_faiss_available", lambda: True, raising=False)
     kwargs = cli._resolve_preset_kwargs("industrial-balanced", "vision_softpatch")
     assert kwargs["knn_backend"] == "faiss"
-    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.2)
-    assert math.isclose(kwargs["train_patch_outlier_quantile"], 0.1)
-    assert kwargs["image_size"] == 448
+    assert math.isclose(kwargs["coreset_sampling_ratio"], 0.1)
+    assert math.isclose(kwargs["train_patch_outlier_quantile"], 0.15)
+    assert kwargs["image_size"] == 224
 
 
 def test_resolve_preset_kwargs_simplenet_includes_balanced_defaults():

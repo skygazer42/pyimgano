@@ -137,7 +137,7 @@ Successful JSONL records include `decision_summary` and, when applicable,
 | Goal | Start with | Notes |
 |---|---|---|
 | Pixel localization | `vision_patchcore` | Strong default for MVTec/VisA-style data |
-| Noisy normal training data | `vision_softpatch` | Filters outlier patches from the memory bank |
+| Noisy normal training data | `vision_softpatch` | Position-wise LOF denoising + soft-weighted patch memory |
 | Lightweight anomaly maps | `vision_padim` | Simpler deep baseline with fewer tuning knobs |
 | CPU-only scoring | `vision_ecod` or `vision_copod` | Fast classical starting points |
 | Few-shot inspection | `vision_anomalydino` | DINOv2-based; weights may download on first use |

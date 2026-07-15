@@ -22,6 +22,7 @@ The complete, generated inventory is in [MODEL_INDEX.md](MODEL_INDEX.md).
 ## Native core-aligned implementations
 
 - `vision_patchcore`
+- `vision_softpatch`
 - `vision_padim`
 - `vision_stfpm`
 - `vision_cflow`
@@ -41,6 +42,7 @@ and evaluation protocol.
 | Entry | Verified native scope | Remaining boundary |
 |---|---|---|
 | `vision_patchcore` | WRN50-2 layer2/layer3 padded 3x3 patches, 1024-to-1024 MeanMapper/Aggregator embedding, 10% approximate greedy coreset, 1-NN max score; resize 256 then crop 224 | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
+| `vision_softpatch` | PatchCore WRN50-2 layer2/layer3 embedding, position-wise LOF with k=6, top-15% patch removal, 10% greedy coreset with stored LOF weights, weighted 1-NN patch score, max image score, sigma-4 map smoothing | Paper experiments require ImageNet weights and the noisy MVTec/BTAD protocol; offline default is `pretrained=False` |
 | `vision_padim` | fixed random channel subset, per-location Gaussian, Mahalanobis map, Gaussian smoothing; resize 256 then crop 224 at default size | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
 | `vision_spade` | global KNN retrieval, retrieved-image pyramid gallery, dense correspondence, sigma-4 smoothing; resize 256 then crop 224 | Paper experiments require ImageNet WRN50x2 weights; offline default is `pretrained=False` |
 | `vision_stfpm` | frozen teacher/random student, first three ResNet-18 blocks, normalized feature loss, multiplicative map, 80/20 validation checkpoint selection | Exact paper path requires `pretrained_teacher=True` |
@@ -52,6 +54,7 @@ and evaluation protocol.
 This table is a source/code conformance audit, not a numerical reproduction
 certificate. The primary references are the
 [PatchCore paper and author code](https://github.com/amazon-science/patchcore-inspection),
+[SoftPatch paper and author code](https://github.com/TencentYoutuResearch/AnomalyDetection-SoftPatch),
 [PaDiM paper](https://arxiv.org/abs/2011.08785),
 [SPADE paper](https://arxiv.org/abs/2005.02357),
 [STFPM paper](https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf),
@@ -60,12 +63,11 @@ certificate. The primary references are the
 [SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),
 [CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html).
 
-## Adaptations and compact variants
+## Adaptations
 
 - Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
   `vision_dfm`, `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fastflow`,
   `vision_fcdd`.
-- Partial variants: `vision_softpatch`.
 
 The native DFM entry implements the Gaussian branch of the
 [DFM paper](https://arxiv.org/abs/1909.11786): it extracts one independently

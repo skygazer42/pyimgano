@@ -79,8 +79,9 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "device": args.device,
                 "contamination": args.contamination,
-                "train_patch_outlier_quantile": 0.1,
-                "coreset_sampling_ratio": 0.5,
+                "pretrained": bool(args.pretrained),
+                "train_patch_outlier_quantile": 0.15,
+                "coreset_sampling_ratio": 0.1,
             },
         ),
         (

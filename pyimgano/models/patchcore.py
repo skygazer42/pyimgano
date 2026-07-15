@@ -25,6 +25,7 @@ from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .deep_io import safe_torch_load
 from .knn_index import build_knn_index
+from .patchknn_core import approximate_greedy_coreset_indices
 from .registry import register_model
 
 MODEL_NOT_FITTED_ERROR = "Model not fitted. Call fit() first."
@@ -530,8 +531,6 @@ class VisionPatchCore(BaseVisionDeepDetector):
         coreset : ndarray of shape (n_coreset, feature_dim)
             Selected coreset
         """
-        np = self._np
-
         n_samples = features.shape[0]
         n_coreset = max(1, int(n_samples * self.coreset_sampling_ratio))
 
@@ -546,46 +545,13 @@ class VisionPatchCore(BaseVisionDeepDetector):
             100 * self.coreset_sampling_ratio,
         )
 
-        # Approximate greedy k-Center selection from the author implementation:
-        # project only for selecting indices, then retain the original features.
-        rng = np.random.default_rng(int(self.random_seed))
-        selection_features = np.asarray(features, dtype=np.float32)
-        if (
-            self.coreset_projection_dim is not None
-            and selection_features.shape[1] != self.coreset_projection_dim
-        ):
-            projection = rng.standard_normal(
-                (selection_features.shape[1], self.coreset_projection_dim)
-            ).astype(np.float32)
-            projection /= np.sqrt(float(self.coreset_projection_dim))
-            selection_features = selection_features @ projection
-
-        squared_norms = np.sum(selection_features * selection_features, axis=1)
-
-        def distances_to(indices: NDArray) -> NDArray:
-            anchors = selection_features[np.asarray(indices, dtype=np.int64)]
-            distances_sq = (
-                squared_norms[:, None]
-                + np.sum(anchors * anchors, axis=1)[None, :]
-                - 2.0 * selection_features @ anchors.T
-            )
-            return np.sqrt(np.maximum(distances_sq, 0.0))
-
-        starting_points = rng.choice(
-            n_samples,
-            size=min(self.coreset_starting_points, n_samples),
-            replace=False,
+        selected_indices = approximate_greedy_coreset_indices(
+            features,
+            sampling_ratio=float(self.coreset_sampling_ratio),
+            projection_dim=self.coreset_projection_dim,
+            starting_points=int(self.coreset_starting_points),
+            random_seed=int(self.random_seed),
         )
-        anchor_distances = distances_to(starting_points).mean(axis=1)
-        selected_indices: list[int] = []
-        for _ in range(int(n_coreset)):
-            next_idx = int(np.argmax(anchor_distances))
-            selected_indices.append(next_idx)
-            anchor_distances = np.minimum(
-                anchor_distances,
-                distances_to(np.asarray([next_idx], dtype=np.int64)).reshape(-1),
-            )
-
         return features[selected_indices]
 
     def fit(self, x: Iterable[ImageInput], y: Optional[NDArray] = None) -> "VisionPatchCore":

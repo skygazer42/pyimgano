@@ -88,8 +88,9 @@ maps = model.predict_anomaly_map(test_images)
   且在传入的正常样本上估计类别归一化范围。
 - `core-aligned`: `vision_cflow` 已对齐作者 ResNet 路径的 layer2--layer4
   特征金字塔、二维位置条件、每尺度八个条件流块、归一化似然目标和多尺度概率图；
-  论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议。
-- `partial`: `vision_softpatch`。
+  论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议；`vision_softpatch`
+  已对齐 WRN50-2 layer2/layer3 patch 特征、逐位置 LOF(k=6)、15% 去噪、
+  10% greedy coreset、记忆权重乘最近邻距离与最大 patch 图像分数。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, `vision_winclip`。

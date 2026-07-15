@@ -20,6 +20,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | Model | Fidelity | Main use |
 |---|---|---|
 | `vision_patchcore` | `core-aligned` | Patch memory and localization |
+| `vision_softpatch` | `core-aligned` | Noisy-training patch denoising and weighted memory |
 | `vision_padim` | `core-aligned` | Per-location Gaussian modeling |
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
 | `vision_cflow` | `core-aligned` | Multi-scale conditional normalizing flows |
@@ -59,9 +60,13 @@ Published numbers additionally depend on weights, dataset split,
 preprocessing, training schedule, score normalization, and metric protocol.
 `core-aligned` is an algorithm-structure statement, not a benchmark claim.
 
-## When the native entry is adapted, partial, or experimental
+## When the native entry is adapted or experimental
 
-- `vision_softpatch` is a compact/partial variant.
+- `vision_softpatch` follows the paper's WideResNet50-2 `layer2`/`layer3`
+  PatchCore embedding, position-wise LOF (`k=6`), 15% patch denoising, 10%
+  greedy coreset, stored outlier weights, weighted nearest-neighbor score, max
+  image reduction, and sigma-4 map smoothing. Set `pretrained=True` for the
+  paper's ImageNet weights; the offline default preserves structure only.
 - `vision_dfm` now implements the paper's Gaussian branch: one independently
   selected ResNet layer, factor-4 average pooling, 99.5%-variance PCA, MLE
   covariance in PCA space, and the full Gaussian negative log-likelihood. Its

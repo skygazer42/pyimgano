@@ -123,9 +123,10 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert "PaDiM" in padim_alias["metadata"]["paper"]
 
     assert softpatch["metadata"]["year"] == 2022
-    assert "paper" not in softpatch["metadata"]
-    assert "SoftPatch" in softpatch["metadata"]["related_paper"]
-    assert softpatch["metadata"]["paper_fidelity"] == "partial"
+    assert "SoftPatch" in softpatch["metadata"]["paper"]
+    assert "neurips.cc" in softpatch["metadata"]["paper_url"]
+    assert softpatch["metadata"]["paper_fidelity"] == "core-aligned"
+    assert softpatch["metadata"]["supervision"] == "unsupervised"
 
     assert cfa_alias["metadata"]["year"] == 2022
     assert "Coupled-hypersphere-based Feature Adaptation" in cfa_alias["metadata"]["paper"]
