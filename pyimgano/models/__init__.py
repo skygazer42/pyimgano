@@ -165,11 +165,12 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     # Foundation-style PoC models (safe to import; weights are loaded lazily at runtime)
     "anomalydino",
     "superad",
+    # Paper-aligned prompt/checkpoint adaptations
+    "adaclip",
     # Experimental family adapters (not paper reproductions)
     "visionad",
     "univad",
     "filopp",
-    "adaclip",
     "aaclip",
     "one_to_normal",
     "logsad",

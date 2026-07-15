@@ -229,7 +229,7 @@ def _assert_signature_contains(method, *expected: str) -> None:
         _import_attr_param(
             "pyimgano.models.adaclip",
             "VisionAdaCLIP",
-            ("fit", "decision_function", "predict"),
+            ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="adaclip",
         ),
         _import_attr_param(

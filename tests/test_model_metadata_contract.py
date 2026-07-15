@@ -157,6 +157,7 @@ def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> 
         "vision_differnet": "paper-adaptation",
         "vision_ast": "paper-adaptation",
         "vision_promptad": "paper-adaptation",
+        "vision_adaclip": "paper-adaptation",
         "vision_realnet": "paper-adaptation",
         "vision_regad": "paper-adaptation",
         "vision_winclip": "paper-adaptation",

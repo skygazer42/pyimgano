@@ -237,6 +237,11 @@ and [author code](https://github.com/FuNz-0/PromptAD), plus the
 The AnomalyDINO boundary follows the
 [WACV 2025 paper](https://openaccess.thecvf.com/content/WACV2025/html/Damm_AnomalyDINO_Boosting_Patch-Based_Few-Shot_Anomaly_Detection_with_DINOv2_WACV_2025_paper.html)
 and [author repository](https://github.com/dammsi/AnomalyDINO).
+The AdaCLIP inference boundary follows the
+[ECCV 2024 paper](https://www.ecva.net/papers/eccv_2024/papers_ECCV/html/5096_ECCV_2024_paper.php),
+[author repository](https://github.com/caoyunkang/AdaCLIP), and the released
+auxiliary-trained prompt checkpoints. Its `fit` method calibrates a threshold;
+it does not replace the paper's annotated auxiliary-data training protocol.
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.
@@ -259,7 +264,7 @@ are **not paper reproductions**:
 
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`
 - `vision_patchcore_lite_map`
-- `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`
+- `vision_aaclip`, `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`, `vision_visionad`
 
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
