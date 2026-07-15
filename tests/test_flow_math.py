@@ -44,7 +44,7 @@ def test_differnet_inference_uses_latent_energy_not_training_logdet() -> None:
 
     detector = DifferNetDetector.__new__(DifferNetDetector)
     detector.device = torch.device("cpu")
-    detector.n_transforms = 2
+    detector.n_transforms_test = 2
     detector.model = DummyFlow()
 
     scores = detector.evaluating_forward(

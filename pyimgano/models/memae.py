@@ -12,7 +12,7 @@ Reference:
 
 Usage:
     >>> from pyimgano.models import MemAE
-    >>> model = MemAE(mem_dim=2000, shrink_thres=0.0025)
+    >>> model = MemAE(mem_dim=500, shrink_thres=0.0025)
     >>> model.fit(X_train)
     >>> scores = model.predict(X_test)
 """
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class MemoryModule(nn.Module):
-    """Memory module for storing prototypical patterns."""
+    """Paper memory addressing with cosine attention and sparse shrinkage."""
 
     def __init__(self, mem_dim: int, fea_dim: int, shrink_thres: float = 0.0025):
         super().__init__()
@@ -46,7 +46,7 @@ class MemoryModule(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        """Initialize memory with normal distribution."""
+        """Initialize memory with the authors' uniform distribution."""
         stdv = 1.0 / np.sqrt(self.memory.size(1))
         with torch.no_grad():
             self.memory.uniform_(-stdv, stdv)
@@ -72,8 +72,10 @@ class MemoryModule(nn.Module):
         # Reshape: (B, C, H, W) -> (B, HW, C)
         x_flat = x.permute(0, 2, 3, 1).reshape(batch_size, -1, self.fea_dim)
 
-        # Compute attention: (B, HW, mem_dim)
-        att_weight = F.linear(x_flat, self.memory)  # (B, HW, mem_dim)
+        # Equations 4-5: softmax over cosine similarities to memory items.
+        queries = F.normalize(x_flat, p=2, dim=2)
+        memory_directions = F.normalize(self.memory, p=2, dim=1)
+        att_weight = F.linear(queries, memory_directions)  # (B, HW, mem_dim)
         att_weight = F.softmax(att_weight, dim=2)
 
         # Hard shrinkage
@@ -90,31 +92,52 @@ class MemoryModule(nn.Module):
         output = output.reshape(batch_size, h, w, self.fea_dim)
         output = output.permute(0, 3, 1, 2)
 
+        # Match the paper/author module convention: memory is the channel axis.
+        att_weight = att_weight.reshape(batch_size, h, w, self.mem_dim)
+        att_weight = att_weight.permute(0, 3, 1, 2)
         return output, att_weight
 
 
 def hard_shrink_relu(x: torch.Tensor, threshold: float = 0.5):
-    """Hard shrinkage function."""
-    return (F.relu(x - threshold) * x) / (x + 1e-12)
+    """Differentiable hard shrinkage from MemAE equation 7."""
+    return (F.relu(x - threshold) * x) / (torch.abs(x - threshold) + 1e-12)
+
+
+def memory_entropy(att_weight: torch.Tensor) -> torch.Tensor:
+    """Mean entropy of each spatial memory-addressing vector."""
+    if att_weight.ndim != 4:
+        raise ValueError("att_weight must have shape (B, M, H, W).")
+    flattened = att_weight.permute(0, 2, 3, 1).reshape(-1, att_weight.shape[1])
+    return -(flattened * torch.log(flattened + 1e-12)).sum(dim=1).mean()
+
+
+def _initialize_memae_weights(module: nn.Module) -> None:
+    """Initialization used by the authors' released training code."""
+    if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d)):
+        nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    elif isinstance(module, nn.BatchNorm2d):
+        nn.init.normal_(module.weight, mean=1.0, std=0.02)
+        nn.init.zeros_(module.bias)
 
 
 class MemAENetwork(nn.Module):
-    """Memory-Augmented Autoencoder network."""
+    """MemAE's CIFAR-10 2D convolutional architecture."""
 
-    def __init__(self, in_channels: int = 3, mem_dim: int = 2000, shrink_thres: float = 0.0025):
+    def __init__(self, in_channels: int = 3, mem_dim: int = 500, shrink_thres: float = 0.0025):
         super().__init__()
 
         # Encoder
         self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels, 32, 4, stride=2, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(32, 64, 4, stride=2, padding=1),
+            nn.Conv2d(in_channels, 64, 3, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
-            nn.Conv2d(64, 128, 4, stride=2, padding=1),
+            nn.Conv2d(64, 128, 3, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
-            nn.Conv2d(128, 256, 4, stride=2, padding=1),
+            nn.Conv2d(128, 128, 3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+            nn.Conv2d(128, 256, 3, stride=2, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
         )
@@ -124,18 +147,18 @@ class MemAENetwork(nn.Module):
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(256, 256, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(256, 128, 3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
-            nn.BatchNorm2d(64),
+            nn.ConvTranspose2d(128, 128, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(True),
-            nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(32, in_channels, 4, stride=2, padding=1),
-            nn.Sigmoid(),
+            nn.ConvTranspose2d(128, in_channels, 3, stride=2, padding=1, output_padding=1),
         )
+        self.apply(_initialize_memae_weights)
 
     def forward(self, x: torch.Tensor):
         """Forward pass."""
@@ -155,10 +178,11 @@ class MemAENetwork(nn.Module):
     "vision_memae",
     tags=("vision", "deep", "memae", "autoencoder", "memory", "reconstruction"),
     metadata={
-        "description": "Image adaptation of MemAE with learnable sparse memory addressing",
+        "description": "MemAE CIFAR-10 network adapted to industrial RGB images with paper memory addressing",
         "paper": "Memorizing Normality to Detect Anomaly: Memory-augmented Deep Autoencoder for Unsupervised Anomaly Detection",
+        "paper_url": "https://arxiv.org/abs/1904.02639",
         "year": 2019,
-        "implementation_status": "compact-image-adaptation",
+        "implementation_status": "paper-cifar-network-adapted-to-industrial-images",
         "paper_fidelity": "paper-adaptation",
     },
 )
@@ -172,13 +196,13 @@ class MemAE(BaseVisionDeepDetector):
 
     Parameters
     ----------
-    mem_dim : int, default=2000
+    mem_dim : int, default=500
         Memory dimension (number of memory items)
     shrink_thres : float, default=0.0025
         Shrinkage threshold for hard attention
     entropy_weight : float, default=0.0002
-        Weight for entropy loss (encourages diversity)
-    learning_rate : float, default=2e-4
+        Weight for entropy loss (encourages sparse addressing)
+    learning_rate : float, default=1e-4
         Learning rate for Adam optimizer
     batch_size : int, default=32
         Batch size for training
@@ -194,17 +218,17 @@ class MemAE(BaseVisionDeepDetector):
 
     Examples
     --------
-    >>> model = MemAE(mem_dim=2000, shrink_thres=0.0025)
+    >>> model = MemAE(mem_dim=500, shrink_thres=0.0025)
     >>> model.fit(X_train)
     >>> scores = model.predict(X_test)
     """
 
     def __init__(
         self,
-        mem_dim: int = 2000,
+        mem_dim: int = 500,
         shrink_thres: float = 0.0025,
         entropy_weight: float = 0.0002,
-        learning_rate: float = 2e-4,
+        learning_rate: float = 1e-4,
         batch_size: int = 32,
         epochs: int = 100,
         device: str = "cuda",
@@ -237,13 +261,14 @@ class MemAE(BaseVisionDeepDetector):
             Fitted estimator
         """
         del y
-        x_original = np.asarray(x)
+        x = np.asarray(x)
+        x_original = x.copy()
         # Convert to torch tensor
         if x.ndim == 3:
             x = np.expand_dims(x, axis=-1)
 
         x = np.transpose(x, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(x).float() / 255.0
+        x_tensor = torch.from_numpy(np.ascontiguousarray(x)).float() / 127.5 - 1.0
 
         # Initialize network
         self.network_ = MemAENetwork(
@@ -272,10 +297,8 @@ class MemAE(BaseVisionDeepDetector):
                 # Reconstruction loss
                 recon_loss = F.mse_loss(recon, batch)
 
-                # Entropy loss (encourages diverse memory usage)
-                entropy_loss = -torch.sum(
-                    att_weight * torch.log(att_weight + 1e-12)
-                ) / att_weight.size(0)
+                # Entropy loss (encourages sparse memory addressing)
+                entropy_loss = memory_entropy(att_weight)
 
                 # Total loss
                 loss = recon_loss + self.entropy_weight * entropy_loss
@@ -318,7 +341,7 @@ class MemAE(BaseVisionDeepDetector):
             x = np.expand_dims(x, axis=-1)
 
         x = np.transpose(x, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(x).float() / 255.0
+        x_tensor = torch.from_numpy(np.ascontiguousarray(x)).float() / 127.5 - 1.0
 
         # Compute scores
         self.network_.eval()

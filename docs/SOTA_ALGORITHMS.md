@@ -73,6 +73,31 @@ but its fallback texture synthesis remains an adaptation unless DTD images are
 provided. DRAEM must not be reported as an exact paper experiment unless the
 DTD anomaly source and full data protocol are also used.
 
+The native DifferNet detection path matches the paper and author code at its
+defining boundaries: frozen AlexNet convolutional features at 448/224/112,
+global pooling to 768 dimensions, eight fixed-permutation two-sided affine
+coupling blocks, three 2048-unit hidden layers per s/t subnet, clamp 3, latent
+energy scoring, 4 training / 64 evaluation rotations, and the released
+Adam/192-epoch schedule. For deterministic repeated scoring it uses the fixed
+angle option from the authors' evaluation helper rather than resampling random
+test rotations. Its offline default does not download ImageNet weights,
+gradient-based anomaly localization is not exposed, and the MTD-specific
+brightness/contrast protocol is not built in. The entry therefore remains
+`paper-adaptation` rather than claiming a complete reproduction.
+
+The native MemAE entry follows the paper's CIFAR-10 RGB topology
+(3-64-128-128-256 and its mirrored decoder), 500 by 256 memory, cosine-softmax
+addressing, differentiable hard shrinkage, per-query entropy regularization,
+and 0.0001 learning rate. The paper did not define an MVTec experiment; applying
+that CIFAR network and score contract to industrial images is explicitly an
+adaptation.
+
+Primary references for these boundaries are the
+[DifferNet paper](https://arxiv.org/abs/2008.12577) and
+[author code](https://github.com/marco-rudolph/differnet), plus the
+[MemAE paper](https://arxiv.org/abs/1904.02639) and
+[author code](https://github.com/donggong1/memae-anomaly-detection).
+
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.
 

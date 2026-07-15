@@ -238,6 +238,12 @@ def test_draem_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
             "vision_differnet",
             {
                 "pretrained": False,
+                "image_size": 64,
+                "n_scales": 1,
+                "n_flow_steps": 1,
+                "n_transforms": 1,
+                "n_transforms_test": 2,
+                "flow_hidden_dim": 16,
                 "epochs": 1,
                 "batch_size": 2,
                 "device": "cpu",

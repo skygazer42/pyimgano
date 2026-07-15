@@ -66,8 +66,10 @@ maps = model.predict_anomaly_map(test_images)
 
 ## 非完整论文实现
 
-- `paper-adaptation`: `vision_differnet` 使用精简的变换集成；
-  `vision_draem` 的网络与训练计划已对齐但默认纹理合成仍为简化路径。
+- `paper-adaptation`: `vision_differnet` 已对齐论文检测网络与 4/64 变换数，
+  但未暴露论文的梯度定位路径；`vision_memae` 已对齐论文 CIFAR-10 RGB
+  网络和记忆寻址，但工业图像接口仍是场景适配；`vision_draem` 的网络与
+  训练计划已对齐但默认纹理合成仍为简化路径。
 - `partial`: `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_fcdd`,
   `vision_softpatch`。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
