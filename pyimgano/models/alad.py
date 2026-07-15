@@ -1,4 +1,6 @@
-# -*- coding: utf-8 -*-
+"""ALAD image detector aligned with the paper's CIFAR-10/SVHN network."""
+
+from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
@@ -6,240 +8,256 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
+from torchvision import transforms
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
+_PAPER_IMAGE_SIZE = 32
+_PAPER_INIT_STD = 0.01
 
-def get_activation(name: str) -> nn.Module:
-    name = (name or "relu").lower()
-    if name == "tanh":
-        return nn.Tanh()
-    if name == "sigmoid":
-        return nn.Sigmoid()
-    if name == "relu":
-        return nn.ReLU(inplace=True)
-    if name == "leakyrelu":
-        return nn.LeakyReLU(0.2, inplace=True)
-    raise ValueError(f"Unsupported activation: {name}")
+
+def _spectral(module: nn.Module, enabled: bool) -> nn.Module:
+    return nn.utils.spectral_norm(module) if enabled else module
+
+
+def _paper_initialize(module: nn.Module) -> None:
+    if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
+        weight = getattr(module, "weight_orig", module.weight)
+        nn.init.normal_(weight, mean=0.0, std=_PAPER_INIT_STD)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+
+
+def _batch_norm(channels: int) -> nn.BatchNorm2d:
+    # TensorFlow's released implementation uses epsilon=1e-3 and momentum=0.99.
+    return nn.BatchNorm2d(channels, eps=1e-3, momentum=0.01)
 
 
 class ConvEncoder(nn.Module):
-    """将 3x224x224 图像编码为潜变量 z。
-    结构：一串 stride=2 的卷积降采样到 7x7，再 GAP 到向量，最后线性到 latent_dim。
-    """
+    """Paper encoder: 128-256-512 strided convolutions and a 100-D code."""
 
-    def __init__(self, latent_dim: int, in_ch: int = 3, base_ch: int = 64):
+    def __init__(
+        self,
+        latent_dim: int = 100,
+        *,
+        in_ch: int = 3,
+        spectral_normalization: bool = True,
+    ) -> None:
         super().__init__()
-        # 224 -> 112 -> 56 -> 28 -> 14 -> 7
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, base_ch, 4, 2, 1),
-            nn.BatchNorm2d(base_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 4),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch * 4, base_ch * 8, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 8),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(base_ch * 8, base_ch * 8, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 8),
-            nn.ReLU(inplace=True),
-        )
-        self.gap = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(base_ch * 8, latent_dim)
+        self.conv1 = _spectral(nn.Conv2d(in_ch, 128, 4, 2, 1), spectral_normalization)
+        self.bn1 = _batch_norm(128)
+        self.conv2 = _spectral(nn.Conv2d(128, 256, 4, 2, 1), spectral_normalization)
+        self.bn2 = _batch_norm(256)
+        self.conv3 = _spectral(nn.Conv2d(256, 512, 4, 2, 1), spectral_normalization)
+        self.bn3 = _batch_norm(512)
+        # The released model intentionally leaves the final latent convolution unnormalized.
+        self.conv4 = nn.Conv2d(512, latent_dim, 4, 1, 0)
+        self.apply(_paper_initialize)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.conv(x)
-        h = self.gap(h).flatten(1)  # [B, C]
-        z = self.fc(h)
-        return z
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        if images.shape[-2:] != (_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE):
+            images = F.interpolate(
+                images,
+                size=(_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE),
+                mode="bilinear",
+                align_corners=False,
+            )
+        hidden = F.leaky_relu(self.bn1(self.conv1(images)), negative_slope=0.2)
+        hidden = F.leaky_relu(self.bn2(self.conv2(hidden)), negative_slope=0.2)
+        hidden = F.leaky_relu(self.bn3(self.conv3(hidden)), negative_slope=0.2)
+        return self.conv4(hidden).flatten(1)
 
 
 class ConvDecoder(nn.Module):
-    """从潜变量 z 解码回 3x224x224 图像。
-    结构：FC -> reshape(512,7,7) -> 反卷积逐步上采样到 224。
-    最后一层不加激活（依赖判别器学习到合适的范围；输入通常是已标准化的张量）。
-    """
+    """Paper generator: 512-256-128 transposed convolutions and tanh RGB output."""
 
-    def __init__(self, latent_dim: int, out_ch: int = 3, base_ch: int = 64):
+    def __init__(self, latent_dim: int = 100, *, out_ch: int = 3) -> None:
         super().__init__()
-        self.fc = nn.Linear(latent_dim, base_ch * 8 * 7 * 7)
-        self.deconv = nn.Sequential(
-            nn.ConvTranspose2d(base_ch * 8, base_ch * 8, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 8),
-            nn.ReLU(inplace=True),
-            # 7->14
-            nn.ConvTranspose2d(base_ch * 8, base_ch * 4, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 4),
-            nn.ReLU(inplace=True),
-            # 14->28
-            nn.ConvTranspose2d(base_ch * 4, base_ch * 2, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 2),
-            nn.ReLU(inplace=True),
-            # 28->56
-            nn.ConvTranspose2d(base_ch * 2, base_ch, 4, 2, 1),
-            nn.BatchNorm2d(base_ch),
-            nn.ReLU(inplace=True),
-            # 56->112
-            nn.ConvTranspose2d(base_ch, out_ch, 4, 2, 1),  # 112->224
-        )
+        self.deconv1 = nn.ConvTranspose2d(latent_dim, 512, 4, 2, 0)
+        self.bn1 = _batch_norm(512)
+        self.deconv2 = nn.ConvTranspose2d(512, 256, 4, 2, 1)
+        self.bn2 = _batch_norm(256)
+        self.deconv3 = nn.ConvTranspose2d(256, 128, 4, 2, 1)
+        self.bn3 = _batch_norm(128)
+        self.deconv4 = nn.ConvTranspose2d(128, out_ch, 4, 2, 1)
+        self.apply(_paper_initialize)
 
-    def forward(self, z: torch.Tensor) -> torch.Tensor:
-        h = self.fc(z)
-        h = h.view(z.size(0), -1, 7, 7)
-        x_hat = self.deconv(h)
-        return x_hat
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        hidden = latent.reshape(latent.shape[0], latent.shape[1], 1, 1)
+        hidden = F.relu(self.bn1(self.deconv1(hidden)))
+        hidden = F.relu(self.bn2(self.deconv2(hidden)))
+        hidden = F.relu(self.bn3(self.deconv3(hidden)))
+        return torch.tanh(self.deconv4(hidden))
+
+
+class DiscXZ(nn.Module):
+    """Joint data/latent discriminator from the released image architecture."""
+
+    def __init__(
+        self,
+        latent_dim: int = 100,
+        *,
+        dropout_rate: float = 0.2,
+        spectral_normalization: bool = True,
+    ) -> None:
+        super().__init__()
+        self.x_branch = nn.Sequential(
+            _spectral(nn.Conv2d(3, 128, 4, 2, 1), spectral_normalization),
+            nn.LeakyReLU(0.2, inplace=True),
+            _spectral(nn.Conv2d(128, 256, 4, 2, 1), spectral_normalization),
+            _batch_norm(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            _spectral(nn.Conv2d(256, 512, 4, 2, 1), spectral_normalization),
+            _batch_norm(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Flatten(),
+        )
+        self.z_branch = nn.Sequential(
+            _spectral(nn.Linear(latent_dim, 512), spectral_normalization),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(dropout_rate),
+            _spectral(nn.Linear(512, 512), spectral_normalization),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(dropout_rate),
+        )
+        self.joint = nn.Sequential(
+            _spectral(nn.Linear(512 * 4 * 4 + 512, 1024), spectral_normalization),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(dropout_rate),
+        )
+        self.logit = nn.Linear(1024, 1)
+        self.apply(_paper_initialize)
+
+    def features(self, images: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
+        if images.shape[-2:] != (_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE):
+            images = F.interpolate(
+                images,
+                size=(_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE),
+                mode="bilinear",
+                align_corners=False,
+            )
+        return self.joint(torch.cat([self.x_branch(images), self.z_branch(latent)], dim=1))
+
+    def forward(self, images: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
+        return self.logit(self.features(images, latent)).flatten()
 
 
 class DiscXX(nn.Module):
-    """在图像对 (x, x') 上判别真假；输入按通道拼接为 6xHxW。"""
-
-    def __init__(self, in_ch_pair: int = 6, base_ch: int = 64):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Conv2d(in_ch_pair, base_ch, 4, 2, 1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(base_ch * 4, base_ch * 8, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 8),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AdaptiveAvgPool2d((1, 1)),
-        )
-        self.fc = nn.Sequential(nn.Flatten(), nn.Linear(base_ch * 8, 1), nn.Sigmoid())
-
-    def features(self, x: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
-        h = torch.cat([x, x2], dim=1)  # [B, 6, H, W]
-        return self.net(h).flatten(1)
-
-    def forward(self, x: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
-        return self.fc(self.features(x, x2))
-
-
-class ImgFeat(nn.Module):
-    """图像特征提取器，用于 D_xz。
-    产出一个中等维度的向量（默认 256）。
-    """
-
-    def __init__(self, in_ch: int = 3, base_ch: int = 64, feat_dim: int = 256):
-        super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_ch, base_ch, 4, 2, 1),
-            nn.BatchNorm2d(base_ch),
-            nn.ReLU(inplace=True),  # 224->112
-            nn.Conv2d(base_ch, base_ch * 2, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 2),
-            nn.ReLU(inplace=True),  # 112->56
-            nn.Conv2d(base_ch * 2, base_ch * 4, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 4),
-            nn.ReLU(inplace=True),  # 56->28
-            nn.Conv2d(base_ch * 4, base_ch * 4, 4, 2, 1),
-            nn.BatchNorm2d(base_ch * 4),
-            nn.ReLU(inplace=True),  # 28->14
-            nn.AdaptiveAvgPool2d((1, 1)),
-        )
-        self.proj = nn.Linear(base_ch * 4, feat_dim)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.conv(x)
-        h = h.flatten(1)
-        return self.proj(h)
-
-
-class MLPDisc(nn.Module):
-    """多层感知机判别器（用于 D_xz 和 D_zz）。"""
+    """Image cycle discriminator; its pre-logit activations define the ALAD score."""
 
     def __init__(
-        self, in_dim: int, hidden: List[int], act: str = "tanh", spectral_norm: bool = False
-    ):
+        self,
+        *,
+        dropout_rate: float = 0.2,
+        spectral_normalization: bool = True,
+    ) -> None:
         super().__init__()
-        layers: List[nn.Module] = []
-        last = in_dim
-        for h in hidden:
-            lin = nn.Linear(last, h)
-            if spectral_norm:
-                lin = nn.utils.spectral_norm(lin)
-            layers += [lin, nn.Dropout(0.2), get_activation(act)]
-            last = h
-        out = nn.Linear(last, 1)
-        if spectral_norm:
-            out = nn.utils.spectral_norm(out)
-        layers += [out, nn.Sigmoid()]
-        self.net = nn.Sequential(*layers)
+        self.conv1 = _spectral(nn.Conv2d(6, 64, 5, 2, 2), spectral_normalization)
+        self.conv2 = _spectral(nn.Conv2d(64, 128, 5, 2, 2), spectral_normalization)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.logit = nn.Linear(128 * 8 * 8, 1)
+        self.apply(_paper_initialize)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+    def features(self, images: torch.Tensor, paired_images: torch.Tensor) -> torch.Tensor:
+        pair = torch.cat([images, paired_images], dim=1)
+        if pair.shape[-2:] != (_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE):
+            pair = F.interpolate(
+                pair,
+                size=(_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE),
+                mode="bilinear",
+                align_corners=False,
+            )
+        hidden = self.dropout(F.leaky_relu(self.conv1(pair), negative_slope=0.2))
+        hidden = self.dropout(F.leaky_relu(self.conv2(hidden), negative_slope=0.2))
+        return hidden.flatten(1)
+
+    def forward(self, images: torch.Tensor, paired_images: torch.Tensor) -> torch.Tensor:
+        return self.logit(self.features(images, paired_images)).flatten()
 
 
-# ------------------------------
-# ALAD
-# ------------------------------
+class DiscZZ(nn.Module):
+    """Latent cycle discriminator: 2z -> 64 -> 32 -> 1."""
+
+    def __init__(
+        self,
+        latent_dim: int = 100,
+        *,
+        dropout_rate: float = 0.2,
+        spectral_normalization: bool = True,
+    ) -> None:
+        super().__init__()
+        self.hidden = nn.Sequential(
+            _spectral(nn.Linear(2 * latent_dim, 64), spectral_normalization),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(dropout_rate),
+            _spectral(nn.Linear(64, 32), spectral_normalization),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout(dropout_rate),
+        )
+        self.logit = nn.Linear(32, 1)
+        self.apply(_paper_initialize)
+
+    def forward(self, latent: torch.Tensor, paired_latent: torch.Tensor) -> torch.Tensor:
+        return self.logit(self.hidden(torch.cat([latent, paired_latent], dim=1))).flatten()
+
+
+def _paper_transform() -> transforms.Compose:
+    return transforms.Compose(
+        [
+            transforms.Resize((_PAPER_IMAGE_SIZE, _PAPER_IMAGE_SIZE)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+        ]
+    )
+
+
 @register_model(
     "vision_alad",
-    tags=("vision", "deep", "gan"),
+    tags=("vision", "deep", "gan", "cycle-consistency", "spectral-normalization"),
     metadata={
-        "description": "Image adaptation of ALAD with BiGAN, D_xx, and D_zz consistency",
+        "description": "ALAD with the paper image network, losses, EMA, and feature score",
         "paper": "Adversarially Learned Anomaly Detection",
         "paper_url": "https://arxiv.org/abs/1812.02288",
         "year": 2018,
-        "supervision": "unsupervised",
-        "implementation_status": "image-adaptation-with-core-alad-pairings",
+        "supervision": "one-class",
+        "implementation_status": "paper-image-network-industrial-input-adaptation",
         "paper_fidelity": "paper-adaptation",
     },
 )
 class ALAD(BaseVisionDeepDetector):
-    """ALAD，继承 BaseVisionDeepDetector。
-    关键接口：
-      - build_model(): 构建 Enc/Dec 与判别器，以及优化器
-      - training_forward(batch): 单个 batch 的对抗训练
-      - evaluating_forward(batch): 返回该 batch 的异常分数 (numpy array)
-    """
+    """ALAD's CIFAR-10/SVHN network exposed through the vision detector contract."""
 
     def __init__(
         self,
-        # ALAD 通用参数
-        activation_hidden_gen: str = "tanh",
-        activation_hidden_disc: str = "tanh",
-        output_activation: Optional[str] = None,
+        *,
+        latent_dim: int = 100,
         dropout_rate: float = 0.2,
-        latent_dim: int = 128,
-        disc_xx_layers: Optional[List[int]] = None,
-        disc_xz_layers: Optional[List[int]] = None,
-        disc_zz_layers: Optional[List[int]] = None,
-        learning_rate_gen: float = 1e-4,
-        learning_rate_disc: float = 1e-4,
+        learning_rate_gen: float = 2e-4,
+        learning_rate_disc: float = 2e-4,
         add_recon_loss: bool = False,
         lambda_recon_loss: float = 0.1,
         add_disc_zz_loss: bool = True,
-        spectral_normalization: bool = False,
-        # CNN 相关
-        enc_base_ch: int = 64,
-        dec_base_ch: int = 64,
-        xx_base_ch: int = 64,
-        xz_feat_dim: int = 256,
+        spectral_normalization: bool = True,
+        score_degree: float = 1.0,
+        ema_decay: float = 0.999,
         contamination: float = 0.1,
         preprocessing: bool = True,
-        lr: float = 1e-3,
-        epoch_num: int = 10,
-        batch_size: int = 16,
+        lr: float = 2e-4,
+        epoch_num: int = 100,
+        batch_size: int = 32,
         optimizer_name: str = "adam",
         criterion_name: str = "mse",
         device: Optional[str] = None,
-        random_state: int = 42,
+        random_state: Optional[int] = 42,
         verbose: int = 1,
         train_transform=None,
         eval_transform=None,
         **kwargs,
-    ):
+    ) -> None:
+        if preprocessing:
+            train_transform = _paper_transform() if train_transform is None else train_transform
+            eval_transform = _paper_transform() if eval_transform is None else eval_transform
         super().__init__(
             contamination=contamination,
             preprocessing=preprocessing,
@@ -255,238 +273,234 @@ class ALAD(BaseVisionDeepDetector):
             eval_transform=eval_transform,
             **kwargs,
         )
-        # 保存超参
-        self.activation_hidden_gen = activation_hidden_gen
-        self.activation_hidden_disc = activation_hidden_disc
-        self.output_activation = output_activation
-        self.dropout_rate = dropout_rate
-        self.latent_dim = latent_dim
-        self.disc_xx_layers = list(disc_xx_layers or [256, 128, 64])
-        self.disc_xz_layers = list(disc_xz_layers or [256, 128, 64])
-        self.disc_zz_layers = list(disc_zz_layers or [128, 64])
-        self.learning_rate_gen = learning_rate_gen
-        self.learning_rate_disc = learning_rate_disc
-        self.add_recon_loss = add_recon_loss
-        self.lambda_recon_loss = lambda_recon_loss
-        self.add_disc_zz_loss = add_disc_zz_loss
-        self.spectral_normalization = spectral_normalization
+        if latent_dim <= 0:
+            raise ValueError("latent_dim must be positive")
+        if not 0.0 <= dropout_rate < 1.0:
+            raise ValueError("dropout_rate must be in [0, 1)")
+        if learning_rate_gen <= 0.0 or learning_rate_disc <= 0.0:
+            raise ValueError("learning rates must be positive")
+        if score_degree <= 0.0:
+            raise ValueError("score_degree must be positive")
+        if not 0.0 <= ema_decay < 1.0:
+            raise ValueError("ema_decay must be in [0, 1)")
 
-        self.enc_base_ch = enc_base_ch
-        self.dec_base_ch = dec_base_ch
-        self.xx_base_ch = xx_base_ch
-        self.xz_feat_dim = xz_feat_dim
-        self.enc: Optional[nn.Module] = None
-        self.dec: Optional[nn.Module] = None
-        self.disc_xx: Optional[nn.Module] = None
+        self.latent_dim = int(latent_dim)
+        self.dropout_rate = float(dropout_rate)
+        self.learning_rate_gen = float(learning_rate_gen)
+        self.learning_rate_disc = float(learning_rate_disc)
+        self.add_recon_loss = bool(add_recon_loss)
+        self.lambda_recon_loss = float(lambda_recon_loss)
+        self.add_disc_zz_loss = bool(add_disc_zz_loss)
+        self.spectral_normalization = bool(spectral_normalization)
+        self.score_degree = float(score_degree)
+        self.ema_decay = float(ema_decay)
+        self.ema_enabled = True
+        self.ema_start_epoch = 1
+
+        self.enc: Optional[ConvEncoder] = None
+        self.dec: Optional[ConvDecoder] = None
+        self.disc_xx: Optional[DiscXX] = None
+        self.disc_xz: Optional[DiscXZ] = None
+        self.disc_zz: Optional[DiscZZ] = None
         self.img_feat: Optional[nn.Module] = None
-        self.disc_xz: Optional[nn.Module] = None
-        self.disc_zz: Optional[nn.Module] = None
-
-        # 优化器
-        self.opt_gen: Optional[optim.Optimizer] = None
-        self.opt_disc: Optional[optim.Optimizer] = None
-
-        # 历史损失
+        self.opt_gen: Optional[torch.optim.Optimizer] = None
+        self.opt_enc: Optional[torch.optim.Optimizer] = None
+        self.opt_disc: Optional[torch.optim.Optimizer] = None
         self.hist_loss_disc: List[float] = []
         self.hist_loss_gen: List[float] = []
+        self.hist_loss_enc: List[float] = []
 
-    def build_model(self):
-        device = self.device
-        # 生成器
-        self.enc = ConvEncoder(self.latent_dim, in_ch=3, base_ch=self.enc_base_ch).to(device)
-        self.dec = ConvDecoder(self.latent_dim, out_ch=3, base_ch=self.dec_base_ch).to(device)
+    def build_model(self) -> nn.ModuleList:
+        self.enc = ConvEncoder(
+            self.latent_dim,
+            spectral_normalization=self.spectral_normalization,
+        ).to(self.device)
+        self.dec = ConvDecoder(self.latent_dim).to(self.device)
+        self.disc_xz = DiscXZ(
+            self.latent_dim,
+            dropout_rate=self.dropout_rate,
+            spectral_normalization=self.spectral_normalization,
+        ).to(self.device)
+        self.disc_xx = DiscXX(
+            dropout_rate=self.dropout_rate,
+            spectral_normalization=self.spectral_normalization,
+        ).to(self.device)
+        self.disc_zz = DiscZZ(
+            self.latent_dim,
+            dropout_rate=self.dropout_rate,
+            spectral_normalization=self.spectral_normalization,
+        ).to(self.device)
+        self.img_feat = self.disc_xz.x_branch
 
-        # 判别器们
-        self.disc_xx = DiscXX(in_ch_pair=6, base_ch=self.xx_base_ch).to(device)
-        self.img_feat = ImgFeat(in_ch=3, base_ch=64, feat_dim=self.xz_feat_dim).to(device)
-        self.disc_xz = MLPDisc(
-            in_dim=self.xz_feat_dim + self.latent_dim,
-            hidden=self.disc_xz_layers,
-            act=self.activation_hidden_disc,
-            spectral_norm=self.spectral_normalization,
-        ).to(device)
-        self.disc_zz = MLPDisc(
-            in_dim=2 * self.latent_dim,
-            hidden=self.disc_zz_layers,
-            act=self.activation_hidden_disc,
-            spectral_norm=self.spectral_normalization,
-        ).to(device)
-
-        # 优化器：判别器和生成器分开
-        disc_params = (
-            list(self.disc_xx.parameters())
-            + list(self.img_feat.parameters())
-            + list(self.disc_xz.parameters())
-            + list(self.disc_zz.parameters())
+        self.opt_gen = torch.optim.Adam(
+            self.dec.parameters(),
+            lr=self.learning_rate_gen,
+            betas=(0.5, 0.999),
         )
-        gen_params = list(self.enc.parameters()) + list(self.dec.parameters())
+        self.opt_enc = torch.optim.Adam(
+            self.enc.parameters(),
+            lr=self.learning_rate_gen,
+            betas=(0.5, 0.999),
+        )
+        discriminator_parameters = list(self.disc_xz.parameters()) + list(
+            self.disc_xx.parameters()
+        )
+        if self.add_disc_zz_loss:
+            discriminator_parameters.extend(self.disc_zz.parameters())
+        self.opt_disc = torch.optim.Adam(
+            discriminator_parameters,
+            lr=self.learning_rate_disc,
+            betas=(0.5, 0.999),
+        )
+        # Prevent BaseDeepLearningDetector from constructing an unused optimizer.
+        self.optimizer = self.opt_gen
 
-        self.opt_disc = optim.Adam(
-            disc_params, lr=self.learning_rate_disc, betas=(0.5, 0.999), weight_decay=0.0
-        )
-        self.opt_gen = optim.Adam(
-            gen_params, lr=self.learning_rate_gen, betas=(0.5, 0.999), weight_decay=0.0
-        )
+        return nn.ModuleList([self.enc, self.dec, self.disc_xz, self.disc_xx, self.disc_zz])
 
-        return nn.ModuleList(
-            [
-                self.enc,
-                self.dec,
-                self.disc_xx,
-                self.img_feat,
-                self.disc_xz,
-                self.disc_zz,
-            ]
-        )
+    def _modules_or_raise(self) -> tuple[ConvEncoder, ConvDecoder, DiscXZ, DiscXX, DiscZZ]:
+        modules = (self.enc, self.dec, self.disc_xz, self.disc_xx, self.disc_zz)
+        if any(module is None for module in modules):
+            raise RuntimeError("ALAD model has not been built")
+        return modules  # type: ignore[return-value]
 
-    def _match_image_shape(self, image: torch.Tensor, *, target: torch.Tensor) -> torch.Tensor:
-        if image.shape[-2:] == target.shape[-2:]:
-            return image
-        return F.interpolate(
-            image,
-            size=target.shape[-2:],
-            mode="bilinear",
-            align_corners=False,
-        )
+    @staticmethod
+    def _set_discriminator_grad(
+        discriminators: tuple[nn.Module, ...],
+        *,
+        enabled: bool,
+    ) -> None:
+        for discriminator in discriminators:
+            for parameter in discriminator.parameters():
+                parameter.requires_grad_(enabled)
 
     def training_forward(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> float:
-        """执行一个 batch 的对抗训练（判别器一步 + 生成器一步）。
-        返回总损失（float）用于日志；优化在本函数内完成。
-        """
-        self.enc.train()
-        self.dec.train()
-        self.disc_xx.train()
-        self.disc_xz.train()
-        self.disc_zz.train()
-        x_real, _ = batch
-        x_real = x_real.to(self.device)
-        b = x_real.size(0)
+        encoder, decoder, disc_xz, disc_xx, disc_zz = self._modules_or_raise()
+        encoder.train()
+        decoder.train()
+        disc_xz.train()
+        disc_xx.train()
+        disc_zz.train()
+        images, _targets = batch
+        images = images.to(self.device)
+        batch_size = images.shape[0]
+        criterion = nn.BCEWithLogitsLoss()
+        discriminators = (disc_xz, disc_xx, disc_zz)
 
-        # 采样潜变量 z ~ N(0, I)
-        z_real = torch.randn(b, self.latent_dim, device=self.device)
-
-        bce = nn.BCELoss()
-
-        #  更新判别器
+        self._set_discriminator_grad(discriminators, enabled=True)
         self.opt_disc.zero_grad(set_to_none=True)
-
+        latent_disc = torch.randn(batch_size, self.latent_dim, device=self.device)
         with torch.no_grad():
-            x_gen_d = self._match_image_shape(self.dec(z_real), target=x_real)
-            z_enc_d = self.enc(x_real)
-            x_recon_d = self._match_image_shape(self.dec(z_enc_d), target=x_real)
-            z_recon_d = self.enc(x_gen_d)
+            generated_disc = decoder(latent_disc)
+            encoded_disc = encoder(images)
+            reconstructed_disc = decoder(encoded_disc)
+            recycled_latent_disc = encoder(generated_disc)
 
-        # D_xz: (x, z_gen) 为真；(x_gen, z_real) 为假
-        feat_x = self.img_feat(x_real)
-        feat_x_gen = self.img_feat(x_gen_d)
-        out_true_xz = self.disc_xz(torch.cat([feat_x, z_enc_d], dim=1))
-        out_fake_xz = self.disc_xz(torch.cat([feat_x_gen, z_real], dim=1))
-
-        # D_xx: (x, x) 为真；(x, x_gen) 为假
-        out_true_xx = self.disc_xx(x_real, x_real)
-        out_fake_xx = self.disc_xx(x_real, x_recon_d)
-
-        ones = torch.ones_like(out_true_xz)
-        zeros = torch.zeros_like(out_true_xz)
-
-        loss_dxz = bce(out_true_xz, ones) + bce(out_fake_xz, zeros)
-        loss_dxx = bce(out_true_xx, torch.ones_like(out_true_xx)) + bce(
-            out_fake_xx, torch.zeros_like(out_fake_xx)
+        loss_disc_xz = criterion(disc_xz(images, encoded_disc), torch.ones(batch_size, device=self.device))
+        loss_disc_xz = loss_disc_xz + criterion(
+            disc_xz(generated_disc, latent_disc),
+            torch.zeros(batch_size, device=self.device),
         )
-
+        loss_disc_xx = criterion(disc_xx(images, images), torch.ones(batch_size, device=self.device))
+        loss_disc_xx = loss_disc_xx + criterion(
+            disc_xx(images, reconstructed_disc),
+            torch.zeros(batch_size, device=self.device),
+        )
+        loss_disc = loss_disc_xz + loss_disc_xx
         if self.add_disc_zz_loss:
-            out_true_zz = self.disc_zz(torch.cat([z_real, z_real], dim=1))
-            out_fake_zz = self.disc_zz(torch.cat([z_real, z_recon_d], dim=1))
-            loss_dzz = bce(out_true_zz, torch.ones_like(out_true_zz)) + bce(
-                out_fake_zz, torch.zeros_like(out_fake_zz)
+            loss_disc_zz = criterion(
+                disc_zz(latent_disc, latent_disc),
+                torch.ones(batch_size, device=self.device),
             )
-            loss_disc = loss_dxz + loss_dxx + loss_dzz
-        else:
-            loss_disc = loss_dxz + loss_dxx
-
+            loss_disc_zz = loss_disc_zz + criterion(
+                disc_zz(latent_disc, recycled_latent_disc),
+                torch.zeros(batch_size, device=self.device),
+            )
+            loss_disc = loss_disc + loss_disc_zz
         loss_disc.backward()
         self.opt_disc.step()
 
-        # 更新生成器（Enc+Dec）
+        self._set_discriminator_grad(discriminators, enabled=False)
         self.opt_gen.zero_grad(set_to_none=True)
+        self.opt_enc.zero_grad(set_to_none=True)
+        latent = torch.randn(batch_size, self.latent_dim, device=self.device)
+        generated = decoder(latent)
+        encoded = encoder(images)
+        reconstructed = decoder(encoded)
+        recycled_latent = encoder(generated)
 
-        x_gen = self._match_image_shape(self.dec(z_real), target=x_real)
-        z_enc = self.enc(x_real)
-        x_recon = self._match_image_shape(self.dec(z_enc), target=x_real)
-        z_recon = self.enc(x_gen)
-
-        feat_x = self.img_feat(x_real)
-        feat_x_gen = self.img_feat(x_gen)
-
-        out_fake_xz = self.disc_xz(torch.cat([feat_x_gen, z_real], dim=1))
-        out_fake_xx = self.disc_xx(x_real, x_recon)
-
-        # Enc/Dec make each generated joint/pair indistinguishable from its real counterpart.
-        loss_gexz = bce(out_fake_xz, torch.ones_like(out_fake_xz))
-        loss_gexx = bce(out_fake_xx, torch.ones_like(out_fake_xx))
-
+        real_xz_logits = disc_xz(images, encoded)
+        fake_xz_logits = disc_xz(generated, latent)
+        real_xx_logits = disc_xx(images, images)
+        fake_xx_logits = disc_xx(images, reconstructed)
+        cost_x = criterion(real_xx_logits, torch.zeros_like(real_xx_logits)) + criterion(
+            fake_xx_logits,
+            torch.ones_like(fake_xx_logits),
+        )
+        cycle_cost = cost_x
         if self.add_disc_zz_loss:
-            out_fake_zz = self.disc_zz(torch.cat([z_real, z_recon], dim=1))
-            loss_gezz = bce(out_fake_zz, torch.ones_like(out_fake_zz))
-            cycle_consistency = loss_gezz + loss_gexx
-            loss_gen = loss_gexz + cycle_consistency
-        else:
-            cycle_consistency = loss_gexx
-            loss_gen = loss_gexz + cycle_consistency
+            real_zz_logits = disc_zz(latent, latent)
+            fake_zz_logits = disc_zz(latent, recycled_latent)
+            cost_z = criterion(real_zz_logits, torch.zeros_like(real_zz_logits)) + criterion(
+                fake_zz_logits,
+                torch.ones_like(fake_zz_logits),
+            )
+            cycle_cost = cycle_cost + cost_z
 
+        loss_gen = criterion(fake_xz_logits, torch.ones_like(fake_xz_logits)) + cycle_cost
+        loss_enc = criterion(real_xz_logits, torch.zeros_like(real_xz_logits)) + cycle_cost
         if self.add_recon_loss:
-            loss_recon = F.mse_loss(x_recon, x_real)
-            loss_gen = loss_gen + self.lambda_recon_loss * loss_recon
+            reconstruction_loss = F.mse_loss(reconstructed, images)
+            loss_gen = loss_gen + self.lambda_recon_loss * reconstruction_loss
+            loss_enc = loss_enc + self.lambda_recon_loss * reconstruction_loss
 
-        loss_gen.backward()
+        decoder_parameters = tuple(decoder.parameters())
+        encoder_parameters = tuple(encoder.parameters())
+        decoder_gradients = torch.autograd.grad(
+            loss_gen,
+            decoder_parameters,
+            retain_graph=True,
+        )
+        encoder_gradients = torch.autograd.grad(loss_enc, encoder_parameters)
+        for parameter, gradient in zip(decoder_parameters, decoder_gradients):
+            parameter.grad = gradient
+        for parameter, gradient in zip(encoder_parameters, encoder_gradients):
+            parameter.grad = gradient
         self.opt_gen.step()
+        self.opt_enc.step()
+        self._set_discriminator_grad(discriminators, enabled=True)
 
-        # 记录历史
-        self.hist_loss_disc.append(float(loss_disc.item()))
-        self.hist_loss_gen.append(float(loss_gen.item()))
-
-        # 返回一个合并损失，供父类日志显示
-        return float((loss_disc + loss_gen).item())
+        disc_value = float(loss_disc.detach())
+        gen_value = float(loss_gen.detach())
+        enc_value = float(loss_enc.detach())
+        self.hist_loss_disc.append(disc_value)
+        self.hist_loss_gen.append(gen_value)
+        self.hist_loss_enc.append(enc_value)
+        return disc_value + gen_value + enc_value
 
     @torch.no_grad()
-    def evaluating_forward(self, batch: Tuple[torch.Tensor, torch.Tensor]):
-        self.enc.eval()
-        self.dec.eval()
-        self.disc_xx.eval()
-        self.disc_xz.eval()
-        self.disc_zz.eval()
+    def evaluating_forward(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> np.ndarray:
+        encoder, decoder, _disc_xz, disc_xx, _disc_zz = self._modules_or_raise()
+        encoder.eval()
+        decoder.eval()
+        disc_xx.eval()
+        images, _targets = batch
+        images = images.to(self.device)
+        reconstructed = decoder(encoder(images))
+        real_features = disc_xx.features(images, images)
+        reconstructed_features = disc_xx.features(images, reconstructed)
+        score = torch.norm(
+            real_features - reconstructed_features,
+            p=self.score_degree,
+            dim=1,
+        )
+        return score.cpu().numpy()
 
-        x, _ = batch
-        x = x.to(self.device)
-        z = self.enc(x)
-        x_hat = self.dec(z)
-        x_hat = self._match_image_shape(x_hat, target=x)
-
-        # ALAD's feature-matching score from the reconstruction discriminator.
-        real_features = self.disc_xx.features(x, x)
-        reconstructed_features = self.disc_xx.features(x, x_hat)
-        score = torch.abs(real_features - reconstructed_features).mean(dim=1)
-        return score.detach().cpu().numpy()
-
-    # 可选：绘制学习曲线（与原 ALAD 一致）
     def get_history(self) -> Dict[str, List[float]]:
-        return {"loss_disc": self.hist_loss_disc, "loss_gen": self.hist_loss_gen}
+        return {
+            "loss_disc": self.hist_loss_disc,
+            "loss_gen": self.hist_loss_gen,
+            "loss_enc": self.hist_loss_enc,
+        }
 
 
-if __name__ == "__main__":
-    # 准备训练/评估的图像路径列表 train_paths / test_paths
-    train_paths: List[str] = [
-        # '/path/to/img1.jpg', '/path/to/img2.jpg', ...
-    ]
-    test_paths: List[str] = [
-        # '/path/to/test1.jpg', '/path/to/test2.jpg', ...
-    ]
-    # 2) 初始化并训练
-    model = ALAD(epoch_num=5, batch_size=8, verbose=1, preprocessing=True, latent_dim=128)
-    model.fit(train_paths)
-    # 3) 计算分数
-    scores = model.decision_function(test_paths)
-    print("scores shape:", np.array(scores).shape)
-
-    # 4) 阈值与标签（由 BaseVisionDeepDetector/_process_decision_scores 提供）
-    #    model.labels_ / model.threshold_ 可用
+__all__ = ["ALAD", "ConvDecoder", "ConvEncoder", "DiscXX", "DiscXZ", "DiscZZ"]
