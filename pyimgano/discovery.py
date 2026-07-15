@@ -114,7 +114,7 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ),
     ModelFamily(
         name="aaclip",
-        description="AA-CLIP anomaly-aware anchor competition detectors.",
+        description="AA-CLIP two-stage residual-adapter detectors.",
         tags=("aaclip",),
     ),
     ModelFamily(

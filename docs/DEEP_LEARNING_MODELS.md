@@ -150,14 +150,19 @@ preprocessing, training schedule, score normalization, and metric protocol.
   paper trains image and pixel prompts separately; select the matching
   `training_task`. Published results still require the official support draws
   and dataset protocol.
+- `vision_aaclip` implements the CVPR 2025 OpenAI ViT-L/14@336 path at 518px,
+  residual adapters in the first three text and six visual blocks, four-level
+  projections from blocks 6/12/18/24, the released prompt ensembles, and the
+  industrial/medical map smoothing rules. It loads the authors' two-stage
+  `text_adapter.pth` and `image_adapter.pth` format; `fit` only calibrates a
+  threshold because the authors do not publish trained adapter weights.
 - `vision_winclip` / `winclip` implements the paper's ViT-B/16+ compositional
   prompt ensemble, 2x2/3x3 masked-token windows, harmonic multi-scale maps,
   and WinCLIP+ patch/window reference association. Non-square inputs use the
   supplementary shorter-edge tiling policy.
 - `vision_inctrl`, `vision_glad`, and `vision_oneformore` are experimental proxies.
-- Family adapters such as `vision_aaclip`, `vision_univad`, and
-  `vision_visionad` expose injectable scoring hooks; they are not native paper
-  reproductions.
+- Family adapters such as `vision_univad` and `vision_visionad` expose
+  injectable scoring hooks; they are not native paper reproductions.
 
 For supported upstream implementations, use model-specific anomalib entries
 such as `vision_fastflow_anomalib` and `vision_cflow_anomalib`. These require
