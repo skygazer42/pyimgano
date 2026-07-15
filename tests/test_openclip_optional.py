@@ -13,7 +13,7 @@ def _read_repo_file(relative_path: str) -> str:
 def test_pyproject_defines_clip_extra():
     pyproject = _read_repo_file("pyproject.toml")
     assert "[project.optional-dependencies]" in pyproject
-    assert "open_clip_torch>=2.0.0" in pyproject
+    assert "open_clip_torch>=2.16.0" in pyproject
     assert "\nclip = [" in pyproject or "\r\nclip = [" in pyproject
     assert "pyimgano[anomalib,faiss,clip]" in pyproject
     assert "pyimgano[backends" in pyproject

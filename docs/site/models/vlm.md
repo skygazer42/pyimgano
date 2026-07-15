@@ -24,15 +24,16 @@ title: 视觉-语言模型
 | WinCLIP upstream | `vision_winclip_anomalib` | `external-backend` | anomalib | 是 | `anomalib` |
 | AnomalyDINO-style kNN | `vision_anomalydino` | `inspired` | DINOv2 | 是 | `torch` |
 | OpenCLIP PatchKNN | `vision_openclip_patch_map` | `not-applicable` | OpenCLIP | 是 | `open_clip` |
-| PromptAD visual proxy | `vision_promptad` | `inspired` | WideResNet50 | 否 | `torch` |
+| PromptAD | `vision_promptad` | `paper-adaptation` | VV-CLIP ViT-B/16+ | 是 | `open_clip` |
 
 !!! note "零样本说明"
     AnomalyDINO 的零样本模式需要至少 1 张参考图进行阈值校准，但不需要传统意义上的"训练"。
 
 !!! warning "论文复现状态"
-    本页的本地 `vision_winclip`、`vision_anomalydino` 和 `vision_promptad` 是实验代理，
+    本页的本地 `vision_winclip` 和 `vision_anomalydino` 是实验代理，
     不是对应论文的完整实现。论文关系以 `model_info(...)["metadata"]["paper_fidelity"]`
-    为准；WinCLIP 的上游实现路径是 `vision_winclip_anomalib`。
+    为准；WinCLIP 的上游实现路径是 `vision_winclip_anomalib`。`vision_promptad`
+    是论文适配实现，但论文的图像级与像素级提示需分别训练。
 
 ---
 
@@ -220,40 +221,51 @@ anomaly_map = model.get_anomaly_map(test_images[0])
 
 ---
 
-## PromptAD-related visual proxy
+## PromptAD
 
 === "中文"
 
-    本地实现是 WideResNet 特征适配器。它没有实现论文中的 CLIP 文本提示、语义拼接和
-    显式异常间隔损失，因此仅作为实验代理保留。
+    本地实现使用论文的冻结 LAION-400M ViT-B/16+、VV-attention、语义拼接、
+    零间隔 EAM、MAP/LAP 分布对齐、双层正常视觉记忆和调和融合。分类与分割
+    对应作者的两套训练脚本，应分别拟合模型。
 
 === "English"
 
-    The local implementation is a WideResNet feature adapter. It omits the
-    paper's CLIP text prompts, semantic concatenation, and explicit anomaly-margin
-    loss, so it is retained only as an experimental proxy.
+    The local implementation follows the frozen LAION-400M ViT-B/16+,
+    V-V attention, semantic concatenation, zero-margin EAM, MAP/LAP alignment,
+    two-layer normal visual memory, and harmonic fusion. Classification and
+    segmentation prompts are trained separately, matching the authors' scripts.
 
 ### 关键参数
 
 | 参数 | 默认值 | 说明 |
 |:---|:---|:---|
-| `backbone` | `"wide_resnet50"` | 特征提取主干 |
-| `num_prompts` | `10` | 可学习提示数量 |
-| `prompt_dim` | `512` | 提示向量维度 |
-| `context_length` | `16` | 上下文长度 |
-| `learning_rate` | `1e-3` | 学习率 |
-| `epochs` | `30` | 训练轮数 |
+| `class_name` | `"object"` | 被检测对象名称；复现实验时传数据集类别 |
+| `openclip_model_name` | `"ViT-B-16-plus-240"` | 论文主干 |
+| `openclip_pretrained` | `"laion400m_e32"` | 论文预训练权重 |
+| `n_ctx` / `n_ctx_ab` | `4` / `1` | 正常前缀 / 可学习异常后缀长度 |
+| `n_pro` / `n_pro_ab` | `1` / `4` | 正常提示 / 可学习异常后缀数量 |
+| `learning_rate` | `0.002` | SGD 学习率 |
+| `epochs` | `100` | 官方训练脚本轮数 |
+| `training_task` | `"classification"` | `classification` 或 `segmentation` |
 | `device` | `"cuda"` | 计算设备 |
 
 ```python
 from pyimgano import create_model
 
-model = create_model("vision_promptad",
-                     num_prompts=10,
-                     epochs=30,
-                     device="cuda")
-model.fit(few_normal_images)
-scores = model.decision_function(test_images)
+image_model = create_model("vision_promptad",
+                           class_name="carpet",
+                           training_task="classification",
+                           device="cuda")
+image_model.fit(few_normal_images)
+scores = image_model.decision_function(test_images)
+
+pixel_model = create_model("vision_promptad",
+                           class_name="carpet",
+                           training_task="segmentation",
+                           device="cuda")
+pixel_model.fit(few_normal_images)
+maps = pixel_model.predict_anomaly_map(test_images)
 ```
 
 ---
@@ -278,8 +290,8 @@ pip install pyimgano[clip]
 # AnomalyDINO -- torch + torchvision (DINOv2 via torch.hub)
 pip install pyimgano[torch]
 
-# PromptAD -- torch + torchvision
-pip install pyimgano[torch]
+# PromptAD -- OpenCLIP
+pip install pyimgano[clip]
 
 # 安装所有 VLM 依赖
 pip install pyimgano[clip,torch]
@@ -298,7 +310,7 @@ pip install pyimgano[clip,torch]
         - **少量参考图 (1-10 张) 的 kNN 基线**: -> `vision_anomalydino`
         - **需要像素定位 + 无训练**: -> `vision_anomalydino`
         - **自定义语义描述**: -> `winclip` (自定义 text_prompts)
-        - **PromptAD 概念实验**: -> `vision_promptad`（非论文复现）
+        - **PromptAD 少样本论文路径**: -> `vision_promptad`
 
     === "English"
 
@@ -307,4 +319,4 @@ pip install pyimgano[clip,torch]
         - **Few-reference kNN baseline (1-10)**: -> `vision_anomalydino`
         - **Pixel localization + no training**: -> `vision_anomalydino`
         - **Custom semantic descriptions**: -> `winclip` (custom text_prompts)
-        - **PromptAD concept experiment**: -> `vision_promptad` (not a reproduction)
+        - **PromptAD paper path**: -> `vision_promptad`

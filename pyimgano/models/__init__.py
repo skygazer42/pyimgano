@@ -132,7 +132,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "patch_embedding_core_map",  # Patch embeddings + core detector (pixel-map baseline)
     "patchcore_online",  # PatchCore-lite with incremental memory updates (study-only)
     "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
-    "promptad",  # Experimental PromptAD-related visual proxy
+    "promptad",  # PromptAD semantic-concatenation/EAM paper adaptation
     "pni",  # Unregistered multi-scale feature kNN baseline
     "rdplusplus",  # Unregistered reverse-distillation proxy
     "realnet",  # RealNet AFS/reconstruction/RRS path (external SDAS pairs)

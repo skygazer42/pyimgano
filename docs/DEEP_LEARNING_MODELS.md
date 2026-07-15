@@ -143,9 +143,14 @@ preprocessing, training schedule, score normalization, and metric protocol.
   set can later be replaced with `set_support` without network fine-tuning.
   Published numbers still require the leave-one-category-out split and ten
   support rounds; this API does not select checkpoints using labeled test AUC.
-- `vision_promptad`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, and `vision_winclip` are
-  experimental proxies.
+- `vision_promptad` implements the frozen LAION-400M ViT-B/16+ VV-CLIP path,
+  semantic concatenation, zero-margin EAM, MAP/LAP distribution alignment,
+  two-layer normal visual memory, and the paper's harmonic score fusion. The
+  paper trains image and pixel prompts separately; select the matching
+  `training_task`. Published results still require the official support draws
+  and dataset protocol.
+- `vision_inctrl`, `vision_glad`, `vision_oneformore`, and `vision_winclip`
+  are experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and
   `vision_visionad` expose injectable scoring hooks; they are not native paper
   reproductions.

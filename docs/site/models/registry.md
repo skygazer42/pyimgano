@@ -294,7 +294,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `vision_winclip` | vision, deep, clip, pixel_map | WinCLIP 相关裁剪窗口代理（inspired） |
 | `winclip` | vision, deep, clip, pixel_map | 同一实验代理（别名） |
 | `vision_openclip_patch_map` | vision, deep, clip, pixel_map | OpenCLIP patch 模板距离检测 |
-| `vision_promptad` | vision, deep, few-shot, experimental | PromptAD 相关视觉适配代理（inspired） |
+| `vision_promptad` | vision, deep, clip, few-shot, pixel_map | PromptAD VV-CLIP + SC/EAM 论文适配实现 |
 | `vision_anomalydino` | vision, deep, dinov2, pixel_map | AnomalyDINO 相关 DINOv2-kNN 代理（inspired） |
 
 ---

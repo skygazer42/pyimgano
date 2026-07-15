@@ -71,9 +71,3 @@ def test_favae_preprocess_uses_shared_helper(monkeypatch) -> None:
     import pyimgano.models.favae as module
 
     _assert_preprocess_delegates(module=module, cls_name="VisionFAVAE", monkeypatch=monkeypatch)
-
-
-def test_promptad_preprocess_uses_shared_helper(monkeypatch) -> None:
-    import pyimgano.models.promptad as module
-
-    _assert_preprocess_delegates(module=module, cls_name="VisionPromptAD", monkeypatch=monkeypatch)

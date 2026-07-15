@@ -93,7 +93,7 @@ faiss = [
 ]
 clip = [
     "pyimgano[torch]",
-    "open_clip_torch>=2.0.0",
+    "open_clip_torch>=2.16.0",
 ]
 deploy = [
     "pyimgano[torch,onnx,openvino]",

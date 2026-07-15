@@ -113,8 +113,11 @@ maps = model.predict_anomaly_map(test_images)
   逐位置高斯与 Mahalanobis 异常图。`fit` 必须提供源类别标签及目标正常
   支持集；`set_support` 可在不微调网络的情况下切换目标类别。论文数值仍需
   leave-one-category-out 与十轮支持集协议，本 API 不用带标签测试 AUC 选 checkpoint。
-- `inspired`: `vision_promptad`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, `vision_winclip`。
+- `paper-adaptation`: `vision_promptad` 已对齐冻结的 LAION-400M
+  ViT-B/16+ VV-CLIP、语义拼接、零间隔 EAM、MAP/LAP 分布对齐、双层正常
+  视觉记忆及论文调和融合；图像级与像素级提示需按论文分别训练。
+- `inspired`: `vision_inctrl`, `vision_glad`, `vision_oneformore`,
+  `vision_winclip`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

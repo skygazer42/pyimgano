@@ -12,7 +12,6 @@ _TARGETS = [
     "pyimgano/models/ast.py",
     "pyimgano/models/dst.py",
     "pyimgano/models/favae.py",
-    "pyimgano/models/promptad.py",
 ]
 
 
