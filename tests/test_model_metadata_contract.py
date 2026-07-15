@@ -155,7 +155,7 @@ def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> 
         "vision_draem": "paper-adaptation",
         "vision_simplenet": "core-aligned",
         "vision_differnet": "paper-adaptation",
-        "vision_ast": "inspired",
+        "vision_ast": "paper-adaptation",
         "vision_promptad": "inspired",
         "vision_realnet": "inspired",
         "vision_winclip": "inspired",

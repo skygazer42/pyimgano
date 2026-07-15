@@ -162,6 +162,13 @@ and 0.0001 learning rate. The paper did not define an MVTec experiment; applying
 that CIFAR network and score contract to industrial images is explicitly an
 adaptation.
 
+The native AST entry follows the MVTec AD RGB path: frozen EfficientNet-B5
+layer-36 features at 768 px, a four-block position-conditioned RealNVP teacher,
+a four-residual-block convolutional student, sequential likelihood/regression
+training, and mean spatial student-teacher distance scoring. ImageNet weights
+are opt-in for offline safety, and the MVTec 3D-AD depth/foreground path is not
+implemented, so the entry is classified as `paper-adaptation`.
+
 Primary references for these boundaries are the
 [image DevNet paper](https://arxiv.org/abs/2108.00462) and
 [author-endorsed image code](https://github.com/Choubo/deviation-network-image),
@@ -170,7 +177,9 @@ Primary references for these boundaries are the
 [DifferNet paper](https://arxiv.org/abs/2008.12577) and
 [author code](https://github.com/marco-rudolph/differnet), plus the
 [MemAE paper](https://arxiv.org/abs/1904.02639) and
-[author code](https://github.com/donggong1/memae-anomaly-detection), and the
+[author code](https://github.com/donggong1/memae-anomaly-detection), the
+[AST paper](https://openaccess.thecvf.com/content/WACV2023/html/Rudolph_Asymmetric_Student-Teacher_Networks_for_Industrial_Anomaly_Detection_WACV_2023_paper.html)
+and [author code](https://github.com/marco-rudolph/AST), and the
 [FastFlow paper](https://arxiv.org/abs/2111.07677).
 
 Use these for their stated local contract, not as drop-in sources of published
@@ -192,8 +201,8 @@ and dataset protocol with benchmark artifacts.
 The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
-- `vision_ast`, `vision_glad`, `vision_inctrl`, `vision_oneformore`
-- `vision_panda`, `vision_promptad`, `vision_realnet`, `vision_regad`
+- `vision_glad`, `vision_inctrl`, `vision_oneformore`, `vision_panda`
+- `vision_promptad`, `vision_realnet`, `vision_regad`
 - `vision_riad`, `vision_winclip`, `winclip`
 - `vision_anomalydino`, `vision_patchcore_lite_map`
 - `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`

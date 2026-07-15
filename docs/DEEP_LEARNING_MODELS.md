@@ -107,9 +107,15 @@ preprocessing, training schedule, score normalization, and metric protocol.
   Gaussian transposed-convolution heatmap. Its offline default omits ImageNet
   weights and estimates category normalization bounds from the supplied normal
   images, so it remains a paper adaptation rather than a benchmark reproduction.
-- `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
-  `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
-  `vision_riad`, and `vision_winclip` are experimental proxies.
+- `vision_ast` implements the paper's RGB MVTec AD path: frozen EfficientNet-B5
+  layer-36 features, 32-channel positional conditioning, a four-block RealNVP
+  teacher, a four-block residual convolutional student, two-stage normal-only
+  training, and mean student-teacher distance scoring. It remains an adaptation
+  because ImageNet weights are opt-in and the paper's 3D/foreground path is not
+  part of this detector.
+- `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
+  `vision_oneformore`, `vision_panda`, `vision_regad`, `vision_riad`, and
+  `vision_winclip` are experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and
   `vision_visionad` expose injectable scoring hooks; they are not native paper
   reproductions.

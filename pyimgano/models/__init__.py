@@ -95,7 +95,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "ae",  # Autoencoder
     "ae1svm",  # Autoencoder with One-Class SVM
     "alad",  # Adversarially Learned Anomaly Detection
-    "ast",  # Experimental AST-related student-teacher proxy
+    "ast",  # Asymmetric Student-Teacher Networks (WACV 2023)
     "bayesianpf",  # Bayesian Prompt Flow (CVPR 2025)
     "bgad",  # Unregistered experimental background-normalization baseline
     "cflow",  # Conditional Normalizing Flows (WACV 2022)
