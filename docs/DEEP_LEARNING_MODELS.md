@@ -171,7 +171,16 @@ preprocessing, training schedule, score normalization, and metric protocol.
   640-dimensional score heads. It requires an official auxiliary-trained
   checkpoint; target `fit` images are 2/4/8-shot prompts and are not training
   data. The local API does not recreate auxiliary-data training.
-- `vision_glad` and `vision_oneformore` are experimental proxies.
+- `vision_glad` implements the released GLAD inference path: Stable Diffusion
+  v1.4 VAE/CLIP text encoder, a category-fine-tuned UNet, DINO ViT-B/8 blocks
+  3/6/9/12, adaptive denoising step selection (ADS), spatial-adaptive feature
+  fusion (SAFF), released category presets, and DINO/RGB localization maps. It
+  requires the official category UNet checkpoint; VisA/PCB-Bank use a separate
+  frozen DINO for ADS plus their released fine-tuned DINO and applicable VAE
+  variants. `fit` only calibrates a threshold and does not recreate
+  category-specific ATP training. The API returns raw top-250 scores instead
+  of the author's whole-test-set min-max normalization to avoid test leakage.
+- `vision_oneformore` remains an experimental proxy.
 - `vision_univad` remains an injectable family adapter, not a native paper
   reproduction.
 

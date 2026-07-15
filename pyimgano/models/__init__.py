@@ -114,7 +114,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "fcdd",  # Compact FCDD-related fully-convolutional one-class detector
     "favae",  # Generic adaptive feature-VAE baseline
     "gcad",  # Generic patch-graph autoencoder baseline
-    "glad",  # Experimental GLAD-related diffusion proxy
+    "glad",  # GLAD checkpoint-backed SD-v1.4/DINO inference adaptation
     "imdd",  # Image-level Multi-scale Discriminative Detector
     "inctrl",  # InCTRL released-checkpoint paper inference adaptation
     "intra",  # Unregistered transformer reconstruction baseline

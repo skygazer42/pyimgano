@@ -216,6 +216,18 @@ in-context prompts without fine-tuning. Since auxiliary-data training is not
 recreated locally, the entry is a `paper-adaptation` and requires an official
 checkpoint.
 
+The native GLAD entry implements the authors' checkpoint inference graph:
+Stable Diffusion v1.4 VAE/CLIP text encoder and category-fine-tuned UNet, DINO
+ViT-B/8 raw tokens from blocks 3/6/9/12, the released ADS and SAFF rules,
+category-specific denoising thresholds, bidirectional matching categories,
+RGB fusion, foreground masks, Gaussian smoothing, and top-250 image scoring.
+It is a `paper-adaptation` because the category-specific ATP training loop is
+not recreated; official UNet checkpoints remain mandatory, with the released
+fine-tuned DINO and applicable VAE variants required where the authors use
+them. VisA/PCB-Bank retain a separate frozen pretrained DINO for ADS, matching
+the released evaluation code. Runtime scores remain the raw top-250 mean; the
+author script's whole-test-set min-max normalization is intentionally omitted.
+
 The native AnomalyDINO entry implements the paper's frozen DINOv2-S/14 path at
 shorter-edge resolution 448, eight reference rotations, category-conditioned
 PCA masking, cosine patch nearest neighbors, top-1% tail scoring, and σ=4
@@ -245,6 +257,9 @@ and [author code](https://github.com/FuNz-0/PromptAD), plus the
 The InCTRL boundary follows the
 [CVPR 2024 paper](https://openaccess.thecvf.com/content/CVPR2024/html/Zhu_Toward_Generalist_Anomaly_Detection_via_In-context_Residual_Learning_with_Few-shot_CVPR_2024_paper.html)
 and [author repository](https://github.com/mala-lab/InCTRL).
+The GLAD boundary follows the
+[ECCV 2024 paper](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/08940.pdf)
+and [author repository](https://github.com/hyao1/GLAD).
 The AnomalyDINO boundary follows the
 [WACV 2025 paper](https://openaccess.thecvf.com/content/WACV2025/html/Damm_AnomalyDINO_Boosting_Patch-Based_Few-Shot_Anomaly_Detection_with_DINOv2_WACV_2025_paper.html)
 and [author repository](https://github.com/dammsi/AnomalyDINO).
@@ -273,7 +288,7 @@ and dataset protocol with benchmark artifacts.
 The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
-- `vision_glad`, `vision_oneformore`
+- `vision_oneformore`
 - `vision_patchcore_lite_map`
 - `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`

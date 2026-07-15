@@ -46,23 +46,22 @@ def test_panda_fit_does_not_print_progress(monkeypatch, capsys) -> None:
     assert out == ""
 
 
-def test_glad_fit_does_not_print_progress(monkeypatch, capsys) -> None:
-    import torch.nn.functional as F
-
+def test_glad_fit_does_not_print_progress(capsys) -> None:
     from pyimgano.models.glad import VisionGLAD
 
-    class _DummyExtractor(torch.nn.Module):
-        def forward(self, x):  # noqa: ANN001
-            pooled = F.avg_pool2d(x, kernel_size=2)
-            return torch.cat([pooled, pooled[:, :1]], dim=1)
-
-    monkeypatch.setattr(VisionGLAD, "_build_feature_extractor", lambda self: _DummyExtractor())
+    class _Backend:
+        def score_items(self, items, *, seed):  # noqa: ANN001, ANN201
+            del seed
+            count = len(items)
+            return (
+                np.arange(count, dtype=np.float32),
+                np.zeros((count, 4, 4), dtype=np.float32),
+                np.full(count, 350, dtype=np.int64),
+            )
 
     det = VisionGLAD(
-        backbone="resnet18",
-        num_timesteps=20,
+        backend=_Backend(),
         batch_size=2,
-        epochs=10,
         device="cpu",
         random_state=0,
     )

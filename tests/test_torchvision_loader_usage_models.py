@@ -198,27 +198,6 @@ def test_rdplusplus_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     assert calls == [("resnet18", False)]
 
 
-def test_glad_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> None:
-    import torch
-
-    import pyimgano.models.glad as glad_module
-    from pyimgano.models.glad import VisionGLAD
-
-    calls: list[tuple[str, bool]] = []
-
-    def _fake_loader(name: str, *, pretrained: bool):
-        calls.append((name, pretrained))
-        return _fake_resnet(torch), None
-
-    monkeypatch.setattr(glad_module, "load_torchvision_model", _fake_loader, raising=False)
-
-    det = VisionGLAD(backbone="resnet18", device="cpu", random_state=0)
-    extractor = det._build_feature_extractor()
-
-    assert isinstance(extractor, torch.nn.Sequential)
-    assert calls == [("resnet18", True)]
-
-
 def test_panda_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     import torch
 

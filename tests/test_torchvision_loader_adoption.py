@@ -25,7 +25,6 @@ _TARGETS = [
     "pyimgano/models/favae.py",
     "pyimgano/models/csflow.py",
     "pyimgano/models/rdplusplus.py",
-    "pyimgano/models/glad.py",
     "pyimgano/models/panda.py",
     "pyimgano/models/reverse_distillation.py",
 ]

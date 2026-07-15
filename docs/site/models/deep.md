@@ -124,7 +124,13 @@ maps = model.predict_anomaly_map(test_images)
   OpenCLIP ViT-B/16+、第 7/9/11 层 patch 残差、640->160->640 adapter、
   文本/图像/patch 融合与两类 score head；目标域 2/4/8-shot 正常图仅作
   in-context prompt，不在 `fit` 中训练。使用时必须提供官方辅助训练权重。
-- `inspired`: `vision_glad`, `vision_oneformore`。
+- `paper-adaptation`: `vision_glad` 已对齐 Stable Diffusion v1.4
+  VAE/CLIP 文本编码器、类别微调 UNet、DINO ViT-B/8 第 3/6/9/12 层、
+  ADS/SAFF、发布的类别参数及 DINO/RGB 异常图；必须提供官方类别 UNet
+  checkpoint；VisA/PCB-Bank 的 ADS 使用独立冻结 DINO，最终定位使用微调
+  DINO，并按作者配置加载相应 VAE。`fit` 仅标定阈值，不重写类别 ATP 训练；
+  API 返回原始 top-250 均值，不采用作者对整套测试集做的 min-max 归一化。
+- `inspired`: `vision_oneformore`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

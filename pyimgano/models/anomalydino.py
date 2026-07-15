@@ -162,7 +162,7 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
         "type": "nearest-neighbor",
         "supervision": "few-shot",
         "supports_pixel_map": True,
-        "requires_checkpoint": True,
+        "requires_checkpoint": False,
         "weights_source": "DINOv2 dinov2_vits14 LVD-142M weights",
     },
 )
