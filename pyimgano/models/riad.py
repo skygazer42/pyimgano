@@ -1,435 +1,451 @@
-"""Experimental masked-reconstruction proxy related to RIAD.
+"""RIAD reconstruction-by-inpainting adaptation for industrial images.
 
-Reference: "Reconstruction by Inpainting for Visual Anomaly Detection",
-Pattern Recognition, DOI 10.1016/j.patcog.2020.107706.
+Reference: "Reconstruction by inpainting for visual anomaly detection",
+Pattern Recognition 112 (2021), DOI 10.1016/j.patcog.2020.107706.
 
-The local model does not implement the paper's complementary masked inpainting
-and SSIM-based inference procedure, so it is not a paper reproduction.
+The implementation follows the paper's MVTec RGB path: disjoint ``k x k``
+region masks, a five-level U-Net, assembled partial inpaintings, the combined
+L2/SSIM/MSGMS objective, and multi-region-size MSGMS anomaly maps.  The
+authors did not publish reference code, so this is a paper adaptation rather
+than a claim of source-identical reproduction.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+import math
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
+from scipy.ndimage import gaussian_filter
 from torch.utils.data import DataLoader, TensorDataset
 
-from pyimgano.utils.random_state import isolated_random_state_method
+from pyimgano.utils.random_state import isolated_random_state, isolated_random_state_method
 
 from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
+from .draem import _ssim_loss
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
 
 
 class ImageDecomposer:
-    """Decomposes images into adjacent regions for RIAD training."""
+    """Create RIAD's random, disjoint sets of square image regions."""
 
     def __init__(
         self,
-        n_splits: int = 16,
-        mask_ratio: float = 0.5,
+        num_disjoint_masks: int = 3,
         random_state: Optional[int] = None,
-    ):
-        """Initialize decomposer.
-
-        Args:
-            n_splits: Number of splits (must be perfect square, e.g., 4, 9, 16).
-            mask_ratio: Ratio of regions to mask.
-            random_state: Optional seed for reproducible masking.
-        """
-        self.n_splits = n_splits
-        self.grid_size = int(np.sqrt(n_splits))
-        self.mask_ratio = mask_ratio
+    ) -> None:
+        if num_disjoint_masks <= 0:
+            raise ValueError("num_disjoint_masks must be positive.")
+        self.num_disjoint_masks = int(num_disjoint_masks)
         self.rng = np.random.default_rng(random_state)
 
-        if self.grid_size**2 != n_splits:
-            raise ValueError("n_splits must be a perfect square")
+    def create_disjoint_masks(
+        self,
+        image_size: Tuple[int, int],
+        region_size: int,
+    ) -> NDArray:
+        """Return keep-masks whose removed regions partition the whole image."""
 
-    def decompose(self, image: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
-        """Decompose image into masked and context regions.
+        height, width = (int(image_size[0]), int(image_size[1]))
+        region_size = int(region_size)
+        if height <= 0 or width <= 0 or region_size <= 0:
+            raise ValueError("image dimensions and region_size must be positive.")
 
-        Args:
-            image: Input image (H, W, C).
+        grid_height = math.ceil(height / region_size)
+        grid_width = math.ceil(width / region_size)
+        region_ids = self.rng.permutation(grid_height * grid_width)
+        masks = []
+        for subset in np.array_split(region_ids, self.num_disjoint_masks):
+            grid = np.ones(grid_height * grid_width, dtype=np.float32)
+            grid[subset] = 0.0
+            mask = grid.reshape(grid_height, grid_width)
+            mask = np.repeat(np.repeat(mask, region_size, axis=0), region_size, axis=1)
+            masks.append(mask[:height, :width])
+        return np.stack(masks, axis=0)[:, np.newaxis]
 
-        Returns:
-            Tuple of (masked_image, mask, target_regions).
-        """
-        h, w, c = image.shape
 
-        # Calculate patch size
-        patch_h = h // self.grid_size
-        patch_w = w // self.grid_size
+class UNetDownBlock(nn.Module):
+    """Two convolution-BatchNorm-ReLU stages from the RIAD encoder."""
 
-        # Create mask
-        n_mask = int(self.n_splits * self.mask_ratio)
-        mask_indices = self.rng.choice(self.n_splits, n_mask, replace=False)
+    def __init__(self, in_channels: int, out_channels: int, *, downsample: bool) -> None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=4 if downsample else 3,
+            stride=2 if downsample else 1,
+            padding=1,
+        )
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
 
-        # Create binary mask
-        mask = np.zeros((self.grid_size, self.grid_size), dtype=np.float32)
-        for idx in mask_indices:
-            row = idx // self.grid_size
-            col = idx % self.grid_size
-            mask[row, col] = 1.0
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        return F.relu(self.bn2(self.conv2(x)), inplace=True)
 
-        # Upsample mask to image size
-        mask_upsampled = np.repeat(np.repeat(mask, patch_h, axis=0), patch_w, axis=1)
 
-        # Extend to all channels
-        mask_full = mask_upsampled[:, :, np.newaxis].repeat(c, axis=2)
+class UNetUpBlock(nn.Module):
+    """RIAD decoder stage with transposed convolution and a skip connection."""
 
-        # Masked image (0 where masked)
-        masked_image = image * (1 - mask_full)
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        self.up = nn.ConvTranspose2d(
+            in_channels,
+            out_channels,
+            kernel_size=4,
+            stride=2,
+            padding=1,
+        )
+        self.conv1 = nn.Conv2d(out_channels * 2, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
 
-        return masked_image, mask_full, image
-
-    def random_mask(self, image: NDArray) -> Tuple[NDArray, NDArray]:
-        """Create random mask for image.
-
-        Args:
-            image: Input image (H, W, C).
-
-        Returns:
-            Tuple of (masked_image, mask).
-        """
-        masked, mask, _ = self.decompose(image)
-        return masked, mask
+    def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
+        x = torch.cat((self.up(x), skip), dim=1)
+        x = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        return F.relu(self.bn2(self.conv2(x)), inplace=True)
 
 
 class UNet(nn.Module):
-    """U-Net for image reconstruction."""
+    """Five-level U-Net shown in the RIAD paper's network diagram."""
 
-    def __init__(self, in_channels: int = 3, out_channels: int = 3):
+    def __init__(self, in_channels: int = 3, out_channels: int = 3) -> None:
         super().__init__()
-
-        # Encoder
-        self.enc1 = self._conv_block(in_channels, 64)
-        self.enc2 = self._conv_block(64, 128)
-        self.enc3 = self._conv_block(128, 256)
-        self.enc4 = self._conv_block(256, 512)
-
-        # Bottleneck
-        self.bottleneck = self._conv_block(512, 1024)
-
-        # Decoder
-        self.up4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.dec4 = self._conv_block(1024, 512)
-
-        self.up3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.dec3 = self._conv_block(512, 256)
-
-        self.up2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.dec2 = self._conv_block(256, 128)
-
-        self.up1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.dec1 = self._conv_block(128, 64)
-
-        # Output
-        self.out = nn.Conv2d(64, out_channels, kernel_size=1)
-
-        self.pool = nn.MaxPool2d(2, 2)
-
-    def _conv_block(self, in_c: int, out_c: int):
-        """Convolutional block."""
-        return nn.Sequential(
-            nn.Conv2d(in_c, out_c, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_c),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_c, out_c, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_c),
-            nn.ReLU(inplace=True),
+        channels = (64, 128, 256, 512, 512)
+        self.down_blocks = nn.ModuleList(
+            [
+                UNetDownBlock(in_channels, channels[0], downsample=False),
+                *(
+                    UNetDownBlock(previous, current, downsample=True)
+                    for previous, current in zip(channels, channels[1:])
+                ),
+            ]
+        )
+        self.up_blocks = nn.ModuleList(
+            [
+                UNetUpBlock(512, 512),
+                UNetUpBlock(512, 256),
+                UNetUpBlock(256, 128),
+                UNetUpBlock(128, 64),
+            ]
+        )
+        self.output = nn.Sequential(
+            nn.Conv2d(64, out_channels, kernel_size=3, padding=1), nn.Tanh()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
+        features = []
+        for block in self.down_blocks:
+            x = block(x)
+            features.append(x)
+        for block, skip in zip(self.up_blocks, reversed(features[:-1])):
+            x = block(x, skip)
+        return self.output(x)
 
-        Args:
-            x: Input tensor (B, C, H, W).
 
-        Returns:
-            Reconstructed tensor.
-        """
-        # Encoder
-        e1 = self.enc1(x)
-        e2 = self.enc2(self.pool(e1))
-        e3 = self.enc3(self.pool(e2))
-        e4 = self.enc4(self.pool(e3))
+class MSGMSLoss(nn.Module):
+    """Multi-scale gradient-magnitude-similarity loss and anomaly map."""
 
-        # Bottleneck
-        b = self.bottleneck(self.pool(e4))
+    def __init__(self, num_scales: int = 4, stability: float = 0.0026) -> None:
+        super().__init__()
+        if num_scales <= 0 or stability <= 0:
+            raise ValueError("num_scales and stability must be positive.")
+        self.num_scales = int(num_scales)
+        self.stability = float(stability)
+        self.register_buffer(
+            "prewitt_x",
+            torch.tensor([[[[1.0, 0.0, -1.0], [1.0, 0.0, -1.0], [1.0, 0.0, -1.0]]]]) / 3.0,
+        )
+        self.register_buffer(
+            "prewitt_y",
+            torch.tensor([[[[1.0, 1.0, 1.0], [0.0, 0.0, 0.0], [-1.0, -1.0, -1.0]]]]) / 3.0,
+        )
 
-        # Decoder with skip connections
-        d4 = self.up4(b)
-        d4 = torch.cat([d4, e4], dim=1)
-        d4 = self.dec4(d4)
+    def _gradient_magnitude(self, image: torch.Tensor) -> torch.Tensor:
+        grayscale = image.mean(dim=1, keepdim=True)
+        grad_x = F.conv2d(grayscale, self.prewitt_x, padding=1)
+        grad_y = F.conv2d(grayscale, self.prewitt_y, padding=1)
+        return torch.sqrt(grad_x.square() + grad_y.square() + 1e-12)
 
-        d3 = self.up3(d4)
-        d3 = torch.cat([d3, e3], dim=1)
-        d3 = self.dec3(d3)
+    def _gms(self, image: torch.Tensor, reconstruction: torch.Tensor) -> torch.Tensor:
+        source_gradient = self._gradient_magnitude(image)
+        reconstruction_gradient = self._gradient_magnitude(reconstruction)
+        numerator = 2.0 * source_gradient * reconstruction_gradient + self.stability
+        denominator = source_gradient.square() + reconstruction_gradient.square() + self.stability
+        return numerator / denominator
 
-        d2 = self.up2(d3)
-        d2 = torch.cat([d2, e2], dim=1)
-        d2 = self.dec2(d2)
+    def forward(
+        self,
+        image: torch.Tensor,
+        reconstruction: torch.Tensor,
+        *,
+        as_loss: bool = True,
+    ) -> torch.Tensor:
+        if image.shape != reconstruction.shape or image.ndim != 4:
+            raise ValueError("MSGMS inputs must have matching NCHW shapes.")
 
-        d1 = self.up1(d2)
-        d1 = torch.cat([d1, e1], dim=1)
-        d1 = self.dec1(d1)
-
-        # Output
-        out = self.out(d1)
-
-        return out
+        output_size = image.shape[-2:]
+        distance = torch.zeros(
+            (image.shape[0], 1, *output_size),
+            dtype=image.dtype,
+            device=image.device,
+        )
+        source, restored = image, reconstruction
+        for scale in range(self.num_scales):
+            if scale:
+                source = F.avg_pool2d(source, kernel_size=2, stride=2)
+                restored = F.avg_pool2d(restored, kernel_size=2, stride=2)
+            scale_distance = 1.0 - self._gms(source, restored)
+            if scale_distance.shape[-2:] != output_size:
+                scale_distance = F.interpolate(
+                    scale_distance,
+                    size=output_size,
+                    mode="bilinear",
+                    align_corners=False,
+                )
+            distance = distance + scale_distance
+        distance = distance / self.num_scales
+        return distance.mean() if as_loss else distance
 
 
 @register_model(
     "vision_riad",
     tags=("vision", "deep", "riad", "reconstruction", "self-supervised", "pixel_map"),
     metadata={
-        "description": "Experimental masked-reconstruction proxy related to RIAD; not the paper method",
-        "related_paper": "Reconstruction by Inpainting for Visual Anomaly Detection",
-        "related_paper_url": "https://doi.org/10.1016/j.patcog.2020.107706",
-        "year": 2020,
-        "implementation_status": "experimental-reconstruction-proxy",
-        "paper_fidelity": "inspired",
+        "description": "RIAD disjoint masked-inpainting MVTec RGB adaptation with MSGMS scoring",
+        "paper": "Reconstruction by inpainting for visual anomaly detection",
+        "paper_url": "https://doi.org/10.1016/j.patcog.2020.107706",
+        "year": 2021,
+        "supervision": "self-supervised",
+        "implementation_status": "paper-network-mask-loss-and-score-adaptation",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 @register_model(
     "riad",
     tags=("vision", "deep", "riad", "reconstruction", "self-supervised", "pixel_map"),
     metadata={
-        "description": "Legacy alias for the experimental RIAD-related reconstruction proxy",
-        "related_paper": "Reconstruction by Inpainting for Visual Anomaly Detection",
-        "related_paper_url": "https://doi.org/10.1016/j.patcog.2020.107706",
-        "year": 2020,
-        "implementation_status": "experimental-reconstruction-proxy",
-        "paper_fidelity": "inspired",
+        "description": "Legacy alias for the RIAD disjoint masked-inpainting adaptation",
+        "paper": "Reconstruction by inpainting for visual anomaly detection",
+        "paper_url": "https://doi.org/10.1016/j.patcog.2020.107706",
+        "year": 2021,
+        "supervision": "self-supervised",
+        "implementation_status": "paper-network-mask-loss-and-score-adaptation",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 class RIADDetector(BaseVisionDeepDetector):
-    """Experimental RIAD-related masked-reconstruction detector.
+    """Paper-adapted RIAD detector for the MVTec RGB protocol.
 
-    This compatibility implementation is not a reproduction of the paper's
-    complementary masked inpainting and SSIM-based inference procedure.
-
-    Args:
-        n_splits: Number of image splits (must be perfect square).
-        mask_ratio: Ratio of regions to mask during training.
-        image_size: Input image size (H, W).
-        epochs: Number of training epochs.
-        batch_size: Training batch size.
-        learning_rate: Learning rate.
-        device: Device to use ("cuda" or "cpu").
-
-    References:
-        RIAD: Reconstruction from Adjacent Image Decomposition.
+    Defaults follow the published setup: 256-pixel RGB inputs, region sizes
+    ``(2, 4, 8, 16)``, three disjoint masks, four MSGMS scales, 300 epochs,
+    batch size 4, and Adam with learning rate ``1e-4`` and weight decay
+    ``1e-5``.  The learning rate is reduced by ten at epoch 250.
     """
 
     def __init__(
         self,
-        n_splits: int = 16,
-        mask_ratio: float = 0.5,
+        region_sizes: Sequence[int] = (2, 4, 8, 16),
+        num_disjoint_masks: int = 3,
         image_size: Tuple[int, int] = (256, 256),
-        epochs: int = 100,
-        batch_size: int = 16,
-        learning_rate: float = 0.0002,
+        epochs: int = 300,
+        batch_size: int = 4,
+        learning_rate: float = 1e-4,
+        weight_decay: float = 1e-5,
+        msgms_scales: int = 4,
+        gaussian_sigma: float = 7.0,
         device: Optional[str] = None,
         random_state: Optional[int] = None,
-        **kwargs,
-    ):
+        **kwargs: object,
+    ) -> None:
+        legacy = {"n_splits", "mask_ratio"}.intersection(kwargs)
+        if legacy:
+            raise TypeError(
+                "RIAD's legacy random-grid proxy parameters were removed; use "
+                "region_sizes and num_disjoint_masks."
+            )
         super().__init__(**kwargs)
 
-        self.n_splits = n_splits
-        self.mask_ratio = mask_ratio
-        self.image_size = image_size
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
+        self.region_sizes = tuple(int(value) for value in region_sizes)
+        self.num_disjoint_masks = int(num_disjoint_masks)
+        self.image_size = (int(image_size[0]), int(image_size[1]))
+        self.epochs = int(epochs)
+        self.batch_size = int(batch_size)
+        self.learning_rate = float(learning_rate)
+        self.weight_decay = float(weight_decay)
+        self.msgms_scales = int(msgms_scales)
+        self.gaussian_sigma = float(gaussian_sigma)
         self.random_state = random_state
 
-        if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = torch.device(device)
+        if not self.region_sizes or any(value <= 0 for value in self.region_sizes):
+            raise ValueError("region_sizes must contain positive integers.")
+        if self.num_disjoint_masks <= 0:
+            raise ValueError("num_disjoint_masks must be positive.")
+        if any(value <= 0 or value % 16 for value in self.image_size):
+            raise ValueError("image_size dimensions must be positive multiples of 16.")
+        if max(self.region_sizes) > min(self.image_size):
+            raise ValueError("region_sizes cannot exceed the smaller image dimension.")
+        if self.msgms_scales <= 0 or min(self.image_size) < 2 ** (self.msgms_scales - 1):
+            raise ValueError("image_size is too small for msgms_scales.")
+        if self.epochs < 0 or self.batch_size <= 0:
+            raise ValueError("epochs must be non-negative and batch_size positive.")
+        if self.learning_rate <= 0 or self.weight_decay < 0 or self.gaussian_sigma < 0:
+            raise ValueError("learning_rate must be positive; weight_decay/sigma non-negative.")
 
-        # Build model
-        self._build_model()
+        self.device = torch.device(
+            device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        with isolated_random_state(random_state):
+            self.model = UNet().to(self.device)
+        self.decomposer = ImageDecomposer(self.num_disjoint_masks, random_state=random_state)
+        self.msgms = MSGMSLoss(self.msgms_scales).to(self.device)
+        self.loss_history_: list[float] = []
 
-        # Decomposer
-        self.decomposer = ImageDecomposer(n_splits, mask_ratio, random_state=random_state)
+    def _prepare_images(self, x: object) -> Tuple[torch.Tensor, list[Tuple[int, int]]]:
+        import cv2
 
-    def _build_model(self):
-        """Build the RIAD model."""
-        self.model = UNet(in_channels=3, out_channels=3).to(self.device)
+        images = coerce_rgb_image_batch(x).astype(np.float32, copy=False)
+        if not np.all(np.isfinite(images)):
+            raise ValueError("RIAD images must contain only finite values.")
+        minimum, maximum = float(images.min()), float(images.max())
+        if maximum > 1.0:
+            if minimum < 0.0 or maximum > 255.0:
+                raise ValueError("RIAD image values must lie in [0, 1], [0, 255], or [-1, 1].")
+            images = images / 255.0
+        elif minimum < 0.0:
+            if minimum < -1.0:
+                raise ValueError("RIAD image values must lie in [0, 1], [0, 255], or [-1, 1].")
+            images = (images + 1.0) / 2.0
+
+        original_sizes = [tuple(int(value) for value in image.shape[:2]) for image in images]
+        resized = [
+            (
+                cv2.resize(
+                    image, (self.image_size[1], self.image_size[0]), interpolation=cv2.INTER_AREA
+                )
+                if image.shape[:2] != self.image_size
+                else image
+            )
+            for image in images
+        ]
+        tensor = torch.from_numpy(np.ascontiguousarray(np.stack(resized)))
+        tensor = tensor.permute(0, 3, 1, 2).float().mul(2.0).sub(1.0)
+        return tensor, original_sizes
+
+    def _reconstruct(self, images: torch.Tensor, region_size: int) -> torch.Tensor:
+        masks = self.decomposer.create_disjoint_masks(images.shape[-2:], region_size)
+        keep_masks = torch.from_numpy(masks).to(device=images.device, dtype=images.dtype)
+        reconstruction = torch.zeros_like(images)
+        for keep_mask in keep_masks:
+            prediction = self.model(images * keep_mask)
+            reconstruction = reconstruction + prediction * (1.0 - keep_mask)
+        return reconstruction
 
     @isolated_random_state_method
-    def fit(self, x: NDArray, y: Optional[NDArray] = None, **kwargs):
-        """Train the RIAD model.
+    def fit(self, x: object, y: Optional[NDArray] = None, **kwargs: object) -> "RIADDetector":
+        """Train on anomaly-free RGB images."""
 
-        Args:
-            X: Training images (N, H, W, C).
-            y: Not used (unsupervised).
-        """
         del y, kwargs
-        logger.info("Training RIAD model...")
-        x = coerce_rgb_image_batch(x)
-
-        if x.max() > 1.0:
-            x = x.astype(np.float32) / 255.0
-
-        # Prepare training data
-        train_data = []
-
-        for img in x:
-            # Resize if needed
-            if img.shape[:2] != self.image_size:
-                import cv2
-
-                img = cv2.resize(img, (self.image_size[1], self.image_size[0]))
-
-            # Create masked version
-            masked, _, target = self.decomposer.decompose(img)
-
-            train_data.append((masked, target))
-
-        # Create dataloader
-        x_masked = torch.stack([torch.from_numpy(m.transpose(2, 0, 1)) for m, _ in train_data])
-        x_target = torch.stack([torch.from_numpy(t.transpose(2, 0, 1)) for _, t in train_data])
-
-        dataset = TensorDataset(x_masked.float(), x_target.float())
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
-
-        # Optimizer and loss
-        optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=self.learning_rate, weight_decay=0.0
+        images, _ = self._prepare_images(x)
+        loader = DataLoader(
+            TensorDataset(images),
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=0,
         )
-        criterion = nn.MSELoss()
-
-        # Training loop
+        optimizer = torch.optim.Adam(
+            self.model.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
+        )
+        self.loss_history_ = []
         self.model.train()
-
         for epoch in range(self.epochs):
-            epoch_loss = 0.0
+            if epoch == 249:
+                for group in optimizer.param_groups:
+                    group["lr"] = self.learning_rate * 0.1
 
-            for masked, target in dataloader:
-                masked = masked.to(self.device)
+            total_loss = 0.0
+            for (target,) in loader:
                 target = target.to(self.device)
-
-                # Forward
-                reconstructed = self.model(masked)
-
-                # Loss
-                loss = criterion(reconstructed, target)
-
-                # Backward
+                region_size = int(self.decomposer.rng.choice(self.region_sizes))
+                reconstruction = self._reconstruct(target, region_size)
+                loss = (
+                    F.mse_loss(reconstruction, target)
+                    + _ssim_loss(reconstruction, target)
+                    + self.msgms(target, reconstruction)
+                )
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                total_loss += float(loss.detach())
 
-                epoch_loss += loss.detach().item()
-
-            if (epoch + 1) % 10 == 0:
-                avg_loss = epoch_loss / len(dataloader)
-                logger.info("Epoch [%d/%d] Loss: %.6f", epoch + 1, self.epochs, avg_loss)
-
-        self.model.eval()
-        logger.info("Training completed!")
-
-    def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
-        """Predict anomaly scores.
-
-        Args:
-            X: Test images (N, H, W, C).
-
-        Returns:
-            Anomaly scores.
-        """
-        del kwargs
-        x = coerce_rgb_image_batch(x)
-        if x.max() > 1.0:
-            x = x.astype(np.float32) / 255.0
+            average_loss = total_loss / len(loader)
+            self.loss_history_.append(average_loss)
+            if (epoch + 1) % 10 == 0 or epoch + 1 == self.epochs:
+                logger.info("RIAD epoch %d/%d loss %.6f", epoch + 1, self.epochs, average_loss)
 
         self.model.eval()
-        scores = []
+        return self
 
+    def _predict_model_map(self, image: torch.Tensor) -> torch.Tensor:
+        anomaly_map = torch.zeros(
+            (image.shape[0], 1, *self.image_size),
+            dtype=image.dtype,
+            device=image.device,
+        )
+        for region_size in self.region_sizes:
+            reconstruction = self._reconstruct(image, region_size)
+            anomaly_map = anomaly_map + self.msgms(image, reconstruction, as_loss=False)
+        return anomaly_map / len(self.region_sizes)
+
+    def predict_anomaly_map(self, x: object) -> list[NDArray]:
+        """Return Gaussian-smoothed MSGMS maps at each input image's original size."""
+
+        import cv2
+
+        images, original_sizes = self._prepare_images(x)
+        self.model.eval()
+        output = []
         with torch.no_grad():
-            for img in x:
-                # Resize if needed
-                if img.shape[:2] != self.image_size:
-                    import cv2
+            for image, original_size in zip(images, original_sizes):
+                anomaly_map = self._predict_model_map(image.unsqueeze(0).to(self.device))
+                array = anomaly_map[0, 0].cpu().numpy()
+                if self.gaussian_sigma:
+                    array = gaussian_filter(array, sigma=self.gaussian_sigma)
+                if original_size != self.image_size:
+                    array = cv2.resize(
+                        array,
+                        (original_size[1], original_size[0]),
+                        interpolation=cv2.INTER_LINEAR,
+                    )
+                output.append(np.asarray(array, dtype=np.float32))
+        return output
 
-                    img = cv2.resize(img, (self.image_size[1], self.image_size[0]))
+    def predict_proba(self, x: object, **kwargs: object) -> NDArray:
+        """Return the paper's poorest-region (maximum-map) image scores."""
 
-                img_tensor = torch.from_numpy(img.transpose(2, 0, 1)).unsqueeze(0).float()
-                img_tensor = img_tensor.to(self.device)
+        del kwargs
+        return np.asarray([float(amap.max()) for amap in self.predict_anomaly_map(x)])
 
-                # Reconstruct
-                reconstructed = self.model(img_tensor)
-
-                # Reconstruction error
-                error = F.mse_loss(reconstructed, img_tensor, reduction="none")
-                error = error.mean(dim=1).squeeze()  # Average across channels
-
-                # Image-level score (max error)
-                score = error.max().item()
-                scores.append(score)
-
-        return np.array(scores)
-
-    def decision_function(self, x: NDArray, batch_size: int | None = None, **kwargs) -> NDArray:
+    def decision_function(
+        self,
+        x: object,
+        batch_size: Optional[int] = None,
+        **kwargs: object,
+    ) -> NDArray:
         del batch_size
         return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
 
-    def predict_anomaly_map(self, x: NDArray) -> list:
-        """Predict pixel-level anomaly maps.
 
-        Args:
-            X: Test images (N, H, W, C).
-
-        Returns:
-            List of anomaly maps.
-        """
-        if x.max() > 1.0:
-            x = x.astype(np.float32) / 255.0
-
-        self.model.eval()
-        anomaly_maps = []
-
-        with torch.no_grad():
-            for img in x:
-                # Resize if needed
-                original_size = img.shape[:2]
-                if img.shape[:2] != self.image_size:
-                    import cv2
-
-                    img_resized = cv2.resize(img, (self.image_size[1], self.image_size[0]))
-                else:
-                    img_resized = img
-
-                img_tensor = torch.from_numpy(img_resized.transpose(2, 0, 1)).unsqueeze(0).float()
-                img_tensor = img_tensor.to(self.device)
-
-                # Reconstruct
-                reconstructed = self.model(img_tensor)
-
-                # Reconstruction error
-                error = F.mse_loss(reconstructed, img_tensor, reduction="none")
-                error = error.mean(dim=1).squeeze()  # Average across channels
-
-                # Resize to original size if needed
-                if original_size != self.image_size:
-                    error = error.unsqueeze(0).unsqueeze(0)
-                    error = F.interpolate(
-                        error, size=original_size, mode="bilinear", align_corners=False
-                    )
-                    error = error.squeeze()
-
-                anomaly_map = error.cpu().numpy()
-                anomaly_maps.append(anomaly_map)
-
-        return anomaly_maps
+__all__ = ["ImageDecomposer", "MSGMSLoss", "RIADDetector", "UNet"]

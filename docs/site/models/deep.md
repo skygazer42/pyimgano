@@ -88,7 +88,9 @@ maps = model.predict_anomaly_map(test_images)
   且在传入的正常样本上估计类别归一化范围；`vision_ast` 已对齐论文的
   MVTec AD RGB 路径，包括 EfficientNet-B5 第 36 层特征、32 维位置条件、
   四块 RealNVP teacher、四残差块 student、两阶段训练和 RGB 均值距离评分，
-  但默认不下载 ImageNet 权重，且未实现论文的 3D/前景掩码路径。
+  但默认不下载 ImageNet 权重，且未实现论文的 3D/前景掩码路径；
+  `vision_riad` 已对齐三组互补区域遮罩、论文 U-Net、L2/SSIM/MSGMS
+  联合目标和四种区域尺寸的 MSGMS 集成，但作者未发布参考代码，因此仍标为适配。
 - `core-aligned`: `vision_cflow` 已对齐作者 ResNet 路径的 layer2--layer4
   特征金字塔、二维位置条件、每尺度八个条件流块、归一化似然目标和多尺度概率图；
   论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议；`vision_softpatch`
@@ -96,7 +98,7 @@ maps = model.predict_anomaly_map(test_images)
   10% greedy coreset、记忆权重乘最近邻距离与最大 patch 图像分数。
 - `inspired`: `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
   `vision_oneformore`, `vision_panda`, `vision_regad`,
-  `vision_riad`, `vision_winclip`。
+  `vision_winclip`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

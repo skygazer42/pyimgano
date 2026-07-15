@@ -169,6 +169,12 @@ training, and mean spatial student-teacher distance scoring. ImageNet weights
 are opt-in for offline safety, and the MVTec 3D-AD depth/foreground path is not
 implemented, so the entry is classified as `paper-adaptation`.
 
+The native RIAD entry follows the paper's three-way disjoint `k x k` region
+masking, five-level 64/128/256/512/512 U-Net, assembled partial inpaintings,
+combined L2/SSIM/MSGMS loss, `{2, 4, 8, 16}` region-size ensemble, and MSGMS
+maximum-map scoring. Since the authors did not release reference code, this is
+classified as `paper-adaptation`, not a source-identical reproduction.
+
 Primary references for these boundaries are the
 [image DevNet paper](https://arxiv.org/abs/2108.00462) and
 [author-endorsed image code](https://github.com/Choubo/deviation-network-image),
@@ -179,7 +185,8 @@ Primary references for these boundaries are the
 [MemAE paper](https://arxiv.org/abs/1904.02639) and
 [author code](https://github.com/donggong1/memae-anomaly-detection), the
 [AST paper](https://openaccess.thecvf.com/content/WACV2023/html/Rudolph_Asymmetric_Student-Teacher_Networks_for_Industrial_Anomaly_Detection_WACV_2023_paper.html)
-and [author code](https://github.com/marco-rudolph/AST), and the
+and [author code](https://github.com/marco-rudolph/AST), the
+[RIAD paper](https://doi.org/10.1016/j.patcog.2020.107706), and the
 [FastFlow paper](https://arxiv.org/abs/2111.07677).
 
 Use these for their stated local contract, not as drop-in sources of published
@@ -203,7 +210,7 @@ are **not paper reproductions**:
 
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`, `vision_panda`
 - `vision_promptad`, `vision_realnet`, `vision_regad`
-- `vision_riad`, `vision_winclip`, `winclip`
+- `vision_winclip`, `winclip`
 - `vision_anomalydino`, `vision_patchcore_lite_map`
 - `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`, `vision_visionad`

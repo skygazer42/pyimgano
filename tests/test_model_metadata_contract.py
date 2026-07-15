@@ -162,6 +162,7 @@ def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> 
         "vision_patchcore_anomalib": "external-backend",
         "vision_fcdd": "paper-adaptation",
         "vision_memae": "paper-adaptation",
+        "vision_riad": "paper-adaptation",
     }
     for name, fidelity in expected.items():
         assert MODEL_REGISTRY.info(name).metadata["paper_fidelity"] == fidelity
@@ -189,7 +190,8 @@ def test_corrected_proxy_references_do_not_repeat_legacy_citation_errors() -> No
     assert anogen["year"] == 2024
     assert "Few-Shot Anomaly-Driven Generation" in anogen["related_paper"]
     assert "eccv_2024" in anogen["related_paper_url"]
-    assert riad["related_paper_url"] == "https://doi.org/10.1016/j.patcog.2020.107706"
+    assert riad["paper_url"] == "https://doi.org/10.1016/j.patcog.2020.107706"
+    assert riad["year"] == 2021
     assert "2108.11092" not in str(riad)
 
 

@@ -138,7 +138,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "realnet",  # Experimental RealNet-related synthetic-anomaly proxy
     "regad",  # Experimental RegAD-related STN proxy
     "reverse_distillation",  # Reverse Distillation
-    "riad",  # Experimental RIAD-related reconstruction proxy
+    "riad",  # RIAD disjoint masked-inpainting paper adaptation
     "simplenet",  # SimpleNet ultra-fast detector (CVPR 2023)
     "spade",  # Sub-image Anomaly Detection with SPADE (ECCV 2020)
     "ssim",  # Structural Similarity-based detection

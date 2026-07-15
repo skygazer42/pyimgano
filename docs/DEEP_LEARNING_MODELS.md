@@ -113,9 +113,13 @@ preprocessing, training schedule, score normalization, and metric protocol.
   training, and mean student-teacher distance scoring. It remains an adaptation
   because ImageNet weights are opt-in and the paper's 3D/foreground path is not
   part of this detector.
+- `vision_riad` follows the paper's three-way disjoint region masking, five-level
+  U-Net, assembled partial inpaintings, L2/SSIM/MSGMS objective, four region
+  sizes, and MSGMS anomaly maps. It remains an adaptation because the authors
+  did not publish reference code.
 - `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, `vision_panda`, `vision_regad`, `vision_riad`, and
-  `vision_winclip` are experimental proxies.
+  `vision_oneformore`, `vision_panda`, `vision_regad`, and `vision_winclip` are
+  experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and
   `vision_visionad` expose injectable scoring hooks; they are not native paper
   reproductions.

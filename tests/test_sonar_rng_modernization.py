@@ -167,13 +167,11 @@ def test_template_matching_random_state_makes_template_sampling_repeatable() -> 
 def test_image_decomposer_random_state_makes_masks_repeatable() -> None:
     from pyimgano.models.riad import ImageDecomposer
 
-    image = np.ones((8, 8, 3), dtype=np.float32)
+    decomposer_a = ImageDecomposer(num_disjoint_masks=3, random_state=5)
+    decomposer_b = ImageDecomposer(num_disjoint_masks=3, random_state=5)
 
-    decomposer_a = ImageDecomposer(n_splits=4, mask_ratio=0.5, random_state=5)
-    decomposer_b = ImageDecomposer(n_splits=4, mask_ratio=0.5, random_state=5)
-
-    _, mask_a, _ = decomposer_a.decompose(image)
-    _, mask_b, _ = decomposer_b.decompose(image)
+    mask_a = decomposer_a.create_disjoint_masks((8, 8), region_size=2)
+    mask_b = decomposer_b.create_disjoint_masks((8, 8), region_size=2)
 
     assert np.array_equal(mask_a, mask_b)
 
