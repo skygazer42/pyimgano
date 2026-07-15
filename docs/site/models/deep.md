@@ -120,7 +120,11 @@ maps = model.predict_anomaly_map(test_images)
 - `paper-adaptation`: `vision_winclip` / `winclip` 已对齐 ViT-B/16+ 完整
   组合提示集、2x2/3x3 masked-token 窗口、调和多尺度图、WinCLIP+ 三套
   视觉记忆，以及补充材料的 240px 预处理和非方形切片策略。
-- `inspired`: `vision_inctrl`, `vision_glad`, `vision_oneformore`。
+- `paper-adaptation`: `vision_inctrl` 已对齐发布 checkpoint 的 240px
+  OpenCLIP ViT-B/16+、第 7/9/11 层 patch 残差、640->160->640 adapter、
+  文本/图像/patch 融合与两类 score head；目标域 2/4/8-shot 正常图仅作
+  in-context prompt，不在 `fit` 中训练。使用时必须提供官方辅助训练权重。
+- `inspired`: `vision_glad`, `vision_oneformore`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

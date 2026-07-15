@@ -350,20 +350,25 @@ class OpenCLIPInCTRLBackend:
         if tuple(position.shape[-2:]) != tuple(tokens.shape[-2:]):
             raise RuntimeError("InCTRL positional embedding does not match the 15x15 grid.")
         tokens = visual.ln_pre(visual.patch_dropout(tokens + position))
-        tokens = tokens.permute(1, 0, 2)
+        blocks = visual.transformer.resblocks
+        batch_first = bool(getattr(getattr(blocks[0], "attn", None), "batch_first", False))
+        if not batch_first:
+            tokens = tokens.permute(1, 0, 2)
 
         selected: list[torch.Tensor] = []
         selected_layers = set(self.feature_layers)
-        for index, block in enumerate(visual.transformer.resblocks, start=1):
+        for index, block in enumerate(blocks, start=1):
             tokens = block(tokens)
             if isinstance(tokens, tuple):
                 tokens = tokens[0]
             if index in selected_layers:
-                selected.append(tokens.permute(1, 0, 2)[:, 1:])
+                selected.append(tokens[:, 1:] if batch_first else tokens.permute(1, 0, 2)[:, 1:])
         if len(selected) != len(self.feature_layers):
             raise RuntimeError("InCTRL failed to collect blocks 7, 9, and 11.")
 
-        pooled = visual.ln_post(tokens.permute(1, 0, 2)[:, 0])
+        if not batch_first:
+            tokens = tokens.permute(1, 0, 2)
+        pooled = visual.ln_post(tokens[:, 0])
         if visual.proj is not None:
             pooled = pooled @ visual.proj
         if int(pooled.shape[-1]) != PAPER_GLOBAL_DIM:

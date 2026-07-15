@@ -51,12 +51,18 @@ def test_inctrl_released_architecture_and_prompts() -> None:
 
 
 class _IdentityBlock(torch.nn.Module):
+    def __init__(self, *, batch_first: bool) -> None:
+        super().__init__()
+        self.attn = SimpleNamespace(batch_first=batch_first)
+
     def forward(self, tokens):  # noqa: ANN001, ANN201
-        return tokens
+        expected_axis = 1 if self.attn.batch_first else 0
+        assert tokens.shape[expected_axis] == 226
+        return tokens if self.attn.batch_first else (tokens, None)
 
 
 class _TinyOpenCLIP(torch.nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, *, batch_first: bool) -> None:
         super().__init__()
         visual = torch.nn.Module()
         visual.conv1 = torch.nn.Conv2d(3, 896, 16, 16, bias=False)
@@ -67,7 +73,9 @@ class _TinyOpenCLIP(torch.nn.Module):
         visual.patch_dropout = torch.nn.Identity()
         visual.ln_pre = torch.nn.Identity()
         visual.transformer = SimpleNamespace(
-            resblocks=torch.nn.ModuleList([_IdentityBlock() for _ in range(12)])
+            resblocks=torch.nn.ModuleList(
+                [_IdentityBlock(batch_first=batch_first) for _ in range(12)]
+            )
         )
         visual.ln_post = torch.nn.Identity()
         visual.proj = torch.nn.Parameter(torch.zeros(896, 640))
@@ -96,7 +104,8 @@ def _tokenize(prompts):  # noqa: ANN001, ANN201
     return torch.tensor(anomalous, dtype=torch.long).unsqueeze(1)
 
 
-def test_inctrl_backend_runs_released_residual_equations() -> None:
+@pytest.mark.parametrize("batch_first", [True, False])
+def test_inctrl_backend_runs_released_residual_equations(batch_first: bool) -> None:
     from pyimgano.models.inctrl import InCTRLHeads, OpenCLIPInCTRLBackend
 
     heads = InCTRLHeads()
@@ -104,7 +113,7 @@ def test_inctrl_backend_runs_released_residual_equations() -> None:
         for parameter in heads.parameters():
             parameter.zero_()
     backend = OpenCLIPInCTRLBackend(
-        model=_TinyOpenCLIP(),
+        model=_TinyOpenCLIP(batch_first=batch_first),
         preprocess=_preprocess,
         tokenizer=_tokenize,
         heads=heads,

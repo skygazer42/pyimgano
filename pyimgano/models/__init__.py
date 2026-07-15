@@ -116,7 +116,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "gcad",  # Generic patch-graph autoencoder baseline
     "glad",  # Experimental GLAD-related diffusion proxy
     "imdd",  # Image-level Multi-scale Discriminative Detector
-    "inctrl",  # Experimental InCTRL-related residual proxy
+    "inctrl",  # InCTRL released-checkpoint paper inference adaptation
     "intra",  # Unregistered transformer reconstruction baseline
     "memseg",  # Memory-guided Segmentation
     "memae",  # Memory-augmented autoencoder image adaptation

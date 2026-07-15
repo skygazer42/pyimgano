@@ -208,6 +208,14 @@ windows, harmonic overlap/cross-scale aggregation, and WinCLIP+ three-memory
 few-shot fusion. It uses the supplementary 240px OpenCLIP preprocessing and
 non-square tiling policy.
 
+The native InCTRL entry implements the released checkpoint inference graph:
+frozen 240px OpenCLIP ViT-B/16+, patch tokens from blocks 7/9/11, nearest
+support-patch residuals, the released 640->160->640 image adapter, WinCLIP text
+prototypes, and learned patch/global score heads. Target normal images are
+in-context prompts without fine-tuning. Since auxiliary-data training is not
+recreated locally, the entry is a `paper-adaptation` and requires an official
+checkpoint.
+
 The native AnomalyDINO entry implements the paper's frozen DINOv2-S/14 path at
 shorter-edge resolution 448, eight reference rotations, category-conditioned
 PCA masking, cosine patch nearest neighbors, top-1% tail scoring, and σ=4
@@ -234,6 +242,9 @@ and [author code](https://github.com/MediaBrain-SJTU/RegAD), plus the
 [PromptAD paper](https://openaccess.thecvf.com/content/CVPR2024/html/Li_PromptAD_Learning_Prompts_with_only_Normal_Samples_for_Few-Shot_Anomaly_CVPR_2024_paper.html)
 and [author code](https://github.com/FuNz-0/PromptAD), plus the
 [WinCLIP paper](https://openaccess.thecvf.com/content/CVPR2023/html/Jeong_WinCLIP_Zero-Few-Shot_Anomaly_Classification_and_Segmentation_CVPR_2023_paper.html).
+The InCTRL boundary follows the
+[CVPR 2024 paper](https://openaccess.thecvf.com/content/CVPR2024/html/Zhu_Toward_Generalist_Anomaly_Detection_via_In-context_Residual_Learning_with_Few-shot_CVPR_2024_paper.html)
+and [author repository](https://github.com/mala-lab/InCTRL).
 The AnomalyDINO boundary follows the
 [WACV 2025 paper](https://openaccess.thecvf.com/content/WACV2025/html/Damm_AnomalyDINO_Boosting_Patch-Based_Few-Shot_Anomaly_Detection_with_DINOv2_WACV_2025_paper.html)
 and [author repository](https://github.com/dammsi/AnomalyDINO).
@@ -262,7 +273,7 @@ and dataset protocol with benchmark artifacts.
 The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
-- `vision_glad`, `vision_inctrl`, `vision_oneformore`
+- `vision_glad`, `vision_oneformore`
 - `vision_patchcore_lite_map`
 - `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`

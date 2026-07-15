@@ -165,7 +165,13 @@ preprocessing, training schedule, score normalization, and metric protocol.
   category-indexed cosine patch memories, 256x256 maps, and top-1% image
   scoring. The paper's ViT-B/14 baseline remains selectable and defaults to
   blocks 2--9.
-- `vision_inctrl`, `vision_glad`, and `vision_oneformore` are experimental proxies.
+- `vision_inctrl` implements the released InCTRL inference path: frozen
+  OpenCLIP ViT-B/16+ at 240px, patch residuals from blocks 7/9/11, the released
+  640->160->640 adapter, text/image/patch residual fusion, and the 225- and
+  640-dimensional score heads. It requires an official auxiliary-trained
+  checkpoint; target `fit` images are 2/4/8-shot prompts and are not training
+  data. The local API does not recreate auxiliary-data training.
+- `vision_glad` and `vision_oneformore` are experimental proxies.
 - `vision_univad` remains an injectable family adapter, not a native paper
   reproduction.
 
