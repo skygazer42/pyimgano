@@ -19,10 +19,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from numpy.typing import NDArray
+from sklearn.model_selection import train_test_split
 from torch.optim import SGD
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
+from pyimgano.utils.random_state import isolated_random_state
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from .baseCv import BaseVisionDeepDetector
@@ -97,7 +99,7 @@ class ImagePathDataset(Dataset):
         "paper_url": "https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf",
         "year": 2021,
         "supervision": "one-class",
-        "implementation_status": "core-aligned",
+        "implementation_status": "paper-resnet18-objective-and-score-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -148,7 +150,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         lr: float = 0.4,
         num_workers: int = 0,
         validation_ratio: float = 0.2,
-        random_state: int = 42,
+        random_state: int = 0,
         device: str = "cpu",
         **kwargs,
     ):
@@ -161,9 +163,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         if batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {batch_size}")
         if not 0.0 <= validation_ratio < 1.0:
-            raise ValueError(
-                f"validation_ratio must be in [0, 1), got {validation_ratio}"
-            )
+            raise ValueError(f"validation_ratio must be in [0, 1), got {validation_ratio}")
 
         self.backbone_name = backbone
         self.layers = layers or ["layer1", "layer2", "layer3"]
@@ -180,7 +180,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
         self.device = device
 
         # Build teacher and student networks
-        self._build_model()
+        with isolated_random_state(self.random_state):
+            self._build_model()
 
         # Image preprocessing
         self.transform = transforms.Compose(
@@ -274,7 +275,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         teacher_features: Dict[str, torch.Tensor],
         student_features: Dict[str, torch.Tensor],
         *,
-        output_size: tuple[int, int] = (64, 64),
+        output_size: tuple[int, int],
     ) -> torch.Tensor:
         """Build the multiplicative multi-level anomaly map from STFPM."""
 
@@ -316,20 +317,16 @@ class VisionSTFPM(BaseVisionDeepDetector):
         if self.validation_ratio <= 0.0 or len(inputs) <= 1:
             return list(inputs), []
 
-        rng = np.random.default_rng(self.random_state)
-        order = rng.permutation(len(inputs))
         validation_count = min(
             len(inputs) - 1,
-            max(1, int(round(len(inputs) * self.validation_ratio))),
+            max(1, int(np.ceil(len(inputs) * self.validation_ratio))),
         )
-        validation_indices = set(int(index) for index in order[:validation_count])
-        train_inputs = [
-            item for index, item in enumerate(inputs) if index not in validation_indices
-        ]
-        validation_inputs = [
-            item for index, item in enumerate(inputs) if index in validation_indices
-        ]
-        return train_inputs, validation_inputs
+        train_inputs, validation_inputs = train_test_split(
+            inputs,
+            test_size=validation_count,
+            random_state=self.random_state,
+        )
+        return list(train_inputs), list(validation_inputs)
 
     def fit(
         self,
@@ -466,41 +463,9 @@ class VisionSTFPM(BaseVisionDeepDetector):
         return self
 
     def _compute_anomaly_score(self, image_path: ImageInput) -> float:
-        """
-        Compute anomaly score for a single image.
+        """Return the paper's maximum score from the final anomaly map."""
 
-        Parameters
-        ----------
-        image_path : str
-            Path to input image
-
-        Returns
-        -------
-        score : float
-            Anomaly score (higher = more anomalous)
-        """
-        # Load and preprocess image
-        if isinstance(image_path, np.ndarray):
-            if image_path.dtype != np.uint8:
-                raise ValueError(f"Expected uint8 RGB image, got dtype={image_path.dtype}")
-            if image_path.ndim != 3 or image_path.shape[2] != 3:
-                raise ValueError(f"Expected shape (H,W,3), got {image_path.shape}")
-            img = np.ascontiguousarray(image_path)
-        else:
-            img = cv2.imread(str(image_path))
-            if img is None:
-                raise ValueError(f"Failed to load image: {image_path}")
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-        # Extract features
-        with torch.no_grad():
-            teacher_features = self._extract_features(self.teacher, img_tensor)
-            student_features = self._extract_features(self.student, img_tensor)
-
-        anomaly_map = self._feature_anomaly_map(teacher_features, student_features)
-        return float(anomaly_map.amax().item())
+        return float(self.get_anomaly_map(image_path).max())
 
     def predict(
         self,
@@ -619,11 +584,15 @@ class VisionSTFPM(BaseVisionDeepDetector):
             teacher_features = self._extract_features(self.teacher, img_tensor)
             student_features = self._extract_features(self.student, img_tensor)
 
-        anomaly_map = self._feature_anomaly_map(teacher_features, student_features)
+        anomaly_map = self._feature_anomaly_map(
+            teacher_features,
+            student_features,
+            output_size=(int(img_tensor.shape[-2]), int(img_tensor.shape[-1])),
+        )
         anomaly_map = anomaly_map.squeeze().cpu().numpy()
 
         # Resize to original image size
-        anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_CUBIC)
+        anomaly_map = cv2.resize(anomaly_map, original_size, interpolation=cv2.INTER_LINEAR)
 
         return anomaly_map
 

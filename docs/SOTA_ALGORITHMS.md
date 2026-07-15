@@ -45,7 +45,7 @@ and evaluation protocol.
 | `vision_softpatch` | PatchCore WRN50-2 layer2/layer3 embedding, position-wise LOF with k=6, top-15% patch removal, 10% greedy coreset with stored LOF weights, weighted 1-NN patch score, max image score, sigma-4 map smoothing | Paper experiments require ImageNet weights and the noisy MVTec/BTAD protocol; offline default is `pretrained=False` |
 | `vision_padim` | R18 448→100 and WR50-2 1792→550 channel paths, blockwise cross-level correspondence, per-location Gaussian, Mahalanobis map, bicubic resize, sigma-4 smoothing | Paper experiments require ImageNet weights; offline default is `pretrained=False`; the paper does not link an author reference implementation |
 | `vision_spade` | global KNN retrieval, retrieved-image pyramid gallery, dense correspondence, sigma-4 smoothing; resize 256 then crop 224 | Paper experiments require ImageNet WRN50x2 weights; offline default is `pretrained=False` |
-| `vision_stfpm` | frozen teacher/random student, first three ResNet-18 blocks, normalized feature loss, multiplicative map, 80/20 validation checkpoint selection | Exact paper path requires `pretrained_teacher=True` |
+| `vision_stfpm` | identical ResNet-18 teacher/student, conv2_x--conv4_x normalized feature loss, SGD 0.4 for 100 epochs, exact seeded 80/20 split, full-resolution bilinear map product, max image score | Exact paper path requires `pretrained_teacher=True`; the offline default keeps downloads opt-in |
 | `vision_cflow` | frozen ResNet layer2--layer4 pyramid, 128-D sinusoidal position conditions, three independent eight-block conditional flows, normalized likelihood objective, summed multi-scale probability maps | Set `pretrained_backbone=True` and use the authors' category-specific input size and evaluation protocol for published MVTec experiments |
 | `vision_reverse_distillation` | ImageNet WideResNet50-2 teacher stages 1--3, exact released OCBE and reverse-WRN block counts/channels, cosine loss, additive cosine maps, sigma-4 smoothing; 256px, Adam 0.005, batch 16, 200 epochs | Published metrics still require the MVTec category protocol and matching ImageNet weights |
 | `vision_simplenet` | WRN50-2 layer2/layer3 padded 3x3 neighborhoods, 1536-d MeanMapper/Aggregator embedding, bias-free 1536-d adapter, Linear-BN-LeakyReLU-Linear discriminator, sigma-0.015 feature noise and truncated L1 objective; 256-to-224 input, 160 epochs, batch 4 | Set `pretrained=True` to use the paper's ImageNet feature extractor; local default remains offline-safe |
@@ -57,7 +57,7 @@ certificate. The primary references are the
 [SoftPatch paper and author code](https://github.com/TencentYoutuResearch/AnomalyDetection-SoftPatch),
 [PaDiM paper](https://arxiv.org/abs/2011.08785),
 [SPADE paper](https://arxiv.org/abs/2005.02357),
-[STFPM paper](https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf),
+[STFPM paper](https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf) and [author code](https://github.com/gdwang08/STFPM),
 [CFLOW-AD paper and author code](https://github.com/gudovskiy/cflow-ad),
 [Reverse Distillation paper and author code](https://github.com/hq-deng/RD4AD),
 [SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),

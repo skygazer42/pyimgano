@@ -22,7 +22,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_patchcore` | `core-aligned` | Patch memory and localization |
 | `vision_softpatch` | `core-aligned` | Noisy-training patch denoising and weighted memory |
 | `vision_padim` | `core-aligned` | Paper R18/WR50-2 patch distributions |
-| `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
+| `vision_stfpm` | `core-aligned` | Paper ResNet-18 feature-pyramid matching |
 | `vision_cflow` | `core-aligned` | Multi-scale conditional normalizing flows |
 | `vision_dfm` | `paper-adaptation` | PCA and full Gaussian likelihood on one deep layer |
 | `core_deep_svdd` | `paper-adaptation` | Both paper objectives on a generic feature MLP |
