@@ -24,6 +24,10 @@ from .registry import register_model
     tags=("classical", "core", "features", "padim", "gaussian"),
     metadata={
         "description": "PaDiM-lite: Gaussian embedding baseline via robust covariance (Mahalanobis distance)",
+        "related_paper": "PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization",
+        "year": 2020,
+        "implementation_status": "image-level-gaussian-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class CorePadimLite(CoreEllipticEnvelope):
@@ -35,6 +39,10 @@ class CorePadimLite(CoreEllipticEnvelope):
     tags=("vision", "classical", "padim", "gaussian"),
     metadata={
         "description": "PaDiM-lite: embedding extractor + robust covariance baseline (image-level)",
+        "related_paper": "PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization",
+        "year": 2020,
+        "implementation_status": "image-level-gaussian-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class VisionPadimLite(VisionEllipticEnvelope):

@@ -1,0 +1,102 @@
+import numpy as np
+import pytest
+
+torch = pytest.importorskip("torch")
+pytest.importorskip("torchvision")
+
+
+def test_reverse_distillation_uses_bottleneck_and_reverse_decoder() -> None:
+    from pyimgano.models.reverse_distillation import ReverseDistillation
+
+    detector = ReverseDistillation(
+        pretrained_backbone=False,
+        epoch_num=1,
+        batch_size=1,
+        device="cpu",
+        verbose=0,
+    )
+    detector.model = detector.build_model()
+
+    images = torch.zeros((1, 3, 64, 64), dtype=torch.float32)
+    teacher, student = detector._forward_features(images)
+
+    assert [tuple(item.shape) for item in teacher] == [
+        (1, 64, 16, 16),
+        (1, 128, 8, 8),
+        (1, 256, 4, 4),
+    ]
+    assert [tuple(item.shape) for item in student] == [
+        (1, 64, 16, 16),
+        (1, 128, 8, 8),
+        (1, 256, 4, 4),
+    ]
+    assert detector.bottleneck.embedding.main[0].stride == (2, 2)
+    assert isinstance(detector.decoder.restore3[0].main[0], torch.nn.ConvTranspose2d)
+
+
+def test_reverse_distillation_rejects_forward_distillation_layers() -> None:
+    from pyimgano.models.reverse_distillation import ReverseDistillation
+
+    with pytest.raises(ValueError, match="layer1.*layer2.*layer3"):
+        ReverseDistillation(
+            selected_layers=("layer2", "layer3", "layer4"),
+            pretrained_backbone=False,
+            device="cpu",
+        )
+
+
+def test_reverse_distillation_anomaly_map_is_channel_cosine_distance() -> None:
+    from pyimgano.models.reverse_distillation import ReverseDistillation
+
+    detector = ReverseDistillation(
+        pretrained_backbone=False,
+        anomaly_map_mode="add",
+        device="cpu",
+        verbose=0,
+    )
+    teacher = [torch.tensor([[[[1.0]], [[0.0]]]]) for _ in range(3)]
+    student = [torch.tensor([[[[0.0]], [[1.0]]]]) for _ in range(3)]
+
+    anomaly_map = detector._anomaly_maps(teacher, student, output_size=(2, 2))
+
+    np.testing.assert_allclose(anomaly_map.numpy(), np.full((1, 1, 2, 2), 3.0))
+
+
+def test_reverse_distillation_checkpoint_includes_frozen_teacher(tmp_path) -> None:
+    from pyimgano.models.reverse_distillation import ReverseDistillation
+
+    detector = ReverseDistillation(
+        pretrained_backbone=False,
+        epoch_num=1,
+        batch_size=1,
+        device="cpu",
+        verbose=0,
+        random_state=7,
+    )
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(7)
+        detector.model = detector.build_model()
+    detector.threshold_ = 1.25
+    expected = {
+        key: value.detach().clone() for key, value in detector.model.state_dict().items()
+    }
+    assert any(key.startswith("teacher.") for key in expected)
+
+    checkpoint = tmp_path / "reverse_distillation.ckpt"
+    detector.save_checkpoint(checkpoint)
+
+    restored = ReverseDistillation(
+        pretrained_backbone=False,
+        epoch_num=1,
+        batch_size=1,
+        device="cpu",
+        verbose=0,
+        random_state=99,
+    )
+    restored.load_checkpoint(checkpoint)
+
+    actual = restored.model.state_dict()
+    assert actual.keys() == expected.keys()
+    for key, value in expected.items():
+        assert torch.equal(actual[key], value), key
+    assert restored.threshold_ == pytest.approx(1.25)

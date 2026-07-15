@@ -44,9 +44,11 @@ class _EmbeddedImage:
         "neighbors",
     ),
     metadata={
-        "description": "SoftPatch-inspired robust patch-memory detector (few-shot friendly)",
-        "paper": "SoftPatch: Unsupervised Anomaly Detection with Noisy Data",
+        "description": "Compact robust patch-memory variant inspired by SoftPatch",
+        "related_paper": "SoftPatch: Unsupervised Anomaly Detection with Noisy Data",
         "year": 2022,
+        "implementation_status": "compact-robust-memory-variant",
+        "paper_fidelity": "partial",
     },
 )
 class VisionSoftPatch:

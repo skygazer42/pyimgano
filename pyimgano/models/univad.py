@@ -71,9 +71,12 @@ class _PrototypeSupportBackend:
     "vision_univad",
     tags=("vision", "deep", "neighbors", "few-shot", "numpy", "univad"),
     metadata={
-        "description": "UniVAD family adapter with multi-layer support fusion and prototype scoring.",
-        "paper": "UniVAD: A Training-free Unified Model for Few-shot Visual Anomaly Detection",
+        "description": "Injectable prototype-fusion adapter inspired by UniVAD; not a reproduction",
+        "related_paper": "UniVAD: A Training-free Unified Model for Few-shot Visual Anomaly Detection",
+        "related_paper_url": "https://openaccess.thecvf.com/content/CVPR2025/html/Gu_UniVAD_A_Training-free_Unified_Model_for_Few-shot_Visual_Anomaly_Detection_CVPR_2025_paper.html",
         "year": 2025,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "few-shot",
     },
 )

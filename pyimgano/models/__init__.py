@@ -95,48 +95,50 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "ae",  # Autoencoder
     "ae1svm",  # Autoencoder with One-Class SVM
     "alad",  # Adversarially Learned Anomaly Detection
-    "ast",  # Anomaly-aware Student-Teacher (ICCV 2023)
+    "ast",  # Experimental AST-related student-teacher proxy
     "bayesianpf",  # Bayesian Prompt Flow (CVPR 2025)
-    "bgad",  # Background-guided Anomaly Detection (CVPR 2023)
+    "bgad",  # Unregistered experimental background-normalization baseline
     "cflow",  # Conditional Normalizing Flows (WACV 2022)
-    "csflow",  # Cross-scale Flows (WACV 2022)
+    "csflow",  # Unregistered compact CS-Flow-related variant
     "cutpaste",  # CutPaste self-supervised learning (CVPR 2021)
     "deep_svdd",  # Deep Support Vector Data Description
     "torch_autoencoder",  # Torch MLP autoencoder on embeddings/features
     "devnet",  # Deviation Networks (KDD 2019)
     "dfm",  # Discriminative Feature Modeling
-    "differnet",  # DifferNet learnable difference detector (WACV 2023)
+    "differnet",  # DifferNet learnable difference detector (WACV 2021)
     "draem",  # Discriminatively Reconstructed Embedding (ICCV 2021)
-    "dsr",  # Deep Spectral Residual (WACV 2023)
-    "dst",  # Double Student-Teacher (ICCV 2023)
+    "dsr",  # Unregistered deep-feature spectral-residual baseline
+    "dst",  # Generic dual-student baseline
     "efficientad",  # EfficientAD
     "fastflow",  # FastFlow normalizing flows
-    "favae",  # Feature Adaptive Variational Autoencoder (ICCV 2023)
-    "gcad",  # Graph Convolutional Anomaly Detection (ICCV 2023)
-    "glad",  # Global-Local Adaptive Diffusion (ECCV 2024)
+    "fcdd",  # Compact FCDD-related fully-convolutional one-class detector
+    "favae",  # Generic adaptive feature-VAE baseline
+    "gcad",  # Generic patch-graph autoencoder baseline
+    "glad",  # Experimental GLAD-related diffusion proxy
     "imdd",  # Image-level Multi-scale Discriminative Detector
-    "inctrl",  # In-context Residual Learning (CVPR 2024)
-    "intra",  # Industrial Transformer (ICCV 2023)
+    "inctrl",  # Experimental InCTRL-related residual proxy
+    "intra",  # Unregistered transformer reconstruction baseline
     "memseg",  # Memory-guided Segmentation
+    "memae",  # Memory-augmented autoencoder image adaptation
     "oddoneout",  # Odd-One-Out neighbor comparison (CVPR 2025)
     "one_svm_cnn",  # One-Class SVM with CNN features
-    "oneformore",  # One-for-More continual diffusion (CVPR 2025)
+    "oneformore",  # Experimental One-for-More-related diffusion proxy
     "padim",  # Patch Distribution Modeling
     "padim_lite",  # PaDiM-like Gaussian baseline on embeddings (image-level)
-    "panda",  # Prototypical Anomaly Network (ICCV 2023)
+    "panda",  # Prototype baseline; not a PANDA reproduction
     "patchcore",  # PatchCore patch-level detection (CVPR 2022)
     "patchcore_lite",  # PatchCore-like memory bank (image-level)
     "patchcore_lite_map",  # PatchCore-lite anomaly map (pixel-map memory bank)
     "patch_embedding_core_map",  # Patch embeddings + core detector (pixel-map baseline)
     "patchcore_online",  # PatchCore-lite with incremental memory updates (study-only)
     "softpatch",  # SoftPatch-style robust patch memory (industrial AD)
-    "promptad",  # Prompt-based Few-Shot Anomaly Detection (CVPR 2024)
-    "pni",  # Pyramidal Normality Indexing (CVPR 2022)
-    "rdplusplus",  # Reverse Distillation++ (CVPR 2022)
-    "realnet",  # RealNet realistic synthetic anomalies (CVPR 2024)
-    "regad",  # Registration-based Anomaly Detection (ICCV 2023)
+    "promptad",  # Experimental PromptAD-related visual proxy
+    "pni",  # Unregistered multi-scale feature kNN baseline
+    "rdplusplus",  # Unregistered reverse-distillation proxy
+    "realnet",  # Experimental RealNet-related synthetic-anomaly proxy
+    "regad",  # Experimental RegAD-related STN proxy
     "reverse_distillation",  # Reverse Distillation
-    "riad",  # Reconstruction from Adjacent Image Decomposition
+    "riad",  # Experimental RIAD-related reconstruction proxy
     "simplenet",  # SimpleNet ultra-fast detector (CVPR 2023)
     "spade",  # Sub-image Anomaly Detection with SPADE (ECCV 2020)
     "ssim",  # Structural Similarity-based detection
@@ -150,7 +152,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "student_teacher_lite",  # Lite student-teacher via embedding regression
     "vae",  # Variational Autoencoder
     "vqvae",  # VQ-VAE reconstruction baseline
-    "winclip",  # WinCLIP zero-shot CLIP-based (CVPR 2023)
+    "winclip",  # Experimental crop-based WinCLIP proxy
     # Production wrappers
     "score_ensemble",  # Score-only ensemble wrapper detector
     "core_score_standardizer",  # Standardize scores for core detectors
@@ -163,7 +165,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     # Foundation-style PoC models (safe to import; weights are loaded lazily at runtime)
     "anomalydino",
     "superad",
-    # Parallel 2026Q1 expansion placeholders
+    # Experimental family adapters (not paper reproductions)
     "visionad",
     "univad",
     "filopp",

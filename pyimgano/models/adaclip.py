@@ -66,9 +66,12 @@ def _cosine_similarity(lhs: NDArray, rhs: NDArray) -> float:
     "vision_adaclip",
     tags=("vision", "deep", "clip", "zero-shot", "numpy", "adaclip"),
     metadata={
-        "description": "AdaCLIP family adapter with static/dynamic prompt fusion for zero-shot scoring.",
-        "paper": "AdaCLIP",
+        "description": "Injectable prompt-fusion adapter inspired by AdaCLIP; not a reproduction",
+        "related_paper": "AdaCLIP: Adapting CLIP with Hybrid Learnable Prompts for Zero-Shot Anomaly Detection",
+        "related_paper_url": "https://eccv.ecva.net/virtual/2024/poster/434",
         "year": 2024,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "zero-shot",
     },
 )

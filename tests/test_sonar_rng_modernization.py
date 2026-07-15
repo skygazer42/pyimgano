@@ -11,6 +11,7 @@ _GLOBAL_NUMPY_RNG = np.random.mtrand._rand
 def _global_numpy_state_after(action):
     state = _GLOBAL_NUMPY_RNG.get_state()
     try:
+        _GLOBAL_NUMPY_RNG.bytes(19)
         action()
         return _GLOBAL_NUMPY_RNG.get_state()
     finally:
@@ -44,7 +45,7 @@ def _numpy_states_equal(left, right) -> bool:
         lambda: __import__(
             "pyimgano.models.bayesianpf",
             fromlist=["VisionBayesianPF"],
-        ).VisionBayesianPF(device="cpu", random_state=123),
+        ).VisionBayesianPF(random_state=123),
         lambda: __import__("pyimgano.models.dst", fromlist=["VisionDST"]).VisionDST(
             device="cpu",
             random_state=123,
@@ -85,9 +86,7 @@ def _numpy_states_equal(left, right) -> bool:
             "pyimgano.models.differnet",
             fromlist=["DifferNetDetector"],
         ).DifferNetDetector(
-            backbone="resnet18",
             pretrained=False,
-            train_difference=False,
             device="cpu",
             random_state=123,
         ),
@@ -112,6 +111,43 @@ def test_random_state_constructors_do_not_reset_global_numpy_rng(factory) -> Non
     observed = _global_numpy_state_after(factory)
 
     assert _numpy_states_equal(observed, expected)
+
+
+def test_deep_constructor_does_not_reset_global_torch_rng() -> None:
+    from pyimgano.models.dst import VisionDST
+
+    state = torch.random.get_rng_state()
+    try:
+        torch.rand(7)
+        expected = torch.random.get_rng_state().clone()
+        torch.random.set_rng_state(state)
+        torch.rand(7)
+        VisionDST(device="cpu", random_state=123)
+        observed = torch.random.get_rng_state().clone()
+    finally:
+        torch.random.set_rng_state(state)
+
+    assert torch.equal(observed, expected)
+
+
+def test_isolated_random_state_is_repeatable_and_restores_callers() -> None:
+    from pyimgano.utils.random_state import isolated_random_state
+
+    numpy_state = _GLOBAL_NUMPY_RNG.get_state()
+    torch_state = torch.random.get_rng_state()
+    try:
+        with isolated_random_state(7):
+            first = (_GLOBAL_NUMPY_RNG.random(3), torch.rand(3))
+        with isolated_random_state(7):
+            second = (_GLOBAL_NUMPY_RNG.random(3), torch.rand(3))
+
+        assert np.array_equal(first[0], second[0])
+        assert torch.equal(first[1], second[1])
+        assert _numpy_states_equal(_GLOBAL_NUMPY_RNG.get_state(), numpy_state)
+        assert torch.equal(torch.random.get_rng_state(), torch_state)
+    finally:
+        _GLOBAL_NUMPY_RNG.set_state(numpy_state)
+        torch.random.set_rng_state(torch_state)
 
 
 def test_template_matching_random_state_makes_template_sampling_repeatable() -> None:
@@ -212,36 +248,6 @@ def test_patchcore_online_bank_capping_avoids_legacy_random_state(monkeypatch) -
     assert called == [7]
     assert detector.memory_bank_ is not None
     assert detector.memory_bank_.shape == (4, 2)
-
-
-def test_simplenet_reference_sampling_uses_default_rng(tmp_path, monkeypatch) -> None:
-    import cv2
-
-    import pyimgano.models.simplenet as simplenet_module
-
-    image = np.full((8, 8, 3), 127, dtype=np.uint8)
-    image_path = tmp_path / "normal.png"
-    assert cv2.imwrite(str(image_path), image)
-
-    detector = simplenet_module.VisionSimpleNet.__new__(simplenet_module.VisionSimpleNet)
-    detector.adapter = torch.nn.Identity()
-    detector.device = "cpu"
-    detector.random_state = 11
-    detector.transform = lambda img: torch.from_numpy(img).permute(2, 0, 1).float()
-    detector._extract_features = lambda img_tensor: torch.ones((1, 4, 33, 33), dtype=torch.float32)  # type: ignore[method-assign]
-
-    called: list[int] = []
-    original_default_rng = simplenet_module.np.random.default_rng
-
-    def _tracking_default_rng(seed=None):
-        called.append(0 if seed is None else int(seed))
-        return original_default_rng(seed)
-
-    monkeypatch.setattr(simplenet_module.np.random, "default_rng", _tracking_default_rng)
-
-    detector._build_reference_features([str(image_path)])
-
-    assert called == [11]
 
 
 def test_patchcore_lite_coreset_sampling_uses_default_rng(monkeypatch) -> None:

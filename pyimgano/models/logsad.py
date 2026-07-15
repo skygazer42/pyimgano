@@ -60,9 +60,12 @@ def _score_logic(logic_backend: Any, image: NDArray) -> float:
     "vision_logsad",
     tags=("vision", "deep", "zero-shot", "pixel_map", "numpy", "logsad"),
     metadata={
-        "description": "LogSAD family adapter with combined visual-structural and logic-rule anomaly scoring.",
-        "paper": "Towards Training-free Anomaly Detection with Vision and Language Foundation Models",
+        "description": "Injectable visual/logic scoring adapter inspired by LogSAD; not a reproduction",
+        "related_paper": "Towards Training-free Anomaly Detection with Vision and Language Foundation Models",
+        "related_paper_url": "https://arxiv.org/abs/2503.18325",
         "year": 2025,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "zero-shot",
     },
 )

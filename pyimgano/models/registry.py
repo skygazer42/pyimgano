@@ -88,9 +88,13 @@ def _apply_default_metadata_fields(
     meta = dict(metadata or {})
     tag_set = {str(tag).strip().lower() for tag in tags}
     requires_checkpoint = bool(meta.get("requires_checkpoint", False))
+    backend = str(meta.get("backend", "")).strip().lower()
+
+    if "deep" in tag_set and backend in {"anomalib", "patchcore_inspection"}:
+        meta.setdefault("paper_fidelity", "external-backend")
+        meta.setdefault("implementation_status", "external-backend-adapter")
 
     if requires_checkpoint and not str(meta.get("weights_source", "")).strip():
-        backend = str(meta.get("backend", "")).strip().lower()
         if backend == "anomalib" or "anomalib" in tag_set:
             meta["weights_source"] = "upstream-anomalib-checkpoint"
         elif backend == "patchcore_inspection" or "patchcore_inspection" in tag_set:

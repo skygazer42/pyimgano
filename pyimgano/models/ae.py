@@ -98,6 +98,8 @@ def _build_autoencoder(*, cfg: AEConfig):
     tags=("vision", "deep", "autoencoder", "reconstruction"),
     metadata={
         "description": "Reconstruction baseline (contract-aligned autoencoder; legacy name kept)",
+        "implementation_status": "generic-reconstruction-baseline",
+        "paper_fidelity": "not-applicable",
     },
     overwrite=True,
 )

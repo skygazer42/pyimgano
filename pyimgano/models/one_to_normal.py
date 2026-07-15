@@ -40,9 +40,12 @@ def _normalize_with_backend(normalizer: Any, image: NDArray) -> NDArray:
     "vision_one_to_normal",
     tags=("vision", "deep", "reconstruction", "few-shot", "pixel_map", "numpy", "one_to_normal"),
     metadata={
-        "description": "One-to-Normal family adapter with residual scoring and residual maps.",
-        "paper": "One-to-Normal",
+        "description": "Injectable residual-normalization adapter inspired by One-to-Normal; not a reproduction",
+        "related_paper": "One-to-Normal: Anomaly Personalization for Few-Shot Anomaly Detection",
+        "related_paper_url": "https://arxiv.org/abs/2502.01201",
         "year": 2025,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "few-shot",
     },
 )

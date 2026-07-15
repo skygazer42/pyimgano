@@ -119,7 +119,11 @@ class InnerAE1SVM(nn.Module):
 @register_model(
     "vision_ae1svm",
     tags=("vision", "deep", "svm"),
-    metadata={"description": "自编码器 + 一类 SVM 组合的视觉检测器"},
+    metadata={
+        "description": "Autoencoder plus one-class SVM visual baseline",
+        "implementation_status": "generic-composite-baseline",
+        "paper_fidelity": "not-applicable",
+    },
 )
 class VisionAE1SVM(BaseVisionDeepDetector):
     """

@@ -1,12 +1,11 @@
-"""
-PromptAD - Learning Prompts with Only Normal Samples for Few-Shot Anomaly Detection
+"""Experimental visual-feature adapter related to PromptAD.
 
 Reference:
     "PromptAD: Learning Prompts with only Normal Samples for Few-Shot Anomaly Detection"
     CVPR 2024
 
-Learns visual prompts from only normal samples for few-shot anomaly detection,
-enabling effective detection with minimal training data.
+The local model omits CLIP text prompts, semantic concatenation, and the
+paper's anomaly-margin objective. It is not a paper reproduction.
 """
 
 import logging
@@ -20,6 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -108,21 +108,22 @@ class FeatureAdapter(nn.Module):
 
 @register_model(
     "vision_promptad",
-    tags=("vision", "deep", "promptad", "few-shot", "prompt", "cvpr2024", "sota"),
+    tags=("vision", "deep", "promptad", "few-shot", "prompt", "cvpr2024", "experimental"),
     metadata={
-        "description": "PromptAD - Prompt learning with only normal samples (CVPR 2024)",
-        "paper": "PromptAD: Learning Prompts with only Normal Samples",
+        "description": "Experimental visual-feature adapter; not PromptAD's CLIP prompt-learning method",
+        "related_paper": "PromptAD: Learning Prompts with Only Normal Samples for Few-Shot Anomaly Detection",
         "year": 2024,
+        "implementation_status": "experimental-visual-adapter-proxy",
+        "paper_fidelity": "inspired",
         "conference": "CVPR",
         "type": "prompt-learning",
     },
 )
 class VisionPromptAD(BaseVisionDeepDetector):
-    """
-    PromptAD: Learning Prompts with only Normal Samples for Few-Shot AD.
+    """Experimental visual adapter, not a reproduction of PromptAD.
 
-    Learns visual prompts from normal samples only, enabling effective
-    few-shot anomaly detection without requiring anomalous samples.
+    It does not implement CLIP text prompts, semantic concatenation, or the
+    explicit anomaly-margin objective from the paper.
 
     Parameters
     ----------
@@ -196,9 +197,6 @@ class VisionPromptAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.feature_extractor_ = None
         self.prompt_learner_ = None
         self.adapter_ = None
@@ -236,6 +234,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
 
         return extractor
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

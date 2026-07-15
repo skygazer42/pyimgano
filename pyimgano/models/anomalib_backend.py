@@ -401,7 +401,7 @@ class VisionCsflowAnomalib(VisionAnomalibCheckpoint):
         "backend": "anomalib",
         "requires_checkpoint": True,
         "anomalib_model": "dfkde",
-        "paper": "Deep Feature Kernel Density Estimation",
+        "algorithm_name": "DFKDE: Deep Feature Kernel Density Estimation",
     },
 )
 class VisionDfkdeAnomalib(VisionAnomalibCheckpoint):

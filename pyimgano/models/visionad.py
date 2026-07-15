@@ -60,9 +60,12 @@ class _CentroidSearchBackend:
     "vision_visionad",
     tags=("vision", "deep", "neighbors", "few-shot", "numpy", "visionad"),
     metadata={
-        "description": "VisionAD family adapter with search-backend scoring over patch embeddings.",
-        "paper": "Search is All You Need for Few-shot Anomaly Detection",
+        "description": "Injectable patch-search adapter inspired by VisionAD; not a reproduction",
+        "related_paper": "Search is All You Need for Few-shot Anomaly Detection",
+        "related_paper_url": "https://arxiv.org/abs/2504.11895",
         "year": 2025,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "few-shot",
     },
 )

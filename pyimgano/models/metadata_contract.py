@@ -14,6 +14,16 @@ _VALID_SUPERVISION_VALUES = {
     "few-shot",
     "zero-shot",
     "one-class",
+    "backend-defined",
+}
+
+_VALID_PAPER_FIDELITY_VALUES = {
+    "core-aligned",
+    "paper-adaptation",
+    "partial",
+    "inspired",
+    "external-backend",
+    "not-applicable",
 }
 
 _SUPERVISION_TAG_PRIORITY: tuple[tuple[str, str], ...] = (
@@ -58,11 +68,44 @@ class MetadataFieldSpec:
 
 _METADATA_CONTRACT: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec(
+        name="paper_fidelity",
+        source="registry_metadata",
+        requirement="conditional",
+        description=(
+            "Relationship between a deep-model entry and the cited paper: core-aligned, "
+            "paper-adaptation, partial, inspired, external-backend, or not-applicable."
+        ),
+        value_type="string enum",
+        required_when="required for entries tagged deep",
+    ),
+    MetadataFieldSpec(
+        name="implementation_status",
+        source="registry_metadata",
+        requirement="conditional",
+        description="Concise implementation status shown to operators and auditors.",
+        value_type="non-empty string",
+        required_when="required for entries tagged deep",
+    ),
+    MetadataFieldSpec(
         name="paper",
         source="registry_metadata",
-        requirement="recommended",
-        description="Canonical paper or upstream algorithm title for the model entry.",
+        requirement="conditional",
+        description="Canonical paper title only when the entry implements or delegates that method.",
         value_type="non-empty string",
+        required_when=(
+            "required for core-aligned, paper-adaptation, and paper-specific external backends"
+        ),
+    ),
+    MetadataFieldSpec(
+        name="related_paper",
+        source="registry_metadata",
+        requirement="conditional",
+        description=(
+            "Paper that inspired a partial/proxy implementation; this deliberately does not "
+            "claim a paper reproduction."
+        ),
+        value_type="non-empty string",
+        required_when="required for partial and inspired deep-model entries",
     ),
     MetadataFieldSpec(
         name="year",
@@ -174,6 +217,14 @@ def _infer_supervision(meta: Mapping[str, Any], tags: Sequence[str]) -> str | No
     for tag_name, resolved in _SUPERVISION_TAG_PRIORITY:
         if _normalize_key(tag_name) in tag_set:
             return resolved
+    if "winclip" in tag_set or "prompt" in tag_set:
+        return "zero-shot"
+    if _normalize_key(str(meta.get("paper_fidelity", ""))) == "external_backend":
+        return "backend-defined"
+    if "deep" in tag_set:
+        # The remaining native deep detectors expose the normal-only training
+        # contract used throughout the registry.
+        return "one-class"
     return None
 
 
@@ -183,7 +234,10 @@ def resolve_metadata_contract_payload(entry: _ModelEntryLike) -> dict[str, Any]:
     meta = dict(entry.metadata)
     caps = compute_model_capabilities(entry)
     return {
+        "paper_fidelity": meta.get("paper_fidelity"),
+        "implementation_status": meta.get("implementation_status"),
         "paper": meta.get("paper"),
+        "related_paper": meta.get("related_paper"),
         "year": _coerce_year(meta.get("year")),
         "family": _match_family_names(entry.tags),
         "type": _match_type_names(entry.tags),
@@ -215,6 +269,8 @@ def audit_metadata_contract(
     for name in selected:
         entry = registry.info(name)
         payload = resolve_metadata_contract_payload(entry)
+        tag_set = {_normalize_key(tag) for tag in entry.tags}
+        is_deep = "deep" in tag_set
 
         required_missing: list[str] = []
         recommended_missing: list[str] = []
@@ -225,16 +281,77 @@ def audit_metadata_contract(
         if not payload["type"]:
             required_missing.append("type")
 
+        fidelity = payload["paper_fidelity"]
+        implementation_status = payload["implementation_status"]
+        fidelity_key = _normalize_key(str(fidelity)) if fidelity is not None else None
+
+        if is_deep:
+            if fidelity is None or not str(fidelity).strip():
+                required_missing.append("paper_fidelity")
+            elif fidelity_key not in {
+                _normalize_key(item) for item in _VALID_PAPER_FIDELITY_VALUES
+            }:
+                invalid.append(
+                    {
+                        "field": "paper_fidelity",
+                        "reason": "paper_fidelity must be one of the documented contract values",
+                        "value": fidelity,
+                    }
+                )
+
+            if implementation_status is None or not str(implementation_status).strip():
+                required_missing.append("implementation_status")
+            elif not isinstance(implementation_status, str):
+                invalid.append(
+                    {
+                        "field": "implementation_status",
+                        "reason": "implementation_status must be a non-empty string",
+                    }
+                )
+
         paper = payload["paper"]
-        if paper is None or not str(paper).strip():
-            recommended_missing.append("paper")
-        elif not isinstance(paper, str):
+        related_paper = payload["related_paper"]
+        if paper is not None and not isinstance(paper, str):
+            invalid.append({"field": "paper", "reason": "paper must be a non-empty string"})
+        elif paper is not None and not str(paper).strip():
             invalid.append({"field": "paper", "reason": "paper must be a non-empty string"})
 
+        if related_paper is not None and not isinstance(related_paper, str):
+            invalid.append(
+                {"field": "related_paper", "reason": "related_paper must be a non-empty string"}
+            )
+        elif related_paper is not None and not str(related_paper).strip():
+            invalid.append(
+                {"field": "related_paper", "reason": "related_paper must be a non-empty string"}
+            )
+
+        if is_deep and fidelity_key in {"core_aligned", "paper_adaptation"}:
+            if paper is None or not str(paper).strip():
+                required_missing.append("paper")
+        elif is_deep and fidelity_key in {"partial", "inspired"}:
+            if paper is not None:
+                invalid.append(
+                    {
+                        "field": "paper",
+                        "reason": (
+                            "partial/inspired entries must use related_paper instead of claiming "
+                            "a paper implementation"
+                        ),
+                    }
+                )
+            if related_paper is None or not str(related_paper).strip():
+                required_missing.append("related_paper")
+        elif is_deep and fidelity_key == "not_applicable":
+            if paper is not None or related_paper is not None:
+                invalid.append(
+                    {
+                        "field": "paper_fidelity",
+                        "reason": "not-applicable entries cannot claim paper or related_paper",
+                    }
+                )
+
         year = payload["year"]
-        if year is None:
-            recommended_missing.append("year")
-        elif not (1900 <= int(year) <= current_year):
+        if year is not None and not (1900 <= int(year) <= current_year):
             invalid.append(
                 {
                     "field": "year",
@@ -242,6 +359,13 @@ def audit_metadata_contract(
                     "value": year,
                 }
             )
+        if is_deep and fidelity_key in {
+            "core_aligned",
+            "paper_adaptation",
+            "partial",
+            "inspired",
+        } and year is None:
+            required_missing.append("year")
 
         supervision = payload["supervision"]
         if supervision is None or not str(supervision).strip():

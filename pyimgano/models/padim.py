@@ -14,13 +14,11 @@ Notes for this implementation:
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
-from sklearn.random_projection import GaussianRandomProjection
 
 from pyimgano.utils.optional_deps import require
 from pyimgano.utils.torchvision_safe import load_torchvision_model
@@ -29,8 +27,6 @@ from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .deep_io import safe_torch_load
 from .registry import register_model
-
-logger = logging.getLogger(__name__)
 
 ImageInput = Union[str, np.ndarray]
 
@@ -49,9 +45,13 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
     "vision_padim",
     tags=("vision", "deep", "patch", "distribution", "numpy", "pixel_map"),
     metadata={
-        "description": "PaDiM - patch distribution modeling (ECCV 2020-style)",
+        "description": "PaDiM core algorithm with fixed channel subsampling and per-location Gaussians",
         "paper": "PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization",
+        "paper_url": "https://arxiv.org/abs/2011.08785",
         "year": 2020,
+        "supervision": "one-class",
+        "implementation_status": "core-aligned",
+        "paper_fidelity": "core-aligned",
     },
 )
 @register_model(
@@ -59,7 +59,12 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
     tags=("vision", "deep", "patch", "distribution", "numpy", "pixel_map"),
     metadata={
         "description": "PaDiM (legacy alias) - patch distribution modeling",
+        "paper": "PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization",
+        "paper_url": "https://arxiv.org/abs/2011.08785",
         "year": 2020,
+        "supervision": "one-class",
+        "implementation_status": "core-aligned",
+        "paper_fidelity": "core-aligned",
     },
 )
 class VisionPaDiM(BaseVisionDeepDetector):
@@ -70,12 +75,13 @@ class VisionPaDiM(BaseVisionDeepDetector):
         contamination: float = 0.1,
         *,
         backbone: str = "resnet18",
-        d_reduced: int = 128,
+        d_reduced: int = 100,
         image_size: int = 224,
+        resize_size: Optional[int] = None,
         pretrained: bool = False,
         device: str = "cpu",
-        projection_fit_samples: int = 10,
         covariance_eps: float = 0.01,
+        gaussian_sigma: float = 4.0,
         random_state: int = 42,
         **kwargs,
     ) -> None:
@@ -93,18 +99,27 @@ class VisionPaDiM(BaseVisionDeepDetector):
             raise ValueError(f"d_reduced must be >= 1, got {d_reduced}")
         if image_size < 32:
             raise ValueError(f"image_size must be >= 32, got {image_size}")
-        if projection_fit_samples < 1:
-            raise ValueError(f"projection_fit_samples must be >= 1, got {projection_fit_samples}")
+        if resize_size is not None and int(resize_size) < image_size:
+            raise ValueError(
+                f"resize_size must be >= image_size ({image_size}), got {resize_size}"
+            )
         if covariance_eps <= 0:
             raise ValueError(f"covariance_eps must be > 0, got {covariance_eps}")
+        if gaussian_sigma < 0:
+            raise ValueError(f"gaussian_sigma must be >= 0, got {gaussian_sigma}")
 
         self.backbone_name = str(backbone)
         self.d_reduced = int(d_reduced)
         self.image_size = int(image_size)
+        self.resize_size = (
+            int(resize_size)
+            if resize_size is not None
+            else max(self.image_size, int(round(self.image_size * 256 / 224)))
+        )
         self.pretrained = bool(pretrained)
         self.device = str(device)
-        self.projection_fit_samples = int(projection_fit_samples)
         self.covariance_eps = float(covariance_eps)
+        self.gaussian_sigma = float(gaussian_sigma)
         self.random_state = int(random_state)
 
         self.model = _build_torchvision_backbone(self.backbone_name, pretrained=self.pretrained)
@@ -114,15 +129,13 @@ class VisionPaDiM(BaseVisionDeepDetector):
         self.feature_maps: dict[str, torch.Tensor] = {}
         self._register_hooks()
 
-        self.random_projection = GaussianRandomProjection(
-            n_components=self.d_reduced,
-            random_state=self.random_state,
-        )
+        self.feature_indices_: Optional[NDArray] = None
 
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
-                transforms.Resize((self.image_size, self.image_size)),
+                transforms.Resize((self.resize_size, self.resize_size)),
+                transforms.CenterCrop(self.image_size),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406],
@@ -155,21 +168,13 @@ class VisionPaDiM(BaseVisionDeepDetector):
             else:
                 model_state_dict[str(key)] = value
 
-        projection_state: dict[str, object] | None = None
-        if hasattr(self.random_projection, "components_"):
-            projection_state = {
-                "components_": torch.as_tensor(
-                    np.asarray(self.random_projection.components_, dtype=np.float32),
-                    dtype=torch.float32,
-                ),
-                "n_features_in_": int(self.random_projection.n_features_in_),
-                "n_components_": int(self.random_projection.components_.shape[0]),
-            }
-
         torch.save(
             {
+                "schema_version": 2,
                 "model_state_dict": model_state_dict,
-                "projection_state": projection_state,
+                "feature_indices": torch.as_tensor(
+                    np.asarray(self.feature_indices_, dtype=np.int64), dtype=torch.int64
+                ),
                 "means": torch.as_tensor(
                     np.asarray(self.means, dtype=np.float32), dtype=torch.float32
                 ),
@@ -181,6 +186,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
                     np.asarray(self.decision_scores_, dtype=np.float64), dtype=torch.float64
                 ),
                 "threshold_": float(self.threshold_),
+                "gaussian_sigma": float(self.gaussian_sigma),
             },
             out_path,
         )
@@ -190,6 +196,11 @@ class VisionPaDiM(BaseVisionDeepDetector):
         state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionPaDiM checkpoint payload.")
+        if int(state.get("schema_version", 0)) != 2:
+            raise ValueError(
+                "Unsupported legacy PaDiM checkpoint: older checkpoints used a Gaussian "
+                "projection instead of the paper's fixed channel subset. Refit and save it again."
+            )
 
         model_state_dict = state.get("model_state_dict", None)
         if not isinstance(model_state_dict, dict):
@@ -198,14 +209,13 @@ class VisionPaDiM(BaseVisionDeepDetector):
         self.model.to(self.device)
         self.model.eval()
 
-        projection_state = state.get("projection_state", None)
-        if isinstance(projection_state, dict) and projection_state.get("components_") is not None:
-            self.random_projection.components_ = np.asarray(
-                projection_state["components_"],
-                dtype=np.float32,
+        feature_indices = np.asarray(state.get("feature_indices", []), dtype=np.int64).reshape(-1)
+        if feature_indices.size != self.d_reduced:
+            raise ValueError(
+                "VisionPaDiM checkpoint feature subset does not match d_reduced. "
+                f"Expected {self.d_reduced}, got {feature_indices.size}."
             )
-            self.random_projection.n_features_in_ = int(projection_state["n_features_in_"])
-            self.random_projection.n_components_ = int(projection_state["n_components_"])
+        self.feature_indices_ = feature_indices
 
         self.means = np.asarray(state["means"], dtype=np.float32)
         self.inv_covs = np.asarray(state["inv_covs"], dtype=np.float32)
@@ -215,6 +225,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         self.patch_shape = (int(patch_shape[0]), int(patch_shape[1]))
         self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
         self.threshold_ = float(state["threshold_"])
+        self.gaussian_sigma = float(state.get("gaussian_sigma", self.gaussian_sigma))
 
     def _register_hooks(self) -> None:
         def get_activation(name: str):
@@ -223,7 +234,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
             return hook
 
-        for layer in ("layer2", "layer3"):
+        for layer in ("layer1", "layer2", "layer3"):
             if not hasattr(self.model, layer):
                 raise ValueError(f"Backbone {self.backbone_name!r} has no layer {layer!r}")
             getattr(self.model, layer).register_forward_hook(get_activation(layer))
@@ -254,27 +265,29 @@ class VisionPaDiM(BaseVisionDeepDetector):
         with torch.no_grad():
             _ = self.model(img_tensor)
 
+        layer1_feat = self.feature_maps["layer1"]  # (1, C1, H1, W1)
         layer2_feat = self.feature_maps["layer2"]  # (1, C2, H2, W2)
         layer3_feat = self.feature_maps["layer3"]  # (1, C3, H3, W3)
 
+        layer2_feat = functional.interpolate(
+            layer2_feat,
+            size=layer1_feat.shape[-2:],
+            mode="bilinear",
+            align_corners=False,
+        )
         layer3_feat = functional.interpolate(
             layer3_feat,
-            size=layer2_feat.shape[-2:],
+            size=layer1_feat.shape[-2:],
             mode="bilinear",
             align_corners=False,
         )
 
-        features = torch.cat([layer2_feat, layer3_feat], dim=1)  # (1, C, H, W)
+        features = torch.cat([layer1_feat, layer2_feat, layer3_feat], dim=1)
         _b, c, h, w = features.shape
         self.patch_shape = (int(h), int(w))
 
         # (H*W, C)
         return features.permute(0, 2, 3, 1).reshape(h * w, c).cpu().numpy()
-
-    def _describe_input(self, item: ImageInput, idx: int) -> str:
-        if isinstance(item, str):
-            return item
-        return f"<ndarray:{idx} shape={tuple(item.shape)} dtype={item.dtype}>"
 
     def fit(
         self,
@@ -288,28 +301,21 @@ class VisionPaDiM(BaseVisionDeepDetector):
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
-        # Fit random projection on a small subset for speed/stability.
-        proj_fit = []
-        for image in x_list[: min(self.projection_fit_samples, len(x_list))]:
-            proj_fit.append(self._extract_patch_features(image))
-        proj_fit_mat = np.vstack(proj_fit)
-        self.random_projection.fit(proj_fit_mat)
-
+        self.feature_indices_ = None
         reduced_features: list[NDArray] = []
-        for idx, image in enumerate(x_list):
-            try:
-                feat = self._extract_patch_features(image)
-                reduced = self.random_projection.transform(feat)
-                reduced_features.append(reduced)
-            except Exception as exc:
-                logger.warning(
-                    "Failed to process %s: %s",
-                    self._describe_input(image, idx),
-                    exc,
-                )
-
-        if not reduced_features:
-            raise ValueError("Failed to extract features from any training image")
+        for image in x_list:
+            feat = self._extract_patch_features(image)
+            if self.feature_indices_ is None:
+                feature_dim = int(feat.shape[1])
+                if self.d_reduced > feature_dim:
+                    raise ValueError(
+                        f"d_reduced={self.d_reduced} exceeds feature dimension {feature_dim}."
+                    )
+                rng = np.random.default_rng(self.random_state)
+                self.feature_indices_ = np.sort(
+                    rng.choice(feature_dim, size=self.d_reduced, replace=False)
+                ).astype(np.int64, copy=False)
+            reduced_features.append(feat[:, self.feature_indices_])
 
         all_features = np.stack(reduced_features, axis=0)  # (N, P, D)
         means = np.mean(all_features, axis=0).astype(np.float32, copy=False)  # (P, D)
@@ -340,13 +346,18 @@ class VisionPaDiM(BaseVisionDeepDetector):
         return self
 
     def _check_fitted(self) -> None:
-        if self.means is None or self.inv_covs is None or self.patch_shape is None:
+        if (
+            self.means is None
+            or self.inv_covs is None
+            or self.patch_shape is None
+            or self.feature_indices_ is None
+        ):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
     def _compute_patch_distances(self, image_path: ImageInput) -> NDArray:
         self._check_fitted()
         feat = self._extract_patch_features(image_path)
-        reduced = self.random_projection.transform(feat).astype(np.float32, copy=False)  # (P, D)
+        reduced = feat[:, self.feature_indices_].astype(np.float32, copy=False)
 
         diff = reduced - self.means  # (P, D)
         q = np.einsum("pd,pde,pe->p", diff, self.inv_covs, diff)
@@ -372,16 +383,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
             resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
         )
         x_list = list(x_iter)
-        scores = np.zeros(len(x_list), dtype=np.float32)
-
-        for i, image in enumerate(x_list):
-            try:
-                distances = self._compute_patch_distances(image)
-                scores[i] = float(np.max(distances))
-            except Exception as exc:
-                logger.warning("Failed to score %s: %s", self._describe_input(image, i), exc)
-                scores[i] = 0.0
-        return scores
+        return np.asarray(
+            [float(self._compute_anomaly_map(image).max()) for image in x_list],
+            dtype=np.float32,
+        )
 
     def predict(
         self,
@@ -402,7 +407,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         scores = self.decision_function(x_iter)
         return (scores >= self.threshold_).astype(int)
 
-    def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
+    def _compute_anomaly_map(self, image_path: ImageInput) -> NDArray:
         cv2 = require("cv2", purpose="VisionPaDiM anomaly map upsampling")
         distances = self._compute_patch_distances(image_path)
         h, w = self.patch_shape or (0, 0)
@@ -412,11 +417,22 @@ class VisionPaDiM(BaseVisionDeepDetector):
             )
 
         low_res = distances.reshape(h, w)
-        return cv2.resize(
+        anomaly_map = cv2.resize(
             low_res,
             (self.image_size, self.image_size),
             interpolation=cv2.INTER_CUBIC,
-        ).astype(np.float32, copy=False)
+        )
+        if self.gaussian_sigma > 0:
+            anomaly_map = cv2.GaussianBlur(
+                anomaly_map,
+                (0, 0),
+                sigmaX=self.gaussian_sigma,
+                sigmaY=self.gaussian_sigma,
+            )
+        return anomaly_map.astype(np.float32, copy=False)
+
+    def get_anomaly_map(self, image_path: ImageInput) -> NDArray:
+        return self._compute_anomaly_map(image_path)
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         x_iter = cast(

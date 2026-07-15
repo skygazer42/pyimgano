@@ -90,9 +90,12 @@ def _resolve_anchors(anchor_backend: Any, support_patch_sets: list[NDArray]) -> 
     "vision_aaclip",
     tags=("vision", "deep", "clip", "pixel_map", "zero-shot", "numpy", "aaclip"),
     metadata={
-        "description": "AA-CLIP family adapter with anomaly-aware anchor competition over patch embeddings.",
-        "paper": "AA-CLIP",
+        "description": "Injectable anchor-competition adapter inspired by AA-CLIP; not a reproduction",
+        "related_paper": "AA-CLIP: Enhancing Zero-Shot Anomaly Detection via Anomaly-Aware CLIP",
+        "related_paper_url": "https://openaccess.thecvf.com/content/CVPR2025/html/Ma_AA-CLIP_Enhancing_Zero-Shot_Anomaly_Detection_via_Anomaly-Aware_CLIP_CVPR_2025_paper.html",
         "year": 2025,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "zero-shot",
     },
 )

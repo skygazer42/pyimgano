@@ -50,17 +50,12 @@ def test_cli_reference_documents_doctor_extras_and_readiness() -> None:
     assert "--deploy-bundle" in text
 
 
-def test_readme_mentions_doctor_require_extras_and_readiness() -> None:
+def test_readme_keeps_minimal_doctor_and_install_entrypoints() -> None:
     text = _read_text("README.md")
 
-    assert "pyimgano-doctor" in text
-    assert "--suite industrial-v4" in text
+    assert "pyimgano-doctor --profile first-run --json" in text
     assert "--recommend-extras" in text
     assert 'pip install "pyimgano[deploy]"' in text
     assert 'pip install "pyimgano[benchmark]"' in text
-    assert 'pip install "pyimgano[tracking]"' in text
     assert 'pip install "pyimgano[cpu-offline]"' in text
-    assert "--for-command train" in text
-    assert "--for-command infer" in text
-    assert "--for-command runs" in text
-    assert "pyimgano-doctor --recommend-extras --for-command benchmark --json" in text
+    assert "docs/OPTIONAL_DEPENDENCIES.md" in text

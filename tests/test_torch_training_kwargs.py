@@ -136,13 +136,15 @@ def test_simplenet_fit_passes_explicit_weight_decay(tmp_path, monkeypatch) -> No
 
     detector = simplenet_module.VisionSimpleNet.__new__(simplenet_module.VisionSimpleNet)
     detector.batch_size = 1
-    detector.device = "cpu"
+    detector.device = torch.device("cpu")
     detector.lr = 1e-3
     detector.epochs = 0
+    detector.random_state = 0
     detector.transform = lambda img: torch.from_numpy(img).permute(2, 0, 1).float()
     detector.adapter = torch.nn.Linear(1, 1)
-    detector._build_reference_features = lambda X: setattr(  # type: ignore[method-assign]
-        detector, "reference_features", np.zeros((1, 1), dtype=np.float32)
+    detector.discriminator = torch.nn.Linear(1, 1)
+    detector._adapted_features = lambda images: detector.adapter(  # type: ignore[method-assign]
+        torch.ones((images.shape[0], 1, 1, 1), dtype=torch.float32)
     )
     detector.decision_function = lambda X: np.zeros((len(list(X)),), dtype=np.float64)  # type: ignore[method-assign]
     detector._process_decision_scores = lambda: None  # type: ignore[method-assign]

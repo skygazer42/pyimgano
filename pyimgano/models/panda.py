@@ -1,11 +1,11 @@
-"""
-PANDA - Prototypical Anomaly Network for Deep Anomaly Detection
+"""Legacy prototype proxy related to PANDA.
 
 Reference:
-    "Prototypical Networks for Anomaly Detection in Industrial Images"
+    "PANDA: Adapting Pretrained Features for Anomaly Detection and Segmentation"
 
-Uses prototypical learning to create representative prototypes of normal
-patterns and detects anomalies based on distance to these prototypes.
+The actual PANDA method adapts pretrained features with controlled fine-tuning.
+This compatibility model learns normal prototypes instead and is not a paper
+reproduction.
 """
 
 import logging
@@ -20,6 +20,7 @@ from sklearn.cluster import KMeans
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -75,20 +76,21 @@ class PrototypicalEncoder(nn.Module):
 
 @register_model(
     "vision_panda",
-    tags=("vision", "deep", "panda", "prototypical", "metric", "sota"),
+    tags=("vision", "deep", "panda", "prototypical", "metric", "experimental"),
     metadata={
-        "description": "PANDA - Prototypical Anomaly Network with metric learning",
-        "paper": "Prototypical Networks for Anomaly Detection",
-        "year": 2023,
+        "description": "Generic prototype-distance network; not the PANDA feature-adaptation method",
+        "related_paper": "PANDA: Adapting Pretrained Features for Anomaly Detection and Segmentation",
+        "year": 2021,
+        "implementation_status": "experimental-prototype-proxy",
+        "paper_fidelity": "inspired",
         "type": "metric-learning",
     },
 )
 class VisionPANDA(BaseVisionDeepDetector):
-    """
-    PANDA: Prototypical Anomaly Network for Deep Anomaly Detection.
+    """Legacy prototype baseline that does not reproduce PANDA.
 
-    Uses prototypical learning to learn representative prototypes of normal
-    patterns. Anomalies are detected based on their distance to prototypes.
+    The actual PANDA method adapts pretrained features with controlled
+    fine-tuning; this compatibility model instead learns prototypes.
 
     Parameters
     ----------
@@ -157,9 +159,6 @@ class VisionPANDA(BaseVisionDeepDetector):
         self.margin = margin
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
-
-        if random_state is not None:
-            torch.manual_seed(random_state)
 
         self.encoder_ = None
         self.prototypes_ = None
@@ -231,6 +230,7 @@ class VisionPANDA(BaseVisionDeepDetector):
             torch.from_numpy(kmeans.cluster_centers_).float().to(self.device)
         )
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

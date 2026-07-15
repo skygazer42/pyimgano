@@ -93,6 +93,7 @@ def evaluate_split(
     pixel_normal_quantile: float = 0.999,
     calibration_fraction: float = 0.2,
     calibration_seed: int = 0,
+    score_calibration_quantile: Optional[float] = None,
 ) -> dict:
     """Fit on split.train_paths, score split.test_paths, and return evaluation dict."""
 
@@ -120,6 +121,17 @@ def evaluate_split(
             )
 
     detector.fit(train_paths)
+    score_threshold = None
+    if score_calibration_quantile is not None:
+        quantile = float(score_calibration_quantile)
+        if not 0.0 < quantile < 1.0:
+            raise ValueError(
+                "score_calibration_quantile must be between 0 and 1, "
+                f"got {score_calibration_quantile}."
+            )
+        train_scores = np.asarray(detector.decision_function(train_paths), dtype=np.float64)
+        score_threshold = float(np.quantile(train_scores, quantile))
+
     scores = detector.decision_function(split.test_paths)
     pixel_scores_used = pixel_scores
 
@@ -190,6 +202,8 @@ def evaluate_split(
     return evaluate_detector(
         split.test_labels,
         scores,
+        threshold=score_threshold,
+        find_best_threshold=score_threshold is None,
         pixel_labels=split.test_masks,
         pixel_scores=pixel_scores_used,
         pixel_threshold=pixel_threshold,

@@ -26,6 +26,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..base import BaseVisionDeepDetector
+from .registry import register_model
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,17 @@ class FCDDNetwork(nn.Module):
         return features, score_map
 
 
+@register_model(
+    "vision_fcdd",
+    tags=("vision", "deep", "fcdd", "one-class", "pixel_map"),
+    metadata={
+        "description": "Compact fully-convolutional one-class variant related to FCDD",
+        "related_paper": "Explainable Deep One-Class Classification",
+        "year": 2021,
+        "implementation_status": "compact-one-class-variant",
+        "paper_fidelity": "partial",
+    },
+)
 class FCDD(BaseVisionDeepDetector):
     """
     Fully Convolutional Data Description.
@@ -124,6 +136,8 @@ class FCDD(BaseVisionDeepDetector):
         device: str = "cuda",
     ):
         super().__init__()
+        if objective not in {"hsc", "occ"}:
+            raise ValueError("objective must be 'hsc' or 'occ'.")
         self.objective = objective
         self.nu = nu
         self.learning_rate = learning_rate
@@ -145,7 +159,7 @@ class FCDD(BaseVisionDeepDetector):
                 batch = batch.to(self.device)
                 features, _ = self.network_(batch)
                 # Average pooling to get feature vector
-                center_batch = F.adaptive_avg_pool2d(features, 1).squeeze()
+                center_batch = F.adaptive_avg_pool2d(features, 1).flatten(1)
                 centers.append(center_batch)
 
         center = torch.cat(centers).mean(dim=0)
@@ -173,6 +187,7 @@ class FCDD(BaseVisionDeepDetector):
             Fitted estimator
         """
         del y
+        x_original = np.asarray(x)
         # Convert to torch tensor
         if x.ndim == 3:
             x = np.expand_dims(x, axis=-1)
@@ -216,7 +231,7 @@ class FCDD(BaseVisionDeepDetector):
 
                 elif self.objective == "occ":
                     # One-class loss (minimize score map)
-                    loss = torch.mean(score_map)
+                    loss = F.softplus(score_map).mean()
 
                 # Backward pass
                 optimizer.zero_grad()
@@ -230,9 +245,18 @@ class FCDD(BaseVisionDeepDetector):
                 logger.info("Epoch [%d/%d], Loss: %.4f", epoch + 1, self.epochs, avg_loss)
 
         self.is_fitted_ = True
+        self.decision_scores_ = self.decision_function(x_original)
+        self._process_decision_scores()
+        self._set_n_classes(None)
         return self
 
-    def predict(self, x: NDArray) -> NDArray:
+    def _anomaly_map(self, features: torch.Tensor, score_map: torch.Tensor) -> torch.Tensor:
+        if self.objective == "hsc":
+            center = self.center_.view(1, -1, 1, 1)
+            return torch.sum((features - center) ** 2, dim=1, keepdim=True)
+        return F.softplus(score_map)
+
+    def decision_function(self, x: NDArray) -> NDArray:
         """
         Compute anomaly scores.
 
@@ -262,7 +286,8 @@ class FCDD(BaseVisionDeepDetector):
         with torch.no_grad():
             for i in range(0, len(x_tensor), self.batch_size):
                 batch = x_tensor[i : i + self.batch_size].to(self.device)
-                _, score_map = self.network_(batch)
+                features, score_map = self.network_(batch)
+                score_map = self._anomaly_map(features, score_map)
 
                 # Average score map to get image-level score
                 batch_scores = torch.mean(score_map, dim=(1, 2, 3))
@@ -304,7 +329,8 @@ class FCDD(BaseVisionDeepDetector):
         with torch.no_grad():
             for i in range(0, len(x_tensor), self.batch_size):
                 batch = x_tensor[i : i + self.batch_size].to(self.device)
-                _, score_map = self.network_(batch)
+                features, score_map = self.network_(batch)
+                score_map = self._anomaly_map(features, score_map)
 
                 # Upsample score map to original size
                 score_map_up = F.interpolate(
@@ -319,6 +345,10 @@ class FCDD(BaseVisionDeepDetector):
                 maps.append(score_map_up.squeeze(1).cpu().numpy())
 
         return np.concatenate(scores), np.concatenate(maps)
+
+    def predict_anomaly_map(self, x: NDArray) -> NDArray:
+        """Return pixel-level anomaly maps using the standard detector API."""
+        return self.predict_with_map(x)[1]
 
     def get_params(self) -> dict:
         """Get model parameters."""

@@ -53,7 +53,7 @@ class ActNorm2d(nn.Module):
 
         h, w = x.shape[2], x.shape[3]
         if reverse:
-            x = (x - self.bias) * torch.exp(-self.log_scale)
+            x = x * torch.exp(-self.log_scale) - self.bias
             logdet = logdet - torch.sum(self.log_scale) * h * w
         else:
             x = (x + self.bias) * torch.exp(self.log_scale)
@@ -137,9 +137,15 @@ class FlowStep(nn.Module):
     def forward(
         self, x: torch.Tensor, logdet: torch.Tensor, reverse: bool = False
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        x, logdet = self.actnorm(x, logdet, reverse=reverse)
-        x, logdet = self.invconv(x, logdet, reverse=reverse)
-        x, logdet = self.coupling(x, logdet, reverse=reverse)
+        if reverse:
+            x, logdet = self.coupling(x, logdet, reverse=True)
+            x, logdet = self.invconv(x, logdet, reverse=True)
+            x, logdet = self.actnorm(x, logdet, reverse=True)
+            return x, logdet
+
+        x, logdet = self.actnorm(x, logdet)
+        x, logdet = self.invconv(x, logdet)
+        x, logdet = self.coupling(x, logdet)
         return x, logdet
 
 
@@ -211,13 +217,15 @@ class ResNetFeatureExtractor(nn.Module):
     "vision_fastflow",
     tags=("vision", "deep", "flow"),
     metadata={
-        "description": "FastFlow-based visual anomaly detector",
-        "paper": "FastFlow: Unsupervised Anomaly Detection and Localization via 2D Normalizing Flows",
+        "description": "Glow-style feature-flow variant inspired by FastFlow; not the paper architecture",
+        "related_paper": "FastFlow: Unsupervised Anomaly Detection and Localization via 2D Normalizing Flows",
         "year": 2021,
+        "implementation_status": "compact-flow-variant",
+        "paper_fidelity": "partial",
     },
 )
 class FastFlow(BaseVisionDeepDetector):
-    """Implementation of FastFlow (ICCV'21) anomaly detector."""
+    """Compact feature-flow variant related to FastFlow, not an exact reproduction."""
 
     def __init__(
         self,

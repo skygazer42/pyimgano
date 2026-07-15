@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-"""
-WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation.
+"""Experimental crop-based CLIP baseline related to WinCLIP.
 
 Paper: https://arxiv.org/abs/2303.14814
 Conference: CVPR 2023
 
-WinCLIP leverages CLIP's visual-language understanding for zero-shot and few-shot
-anomaly detection without requiring anomalous samples during training.
-
-Key Features:
-- Zero-shot capability using text prompts
-- Few-shot learning with minimal normal samples
-- Strong localization through window-based attention
-- No fine-tuning required
+This compatibility implementation encodes cropped image windows. It does not
+reproduce the paper's token-level multi-scale window embeddings and aggregation.
 """
 
 from typing import List, Optional, Tuple
@@ -24,6 +17,7 @@ import torch.nn.functional as F
 from numpy import ndarray as NDArray
 
 from pyimgano.utils.optional_deps import require
+from pyimgano.utils.random_state import isolated_random_state
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
@@ -107,12 +101,15 @@ class WindowAttention:
     "winclip",
     tags=("vision", "deep", "winclip", "clip", "pixel_map"),
     metadata={
-        "description": "WinCLIP (legacy name) - Zero-/Few-shot CLIP-based anomaly detection",
+        "description": "Legacy crop-based CLIP proxy related to WinCLIP; not the paper method",
+        "related_paper": "WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation",
         "year": 2023,
+        "implementation_status": "experimental-crop-based-clip-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class WinCLIPDetector(BaseVisionDeepDetector):
-    """WinCLIP zero-shot anomaly detector.
+    """Crop-based CLIP anomaly proxy retained under the legacy WinCLIP name.
 
     Uses CLIP's visual-language understanding with sliding window attention
     for zero-shot and few-shot anomaly detection.
@@ -127,9 +124,8 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         scales: Multi-scale inference scales.
         device: Device to use ("cuda" or "cpu").
 
-    References:
-        Jeong et al. "WinCLIP: Zero-/Few-Shot Anomaly Classification
-        and Segmentation." CVPR 2023.
+    This is not a paper reproduction; use ``vision_winclip_anomalib`` for the
+    supported upstream implementation path.
     """
 
     def __init__(
@@ -164,9 +160,6 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         else:
             self.device = torch.device(device)
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         # Default text prompts for anomaly detection
         if text_prompts is None:
             self.text_prompts = {
@@ -185,7 +178,8 @@ class WinCLIPDetector(BaseVisionDeepDetector):
             self.text_prompts = text_prompts
 
         # Load CLIP model
-        self.model, self.preprocess = self._clip.load(clip_model, device=self.device)
+        with isolated_random_state(random_state):
+            self.model, self.preprocess = self._clip.load(clip_model, device=self.device)
         self.model.eval()
 
         # Window attention
@@ -448,9 +442,11 @@ class WinCLIPDetector(BaseVisionDeepDetector):
     "vision_winclip",
     tags=("vision", "deep", "winclip", "clip", "pixel_map"),
     metadata={
-        "description": "WinCLIP - Zero-/Few-shot CLIP-based anomaly detection (CVPR 2023)",
-        "paper": "WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation",
+        "description": "Crop-based CLIP proxy related to WinCLIP; not the paper method",
+        "related_paper": "WinCLIP: Zero-/Few-Shot Anomaly Classification and Segmentation",
         "year": 2023,
+        "implementation_status": "experimental-crop-based-clip-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class VisionWinCLIP(WinCLIPDetector):

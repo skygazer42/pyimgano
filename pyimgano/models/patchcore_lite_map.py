@@ -109,9 +109,11 @@ def _embedder_from_payload(payload: dict[str, object]) -> TorchvisionConvPatchEm
     "vision_patchcore_lite_map",
     tags=("vision", "deep", "patchcore", "memory_bank", "lite", "patchknn", "numpy", "pixel_map"),
     metadata={
-        "description": "PatchCore-lite anomaly map: conv patch embeddings + memory bank kNN distance",
-        "paper": "PatchCore (Roth et al., CVPR 2022) - lite baseline",
+        "description": "Patch-memory kNN baseline inspired by PatchCore; omits fusion and reweighting",
+        "related_paper": "Towards Total Recall in Industrial Anomaly Detection",
         "year": 2022,
+        "implementation_status": "lite-patch-memory-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class VisionPatchCoreLiteMap:

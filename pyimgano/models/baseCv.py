@@ -17,6 +17,7 @@ Deep dependencies are required only when instantiating / running detectors.
 from pathlib import Path
 
 from pyimgano.utils.optional_deps import require
+from pyimgano.utils.random_state import isolated_random_state_method
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_deep import BaseDeepLearningDetector
@@ -117,11 +118,16 @@ class BaseVisionDeepDetector(BaseDeepLearningDetector):
             "Subclasses using BaseVisionDeepDetector.fit must implement training_forward()."
         )
 
+    def _check_is_fitted(self) -> None:
+        if not bool(getattr(self, "is_fitted_", False)) and not hasattr(self, "threshold_"):
+            raise RuntimeError("Model must be fitted before calling this method.")
+
     def evaluating_forward(self, *args, **kwargs):  # pragma: no cover
         raise NotImplementedError(
             "Subclasses using BaseVisionDeepDetector.decision_function must implement evaluating_forward()."
         )
 
+    @isolated_random_state_method
     def fit(self, x: object = MISSING, y=None, **kwargs: object):
         """
         【特色功能 3: 重写 fit 方法以处理图像路径】

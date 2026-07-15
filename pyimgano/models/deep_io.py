@@ -114,7 +114,7 @@ def safe_torch_load(path: str | Path, *, map_location: str | None = "cpu") -> An
 
             safe_globals = [
                 codecs.encode,
-                np._core.multiarray._reconstruct,
+                np.core.multiarray._reconstruct,
                 np.ndarray,
                 np.dtype,
                 type(np.dtype(np.float16)),

@@ -37,14 +37,12 @@ def test_cli_reference_documents_bundle_validate_run_and_watch() -> None:
     assert "watch_events.jsonl" in text
 
 
-def test_readme_mentions_bundle_validate_watch_and_weights_audit() -> None:
+def test_readme_points_to_bundle_deployment_and_audit_docs() -> None:
     text = _read_text("README.md")
 
-    assert "pyimgano-bundle" in text or "pyimgano bundle" in text
+    assert "pyimgano-bundle validate" in text
     assert "bundle watch" in text
     assert "webhook" in text
-    assert "webhook-header" in text
-    assert "webhook-signing-secret" in text
-    assert "webhook-bearer-token-env" in text
-    assert "webhook-bearer-token-file" in text
     assert "audit-bundle" in text
+    assert "docs/CLI_REFERENCE.md" in text
+    assert "docs/INDUSTRIAL_FASTPATH.md" in text

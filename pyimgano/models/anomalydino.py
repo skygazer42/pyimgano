@@ -107,9 +107,11 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
     "vision_anomalydino",
     tags=("vision", "deep", "anomalydino", "knn", "dinov2", "numpy", "pixel_map", "neighbors"),
     metadata={
-        "description": "AnomalyDINO-style DINOv2 patch-kNN detector (few-shot friendly)",
-        "paper": "AnomalyDINO: Boosting Patch-based Few-shot Anomaly Detection with DINOv2",
+        "description": "DINOv2 patch-kNN baseline inspired by AnomalyDINO; not a paper reproduction",
+        "related_paper": "AnomalyDINO: Boosting Patch-based Few-shot Anomaly Detection with DINOv2",
         "year": 2025,
+        "implementation_status": "experimental-dinov2-knn-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class VisionAnomalyDINO:

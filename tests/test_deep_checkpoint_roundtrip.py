@@ -115,7 +115,6 @@ def test_padim_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
             image_size=64,
             pretrained=False,
             device="cpu",
-            projection_fit_samples=2,
             covariance_eps=0.01,
             random_state=42,
         )
@@ -228,7 +227,8 @@ def test_draem_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
             {
                 "contamination": 0.25,
                 "epochs": 1,
-                "batch_size": 2,
+                "batch_size": 3,
+                "steps_per_epoch": 1,
                 "device": "cpu",
                 "pretrained": False,
             },

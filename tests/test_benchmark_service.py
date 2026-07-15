@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+
+import numpy as np
 import pytest
 
 from pyimgano.services.benchmark_service import (
@@ -88,6 +91,87 @@ def test_run_benchmark_request_delegates_pixel_mode_to_pixel_runner(monkeypatch)
     assert payload["pixel"] is True
     assert calls[0].pixel is True
     assert calls[0].model == "vision_pixel_mean_absdiff_map"
+
+
+def test_pixel_run_honors_limits_and_saves_traceable_artifacts(tmp_path, monkeypatch) -> None:
+    import pyimgano.services.benchmark_service as benchmark_service
+    from pyimgano.pipelines.mvtec_visa import BenchmarkSplit
+    from pyimgano.services.dataset_split_service import LoadedBenchmarkSplit
+
+    class _Detector:
+        def decision_function(self, paths):  # noqa: ANN001
+            return np.arange(len(paths), dtype=np.float64)
+
+    detector = _Detector()
+    split = BenchmarkSplit(
+        train_paths=["train-0.png", "train-1.png"],
+        test_paths=["test-0.png", "test-1.png", "test-2.png"],
+        test_labels=np.asarray([0, 1, 1], dtype=np.int64),
+        test_masks=np.zeros((3, 4, 4), dtype=np.uint8),
+    )
+
+    monkeypatch.setattr(
+        benchmark_service,
+        "_resolve_model_run_options",
+        lambda request: ("resolved_model", {"paper_setting": 7}, object()),
+    )
+    monkeypatch.setattr(benchmark_service, "create_model", lambda *args, **kwargs: detector)
+    monkeypatch.setattr(
+        benchmark_service.dataset_split_service,
+        "load_benchmark_style_split",
+        lambda **kwargs: LoadedBenchmarkSplit(split=split),
+    )
+
+    evaluated: list[BenchmarkSplit] = []
+
+    def _fake_evaluate(_detector, limited_split, _request):  # noqa: ANN001
+        evaluated.append(limited_split)
+        return {"auroc": 1.0, "threshold": 0.5, "pixel_metrics": {"pixel_auroc": 1.0}}
+
+    monkeypatch.setattr(benchmark_service, "_evaluate_pixel_split", _fake_evaluate)
+    monkeypatch.setattr(
+        "pyimgano.reporting.environment.collect_environment",
+        lambda: {"fingerprint_sha256": "test-fingerprint"},
+    )
+
+    payload = benchmark_service.run_benchmark_request(
+        BenchmarkRunRequest(
+            dataset="custom",
+            root="/tmp/custom",
+            category="widget",
+            model="requested_model",
+            pixel=True,
+            limit_train=1,
+            limit_test=2,
+            output_dir=str(tmp_path / "pixel-run"),
+        )
+    )
+
+    assert len(evaluated[0].train_paths) == 1
+    assert len(evaluated[0].test_paths) == 2
+    assert payload["dataset_summary"] == {
+        "train_count": 1,
+        "test_count": 2,
+        "test_anomaly_count": 1,
+    }
+    assert payload["run_dir"] == str(tmp_path / "pixel-run")
+
+    run_dir = tmp_path / "pixel-run"
+    assert (run_dir / "report.json").is_file()
+    assert (run_dir / "environment.json").is_file()
+    assert (run_dir / "categories" / "widget" / "report.json").is_file()
+    config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))["config"]
+    assert config["model"] == "resolved_model"
+    assert config["requested_model"] == "requested_model"
+    assert config["model_kwargs"] == {"paper_setting": 7}
+    records = [
+        json.loads(line)
+        for line in (run_dir / "categories" / "widget" / "per_image.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert [record["input"] for record in records] == ["test-0.png", "test-1.png"]
+    assert [record["pred"] for record in records] == [0, 1]
 
 
 def test_run_suite_request_normalizes_filters_and_delegates(monkeypatch) -> None:

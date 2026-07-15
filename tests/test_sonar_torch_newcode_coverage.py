@@ -88,7 +88,6 @@ def test_torch_detectors_use_lowercase_x_signatures():
         (
             VisionBayesianPF,
             {
-                "_preprocess": "x",
                 "fit": "x",
                 "predict": "x",
                 "decision_function": "x",
@@ -123,7 +122,6 @@ def test_torch_detectors_use_lowercase_x_signatures():
             VisionSimpleNet,
             {
                 "fit": "x",
-                "_build_reference_features": "image_paths",
                 "predict": "x",
                 "decision_function": "x",
             },
@@ -193,7 +191,6 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
     # These detectors implement decision_function as an alias to predict() and
     # accept an optional batch_size for interface compatibility.
     from pyimgano.models.ast import VisionAST
-    from pyimgano.models.bayesianpf import VisionBayesianPF
     from pyimgano.models.dst import VisionDST
     from pyimgano.models.favae import VisionFAVAE
     from pyimgano.models.gcad import VisionGCAD
@@ -207,7 +204,6 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
 
     classes = (
         VisionAST,
-        VisionBayesianPF,
         VisionDST,
         VisionFAVAE,
         VisionGCAD,
@@ -294,3 +290,23 @@ def test_torch_detectors_batch_size_validation_only_paths():
         if cls in (DifferNetDetector, VisionSPADEDetector):
             scores = cls.decision_function(inst, X=[], batch_size=None)
             assert isinstance(scores, np.ndarray)
+
+
+def test_dfm_and_cflow_do_not_turn_input_failures_into_normal_scores(tmp_path):
+    from pyimgano.models.cflow import VisionCFlow
+    from pyimgano.models.dfm import VisionDFM
+
+    missing = str(tmp_path / "missing.png")
+
+    dfm = _make_instance_without_init(VisionDFM)
+    dfm.mean = np.zeros(1, dtype=np.float64)
+    dfm.inv_cov = np.eye(1, dtype=np.float64)
+    dfm._extract_features = lambda _path: (_ for _ in ()).throw(ValueError("bad image"))
+    with pytest.raises(ValueError, match="bad image"):
+        VisionDFM.decision_function(dfm, [missing])
+
+    cflow = _make_instance_without_init(VisionCFlow)
+    cflow._is_fitted = True
+    cflow.flow = type("FlowStub", (), {"eval": lambda self: None})()
+    with pytest.raises(ValueError, match="Failed to load image"):
+        VisionCFlow.decision_function(cflow, [missing])

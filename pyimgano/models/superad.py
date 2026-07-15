@@ -36,6 +36,8 @@ class _EmbeddedImage:
     tags=("vision", "deep", "superad", "knn", "dinov2", "numpy", "pixel_map"),
     metadata={
         "description": "SuperAD-style DINOv2 patch-kNN detector using k-th NN distance per patch",
+        "implementation_status": "generic-dinov2-knn-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionSuperAD:

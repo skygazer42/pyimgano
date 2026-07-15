@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -117,20 +118,19 @@ class StudentNetwork(nn.Module):
 
 @register_model(
     "vision_dst",
-    tags=("vision", "deep", "dst", "student-teacher", "distillation", "sota"),
+    tags=("vision", "deep", "dst", "student-teacher", "distillation", "experimental"),
     metadata={
-        "description": "DST - Double Student-Teacher with complementary learning",
-        "paper": "Double Student-Teacher Network for Anomaly Detection",
-        "year": 2023,
+        "description": "Generic dual-student distillation baseline; no verified paper reproduction",
+        "implementation_status": "generic-dual-student-baseline",
+        "paper_fidelity": "not-applicable",
         "type": "knowledge-distillation",
     },
 )
 class VisionDST(BaseVisionDeepDetector):
-    """
-    DST: Double Student-Teacher Network for Anomaly Detection.
+    """Generic dual-student baseline retained for compatibility.
 
-    Uses two student networks with different architectures learning from
-    a single teacher, providing complementary anomaly detection.
+    It uses two student networks learning from a single teacher; no matching
+    canonical paper has been verified for this legacy registry name.
 
     Parameters
     ----------
@@ -190,9 +190,6 @@ class VisionDST(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.teacher_ = None
         self.student1_ = None
         self.student2_ = None
@@ -243,6 +240,7 @@ class VisionDST(BaseVisionDeepDetector):
 
         return total_loss / len(student_features)
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

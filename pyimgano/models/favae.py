@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
@@ -162,20 +163,19 @@ class AdaptiveDecoder(nn.Module):
 
 @register_model(
     "vision_favae",
-    tags=("vision", "deep", "favae", "vae", "adaptive", "sota"),
+    tags=("vision", "deep", "favae", "vae", "adaptive", "experimental"),
     metadata={
-        "description": "Feature Adaptive VAE - Dynamic latent space adaptation",
-        "paper": "Feature Adaptive VAE for Anomaly Detection",
-        "year": 2023,
+        "description": "Generic adaptive feature-VAE baseline; no verified paper reproduction",
+        "implementation_status": "generic-adaptive-vae-baseline",
+        "paper_fidelity": "not-applicable",
         "type": "generative",
     },
 )
 class VisionFAVAE(BaseVisionDeepDetector):
-    """
-    FAVAE: Feature Adaptive Variational Autoencoder.
+    """Generic feature-VAE baseline retained under its legacy registry name.
 
-    Combines pre-trained features with an adaptive VAE that dynamically
-    adjusts its latent representation for improved anomaly detection.
+    It combines frozen features with an adaptive VAE; no matching canonical
+    paper has been verified for the legacy FAVAE claim.
 
     Parameters
     ----------
@@ -247,9 +247,6 @@ class VisionFAVAE(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.feature_extractor_ = None
         self.encoder_ = None
         self.decoder_ = None
@@ -285,6 +282,7 @@ class VisionFAVAE(BaseVisionDeepDetector):
 
         return total_loss, recon_loss, kl_loss
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

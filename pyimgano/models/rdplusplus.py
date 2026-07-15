@@ -1,21 +1,13 @@
+"""Unregistered experimental reverse-distillation variant.
+
+No canonical ``Reverse Distillation++`` paper matching the former title was
+verified. This is not the CVPR 2022 Reverse Distillation implementation; use
+``vision_reverse_distillation`` or its anomalib backend instead.
 """
-RD++ (Reverse Distillation++) for Anomaly Detection
 
-Paper: "Reverse Distillation++: Enhanced Knowledge Distillation for Anomaly Detection"
-Conference: Extended from AAAI 2022 Reverse Distillation
-
-Key Innovation:
-- Enhanced reverse distillation with multi-scale fusion
-- Improved student-teacher architecture
-- Better feature alignment and attention mechanisms
-- Superior localization with hierarchical features
-
-Implementation includes:
-- Multi-scale feature extraction
-- Enhanced reverse distillation loss
-- Attention-guided fusion
-- Progressive refinement
-"""
+PAPER_FIDELITY = "inspired"
+IMPLEMENTATION_STATUS = "unregistered-experimental-proxy"
+RELATED_PAPER = "Anomaly Detection via Reverse Distillation from One-Class Embedding"
 
 from typing import List, Optional
 

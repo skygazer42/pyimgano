@@ -56,9 +56,12 @@ class _PromptLocalizationBackend:
     "vision_filopp",
     tags=("vision", "deep", "clip", "pixel_map", "zero-shot", "numpy", "filopp"),
     metadata={
-        "description": "FiLo++ family adapter with VLM patch encoding and localization-head scoring.",
-        "paper": "FiLo++",
+        "description": "Injectable VLM localization adapter inspired by FiLo++; not a reproduction",
+        "related_paper": "FiLo++: Zero-/Few-Shot Anomaly Detection by Fused Fine-Grained Descriptions and Deformable Localization",
+        "related_paper_url": "https://arxiv.org/abs/2501.10067",
         "year": 2025,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "zero-shot",
     },
 )

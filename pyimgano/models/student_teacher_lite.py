@@ -138,6 +138,8 @@ def _feature_extractor_from_spec(payload: Mapping[str, Any]) -> BaseFeatureExtra
         "description": "Student-Teacher lite: linear map residual between two embedding extractors",
         "type": "distillation_lite",
         "supports_save_load": False,
+        "implementation_status": "generic-distillation-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionStudentTeacherLite(BaseDetector):

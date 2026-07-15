@@ -1,18 +1,13 @@
+"""Experimental masked-reconstruction proxy related to RIAD.
+
+Reference: "Reconstruction by Inpainting for Visual Anomaly Detection",
+Pattern Recognition, DOI 10.1016/j.patcog.2020.107706.
+
+The local model does not implement the paper's complementary masked inpainting
+and SSIM-based inference procedure, so it is not a paper reproduction.
+"""
+
 from __future__ import annotations
-
-"""
-RIAD: Reconstruction from Adjacent Image Decomposition for Anomaly Detection.
-
-Paper: https://arxiv.org/abs/2108.11092
-Concept: Self-supervised learning through image inpainting from adjacent regions
-
-Key Features:
-- Self-supervised learning
-- Image inpainting approach
-- No anomaly samples needed
-- Good reconstruction quality
-- Efficient training
-"""
 
 import logging
 from typing import Optional, Tuple
@@ -23,6 +18,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
 from torch.utils.data import DataLoader, TensorDataset
+
+from pyimgano.utils.random_state import isolated_random_state_method
 
 from ._image_batch import coerce_rgb_image_batch
 from .baseCv import BaseVisionDeepDetector
@@ -194,24 +191,31 @@ class UNet(nn.Module):
     "vision_riad",
     tags=("vision", "deep", "riad", "reconstruction", "self-supervised", "pixel_map"),
     metadata={
-        "description": "RIAD - reconstruction by adjacent image decomposition (2020-style)",
-        "paper": "Reconstruction by Inpainting for Visual Anomaly Detection",
+        "description": "Experimental masked-reconstruction proxy related to RIAD; not the paper method",
+        "related_paper": "Reconstruction by Inpainting for Visual Anomaly Detection",
+        "related_paper_url": "https://doi.org/10.1016/j.patcog.2020.107706",
         "year": 2020,
+        "implementation_status": "experimental-reconstruction-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 @register_model(
     "riad",
     tags=("vision", "deep", "riad", "reconstruction", "self-supervised", "pixel_map"),
     metadata={
-        "description": "RIAD (legacy alias) - reconstruction by adjacent image decomposition",
+        "description": "Legacy alias for the experimental RIAD-related reconstruction proxy",
+        "related_paper": "Reconstruction by Inpainting for Visual Anomaly Detection",
+        "related_paper_url": "https://doi.org/10.1016/j.patcog.2020.107706",
         "year": 2020,
+        "implementation_status": "experimental-reconstruction-proxy",
+        "paper_fidelity": "inspired",
     },
 )
 class RIADDetector(BaseVisionDeepDetector):
-    """RIAD anomaly detector.
+    """Experimental RIAD-related masked-reconstruction detector.
 
-    Self-supervised learning through reconstruction from adjacent image
-    decomposition.
+    This compatibility implementation is not a reproduction of the paper's
+    complementary masked inpainting and SSIM-based inference procedure.
 
     Args:
         n_splits: Number of image splits (must be perfect square).
@@ -248,9 +252,6 @@ class RIADDetector(BaseVisionDeepDetector):
         self.learning_rate = learning_rate
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
@@ -266,6 +267,7 @@ class RIADDetector(BaseVisionDeepDetector):
         """Build the RIAD model."""
         self.model = UNet(in_channels=3, out_channels=3).to(self.device)
 
+    @isolated_random_state_method
     def fit(self, x: NDArray, y: Optional[NDArray] = None, **kwargs):
         """Train the RIAD model.
 

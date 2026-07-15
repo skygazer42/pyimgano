@@ -369,6 +369,8 @@ def _encode_openclip_text_features(
     metadata={
         "description": "OpenCLIP prompt scoring detector (requires pyimgano[clip])",
         "backend": "openclip",
+        "implementation_status": "generic-openclip-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionOpenCLIPPromptScore:
@@ -666,6 +668,8 @@ class VisionOpenCLIPPromptScore:
     metadata={
         "description": "OpenCLIP patch embedding + kNN detector (requires pyimgano[clip])",
         "backend": "openclip",
+        "implementation_status": "generic-openclip-knn-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionOpenCLIPPatchKNN:

@@ -1,21 +1,12 @@
+"""Unregistered compact flow variant related to CS-Flow.
+
+It does not reproduce the paper's fully convolutional cross-scale coupling
+architecture. Use ``vision_csflow_anomalib`` for the supported upstream path.
 """
-CS-Flow: Continual Segmentation-based Normalizing Flow for Anomaly Detection
 
-Paper: "Fully Convolutional Cross-Scale-Flows for Image-based Defect Detection"
-Conference: WACV 2022
-
-Key Innovation:
-- Combines normalizing flows with segmentation
-- Cross-scale flow for multi-resolution modeling
-- More expressive than standard normalizing flows
-- Fast inference with good localization
-
-Implementation includes:
-- Multi-scale feature extraction
-- Coupling layers for normalizing flows
-- Likelihood-based anomaly scoring
-- Pixel-level anomaly localization
-"""
+PAPER_FIDELITY = "partial"
+IMPLEMENTATION_STATUS = "unregistered-compact-flow-variant"
+RELATED_PAPER = "Fully Convolutional Cross-Scale-Flows for Image-Based Defect Detection"
 
 from typing import List, Optional, Tuple
 

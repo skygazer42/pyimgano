@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -155,20 +156,19 @@ class FeatureExtractor(nn.Module):
 
 @register_model(
     "vision_gcad",
-    tags=("vision", "deep", "gcad", "graph", "sota"),
+    tags=("vision", "deep", "gcad", "graph", "experimental"),
     metadata={
-        "description": "Graph Convolutional Anomaly Detection - Uses GCN to model spatial relationships",
-        "paper": "Graph Convolutional Anomaly Detection",
-        "year": 2023,
+        "description": "Generic graph-convolutional autoencoder baseline; no verified paper reproduction",
+        "implementation_status": "generic-graph-autoencoder-baseline",
+        "paper_fidelity": "not-applicable",
         "type": "graph-based",
     },
 )
 class VisionGCAD(BaseVisionDeepDetector):
-    """
-    GCAD: Graph Convolutional Anomaly Detection.
+    """Generic patch-graph autoencoder retained under its legacy registry name.
 
-    Uses graph convolutional networks to model spatial relationships between
-    image patches for improved anomaly detection and localization.
+    It uses graph convolutions over image patches; no matching canonical paper
+    has been verified for the legacy GCAD claim.
 
     Parameters
     ----------
@@ -239,9 +239,6 @@ class VisionGCAD(BaseVisionDeepDetector):
         self.epochs = epochs
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
-
-        if random_state is not None:
-            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.gcn_ = None
@@ -334,6 +331,7 @@ class VisionGCAD(BaseVisionDeepDetector):
 
         return adj
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

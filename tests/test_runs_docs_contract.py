@@ -28,10 +28,9 @@ def test_compare_docs_document_dataset_readiness_summary_contract() -> None:
         assert "dataset_readiness_status" in text
 
 
-def test_readme_mentions_runs_quality_and_compare_contracts() -> None:
+def test_readme_points_to_run_comparison_and_quality_docs() -> None:
     text = _read_text("README.md")
 
     assert "pyimgano-runs" in text
-    assert "compare" in text
-    assert "quality" in text
-    assert "dataset_readiness" in text
+    assert "quality gates" in text
+    assert "docs/RUN_COMPARISON.md" in text

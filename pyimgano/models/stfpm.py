@@ -92,9 +92,13 @@ class ImagePathDataset(Dataset):
     "vision_stfpm",
     tags=("vision", "deep", "stfpm", "student-teacher", "pyramid", "numpy", "pixel_map"),
     metadata={
-        "description": "STFPM - Student-Teacher Feature Pyramid Matching (BMVC 2021)",
+        "description": "STFPM core feature-pyramid distillation and multiplicative anomaly map",
         "paper": "Student-Teacher Feature Pyramid Matching for Anomaly Detection",
+        "paper_url": "https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf",
         "year": 2021,
+        "supervision": "one-class",
+        "implementation_status": "core-aligned",
+        "paper_fidelity": "core-aligned",
     },
 )
 class VisionSTFPM(BaseVisionDeepDetector):
@@ -143,6 +147,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
         batch_size: int = 32,
         lr: float = 0.4,
         num_workers: int = 0,
+        validation_ratio: float = 0.2,
+        random_state: int = 42,
         device: str = "cpu",
         **kwargs,
     ):
@@ -154,14 +160,23 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         if batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+        if not 0.0 <= validation_ratio < 1.0:
+            raise ValueError(
+                f"validation_ratio must be in [0, 1), got {validation_ratio}"
+            )
 
         self.backbone_name = backbone
         self.layers = layers or ["layer1", "layer2", "layer3"]
+        unknown_layers = set(self.layers) - {"layer1", "layer2", "layer3"}
+        if unknown_layers:
+            raise ValueError(f"Unsupported STFPM layers: {sorted(unknown_layers)}")
         self.pretrained_teacher = pretrained_teacher
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
         self.num_workers = num_workers
+        self.validation_ratio = float(validation_ratio)
+        self.random_state = int(random_state)
         self.device = device
 
         # Build teacher and student networks
@@ -177,9 +192,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
             ]
         )
 
-        # Track training statistics
-        self.mean_scores: Optional[float] = None
-        self.std_scores: Optional[float] = None
+        self._is_fitted = False
 
         logger.info(
             "Initialized STFPM with backbone=%s, layers=%s, "
@@ -240,20 +253,83 @@ class VisionSTFPM(BaseVisionDeepDetector):
         x = model.relu(x)
         x = model.maxpool(x)
 
-        # Extract features from specified layers
+        # Always traverse the ResNet in order, even when the caller requests a
+        # non-contiguous subset of output layers.
+        x = model.layer1(x)
         if "layer1" in self.layers:
-            x = model.layer1(x)
             features["layer1"] = x
 
+        x = model.layer2(x)
         if "layer2" in self.layers:
-            x = model.layer2(x)
             features["layer2"] = x
 
+        x = model.layer3(x)
         if "layer3" in self.layers:
-            x = model.layer3(x)
             features["layer3"] = x
 
         return features
+
+    def _feature_anomaly_map(
+        self,
+        teacher_features: Dict[str, torch.Tensor],
+        student_features: Dict[str, torch.Tensor],
+        *,
+        output_size: tuple[int, int] = (64, 64),
+    ) -> torch.Tensor:
+        """Build the multiplicative multi-level anomaly map from STFPM."""
+
+        maps = []
+        for layer in self.layers:
+            teacher = F.normalize(teacher_features[layer], dim=1)
+            student = F.normalize(student_features[layer], dim=1)
+            distance = 0.5 * torch.sum((teacher - student) ** 2, dim=1, keepdim=True)
+            maps.append(
+                F.interpolate(
+                    distance,
+                    size=output_size,
+                    mode="bilinear",
+                    align_corners=False,
+                )
+            )
+        return torch.prod(torch.stack(maps, dim=0), dim=0)
+
+    def _feature_matching_loss(
+        self,
+        teacher_features: Dict[str, torch.Tensor],
+        student_features: Dict[str, torch.Tensor],
+    ) -> torch.Tensor:
+        """Compute STFPM Eq. (1)-(3) with equal pyramid weights."""
+
+        losses = []
+        for layer in self.layers:
+            teacher = F.normalize(teacher_features[layer], dim=1)
+            student = F.normalize(student_features[layer], dim=1)
+            losses.append(0.5 * torch.sum((student - teacher) ** 2, dim=1).mean())
+        return torch.stack(losses).sum()
+
+    def _split_training_inputs(
+        self,
+        inputs: List[ImageInput],
+    ) -> tuple[List[ImageInput], List[ImageInput]]:
+        """Create the paper's deterministic 80/20 train/validation split."""
+
+        if self.validation_ratio <= 0.0 or len(inputs) <= 1:
+            return list(inputs), []
+
+        rng = np.random.default_rng(self.random_state)
+        order = rng.permutation(len(inputs))
+        validation_count = min(
+            len(inputs) - 1,
+            max(1, int(round(len(inputs) * self.validation_ratio))),
+        )
+        validation_indices = set(int(index) for index in order[:validation_count])
+        train_inputs = [
+            item for index, item in enumerate(inputs) if index not in validation_indices
+        ]
+        validation_inputs = [
+            item for index, item in enumerate(inputs) if index in validation_indices
+        ]
+        return train_inputs, validation_inputs
 
     def fit(
         self,
@@ -284,14 +360,33 @@ class VisionSTFPM(BaseVisionDeepDetector):
         if not x_list:
             raise ValueError("Training set cannot be empty")
 
-        # Create dataset and dataloader
-        dataset = ImagePathDataset(x_list, transform=self.transform)
+        # The paper trains on 80% of each category and selects the checkpoint
+        # with the lowest error on the remaining 20%.
+        train_inputs, validation_inputs = self._split_training_inputs(x_list)
+
+        self.train_size_ = len(train_inputs)
+        self.validation_size_ = len(validation_inputs)
+        dataset = ImagePathDataset(train_inputs, transform=self.transform)
+        generator = torch.Generator()
+        generator.manual_seed(self.random_state)
         dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=str(self.device).startswith("cuda"),
+            generator=generator,
+        )
+        validation_loader = (
+            DataLoader(
+                ImagePathDataset(validation_inputs, transform=self.transform),
+                batch_size=self.batch_size,
+                shuffle=False,
+                num_workers=self.num_workers,
+                pin_memory=str(self.device).startswith("cuda"),
+            )
+            if validation_inputs
+            else None
         )
 
         # Setup optimizer
@@ -299,6 +394,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
         # Training loop
         self.student.train()
+        best_validation_error = float("inf")
+        best_student_state = None
 
         for epoch in range(self.epochs):
             epoch_loss = 0.0
@@ -313,19 +410,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
                 student_features = self._extract_features(self.student, images)
 
-                # Compute MSE loss for each layer
-                loss = 0.0
-                for layer in self.layers:
-                    t_feat = teacher_features[layer]
-                    s_feat = student_features[layer]
-
-                    # Normalize features
-                    t_feat = F.normalize(t_feat, dim=1)
-                    s_feat = F.normalize(s_feat, dim=1)
-
-                    # MSE loss
-                    layer_loss = F.mse_loss(s_feat, t_feat)
-                    loss += layer_loss
+                loss = self._feature_matching_loss(teacher_features, student_features)
 
                 # Backward pass
                 optimizer.zero_grad()
@@ -337,45 +422,48 @@ class VisionSTFPM(BaseVisionDeepDetector):
 
             avg_loss = epoch_loss / num_batches
 
+            if validation_loader is not None:
+                self.student.eval()
+                validation_error = 0.0
+                validation_batches = 0
+                with torch.no_grad():
+                    for images, _ in validation_loader:
+                        images = images.to(self.device)
+                        teacher_features = self._extract_features(self.teacher, images)
+                        student_features = self._extract_features(self.student, images)
+                        validation_error += float(
+                            self._feature_matching_loss(
+                                teacher_features,
+                                student_features,
+                            ).item()
+                        )
+                        validation_batches += 1
+                validation_error /= validation_batches
+                if validation_error < best_validation_error:
+                    best_validation_error = validation_error
+                    best_student_state = {
+                        name: value.detach().cpu().clone()
+                        for name, value in self.student.state_dict().items()
+                    }
+                self.student.train()
+
             if (epoch + 1) % 10 == 0 or epoch == 0:
                 logger.info("Epoch %d/%d, Loss: %.6f", epoch + 1, self.epochs, avg_loss)
 
+        if best_student_state is not None:
+            self.student.load_state_dict(best_student_state)
+            self.best_validation_error_ = best_validation_error
+        else:
+            self.best_validation_error_ = None
+        self.student.eval()
+
         logger.info("STFPM training completed")
 
-        # Compute normalization statistics on training set
-        self._compute_normalization_stats(x_list)
-
-        # Compute training scores to establish a threshold.
-        # This enables `predict()` to return binary labels consistently.
+        self._is_fitted = True
         self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
 
         return self
-
-    def _compute_normalization_stats(self, x: List[ImageInput]) -> None:
-        """Compute mean and std of anomaly scores on training set."""
-        logger.debug("Computing normalization statistics")
-
-        self.student.eval()
-        scores = []
-
-        with torch.no_grad():
-            for idx, img in enumerate(x[: min(100, len(x))]):  # Use subset for efficiency
-                try:
-                    score = self._compute_anomaly_score(img)
-                    scores.append(score)
-                except Exception as e:
-                    logger.warning("Failed to score item %d: %s", idx, e)
-
-        if scores:
-            self.mean_scores = float(np.mean(scores))
-            self.std_scores = float(np.std(scores)) + 1e-8
-            logger.debug(
-                "Normalization stats: mean=%.4f, std=%.4f", self.mean_scores, self.std_scores
-            )
-        else:
-            self.mean_scores = 0.0
-            self.std_scores = 1.0
 
     def _compute_anomaly_score(self, image_path: ImageInput) -> float:
         """
@@ -411,26 +499,8 @@ class VisionSTFPM(BaseVisionDeepDetector):
             teacher_features = self._extract_features(self.teacher, img_tensor)
             student_features = self._extract_features(self.student, img_tensor)
 
-        # Compute feature differences
-        total_score = 0.0
-
-        for layer in self.layers:
-            t_feat = teacher_features[layer]
-            s_feat = student_features[layer]
-
-            # Normalize
-            t_feat = F.normalize(t_feat, dim=1)
-            s_feat = F.normalize(s_feat, dim=1)
-
-            # MSE at each spatial location
-            diff = (t_feat - s_feat) ** 2
-            diff = diff.sum(dim=1)  # Sum over channels
-
-            # Max pooling to get image-level score
-            layer_score = diff.max().item()
-            total_score += layer_score
-
-        return total_score
+        anomaly_map = self._feature_anomaly_map(teacher_features, student_features)
+        return float(anomaly_map.amax().item())
 
     def predict(
         self,
@@ -456,7 +526,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
                 f"return_confidence is not implemented for {self.__class__.__name__}"
             )
 
-        if self.mean_scores is None or not hasattr(self, "threshold_"):
+        if not self._is_fitted or not hasattr(self, "threshold_"):
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="predict")
@@ -489,28 +559,22 @@ class VisionSTFPM(BaseVisionDeepDetector):
             if batch_size_int <= 0:
                 raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
 
-        if self.mean_scores is None:
+        if not self._is_fitted:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         self.student.eval()
 
         x_iter = _resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
         x_list = list(x_iter)
-        scores = np.zeros(len(x_list), dtype=np.float64)
+        if not x_list:
+            return np.zeros((0,), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(x_list))
 
-        for idx, image in enumerate(x_list):
-            try:
-                score = self._compute_anomaly_score(image)
-
-                # Normalize score
-                score = (score - self.mean_scores) / self.std_scores
-                scores[idx] = score
-
-            except Exception as e:
-                logger.warning("Failed to score item %d: %s", idx, e)
-                scores[idx] = 0.0
+        scores = np.asarray(
+            [self._compute_anomaly_score(image) for image in x_list],
+            dtype=np.float64,
+        )
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
@@ -529,7 +593,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
         anomaly_map : ndarray of shape (H, W)
             Anomaly heatmap (higher values = more anomalous)
         """
-        if self.mean_scores is None:
+        if not self._is_fitted:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
 
         # Load and preprocess image
@@ -555,28 +619,7 @@ class VisionSTFPM(BaseVisionDeepDetector):
             teacher_features = self._extract_features(self.teacher, img_tensor)
             student_features = self._extract_features(self.student, img_tensor)
 
-        # Compute spatial anomaly maps
-        anomaly_maps = []
-
-        for layer in self.layers:
-            t_feat = teacher_features[layer]
-            s_feat = student_features[layer]
-
-            # Normalize
-            t_feat = F.normalize(t_feat, dim=1)
-            s_feat = F.normalize(s_feat, dim=1)
-
-            # Compute differences
-            diff = (t_feat - s_feat) ** 2
-            diff = diff.sum(dim=1, keepdim=True)  # (1, 1, H, W)
-
-            # Upsample to common size
-            diff = F.interpolate(diff, size=(64, 64), mode="bilinear", align_corners=False)
-
-            anomaly_maps.append(diff)
-
-        # Aggregate multi-scale maps
-        anomaly_map = torch.mean(torch.stack(anomaly_maps), dim=0)
+        anomaly_map = self._feature_anomaly_map(teacher_features, student_features)
         anomaly_map = anomaly_map.squeeze().cpu().numpy()
 
         # Resize to original image size

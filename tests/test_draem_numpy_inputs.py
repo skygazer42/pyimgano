@@ -27,3 +27,36 @@ def test_draem_accepts_numpy_images_for_scoring_and_maps():
     assert anomaly_map.ndim == 2
     assert anomaly_map.shape == (20, 30)
     assert np.isfinite(anomaly_map).all()
+
+
+def test_draem_uses_perlin_mask_and_discriminative_branch():
+    import torch
+
+    from pyimgano.models.draem import (
+        DRAEMNetwork,
+        ImagePathDataset,
+        _focal_loss,
+        _ssim_loss,
+    )
+
+    dataset = ImagePathDataset([], anomaly_source_images=[np.zeros((8, 8, 3), dtype=np.uint8)])
+    dataset.rng = np.random.default_rng(2)
+    original = torch.full((3, 16, 16), 0.2)
+    texture = torch.full((3, 16, 16), 0.9)
+    augmented, mask = dataset._add_synthetic_anomaly(original, texture)
+
+    assert mask.shape == (1, 16, 16)
+    assert torch.any(mask > 0)
+    assert not torch.equal(augmented, original)
+
+    network = DRAEMNetwork(base_channels=4)
+    reconstruction, logits = network(augmented.unsqueeze(0).repeat(2, 1, 1, 1))
+    masks = mask.unsqueeze(0).repeat(2, 1, 1, 1)
+    loss = (
+        torch.nn.functional.mse_loss(reconstruction, original.unsqueeze(0).repeat(2, 1, 1, 1))
+        + _ssim_loss(reconstruction, original.unsqueeze(0).repeat(2, 1, 1, 1))
+        + _focal_loss(logits, masks)
+    )
+    loss.backward()
+
+    assert any(parameter.grad is not None for parameter in network.segmentor.parameters())

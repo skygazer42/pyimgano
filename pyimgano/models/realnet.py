@@ -1,12 +1,11 @@
-"""
-RealNet - Feature Selection Network with Realistic Synthetic Anomaly
+"""Experimental synthetic-anomaly proxy related to RealNet.
 
 Reference:
     "RealNet: A Feature Selection Network with Realistic Synthetic Anomaly for Anomaly Detection"
     CVPR 2024
 
-Uses realistic synthetic anomalies and feature selection mechanisms to improve
-anomaly detection performance and generalization.
+The local model omits RealNet's SDAS, AFS, and RRS components. It is not a
+paper reproduction and does not claim the paper's benchmark results.
 """
 
 import logging
@@ -21,6 +20,7 @@ from scipy.ndimage import gaussian_filter
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -213,21 +213,21 @@ class AnomalyGenerator:
 
 @register_model(
     "vision_realnet",
-    tags=("vision", "deep", "realnet", "feature-selection", "cvpr2024", "sota"),
+    tags=("vision", "deep", "realnet", "feature-selection", "cvpr2024", "experimental"),
     metadata={
-        "description": "RealNet - Feature Selection with Realistic Synthetic Anomaly (CVPR 2024)",
-        "paper": "RealNet: A Feature Selection Network with Realistic Synthetic Anomaly",
+        "description": "Experimental synthetic-anomaly classifier; omits RealNet SDAS/AFS/RRS",
+        "related_paper": "RealNet: A Feature Selection Network with Realistic Synthetic Anomaly for Anomaly Detection",
         "year": 2024,
+        "implementation_status": "experimental-synthetic-anomaly-proxy",
+        "paper_fidelity": "inspired",
         "conference": "CVPR",
         "type": "feature-selection",
     },
 )
 class VisionRealNet(BaseVisionDeepDetector):
-    """
-    RealNet: Feature Selection Network with Realistic Synthetic Anomaly.
+    """Experimental proxy, not a reproduction of the CVPR 2024 RealNet method.
 
-    Uses realistic synthetic anomalies and learnable feature selection to
-    improve anomaly detection performance.
+    It omits the paper's SDAS, AFS, and RRS components.
 
     Parameters
     ----------
@@ -295,9 +295,6 @@ class VisionRealNet(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.feature_extractor_ = None
         self.feature_selectors_ = None
         self.anomaly_generator_ = AnomalyGenerator(random_state=random_state)
@@ -307,6 +304,7 @@ class VisionRealNet(BaseVisionDeepDetector):
         """Preprocess images."""
         return preprocess_imagenet_batch(x)
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

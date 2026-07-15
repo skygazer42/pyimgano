@@ -87,6 +87,7 @@ def test_decision_function_accepts_positive_batch_size_on_empty_input():
     padim.means = np.zeros((1, 1), dtype=np.float32)
     padim.inv_covs = np.zeros((1, 1, 1), dtype=np.float32)
     padim.patch_shape = (1, 1)
+    padim.feature_indices_ = np.zeros(1, dtype=np.int64)
     scores = VisionPaDiM.decision_function(padim, X=[], batch_size=1)
     assert isinstance(scores, np.ndarray)
     assert scores.shape == (0,)

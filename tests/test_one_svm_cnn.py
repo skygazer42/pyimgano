@@ -4,6 +4,7 @@ import warnings
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 
 def test_one_class_cnn_exposes_seeded_pca_random_state() -> None:
@@ -12,6 +13,15 @@ def test_one_class_cnn_exposes_seeded_pca_random_state() -> None:
     detector = ImageAnomalyDetector(feature_type="histogram", random_state=7)
 
     assert detector.pca.random_state == 7
+
+
+def test_one_class_cnn_rejects_missing_training_image(tmp_path: Path) -> None:
+    from pyimgano.models.one_svm_cnn import ImageAnomalyDetector
+
+    detector = ImageAnomalyDetector(feature_type="histogram")
+
+    with pytest.raises(ValueError, match="无法读取图像"):
+        detector.fit([str(tmp_path / "missing.png")])
 
 
 def test_one_class_cnn_registry_contract_on_image_paths(tmp_path: Path) -> None:

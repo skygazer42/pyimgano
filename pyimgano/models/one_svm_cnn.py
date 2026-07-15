@@ -20,7 +20,11 @@ ONE_CLASS_CNN_FEATURE_EXTRACTION = "one_class_cnn CNN feature extraction"
 @register_model(
     "one_class_cnn",
     tags=("vision", "classical", "svm"),
-    metadata={"description": "基于多特征的一类 SVM 图像检测器"},
+    metadata={
+        "description": "Handcrafted/CNN feature extraction plus one-class SVM baseline",
+        "implementation_status": "generic-feature-svm-baseline",
+        "paper_fidelity": "not-applicable",
+    },
 )
 class ImageAnomalyDetector:
     def __init__(
@@ -160,6 +164,8 @@ class ImageAnomalyDetector:
 
         # 读取和预处理图像
         img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError(f"无法读取图像: {image_path}")
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_tensor = transform(img).unsqueeze(0)
 
@@ -179,15 +185,14 @@ class ImageAnomalyDetector:
         # 提取所有图片的特征
         features_list = []
         for img_path in tqdm(image_paths, desc="提取特征"):
-            try:
-                if self.feature_type == "cnn":
-                    feat = self.extract_cnn_features(img_path)
-                else:
-                    feat = self.extract_features(img_path)
-                features_list.append(feat)
-            except Exception as e:
-                print(f"处理 {img_path} 时出错: {e}")
-                continue
+            if self.feature_type == "cnn":
+                feat = self.extract_cnn_features(img_path)
+            else:
+                feat = self.extract_features(img_path)
+            features_list.append(feat)
+
+        if not features_list:
+            raise ValueError("训练集不能为空")
 
         x = np.array(features_list)
         print(f"提取了 {x.shape[0]} 个样本的特征，每个样本 {x.shape[1]} 维")
@@ -282,12 +287,9 @@ class ImageAnomalyDetector:
         for filename in os.listdir(test_folder):
             if filename.endswith(".jpg") or filename.endswith(".png"):
                 img_path = os.path.join(test_folder, filename)
-                try:
-                    result = self._predict_single(img_path)
-                    result["filename"] = filename
-                    results.append(result)
-                except Exception as e:
-                    print(f"预测 {filename} 时出错: {e}")
+                result = self._predict_single(img_path)
+                result["filename"] = filename
+                results.append(result)
 
         return results
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Iterable
 
@@ -15,6 +16,7 @@ from sklearn.utils import check_array
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..utils.param_check import check_parameter
+from ..utils.random_state import isolated_random_state_method
 from .base_detector import BaseDetector
 from .baseml import BaseVisionDetector
 from .registry import register_model
@@ -140,7 +142,11 @@ class InnerDeepSVDD(nn.Module):
     metadata={
         "description": "核心 DeepSVDD 异常检测器",
         "paper": "Deep One-Class Classification",
+        "paper_url": "https://proceedings.mlr.press/v80/ruff18a.html",
         "year": 2018,
+        "supervision": "one-class",
+        "implementation_status": "native-core-objective",
+        "paper_fidelity": "core-aligned",
     },
 )
 class CoreDeepSVDD(BaseDetector):
@@ -161,7 +167,6 @@ class CoreDeepSVDD(BaseDetector):
         batch_size: int = 32,
         dropout_rate: float = 0.2,
         l2_weight: float = 0.1,
-        validation_size: float = 0.1,
         preprocessing: bool = True,
         verbose: int = 1,
         random_state: int | None = None,
@@ -180,16 +185,12 @@ class CoreDeepSVDD(BaseDetector):
         self.batch_size = batch_size
         self.dropout_rate = dropout_rate
         self.l2_weight = l2_weight
-        self.validation_size = validation_size
         self.preprocessing = preprocessing
         self.verbose = verbose
         self.random_state = random_state
         self.scaler = None
         self.model = None
         self.best_model_state = None
-
-        if self.random_state is not None:
-            torch.manual_seed(self.random_state)
 
         check_parameter(
             dropout_rate,
@@ -207,6 +208,7 @@ class CoreDeepSVDD(BaseDetector):
         )
 
     # ------------------------------------------------------------------
+    @isolated_random_state_method
     def fit(self, x, y=None):
         x = check_array(x)
         self._set_n_classes(y)
@@ -236,6 +238,28 @@ class CoreDeepSVDD(BaseDetector):
         )
 
         tensor_data = torch.tensor(x_norm, dtype=torch.float32)
+        dataset = TensorDataset(tensor_data, tensor_data)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
+
+        optimizer_cls = OPTIMIZER_DICT.get(self.optimizer_name.lower())
+        if optimizer_cls is None:
+            raise ValueError(f"未知优化器: {self.optimizer_name}")
+
+        # Deep SVDD's optional autoencoder is a pretraining stage. It is not
+        # optimized jointly with the hypersphere objective.
+        if self.use_autoencoder:
+            pretrain_optimizer = optimizer_cls(
+                self.model.parameters(), lr=self.lr, weight_decay=self.l2_weight
+            )
+            for _epoch in range(self.epochs):
+                self.model.train()
+                for batch_x, _ in dataloader:
+                    pretrain_optimizer.zero_grad()
+                    reconstruction = self.model.reconstruct(self.model.encode(batch_x))
+                    reconstruction_loss = torch.mean(torch.square(reconstruction - batch_x))
+                    reconstruction_loss.backward()
+                    pretrain_optimizer.step()
+
         if self.center is None:
             self.model.init_center(tensor_data)
             self.center = self.model.center
@@ -246,13 +270,9 @@ class CoreDeepSVDD(BaseDetector):
                 raise ValueError(f"Expected center shape ({rep_dim},), got {center_arr.shape}")
             self.center = torch.tensor(center_arr, dtype=torch.float32)
 
-        dataset = TensorDataset(tensor_data, tensor_data)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
-
-        optimizer_cls = OPTIMIZER_DICT.get(self.optimizer_name.lower())
-        if optimizer_cls is None:
-            raise ValueError(f"未知优化器: {self.optimizer_name}")
-        optimizer = optimizer_cls(self.model.parameters(), lr=self.lr, weight_decay=self.l2_weight)
+        optimizer = optimizer_cls(
+            self.model.encoder.parameters(), lr=self.lr, weight_decay=self.l2_weight
+        )
 
         best_loss = float("inf")
 
@@ -264,11 +284,7 @@ class CoreDeepSVDD(BaseDetector):
                 optimizer.zero_grad()
                 rep = self.model.encode(batch_x)
                 dist = torch.sum((rep - self.center) ** 2, dim=-1)
-                if self.use_autoencoder:
-                    recon = self.model.reconstruct(rep)
-                    loss = dist.mean() + torch.mean(torch.square(recon - batch_x))
-                else:
-                    loss = dist.mean()
+                loss = dist.mean()
 
                 loss.backward()
                 optimizer.step()
@@ -277,7 +293,7 @@ class CoreDeepSVDD(BaseDetector):
             epoch_loss /= x_norm.shape[0]
             if epoch_loss < best_loss:
                 best_loss = epoch_loss
-                self.best_model_state = self.model.state_dict()
+                self.best_model_state = copy.deepcopy(self.model.state_dict())
 
             if self.verbose:
                 logger.info("Epoch %d/%d - Loss: %.6f", epoch + 1, self.epochs, epoch_loss)
@@ -291,6 +307,10 @@ class CoreDeepSVDD(BaseDetector):
 
     def decision_function(self, x):
         x = check_array(x)
+        if self.model is None or self.center is None:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        if int(x.shape[1]) != int(self.n_features):
+            raise ValueError(f"Expected n_features={self.n_features}, got {x.shape[1]}")
 
         if self.preprocessing and self.scaler is not None:
             x_norm = self.scaler.transform(x)
@@ -313,7 +333,11 @@ class CoreDeepSVDD(BaseDetector):
     metadata={
         "description": "基于 DeepSVDD 的视觉异常检测器",
         "paper": "Deep One-Class Classification",
+        "paper_url": "https://proceedings.mlr.press/v80/ruff18a.html",
         "year": 2018,
+        "supervision": "one-class",
+        "implementation_status": "feature-extractor-image-adaptation",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 class VisionDeepSVDD(BaseVisionDetector):
@@ -335,7 +359,6 @@ class VisionDeepSVDD(BaseVisionDetector):
         batch_size: int = 32,
         dropout_rate: float = 0.2,
         l2_weight: float = 0.1,
-        validation_size: float = 0.1,
         preprocessing: bool = True,
         verbose: int = 1,
         random_state: int | None = None,
@@ -367,7 +390,6 @@ class VisionDeepSVDD(BaseVisionDetector):
             batch_size=batch_size,
             dropout_rate=dropout_rate,
             l2_weight=l2_weight,
-            validation_size=validation_size,
             preprocessing=preprocessing,
             verbose=verbose,
             random_state=random_state,

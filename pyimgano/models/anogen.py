@@ -61,9 +61,12 @@ def _call_generator(generator: Any, image: NDArray) -> tuple[NDArray, NDArray, d
     "vision_anogen_adapter",
     tags=("vision", "deep", "reconstruction", "few-shot", "numpy", "anogen", "pixel_map"),
     metadata={
-        "description": "AnoGen family adapter with deterministic generator hooks and residual scoring.",
-        "paper": "Few-Shot Anomaly-Driven Generation for Anomaly Classification and Segmentation",
-        "year": 2025,
+        "description": "Injectable generator/residual adapter inspired by AnoGen; not a reproduction",
+        "related_paper": "Few-Shot Anomaly-Driven Generation for Anomaly Classification and Segmentation",
+        "related_paper_url": "https://www.ecva.net/papers/eccv_2024/papers_ECCV/html/11002_ECCV_2024_paper.php",
+        "year": 2024,
+        "implementation_status": "experimental-family-adapter",
+        "paper_fidelity": "inspired",
         "supervision": "few-shot",
     },
 )

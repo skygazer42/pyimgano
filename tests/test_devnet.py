@@ -37,6 +37,20 @@ def test_deviation_loss_returns_tensor_for_anomaly_only_batch() -> None:
     assert scores.grad is not None
 
 
+def test_deviation_loss_matches_gaussian_reference_z_score_objective() -> None:
+    import torch
+
+    from pyimgano.models.devnet import DeviationLoss
+
+    scores = torch.tensor([-1.0, 6.0], dtype=torch.float32)
+    labels = torch.tensor([0, 1], dtype=torch.long)
+
+    loss = DeviationLoss(margin=5.0)(scores, labels)
+
+    # |-1| for the normal sample and max(0, 5-6) for the anomaly sample.
+    assert float(loss) == pytest.approx(0.5)
+
+
 def test_vision_devnet_contract_fit_and_score() -> None:
     import numpy as np
 

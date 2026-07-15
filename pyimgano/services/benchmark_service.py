@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Callable
+
+import numpy as np
 
 import pyimgano.services.dataset_split_service as dataset_split_service
 from pyimgano.models.registry import create_model
@@ -209,6 +211,11 @@ def _evaluate_pixel_split(
         pixel_normal_quantile=float(request.pixel_normal_quantile),
         calibration_fraction=float(request.pixel_calibration_fraction),
         calibration_seed=int(request.pixel_calibration_seed),
+        score_calibration_quantile=(
+            float(request.calibration_quantile)
+            if request.calibration_quantile is not None
+            else None
+        ),
     )
 
 
@@ -243,6 +250,27 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
     split = loaded_split.split
     pixel_skip_reason = loaded_split.pixel_skip_reason
 
+    from pyimgano.pipelines.mvtec_visa import BenchmarkSplit
+
+    train_paths = list(split.train_paths)
+    test_paths = list(split.test_paths)
+    test_labels = np.asarray(split.test_labels)
+    test_masks = None if split.test_masks is None else np.asarray(split.test_masks)
+    if request.limit_train is not None:
+        train_paths = train_paths[: int(request.limit_train)]
+    if request.limit_test is not None:
+        limit = int(request.limit_test)
+        test_paths = test_paths[:limit]
+        test_labels = test_labels[:limit]
+        if test_masks is not None:
+            test_masks = test_masks[:limit]
+    split = BenchmarkSplit(
+        train_paths=train_paths,
+        test_paths=test_paths,
+        test_labels=test_labels,
+        test_masks=test_masks,
+    )
+
     results = _evaluate_pixel_split(detector, split, request)
     payload: dict[str, Any] = {
         "dataset": str(request.dataset),
@@ -252,6 +280,23 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
         "input_mode": str(request.input_mode),
         "device": str(request.device),
         "resize": [int(request.resize[0]), int(request.resize[1])],
+        "dataset_summary": {
+            "train_count": len(train_paths),
+            "test_count": len(test_paths),
+            "test_anomaly_count": int(np.sum(test_labels == 1)),
+        },
+        "threshold_provenance": {
+            "strategy": (
+                "train_quantile"
+                if request.calibration_quantile is not None
+                else "test_optimal_f1"
+            ),
+            "calibration_quantile": (
+                float(request.calibration_quantile)
+                if request.calibration_quantile is not None
+                else None
+            ),
+        },
         "results": results,
     }
     if pixel_skip_reason is not None:
@@ -259,6 +304,93 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
             "enabled": False,
             "reason": str(pixel_skip_reason),
         }
+
+    from pyimgano.reporting.report import (
+        save_jsonl_records,
+        save_run_report,
+        stamp_report_payload,
+    )
+
+    payload = stamp_report_payload(payload)
+    if request.save_run:
+        from pyimgano.reporting.environment import collect_environment
+        from pyimgano.reporting.runs import build_run_dir_name, build_run_paths, ensure_run_dir
+
+        run_dir = ensure_run_dir(
+            output_dir=request.output_dir,
+            name=build_run_dir_name(
+                dataset=str(request.dataset),
+                model=str(model_name),
+                category=str(request.category),
+            ),
+        )
+        paths = build_run_paths(run_dir)
+        category_dir = paths.categories_dir / str(request.category)
+        category_dir.mkdir(parents=True, exist_ok=True)
+        payload["run_dir"] = str(run_dir)
+
+        config = {
+            "dataset": str(request.dataset),
+            "root": str(request.root),
+            "manifest_path": request.manifest_path,
+            "category": str(request.category),
+            "model": str(model_name),
+            "requested_model": str(request.model),
+            "input_mode": str(request.input_mode),
+            "seed": request.seed,
+            "device": str(request.device),
+            "preset": request.preset,
+            "pretrained": bool(request.pretrained),
+            "contamination": float(request.contamination),
+            "resize": [int(request.resize[0]), int(request.resize[1])],
+            "model_kwargs": model_kwargs,
+            "calibration_quantile": request.calibration_quantile,
+            "limit_train": request.limit_train,
+            "limit_test": request.limit_test,
+            "pixel": True,
+            "pixel_segf1": bool(request.pixel_segf1),
+            "pixel_threshold_strategy": request.pixel_threshold_strategy,
+            "pixel_normal_quantile": float(request.pixel_normal_quantile),
+            "pixel_calibration_fraction": float(request.pixel_calibration_fraction),
+            "pixel_calibration_seed": int(request.pixel_calibration_seed),
+            "pixel_postprocess": (
+                asdict(request.pixel_postprocess)
+                if request.pixel_postprocess is not None
+                else None
+            ),
+            "pixel_aupro_limit": float(request.pixel_aupro_limit),
+            "pixel_aupro_thresholds": int(request.pixel_aupro_thresholds),
+        }
+        save_run_report(paths.run_dir / "environment.json", collect_environment())
+        save_run_report(paths.config_json, {"config": config})
+        save_run_report(paths.report_json, payload)
+        save_run_report(category_dir / "report.json", payload)
+
+        if request.per_image_jsonl:
+            sample_scores = np.asarray(
+                detector.decision_function(test_paths), dtype=np.float64
+            ).reshape(-1)
+            if sample_scores.size != len(test_paths):
+                raise ValueError(
+                    "Detector score count does not match test paths: "
+                    f"{sample_scores.size} != {len(test_paths)}."
+                )
+            threshold = float(results["threshold"])
+            records = [
+                {
+                    "index": index,
+                    "dataset": str(request.dataset),
+                    "category": str(request.category),
+                    "input": str(path),
+                    "y_true": int(test_labels[index]),
+                    "score": float(sample_scores[index]),
+                    "threshold": threshold,
+                    "pred": int(sample_scores[index] >= threshold),
+                }
+                for index, path in enumerate(test_paths)
+            ]
+            save_jsonl_records(category_dir / "per_image.jsonl", records)
+
     return payload
 
 

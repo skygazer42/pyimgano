@@ -19,9 +19,9 @@ def test_pyproject_defines_clip_extra():
     assert "pyimgano[backends" in pyproject
 
 
-def test_readme_mentions_clip_extra_install():
-    readme = _read_repo_file("README.md")
-    assert 'pip install "pyimgano[clip]"' in readme
+def test_optional_dependency_guide_mentions_clip_extra_install():
+    guide = _read_repo_file("docs/OPTIONAL_DEPENDENCIES.md")
+    assert 'pip install "pyimgano[clip]"' in guide
 
 
 def test_require_openclip_has_clip_install_hint_when_missing(monkeypatch):

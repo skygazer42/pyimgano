@@ -1,21 +1,11 @@
+"""Unregistered generic transformer reconstruction baseline.
+
+No matching canonical paper was verified for the former InTra/ICCV claim.
+The class names remain importable for compatibility only.
 """
-InTra (Industrial Transformer) for Anomaly Detection
 
-Paper: "InTra: Industrial Anomaly Detection with Transformers"
-Conference: ICCV 2023
-
-Key Innovation:
-- Vision Transformer for industrial anomaly detection
-- Self-attention for long-range dependencies
-- Position-aware anomaly scoring
-- Efficient for industrial defect patterns
-
-Implementation includes:
-- Patch-based transformer encoding
-- Multi-head self-attention
-- Position embedding
-- Reconstruction-based anomaly scoring
-"""
+PAPER_FIDELITY = "not-applicable"
+IMPLEMENTATION_STATUS = "unregistered-experimental-baseline"
 
 import logging
 import math

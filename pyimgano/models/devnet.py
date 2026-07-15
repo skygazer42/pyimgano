@@ -61,34 +61,26 @@ class DeviationLoss(nn.Module):
         Returns:
             Loss value.
         """
-        # Separate normal and anomaly samples
-        normal_mask = labels == 0
-        anomaly_mask = labels == 1
+        if scores.shape != labels.shape:
+            raise ValueError(f"scores and labels must share shape; got {scores.shape} and {labels.shape}")
+        if not torch.all((labels == 0) | (labels == 1)):
+            raise ValueError("labels must contain only 0 (normal) and 1 (anomaly)")
 
-        loss = scores.sum() * 0.0
+        if ref_scores is None:
+            reference_mean = scores.new_tensor(0.0)
+            reference_std = scores.new_tensor(1.0)
+        else:
+            reference = ref_scores.to(device=scores.device, dtype=scores.dtype).reshape(-1)
+            if reference.numel() < 2:
+                raise ValueError("ref_scores must contain at least two values")
+            reference_mean = reference.mean()
+            reference_std = reference.std(unbiased=False).clamp_min(1e-6)
 
-        # For normal samples: minimize score
-        if normal_mask.sum() > 0:
-            normal_scores = scores[normal_mask]
-            normal_loss = normal_scores.mean()
-            loss += normal_loss
-
-        # For anomaly samples: maximize deviation from normal
-        if anomaly_mask.sum() > 0 and normal_mask.sum() > 0:
-            anomaly_scores = scores[anomaly_mask]
-
-            # Reference: mean normal score
-            if ref_scores is not None:
-                ref = ref_scores.mean()
-            else:
-                ref = scores[normal_mask].mean()
-
-            # Deviation loss: encourage anomaly scores to be higher than normal + margin
-            deviation = F.relu(self.margin - (anomaly_scores - ref))
-            anomaly_loss = deviation.mean()
-            loss += anomaly_loss
-
-        return loss
+        deviation = (scores - reference_mean) / reference_std
+        normal_loss = deviation.abs()
+        anomaly_loss = F.relu(self.margin - deviation)
+        labels_float = labels.to(dtype=scores.dtype)
+        return ((1.0 - labels_float) * normal_loss + labels_float * anomaly_loss).mean()
 
 
 class DevNetModel(nn.Module):
@@ -185,17 +177,25 @@ class FeatureExtractor(nn.Module):
     "vision_devnet",
     tags=("vision", "deep", "devnet", "weakly-supervised", "kdd2019"),
     metadata={
-        "description": "DevNet - weakly-supervised deviation loss anomaly detection (KDD 2019)",
+        "description": "Image adaptation of DevNet's Gaussian-reference deviation loss",
         "paper": "Deep Anomaly Detection with Deviation Networks",
+        "paper_url": "https://arxiv.org/abs/1911.08623",
         "year": 2019,
+        "supervision": "weakly-supervised",
+        "implementation_status": "core-loss-image-adaptation",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 @register_model(
     "devnet",
     tags=("vision", "deep", "devnet", "weakly-supervised", "kdd2019"),
     metadata={
-        "description": "DevNet (legacy alias) - weakly-supervised deviation loss anomaly detection",
+        "description": "Legacy alias for the DevNet image adaptation",
+        "paper": "Deep Anomaly Detection with Deviation Networks",
         "year": 2019,
+        "supervision": "weakly-supervised",
+        "implementation_status": "core-loss-image-adaptation",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 class DevNetDetector(BaseVisionDeepDetector):

@@ -1,12 +1,11 @@
-"""
-One-for-More - Continual Diffusion Model for Anomaly Detection
+"""Experimental continual-diffusion proxy related to One-for-More.
 
 Reference:
     "One-for-More: Continual Diffusion Model for Anomaly Detection"
     CVPR 2025
 
-Achieves first place in 17/18 settings on MVTec and VisA datasets through
-continual learning with gradient projection for stable anomaly detection.
+The local model keeps only a compact diffusion and gradient-projection motif.
+It omits defining paper components and does not reproduce reported results.
 """
 
 import logging
@@ -20,6 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
@@ -178,22 +178,21 @@ class GradientProjection:
 
 @register_model(
     "vision_oneformore",
-    tags=("vision", "deep", "oneformore", "continual", "diffusion", "cvpr2025", "sota"),
+    tags=("vision", "deep", "oneformore", "continual", "diffusion", "cvpr2025", "experimental"),
     metadata={
-        "description": "One-for-More - Continual Diffusion Model (CVPR 2025, #1 on MVTec/VisA)",
-        "paper": "One-for-More: Continual Diffusion Model for Anomaly Detection",
+        "description": "Experimental continual-diffusion proxy; omits iSVD and anomaly-masked learning",
+        "related_paper": "One-for-More: Continual Diffusion Model for Anomaly Detection",
         "year": 2025,
+        "implementation_status": "experimental-continual-diffusion-proxy",
+        "paper_fidelity": "inspired",
         "conference": "CVPR",
-        "rank": "1st place on 17/18 MVTec & VisA settings",
         "type": "continual-diffusion",
     },
 )
 class VisionOneForMore(BaseVisionDeepDetector):
-    """
-    One-for-More: Continual Diffusion Model for Anomaly Detection.
+    """Experimental proxy, not a reproduction of One-for-More.
 
-    Achieves first place in 17/18 settings on MVTec and VisA datasets
-    through continual learning with gradient projection.
+    It retains only a compact diffusion and gradient-projection motif.
 
     Parameters
     ----------
@@ -233,7 +232,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
     >>> X_train = rng.random((100, 224, 224, 3)).astype(np.float32)
     >>> X_test = rng.random((20, 224, 224, 3)).astype(np.float32)
     >>>
-    >>> # Create and train detector (CVPR 2025 #1 method!)
+    >>> # Create and train the experimental proxy
     >>> detector = VisionOneForMore(epochs=30)
     >>> detector.fit(X_train)
     >>>
@@ -264,9 +263,6 @@ class VisionOneForMore(BaseVisionDeepDetector):
         self.use_gradient_projection = use_gradient_projection
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
-
-        if random_state is not None:
-            torch.manual_seed(random_state)
 
         self.feature_extractor_ = None
         self.diffusion_model_ = None
@@ -311,6 +307,7 @@ class VisionOneForMore(BaseVisionDeepDetector):
         noisy_x = alpha_t.sqrt() * x + (1 - alpha_t).sqrt() * noise
         return noisy_x, noise
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

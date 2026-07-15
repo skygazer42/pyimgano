@@ -46,6 +46,8 @@ def _l2_normalize(x: NDArray, *, axis: int, eps: float = 1e-12) -> NDArray:
     metadata={
         "description": "OpenCLIP patch template distance anomaly map (requires pyimgano[clip])",
         "backend": "openclip",
+        "implementation_status": "generic-openclip-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionOpenCLIPPatchMap:

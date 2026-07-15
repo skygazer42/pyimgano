@@ -16,6 +16,14 @@ def test_patchcore_accepts_numpy_images(monkeypatch):
         device="cpu",
     )
 
+    assert [type(item).__name__ for item in det.transform.transforms] == [
+        "ToPILImage",
+        "Resize",
+        "CenterCrop",
+        "ToTensor",
+        "Normalize",
+    ]
+
     def fake_extract(image):
         assert isinstance(image, np.ndarray)
         features = np.zeros((4, 2), dtype=np.float32)
@@ -89,3 +97,36 @@ def test_patchcore_memory_bank_dtype_float16(monkeypatch):
 
     assert det.memory_bank is not None
     assert det.memory_bank.dtype == np.float16
+
+
+def test_patchcore_scores_with_nearest_patch_then_paper_reweighting(monkeypatch):
+    det = create_model(
+        "vision_patchcore",
+        coreset_sampling_ratio=1.0,
+        n_neighbors=2,
+        pretrained=False,
+        device="cpu",
+    )
+
+    train_features = np.asarray([[0.0], [2.0]], dtype=np.float32)
+    query_features = np.asarray([[1.0], [4.0]], dtype=np.float32)
+    monkeypatch.setattr(
+        det,
+        "_extract_patch_features",
+        lambda _image: (train_features, (1, 2)),
+    )
+
+    image = np.zeros((8, 8, 3), dtype=np.uint8)
+    det.fit([image])
+    monkeypatch.setattr(
+        det,
+        "_extract_patch_features",
+        lambda _image: (query_features, (1, 2)),
+    )
+
+    score = float(det.decision_function([image])[0])
+
+    # Worst query patch is 4; its nearest memory patch is 2 (distance 2).
+    # The two support distances are 2 and 4.
+    expected_weight = 1.0 - np.exp(2.0) / (np.exp(2.0) + np.exp(4.0))
+    assert score == pytest.approx(expected_weight * 2.0)

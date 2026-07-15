@@ -138,7 +138,11 @@ def _build_conv_vqvae(*, cfg: VQVAEConfig):
 @register_model(
     "vqvae_conv",
     tags=("vision", "deep", "vqvae", "reconstruction"),
-    metadata={"description": "Convolutional VQ-VAE reconstruction baseline (tiny-capable)"},
+    metadata={
+        "description": "Convolutional VQ-VAE reconstruction baseline (tiny-capable)",
+        "implementation_status": "generic-reconstruction-baseline",
+        "paper_fidelity": "not-applicable",
+    },
 )
 class VQVAEAnomalyDetector(BaseVisionDeepDetector):
     def __init__(

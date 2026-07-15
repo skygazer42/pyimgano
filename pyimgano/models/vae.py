@@ -146,7 +146,11 @@ def _build_conv_vae(*, cfg: VAEConfig):
 @register_model(
     "vae_conv",
     tags=("vision", "deep", "vae", "reconstruction"),
-    metadata={"description": "Convolutional VAE reconstruction baseline (contract-aligned)"},
+    metadata={
+        "description": "Convolutional VAE reconstruction baseline (contract-aligned)",
+        "implementation_status": "generic-reconstruction-baseline",
+        "paper_fidelity": "not-applicable",
+    },
     overwrite=True,
 )
 class VAEAnomalyDetector(BaseVisionDeepDetector):

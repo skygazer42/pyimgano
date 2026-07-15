@@ -41,7 +41,6 @@ def main() -> None:
         device="cpu",
         image_size=96,
         d_reduced=8,
-        projection_fit_samples=1,
         covariance_eps=0.1,
     )
 

@@ -18,29 +18,36 @@ title: 视觉-语言模型
 
 ## 快速对比
 
-| 模型 | 注册名 | 基础模型 | 零样本 | 少样本 | 像素图 | 额外依赖 |
-|:---|:---|:---|:---:|:---:|:---:|:---|
-| WinCLIP | `winclip` / `vision_winclip` | OpenAI CLIP | 是 | 是 | 是 | `clip` |
-| AnomalyDINO | `vision_anomalydino` | DINOv2 | 是* | 是 | 是 | `torch` |
-| OpenCLIP PatchKNN | `vision_openclip_patch_map` | OpenCLIP | 否 | 是 | 是 | `open_clip` |
-| PromptAD | `vision_promptad` | WideResNet50 | 否 | 是 | 否 | `torch` |
+| 模型 | 注册名 | 关系 | 基础模型 | 像素图 | 额外依赖 |
+|:---|:---|:---|:---|:---:|:---|
+| WinCLIP crop proxy | `winclip` / `vision_winclip` | `inspired` | OpenAI CLIP | 是 | `clip` |
+| WinCLIP upstream | `vision_winclip_anomalib` | `external-backend` | anomalib | 是 | `anomalib` |
+| AnomalyDINO-style kNN | `vision_anomalydino` | `inspired` | DINOv2 | 是 | `torch` |
+| OpenCLIP PatchKNN | `vision_openclip_patch_map` | `not-applicable` | OpenCLIP | 是 | `open_clip` |
+| PromptAD visual proxy | `vision_promptad` | `inspired` | WideResNet50 | 否 | `torch` |
 
 !!! note "零样本说明"
     AnomalyDINO 的零样本模式需要至少 1 张参考图进行阈值校准，但不需要传统意义上的"训练"。
 
+!!! warning "论文复现状态"
+    本页的本地 `vision_winclip`、`vision_anomalydino` 和 `vision_promptad` 是实验代理，
+    不是对应论文的完整实现。论文关系以 `model_info(...)["metadata"]["paper_fidelity"]`
+    为准；WinCLIP 的上游实现路径是 `vision_winclip_anomalib`。
+
 ---
 
-## WinCLIP
+## WinCLIP-related crop proxy
 
 === "中文"
 
-    WinCLIP (CVPR 2023) 利用 CLIP 的视觉-语言理解能力，通过滑动窗口注意力机制实现零样本和少样本异常检测。
-    核心思路：用文本提示描述"正常"和"异常"，让 CLIP 判断图像区域属于哪一类。
+    本地实现对裁剪窗口分别做 CLIP 编码和文本打分，只保留了 WinCLIP 的概念动机。
+    它没有实现论文的 token 级多尺度窗口嵌入与聚合，因此不能作为论文复现。
 
 === "English"
 
-    WinCLIP (CVPR 2023) leverages CLIP's vision-language understanding with sliding window attention for zero-shot and few-shot anomaly detection.
-    Core idea: describe "normal" and "anomalous" with text prompts, and let CLIP judge which category each image region belongs to.
+    The local implementation scores cropped windows with CLIP and text prompts.
+    It omits the paper's token-level multi-scale window embeddings and aggregation,
+    so it is an experimental proxy rather than a WinCLIP reproduction.
 
 ### 关键参数
 
@@ -105,17 +112,17 @@ model = create_model("winclip",
 
 ---
 
-## AnomalyDINO
+## AnomalyDINO-style kNN proxy
 
 === "中文"
 
-    AnomalyDINO (2025) 基于 DINOv2 的补丁嵌入 + kNN 检测器。DINOv2 的自监督预训练使其
-    补丁特征天然具有强大的区分正常与异常的能力。支持少样本，推理快速。
+    本地实现是 DINOv2 补丁嵌入 + kNN 基线，适合少样本实验，但没有复现
+    AnomalyDINO 论文的完整方法。
 
 === "English"
 
-    AnomalyDINO (2025) uses DINOv2 patch embeddings + kNN detector. DINOv2's self-supervised pre-training
-    gives its patch features a natural ability to distinguish normal from anomalous. Supports few-shot, fast inference.
+    The local implementation is a DINOv2 patch-embedding + kNN baseline. It is
+    useful for few-shot experiments but does not reproduce the full AnomalyDINO method.
 
 ### 关键参数
 
@@ -213,17 +220,18 @@ anomaly_map = model.get_anomaly_map(test_images[0])
 
 ---
 
-## PromptAD
+## PromptAD-related visual proxy
 
 === "中文"
 
-    PromptAD (CVPR 2024) 通过仅从正常样本学习视觉提示 (visual prompts) 实现少样本异常检测。
-    核心思路：学习一组可训练的提示向量，引导预训练特征提取器关注正常模式。
+    本地实现是 WideResNet 特征适配器。它没有实现论文中的 CLIP 文本提示、语义拼接和
+    显式异常间隔损失，因此仅作为实验代理保留。
 
 === "English"
 
-    PromptAD (CVPR 2024) achieves few-shot anomaly detection by learning visual prompts from only normal samples.
-    Core idea: learn a set of trainable prompt vectors to guide the pre-trained feature extractor to focus on normal patterns.
+    The local implementation is a WideResNet feature adapter. It omits the
+    paper's CLIP text prompts, semantic concatenation, and explicit anomaly-margin
+    loss, so it is retained only as an experimental proxy.
 
 ### 关键参数
 
@@ -285,16 +293,18 @@ pip install pyimgano[clip,torch]
 
     === "中文"
 
-        - **零样本**: 无训练数据或快速原型 -> `winclip` (k_shot=0)
-        - **少量参考图 (1-10 张)**: -> `vision_anomalydino` 或 `winclip` (k_shot>0)
+        - **论文级 WinCLIP 路径**: -> `vision_winclip_anomalib`
+        - **零样本实验代理**: -> `winclip` (k_shot=0)
+        - **少量参考图 (1-10 张) 的 kNN 基线**: -> `vision_anomalydino`
         - **需要像素定位 + 无训练**: -> `vision_anomalydino`
         - **自定义语义描述**: -> `winclip` (自定义 text_prompts)
-        - **CVPR 2024 SOTA 少样本**: -> `vision_promptad`
+        - **PromptAD 概念实验**: -> `vision_promptad`（非论文复现）
 
     === "English"
 
-        - **Zero-shot**: no training data or rapid prototyping -> `winclip` (k_shot=0)
-        - **Few reference images (1-10)**: -> `vision_anomalydino` or `winclip` (k_shot>0)
+        - **Paper-backed WinCLIP path**: -> `vision_winclip_anomalib`
+        - **Zero-shot experimental proxy**: -> `winclip` (k_shot=0)
+        - **Few-reference kNN baseline (1-10)**: -> `vision_anomalydino`
         - **Pixel localization + no training**: -> `vision_anomalydino`
         - **Custom semantic descriptions**: -> `winclip` (custom text_prompts)
-        - **CVPR 2024 SOTA few-shot**: -> `vision_promptad`
+        - **PromptAD concept experiment**: -> `vision_promptad` (not a reproduction)

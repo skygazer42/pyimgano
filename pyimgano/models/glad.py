@@ -1,12 +1,11 @@
-"""
-GLAD - Global and Local Adaptive Diffusion for Anomaly Detection
+"""Experimental diffusion proxy related to GLAD.
 
 Reference:
     "GLAD: Towards Better Reconstruction with Global and Local Adaptive Diffusion Models"
     ECCV 2024
 
-Uses adaptive diffusion models at both global and local scales for improved
-anomaly detection and reconstruction.
+The local model retains only a small global/local diffusion motif and omits
+the paper's defining training modules. It is not a paper reproduction.
 """
 
 import logging
@@ -20,6 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
@@ -143,21 +143,21 @@ class AdaptiveFusion(nn.Module):
 
 @register_model(
     "vision_glad",
-    tags=("vision", "deep", "glad", "diffusion", "adaptive", "eccv2024", "sota"),
+    tags=("vision", "deep", "glad", "diffusion", "adaptive", "eccv2024", "experimental"),
     metadata={
-        "description": "GLAD - Global-Local Adaptive Diffusion (ECCV 2024)",
-        "paper": "GLAD: Towards Better Reconstruction with Global and Local Adaptive Diffusion",
+        "description": "Experimental global/local diffusion proxy; omits GLAD's defining training modules",
+        "related_paper": "GLAD: Towards Better Reconstruction with Global and Local Adaptive Diffusion Models for Unsupervised Anomaly Detection",
         "year": 2024,
+        "implementation_status": "experimental-diffusion-proxy",
+        "paper_fidelity": "inspired",
         "conference": "ECCV",
         "type": "diffusion",
     },
 )
 class VisionGLAD(BaseVisionDeepDetector):
-    """
-    GLAD: Global and Local Adaptive Diffusion for Anomaly Detection.
+    """Experimental proxy, not a reproduction of the ECCV 2024 GLAD method.
 
-    Uses adaptive diffusion models at both global and local scales,
-    with intelligent fusion for improved anomaly detection.
+    It only retains a small global/local diffusion motif.
 
     Parameters
     ----------
@@ -223,9 +223,6 @@ class VisionGLAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.feature_extractor_ = None
         self.global_diffusion_ = None
         self.local_diffusion_ = None
@@ -269,6 +266,7 @@ class VisionGLAD(BaseVisionDeepDetector):
         noisy_x = alpha.sqrt() * x + (1 - alpha).sqrt() * noise
         return noisy_x, noise
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

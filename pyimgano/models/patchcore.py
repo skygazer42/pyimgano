@@ -1,8 +1,11 @@
-"""
-PatchCore: Towards Total Recall in Industrial Anomaly Detection (CVPR 2022).
+"""Core-aligned PatchCore implementation.
 
-PatchCore achieves state-of-the-art performance on MVTec AD benchmark using
-locally aware patch-level representations and coreset selection.
+The CVPR 2022 method combines locally aware patch representations, a coreset
+memory bank, nearest-neighbor scoring, and image-level score reweighting. This
+module implements those defining components; it does not claim the paper's
+published benchmark numbers. Its multi-layer embedding is intentionally
+simpler than the author's 1024-dimensional preprocessing/aggregation stack:
+each layer is locally mean-pooled and the aligned maps are concatenated.
 
 Reference:
     Roth, K., Pemula, L., Zepeda, J., Schölkopf, B., Brox, T., & Gehler, P. (2022).
@@ -39,12 +42,15 @@ ImageInput = Union[str, NDArray]
 
 @register_model(
     "vision_patchcore",
-    tags=("vision", "deep", "patchcore", "memory_bank", "sota", "cvpr2022", "numpy", "pixel_map"),
+    tags=("vision", "deep", "patchcore", "memory_bank", "cvpr2022", "numpy", "pixel_map"),
     metadata={
-        "description": "PatchCore - SOTA patch-level anomaly detection (CVPR 2022)",
+        "description": "PatchCore core algorithm with local patch aggregation and coreset memory",
         "paper": "Towards Total Recall in Industrial Anomaly Detection",
-        "benchmark_rank": "state-of-the-art",
+        "paper_url": "https://openaccess.thecvf.com/content/CVPR2022/html/Roth_Towards_Total_Recall_in_Industrial_Anomaly_Detection_CVPR_2022_paper.html",
         "year": 2022,
+        "supervision": "one-class",
+        "implementation_status": "core-aligned",
+        "paper_fidelity": "core-aligned",
     },
 )
 class VisionPatchCore(BaseVisionDeepDetector):
@@ -56,6 +62,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
     - Locally aware patch features from multiple layers
     - Coreset subsampling for efficient memory bank
     - k-NN based anomaly scoring
+
+    The local patch embedding preserves PatchCore's defining multi-scale local
+    representation, but is not dimension-for-dimension identical to the
+    author's ``MeanMapper``/``Aggregator`` path.
 
     Parameters
     ----------
@@ -88,6 +98,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         n_neighbors: int = 9,
         knn_backend: str = "sklearn",
         memory_bank_dtype: str = "float32",
+        gaussian_sigma: float = 4.0,
         random_seed: int = 0,
         pretrained: bool = False,
         device: str = "cpu",
@@ -122,6 +133,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.n_neighbors = n_neighbors
         self.knn_backend = knn_backend
         self.memory_bank_dtype = str(memory_bank_dtype)
+        self.gaussian_sigma = float(gaussian_sigma)
         self.random_seed = int(random_seed)
         self.pretrained = pretrained
         self.device = device
@@ -139,6 +151,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 "memory_bank_dtype must be 'float32' or 'float16'. "
                 f"Got {self.memory_bank_dtype!r}."
             )
+        if self.gaussian_sigma < 0:
+            raise ValueError(f"gaussian_sigma must be >= 0, got {self.gaussian_sigma}")
 
         # Initialize backbone
         self._build_model()
@@ -153,7 +167,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
-                transforms.Resize((224, 224)),
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
@@ -207,8 +222,11 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 "memory_bank": self._np.asarray(self.memory_bank, dtype=self._np.float32),
                 "decision_scores_": self._np.asarray(self.decision_scores_, dtype=self._np.float64),
                 "threshold_": float(self.threshold_),
-                "n_neighbors_fit": int(self.n_neighbors),
+                "n_neighbors_fit": int(
+                    getattr(self, "_n_neighbors_fit", self.n_neighbors)
+                ),
                 "projection_state": projection_state,
+                "gaussian_sigma": float(self.gaussian_sigma),
             },
             out_path,
         )
@@ -256,6 +274,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         self.nn_index.fit(self._np.asarray(self.memory_bank, dtype=self._np.float32))
         self.decision_scores_ = self._np.asarray(state["decision_scores_"], dtype=self._np.float64)
         self.threshold_ = float(state["threshold_"])
+        self.gaussian_sigma = float(state.get("gaussian_sigma", self.gaussian_sigma))
 
     def _build_model(self) -> None:
         """Build feature extraction backbone."""
@@ -340,6 +359,11 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         for layer in self.layers:
             feat = self.feature_maps[layer]  # (1, C, H, W)
+
+            # PatchCore embeds a local neighbourhood around every feature
+            # location. Channel-wise 3x3 average pooling is equivalent to
+            # unfolding each neighbourhood and mean-pooling its samples.
+            feat = functional.avg_pool2d(feat, kernel_size=3, stride=1, padding=1)
 
             # Resize to common spatial size
             if target_size is None:
@@ -494,16 +518,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
             if idx % 10 == 0:
                 logger.debug("Processing image %d/%d", idx + 1, len(x_list))
 
-            try:
-                features, _ = self._extract_patch_features(image)
-                features = self._maybe_project(features)
-                all_features.append(np.asarray(features, dtype=np.float32))
-            except Exception as e:
-                logger.warning("Failed to process item %d: %s", idx, e)
-                continue
-
-        if not all_features:
-            raise ValueError("Failed to extract features from any training image")
+            features, _ = self._extract_patch_features(image)
+            features = self._maybe_project(features)
+            all_features.append(np.asarray(features, dtype=np.float32))
 
         # Stack all features
         all_features = np.vstack(all_features)
@@ -526,9 +543,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
         )
 
         # Build k-NN index
+        self._n_neighbors_fit = min(int(self.n_neighbors), int(self.memory_bank.shape[0]))
         self.nn_index = build_knn_index(
             backend=self.knn_backend,
-            n_neighbors=self.n_neighbors,
+            n_neighbors=self._n_neighbors_fit,
             metric="euclidean",
             n_jobs=-1,
         )
@@ -541,6 +559,64 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.info("PatchCore training completed")
         return self
+
+    def _patch_nearest_neighbors(self, features: NDArray) -> Tuple[NDArray, NDArray]:
+        """Return the nearest memory item and distance for every query patch."""
+
+        if self.nn_index is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+        distances, indices = self.nn_index.kneighbors(features, n_neighbors=1)
+        return (
+            self._np.asarray(distances, dtype=self._np.float32).reshape(-1),
+            self._np.asarray(indices, dtype=self._np.int64).reshape(-1),
+        )
+
+    def _image_anomaly_score(
+        self,
+        features: NDArray,
+        patch_scores: NDArray,
+        nearest_indices: NDArray,
+    ) -> float:
+        """Apply PatchCore's neighbourhood reweighting to the worst patch."""
+
+        np = self._np
+        if self.memory_bank is None or self.nn_index is None:
+            raise RuntimeError(MODEL_NOT_FITTED_ERROR)
+        if patch_scores.size == 0:
+            return 0.0
+
+        worst_idx = int(np.argmax(patch_scores))
+        max_distance = float(patch_scores[worst_idx])
+        neighbourhood_size = min(int(self.n_neighbors), int(self.memory_bank.shape[0]))
+
+        # The paper uses b>1 neighbours for its softmax-style weighting. With
+        # a one-neighbour lightweight configuration, retain the nearest-patch
+        # distance instead of producing the degenerate zero weight.
+        if neighbourhood_size <= 1:
+            return max_distance
+
+        nearest_memory_idx = int(nearest_indices[worst_idx])
+        memory_query = np.asarray(
+            self.memory_bank[nearest_memory_idx : nearest_memory_idx + 1],
+            dtype=np.float32,
+        )
+        _distances, neighbour_indices = self.nn_index.kneighbors(
+            memory_query,
+            n_neighbors=neighbourhood_size,
+        )
+        support = np.asarray(
+            self.memory_bank[np.asarray(neighbour_indices, dtype=np.int64).reshape(-1)],
+            dtype=np.float32,
+        )
+        query = np.asarray(features[worst_idx], dtype=np.float32)
+        support_distances = np.linalg.norm(support - query[None, :], axis=1)
+
+        # w = 1 - exp(s*) / sum_b exp(s_b), evaluated stably.
+        max_support = float(np.max(support_distances))
+        denominator = float(np.exp(support_distances - max_support).sum())
+        numerator = float(np.exp(max_distance - max_support))
+        weight = float(np.clip(1.0 - numerator / max(denominator, 1e-12), 0.0, 1.0))
+        return weight * max_distance
 
     def predict(
         self,
@@ -611,28 +687,21 @@ class VisionPatchCore(BaseVisionDeepDetector):
         )
         x_list = list(x_iter)
         scores = np.zeros(len(x_list))
+        if not x_list:
+            return scores
 
         logger.info("Computing anomaly scores for %d images", len(x_list))
 
         for idx, image in enumerate(x_list):
-            try:
-                # Extract patch features
-                features, _ = self._extract_patch_features(image)
-                features = self._maybe_project(features)
+            features, _ = self._extract_patch_features(image)
+            features = self._maybe_project(features)
 
-                # Find k nearest neighbors in memory bank
-                distances, _ = self.nn_index.kneighbors(features)
-
-                # Aggregate patch-level scores to image-level score
-                # Use max distance to k-th nearest neighbor
-                patch_scores = distances[:, -1]  # Distance to k-th neighbor
-                image_score = np.max(patch_scores)  # Max patch score
-
-                scores[idx] = image_score
-
-            except Exception as e:
-                logger.warning("Failed to score item %d: %s", idx, e)
-                scores[idx] = 0.0
+            patch_scores, nearest_indices = self._patch_nearest_neighbors(features)
+            scores[idx] = self._image_anomaly_score(
+                features,
+                patch_scores,
+                nearest_indices,
+            )
 
         logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores
@@ -660,15 +729,17 @@ class VisionPatchCore(BaseVisionDeepDetector):
         features, (h, w) = self._extract_patch_features(image_path)
         features = self._maybe_project(features)
 
-        # Compute patch-level anomaly scores
-        distances, _ = self.nn_index.kneighbors(features)
-        patch_scores = distances[:, -1]
+        # Pixel localization uses the nearest memory patch distance. The
+        # image-level neighbourhood weight is intentionally not broadcast to
+        # every location.
+        patch_scores, _nearest_indices = self._patch_nearest_neighbors(features)
 
         # Reshape to spatial dimensions
         expected = int(h * w)
         if patch_scores.shape[0] != expected:
-            side = int(np.sqrt(len(patch_scores)))
-            h = w = side
+            raise RuntimeError(
+                f"Patch score shape mismatch: expected {expected}, got {patch_scores.shape[0]}"
+            )
         anomaly_map = patch_scores.reshape(int(h), int(w))
 
         # Resize to original image size (if known)
@@ -681,11 +752,20 @@ class VisionPatchCore(BaseVisionDeepDetector):
             )
         else:
             img = cv2.imread(str(image_path))
-            if img is not None:
-                anomaly_map = cv2.resize(
-                    anomaly_map,
-                    (img.shape[1], img.shape[0]),
-                    interpolation=cv2.INTER_CUBIC,
-                )
+            if img is None:
+                raise ValueError(f"Failed to load image: {image_path}")
+            anomaly_map = cv2.resize(
+                anomaly_map,
+                (img.shape[1], img.shape[0]),
+                interpolation=cv2.INTER_CUBIC,
+            )
+
+        if self.gaussian_sigma > 0:
+            anomaly_map = cv2.GaussianBlur(
+                anomaly_map,
+                (0, 0),
+                sigmaX=self.gaussian_sigma,
+                sigmaY=self.gaussian_sigma,
+            )
 
         return np.asarray(anomaly_map, dtype=np.float32)

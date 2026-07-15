@@ -43,7 +43,6 @@ def test_panda_fit_does_not_print_progress(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert out == ""
 
-
 def test_glad_fit_does_not_print_progress(monkeypatch, capsys) -> None:
     import torch.nn.functional as F
 
@@ -94,34 +93,6 @@ def test_inctrl_fit_does_not_print_progress(monkeypatch, capsys) -> None:
         batch_size=2,
         epochs=10,
         k_shot=2,
-        device="cpu",
-        random_state=0,
-    )
-
-    det.fit(_make_rgb_batch())
-    out = capsys.readouterr().out
-    assert out == ""
-
-
-def test_bayesianpf_fit_does_not_print_calibration_summary(monkeypatch, capsys) -> None:
-    from pyimgano.models.bayesianpf import VisionBayesianPF
-
-    class _DummyExtractor(torch.nn.Module):
-        def forward(self, x):  # noqa: ANN001
-            pooled = x.mean(dim=(-1, -2))
-            repeats = (8 + int(pooled.shape[1]) - 1) // int(pooled.shape[1])
-            return pooled.repeat(1, repeats)[:, :8]
-
-    monkeypatch.setattr(
-        VisionBayesianPF, "_build_feature_extractor", lambda self: _DummyExtractor()
-    )
-
-    det = VisionBayesianPF(
-        backbone="resnet18",
-        prompt_dim=8,
-        num_prompts=2,
-        hidden_dim=8,
-        num_samples=2,
         device="cpu",
         random_state=0,
     )

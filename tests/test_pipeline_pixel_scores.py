@@ -86,6 +86,20 @@ def test_evaluate_split_no_pixel_scores_when_disabled():
     assert "pixel_metrics" not in results
 
 
+def test_evaluate_split_honors_explicit_image_score_calibration_quantile():
+    split = _make_split()
+    det = _DummyMapDetector()
+
+    results = evaluate_split(
+        det,
+        split,
+        compute_pixel_scores=False,
+        score_calibration_quantile=0.5,
+    )
+
+    assert results["threshold"] == pytest.approx(0.5)
+
+
 def test_evaluate_split_pixel_segf1_with_normal_quantile_threshold():
     split = _make_split()
     det = _DummyBatchMapDetector()

@@ -39,7 +39,7 @@ def test_core_models_are_reported_as_features_input_mode() -> None:
     assert info["input_modes"] == ["features"]
 
 
-def test_registry_model_info_exposes_verified_paper_year_metadata() -> None:
+def test_registry_model_info_distinguishes_papers_from_related_references() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
     from pyimgano.models.registry import model_info
 
@@ -52,7 +52,9 @@ def test_registry_model_info_exposes_verified_paper_year_metadata() -> None:
     assert "Support" in ocsvm["metadata"]["paper"] or "One-Class SVM" in ocsvm["metadata"]["paper"]
 
     assert fastflow["metadata"]["year"] == 2021
-    assert "FastFlow" in fastflow["metadata"]["paper"]
+    assert "paper" not in fastflow["metadata"]
+    assert "FastFlow" in fastflow["metadata"]["related_paper"]
+    assert fastflow["metadata"]["paper_fidelity"] == "partial"
 
     assert dbscan["metadata"]["year"] == 1996
     assert "Density-Based Algorithm" in dbscan["metadata"]["paper"]
@@ -104,16 +106,22 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert "Total Recall" in patchcore_inspection["metadata"]["paper"]
 
     assert patchcore_lite["metadata"]["year"] == 2022
-    assert "Total Recall" in patchcore_lite["metadata"]["paper"]
+    assert "paper" not in patchcore_lite["metadata"]
+    assert "Total Recall" in patchcore_lite["metadata"]["related_paper"]
+    assert patchcore_lite["metadata"]["paper_fidelity"] == "inspired"
 
     assert patchcore_online["metadata"]["year"] == 2022
-    assert "Total Recall" in patchcore_online["metadata"]["paper"]
+    assert "paper" not in patchcore_online["metadata"]
+    assert "Total Recall" in patchcore_online["metadata"]["related_paper"]
+    assert patchcore_online["metadata"]["paper_fidelity"] == "inspired"
 
     assert padim_alias["metadata"]["year"] == 2020
     assert "PaDiM" in padim_alias["metadata"]["paper"]
 
     assert softpatch["metadata"]["year"] == 2022
-    assert "SoftPatch" in softpatch["metadata"]["paper"]
+    assert "paper" not in softpatch["metadata"]
+    assert "SoftPatch" in softpatch["metadata"]["related_paper"]
+    assert softpatch["metadata"]["paper_fidelity"] == "partial"
 
     assert cfa_alias["metadata"]["year"] == 2022
     assert "Coupled-hypersphere-based Feature Adaptation" in cfa_alias["metadata"]["paper"]
@@ -125,10 +133,14 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert "Cross-Scale" in csflow_alias["metadata"]["paper"]
 
     assert anomalydino["metadata"]["year"] == 2025
-    assert "AnomalyDINO" in anomalydino["metadata"]["paper"]
+    assert "paper" not in anomalydino["metadata"]
+    assert "AnomalyDINO" in anomalydino["metadata"]["related_paper"]
+    assert anomalydino["metadata"]["paper_fidelity"] == "inspired"
 
     assert dfm["metadata"]["year"] == 2019
-    assert "Probabilistic Modeling of Deep Features" in dfm["metadata"]["paper"]
+    assert "paper" not in dfm["metadata"]
+    assert "Probabilistic Modeling of Deep Features" in dfm["metadata"]["related_paper"]
+    assert dfm["metadata"]["paper_fidelity"] == "partial"
 
     assert dfm_alias["metadata"]["year"] == 2019
     assert "Probabilistic Modeling of Deep Features" in dfm_alias["metadata"]["paper"]
@@ -191,13 +203,17 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert "WinCLIP" in winclip_alias["metadata"]["paper"]
 
 
-def test_dfkde_alias_exposes_documented_paper_title_without_invented_year() -> None:
+def test_dfkde_alias_does_not_invent_a_paper_for_an_upstream_model_name() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
     from pyimgano.models.registry import model_info
 
     dfkde_alias = model_info("vision_dfkde_anomalib")
 
-    assert dfkde_alias["metadata"]["paper"] == "Deep Feature Kernel Density Estimation"
+    assert "paper" not in dfkde_alias["metadata"]
+    assert (
+        dfkde_alias["metadata"]["algorithm_name"]
+        == "DFKDE: Deep Feature Kernel Density Estimation"
+    )
     assert "year" not in dfkde_alias["metadata"]
 
 

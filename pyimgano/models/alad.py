@@ -117,11 +117,12 @@ class DiscXX(nn.Module):
         )
         self.fc = nn.Sequential(nn.Flatten(), nn.Linear(base_ch * 8, 1), nn.Sigmoid())
 
-    def forward(self, x: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+    def features(self, x: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         h = torch.cat([x, x2], dim=1)  # [B, 6, H, W]
-        h = self.net(h)
-        out = self.fc(h)
-        return out  # [B, 1]
+        return self.net(h).flatten(1)
+
+    def forward(self, x: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        return self.fc(self.features(x, x2))
 
 
 class ImgFeat(nn.Module):
@@ -186,9 +187,13 @@ class MLPDisc(nn.Module):
     "vision_alad",
     tags=("vision", "deep", "gan"),
     metadata={
-        "description": "Adversarially Learned Anomaly Detection",
-        "paper": "Adversarially Learned Anomaly Detection, arXiv 2018",
+        "description": "Image adaptation of ALAD with BiGAN, D_xx, and D_zz consistency",
+        "paper": "Adversarially Learned Anomaly Detection",
+        "paper_url": "https://arxiv.org/abs/1812.02288",
         "year": 2018,
+        "supervision": "unsupervised",
+        "implementation_status": "image-adaptation-with-core-alad-pairings",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 class ALAD(BaseVisionDeepDetector):
@@ -310,6 +315,7 @@ class ALAD(BaseVisionDeepDetector):
         # 优化器：判别器和生成器分开
         disc_params = (
             list(self.disc_xx.parameters())
+            + list(self.img_feat.parameters())
             + list(self.disc_xz.parameters())
             + list(self.disc_zz.parameters())
         )
@@ -365,19 +371,20 @@ class ALAD(BaseVisionDeepDetector):
         self.opt_disc.zero_grad(set_to_none=True)
 
         with torch.no_grad():
-            x_gen_d = self.dec(z_real)
-            z_gen_d = self.enc(x_real)
-            x_gen_d = self._match_image_shape(x_gen_d, target=x_real)
+            x_gen_d = self._match_image_shape(self.dec(z_real), target=x_real)
+            z_enc_d = self.enc(x_real)
+            x_recon_d = self._match_image_shape(self.dec(z_enc_d), target=x_real)
+            z_recon_d = self.enc(x_gen_d)
 
         # D_xz: (x, z_gen) 为真；(x_gen, z_real) 为假
         feat_x = self.img_feat(x_real)
         feat_x_gen = self.img_feat(x_gen_d)
-        out_true_xz = self.disc_xz(torch.cat([feat_x, z_gen_d], dim=1))
+        out_true_xz = self.disc_xz(torch.cat([feat_x, z_enc_d], dim=1))
         out_fake_xz = self.disc_xz(torch.cat([feat_x_gen, z_real], dim=1))
 
         # D_xx: (x, x) 为真；(x, x_gen) 为假
         out_true_xx = self.disc_xx(x_real, x_real)
-        out_fake_xx = self.disc_xx(x_real, x_gen_d)
+        out_fake_xx = self.disc_xx(x_real, x_recon_d)
 
         ones = torch.ones_like(out_true_xz)
         zeros = torch.zeros_like(out_true_xz)
@@ -389,7 +396,7 @@ class ALAD(BaseVisionDeepDetector):
 
         if self.add_disc_zz_loss:
             out_true_zz = self.disc_zz(torch.cat([z_real, z_real], dim=1))
-            out_fake_zz = self.disc_zz(torch.cat([z_real, z_gen_d], dim=1))
+            out_fake_zz = self.disc_zz(torch.cat([z_real, z_recon_d], dim=1))
             loss_dzz = bce(out_true_zz, torch.ones_like(out_true_zz)) + bce(
                 out_fake_zz, torch.zeros_like(out_fake_zz)
             )
@@ -403,30 +410,24 @@ class ALAD(BaseVisionDeepDetector):
         # 更新生成器（Enc+Dec）
         self.opt_gen.zero_grad(set_to_none=True)
 
-        x_gen = self.dec(z_real)
-        z_gen = self.enc(x_real)
-        x_gen = self._match_image_shape(x_gen, target=x_real)
+        x_gen = self._match_image_shape(self.dec(z_real), target=x_real)
+        z_enc = self.enc(x_real)
+        x_recon = self._match_image_shape(self.dec(z_enc), target=x_real)
+        z_recon = self.enc(x_gen)
 
         feat_x = self.img_feat(x_real)
         feat_x_gen = self.img_feat(x_gen)
 
-        out_true_xz = self.disc_xz(torch.cat([feat_x, z_gen], dim=1))
         out_fake_xz = self.disc_xz(torch.cat([feat_x_gen, z_real], dim=1))
-        out_true_xx = self.disc_xx(x_real, x_real)
-        out_fake_xx = self.disc_xx(x_real, x_gen)
+        out_fake_xx = self.disc_xx(x_real, x_recon)
 
-        # 生成器希望“骗过”判别器：伪造判为真、真实判为假
-        loss_gexz = bce(out_fake_xz, ones) + bce(out_true_xz, zeros)
-        loss_gexx = bce(out_fake_xx, torch.ones_like(out_fake_xx)) + bce(
-            out_true_xx, torch.zeros_like(out_true_xx)
-        )
+        # Enc/Dec make each generated joint/pair indistinguishable from its real counterpart.
+        loss_gexz = bce(out_fake_xz, torch.ones_like(out_fake_xz))
+        loss_gexx = bce(out_fake_xx, torch.ones_like(out_fake_xx))
 
         if self.add_disc_zz_loss:
-            out_true_zz = self.disc_zz(torch.cat([z_real, z_real], dim=1))
-            out_fake_zz = self.disc_zz(torch.cat([z_real, z_gen], dim=1))
-            loss_gezz = bce(out_fake_zz, torch.ones_like(out_fake_zz)) + bce(
-                out_true_zz, torch.zeros_like(out_true_zz)
-            )
+            out_fake_zz = self.disc_zz(torch.cat([z_real, z_recon], dim=1))
+            loss_gezz = bce(out_fake_zz, torch.ones_like(out_fake_zz))
             cycle_consistency = loss_gezz + loss_gexx
             loss_gen = loss_gexz + cycle_consistency
         else:
@@ -434,7 +435,6 @@ class ALAD(BaseVisionDeepDetector):
             loss_gen = loss_gexz + cycle_consistency
 
         if self.add_recon_loss:
-            x_recon = self.dec(self.enc(x_real))
             loss_recon = F.mse_loss(x_recon, x_real)
             loss_gen = loss_gen + self.lambda_recon_loss * loss_recon
 
@@ -462,10 +462,10 @@ class ALAD(BaseVisionDeepDetector):
         x_hat = self.dec(z)
         x_hat = self._match_image_shape(x_hat, target=x)
 
-        # 使用 D_xx 的“真/伪”差异作为分数
-        out_true_xx = self.disc_xx(x, x)
-        out_fake_xx = self.disc_xx(x, x_hat)
-        score = torch.mean(torch.abs((out_true_xx - out_fake_xx) ** 2), dim=1)  # [B]
+        # ALAD's feature-matching score from the reconstruction discriminator.
+        real_features = self.disc_xx.features(x, x)
+        reconstructed_features = self.disc_xx.features(x, x_hat)
+        score = torch.abs(real_features - reconstructed_features).mean(dim=1)
         return score.detach().cpu().numpy()
 
     # 可选：绘制学习曲线（与原 ALAD 一致）

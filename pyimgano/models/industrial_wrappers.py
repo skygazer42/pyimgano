@@ -2320,6 +2320,8 @@ class VisionResNet18MahalanobisShrinkage(VisionEmbeddingCoreDetector):
     tags=("vision", "deep", "pipeline", "industrial", "embeddings", "reconstruction"),
     metadata={
         "description": "Industrial baseline: resnet18 embeddings (safe) + core_torch_autoencoder",
+        "implementation_status": "generic-industrial-pipeline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionResNet18TorchAE(VisionEmbeddingCoreDetector):

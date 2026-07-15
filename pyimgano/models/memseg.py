@@ -77,13 +77,17 @@ class MemoryBank(nn.Module):
         """
         # Normalize features
         queries = F.normalize(queries, dim=1)
-        memory = F.normalize(self.memory, dim=1)
+        if self.memory_filled <= 0:
+            raise RuntimeError("Memory bank is empty. Call fit() first.")
+        if int(k) <= 0:
+            raise ValueError("k must be positive.")
+        memory = F.normalize(self.memory[: self.memory_filled], dim=1)
 
         # Compute similarities
         similarities = torch.mm(queries, memory.t())  # (N, M)
 
         # Get top-k
-        values, indices = torch.topk(similarities, k=k, dim=1)
+        values, indices = torch.topk(similarities, k=min(int(k), self.memory_filled), dim=1)
 
         # Convert similarities to distances
         distances = 1.0 - values
@@ -242,16 +246,18 @@ class SegmentationHead(nn.Module):
     "vision_memseg",
     tags=("vision", "deep", "memseg", "memory", "segmentation", "pixel_map"),
     metadata={
-        "description": "MemSeg - memory-guided anomaly segmentation (ICCV 2022-style)",
-        "year": 2022,
+        "description": "Multi-scale memory-bank kNN anomaly-map baseline",
+        "implementation_status": "generic-memory-bank-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 @register_model(
     "memseg",
     tags=("vision", "deep", "memseg", "memory", "segmentation", "pixel_map"),
     metadata={
-        "description": "MemSeg (legacy alias) - memory-guided anomaly segmentation",
-        "year": 2022,
+        "description": "Legacy alias for the multi-scale memory-bank kNN baseline",
+        "implementation_status": "generic-memory-bank-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class MemSegDetector(BaseVisionDeepDetector):
@@ -278,7 +284,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         memory_size: int = 1000,
         k_neighbors: int = 3,
         pretrained: bool = False,
-        use_segmentation_head: bool = True,
+        use_segmentation_head: bool = False,
         device: Optional[str] = None,
         **kwargs,
     ):
@@ -288,7 +294,12 @@ class MemSegDetector(BaseVisionDeepDetector):
         self.memory_size = memory_size
         self.k_neighbors = k_neighbors
         self.pretrained = pretrained
-        self.use_segmentation_head = use_segmentation_head
+        if use_segmentation_head:
+            raise ValueError(
+                "use_segmentation_head=True is unsupported because the head has no training target; "
+                "use the memory-based anomaly map instead."
+            )
+        self.use_segmentation_head = False
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -336,7 +347,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         x_array = coerce_rgb_image_batch(
             resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit")
         )
-        del y, kwargs
+        del kwargs
         logger.info("Building MemSeg memory banks...")
 
         if x_array.max() > 1.0:
@@ -360,8 +371,12 @@ class MemSegDetector(BaseVisionDeepDetector):
             self.feature_extractor.memory_banks["layer4"].memory_filled,
             self.memory_size,
         )
+        self.decision_scores_ = self.decision_function(x_array)
+        self._process_decision_scores()
+        self._set_n_classes(y)
+        return self
 
-    def predict_proba(self, x: object = MISSING, **kwargs: object) -> NDArray:
+    def _score_images(self, x: object = MISSING, **kwargs: object) -> NDArray:
         """Predict anomaly scores.
 
         Args:
@@ -374,7 +389,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         if "X" in kwargs:
             legacy_kwargs["X"] = kwargs.pop("X")
         x_array = coerce_rgb_image_batch(
-            resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba")
+            resolve_legacy_x_keyword(x, legacy_kwargs, method_name="decision_function")
         )
         del kwargs
         if x_array.max() > 1.0:
@@ -408,7 +423,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> NDArray:
         del batch_size
-        return np.asarray(self.predict_proba(x, **kwargs), dtype=np.float64).reshape(-1)
+        return np.asarray(self._score_images(x, **kwargs), dtype=np.float64).reshape(-1)
 
     def save_checkpoint(self, path: str | Path) -> Path:
         memory_filled = {
@@ -478,9 +493,7 @@ class MemSegDetector(BaseVisionDeepDetector):
         self.memory_size = int(config.get("memory_size", self.memory_size))
         self.k_neighbors = int(config.get("k_neighbors", self.k_neighbors))
         self.pretrained = bool(config.get("pretrained", self.pretrained))
-        self.use_segmentation_head = bool(
-            config.get("use_segmentation_head", self.use_segmentation_head)
-        )
+        self.use_segmentation_head = False
         self.device = torch.device(str(config.get("device", self.device)))
         self._build_model()
 
@@ -548,27 +561,19 @@ class MemSegDetector(BaseVisionDeepDetector):
                 # Extract features
                 features = self.feature_extractor(img_tensor, update_memory=False)
 
-                if self.use_segmentation_head and self.seg_head is not None:
-                    # Use segmentation head
-                    feat_list = [features["layer2"], features["layer3"], features["layer4"]]
-                    seg_map = self.seg_head(feat_list, img.shape[:2])
-                    anomaly_map = seg_map.squeeze().cpu().numpy()
-                else:
-                    # Use memory-based scores
-                    anomaly_scores = self.feature_extractor.compute_anomaly_scores(
-                        features, k=self.k_neighbors
+                anomaly_scores = self.feature_extractor.compute_anomaly_scores(
+                    features, k=self.k_neighbors
+                )
+
+                maps = []
+                for score_map in anomaly_scores.values():
+                    score_map = score_map.unsqueeze(1)
+                    upsampled = F.interpolate(
+                        score_map, size=img.shape[:2], mode="bilinear", align_corners=False
                     )
+                    maps.append(upsampled.squeeze().cpu().numpy())
 
-                    # Combine multi-scale scores
-                    maps = []
-                    for score_map in anomaly_scores.values():
-                        score_map = score_map.unsqueeze(0).unsqueeze(0)
-                        upsampled = F.interpolate(
-                            score_map, size=img.shape[:2], mode="bilinear", align_corners=False
-                        )
-                        maps.append(upsampled.squeeze().cpu().numpy())
-
-                    anomaly_map = np.mean(maps, axis=0)
+                anomaly_map = np.mean(maps, axis=0)
 
                 anomaly_maps.append(anomaly_map)
 

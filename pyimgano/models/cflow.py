@@ -37,37 +37,44 @@ logger = logging.getLogger(__name__)
 
 
 class ConditionalFlow(nn.Module):
-    """Simple conditional normalizing flow."""
+    """Conditional affine coupling flow."""
 
     def __init__(self, feature_dim, condition_dim, n_flows=8):
         super().__init__()
+        if feature_dim % 2 != 0:
+            raise ValueError("feature_dim must be even for affine coupling.")
 
         self.flows = nn.ModuleList()
         for _ in range(n_flows):
             self.flows.append(
                 nn.Sequential(
-                    nn.Linear(feature_dim + condition_dim, 256),
+                    nn.Linear(feature_dim // 2 + condition_dim, 256),
                     nn.ReLU(),
-                    nn.Linear(256, feature_dim * 2),  # mean and log_scale
+                    nn.Linear(256, feature_dim),
                 )
             )
 
-    def forward(self, z, condition):
-        log_det_jacobian = 0
+    def forward(self, z, condition, reverse=False):
+        log_det_jacobian = z.new_zeros(z.shape[0])
+        flows = reversed(self.flows) if reverse else self.flows
 
-        for flow in self.flows:
-            # Concatenate z with condition
-            inp = torch.cat([z, condition], dim=-1)
+        for flow in flows:
+            if reverse:
+                transformed, identity = z.chunk(2, dim=-1)
+            else:
+                identity, transformed = z.chunk(2, dim=-1)
 
-            # Get transformation parameters
-            params = flow(inp)
-            mean, log_scale = params.chunk(2, dim=-1)
+            shift, log_scale = flow(torch.cat([identity, condition], dim=-1)).chunk(2, dim=-1)
+            log_scale = 2.0 * torch.tanh(log_scale / 2.0)
 
-            # Apply affine transformation
-            z = z * torch.exp(log_scale) + mean
-
-            # Accumulate log determinant
-            log_det_jacobian += log_scale.sum(dim=-1)
+            if reverse:
+                transformed = (transformed - shift) * torch.exp(-log_scale)
+                z = torch.cat([identity, transformed], dim=-1)
+                log_det_jacobian -= log_scale.sum(dim=-1)
+            else:
+                transformed = transformed * torch.exp(log_scale) + shift
+                z = torch.cat([transformed, identity], dim=-1)
+                log_det_jacobian += log_scale.sum(dim=-1)
 
         return z, log_det_jacobian
 
@@ -99,9 +106,11 @@ class ImagePathDataset(Dataset):
     "vision_cflow",
     tags=("vision", "deep", "cflow", "normalizing-flow", "real-time"),
     metadata={
-        "description": "CFlow-AD - Conditional normalizing flows (WACV 2022)",
-        "paper": "Real-Time Unsupervised Anomaly Detection with Localization",
+        "description": "Compact conditional-flow variant; omits the paper's full multi-scale decoder",
+        "related_paper": "Real-Time Unsupervised Anomaly Detection with Localization",
         "year": 2022,
+        "implementation_status": "compact-single-scale-flow-variant",
+        "paper_fidelity": "partial",
         "speed": "real-time",
     },
 )
@@ -388,23 +397,19 @@ class VisionCFlow(BaseVisionDeepDetector):
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )
-        scores = np.zeros(len(x_list), dtype=np.float64)
+        scores = np.empty(len(x_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(x_list))
 
         for idx, img_path in enumerate(x_list):
-            try:
-                img = cv2.imread(img_path)
-                if img is None:
-                    raise ValueError(f"Failed to load image: {img_path}")
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                img_tensor = self.transform(img).unsqueeze(0).to(self.device)
+            img = cv2.imread(img_path)
+            if img is None:
+                raise ValueError(f"Failed to load image: {img_path}")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img_tensor = self.transform(img).unsqueeze(0).to(self.device)
 
-                log_prob = self._compute_patch_log_prob(img_tensor)
-                scores[idx] = float((-log_prob).mean().item())
-            except Exception as e:
-                logger.warning("Failed to score %s: %s", img_path, e)
-                scores[idx] = 0.0
+            log_prob = self._compute_patch_log_prob(img_tensor)
+            scores[idx] = float((-log_prob).mean().item())
 
         return scores
 

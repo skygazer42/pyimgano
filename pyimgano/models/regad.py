@@ -1,11 +1,10 @@
-"""
-RegAD - Registration-based Anomaly Detection
+"""Experimental registration proxy related to RegAD.
 
 Reference:
-    "Registration-based Anomaly Detection for Industrial Quality Inspection"
+    "Few-Shot Anomaly Detection via Category-Agnostic Registration Learning"
 
-Uses feature registration and alignment to detect anomalies by measuring
-misalignment between test and reference features.
+This same-category spatial-transformer baseline omits the paper's
+category-agnostic few-shot learning regime. It is not a paper reproduction.
 """
 
 import logging
@@ -19,6 +18,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -140,20 +140,21 @@ class RegistrationNetwork(nn.Module):
 
 @register_model(
     "vision_regad",
-    tags=("vision", "deep", "regad", "registration", "alignment", "sota"),
+    tags=("vision", "deep", "regad", "registration", "alignment", "experimental"),
     metadata={
-        "description": "RegAD - Registration-based anomaly detection with STN",
-        "paper": "Registration-based Anomaly Detection",
-        "year": 2023,
+        "description": "Experimental same-category STN baseline; not category-agnostic RegAD",
+        "related_paper": "Few-Shot Anomaly Detection via Category-Agnostic Registration Learning",
+        "year": 2022,
+        "implementation_status": "experimental-registration-proxy",
+        "paper_fidelity": "inspired",
         "type": "registration",
     },
 )
 class VisionRegAD(BaseVisionDeepDetector):
-    """
-    RegAD: Registration-based Anomaly Detection.
+    """Experimental STN baseline, not a reproduction of RegAD.
 
-    Detects anomalies by measuring feature misalignment after attempting
-    to register test features with a reference template.
+    It performs same-category spatial alignment and omits the paper's
+    category-agnostic few-shot registration learning.
 
     Parameters
     ----------
@@ -211,9 +212,6 @@ class VisionRegAD(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.reg_network_ = None
         self.reference_features_ = None
 
@@ -252,6 +250,7 @@ class VisionRegAD(BaseVisionDeepDetector):
 
         return total_loss
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

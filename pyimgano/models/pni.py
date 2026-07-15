@@ -1,21 +1,11 @@
+"""Unregistered multi-scale feature kNN baseline.
+
+No matching canonical paper was verified for the former PNI/CVPR claim. The
+class names remain importable for compatibility only.
 """
-Pyramidal Normality Indexing (PNI) for Anomaly Detection
 
-Paper: "Pyramidal Normality Indexing for Image Anomaly Detection"
-Conference: CVPR 2022
-
-Key Innovation:
-- Multi-scale pyramidal feature indexing
-- Efficient normality scoring using k-NN at multiple scales
-- Combines global and local patterns for robust detection
-- Fast inference with hierarchical search
-
-Implementation follows the paper's architecture with:
-- Feature pyramid extraction from pre-trained backbone
-- k-NN indexing at each pyramid level
-- Aggregation of multi-scale normality scores
-- Optional feature alignment for better matching
-"""
+PAPER_FIDELITY = "not-applicable"
+IMPLEMENTATION_STATUS = "unregistered-experimental-baseline"
 
 from typing import List, Optional
 

@@ -23,6 +23,11 @@ class ModelType:
 
 _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ModelFamily(
+        name="deep",
+        description="Deep-learning anomaly detectors and learned visual representations.",
+        tags=("deep",),
+    ),
+    ModelFamily(
         name="neighbors",
         description="Nearest-neighbor and locality-based anomaly detectors.",
         tags=("neighbors",),
@@ -140,6 +145,11 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
 )
 
 _MODEL_TYPES: tuple[ModelType, ...] = (
+    ModelType(
+        name="deep-core",
+        description="Deep one-class detectors operating directly on feature matrices.",
+        tags=("deep", "core"),
+    ),
     ModelType(
         name="classical-core",
         description="Classical core detectors operating on feature matrices or tabular vectors.",

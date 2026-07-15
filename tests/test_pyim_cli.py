@@ -371,7 +371,7 @@ def test_pyim_list_metadata_contract_outputs_json(capsys):
     assert code == 0
     payload = json.loads(capsys.readouterr().out)
     assert isinstance(payload, list)
-    assert any(item["name"] == "paper" and item["requirement"] == "recommended" for item in payload)
+    assert any(item["name"] == "paper" and item["requirement"] == "conditional" for item in payload)
     assert any(item["name"] == "family" and item["requirement"] == "required" for item in payload)
 
 

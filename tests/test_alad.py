@@ -24,6 +24,12 @@ def test_vision_alad_contract_fit_and_score() -> None:
     )
 
     det.fit(train)
+    discriminator_parameters = {
+        id(parameter)
+        for group in det.opt_disc.param_groups
+        for parameter in group["params"]
+    }
+    assert all(id(parameter) in discriminator_parameters for parameter in det.img_feat.parameters())
     scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))

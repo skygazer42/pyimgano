@@ -15,7 +15,7 @@ import pytest
 
 from pyimgano.models import create_model
 
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 pytest.importorskip("torchvision")
 
 
@@ -261,15 +261,15 @@ class TestSimpleNet:
 
         assert len(scores) == len(sample_images["all"])
         assert all(isinstance(s, (int, float)) for s in scores)
-        assert all(0 <= s <= 2 for s in scores)  # Cosine distance range
+        assert np.isfinite(scores).all()
 
         labels = detector.predict(sample_images["all"])
         assert labels.shape == (len(sample_images["all"]),)
         assert set(labels.tolist()).issubset({0, 1})
 
     @pytest.mark.slow
-    def test_reference_features_built(self, sample_images):
-        """Test that reference features are built during training."""
+    def test_discriminator_is_trained(self, sample_images):
+        """SimpleNet must train its defining anomaly discriminator."""
         detector = create_model(
             "vision_simplenet",
             epochs=2,
@@ -278,16 +278,17 @@ class TestSimpleNet:
             device="cpu",
         )
 
-        # Should not have reference features before fit
-        assert not hasattr(detector, "reference_features")
+        before = [parameter.detach().clone() for parameter in detector.discriminator.parameters()]
 
         # Fit on normal images
         detector.fit(sample_images["normal"])
 
-        # Should have reference features after fit
-        assert hasattr(detector, "reference_features")
-        assert detector.reference_features.shape[0] > 0
-        assert detector.reference_features.shape[1] == 384  # feature_dim
+        after = list(detector.discriminator.parameters())
+        assert any(not torch.equal(left, right) for left, right in zip(before, after))
+
+        anomaly_map = detector.get_anomaly_map(sample_images["normal"][0])
+        assert anomaly_map.ndim == 2
+        assert np.isfinite(anomaly_map).all()
 
 
 class TestDFM:
@@ -572,7 +573,6 @@ class TestPaDiM:
             image_size=64,
             pretrained=False,
             device=device,
-            projection_fit_samples=2,
             covariance_eps=0.1,
             random_state=0,
         )
@@ -590,7 +590,6 @@ class TestPaDiM:
             image_size=64,
             pretrained=False,
             device="cpu",
-            projection_fit_samples=2,
             covariance_eps=0.1,
             random_state=0,
         )
@@ -627,6 +626,7 @@ class TestSPADE:
         assert detector.backbone_name == "resnet18"
         assert detector.k_neighbors == 5
         assert detector.image_size == 64
+        assert detector.crop_size == 56
 
     @pytest.mark.slow
     def test_fit_predict(self, sample_images):

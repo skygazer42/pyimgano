@@ -30,6 +30,7 @@ from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .deep_io import safe_torch_load
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -54,32 +55,45 @@ class DeepPyramidExtractor(nn.Module):
         self.layer1 = nn.Sequential(*list(resnet.children())[:5])  # Low-level
         self.layer2 = nn.Sequential(*list(resnet.children())[5:6])  # Mid-level
         self.layer3 = nn.Sequential(*list(resnet.children())[6:7])  # High-level
+        self.layer4 = nn.Sequential(*list(resnet.children())[7:8])
 
         for param in self.parameters():
             param.requires_grad = False
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         x1 = self.layer1(x)
         x2 = self.layer2(x1)
         x3 = self.layer3(x2)
-        return x1, x2, x3
+        x4 = self.layer4(x3)
+        global_descriptor = F.adaptive_avg_pool2d(x4, 1).flatten(1)
+        return x1, x2, x3, global_descriptor
 
 
 @register_model(
     "vision_spade",
     tags=("vision", "deep", "spade", "knn", "numpy", "pixel_map"),
     metadata={
-        "description": "SPADE - Deep pyramid k-NN localization (ECCV 2020)",
+        "description": "SPADE image retrieval and deep-pyramid correspondence localization",
         "paper": "Sub-Image Anomaly Detection with Deep Pyramid Correspondences",
+        "paper_url": "https://arxiv.org/abs/2005.02357",
         "year": 2020,
+        "supervision": "unsupervised",
+        "implementation_status": "core-aligned",
+        "paper_fidelity": "core-aligned",
     },
 )
 @register_model(
     "spade",
     tags=("vision", "deep", "spade", "knn", "numpy", "pixel_map"),
     metadata={
-        "description": "SPADE (legacy alias) - Deep pyramid k-NN localization",
+        "description": "Legacy alias for SPADE deep-pyramid correspondence localization",
+        "paper": "Sub-Image Anomaly Detection with Deep Pyramid Correspondences",
         "year": 2020,
+        "supervision": "unsupervised",
+        "implementation_status": "core-aligned",
+        "paper_fidelity": "core-aligned",
     },
 )
 class VisionSPADEDetector(BaseVisionDeepDetector):
@@ -92,9 +106,10 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         backbone: str = "wide_resnet50",
         pretrained: bool = False,
         image_size: int = 256,
+        crop_size: Optional[int] = None,
         k_neighbors: int = 50,
         feature_levels: Sequence[str] = ("layer1", "layer2", "layer3"),
-        align_features: bool = True,
+        align_features: bool = False,
         gaussian_sigma: float = 4.0,
         device: Optional[str] = None,
         **kwargs,
@@ -103,16 +118,34 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
 
         if image_size < 32:
             raise ValueError(f"image_size must be >= 32, got {image_size}")
+        resolved_crop_size = (
+            int(crop_size)
+            if crop_size is not None
+            else max(1, int(round(image_size * 224 / 256)))
+        )
+        if not 1 <= resolved_crop_size <= image_size:
+            raise ValueError(
+                f"crop_size must be in [1, image_size], got {resolved_crop_size}"
+            )
         if k_neighbors < 1:
             raise ValueError(f"k_neighbors must be >= 1, got {k_neighbors}")
 
         self.backbone_name = str(backbone)
         self.pretrained = bool(pretrained)
         self.image_size = int(image_size)
+        self.crop_size = resolved_crop_size
         self.k_neighbors = int(k_neighbors)
         self.feature_levels = tuple(feature_levels)
+        unknown_levels = set(self.feature_levels) - {"layer1", "layer2", "layer3"}
+        if not self.feature_levels or unknown_levels:
+            raise ValueError(
+                "feature_levels must be a non-empty subset of layer1/layer2/layer3; "
+                f"got {self.feature_levels!r}."
+            )
         self.align_features = bool(align_features)
         self.gaussian_sigma = float(gaussian_sigma)
+        if self.gaussian_sigma < 0:
+            raise ValueError(f"gaussian_sigma must be >= 0, got {self.gaussian_sigma}")
 
         if device is not None:
             device_str = device
@@ -126,8 +159,8 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         ).to(self.device)
         self.feature_extractor.eval()
 
-        self.memory_bank: Optional[dict[str, NDArray]] = None
-        self.kd_trees: Optional[dict[str, cKDTree]] = None
+        self.train_global_features_: Optional[NDArray] = None
+        self.train_feature_maps_: Optional[dict[str, NDArray]] = None
 
     def _load_image(self, image_path: str) -> NDArray:
         img = cv2.imread(image_path)
@@ -178,6 +211,9 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
     def _preprocess(self, image: NDArray) -> torch.Tensor:
         # image: (H,W,C) in [0,1] float32
         img = self._maybe_resize_image(image)
+        top = (int(img.shape[0]) - self.crop_size) // 2
+        left = (int(img.shape[1]) - self.crop_size) // 2
+        img = img[top : top + self.crop_size, left : left + self.crop_size]
         img_t = torch.from_numpy(img).permute(2, 0, 1).float()
 
         mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
@@ -207,7 +243,8 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
 
         logger.info("Building SPADE memory bank on %d images", len(images))
 
-        memory_bank: dict[str, list[NDArray]] = {level: [] for level in self.feature_levels}
+        feature_maps: dict[str, list[NDArray]] = {level: [] for level in self.feature_levels}
+        global_features: list[NDArray] = []
 
         with torch.no_grad():
             for i, img in enumerate(images):
@@ -215,17 +252,18 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
                     logger.info("  Processing image %d/%d", i + 1, len(images))
 
                 img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
-                f1, f2, f3 = self.feature_extractor(img_tensor)
+                f1, f2, f3, global_descriptor = self.feature_extractor(img_tensor)
                 feature_dict = {"layer1": f1, "layer2": f2, "layer3": f3}
+                global_features.append(global_descriptor.squeeze(0).cpu().numpy())
 
                 for level in self.feature_levels:
-                    feat = feature_dict[level]
-                    _, c, _, _ = feat.shape
-                    feat = feat.permute(0, 2, 3, 1).reshape(-1, c)
-                    memory_bank[level].append(feat.cpu().numpy())
+                    feature_maps[level].append(feature_dict[level].squeeze(0).cpu().numpy())
 
-        self.memory_bank = {level: np.vstack(chunks) for level, chunks in memory_bank.items()}
-        self.kd_trees = {level: cKDTree(self.memory_bank[level]) for level in self.feature_levels}
+        self.train_global_features_ = np.stack(global_features).astype(np.float32, copy=False)
+        self.train_feature_maps_ = {
+            level: np.stack(chunks).astype(np.float32, copy=False)
+            for level, chunks in feature_maps.items()
+        }
 
         # Calibrate threshold for `predict()`.
         self.decision_scores_ = self.decision_function(images)
@@ -233,8 +271,29 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         return self
 
     def _check_fitted(self) -> None:
-        if self.memory_bank is None or self.kd_trees is None:
+        if self.train_global_features_ is None or self.train_feature_maps_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
+
+    @torch.no_grad()
+    def _extract_feature_bundle(
+        self, image: NDArray
+    ) -> tuple[dict[str, NDArray], NDArray]:
+        img_tensor = self._preprocess(image).unsqueeze(0).to(self.device)
+        f1, f2, f3, global_descriptor = self.feature_extractor(img_tensor)
+        tensors = {"layer1": f1, "layer2": f2, "layer3": f3}
+        feature_maps = {
+            level: tensors[level].squeeze(0).cpu().numpy().astype(np.float32, copy=False)
+            for level in self.feature_levels
+        }
+        return feature_maps, global_descriptor.squeeze(0).cpu().numpy()
+
+    def _nearest_training_images(self, global_descriptor: NDArray) -> tuple[NDArray, NDArray]:
+        self._check_fitted()
+        train_global = cast(NDArray, self.train_global_features_)
+        distances = np.linalg.norm(train_global - global_descriptor.reshape(1, -1), axis=1)
+        count = min(self.k_neighbors, len(distances))
+        indices = np.argsort(distances)[:count]
+        return indices.astype(np.int64, copy=False), distances[indices]
 
     def decision_function(
         self,
@@ -258,8 +317,9 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         ):
-            anomaly_map = self._compute_anomaly_map(img)
-            scores.append(float(anomaly_map.max()))
+            _feature_maps, global_descriptor = self._extract_feature_bundle(img)
+            _indices, distances = self._nearest_training_images(global_descriptor)
+            scores.append(float(np.mean(distances)))
 
         return np.asarray(scores, dtype=np.float32)
 
@@ -297,39 +357,60 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
     def _compute_anomaly_map(self, image: NDArray) -> NDArray:
         self._check_fitted()
 
-        with torch.no_grad():
-            img_tensor = self._preprocess(image).unsqueeze(0).to(self.device)
-            f1, f2, f3 = self.feature_extractor(img_tensor)
-            feature_dict = {"layer1": f1, "layer2": f2, "layer3": f3}
-
-            anomaly_maps: list[NDArray] = []
-            for level in self.feature_levels:
-                feat = feature_dict[level]
-                _b, c, h, w = feat.shape
-
-                feat = feat.permute(0, 2, 3, 1).reshape(h * w, c).cpu().numpy()
-                if self.align_features:
-                    feat = self._align_features(feat)
-
-                distances, _ = self.kd_trees[level].query(feat, k=self.k_neighbors, workers=-1)
-                distances_arr = np.asarray(distances, dtype=np.float32)
-                if distances_arr.ndim == 1:
-                    distances_arr = distances_arr.reshape(-1, 1)
-                anomaly_scores = distances_arr.mean(axis=1).astype(np.float32, copy=False)
-                anomaly_map = anomaly_scores.reshape(h, w)
-
-                anomaly_map_t = torch.from_numpy(anomaly_map).unsqueeze(0).unsqueeze(0)
-                anomaly_map_t = F.interpolate(
-                    anomaly_map_t,
-                    size=(self.image_size, self.image_size),
+        query_maps, global_descriptor = self._extract_feature_bundle(image)
+        neighbor_indices, _distances = self._nearest_training_images(global_descriptor)
+        train_maps = cast(dict[str, NDArray], self.train_feature_maps_)
+        # SPADE describes each location by concatenating the selected feature
+        # pyramid levels at a shared spatial resolution before correspondence
+        # matching (paper Sec. 3.4).
+        reference_level = self.feature_levels[0]
+        height, width = query_maps[reference_level].shape[-2:]
+        query_tensors: list[torch.Tensor] = []
+        gallery_tensors: list[torch.Tensor] = []
+        for level in self.feature_levels:
+            query_tensor = torch.from_numpy(query_maps[level]).unsqueeze(0)
+            gallery_tensor = torch.from_numpy(train_maps[level][neighbor_indices])
+            if query_tensor.shape[-2:] != (height, width):
+                query_tensor = F.interpolate(
+                    query_tensor,
+                    size=(height, width),
                     mode="bilinear",
                     align_corners=False,
                 )
-                anomaly_maps.append(anomaly_map_t.squeeze().cpu().numpy())
+            if gallery_tensor.shape[-2:] != (height, width):
+                gallery_tensor = F.interpolate(
+                    gallery_tensor,
+                    size=(height, width),
+                    mode="bilinear",
+                    align_corners=False,
+                )
+            query_tensors.append(query_tensor)
+            gallery_tensors.append(gallery_tensor)
 
-            final_map = np.mean(anomaly_maps, axis=0)
-            if self.gaussian_sigma > 0:
-                final_map = gaussian_filter(final_map, sigma=self.gaussian_sigma)
+        query = torch.cat(query_tensors, dim=1).squeeze(0).numpy()
+        gallery_maps = torch.cat(gallery_tensors, dim=1).numpy()
+        channels = int(query.shape[0])
+        query_patches = query.transpose(1, 2, 0).reshape(-1, channels)
+        gallery = gallery_maps.transpose(0, 2, 3, 1).reshape(-1, channels)
+        if self.align_features:
+            query_patches = self._align_features(query_patches)
+            gallery = self._align_features(gallery)
+
+        nearest_distance, _ = cKDTree(gallery).query(query_patches, k=1, workers=-1)
+        anomaly_map = np.asarray(nearest_distance, dtype=np.float32).reshape(height, width)
+        anomaly_map_t = torch.from_numpy(anomaly_map).unsqueeze(0).unsqueeze(0)
+        final_map = (
+            F.interpolate(
+                anomaly_map_t,
+                size=(self.image_size, self.image_size),
+                mode="bilinear",
+                align_corners=False,
+            )
+            .squeeze()
+            .numpy()
+        )
+        if self.gaussian_sigma > 0:
+            final_map = gaussian_filter(final_map, sigma=self.gaussian_sigma)
 
         return final_map.astype(np.float32, copy=False)
 
@@ -340,29 +421,20 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
     def save_checkpoint(self, path: str | Path) -> Path:
         self._check_fitted()
 
-        from pyimgano.models.serialization import save_model
-
-        feature_state = self.feature_extractor.state_dict()
-        normalized_feature_state = {}
-        for key, value in dict(feature_state).items():
-            detach = getattr(value, "detach", None)
-            cpu = getattr(value, "cpu", None)
-            if callable(detach) and callable(cpu):
-                try:
-                    normalized_feature_state[str(key)] = detach().cpu()
-                    continue
-                except Exception:
-                    pass
-            normalized_feature_state[str(key)] = value
+        normalized_feature_state = {
+            str(key): value.detach().cpu()
+            for key, value in self.feature_extractor.state_dict().items()
+        }
 
         payload = {
-            "schema_version": 1,
+            "schema_version": 2,
             "detector": "vision_spade",
             "config": {
                 "contamination": float(self.contamination),
                 "backbone": str(self.backbone_name),
                 "pretrained": bool(self.pretrained),
                 "image_size": int(self.image_size),
+                "crop_size": int(self.crop_size),
                 "k_neighbors": int(self.k_neighbors),
                 "feature_levels": list(self.feature_levels),
                 "align_features": bool(self.align_features),
@@ -371,9 +443,12 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
             },
             "state": {
                 "feature_extractor_state_dict": normalized_feature_state,
-                "memory_bank": {
-                    str(level): np.asarray(bank, dtype=np.float32)
-                    for level, bank in (self.memory_bank or {}).items()
+                "train_global_features": np.asarray(
+                    self.train_global_features_, dtype=np.float32
+                ),
+                "train_feature_maps": {
+                    str(level): np.asarray(maps, dtype=np.float32)
+                    for level, maps in (self.train_feature_maps_ or {}).items()
                 },
                 "decision_scores_": (
                     np.asarray(self.decision_scores_, dtype=np.float64)
@@ -392,14 +467,19 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
                 ),
             },
         }
-        return save_model(payload, path)
+        out_path = Path(path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(payload, out_path)
+        return out_path
 
     def load_checkpoint(self, path: str | Path) -> None:
-        from pyimgano.models.serialization import load_model
-
-        payload = load_model(path)
+        payload = safe_torch_load(path, map_location="cpu")
         if not isinstance(payload, dict):
             raise ValueError("Invalid SPADE checkpoint payload: expected a dict.")
+        if payload.get("schema_version") != 2:
+            raise ValueError(
+                "Unsupported legacy SPADE checkpoint: retrain the former global patch-bank model."
+            )
         if str(payload.get("detector", "")) not in {"vision_spade", "spade"}:
             raise ValueError("Invalid SPADE checkpoint payload: detector marker mismatch.")
 
@@ -408,6 +488,12 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         self.backbone_name = str(config.get("backbone", self.backbone_name))
         self.pretrained = bool(config.get("pretrained", self.pretrained))
         self.image_size = int(config.get("image_size", self.image_size))
+        self.crop_size = int(
+            config.get(
+                "crop_size",
+                max(1, int(round(self.image_size * 224 / 256))),
+            )
+        )
         self.k_neighbors = int(config.get("k_neighbors", self.k_neighbors))
         self.feature_levels = tuple(config.get("feature_levels", self.feature_levels))
         self.align_features = bool(config.get("align_features", self.align_features))
@@ -431,14 +517,15 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         if isinstance(feature_state, dict):
             self.feature_extractor.load_state_dict(dict(feature_state), strict=False)
 
-        memory_bank_payload = state.get("memory_bank", None)
-        if not isinstance(memory_bank_payload, dict):
-            raise ValueError("Invalid SPADE checkpoint payload: missing memory bank.")
-        self.memory_bank = {
-            str(level): np.asarray(bank, dtype=np.float32)
-            for level, bank in memory_bank_payload.items()
+        global_features = state.get("train_global_features", None)
+        feature_maps_payload = state.get("train_feature_maps", None)
+        if global_features is None or not isinstance(feature_maps_payload, dict):
+            raise ValueError("Invalid SPADE checkpoint payload: missing correspondence gallery.")
+        self.train_global_features_ = np.asarray(global_features, dtype=np.float32)
+        self.train_feature_maps_ = {
+            str(level): np.asarray(maps, dtype=np.float32)
+            for level, maps in feature_maps_payload.items()
         }
-        self.kd_trees = {level: cKDTree(bank) for level, bank in self.memory_bank.items()}
 
         decision_scores = state.get("decision_scores_", None)
         self.decision_scores_ = (

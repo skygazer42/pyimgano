@@ -1,17 +1,10 @@
-"""
-SimpleNet: A Simple Network for Image Anomaly Detection and Localization.
+"""Compact SimpleNet adaptation for anomaly detection and localization."""
 
-SimpleNet achieves SOTA performance with a simple architecture using pre-trained
-features and a small adapter network, making it extremely fast and efficient.
-
-Reference:
-    Liu, Z., Zhou, Y., Xu, Y., & Wang, Z. (2023).
-    SimpleNet: A Simple Network for Image Anomaly Detection and Localization.
-    In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 20402-20411).
-"""
+from __future__ import annotations
 
 import logging
-from typing import Iterable, List, Optional, cast
+from itertools import chain
+from typing import Iterable, Optional, cast
 
 import cv2
 import numpy as np
@@ -33,100 +26,66 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleAdapter(nn.Module):
-    """Simple adapter network for feature transformation."""
+    """Shallow patch-feature adapter used by SimpleNet."""
 
-    def __init__(self, in_channels: int = 1536, out_channels: int = 384):
+    def __init__(self, in_channels: int = 1536, out_channels: int = 384) -> None:
         super().__init__()
-        self.adapter = nn.Sequential(
-            nn.Linear(in_channels, out_channels),
-            nn.ReLU(inplace=True),
-            nn.Linear(out_channels, out_channels),
+        self.projection = nn.Linear(in_channels, out_channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.permute(0, 2, 3, 1)
+        x = self.projection(x)
+        return x.permute(0, 3, 1, 2)
+
+
+class AnomalyDiscriminator(nn.Module):
+    """Patch discriminator separating normal and noise-perturbed features."""
+
+    def __init__(self, feature_dim: int, hidden_dim: Optional[int] = None) -> None:
+        super().__init__()
+        hidden = int(hidden_dim or feature_dim)
+        self.network = nn.Sequential(
+            nn.Linear(feature_dim, hidden),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(hidden, 1, bias=False),
         )
 
-    def forward(self, x):
-        # x: (B, C, H, W) -> (B, H, W, C)
-        x = x.permute(0, 2, 3, 1)
-        x = self.adapter(x)
-        # (B, H, W, C) -> (B, C, H, W)
-        x = x.permute(0, 3, 1, 2)
-        return x
+    def forward(self, patches: torch.Tensor) -> torch.Tensor:
+        return self.network(patches).squeeze(-1)
 
 
 class ImagePathDataset(Dataset):
-    """Dataset for loading images from paths."""
-
-    def __init__(self, image_paths: List[str], transform=None):
-        self.image_paths = image_paths
+    def __init__(self, image_paths: Iterable[str], transform) -> None:
+        self.image_paths = list(image_paths)
         self.transform = transform
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_paths)
 
-    def __getitem__(self, idx):
-        img_path = self.image_paths[idx]
-        img = cv2.imread(img_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {img_path}")
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        if self.transform:
-            img = self.transform(img)
-
-        return img, img_path
+    def __getitem__(self, index: int) -> torch.Tensor:
+        path = self.image_paths[index]
+        image = cv2.imread(path)
+        if image is None:
+            raise ValueError(f"Failed to load image: {path}")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return self.transform(image)
 
 
 @register_model(
     "vision_simplenet",
-    tags=("vision", "deep", "simplenet", "fast", "sota", "cvpr2023"),
+    tags=("vision", "deep", "simplenet", "self-supervised", "pixel_map"),
     metadata={
-        "description": "SimpleNet - Ultra-fast SOTA anomaly detection (CVPR 2023)",
-        "paper": "SimpleNet: A Simple Network for Image Anomaly Detection",
-        "benchmark_rank": "state-of-the-art",
+        "description": "Compact SimpleNet adaptation with patch features and a noise-trained discriminator",
+        "paper": "SimpleNet: A Simple Network for Image Anomaly Detection and Localization",
+        "paper_url": "https://openaccess.thecvf.com/content/CVPR2023/html/Liu_SimpleNet_A_Simple_Network_for_Image_Anomaly_Detection_and_Localization_CVPR_2023_paper.html",
         "year": 2023,
-        "speed": "ultra-fast",
+        "supervision": "self-supervised",
+        "implementation_status": "compact-feature-pipeline-adaptation",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 class VisionSimpleNet(BaseVisionDeepDetector):
-    """
-    SimpleNet anomaly detector - fast and simple yet SOTA.
-
-    This implementation uses:
-    - Pre-trained WideResNet50 for feature extraction
-    - Small adapter network (1M parameters)
-    - Local neighborhood discriminator
-    - Fast training (few epochs needed)
-
-    Parameters
-    ----------
-    backbone : str, default='wide_resnet50'
-        Feature extraction backbone
-    pretrained : bool, default=False
-        Whether to load ImageNet-pretrained weights for the backbone.
-    feature_dim : int, default=384
-        Output dimension of adapter network
-    epochs : int, default=10
-        Number of training epochs (SimpleNet trains very fast!)
-    batch_size : int, default=8
-        Training batch size
-    lr : float, default=0.001
-        Learning rate for Adam optimizer
-    device : str, default='cpu'
-        Device to run model on ('cpu' or 'cuda')
-
-    Examples
-    --------
-    >>> # SimpleNet is extremely fast - only 10 epochs needed!
-    >>> detector = VisionSimpleNet(epochs=10, device='cuda')
-    >>> detector.fit(['normal_img1.jpg', 'normal_img2.jpg'])
-    >>> scores = detector.decision_function(['test_img.jpg'])
-
-    Notes
-    -----
-    SimpleNet achieves SOTA performance with:
-    - 10x faster training than PatchCore
-    - 100x fewer parameters than reconstruction methods
-    - Competitive or better accuracy on MVTec AD
-    """
+    """Compact SimpleNet adaptation for Gaussian feature-noise discrimination."""
 
     def __init__(
         self,
@@ -136,202 +95,116 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         epochs: int = 10,
         batch_size: int = 8,
         lr: float = 0.001,
+        noise_std: float = 0.05,
+        discriminator_margin: float = 0.5,
+        image_size: int = 224,
+        gaussian_sigma: float = 4.0,
         device: str = "cpu",
-        **kwargs,
-    ):
-        """Initialize SimpleNet detector."""
-        super().__init__(**kwargs)
-
+        random_state: Optional[int] = 42,
+        **kwargs: object,
+    ) -> None:
         if epochs < 1:
             raise ValueError(f"epochs must be >= 1, got {epochs}")
-
         if batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+        if feature_dim < 1:
+            raise ValueError("feature_dim must be positive")
+        if noise_std <= 0:
+            raise ValueError("noise_std must be positive")
+        if discriminator_margin <= 0:
+            raise ValueError("discriminator_margin must be positive")
+        if lr <= 0:
+            raise ValueError("lr must be positive")
+        if image_size < 32:
+            raise ValueError("image_size must be >= 32")
+        if gaussian_sigma < 0:
+            raise ValueError("gaussian_sigma must be non-negative")
 
-        self.backbone_name = backbone
-        self.pretrained = pretrained
-        self.feature_dim = feature_dim
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.lr = lr
-        self.device = device
+        requested_random_state = None if random_state is None else int(random_state)
+        super().__init__(random_state=None, **kwargs)
+        self.random_state = requested_random_state
+        self.backbone_name = str(backbone)
+        self.pretrained = bool(pretrained)
+        self.feature_dim = int(feature_dim)
+        self.epochs = int(epochs)
+        self.batch_size = int(batch_size)
+        self.lr = float(lr)
+        self.noise_std = float(noise_std)
+        self.discriminator_margin = float(discriminator_margin)
+        self.image_size = int(image_size)
+        self.gaussian_sigma = float(gaussian_sigma)
+        self.device = torch.device(device)
+        self.is_fitted_ = False
 
-        # Build model
-        self._build_model()
-
-        # Image preprocessing
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
-                transforms.Resize((224, 224)),
+                transforms.Resize((self.image_size, self.image_size)),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
             ]
         )
-
-        logger.info(
-            "Initialized SimpleNet with backbone=%s, feature_dim=%d, "
-            "epochs=%d, batch_size=%d, lr=%.4f, device=%s",
-            backbone,
-            feature_dim,
-            epochs,
-            batch_size,
-            lr,
-            device,
-        )
+        self._build_model()
 
     def _build_model(self) -> None:
-        """Build feature extractor and adapter network."""
-        # Pre-trained feature extractor (frozen)
-        if self.backbone_name == "wide_resnet50":
-            backbone, _ = load_torchvision_model(
-                "wide_resnet50",
-                pretrained=bool(self.pretrained),
-            )
-            self.feature_dim_in = 1536  # layer2 (512) + layer3 (1024)
-        elif self.backbone_name == "resnet50":
-            backbone, _ = load_torchvision_model(
-                "resnet50",
-                pretrained=bool(self.pretrained),
-            )
-            self.feature_dim_in = 1536
-        else:
+        if self.backbone_name not in {"wide_resnet50", "resnet50"}:
             raise ValueError(
                 f"Unsupported backbone: {self.backbone_name}. "
-                "Choose 'wide_resnet50' or 'resnet50'"
+                "Choose 'wide_resnet50' or 'resnet50'."
             )
+        with torch.random.fork_rng(devices=[]):
+            if self.random_state is not None:
+                torch.manual_seed(self.random_state)
+            backbone, _ = load_torchvision_model(
+                self.backbone_name,
+                pretrained=self.pretrained,
+            )
+            self.feature_extractor = nn.ModuleDict(
+                {
+                    "stem": nn.Sequential(
+                        backbone.conv1,
+                        backbone.bn1,
+                        backbone.relu,
+                        backbone.maxpool,
+                        backbone.layer1,
+                    ),
+                    "layer2": backbone.layer2,
+                    "layer3": backbone.layer3,
+                }
+            )
+            self.adapter = SimpleAdapter(1536, self.feature_dim)
+            self.discriminator = AnomalyDiscriminator(self.feature_dim)
 
-        # Extract only the feature extraction layers
-        self.feature_extractor = nn.Sequential(
-            backbone.conv1,
-            backbone.bn1,
-            backbone.relu,
-            backbone.maxpool,
-            backbone.layer1,
-            backbone.layer2,
-            backbone.layer3,
-        )
-
-        self.feature_extractor.eval()
-        for param in self.feature_extractor.parameters():
-            param.requires_grad = False
-
-        self.feature_extractor.to(self.device)
-
-        # Trainable adapter network (only ~1M parameters)
-        self.adapter = SimpleAdapter(in_channels=self.feature_dim_in, out_channels=self.feature_dim)
+        self.feature_extractor.to(self.device).eval()
         self.adapter.to(self.device)
+        self.discriminator.to(self.device)
+        for parameter in self.feature_extractor.parameters():
+            parameter.requires_grad = False
 
-        logger.debug(
-            "Feature extractor (frozen): %d parameters",
-            sum(p.numel() for p in self.feature_extractor.parameters()),
-        )
-        logger.debug(
-            "Adapter (trainable): %d parameters", sum(p.numel() for p in self.adapter.parameters())
-        )
+    def _extract_features(self, images: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            base = self.feature_extractor["stem"](images)
+            layer2 = self.feature_extractor["layer2"](base)
+            layer3 = self.feature_extractor["layer3"](layer2)
+            layer2 = F.avg_pool2d(layer2, kernel_size=3, stride=1, padding=1)
+            layer3 = F.avg_pool2d(layer3, kernel_size=3, stride=1, padding=1)
+            layer3 = F.interpolate(
+                layer3,
+                size=layer2.shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
+            return torch.cat((layer2, layer3), dim=1)
 
-    def _extract_features(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Extract multi-scale features.
+    def _adapted_features(self, images: torch.Tensor) -> torch.Tensor:
+        return self.adapter(self._extract_features(images))
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor of shape (B, 3, H, W)
-
-        Returns
-        -------
-        features : torch.Tensor
-            Multi-scale features of shape (B, C, H', W')
-        """
-        # Extract layer2 and layer3 features
-        features = []
-
-        x = self.feature_extractor[:5](x)  # Up to layer1
-        x = self.feature_extractor[5](x)  # layer2
-        layer2_feat = x
-
-        x = self.feature_extractor[6](x)  # layer3
-        layer3_feat = x
-
-        # Resize layer2 to match layer3 spatial size
-        layer2_feat = F.interpolate(
-            layer2_feat, size=layer3_feat.shape[-2:], mode="bilinear", align_corners=False
-        )
-
-        # Concatenate multi-scale features
-        features = torch.cat([layer2_feat, layer3_feat], dim=1)
-
-        return features
-
-    def _local_discriminator_loss(
-        self, features: torch.Tensor, targets: torch.Tensor
-    ) -> torch.Tensor:
-        """
-        Compute local neighborhood discriminator loss.
-
-        Parameters
-        ----------
-        features : torch.Tensor
-            Feature maps of shape (B, C, H, W)
-        targets : torch.Tensor
-            Target feature maps of shape (B, C, H, W)
-
-        Returns
-        -------
-        loss : torch.Tensor
-            Discriminator loss
-        """
-        # SimpleNet uses an adapter to reduce feature dimensionality (e.g. 1536 -> 384).
-        # During training we align adapted features with frozen backbone features.
-        # Different backbones can expose different channel counts; project targets
-        # deterministically to match the adapter output channels so the loss is
-        # well-defined and unit tests can exercise the full training loop.
-        if features.shape[1] != targets.shape[1]:
-            target_channels = int(targets.shape[1])
-            feature_channels = int(features.shape[1])
-            batch_size, _, height, width = targets.shape
-
-            if target_channels % feature_channels == 0:
-                # Pool groups of teacher channels into student channels.
-                group = target_channels // feature_channels
-                targets = targets.contiguous().view(
-                    batch_size,
-                    feature_channels,
-                    group,
-                    height,
-                    width,
-                )
-                targets = targets.mean(dim=2)
-            elif feature_channels % target_channels == 0:
-                # Expand teacher channels deterministically.
-                repeat = feature_channels // target_channels
-                targets = targets.repeat(1, repeat, 1, 1)
-            elif target_channels > feature_channels:
-                # Fallback: take the first channels.
-                targets = targets[:, :feature_channels, :, :]
-            else:
-                # Fallback: zero-pad missing channels.
-                pad_channels = feature_channels - target_channels
-                zeros = torch.zeros(
-                    (batch_size, pad_channels, height, width),
-                    device=targets.device,
-                    dtype=targets.dtype,
-                )
-                targets = torch.cat([targets, zeros], dim=1)
-
-        # Cosine similarity at each spatial location
-        features_norm = F.normalize(features, dim=1)
-        targets_norm = F.normalize(targets, dim=1)
-
-        # Compute cosine distance
-        cos_sim = (features_norm * targets_norm).sum(dim=1)  # (B, H, W)
-        cos_dist = 1 - cos_sim
-
-        # Use mean distance as loss
-        loss = cos_dist.mean()
-
-        return loss
+    @staticmethod
+    def _flatten_patches(features: torch.Tensor) -> torch.Tensor:
+        return features.permute(0, 2, 3, 1).reshape(-1, features.shape[1])
 
     def fit(
         self,
@@ -339,212 +212,85 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         y: Optional[NDArray] = None,
         **kwargs: object,
     ) -> "VisionSimpleNet":
-        """
-        Train SimpleNet on normal images.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Paths to normal (non-anomalous) training images
-        y : array-like, optional
-            Ignored, present for API consistency
-
-        Returns
-        -------
-        self : VisionSimpleNet
-            Fitted detector
-        """
         del y
-        logger.info("Training SimpleNet detector (fast training mode)")
-
-        x_list = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
-        if not x_list:
+        paths = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
+            )
+        )
+        if not paths:
             raise ValueError("Training set cannot be empty")
 
-        # Create dataset and dataloader
-        dataset = ImagePathDataset(x_list, transform=self.transform)
-        dataloader = DataLoader(
-            dataset,
+        loader = DataLoader(
+            ImagePathDataset(paths, self.transform),
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=2,
-            pin_memory=True if self.device == "cuda" else False,
+            num_workers=0,
+            pin_memory=self.device.type == "cuda",
         )
+        optimizer = Adam(
+            chain(self.adapter.parameters(), self.discriminator.parameters()),
+            lr=self.lr,
+            weight_decay=0.0,
+        )
+        noise_generator = torch.Generator(device=self.device.type)
+        if self.random_state is not None:
+            noise_generator.manual_seed(self.random_state)
 
-        # Setup optimizer (only for adapter!)
-        optimizer = Adam(self.adapter.parameters(), lr=self.lr, weight_decay=0.0)
-
-        # Training loop
         self.adapter.train()
-
-        for epoch in range(self.epochs):
-            epoch_loss = 0.0
-            num_batches = 0
-
-            for images, _ in dataloader:
+        self.discriminator.train()
+        for _epoch in range(self.epochs):
+            for images in loader:
                 images = images.to(self.device)
-
-                # Extract frozen features
-                with torch.no_grad():
-                    frozen_features = self._extract_features(images)
-
-                # Pass through adapter
-                adapted_features = self.adapter(frozen_features.detach())
-
-                # Local discriminator loss
-                loss = self._local_discriminator_loss(adapted_features, frozen_features.detach())
-
-                # Backward pass
-                optimizer.zero_grad()
+                normal = self._flatten_patches(self._adapted_features(images))
+                noise = torch.randn(
+                    normal.shape,
+                    generator=noise_generator,
+                    device=self.device,
+                    dtype=normal.dtype,
+                )
+                synthetic_anomaly = normal + self.noise_std * noise
+                normal_score = self.discriminator(normal)
+                anomaly_score = self.discriminator(synthetic_anomaly)
+                loss = F.relu(self.discriminator_margin - normal_score).mean() + F.relu(
+                    self.discriminator_margin + anomaly_score
+                ).mean()
+                optimizer.zero_grad(set_to_none=True)
                 loss.backward()
                 optimizer.step()
 
-                epoch_loss += loss.detach().item()
-                num_batches += 1
-
-            avg_loss = epoch_loss / num_batches
-            logger.info("Epoch %d/%d, Loss: %.6f", epoch + 1, self.epochs, avg_loss)
-
-        logger.info("SimpleNet training completed (ultra-fast!)")
-
-        # Build reference features from training set
-        self._build_reference_features(x_list)
-
-        # Compute training scores to establish a threshold.
-        # This enables `predict()` to return binary labels consistently.
-        self.decision_scores_ = self.decision_function(x_list)
+        self.is_fitted_ = True
+        self.decision_scores_ = self.decision_function(paths)
         self._process_decision_scores()
-
         return self
 
-    def _build_reference_features(self, image_paths: List[str]) -> None:
-        """Build reference feature bank from normal training images."""
-        logger.debug("Building reference feature bank")
+    @staticmethod
+    def _load_rgb(path: str) -> tuple[NDArray, tuple[int, int]]:
+        image = cv2.imread(path)
+        if image is None:
+            raise ValueError(f"Failed to load image: {path}")
+        original_size = (int(image.shape[1]), int(image.shape[0]))
+        return cv2.cvtColor(image, cv2.COLOR_BGR2RGB), original_size
 
-        self.adapter.eval()
-        all_features = []
-
+    def _score_map(self, path: str) -> NDArray:
+        image, original_size = self._load_rgb(path)
+        image_tensor = self.transform(image).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            for img_path in image_paths:
-                try:
-                    # Load image
-                    img = cv2.imread(img_path)
-                    if img is None:
-                        continue
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    img_tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-                    # Extract and adapt features
-                    frozen_features = self._extract_features(img_tensor)
-                    adapted_features = self.adapter(frozen_features)
-
-                    # Flatten spatial dimensions
-                    feat = adapted_features.squeeze(0)  # (C, H, W)
-                    feat = feat.permute(1, 2, 0)  # (H, W, C)
-                    feat = feat.reshape(-1, feat.shape[-1])  # (H*W, C)
-
-                    all_features.append(feat.cpu().numpy())
-
-                except Exception as e:
-                    logger.warning("Failed to process %s: %s", img_path, e)
-
-        if all_features:
-            self.reference_features = np.vstack(all_features)
-            logger.debug("Reference bank size: %s", self.reference_features.shape)
-
-            ref_norm = self.reference_features / (
-                np.linalg.norm(self.reference_features, axis=1, keepdims=True) + 1e-8
+            features = self._adapted_features(image_tensor)
+            height, width = features.shape[-2:]
+            scores = -self.discriminator(self._flatten_patches(features))
+            score_map = scores.reshape(1, 1, height, width)
+            score_map = F.interpolate(
+                score_map,
+                size=(original_size[1], original_size[0]),
+                mode="bilinear",
+                align_corners=False,
             )
-            n_refs = min(1000, len(ref_norm))
-            seed = getattr(self, "random_state", 42)
-            rng = np.random.default_rng(None if seed is None else int(seed))
-            if n_refs < len(ref_norm):
-                indices = rng.choice(len(ref_norm), n_refs, replace=False)
-                self.reference_features_subset_ = ref_norm[indices]
-            else:
-                self.reference_features_subset_ = ref_norm
-        else:
-            raise ValueError("Failed to build reference features")
-
-    def _compute_anomaly_score(self, image_path: str) -> float:
-        """
-        Compute anomaly score for a single image.
-
-        Parameters
-        ----------
-        image_path : str
-            Path to input image
-
-        Returns
-        -------
-        score : float
-            Anomaly score (higher = more anomalous)
-        """
-        # Load image
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError(f"Failed to load image: {image_path}")
-
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-        # Extract features
-        with torch.no_grad():
-            frozen_features = self._extract_features(img_tensor)
-            adapted_features = self.adapter(frozen_features)
-
-        # Compute anomaly score using cosine distance
-        feat = adapted_features.squeeze(0)  # (C, H, W)
-        feat = feat.permute(1, 2, 0)  # (H, W, C)
-        feat = feat.reshape(-1, feat.shape[-1])  # (H*W, C)
-        feat = feat.cpu().numpy()
-
-        # Normalize features
-        feat_norm = feat / (np.linalg.norm(feat, axis=1, keepdims=True) + 1e-8)
-        ref_subset = getattr(self, "reference_features_subset_", None)
-        if ref_subset is None:
-            raise RuntimeError("Reference features not built. Call fit() first.")
-
-        # Cosine similarity matrix
-        sim_matrix = feat_norm @ ref_subset.T  # (H*W, n_refs)
-        max_sim = sim_matrix.max(axis=1)  # Max similarity for each patch
-
-        # Anomaly score is minimum similarity (max distance)
-        score = float((1 - max_sim).max())
-
-        return score
-
-    def predict(
-        self,
-        x: object = MISSING,
-        return_confidence: bool = False,
-        **kwargs: object,
-    ) -> NDArray:
-        """
-        Predict binary anomaly labels for test images.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Paths to test images
-
-        Returns
-        -------
-        labels : ndarray of shape (n_samples,)
-            Binary labels (0 = normal, 1 = anomaly)
-        """
-        if return_confidence:
-            raise NotImplementedError(
-                f"return_confidence is not implemented for {self.__class__.__name__}"
-            )
-
-        if not hasattr(self, "reference_features") or not hasattr(self, "threshold_"):
-            raise RuntimeError("Model not fitted. Call fit() first.")
-
-        scores = self.decision_function(
-            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
-        )
-        return (scores >= self.threshold_).astype(int)
+        output = score_map.squeeze().cpu().numpy().astype(np.float32, copy=False)
+        if self.gaussian_sigma > 0:
+            output = cv2.GaussianBlur(output, (0, 0), sigmaX=self.gaussian_sigma)
+        return np.asarray(output, dtype=np.float32)
 
     def decision_function(
         self,
@@ -552,48 +298,48 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         batch_size: Optional[int] = None,
         **kwargs: object,
     ) -> NDArray:
-        """
-        Compute anomaly scores for test images.
-
-        Parameters
-        ----------
-        X : iterable of str
-            Paths to test images
-
-        Returns
-        -------
-        scores : ndarray of shape (n_samples,)
-            Anomaly scores (higher = more anomalous)
-        """
-        # This detector scores one image at a time. Keep `batch_size` for
-        # interface compatibility with BaseDeepLearningDetector.
-        if batch_size is not None:
-            batch_size_int = int(batch_size)
-            if batch_size_int <= 0:
-                raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
-
-        if not hasattr(self, "reference_features"):
+        if batch_size is not None and int(batch_size) <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+        if not self.is_fitted_:
             raise RuntimeError("Model not fitted. Call fit() first.")
-
-        self.adapter.eval()
-
-        x_list = list(
+        paths = list(
             cast(
                 Iterable[str],
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )
-        scores = np.zeros(len(x_list))
+        self.adapter.eval()
+        self.discriminator.eval()
+        return np.asarray([float(self._score_map(path).max()) for path in paths], dtype=np.float64)
 
-        logger.info("Computing anomaly scores for %d images", len(x_list))
+    def predict(
+        self,
+        x: object = MISSING,
+        return_confidence: bool = False,
+        **kwargs: object,
+    ) -> NDArray:
+        if return_confidence:
+            raise NotImplementedError("return_confidence is not implemented for VisionSimpleNet")
+        if not self.is_fitted_ or not hasattr(self, "threshold_"):
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        paths = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+        return (self.decision_function(paths) > self.threshold_).astype(np.int64)
 
-        for idx, image_path in enumerate(x_list):
-            try:
-                score = self._compute_anomaly_score(image_path)
-                scores[idx] = score
-            except Exception as e:
-                logger.warning("Failed to score %s: %s", image_path, e)
-                scores[idx] = 0.0
+    def get_anomaly_map(self, image_path: str) -> NDArray:
+        if not self.is_fitted_:
+            raise RuntimeError("Model not fitted. Call fit() first.")
+        self.adapter.eval()
+        self.discriminator.eval()
+        return self._score_map(str(image_path))
 
-        logger.debug("Anomaly scores: min=%.4f, max=%.4f", scores.min(), scores.max())
-        return scores
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
+        paths = list(
+            cast(
+                Iterable[str],
+                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
+            )
+        )
+        return np.stack([self.get_anomaly_map(path) for path in paths])
+
+
+__all__ = ["AnomalyDiscriminator", "SimpleAdapter", "VisionSimpleNet"]

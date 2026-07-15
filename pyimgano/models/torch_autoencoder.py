@@ -21,6 +21,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torch_activations import get_activation_by_name
 
 from .baseml import BaseVisionDetector
@@ -91,14 +92,6 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
             raise RuntimeError("device='cuda' requested but CUDA is not available")
         return torch.device(dev)
 
-    def _set_seed(self) -> int | None:
-        if self.random_state is None:
-            return None
-        torch = _require_torch()
-        seed = int(self.random_state)
-        torch.manual_seed(seed)
-        return seed
-
     def _build_model(self, n_features: int):
         _require_torch()
         import torch.nn as nn
@@ -135,6 +128,7 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         return _AE()
 
     # ------------------------------------------------------------------
+    @isolated_random_state_method
     def fit(self, x, y=None):  # noqa: ANN001, ANN201
         del y
         x_np = check_array(x, ensure_2d=True, dtype=np.float64)
@@ -149,7 +143,7 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
         else:
             x_train = x_np
 
-        seed = self._set_seed()
+        seed = None if self.random_state is None else int(self.random_state)
         torch = _require_torch()
         import torch.nn.functional as F
         from torch.utils.data import DataLoader, TensorDataset
@@ -228,6 +222,8 @@ class _MLPAutoencoder:  # backend used by core_* wrapper
     metadata={
         "description": "Core torch MLP autoencoder on feature matrices (reconstruction error)",
         "input": "features",
+        "implementation_status": "generic-reconstruction-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class CoreTorchAutoencoder(CoreFeatureDetector):
@@ -270,6 +266,8 @@ class CoreTorchAutoencoder(CoreFeatureDetector):
     tags=("vision", "deep", "torch", "autoencoder", "reconstruction"),
     metadata={
         "description": "Vision wrapper for core_torch_autoencoder (feature extractor + torch AE core)",
+        "implementation_status": "generic-reconstruction-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionTorchAutoencoder(BaseVisionDetector):
@@ -321,6 +319,8 @@ class VisionTorchAutoencoder(BaseVisionDetector):
         "description": (
             "Industrial preset: deep embeddings (torchvision_backbone) -> torch MLP autoencoder -> recon error"
         ),
+        "implementation_status": "generic-industrial-pipeline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionEmbeddingTorchAutoencoder(BaseVisionDetector):

@@ -44,6 +44,8 @@ def _as_rgb_u8_hwc(path: str) -> np.ndarray:
     metadata={
         "description": "Reference-based patch distance anomaly map (torchvision feature map)",
         "input": "paths",
+        "implementation_status": "generic-reference-baseline",
+        "paper_fidelity": "not-applicable",
     },
 )
 class VisionRefPatchDistanceMapDetector(ReferenceMapPipeline):

@@ -1,13 +1,11 @@
-"""
-InCTRL - In-context Residual Learning for Anomaly Detection
+"""Experimental residual proxy related to InCTRL.
 
 Reference:
     "Toward Generalist Anomaly Detection via In-context Residual Learning with Few-shot Sample Prompts"
     CVPR 2024
 
-A generalist anomaly detection model that can generalize across diverse datasets
-from different application domains without further training on target data.
-Uses in-context learning with few-shot sample prompts.
+Unlike the paper's auxiliary-data generalist regime, this compatibility model
+is trained per input dataset. It is not a paper reproduction.
 """
 
 import logging
@@ -21,6 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._batch_size import call_with_temporary_attr, validate_batch_size
@@ -166,21 +165,22 @@ class ResidualPredictor(nn.Module):
 
 @register_model(
     "vision_inctrl",
-    tags=("vision", "deep", "inctrl", "few-shot", "generalist", "cvpr2024", "sota"),
+    tags=("vision", "deep", "inctrl", "few-shot", "generalist", "cvpr2024", "experimental"),
     metadata={
-        "description": "InCTRL - In-context Residual Learning for generalist AD (CVPR 2024)",
-        "paper": "Toward Generalist Anomaly Detection via In-context Residual Learning",
+        "description": "Experimental per-dataset residual model; not InCTRL's auxiliary-data generalist method",
+        "related_paper": "Toward Generalist Anomaly Detection via In-context Residual Learning with Few-shot Sample Prompts",
         "year": 2024,
+        "implementation_status": "experimental-residual-proxy",
+        "paper_fidelity": "inspired",
         "conference": "CVPR",
         "type": "few-shot",
     },
 )
 class VisionInCTRL(BaseVisionDeepDetector):
-    """
-    InCTRL: In-context Residual Learning for Anomaly Detection.
+    """Experimental residual proxy, not a reproduction of InCTRL.
 
-    A generalist anomaly detection model that generalizes across diverse
-    datasets using in-context learning with few-shot sample prompts.
+    Unlike the paper, this implementation is trained per input dataset and
+    does not use the required auxiliary-data generalist training regime.
 
     Parameters
     ----------
@@ -254,9 +254,6 @@ class VisionInCTRL(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
-
         self.encoder_ = None
         self.in_context_attn_ = None
         self.residual_predictor_ = None
@@ -271,6 +268,7 @@ class VisionInCTRL(BaseVisionDeepDetector):
         indices = torch.randperm(len(x_tensor))[:k]
         return x_tensor[indices]
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

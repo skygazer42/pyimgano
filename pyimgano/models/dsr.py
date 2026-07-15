@@ -1,21 +1,12 @@
+"""Unregistered deep-feature spectral-residual baseline.
+
+This is not the DSR dual-subspace paper implementation, and no matching paper
+was verified for the former title in this module. It remains importable only
+for compatibility.
 """
-Deep Spectral Residual (DSR) for Anomaly Detection
 
-Paper: "Deep Spectral Methods: A Surprisingly Strong Baseline for Unsupervised Anomaly Detection"
-Conference: WACV 2023
-
-Key Innovation:
-- Combines deep features with spectral (frequency domain) analysis
-- Uses FFT to detect anomalies in frequency space
-- Saliency-based anomaly detection
-- Fast and parameter-free inference
-
-Implementation includes:
-- Deep feature extraction from pre-trained models
-- Fast Fourier Transform for spectral analysis
-- Spectral residual computation
-- Saliency map generation
-"""
+PAPER_FIDELITY = "not-applicable"
+IMPLEMENTATION_STATUS = "unregistered-experimental-baseline"
 
 from typing import Optional
 

@@ -28,6 +28,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..base import BaseVisionDeepDetector
+from .registry import register_model
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +42,14 @@ class MemoryModule(nn.Module):
         self.fea_dim = fea_dim
         self.shrink_thres = shrink_thres
 
-        # Initialize memory
-        self.register_buffer("memory", torch.randn(mem_dim, fea_dim))
+        self.memory = nn.Parameter(torch.empty(mem_dim, fea_dim))
         self.reset_parameters()
 
     def reset_parameters(self):
         """Initialize memory with normal distribution."""
         stdv = 1.0 / np.sqrt(self.memory.size(1))
-        self.memory.data.uniform_(-stdv, stdv)
+        with torch.no_grad():
+            self.memory.uniform_(-stdv, stdv)
 
     def forward(self, x: torch.Tensor):
         """
@@ -150,6 +151,17 @@ class MemAENetwork(nn.Module):
         return recon, z, z_mem, att_weight
 
 
+@register_model(
+    "vision_memae",
+    tags=("vision", "deep", "memae", "autoencoder", "memory", "reconstruction"),
+    metadata={
+        "description": "Image adaptation of MemAE with learnable sparse memory addressing",
+        "paper": "Memorizing Normality to Detect Anomaly: Memory-augmented Deep Autoencoder for Unsupervised Anomaly Detection",
+        "year": 2019,
+        "implementation_status": "compact-image-adaptation",
+        "paper_fidelity": "paper-adaptation",
+    },
+)
 class MemAE(BaseVisionDeepDetector):
     """
     Memory-Augmented Autoencoder for anomaly detection.
@@ -225,6 +237,7 @@ class MemAE(BaseVisionDeepDetector):
             Fitted estimator
         """
         del y
+        x_original = np.asarray(x)
         # Convert to torch tensor
         if x.ndim == 3:
             x = np.expand_dims(x, axis=-1)
@@ -279,9 +292,12 @@ class MemAE(BaseVisionDeepDetector):
                 logger.info("Epoch [%d/%d], Loss: %.4f", epoch + 1, self.epochs, avg_loss)
 
         self.is_fitted_ = True
+        self.decision_scores_ = self.decision_function(x_original)
+        self._process_decision_scores()
+        self._set_n_classes(None)
         return self
 
-    def predict(self, x: NDArray) -> NDArray:
+    def decision_function(self, x: NDArray) -> NDArray:
         """
         Compute anomaly scores.
 

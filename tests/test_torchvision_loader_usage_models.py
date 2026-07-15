@@ -192,27 +192,6 @@ def test_rdplusplus_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     assert calls == [("resnet18", False)]
 
 
-def test_bayesianpf_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> None:
-    import torch
-
-    import pyimgano.models.bayesianpf as bayesianpf_module
-    from pyimgano.models.bayesianpf import VisionBayesianPF
-
-    calls: list[tuple[str, bool]] = []
-
-    def _fake_loader(name: str, *, pretrained: bool):
-        calls.append((name, pretrained))
-        return _fake_resnet(torch), None
-
-    monkeypatch.setattr(bayesianpf_module, "load_torchvision_model", _fake_loader, raising=False)
-
-    det = VisionBayesianPF(backbone="resnet18", device="cpu", random_state=0)
-    extractor = det._build_feature_extractor()
-
-    assert isinstance(extractor, torch.nn.Sequential)
-    assert calls == [("resnet18", True)]
-
-
 def test_glad_feature_extractor_uses_shared_torchvision_loader(monkeypatch) -> None:
     import torch
 
@@ -276,11 +255,11 @@ def test_inctrl_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     assert calls == [("resnet18", True)]
 
 
-def test_reverse_distillation_student_uses_shared_torchvision_loader(monkeypatch) -> None:
+def test_reverse_distillation_teacher_uses_shared_torchvision_loader(monkeypatch) -> None:
     import torch
 
     import pyimgano.models.reverse_distillation as rd_module
-    from pyimgano.models.reverse_distillation import StudentResNetExtractor
+    from pyimgano.models.reverse_distillation import ResNet18Encoder
 
     calls: list[tuple[str, bool]] = []
 
@@ -290,10 +269,11 @@ def test_reverse_distillation_student_uses_shared_torchvision_loader(monkeypatch
 
     monkeypatch.setattr(rd_module, "load_torchvision_model", _fake_loader, raising=False)
 
-    extractor = StudentResNetExtractor(("layer2", "layer3", "layer4"))
+    extractor = ResNet18Encoder(pretrained=False)
     outputs = extractor(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
 
     assert len(outputs) == 3
+    assert all(not parameter.requires_grad for parameter in extractor.parameters())
     assert calls == [("resnet18", False)]
 
 

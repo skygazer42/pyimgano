@@ -1,21 +1,12 @@
+"""Experimental background-normalization baseline.
+
+This legacy module is not registered and no matching canonical paper was
+verified for its former BGAD/CVPR claim. The class names remain importable for
+compatibility only.
 """
-BGAD (Background-Guided Anomaly Detection)
 
-Paper: "Background-Guided Anomaly Detection with Feature Normalization"
-Conference: CVPR 2023
-
-Key Innovation:
-- Uses background features to guide anomaly detection
-- Feature normalization with background statistics
-- Separates foreground from background for better detection
-- Robust to background variations
-
-Implementation includes:
-- Background feature extraction and modeling
-- Foreground-background separation
-- Statistical normalization
-- Improved anomaly scoring
-"""
+PAPER_FIDELITY = "not-applicable"
+IMPLEMENTATION_STATUS = "unregistered-experimental-baseline"
 
 from typing import Optional, Tuple
 

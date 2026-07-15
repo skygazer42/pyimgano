@@ -35,6 +35,9 @@ class Registration:
     year: Optional[int]
     description: Optional[str]
     backend: Optional[str]
+    paper_fidelity: Optional[str]
+    implementation_status: Optional[str]
+    reference: Optional[str]
 
 
 def _is_register_model_call(node: ast.AST) -> bool:
@@ -119,6 +122,19 @@ def _extract_registration_from_decorators(
         description = str(description_val) if isinstance(description_val, str) else None
         backend_val = metadata.get("backend", None)
         backend = str(backend_val) if isinstance(backend_val, str) else None
+        fidelity_val = metadata.get("paper_fidelity", None)
+        paper_fidelity = str(fidelity_val) if isinstance(fidelity_val, str) else None
+        if paper_fidelity is None and "deep" in tags and backend in {
+            "anomalib",
+            "patchcore_inspection",
+        }:
+            paper_fidelity = "external-backend"
+        status_val = metadata.get("implementation_status", None)
+        implementation_status = str(status_val) if isinstance(status_val, str) else None
+        if implementation_status is None and paper_fidelity == "external-backend":
+            implementation_status = "external-backend-adapter"
+        reference_val = metadata.get("paper", metadata.get("related_paper", None))
+        reference = str(reference_val) if isinstance(reference_val, str) else None
 
         regs.append(
             Registration(
@@ -129,6 +145,9 @@ def _extract_registration_from_decorators(
                 year=year,
                 description=description,
                 backend=backend,
+                paper_fidelity=paper_fidelity,
+                implementation_status=implementation_status,
+                reference=reference,
             )
         )
     return regs
@@ -166,6 +185,12 @@ def _render_markdown(regs: list[Registration]) -> str:
     lines.append("")
     lines.append(f"Total registered model names: **{len(regs_sorted)}**")
     lines.append("")
+    lines.append(
+        "For deep models, **Fidelity** states whether the native code contains the paper's "
+        "defining method, is an adaptation/partial/proxy, delegates to an external backend, "
+        "or is a generic baseline. `related_paper` references do not claim reproduction."
+    )
+    lines.append("")
     lines.append("## Discovering models")
     lines.append("")
     lines.append("From the CLI:")
@@ -190,15 +215,23 @@ def _render_markdown(regs: list[Registration]) -> str:
     )
     lines.append("See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.")
     lines.append("")
-    lines.append("| Name | Tags | Year | Backend | Description | Module |")
-    lines.append("|---|---|---:|---|---|---|")
+    lines.append(
+        "| Name | Fidelity | Status | Reference | Tags | Year | Backend | Description | Module |"
+    )
+    lines.append("|---|---|---|---|---|---:|---|---|---|")
     for r in regs_sorted:
         tags = ", ".join(r.tags) if r.tags else ""
         year = str(r.year) if r.year is not None else ""
         backend = r.backend or ""
+        fidelity = r.paper_fidelity or ""
+        status = r.implementation_status or ""
+        reference = (r.reference or "").replace("\n", " ").strip()
         desc = (r.description or "").replace("\n", " ").strip()
         module = f"`{r.module}`"
-        lines.append(f"| `{r.name}` | {tags} | {year} | {backend} | {desc} | {module} |")
+        lines.append(
+            f"| `{r.name}` | {fidelity} | {status} | {reference} | {tags} | {year} | "
+            f"{backend} | {desc} | {module} |"
+        )
     lines.append("")
     return "\n".join(lines)
 

@@ -1,11 +1,11 @@
-"""
-AST - Anomaly-aware Student-Teacher Network
+"""Experimental student-teacher proxy related to AST.
 
 Reference:
-    "Anomaly-aware Student-Teacher Network for Industrial Inspection"
+    "Asymmetric Student-Teacher Networks for Industrial Anomaly Detection"
 
-Enhances student-teacher framework with anomaly-aware training using
-synthetic anomalies to improve detection sensitivity.
+The paper uses a normalizing-flow teacher and a feed-forward student. This
+legacy compatibility model instead trains a student with synthetic anomalies;
+it is not a paper reproduction.
 """
 
 from typing import Optional, Tuple, cast
@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 from torch.utils.data import DataLoader, TensorDataset
 
 from pyimgano.models._imagenet_preprocess import preprocess_imagenet_batch
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
@@ -106,20 +107,20 @@ class AnomalyAwareStudent(nn.Module):
 
 @register_model(
     "vision_ast",
-    tags=("vision", "deep", "ast", "student-teacher", "anomaly-aware", "sota"),
+    tags=("vision", "deep", "ast", "student-teacher", "anomaly-aware", "experimental"),
     metadata={
-        "description": "AST - Anomaly-aware Student-Teacher with synthetic anomalies",
-        "paper": "Anomaly-aware Student-Teacher Network",
+        "description": "Experimental synthetic-anomaly student/teacher proxy; not the AST paper method",
+        "related_paper": "Asymmetric Student-Teacher Networks for Industrial Anomaly Detection",
         "year": 2023,
+        "implementation_status": "experimental-student-teacher-proxy",
+        "paper_fidelity": "inspired",
         "type": "knowledge-distillation",
     },
 )
 class VisionAST(BaseVisionDeepDetector):
-    """
-    AST: Anomaly-aware Student-Teacher Network.
+    """Experimental proxy; it does not implement AST's flow teacher/student design.
 
-    Enhances student-teacher framework by training with synthetic anomalies
-    to improve anomaly detection sensitivity.
+    This legacy baseline trains a student with synthetic anomalies.
 
     Parameters
     ----------
@@ -185,8 +186,6 @@ class VisionAST(BaseVisionDeepDetector):
         self.device = device if torch.cuda.is_available() else "cpu"
         self.random_state = random_state
 
-        if random_state is not None:
-            torch.manual_seed(random_state)
         self.rng_ = np.random.default_rng(random_state)
 
         self.teacher_ = None
@@ -291,6 +290,7 @@ class VisionAST(BaseVisionDeepDetector):
 
         return total_loss, recon_loss, anomaly_loss
 
+    @isolated_random_state_method
     def fit(
         self,
         x: object = MISSING,

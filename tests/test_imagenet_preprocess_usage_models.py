@@ -20,14 +20,6 @@ def _assert_preprocess_delegates(*, module, cls_name: str, monkeypatch) -> None:
     assert cls._preprocess(inst, sample) is sentinel
 
 
-def test_bayesianpf_preprocess_uses_shared_helper(monkeypatch) -> None:
-    import pyimgano.models.bayesianpf as module
-
-    _assert_preprocess_delegates(
-        module=module, cls_name="VisionBayesianPF", monkeypatch=monkeypatch
-    )
-
-
 def test_glad_preprocess_uses_shared_helper(monkeypatch) -> None:
     import pyimgano.models.glad as module
 

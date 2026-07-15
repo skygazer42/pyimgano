@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional
 import numpy as np
 
 from pyimgano.train_progress import get_active_train_progress_reporter
+from pyimgano.utils.random_state import isolated_random_state_method
 
 from .base_detector import BaseDetector
 
@@ -326,22 +327,6 @@ class BaseDeepLearningDetector(BaseDetector):
         self.training_lr_history_: list[float] = []
         self.training_last_lr_: float | None = None
         self._optimizer_base_lrs: list[float] = []
-
-        # Seed for reproducibility when callers opt into global seeding.
-        if self.random_state is not None:
-            self._set_seed(self.random_state)
-
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _set_seed(seed: int) -> None:
-        torch = _require_torch()
-        import os
-        import random
-
-        os.environ["PYTHONHASHSEED"] = str(int(seed))
-        random.seed(int(seed))
-        np.random.seed(int(seed))
-        torch.manual_seed(int(seed))
 
     # ------------------------------------------------------------------
     # Subclass API (sklearn-like)
@@ -674,6 +659,7 @@ class BaseDeepLearningDetector(BaseDetector):
     def decision_function_update(self, anomaly_scores):  # noqa: ANN001, ANN201
         return anomaly_scores
 
+    @isolated_random_state_method
     def fit(self, X, y=None):  # noqa: ANN001, ANN201
         x_array = np.asarray(X, dtype=np.float32)
         if x_array.ndim != 2:

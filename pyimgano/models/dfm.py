@@ -30,9 +30,11 @@ logger = logging.getLogger(__name__)
     "vision_dfm",
     tags=("vision", "deep", "dfm", "fast", "gaussian"),
     metadata={
-        "description": "DFM - Fast discriminative feature modeling",
-        "paper": "Probabilistic Modeling of Deep Features for Out-of-Distribution and Adversarial Detection",
+        "description": "Pooled-feature Gaussian baseline inspired by DFM; not a paper reproduction",
+        "related_paper": "Probabilistic Modeling of Deep Features for Out-of-Distribution and Adversarial Detection",
         "year": 2019,
+        "implementation_status": "simplified-global-gaussian-proxy",
+        "paper_fidelity": "partial",
         "speed": "very-fast",
         "training": "none",
     },
@@ -187,19 +189,10 @@ class VisionDFM(BaseVisionDeepDetector):
 
         # Extract features
         features = []
-
         for idx, img_path in enumerate(x_list):
             if idx % 10 == 0:
                 logger.debug("Processing image %d/%d", idx + 1, len(x_list))
-
-            try:
-                feat = self._extract_features(img_path)
-                features.append(feat)
-            except Exception as e:
-                logger.warning("Failed to process %s: %s", img_path, e)
-
-        if not features:
-            raise ValueError("Failed to extract features from any image")
+            features.append(self._extract_features(img_path))
 
         features = np.vstack(features)
         logger.info("Extracted features: %s", features.shape)
@@ -221,7 +214,8 @@ class VisionDFM(BaseVisionDeepDetector):
         # Compute training scores to establish a threshold.
         # This enables `predict()` to return binary labels consistently.
         diff = features - self.mean
-        train_scores = np.sqrt(np.einsum("ij,jk,ik->i", diff, self.inv_cov, diff))
+        squared_distances = np.einsum("ij,jk,ik->i", diff, self.inv_cov, diff)
+        train_scores = np.sqrt(np.maximum(squared_distances, 0.0))
         self.decision_scores_ = train_scores
         self._process_decision_scores()
 
@@ -283,24 +277,17 @@ class VisionDFM(BaseVisionDeepDetector):
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )
-        scores = np.zeros(len(x_list), dtype=np.float64)
+        if not x_list:
+            return np.empty(0, dtype=np.float64)
+
+        scores = np.empty(len(x_list), dtype=np.float64)
 
         logger.info("Computing anomaly scores for %d images", len(x_list))
 
         for idx, img_path in enumerate(x_list):
-            try:
-                # Extract features
-                feat = self._extract_features(img_path)
-
-                # Compute Mahalanobis distance
-                diff = feat - self.mean
-                score = np.sqrt(diff @ self.inv_cov @ diff.T)
-
-                scores[idx] = score
-
-            except Exception as e:
-                logger.warning("Failed to score %s: %s", img_path, e)
-                scores[idx] = 0.0
+            feat = self._extract_features(img_path)
+            diff = feat - self.mean
+            scores[idx] = np.sqrt(max(float(diff @ self.inv_cov @ diff.T), 0.0))
 
         logger.debug("Scores: min=%.4f, max=%.4f", scores.min(), scores.max())
         return scores

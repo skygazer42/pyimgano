@@ -6,11 +6,11 @@ title: 模型注册表
 
 === "中文"
 
-    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **278** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
+    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **287** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
 
 === "English"
 
-    pyimgano manages all detectors through a unified model registry. Currently **278** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
+    pyimgano manages all detectors through a unified model registry. Currently **287** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
 
 ---
 
@@ -98,11 +98,16 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `backend` | 外部后端封装（anomalib 等） |
 | `onnx` | ONNX Runtime 嵌入 |
 | `torchscript` | TorchScript 嵌入 |
-| `sota` | 当前 SOTA 水平 |
+| `experimental` | 实验代理；不能作为论文复现或已验证 SOTA 的声明 |
 
 !!! note "自动标签"
     如果模型类定义了 `predict_anomaly_map()` 或 `get_anomaly_map()` 方法，
     注册时会自动添加 `pixel_map` 标签，无需手动指定。
+
+!!! warning "深度模型论文关系"
+    每个 `deep` 条目必须声明 `paper_fidelity` 和 `implementation_status`。
+    `core-aligned` 表示实现论文核心算法，不代表复现实验数值；`partial` / `inspired`
+    不能使用 `paper` 声称论文实现。完整表见 `docs/MODEL_INDEX.md`。
 
 ---
 
@@ -234,22 +239,22 @@ detector = create_model("vision_ecod", contamination=0.1)
 | 名称 | 标签 | 说明 |
 |------|------|------|
 | `vision_stfpm` | deep, vision, pixel_map | STFPM 师生特征金字塔匹配 |
-| `efficient_ad` | deep, vision, distillation | EfficientAD 师生嵌入蒸馏 |
-| `vision_reverse_distillation` | deep, vision, distillation | 反向蒸馏 |
-| `vision_reverse_dist` | deep, vision, distillation | 反向蒸馏（别名） |
+| `efficient_ad` | deep, vision, distillation | EfficientAD 相关嵌入蒸馏代理（inspired） |
+| `vision_reverse_distillation` | deep, vision, distillation | 反向蒸馏 ResNet-18 适配版 |
+| `vision_reverse_dist` | deep, vision, distillation | 反向蒸馏适配版（别名） |
 
 ### 流模型方法
 
 | 名称 | 标签 | 说明 |
 |------|------|------|
-| `vision_fastflow` | deep, vision, pixel_map | FastFlow 快速正则化流 |
-| `vision_cflow` | deep, vision, pixel_map | CFlow 条件正则化流 |
+| `vision_fastflow` | deep, vision, flow | FastFlow 相关紧凑流变体（partial） |
+| `vision_cflow` | deep, vision, pixel_map | CFlow 单尺度紧凑变体（partial） |
 
 ### 重构方法
 
 | 名称 | 标签 | 说明 |
 |------|------|------|
-| `vision_draem` | deep, vision, pixel_map | DRAEM 重构+判别 |
+| `vision_draem` | deep, vision, pixel_map | DRAEM 紧凑适配版（重构+判别） |
 | `ae_resnet_unet` | deep, autoencoder, reconstruction | ResNet UNet 自编码器 |
 | `core_torch_autoencoder` | deep, core, autoencoder | MLP 自编码器 |
 
@@ -265,8 +270,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 | 名称 | 标签 | 说明 |
 |------|------|------|
 | `vision_simplenet` | deep, vision, pixel_map | SimpleNet（CVPR 2023） |
-| `vision_anomalydino` | deep, vision, pixel_map | AnomalyDINO (DINOv2) |
-| `vision_mambaad` | deep, vision, pixel_map | MambaAD 序列建模 |
+| `vision_anomalydino` | deep, vision, pixel_map | AnomalyDINO 相关 DINOv2-kNN 代理（inspired） |
 
 ### 其他深度方法
 
@@ -275,10 +279,10 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `core_deep_svdd` | deep, core, one-class | DeepSVDD 单类深度检测 |
 | `vision_deep_svdd` | deep, vision, one-class | DeepSVDD 视觉包装器 |
 | `vision_padim` | deep, vision, pixel_map | PaDiM 概率嵌入 |
-| `vision_padim_lite` | deep, vision, pixel_map | PaDiM-lite 轻量嵌入 |
-| `vision_dfm` | deep, vision | DFM 深度特征建模 |
-| `vision_patchcore_lite` | deep, vision, memory_bank | PatchCore-lite 轻量版 |
-| `vision_patchcore_online` | deep, vision, memory_bank, online | 增量 PatchCore |
+| `vision_padim_lite` | classical, vision, gaussian | PaDiM 相关图像级高斯代理（inspired） |
+| `vision_dfm` | deep, vision | DFM 全局高斯紧凑变体（partial） |
+| `vision_patchcore_lite` | classical, vision, memory_bank | PatchCore 相关图像级代理（inspired） |
+| `vision_patchcore_online` | classical, vision, memory_bank, online | 在线图像级记忆库变体（inspired） |
 
 ---
 
@@ -286,11 +290,11 @@ detector = create_model("vision_ecod", contamination=0.1)
 
 | 名称 | 标签 | 说明 |
 |------|------|------|
-| `vision_winclip` | vision, deep, clip, pixel_map | WinCLIP 零样本/少样本检测 |
-| `winclip` | vision, deep, clip, pixel_map | WinCLIP（别名） |
+| `vision_winclip` | vision, deep, clip, pixel_map | WinCLIP 相关裁剪窗口代理（inspired） |
+| `winclip` | vision, deep, clip, pixel_map | 同一实验代理（别名） |
 | `vision_openclip_patch_map` | vision, deep, clip, pixel_map | OpenCLIP patch 模板距离检测 |
-| `vision_promptad` | vision, deep, few-shot, sota | PromptAD 提示学习少样本检测 |
-| `vision_anomalydino` | vision, deep, dinov2, pixel_map | AnomalyDINO (DINOv2 嵌入) |
+| `vision_promptad` | vision, deep, few-shot, experimental | PromptAD 相关视觉适配代理（inspired） |
+| `vision_anomalydino` | vision, deep, dinov2, pixel_map | AnomalyDINO 相关 DINOv2-kNN 代理（inspired） |
 
 ---
 
@@ -543,12 +547,14 @@ from pyimgano.models.registry import (
 
         - 为视觉模型添加 `vision` 标签，core 模型添加 `core` 标签
         - 实现 `get_anomaly_map()` 的模型会自动获得 `pixel_map` 标签
-        - `metadata` 中建议包含 `description`、`paper`、`year` 字段
+        - `deep` 模型必须包含 `paper_fidelity` 和 `implementation_status`
+        - 仅 `core-aligned` / `paper-adaptation` 使用 `paper`；代理使用 `related_paper`
         - 模型名应使用 `snake_case`，视觉模型建议以 `vision_` 为前缀
 
     === "English"
 
         - Add `vision` tag for vision models, `core` tag for core models
         - Models implementing `get_anomaly_map()` automatically get the `pixel_map` tag
-        - Include `description`, `paper`, `year` in `metadata`
+        - Deep models must include `paper_fidelity` and `implementation_status`
+        - Only core/adaptation entries use `paper`; proxies use `related_paper`
         - Use `snake_case` for model names; prefix vision models with `vision_`
