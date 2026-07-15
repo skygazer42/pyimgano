@@ -27,9 +27,26 @@ def test_glad_preprocess_uses_shared_helper(monkeypatch) -> None:
 
 
 def test_panda_preprocess_uses_shared_helper(monkeypatch) -> None:
+    import torch
+
     import pyimgano.models.panda as module
 
-    _assert_preprocess_delegates(module=module, cls_name="VisionPANDA", monkeypatch=monkeypatch)
+    called = False
+
+    def _fake_helper(x):  # noqa: ANN001, ANN202
+        nonlocal called
+        called = True
+        assert isinstance(x, np.ndarray)
+        return torch.zeros((1, 3, 4, 4), dtype=torch.float32)
+
+    monkeypatch.setattr(module, "preprocess_imagenet_batch", _fake_helper)
+    inst = module.VisionPANDA.__new__(module.VisionPANDA)
+    inst.resize_size = 4
+    inst.image_size = 4
+    output = module.VisionPANDA._preprocess(inst, np.zeros((1, 4, 4, 3), dtype=np.uint8))
+
+    assert called
+    assert tuple(output.shape) == (1, 3, 4, 4)
 
 
 def test_inctrl_preprocess_uses_shared_helper(monkeypatch) -> None:

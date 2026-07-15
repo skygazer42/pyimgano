@@ -124,8 +124,13 @@ preprocessing, training schedule, score normalization, and metric protocol.
   image score. Strict fitting requires caller-supplied distilled teacher
   weights and ImageNet-style penalty data because the paper publishes neither
   an official checkpoint nor an author repository.
+- `vision_panda` implements the paper's image-level PANDA-Early path:
+  ImageNet-pretrained ResNet152, layer3/layer4 compactness fine-tuning for
+  2,300 minibatches with the published SGD defaults, and summed squared-L2
+  2-NN scoring. PANDA-EWC, PANDA-SES, and the separate SPADE segmentation path
+  are not represented by this entry.
 - `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, `vision_panda`, `vision_regad`, and `vision_winclip` are
+  `vision_oneformore`, `vision_regad`, and `vision_winclip` are
   experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and
   `vision_visionad` expose injectable scoring hooks; they are not native paper

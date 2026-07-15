@@ -12,29 +12,31 @@ def _make_rgb_batch(*, count: int = 4, size: int = 16) -> np.ndarray:
 
 
 def test_panda_fit_does_not_print_progress(monkeypatch, capsys) -> None:
-    import torch.nn.functional as F
-
     import pyimgano.models.panda as panda_module
     from pyimgano.models.panda import VisionPANDA
 
     class _DummyEncoder(torch.nn.Module):
-        def __init__(self, backbone: str = "resnet18", projection_dim: int = 8) -> None:
-            del backbone
+        def __init__(
+            self,
+            backbone: str = "resnet152",
+            *,
+            pretrained: bool = True,
+            weights_name: str = "IMAGENET1K_V1",
+        ) -> None:
+            del backbone, pretrained, weights_name
             super().__init__()
-            self.proj = torch.nn.Linear(3 * 16 * 16, projection_dim)
+            self.proj = torch.nn.Linear(3, 8)
 
         def forward(self, x):  # noqa: ANN001
-            flat = x.reshape(int(x.shape[0]), -1)
-            return F.normalize(self.proj(flat), p=2, dim=1)
+            return self.proj(x.mean(dim=(-1, -2)))
 
-    monkeypatch.setattr(panda_module, "PrototypicalEncoder", _DummyEncoder)
+    monkeypatch.setattr(panda_module, "PANDAEncoder", _DummyEncoder)
 
     det = VisionPANDA(
         backbone="resnet18",
-        projection_dim=8,
-        n_prototypes=2,
+        pretrained=False,
         batch_size=2,
-        epochs=10,
+        training_steps=2,
         device="cpu",
         random_state=0,
     )
@@ -42,6 +44,7 @@ def test_panda_fit_does_not_print_progress(monkeypatch, capsys) -> None:
     det.fit(_make_rgb_batch())
     out = capsys.readouterr().out
     assert out == ""
+
 
 def test_glad_fit_does_not_print_progress(monkeypatch, capsys) -> None:
     import torch.nn.functional as F

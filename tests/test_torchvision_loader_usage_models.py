@@ -223,21 +223,38 @@ def test_panda_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     import torch
 
     import pyimgano.models.panda as panda_module
-    from pyimgano.models.panda import PrototypicalEncoder
+    from pyimgano.models.panda import PANDAEncoder
 
-    calls: list[tuple[str, bool]] = []
+    calls: list[tuple[str, bool, str | None]] = []
 
-    def _fake_loader(name: str, *, pretrained: bool):
-        calls.append((name, pretrained))
-        return _fake_resnet(torch), None
+    class _FakeResNet(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv1 = torch.nn.Conv2d(3, 3, 1)
+            self.bn1 = torch.nn.BatchNorm2d(3)
+            self.relu = torch.nn.ReLU()
+            self.maxpool = torch.nn.Identity()
+            self.layer1 = torch.nn.Conv2d(3, 3, 1)
+            self.layer2 = torch.nn.Conv2d(3, 3, 1)
+            self.layer3 = torch.nn.Conv2d(3, 3, 1)
+            self.layer4 = torch.nn.Conv2d(3, 3, 1)
+            self.avgpool = torch.nn.AdaptiveAvgPool2d(1)
+            self.fc = torch.nn.Linear(3, 2)
+
+    def _fake_loader(name: str, *, pretrained: bool, weights_name: str | None = None):
+        calls.append((name, pretrained, weights_name))
+        return _FakeResNet(), None
 
     monkeypatch.setattr(panda_module, "load_torchvision_model", _fake_loader, raising=False)
 
-    encoder = PrototypicalEncoder(backbone="resnet18", projection_dim=64)
-    out = encoder.backbone(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
+    encoder = PANDAEncoder(backbone="resnet18")
+    out = encoder(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
 
-    assert tuple(out.shape) == (1, 3, 8, 8)
-    assert calls == [("resnet18", True)]
+    assert tuple(out.shape) == (1, 3)
+    assert all(not parameter.requires_grad for parameter in encoder.backbone.layer2.parameters())
+    assert all(parameter.requires_grad for parameter in encoder.backbone.layer3.parameters())
+    assert all(parameter.requires_grad for parameter in encoder.backbone.layer4.parameters())
+    assert calls == [("resnet18", True, "IMAGENET1K_V1")]
 
 
 def test_inctrl_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:

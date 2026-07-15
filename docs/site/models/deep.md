@@ -100,9 +100,12 @@ maps = model.predict_anomaly_map(test_images)
   特征金字塔、二维位置条件、每尺度八个条件流块、归一化似然目标和多尺度概率图；
   论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议；`vision_softpatch`
   已对齐 WRN50-2 layer2/layer3 patch 特征、逐位置 LOF(k=6)、15% 去噪、
-  10% greedy coreset、记忆权重乘最近邻距离与最大 patch 图像分数。
+  10% greedy coreset、记忆权重乘最近邻距离与最大 patch 图像分数；
+  `vision_panda` 已对齐图像级 PANDA-Early：ImageNet ResNet152、仅微调
+  layer3/layer4、2,300 个 minibatch 的论文 SGD 参数及平方 L2 2-NN 评分。
+  该入口不包含需要 Fisher 的 EWC、SES 多检查点或独立 SPADE 分割路径。
 - `inspired`: `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
-  `vision_oneformore`, `vision_panda`, `vision_regad`,
+  `vision_oneformore`, `vision_regad`,
   `vision_winclip`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。

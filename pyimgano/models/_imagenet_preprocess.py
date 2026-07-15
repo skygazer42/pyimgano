@@ -15,10 +15,13 @@ def preprocess_imagenet_batch(x: Any):
     import torch
 
     arr = np.asarray(x)
+    integer_input = np.issubdtype(arr.dtype, np.integer)
     if arr.shape[-1] == 3:
         arr = np.transpose(arr, (0, 3, 1, 2))
 
-    arr = arr.astype(np.float32) / 255.0
+    arr = arr.astype(np.float32)
+    if integer_input or float(arr.max()) > 1.0:
+        arr /= 255.0
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 3, 1, 1)
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 3, 1, 1)
     arr = (arr - mean) / std

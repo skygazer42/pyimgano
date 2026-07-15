@@ -125,7 +125,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "oneformore",  # Experimental One-for-More-related diffusion proxy
     "padim",  # Patch Distribution Modeling
     "padim_lite",  # PaDiM-like Gaussian baseline on embeddings (image-level)
-    "panda",  # Prototype baseline; not a PANDA reproduction
+    "panda",  # PANDA-Early ResNet feature adaptation
     "patchcore",  # PatchCore patch-level detection (CVPR 2022)
     "patchcore_lite",  # PatchCore-like memory bank (image-level)
     "patchcore_lite_map",  # PatchCore-lite anomaly map (pixel-map memory bank)
