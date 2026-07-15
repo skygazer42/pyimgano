@@ -194,6 +194,14 @@ blocks 3/4 with the published optimizer and clipping defaults, and summed
 squared-L2 2-NN scoring. It does not claim the Fisher-dependent PANDA-EWC,
 checkpoint-ensemble PANDA-SES, or the paper's separate SPADE segmentation path.
 
+The native RealNet entry implements the paper's WideResNet50-2 four-level
+features, 64-batch AFS channel selection, independent reconstruction U-Nets,
+max/mean RRS decoder, joint reconstruction/segmentation objectives, and
+published optimizer/schedule. SDAS remains the paper's separate offline data
+generation stage: fitting requires paired SDAS/SIA-style anomaly images and
+masks. The local unsupervised contract also does not use labeled validation
+anomalies to choose a best checkpoint as the author evaluation script does.
+
 Primary references for these boundaries are the
 [image DevNet paper](https://arxiv.org/abs/2108.00462) and
 [author-endorsed image code](https://github.com/Choubo/deviation-network-image),
@@ -207,7 +215,8 @@ Primary references for these boundaries are the
 and [author code](https://github.com/marco-rudolph/AST), the
 [RIAD paper](https://doi.org/10.1016/j.patcog.2020.107706), and the
 [FastFlow paper](https://arxiv.org/abs/2111.07677), plus the
-[PANDA paper](https://openaccess.thecvf.com/content/CVPR2021/html/Reiss_PANDA_Adapting_Pretrained_Features_for_Anomaly_Detection_and_Segmentation_CVPR_2021_paper.html).
+[PANDA paper](https://openaccess.thecvf.com/content/CVPR2021/html/Reiss_PANDA_Adapting_Pretrained_Features_for_Anomaly_Detection_and_Segmentation_CVPR_2021_paper.html)
+and [RealNet paper](https://openaccess.thecvf.com/content/CVPR2024/html/Zhang_RealNet_A_Feature_Selection_Network_with_Realistic_Synthetic_Anomaly_for_CVPR_2024_paper.html).
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.
@@ -229,7 +238,7 @@ The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`
-- `vision_promptad`, `vision_realnet`, `vision_regad`
+- `vision_promptad`, `vision_regad`
 - `vision_winclip`, `winclip`
 - `vision_anomalydino`, `vision_patchcore_lite_map`
 - `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`

@@ -135,7 +135,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "promptad",  # Experimental PromptAD-related visual proxy
     "pni",  # Unregistered multi-scale feature kNN baseline
     "rdplusplus",  # Unregistered reverse-distillation proxy
-    "realnet",  # Experimental RealNet-related synthetic-anomaly proxy
+    "realnet",  # RealNet AFS/reconstruction/RRS path (external SDAS pairs)
     "regad",  # Experimental RegAD-related STN proxy
     "reverse_distillation",  # Reverse Distillation
     "riad",  # RIAD disjoint masked-inpainting paper adaptation

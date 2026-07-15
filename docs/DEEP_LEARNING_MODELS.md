@@ -129,7 +129,13 @@ preprocessing, training schedule, score normalization, and metric protocol.
   2,300 minibatches with the published SGD defaults, and summed squared-L2
   2-NN scoring. PANDA-EWC, PANDA-SES, and the separate SPADE segmentation path
   are not represented by this entry.
-- `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
+- `vision_realnet` implements the paper's WideResNet50-2 feature pyramid,
+  one-time 64-batch AFS channel selection, four independent reconstruction
+  U-Nets, max/mean RRS, joint reconstruction/segmentation losses, and published
+  1,000-epoch defaults. Fitting strictly requires paired anomaly images and
+  masks from the separate SDAS/SIA stage; it does not synthesize a different
+  corruption or reproduce the authors' labeled validation checkpoint choice.
+- `vision_promptad`, `vision_inctrl`, `vision_glad`,
   `vision_oneformore`, `vision_regad`, and `vision_winclip` are
   experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and

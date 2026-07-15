@@ -104,7 +104,11 @@ maps = model.predict_anomaly_map(test_images)
   `vision_panda` 已对齐图像级 PANDA-Early：ImageNet ResNet152、仅微调
   layer3/layer4、2,300 个 minibatch 的论文 SGD 参数及平方 L2 2-NN 评分。
   该入口不包含需要 Fisher 的 EWC、SES 多检查点或独立 SPADE 分割路径。
-- `inspired`: `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
+- `paper-adaptation`: `vision_realnet` 已对齐 WideResNet50-2 四层特征、
+  64-batch AFS、四个独立重建 U-Net、max/mean RRS、联合重建/分割损失及
+  1,000 epoch 默认值。训练必须显式提供离线 SDAS/SIA 异常图与掩码配对，
+  且不复现作者用有标签验证集选择最佳 checkpoint 的评测流程。
+- `inspired`: `vision_promptad`, `vision_inctrl`, `vision_glad`,
   `vision_oneformore`, `vision_regad`,
   `vision_winclip`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
