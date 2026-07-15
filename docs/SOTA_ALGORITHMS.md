@@ -37,7 +37,7 @@ paper's weights, data split, preprocessing, schedule, and evaluation protocol.
 
 | Entry | Verified native scope | Remaining boundary |
 |---|---|---|
-| `vision_patchcore` | WRN layer2/layer3 patches, local aggregation, greedy coreset, nearest-patch map, image reweighting; resize 256 then crop 224 | Local embedding mean-pools each layer and concatenates it instead of reproducing the author's 1024-d `MeanMapper`/`Aggregator`; paper experiments also require ImageNet weights |
+| `vision_patchcore` | WRN50-2 layer2/layer3 padded 3x3 patches, 1024-to-1024 MeanMapper/Aggregator embedding, 10% approximate greedy coreset, 1-NN max score; resize 256 then crop 224 | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
 | `vision_padim` | fixed random channel subset, per-location Gaussian, Mahalanobis map, Gaussian smoothing; resize 256 then crop 224 at default size | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
 | `vision_spade` | global KNN retrieval, retrieved-image pyramid gallery, dense correspondence, sigma-4 smoothing; resize 256 then crop 224 | Paper experiments require ImageNet WRN50x2 weights; offline default is `pretrained=False` |
 | `vision_stfpm` | frozen teacher/random student, first three ResNet-18 blocks, normalized feature loss, multiplicative map, 80/20 validation checkpoint selection | Exact paper path requires `pretrained_teacher=True` |
@@ -61,11 +61,15 @@ and [Deep SVDD author code](https://github.com/lukasruff/Deep-SVDD-PyTorch).
 - Partial variants: `vision_cflow`, `vision_fastflow`, `vision_dfm`,
   `vision_fcdd`, `vision_softpatch`.
 
-The native DRAEM entry uses compact U-Nets and simplified texture synthesis;
-the native Reverse Distillation entry replaces the paper's WideResNet50-2,
+The native DRAEM entry now matches the author's base-128 reconstructive network,
+base-64 discriminative network, initialization, losses, and 700-epoch schedule,
+but its fallback texture synthesis remains an adaptation unless DTD images are
+provided. The native Reverse Distillation entry replaces the paper's WideResNet50-2,
 OCBE bottleneck, and reverse-WRN decoder with a ResNet-18 path; and the native
 SimpleNet entry uses a reduced feature/projection/training pipeline. They must
-not be reported as exact paper architectures.
+not be reported as exact paper architectures. DRAEM must not be reported as an
+exact paper experiment unless the DTD anomaly source and full data protocol are
+also used.
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.

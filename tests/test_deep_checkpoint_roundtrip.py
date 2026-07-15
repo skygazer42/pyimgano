@@ -185,6 +185,7 @@ def test_draem_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
             lr=1e-4,
             num_workers=0,
             device="cpu",
+            base_channels=4,
         )
 
     detector = _make_detector()

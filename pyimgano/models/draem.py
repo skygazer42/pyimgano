@@ -1,8 +1,8 @@
-"""Compact DRAEM adaptation.
+"""Paper-architecture DRAEM implementation.
 
-The detector keeps the defining DRAEM path, but uses smaller U-Net variants and
-a simplified texture pipeline.  It is therefore an adaptation, not the exact
-network and augmentation recipe released by the paper authors.
+The reconstructive and discriminative subnetworks, losses, initialization, and
+training schedule follow the author code. The built-in texture fallback remains
+an adaptation when a DTD anomaly source is not supplied.
 
 Reference:
     Zavrtanik, V., Kristan, M., & Skočaj, D. (2021).
@@ -27,6 +27,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 from pyimgano.synthesis.perlin import perlin_noise_2d
+from pyimgano.utils.random_state import isolated_random_state
 
 from .baseCv import BaseVisionDeepDetector
 from .deep_io import safe_torch_load
@@ -59,94 +60,141 @@ def _resolve_legacy_x_keyword(
     return cast(Iterable[ImageInput], x)
 
 
-class SimpleUNet(nn.Module):
-    """Small U-Net used by the two DRAEM subnetworks."""
+def _conv_block(in_channels: int, hidden_channels: int, out_channels: int) -> nn.Sequential:
+    return nn.Sequential(
+        nn.Conv2d(in_channels, hidden_channels, 3, padding=1),
+        nn.BatchNorm2d(hidden_channels),
+        nn.ReLU(inplace=True),
+        nn.Conv2d(hidden_channels, out_channels, 3, padding=1),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(inplace=True),
+    )
 
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        *,
-        base_channels: int = 32,
-        output_activation: bool = False,
-    ) -> None:
+
+def _upsample_block(in_channels: int, out_channels: int) -> nn.Sequential:
+    return nn.Sequential(
+        nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True),
+        nn.Conv2d(in_channels, out_channels, 3, padding=1),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(inplace=True),
+    )
+
+
+class ReconstructiveSubNetwork(nn.Module):
+    """Five-stage, no-skip reconstructive network from the author code."""
+
+    def __init__(self, in_channels: int = 3, out_channels: int = 3, base_width: int = 128):
         super().__init__()
-        c = int(base_channels)
-        if c <= 0:
-            raise ValueError("base_channels must be positive")
-        self.output_activation = bool(output_activation)
-
-        # Encoder
-        self.enc1 = self._conv_block(in_channels, c)
-        self.enc2 = self._conv_block(c, c * 2)
-        self.enc3 = self._conv_block(c * 2, c * 4)
-        self.enc4 = self._conv_block(c * 4, c * 8)
-
-        # Decoder
-        self.dec4 = self._upconv_block(c * 8, c * 4)
-        self.dec3 = self._upconv_block(c * 8, c * 2)
-        self.dec2 = self._upconv_block(c * 4, c)
-        self.dec1 = self._conv_block(c * 2, c)
-        self.final = nn.Conv2d(c, out_channels, 1)
-
-    @staticmethod
-    def _conv_block(in_ch: int, out_ch: int) -> nn.Sequential:
-        return nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
+        c = int(base_width)
+        self.encoder_blocks = nn.ModuleList(
+            [
+                _conv_block(in_channels, c, c),
+                _conv_block(c, c * 2, c * 2),
+                _conv_block(c * 2, c * 4, c * 4),
+                _conv_block(c * 4, c * 8, c * 8),
+                _conv_block(c * 8, c * 8, c * 8),
+            ]
         )
-
-    @staticmethod
-    def _upconv_block(in_ch: int, out_ch: int) -> nn.Sequential:
-        return nn.Sequential(
-            nn.ConvTranspose2d(in_ch, out_ch, 2, stride=2),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
+        self.decoder_ups = nn.ModuleList(
+            [
+                _upsample_block(c * 8, c * 8),
+                _upsample_block(c * 4, c * 4),
+                _upsample_block(c * 2, c * 2),
+                _upsample_block(c, c),
+            ]
         )
+        self.decoder_blocks = nn.ModuleList(
+            [
+                _conv_block(c * 8, c * 8, c * 4),
+                _conv_block(c * 4, c * 4, c * 2),
+                _conv_block(c * 2, c * 2, c),
+                _conv_block(c, c, c),
+            ]
+        )
+        self.final = nn.Conv2d(c, out_channels, 3, padding=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Encoder
-        e1 = self.enc1(x)
-        e2 = self.enc2(F.max_pool2d(e1, 2))
-        e3 = self.enc3(F.max_pool2d(e2, 2))
-        e4 = self.enc4(F.max_pool2d(e3, 2))
+        for index, block in enumerate(self.encoder_blocks):
+            x = block(x)
+            if index < len(self.encoder_blocks) - 1:
+                x = F.max_pool2d(x, 2)
+        for upsample, block in zip(self.decoder_ups, self.decoder_blocks):
+            x = block(upsample(x))
+        return self.final(x)
 
-        # Decoder with skip connections
-        d4 = self.dec4(e4)
-        d4 = torch.cat([d4, e3], dim=1)
 
-        d3 = self.dec3(d4)
-        d3 = torch.cat([d3, e2], dim=1)
+class DiscriminativeSubNetwork(nn.Module):
+    """Six-stage discriminative U-Net from the author code."""
 
-        d2 = self.dec2(d3)
-        d2 = torch.cat([d2, e1], dim=1)
+    def __init__(self, in_channels: int = 6, out_channels: int = 2, base_channels: int = 64):
+        super().__init__()
+        c = int(base_channels)
+        self.encoder_blocks = nn.ModuleList(
+            [
+                _conv_block(in_channels, c, c),
+                _conv_block(c, c * 2, c * 2),
+                _conv_block(c * 2, c * 4, c * 4),
+                _conv_block(c * 4, c * 8, c * 8),
+                _conv_block(c * 8, c * 8, c * 8),
+                _conv_block(c * 8, c * 8, c * 8),
+            ]
+        )
+        self.decoder_ups = nn.ModuleList(
+            [
+                _upsample_block(c * 8, c * 8),
+                _upsample_block(c * 8, c * 4),
+                _upsample_block(c * 4, c * 2),
+                _upsample_block(c * 2, c),
+                _upsample_block(c, c),
+            ]
+        )
+        self.decoder_blocks = nn.ModuleList(
+            [
+                _conv_block(c * 16, c * 8, c * 8),
+                _conv_block(c * 12, c * 4, c * 4),
+                _conv_block(c * 6, c * 2, c * 2),
+                _conv_block(c * 3, c, c),
+                _conv_block(c * 2, c, c),
+            ]
+        )
+        self.final = nn.Conv2d(c, out_channels, 3, padding=1)
 
-        d1 = self.dec1(d2)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        encoder_features = []
+        for index, block in enumerate(self.encoder_blocks):
+            x = block(x)
+            encoder_features.append(x)
+            if index < len(self.encoder_blocks) - 1:
+                x = F.max_pool2d(x, 2)
 
-        output = self.final(d1)
-        return torch.sigmoid(output) if self.output_activation else output
+        x = encoder_features[-1]
+        for upsample, block, skip in zip(
+            self.decoder_ups,
+            self.decoder_blocks,
+            reversed(encoder_features[:-1]),
+        ):
+            x = block(torch.cat((upsample(x), skip), dim=1))
+        return self.final(x)
 
 
 class DRAEMNetwork(nn.Module):
-    """Reconstructive and discriminative subnetworks from the DRAEM pipeline."""
+    """Reference reconstructive and discriminative DRAEM subnetworks."""
 
-    def __init__(self, *, base_channels: int = 32) -> None:
+    def __init__(
+        self,
+        *,
+        reconstructive_base_channels: int = 128,
+        discriminative_base_channels: int = 64,
+        base_channels: Optional[int] = None,
+    ) -> None:
         super().__init__()
-        self.reconstructor = SimpleUNet(
-            3,
-            3,
-            base_channels=base_channels,
-            output_activation=True,
+        if base_channels is not None:
+            reconstructive_base_channels = discriminative_base_channels = int(base_channels)
+        self.reconstructor = ReconstructiveSubNetwork(
+            base_width=int(reconstructive_base_channels)
         )
-        self.segmentor = SimpleUNet(
-            6,
-            2,
-            base_channels=base_channels,
-            output_activation=False,
+        self.segmentor = DiscriminativeSubNetwork(
+            base_channels=int(discriminative_base_channels)
         )
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -188,10 +236,23 @@ def _ssim_loss(x: torch.Tensor, target: torch.Tensor, window_size: int = 11) -> 
 
 
 def _focal_loss(logits: torch.Tensor, mask: torch.Tensor, gamma: float = 2.0) -> torch.Tensor:
+    probabilities = torch.softmax(logits, dim=1)
     target = mask[:, 0].long()
-    cross_entropy = F.cross_entropy(logits, target, reduction="none")
-    probability = torch.exp(-cross_entropy)
-    return ((1.0 - probability) ** gamma * cross_entropy).mean()
+    one_hot = F.one_hot(target, num_classes=int(logits.shape[1])).permute(0, 3, 1, 2)
+    one_hot = one_hot.to(dtype=probabilities.dtype)
+    smooth = 1e-5
+    one_hot = one_hot.clamp(smooth / (logits.shape[1] - 1), 1.0 - smooth)
+    probability = (one_hot * probabilities).sum(dim=1) + smooth
+    return (-((1.0 - probability) ** gamma) * probability.log()).mean()
+
+
+def _weights_init(module: nn.Module) -> None:
+    name = module.__class__.__name__
+    if "Conv" in name and getattr(module, "weight", None) is not None:
+        nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    elif "BatchNorm" in name:
+        nn.init.normal_(module.weight, mean=1.0, std=0.02)
+        nn.init.zeros_(module.bias)
 
 
 class ImagePathDataset(Dataset):
@@ -288,12 +349,12 @@ class ImagePathDataset(Dataset):
     "vision_draem",
     tags=("vision", "deep", "draem", "reconstruction", "synthetic", "numpy", "pixel_map"),
     metadata={
-        "description": "Compact DRAEM adaptation with reconstruction and discriminative segmentation",
+        "description": "DRAEM reference networks with reconstruction and discriminative segmentation",
         "paper": "DRAEM: A Discriminatively Trained Reconstruction Embedding for Surface Anomaly Detection",
         "paper_url": "https://openaccess.thecvf.com/content/ICCV2021/html/Zavrtanik_DRAEM_-_A_Discriminatively_Trained_Reconstruction_Embedding_for_Surface_Anomaly_ICCV_2021_paper.html",
         "year": 2021,
         "supervision": "self-supervised",
-        "implementation_status": "compact-two-network-adaptation",
+        "implementation_status": "paper-network-and-schedule-aligned",
         "paper_fidelity": "paper-adaptation",
     },
 )
@@ -305,7 +366,7 @@ class VisionDRAEM(BaseVisionDeepDetector):
     ----------
     image_size : int, default=256
         Input image size
-    epochs : int, default=100
+    epochs : int, default=700
         Number of training epochs
     batch_size : int, default=8
         Training batch size
@@ -327,29 +388,33 @@ class VisionDRAEM(BaseVisionDeepDetector):
     def __init__(
         self,
         image_size: int = 256,
-        epochs: int = 100,
+        epochs: int = 700,
         batch_size: int = 8,
         lr: float = 0.0001,
         num_workers: int = 0,
         device: str = "cpu",
         anomaly_source_images: Optional[Iterable[ImageInput]] = None,
-        base_channels: int = 32,
+        reconstructive_base_channels: int = 128,
+        discriminative_base_channels: int = 64,
+        base_channels: Optional[int] = None,
         random_state: int = 42,
         **kwargs,
     ):
         """Initialize DRAEM detector."""
         super().__init__(random_state=random_state, **kwargs)
 
-        if image_size < 8 or image_size % 8:
-            raise ValueError("image_size must be >= 8 and divisible by 8")
+        if image_size < 32 or image_size % 32:
+            raise ValueError("image_size must be >= 32 and divisible by 32")
         if epochs < 1:
             raise ValueError("epochs must be >= 1")
         if batch_size < 1:
             raise ValueError("batch_size must be >= 1")
         if lr <= 0:
             raise ValueError("lr must be positive")
-        if base_channels < 1:
-            raise ValueError("base_channels must be positive")
+        if base_channels is not None:
+            reconstructive_base_channels = discriminative_base_channels = int(base_channels)
+        if reconstructive_base_channels < 1 or discriminative_base_channels < 1:
+            raise ValueError("DRAEM base channel widths must be positive")
 
         self.image_size = image_size
         self.epochs = epochs
@@ -360,12 +425,19 @@ class VisionDRAEM(BaseVisionDeepDetector):
         self.anomaly_source_images = (
             None if anomaly_source_images is None else list(anomaly_source_images)
         )
-        self.base_channels = int(base_channels)
+        self.reconstructive_base_channels = int(reconstructive_base_channels)
+        self.discriminative_base_channels = int(discriminative_base_channels)
+        self.base_channels = None if base_channels is None else int(base_channels)
         self.random_state = int(random_state)
         self._is_fitted = False
 
         # Build model
-        self.model = DRAEMNetwork(base_channels=self.base_channels)
+        with isolated_random_state(self.random_state):
+            self.model = DRAEMNetwork(
+                reconstructive_base_channels=self.reconstructive_base_channels,
+                discriminative_base_channels=self.discriminative_base_channels,
+            )
+            self.model.apply(_weights_init)
         self.model.to(self.device)
 
         # Image preprocessing
@@ -404,8 +476,12 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
         torch.save(
             {
-                "schema_version": 2,
-                "model_type": "draem_two_network",
+                "schema_version": 3,
+                "model_type": "draem_reference_networks",
+                "architecture": {
+                    "reconstructive_base_channels": self.reconstructive_base_channels,
+                    "discriminative_base_channels": self.discriminative_base_channels,
+                },
                 "model_state_dict": model_state_dict,
                 "decision_scores_": torch.as_tensor(
                     np.asarray(self.decision_scores_, dtype=np.float64),
@@ -422,10 +498,18 @@ class VisionDRAEM(BaseVisionDeepDetector):
         state = safe_torch_load(path, map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionDRAEM checkpoint payload.")
-        if state.get("schema_version") != 2 or state.get("model_type") != "draem_two_network":
+        if (
+            state.get("schema_version") != 3
+            or state.get("model_type") != "draem_reference_networks"
+        ):
             raise ValueError(
-                "Unsupported legacy DRAEM checkpoint: expected the two-network schema version 2."
+                "Unsupported legacy DRAEM checkpoint: refit with the reference networks."
             )
+        if state.get("architecture") != {
+            "reconstructive_base_channels": self.reconstructive_base_channels,
+            "discriminative_base_channels": self.discriminative_base_channels,
+        }:
+            raise ValueError("VisionDRAEM checkpoint architecture does not match this detector.")
 
         model_state_dict = state.get("model_state_dict", None)
         if not isinstance(model_state_dict, dict):
@@ -479,10 +563,16 @@ class VisionDRAEM(BaseVisionDeepDetector):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=str(self.device).startswith("cuda"),
+            generator=torch.Generator().manual_seed(self.random_state),
         )
 
         # Setup optimizer
         optimizer = Adam(self.model.parameters(), lr=self.lr, weight_decay=0.0)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=[int(self.epochs * 0.8), int(self.epochs * 0.9)],
+            gamma=0.2,
+        )
 
         # Training loop
         self.model.train()
@@ -497,7 +587,6 @@ class VisionDRAEM(BaseVisionDeepDetector):
 
                 # Forward pass
                 reconstructed, mask_logits = self.model(augmented)
-
                 loss = (
                     F.mse_loss(reconstructed, original)
                     + _ssim_loss(reconstructed, original)
@@ -514,6 +603,9 @@ class VisionDRAEM(BaseVisionDeepDetector):
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / len(dataloader)
                 logger.info("Epoch %d/%d, Loss: %.6f", epoch + 1, self.epochs, avg_loss)
+            scheduler.step()
+
+        self.final_learning_rate_ = float(optimizer.param_groups[0]["lr"])
 
         logger.info("DRAEM training completed")
 

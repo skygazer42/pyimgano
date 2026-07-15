@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 
@@ -23,6 +25,17 @@ def test_patchcore_accepts_numpy_images(monkeypatch):
         "ToTensor",
         "Normalize",
     ]
+    assert det.backbone_name == "wide_resnet50_2"
+    assert det.pretrain_embed_dimension == 1024
+    assert det.target_embed_dimension == 1024
+    assert det.patch_size == 3
+    assert det.patch_stride == 1
+    assert det.coreset_projection_dim == 128
+    assert det.coreset_starting_points == 10
+    signature = inspect.signature(type(det).__init__)
+    assert signature.parameters["n_neighbors"].default == 1
+    assert signature.parameters["pretrain_embed_dimension"].default == 1024
+    assert signature.parameters["target_embed_dimension"].default == 1024
 
     def fake_extract(image):
         assert isinstance(image, np.ndarray)
@@ -48,6 +61,53 @@ def test_patchcore_accepts_numpy_images(monkeypatch):
     anomaly_map = det.get_anomaly_map(imgs[0])
     assert anomaly_map.shape == (10, 20)
     assert anomaly_map.dtype == np.float32
+
+
+def test_patchcore_uses_reference_unfold_and_1024_style_embedding():
+    torch = pytest.importorskip("torch")
+    det = create_model(
+        "vision_patchcore",
+        backbone="resnet50",
+        pretrained=False,
+        device="cpu",
+        pretrain_embed_dimension=5,
+        target_embed_dimension=7,
+    )
+
+    feature = torch.arange(9, dtype=torch.float32).reshape(1, 1, 3, 3)
+    patches, patch_shape = det._patchify_feature_map(feature)
+    assert patch_shape == (3, 3)
+    assert tuple(patches.shape) == (1, 9, 1, 3, 3)
+    torch.testing.assert_close(patches[0, 4, 0], feature[0, 0])
+    torch.testing.assert_close(
+        patches[0, 0, 0],
+        torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 3.0, 4.0]]),
+    )
+
+    embedded, reference_shape = det._embed_feature_maps(
+        [feature, torch.ones((1, 2, 2, 2), dtype=torch.float32)]
+    )
+    assert reference_shape == (3, 3)
+    assert tuple(embedded.shape) == (9, 7)
+    assert bool(torch.isfinite(embedded).all())
+
+
+def test_patchcore_coreset_projection_only_selects_original_features():
+    det = create_model(
+        "vision_patchcore",
+        backbone="resnet50",
+        coreset_sampling_ratio=0.5,
+        coreset_projection_dim=1,
+        coreset_starting_points=2,
+        pretrained=False,
+        device="cpu",
+    )
+    features = np.arange(18, dtype=np.float32).reshape(6, 3)
+
+    sampled = det._coreset_sampling(features)
+
+    assert sampled.shape == (3, 3)
+    assert all(any(np.array_equal(row, original) for original in features) for row in sampled)
 
 
 def test_patchcore_feature_projection_reduces_feature_dim(monkeypatch):

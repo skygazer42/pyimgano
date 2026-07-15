@@ -14,6 +14,7 @@ def test_draem_accepts_numpy_images_for_scoring_and_maps():
         epochs=1,
         batch_size=1,
         device="cpu",
+        base_channels=4,
     )
 
     # Avoid running full training in this unit test; enable inference path.
@@ -30,27 +31,46 @@ def test_draem_accepts_numpy_images_for_scoring_and_maps():
 
 
 def test_draem_uses_perlin_mask_and_discriminative_branch():
+    import inspect
+
     import torch
 
     from pyimgano.models.draem import (
         DRAEMNetwork,
         ImagePathDataset,
+        VisionDRAEM,
         _focal_loss,
         _ssim_loss,
     )
 
     dataset = ImagePathDataset([], anomaly_source_images=[np.zeros((8, 8, 3), dtype=np.uint8)])
     dataset.rng = np.random.default_rng(2)
-    original = torch.full((3, 16, 16), 0.2)
-    texture = torch.full((3, 16, 16), 0.9)
+    original = torch.full((3, 32, 32), 0.2)
+    texture = torch.full((3, 32, 32), 0.9)
     augmented, mask = dataset._add_synthetic_anomaly(original, texture)
 
-    assert mask.shape == (1, 16, 16)
+    assert mask.shape == (1, 32, 32)
     assert torch.any(mask > 0)
     assert not torch.equal(augmented, original)
 
     network = DRAEMNetwork(base_channels=4)
+    assert len(network.reconstructor.encoder_blocks) == 5
+    assert len(network.reconstructor.decoder_blocks) == 4
+    assert len(network.segmentor.encoder_blocks) == 6
+    assert len(network.segmentor.decoder_blocks) == 5
+    assert inspect.signature(DRAEMNetwork).parameters[
+        "reconstructive_base_channels"
+    ].default == 128
+    assert inspect.signature(DRAEMNetwork).parameters[
+        "discriminative_base_channels"
+    ].default == 64
+    detector_signature = inspect.signature(VisionDRAEM.__init__)
+    assert detector_signature.parameters["epochs"].default == 700
+    assert detector_signature.parameters["batch_size"].default == 8
+    assert detector_signature.parameters["lr"].default == 0.0001
     reconstruction, logits = network(augmented.unsqueeze(0).repeat(2, 1, 1, 1))
+    assert reconstruction.shape == (2, 3, 32, 32)
+    assert logits.shape == (2, 2, 32, 32)
     masks = mask.unsqueeze(0).repeat(2, 1, 1, 1)
     loss = (
         torch.nn.functional.mse_loss(reconstruction, original.unsqueeze(0).repeat(2, 1, 1, 1))

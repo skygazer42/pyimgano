@@ -24,7 +24,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
 | `vision_differnet` | `paper-adaptation` | Flow detector with a reduced transform ensemble |
 | `vision_reverse_distillation` | `paper-adaptation` | ResNet-18 replacement for the paper's WRN50/OCBE path |
-| `vision_draem` | `paper-adaptation` | Smaller U-Nets and simplified texture synthesis |
+| `vision_draem` | `paper-adaptation` | Paper networks/schedule; simplified fallback synthesis unless DTD images are supplied |
 | `vision_simplenet` | `paper-adaptation` | Compact feature projection/training recipe |
 | `vision_spade` | `core-aligned` | Image retrieval and deep correspondences |
 | `vision_cutpaste` | `core-aligned` | CutPaste self-supervision |
@@ -59,10 +59,12 @@ preprocessing, training schedule, score normalization, and metric protocol.
 
 - `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_fcdd`, and
   `vision_softpatch` are compact/partial variants.
-- `vision_reverse_distillation`, `vision_draem`, and `vision_simplenet` retain
-  their papers' main idea but use materially different native architectures or
-  training pipelines. Prefer their external backend entry where one exists and
-  exact upstream checkpoint compatibility is required.
+- `vision_draem` uses the paper networks and schedule, but its fallback anomaly
+  synthesis is not the DTD protocol unless anomaly-source images are supplied.
+- `vision_reverse_distillation` and `vision_simplenet` retain their papers' main
+  idea but use materially different native architectures or training pipelines.
+  Prefer an external backend where exact upstream checkpoint compatibility is
+  required.
 - `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, and `vision_winclip` are experimental proxies.

@@ -3,9 +3,8 @@
 The CVPR 2022 method combines locally aware patch representations, a coreset
 memory bank, nearest-neighbor scoring, and image-level score reweighting. This
 module implements those defining components; it does not claim the paper's
-published benchmark numbers. Its multi-layer embedding is intentionally
-simpler than the author's 1024-dimensional preprocessing/aggregation stack:
-each layer is locally mean-pooled and the aligned maps are concatenated.
+published benchmark numbers. Its patchification and 1024-to-1024 multi-layer
+embedding follow the authors' reference implementation.
 
 Reference:
     Roth, K., Pemula, L., Zepeda, J., Schölkopf, B., Brox, T., & Gehler, P. (2022).
@@ -63,19 +62,15 @@ class VisionPatchCore(BaseVisionDeepDetector):
     - Coreset subsampling for efficient memory bank
     - k-NN based anomaly scoring
 
-    The local patch embedding preserves PatchCore's defining multi-scale local
-    representation, but is not dimension-for-dimension identical to the
-    author's ``MeanMapper``/``Aggregator`` path.
-
     Parameters
     ----------
-    backbone : str, default='wide_resnet50'
-        Feature extraction backbone ('wide_resnet50' or 'resnet50')
+    backbone : str, default='wide_resnet50_2'
+        Feature extraction backbone ('wide_resnet50_2' or 'resnet50')
     layers : List[str], default=['layer2', 'layer3']
         Layers to extract features from
     coreset_sampling_ratio : float, default=0.1
         Ratio of training patches to keep in memory bank (0.0-1.0)
-    n_neighbors : int, default=9
+    n_neighbors : int, default=1
         Number of nearest neighbors for anomaly scoring
     device : str, default='cpu'
         Device to run model on ('cpu' or 'cuda')
@@ -90,12 +85,18 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
     def __init__(
         self,
-        backbone: str = "wide_resnet50",
+        backbone: str = "wide_resnet50_2",
         layers: List[str] = None,
         coreset_sampling_ratio: float = 0.1,
+        pretrain_embed_dimension: int = 1024,
+        target_embed_dimension: int = 1024,
+        patch_size: int = 3,
+        patch_stride: int = 1,
+        coreset_projection_dim: Optional[int] = 128,
+        coreset_starting_points: int = 10,
         feature_projection_dim: Optional[int] = None,
         projection_fit_samples: int = 10,
-        n_neighbors: int = 9,
+        n_neighbors: int = 1,
         knn_backend: str = "sklearn",
         memory_bank_dtype: str = "float32",
         gaussian_sigma: float = 4.0,
@@ -122,10 +123,33 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         if n_neighbors < 1:
             raise ValueError(f"n_neighbors must be >= 1, got {n_neighbors}")
+        if pretrain_embed_dimension < 1 or target_embed_dimension < 1:
+            raise ValueError("PatchCore embedding dimensions must be positive")
+        if patch_size < 1 or patch_size % 2 == 0:
+            raise ValueError(f"patch_size must be a positive odd integer, got {patch_size}")
+        if patch_stride < 1:
+            raise ValueError(f"patch_stride must be >= 1, got {patch_stride}")
+        if coreset_projection_dim is not None and int(coreset_projection_dim) < 1:
+            raise ValueError(
+                "coreset_projection_dim must be >= 1 (or None), "
+                f"got {coreset_projection_dim}"
+            )
+        if coreset_starting_points < 1:
+            raise ValueError(
+                f"coreset_starting_points must be >= 1, got {coreset_starting_points}"
+            )
 
         self.backbone_name = backbone
         self.layers = layers or ["layer2", "layer3"]
         self.coreset_sampling_ratio = coreset_sampling_ratio
+        self.pretrain_embed_dimension = int(pretrain_embed_dimension)
+        self.target_embed_dimension = int(target_embed_dimension)
+        self.patch_size = int(patch_size)
+        self.patch_stride = int(patch_stride)
+        self.coreset_projection_dim = (
+            int(coreset_projection_dim) if coreset_projection_dim is not None else None
+        )
+        self.coreset_starting_points = int(coreset_starting_points)
         self.feature_projection_dim = (
             int(feature_projection_dim) if feature_projection_dim is not None else None
         )
@@ -176,10 +200,14 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         logger.info(
             "Initialized PatchCore with backbone=%s, layers=%s, "
-            "coreset_ratio=%.2f, k=%d, device=%s, proj_dim=%s",
+            "coreset_ratio=%.2f, embed=%d->%d, patch=%d/%d, k=%d, device=%s, proj_dim=%s",
             backbone,
             self.layers,
             coreset_sampling_ratio,
+            self.pretrain_embed_dimension,
+            self.target_embed_dimension,
+            self.patch_size,
+            self.patch_stride,
             n_neighbors,
             device,
             str(self.feature_projection_dim),
@@ -218,6 +246,8 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
         torch.save(
             {
+                "schema_version": 2,
+                "embedding_contract": self._embedding_contract(),
                 "model_state_dict": model_state_dict,
                 "memory_bank": self._np.asarray(self.memory_bank, dtype=self._np.float32),
                 "decision_scores_": self._np.asarray(self.decision_scores_, dtype=self._np.float64),
@@ -238,6 +268,15 @@ class VisionPatchCore(BaseVisionDeepDetector):
         state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionPatchCore checkpoint payload.")
+        if int(state.get("schema_version", 0)) != 2:
+            raise ValueError(
+                "Unsupported legacy PatchCore checkpoint: refit with the paper-aligned "
+                "patch embedding and save a new checkpoint."
+            )
+        if state.get("embedding_contract") != self._embedding_contract():
+            raise ValueError(
+                "VisionPatchCore checkpoint embedding contract does not match this detector."
+            )
 
         model_state_dict = state.get("model_state_dict", None)
         if not isinstance(model_state_dict, dict):
@@ -278,9 +317,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
 
     def _build_model(self) -> None:
         """Build feature extraction backbone."""
-        if self.backbone_name == "wide_resnet50":
+        if self.backbone_name in {"wide_resnet50", "wide_resnet50_2"}:
             self.model, _ = load_torchvision_model(
-                "wide_resnet50",
+                "wide_resnet50_2",
                 pretrained=bool(self.pretrained),
             )
         elif self.backbone_name == "resnet50":
@@ -291,7 +330,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
         else:
             raise ValueError(
                 f"Unsupported backbone: {self.backbone_name}. "
-                "Choose 'wide_resnet50' or 'resnet50'"
+                "Choose 'wide_resnet50_2' or 'resnet50'"
             )
 
         self.model.eval()
@@ -312,6 +351,22 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 raise ValueError(f"Model has no layer named '{layer}'")
             getattr(self.model, layer).register_forward_hook(get_activation(layer))
 
+    def _embedding_contract(self) -> dict[str, object]:
+        backbone = (
+            "wide_resnet50_2"
+            if self.backbone_name in {"wide_resnet50", "wide_resnet50_2"}
+            else str(self.backbone_name)
+        )
+        return {
+            "backbone": backbone,
+            "layers": list(self.layers),
+            "pretrain_embed_dimension": int(self.pretrain_embed_dimension),
+            "target_embed_dimension": int(self.target_embed_dimension),
+            "patch_size": int(self.patch_size),
+            "patch_stride": int(self.patch_stride),
+            "feature_projection_dim": self.feature_projection_dim,
+        }
+
     def _load_image_rgb(self, image: ImageInput) -> NDArray:
         np = self._np
         cv2 = self._cv2
@@ -328,6 +383,75 @@ class VisionPatchCore(BaseVisionDeepDetector):
             raise ValueError(f"Failed to load image: {image}")
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+    def _patchify_feature_map(self, feature_map: Any) -> Tuple[Any, Tuple[int, int]]:
+        """Apply the author's padded unfold operation to one feature map."""
+
+        padding = (self.patch_size - 1) // 2
+        unfolded = self._F.unfold(
+            feature_map,
+            kernel_size=self.patch_size,
+            stride=self.patch_stride,
+            padding=padding,
+        )
+        height, width = (int(value) for value in feature_map.shape[-2:])
+        patch_height = (height + 2 * padding - self.patch_size) // self.patch_stride + 1
+        patch_width = (width + 2 * padding - self.patch_size) // self.patch_stride + 1
+        batch, channels = (int(value) for value in feature_map.shape[:2])
+        patches = unfolded.reshape(
+            batch,
+            channels,
+            self.patch_size,
+            self.patch_size,
+            patch_height * patch_width,
+        ).permute(0, 4, 1, 2, 3)
+        return patches, (patch_height, patch_width)
+
+    def _embed_feature_maps(self, feature_maps: list[Any]) -> Tuple[Any, Tuple[int, int]]:
+        """Run PatchCore's MeanMapper and Aggregator embedding path."""
+
+        if not feature_maps:
+            raise ValueError("PatchCore requires at least one feature map")
+
+        patched = [self._patchify_feature_map(feature_map) for feature_map in feature_maps]
+        patch_shapes = [item[1] for item in patched]
+        features = [item[0] for item in patched]
+        reference_shape = patch_shapes[0]
+
+        for index in range(1, len(features)):
+            current = features[index]
+            height, width = patch_shapes[index]
+            current = current.reshape(
+                current.shape[0], height, width, *current.shape[2:]
+            ).permute(0, 3, 4, 5, 1, 2)
+            base_shape = current.shape
+            current = current.reshape(-1, height, width)
+            current = self._F.interpolate(
+                current.unsqueeze(1),
+                size=reference_shape,
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(1)
+            current = current.reshape(*base_shape[:-2], *reference_shape)
+            current = current.permute(0, 4, 5, 1, 2, 3)
+            features[index] = current.reshape(
+                current.shape[0], -1, *current.shape[-3:]
+            )
+
+        features = [feature.reshape(-1, *feature.shape[-3:]) for feature in features]
+        preprocessed = [
+            self._F.adaptive_avg_pool1d(
+                feature.reshape(len(feature), 1, -1),
+                self.pretrain_embed_dimension,
+            ).squeeze(1)
+            for feature in features
+        ]
+        stacked = self._torch.stack(preprocessed, dim=1)
+        embedded = self._F.adaptive_avg_pool1d(
+            stacked.reshape(len(stacked), 1, -1),
+            self.target_embed_dimension,
+        ).reshape(len(stacked), -1)
+        return embedded, reference_shape
+
     def _extract_patch_features(self, image: ImageInput) -> Tuple[NDArray, Tuple[int, int]]:
         """
         Extract patch-level features from an image.
@@ -343,8 +467,6 @@ class VisionPatchCore(BaseVisionDeepDetector):
             Extracted patch features
         """
         torch = self._torch
-        functional = self._F
-
         # Load and preprocess image
         img = self._load_image_rgb(image)
         img_tensor = self.transform(img).unsqueeze(0).to(self.device)
@@ -353,40 +475,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
         with torch.no_grad():
             _ = self.model(img_tensor)
 
-        # Aggregate multi-scale features
-        features_list = []
-        target_size: Optional[Tuple[int, int]] = None
-
-        for layer in self.layers:
-            feat = self.feature_maps[layer]  # (1, C, H, W)
-
-            # PatchCore embeds a local neighbourhood around every feature
-            # location. Channel-wise 3x3 average pooling is equivalent to
-            # unfolding each neighbourhood and mean-pooling its samples.
-            feat = functional.avg_pool2d(feat, kernel_size=3, stride=1, padding=1)
-
-            # Resize to common spatial size
-            if target_size is None:
-                target_size = (int(feat.shape[-2]), int(feat.shape[-1]))
-            else:
-                feat = functional.interpolate(
-                    feat, size=target_size, mode="bilinear", align_corners=False
-                )
-
-            features_list.append(feat)
-
-        # Concatenate features from different layers
-        features = torch.cat(features_list, dim=1)  # (1, C_total, H, W)
-
-        # Reshape to patch features: (H*W, C)
-        features = features.squeeze(0)  # (C, H, W)
-        features = features.permute(1, 2, 0)  # (H, W, C)
-        features = features.reshape(-1, features.shape[-1])  # (H*W, C)
-
-        if target_size is None:
-            raise RuntimeError("Failed to infer PatchCore feature map spatial size")
-
-        return features.cpu().numpy(), target_size
+        features, patch_shape = self._embed_feature_maps(
+            [self.feature_maps[layer] for layer in self.layers]
+        )
+        return features.cpu().numpy(), patch_shape
 
     def _ensure_projection(self, features_fit: NDArray) -> None:
         """Create and fit a random projection for PatchCore features if enabled."""
@@ -454,25 +546,45 @@ class VisionPatchCore(BaseVisionDeepDetector):
             100 * self.coreset_sampling_ratio,
         )
 
-        # Greedy k-Center coreset selection.
-        #
-        # Implementation notes:
-        # - Use squared L2 distances to avoid an unnecessary sqrt (monotonic).
-        # - Use an explicit RNG for reproducibility across runs.
+        # Approximate greedy k-Center selection from the author implementation:
+        # project only for selecting indices, then retain the original features.
         rng = np.random.default_rng(int(self.random_seed))
+        selection_features = np.asarray(features, dtype=np.float32)
+        if (
+            self.coreset_projection_dim is not None
+            and selection_features.shape[1] != self.coreset_projection_dim
+        ):
+            projection = rng.standard_normal(
+                (selection_features.shape[1], self.coreset_projection_dim)
+            ).astype(np.float32)
+            projection /= np.sqrt(float(self.coreset_projection_dim))
+            selection_features = selection_features @ projection
 
+        squared_norms = np.sum(selection_features * selection_features, axis=1)
+
+        def distances_to(indices: NDArray) -> NDArray:
+            anchors = selection_features[np.asarray(indices, dtype=np.int64)]
+            distances_sq = (
+                squared_norms[:, None]
+                + np.sum(anchors * anchors, axis=1)[None, :]
+                - 2.0 * selection_features @ anchors.T
+            )
+            return np.sqrt(np.maximum(distances_sq, 0.0))
+
+        starting_points = rng.choice(
+            n_samples,
+            size=min(self.coreset_starting_points, n_samples),
+            replace=False,
+        )
+        anchor_distances = distances_to(starting_points).mean(axis=1)
         selected_indices: list[int] = []
-        min_distances_sq = np.full(n_samples, np.inf, dtype=np.float64)
-        selected_indices.append(int(rng.integers(0, n_samples)))
-
-        for _ in range(int(n_coreset) - 1):
-            last_selected = features[selected_indices[-1]]
-            diff = features - last_selected
-            distances_sq = np.sum(diff * diff, axis=1)
-            min_distances_sq = np.minimum(min_distances_sq, distances_sq)
-
-            next_idx = int(np.argmax(min_distances_sq))
+        for _ in range(int(n_coreset)):
+            next_idx = int(np.argmax(anchor_distances))
             selected_indices.append(next_idx)
+            anchor_distances = np.minimum(
+                anchor_distances,
+                distances_to(np.asarray([next_idx], dtype=np.int64)).reshape(-1),
+            )
 
         return features[selected_indices]
 
