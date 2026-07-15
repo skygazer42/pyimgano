@@ -197,6 +197,13 @@ preprocessing, training schedule, score normalization, and metric protocol.
   the authors' `segment_components.py`. The upstream runtime is CUDA-only,
   downloads its public pretrained backbones on first use, and is licensed
   CC BY-NC-SA 4.0, so commercial deployments need separate permission.
+- `vision_logsad` delegates to the authors' few-shot MVTec LOCO source instead
+  of combining arbitrary visual and logic callbacks. It preserves the released
+  448px DataComp-1B CLIP ViT-L/14, DINOv2 ViT-L/14, SAM ViT-H/16, four-stage
+  64px feature maps, patch/interest/composition matching, packaged validation
+  calibration, and maximum-score fusion. The released code supports only the
+  five MVTec LOCO categories and requires the public SAM checkpoint plus normal
+  reference paths. The pinned repository declares no top-level software license.
 
 For supported upstream implementations, use model-specific anomalib entries
 such as `vision_fastflow_anomalib` and `vision_cflow_anomalib`. These require

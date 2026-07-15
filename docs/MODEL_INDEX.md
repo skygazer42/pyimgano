@@ -189,7 +189,7 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_loci` |  |  |  | vision, classical, loci |  |  | Vision wrapper for LOCI outlier detector (native) | `pyimgano/models/loci.py` |
 | `vision_loda` |  |  | Pevny, Machine Learning 2016 | vision, classical | 2016 |  | Vision wrapper around native LODA | `pyimgano/models/loda.py` |
 | `vision_lof` |  |  | Breunig et al., SIGMOD 2000 | vision, classical, lof, neighbors, density | 2000 |  | Vision wrapper for LOF (Local Outlier Factor, novelty mode) | `pyimgano/models/lof_native.py` |
-| `vision_logsad` | inspired | experimental-family-adapter | Towards Training-free Anomaly Detection with Vision and Language Foundation Models | vision, deep, zero-shot, pixel_map, numpy, logsad | 2025 |  | Injectable visual/logic scoring adapter inspired by LogSAD; not a reproduction | `pyimgano/models/logsad.py` |
+| `vision_logsad` | external-backend | official-source-inference-adapter | Towards Training-free Anomaly Detection with Vision and Language Foundation Models | vision, deep, few-shot, logical, structural, pixel_map, logsad, cvpr2025, external-backend | 2025 | official-logsad | Official-source LogSAD CLIP/DINOv2/SAM inference adapter | `pyimgano/models/logsad.py` |
 | `vision_loop` |  |  | Kriegel et al., CIKM 2009 | vision, classical, neighbors, probability | 2009 |  | Vision LoOP - Local Outlier Probability | `pyimgano/models/loop.py` |
 | `vision_lscp` |  |  |  | vision, classical, ensemble, lscp |  |  | LSCP - locally selective combination ensemble (native) | `pyimgano/models/lscp.py` |
 | `vision_lscp_spec` |  |  |  | vision, classical, ensemble, lscp |  |  | LSCP ensemble with JSON-friendly base-detector specs | `pyimgano/models/lscp.py` |

@@ -124,7 +124,7 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ),
     ModelFamily(
         name="logsad",
-        description="LogSAD visual-logic zero-shot anomaly detectors.",
+        description="LogSAD official-source few-shot logical and structural anomaly detectors.",
         tags=("logsad",),
     ),
     ModelFamily(

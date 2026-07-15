@@ -139,6 +139,9 @@ maps = model.predict_anomaly_map(test_images)
   调用作者 C³/CAPM/GECM 源码及 448px CLIP-L/14@336、DINOv2-G/14、
   DINO-S/8 路径。输入必须是图像路径，并先用官方 `segment_components.py`
   生成组件掩码；上游代码为 CUDA-only 且采用 CC BY-NC-SA 4.0 许可。
+- `external-backend`: `vision_logsad` 直接调用作者的 448px DataComp-1B
+  CLIP ViT-L/14、DINOv2 ViT-L/14、SAM ViT-H/16 与 patch/interest/composition
+  匹配路径；当前发布代码只覆盖五个 MVTec LOCO 类别，且仓库未声明顶层软件许可。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

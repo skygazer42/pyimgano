@@ -171,10 +171,10 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "visionad",
     # Official-source paper adapters
     "univad",
+    "logsad",
     # Experimental family adapters (not paper reproductions)
     "filopp",
     "one_to_normal",
-    "logsad",
     "anogen",
     # Pipelines registered as models
     "feature_pipeline",
