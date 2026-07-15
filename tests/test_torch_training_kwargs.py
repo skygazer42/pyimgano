@@ -121,11 +121,12 @@ def test_simplenet_fit_passes_explicit_weight_decay(tmp_path, monkeypatch) -> No
 
     import pyimgano.models.simplenet as simplenet_module
 
-    observed: dict[str, float | None] = {}
+    observed: dict[str, list[float | None]] = {"weight_decay": [], "lr": []}
     original_adam = simplenet_module.Adam
 
     def _recording_adam(*args, **kwargs):
-        observed["weight_decay"] = kwargs.get("weight_decay")
+        observed["weight_decay"].append(kwargs.get("weight_decay"))
+        observed["lr"].append(kwargs.get("lr"))
         return original_adam(*args, **kwargs)
 
     monkeypatch.setattr(simplenet_module, "Adam", _recording_adam)
@@ -138,6 +139,8 @@ def test_simplenet_fit_passes_explicit_weight_decay(tmp_path, monkeypatch) -> No
     detector.batch_size = 1
     detector.device = torch.device("cpu")
     detector.lr = 1e-3
+    detector.discriminator_lr = 2e-3
+    detector.weight_decay = 1e-5
     detector.epochs = 0
     detector.random_state = 0
     detector.transform = lambda img: torch.from_numpy(img).permute(2, 0, 1).float()
@@ -151,7 +154,8 @@ def test_simplenet_fit_passes_explicit_weight_decay(tmp_path, monkeypatch) -> No
 
     simplenet_module.VisionSimpleNet.fit(detector, [str(image_path)])
 
-    assert observed["weight_decay"] == pytest.approx(0.0)
+    assert observed["weight_decay"] == pytest.approx([1e-5, 1e-5])
+    assert observed["lr"] == pytest.approx([1e-3, 2e-3])
 
 
 def test_regad_fit_passes_explicit_weight_decay(monkeypatch) -> None:

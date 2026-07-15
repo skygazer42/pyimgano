@@ -24,14 +24,17 @@ The complete, generated inventory is in [MODEL_INDEX.md](MODEL_INDEX.md).
 - `vision_patchcore`
 - `vision_padim`
 - `vision_stfpm`
+- `vision_reverse_distillation` / `vision_reverse_dist`
+- `vision_simplenet`
 - `vision_spade`
 - `vision_cutpaste` / `cutpaste`
 - `core_deep_svdd`
 
-These entries implement the defining algorithmic core. Local defaults remain
-offline-safe, so `pretrained=False` can produce a structurally correct but
-experimentally weak model. Reproducing paper metrics additionally requires the
-paper's weights, data split, preprocessing, schedule, and evaluation protocol.
+These entries implement the defining algorithmic core. Inspect each model's
+weight default: offline-safe `pretrained=False` produces an experimentally weak
+model, while Reverse Distillation follows the paper with pretrained weights by
+default. Reproducing paper metrics additionally requires the paper's data split
+and evaluation protocol.
 
 ### Audited native scope (2026-07-15)
 
@@ -41,6 +44,8 @@ paper's weights, data split, preprocessing, schedule, and evaluation protocol.
 | `vision_padim` | fixed random channel subset, per-location Gaussian, Mahalanobis map, Gaussian smoothing; resize 256 then crop 224 at default size | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
 | `vision_spade` | global KNN retrieval, retrieved-image pyramid gallery, dense correspondence, sigma-4 smoothing; resize 256 then crop 224 | Paper experiments require ImageNet WRN50x2 weights; offline default is `pretrained=False` |
 | `vision_stfpm` | frozen teacher/random student, first three ResNet-18 blocks, normalized feature loss, multiplicative map, 80/20 validation checkpoint selection | Exact paper path requires `pretrained_teacher=True` |
+| `vision_reverse_distillation` | ImageNet WideResNet50-2 teacher stages 1--3, exact released OCBE and reverse-WRN block counts/channels, cosine loss, additive cosine maps, sigma-4 smoothing; 256px, Adam 0.005, batch 16, 200 epochs | Published metrics still require the MVTec category protocol and matching ImageNet weights |
+| `vision_simplenet` | WRN50-2 layer2/layer3 padded 3x3 neighborhoods, 1536-d MeanMapper/Aggregator embedding, bias-free 1536-d adapter, Linear-BN-LeakyReLU-Linear discriminator, sigma-0.015 feature noise and truncated L1 objective; 256-to-224 input, 160 epochs, batch 4 | Set `pretrained=True` to use the paper's ImageNet feature extractor; local default remains offline-safe |
 | `vision_cutpaste` | CutPaste and scar geometry, patch jitter, 3-way objective, 256px input, 65,536-update default schedule, cosine decay, Gaussian feature density | Paper does not publish global translation/jitter amplitudes; local values remain configurable; patch-localization branch is not implemented |
 | `core_deep_svdd` | bias-free network option and one-class center-distance objective on supplied feature vectors | Generic feature-vector architecture; soft-boundary objective and paper dataset-specific CNNs are not included |
 
@@ -50,26 +55,23 @@ certificate. The primary references are the
 [PaDiM paper](https://arxiv.org/abs/2011.08785),
 [SPADE paper](https://arxiv.org/abs/2005.02357),
 [STFPM paper](https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf),
+[Reverse Distillation paper and author code](https://github.com/hq-deng/RD4AD),
+[SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),
 [CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html),
 and [Deep SVDD author code](https://github.com/lukasruff/Deep-SVDD-PyTorch).
 
 ## Adaptations and compact variants
 
 - Adaptations: `vision_alad`, `vision_devnet`, `vision_deep_svdd`,
-  `vision_differnet`, `vision_memae`, `vision_reverse_distillation`,
-  `vision_draem`, `vision_simplenet`.
+  `vision_differnet`, `vision_memae`, `vision_draem`.
 - Partial variants: `vision_cflow`, `vision_fastflow`, `vision_dfm`,
   `vision_fcdd`, `vision_softpatch`.
 
 The native DRAEM entry now matches the author's base-128 reconstructive network,
 base-64 discriminative network, initialization, losses, and 700-epoch schedule,
 but its fallback texture synthesis remains an adaptation unless DTD images are
-provided. The native Reverse Distillation entry replaces the paper's WideResNet50-2,
-OCBE bottleneck, and reverse-WRN decoder with a ResNet-18 path; and the native
-SimpleNet entry uses a reduced feature/projection/training pipeline. They must
-not be reported as exact paper architectures. DRAEM must not be reported as an
-exact paper experiment unless the DTD anomaly source and full data protocol are
-also used.
+provided. DRAEM must not be reported as an exact paper experiment unless the
+DTD anomaly source and full data protocol are also used.
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.

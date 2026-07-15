@@ -227,10 +227,11 @@ class TestSimpleNet:
         )
 
         assert detector is not None
-        assert detector.backbone_name == "wide_resnet50"
+        assert detector.backbone_name == "wide_resnet50_2"
         assert detector.feature_dim == 384
         assert detector.epochs == 5
         assert detector.batch_size == 4
+        assert isinstance(detector.discriminator.network[1], torch.nn.BatchNorm1d)
 
     def test_invalid_parameters(self):
         """Test invalid parameter handling."""
@@ -249,6 +250,11 @@ class TestSimpleNet:
             "vision_simplenet",
             epochs=2,  # Very fast training
             batch_size=2,
+            backbone="resnet50",
+            feature_dim=64,
+            discriminator_hidden_dim=32,
+            image_size=64,
+            resize_size=64,
             pretrained=False,
             device="cpu",
         )
@@ -274,6 +280,11 @@ class TestSimpleNet:
             "vision_simplenet",
             epochs=2,
             batch_size=2,
+            backbone="resnet50",
+            feature_dim=64,
+            discriminator_hidden_dim=32,
+            image_size=64,
+            resize_size=64,
             pretrained=False,
             device="cpu",
         )
@@ -424,6 +435,11 @@ class TestDLModelsIntegration:
                     model_name,
                     epochs=2,
                     batch_size=2,
+                    backbone="resnet50",
+                    feature_dim=64,
+                    discriminator_hidden_dim=32,
+                    image_size=64,
+                    resize_size=64,
                     pretrained=False,
                     device="cpu",
                 )
@@ -533,6 +549,11 @@ class TestDLModelComparison:
                 "vision_simplenet",
                 epochs=2,
                 batch_size=2,
+                backbone="resnet50",
+                feature_dim=64,
+                discriminator_hidden_dim=32,
+                image_size=64,
+                resize_size=64,
                 pretrained=False,
                 device="cpu",
             ),

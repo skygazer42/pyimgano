@@ -16,6 +16,8 @@ def _fake_resnet(torch):
             self.layer2 = torch.nn.Identity()
             self.layer3 = torch.nn.Identity()
             self.layer4 = torch.nn.Identity()
+            self.avgpool = torch.nn.Identity()
+            self.fc = torch.nn.Identity()
 
     return _FakeResNet()
 
@@ -259,7 +261,7 @@ def test_reverse_distillation_teacher_uses_shared_torchvision_loader(monkeypatch
     import torch
 
     import pyimgano.models.reverse_distillation as rd_module
-    from pyimgano.models.reverse_distillation import ResNet18Encoder
+    from pyimgano.models.reverse_distillation import WideResNet50Encoder
 
     calls: list[tuple[str, bool]] = []
 
@@ -269,12 +271,12 @@ def test_reverse_distillation_teacher_uses_shared_torchvision_loader(monkeypatch
 
     monkeypatch.setattr(rd_module, "load_torchvision_model", _fake_loader, raising=False)
 
-    extractor = ResNet18Encoder(pretrained=False)
+    extractor = WideResNet50Encoder(pretrained=False)
     outputs = extractor(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
 
     assert len(outputs) == 3
     assert all(not parameter.requires_grad for parameter in extractor.parameters())
-    assert calls == [("resnet18", False)]
+    assert calls == [("wide_resnet50_2", False)]
 
 
 def test_ast_teacher_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:

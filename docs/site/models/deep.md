@@ -39,6 +39,8 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_patchcore` | 局部补丁聚合、coreset、近邻重加权 |
 | `vision_padim` | 固定通道采样和逐位置高斯分布 |
 | `vision_stfpm` | 多层师生特征匹配和乘积异常图 |
+| `vision_reverse_distillation` | WRN50-2 教师、OCBE 与反向 WRN 解码器 |
+| `vision_simplenet` | 论文 3×3 补丁嵌入、特征适配器与噪声判别器 |
 | `vision_spade` | 图像检索与深层金字塔对应 |
 | `vision_cutpaste` | CutPaste 三分类自监督 |
 
@@ -65,9 +67,7 @@ maps = model.predict_anomaly_map(test_images)
 ## 非完整论文实现
 
 - `paper-adaptation`: `vision_differnet` 使用精简的变换集成；
-  `vision_reverse_distillation` 使用 ResNet-18 替代论文的 WRN50/OCBE 路径；
-  `vision_draem` 使用紧凑 U-Net 和简化纹理合成；`vision_simplenet` 使用缩减的
-  特征投影与训练流程。
+  `vision_draem` 的网络与训练计划已对齐但默认纹理合成仍为简化路径。
 - `partial`: `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_fcdd`,
   `vision_softpatch`。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,

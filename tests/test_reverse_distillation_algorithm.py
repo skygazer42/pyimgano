@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 
@@ -21,17 +23,38 @@ def test_reverse_distillation_uses_bottleneck_and_reverse_decoder() -> None:
     teacher, student = detector._forward_features(images)
 
     assert [tuple(item.shape) for item in teacher] == [
-        (1, 64, 16, 16),
-        (1, 128, 8, 8),
-        (1, 256, 4, 4),
+        (1, 256, 16, 16),
+        (1, 512, 8, 8),
+        (1, 1024, 4, 4),
     ]
     assert [tuple(item.shape) for item in student] == [
-        (1, 64, 16, 16),
-        (1, 128, 8, 8),
-        (1, 256, 4, 4),
+        (1, 256, 16, 16),
+        (1, 512, 8, 8),
+        (1, 1024, 4, 4),
     ]
-    assert detector.bottleneck.embedding.main[0].stride == (2, 2)
-    assert isinstance(detector.decoder.restore3[0].main[0], torch.nn.ConvTranspose2d)
+    assert len(detector.bottleneck.bn_layer) == 3
+    assert [len(detector.decoder.layer1), len(detector.decoder.layer2), len(detector.decoder.layer3)] == [
+        3,
+        4,
+        6,
+    ]
+    assert isinstance(detector.decoder.layer1[0].conv2, torch.nn.ConvTranspose2d)
+    assert sum(parameter.numel() for parameter in detector.teacher.parameters()) == 68_883_240
+    assert sum(parameter.numel() for parameter in detector.bottleneck.parameters()) == 67_277_824
+    assert sum(parameter.numel() for parameter in detector.decoder.parameters()) == 24_917_504
+
+
+def test_reverse_distillation_defaults_match_author_training_path() -> None:
+    from pyimgano.models.reverse_distillation import ReverseDistillation
+
+    parameters = inspect.signature(ReverseDistillation).parameters
+    assert parameters["backbone"].default == "wide_resnet50_2"
+    assert parameters["pretrained_backbone"].default is True
+    assert parameters["image_size"].default == 256
+    assert parameters["epoch_num"].default == 200
+    assert parameters["batch_size"].default == 16
+    assert parameters["lr"].default == pytest.approx(5e-3)
+    assert parameters["anomaly_smoothing_sigma"].default == pytest.approx(4.0)
 
 
 def test_reverse_distillation_rejects_forward_distillation_layers() -> None:
@@ -62,8 +85,24 @@ def test_reverse_distillation_anomaly_map_is_channel_cosine_distance() -> None:
     np.testing.assert_allclose(anomaly_map.numpy(), np.full((1, 1, 2, 2), 3.0))
 
 
-def test_reverse_distillation_checkpoint_includes_frozen_teacher(tmp_path) -> None:
-    from pyimgano.models.reverse_distillation import ReverseDistillation
+def test_reverse_distillation_checkpoint_includes_frozen_teacher(tmp_path, monkeypatch) -> None:
+    import pyimgano.models.reverse_distillation as reverse_distillation
+
+    class _TinyReverseDistillationNetwork(torch.nn.Module):
+        def __init__(self, *, pretrained_backbone: bool) -> None:
+            super().__init__()
+            del pretrained_backbone
+            self.teacher = torch.nn.Linear(1, 1, bias=False)
+            self.teacher.weight.requires_grad_(False)
+            self.bottleneck = torch.nn.Linear(1, 1)
+            self.decoder = torch.nn.Linear(1, 1)
+
+    monkeypatch.setattr(
+        reverse_distillation,
+        "ReverseDistillationNetwork",
+        _TinyReverseDistillationNetwork,
+    )
+    ReverseDistillation = reverse_distillation.ReverseDistillation
 
     detector = ReverseDistillation(
         pretrained_backbone=False,

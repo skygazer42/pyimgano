@@ -240,8 +240,8 @@ detector = create_model("vision_ecod", contamination=0.1)
 |------|------|------|
 | `vision_stfpm` | deep, vision, pixel_map | STFPM 师生特征金字塔匹配 |
 | `efficient_ad` | deep, vision, distillation | EfficientAD 相关嵌入蒸馏代理（inspired） |
-| `vision_reverse_distillation` | deep, vision, distillation | 反向蒸馏 ResNet-18 适配版 |
-| `vision_reverse_dist` | deep, vision, distillation | 反向蒸馏适配版（别名） |
+| `vision_reverse_distillation` | deep, vision, distillation | 论文对齐的 WRN50-2/OCBE 反向蒸馏 |
+| `vision_reverse_dist` | deep, vision, distillation | 论文对齐反向蒸馏（别名） |
 
 ### 流模型方法
 
@@ -269,7 +269,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 
 | 名称 | 标签 | 说明 |
 |------|------|------|
-| `vision_simplenet` | deep, vision, pixel_map | SimpleNet（CVPR 2023） |
+| `vision_simplenet` | deep, vision, pixel_map | 论文结构对齐的 SimpleNet（CVPR 2023） |
 | `vision_anomalydino` | deep, vision, pixel_map | AnomalyDINO 相关 DINOv2-kNN 代理（inspired） |
 
 ### 其他深度方法

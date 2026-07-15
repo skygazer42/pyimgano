@@ -163,7 +163,16 @@ class TestDeepLearningWorkflow:
         pytest.importorskip("torchvision")
 
         detector = models.create_model(
-            "vision_simplenet", epochs=2, batch_size=2, device="cpu"  # Minimal for testing
+            "vision_simplenet",
+            backbone="resnet50",
+            feature_dim=64,
+            discriminator_hidden_dim=32,
+            image_size=64,
+            resize_size=64,
+            epochs=2,
+            batch_size=2,
+            pretrained=False,
+            device="cpu",
         )
 
         # Train

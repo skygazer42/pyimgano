@@ -23,16 +23,16 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_padim` | `core-aligned` | Per-location Gaussian modeling |
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
 | `vision_differnet` | `paper-adaptation` | Flow detector with a reduced transform ensemble |
-| `vision_reverse_distillation` | `paper-adaptation` | ResNet-18 replacement for the paper's WRN50/OCBE path |
+| `vision_reverse_distillation` | `core-aligned` | Paper WRN50-2 teacher, OCBE, and reverse-WRN decoder |
 | `vision_draem` | `paper-adaptation` | Paper networks/schedule; simplified fallback synthesis unless DTD images are supplied |
-| `vision_simplenet` | `paper-adaptation` | Compact feature projection/training recipe |
+| `vision_simplenet` | `core-aligned` | Paper patch embedding, adapter, feature noise, and discriminator |
 | `vision_spade` | `core-aligned` | Image retrieval and deep correspondences |
 | `vision_cutpaste` | `core-aligned` | CutPaste self-supervision |
 
-`pretrained=False` is the offline-safe default for most native vision models.
-That avoids implicit downloads but does not provide the pretrained features
-used by the papers. Enable or inject audited weights explicitly for meaningful
-experiments.
+`pretrained=False` is the offline-safe default for most native vision models,
+including SimpleNet. Reverse Distillation instead defaults to the paper's
+pretrained teacher. Cache audited weights or explicitly opt in before benchmark
+runs; random weights are only structurally valid.
 
 ## Minimal workflow
 
@@ -61,10 +61,6 @@ preprocessing, training schedule, score normalization, and metric protocol.
   `vision_softpatch` are compact/partial variants.
 - `vision_draem` uses the paper networks and schedule, but its fallback anomaly
   synthesis is not the DTD protocol unless anomaly-source images are supplied.
-- `vision_reverse_distillation` and `vision_simplenet` retain their papers' main
-  idea but use materially different native architectures or training pipelines.
-  Prefer an external backend where exact upstream checkpoint compatibility is
-  required.
 - `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, and `vision_winclip` are experimental proxies.
