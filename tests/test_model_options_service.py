@@ -301,7 +301,11 @@ def test_resolve_preset_kwargs_returns_empty_for_none_preset():
         ("industrial-balanced", "vision_reverse_distillation", {"epoch_num": 10, "batch_size": 32}),
         ("industrial-balanced", "vision_draem", {"image_size": 256, "epochs": 50}),
         ("industrial-balanced", "not-covered-balanced", {}),
-        ("industrial-accurate", "vision_padim", {"d_reduced": 128, "image_size": 224}),
+        (
+            "industrial-accurate",
+            "vision_padim",
+            {"backbone": "wide_resnet50", "d_reduced": 550, "image_size": 224},
+        ),
         (
             "industrial-accurate",
             "vision_spade",

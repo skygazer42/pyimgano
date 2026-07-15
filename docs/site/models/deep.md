@@ -37,7 +37,7 @@ print(model_info("vision_patchcore")["metadata"])
 | 注册名 | 方法 |
 |---|---|
 | `vision_patchcore` | 局部补丁聚合、coreset、近邻重加权 |
-| `vision_padim` | 固定通道采样和逐位置高斯分布 |
+| `vision_padim` | 论文 R18/WR50-2 通道采样、逐位置高斯分布与马氏距离图 |
 | `vision_stfpm` | 多层师生特征匹配和乘积异常图 |
 | `vision_cflow` | 三尺度条件归一化流与位置编码 |
 | `vision_devnet` | 2021 图像网络、两尺度 top-K MIL 与偏差损失（无定位接口） |

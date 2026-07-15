@@ -377,8 +377,8 @@ def _resolve_industrial_accurate_kwargs(
         }
     if model_name == "vision_padim":
         return {
-            "backbone": "resnet50",
-            "d_reduced": 128,
+            "backbone": "wide_resnet50",
+            "d_reduced": 550,
             "image_size": 224,
         }
     if model_name == "vision_spade":

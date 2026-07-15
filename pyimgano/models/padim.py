@@ -35,8 +35,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Module:
-    if name not in {"resnet18", "resnet50"}:
-        raise ValueError(f"Unsupported backbone: {name!r}. Choose from: resnet18, resnet50")
+    if name not in {"resnet18", "resnet50", "wide_resnet50_2"}:
+        raise ValueError(
+            f"Unsupported backbone: {name!r}. Choose from: " "resnet18, wide_resnet50_2, resnet50"
+        )
     model, _ = load_torchvision_model(name, pretrained=bool(pretrained))
     return model
 
@@ -50,7 +52,7 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
         "paper_url": "https://arxiv.org/abs/2011.08785",
         "year": 2020,
         "supervision": "one-class",
-        "implementation_status": "core-aligned",
+        "implementation_status": "paper-resnet-paths-and-statistics-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -63,7 +65,7 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
         "paper_url": "https://arxiv.org/abs/2011.08785",
         "year": 2020,
         "supervision": "one-class",
-        "implementation_status": "core-aligned",
+        "implementation_status": "paper-resnet-paths-and-statistics-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -75,7 +77,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         contamination: float = 0.1,
         *,
         backbone: str = "resnet18",
-        d_reduced: int = 100,
+        d_reduced: Optional[int] = None,
         image_size: int = 224,
         resize_size: Optional[int] = None,
         pretrained: bool = False,
@@ -95,20 +97,23 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
         super().__init__(contamination=contamination, **kwargs)
 
+        backbone_name = str(backbone).strip()
+        if backbone_name == "wide_resnet50":
+            backbone_name = "wide_resnet50_2"
+        if d_reduced is None:
+            d_reduced = 100 if backbone_name == "resnet18" else 550
         if d_reduced < 1:
             raise ValueError(f"d_reduced must be >= 1, got {d_reduced}")
         if image_size < 32:
             raise ValueError(f"image_size must be >= 32, got {image_size}")
         if resize_size is not None and int(resize_size) < image_size:
-            raise ValueError(
-                f"resize_size must be >= image_size ({image_size}), got {resize_size}"
-            )
+            raise ValueError(f"resize_size must be >= image_size ({image_size}), got {resize_size}")
         if covariance_eps <= 0:
             raise ValueError(f"covariance_eps must be > 0, got {covariance_eps}")
         if gaussian_sigma < 0:
             raise ValueError(f"gaussian_sigma must be >= 0, got {gaussian_sigma}")
 
-        self.backbone_name = str(backbone)
+        self.backbone_name = backbone_name
         self.d_reduced = int(d_reduced)
         self.image_size = int(image_size)
         self.resize_size = (
@@ -134,7 +139,10 @@ class VisionPaDiM(BaseVisionDeepDetector):
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
-                transforms.Resize((self.resize_size, self.resize_size)),
+                transforms.Resize(
+                    (self.resize_size, self.resize_size),
+                    interpolation=transforms.InterpolationMode.BICUBIC,
+                ),
                 transforms.CenterCrop(self.image_size),
                 transforms.ToTensor(),
                 transforms.Normalize(
@@ -170,7 +178,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
         torch.save(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "model_state_dict": model_state_dict,
                 "feature_indices": torch.as_tensor(
                     np.asarray(self.feature_indices_, dtype=np.int64), dtype=torch.int64
@@ -196,10 +204,11 @@ class VisionPaDiM(BaseVisionDeepDetector):
         state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionPaDiM checkpoint payload.")
-        if int(state.get("schema_version", 0)) != 2:
+        if int(state.get("schema_version", 0)) != 3:
             raise ValueError(
-                "Unsupported legacy PaDiM checkpoint: older checkpoints used a Gaussian "
-                "projection instead of the paper's fixed channel subset. Refit and save it again."
+                "Unsupported legacy PaDiM checkpoint: older checkpoints used a different "
+                "channel-selection or cross-level feature-alignment contract. Refit and save "
+                "it again."
             )
 
         model_state_dict = state.get("model_state_dict", None)
@@ -272,14 +281,12 @@ class VisionPaDiM(BaseVisionDeepDetector):
         layer2_feat = functional.interpolate(
             layer2_feat,
             size=layer1_feat.shape[-2:],
-            mode="bilinear",
-            align_corners=False,
+            mode="nearest",
         )
         layer3_feat = functional.interpolate(
             layer3_feat,
             size=layer1_feat.shape[-2:],
-            mode="bilinear",
-            align_corners=False,
+            mode="nearest",
         )
 
         features = torch.cat([layer1_feat, layer2_feat, layer3_feat], dim=1)
