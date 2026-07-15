@@ -1,21 +1,14 @@
-"""
-DevNet: Deviation Networks for Weakly-Supervised Anomaly Detection.
+"""Image DevNet for weakly supervised anomaly detection.
 
-Paper: https://arxiv.org/abs/1911.08623
-Conference: KDD 2019
-
-DevNet learns anomaly scores using a small number of labeled anomalies
-through deviation loss that measures how much samples deviate from normal.
-
-Key Features:
-- Weakly-supervised (needs few anomaly labels)
-- Deviation loss for scoring
-- Works with limited labels
-- Flexible architecture
-- Good generalization
+This module follows the image formulation from "Explainable Deep Few-shot
+Anomaly Detection with Deviation Networks" (2021): a trainable ResNet feature
+map, a 1x1 patch-score head, top-K multiple-instance aggregation, and the
+Gaussian-reference deviation loss.
 """
 
-import logging
+from __future__ import annotations
+
+from collections.abc import Iterator
 from typing import Optional
 
 import numpy as np
@@ -23,27 +16,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from numpy import ndarray as NDArray
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, Dataset, Sampler
+from torchvision import transforms
 
+from pyimgano.utils.random_state import isolated_random_state_method
 from pyimgano.utils.torchvision_safe import load_torchvision_model
 
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
-logger = logging.getLogger(__name__)
-
 
 class DeviationLoss(nn.Module):
-    """Deviation loss for anomaly score learning."""
+    """Z-score deviation loss with the paper's Gaussian reference sample."""
 
-    def __init__(self, margin: float = 5.0):
-        """Initialize deviation loss.
-
-        Args:
-            margin: Margin for deviation loss.
-        """
+    def __init__(self, margin: float = 5.0, reference_size: int = 5000) -> None:
         super().__init__()
-        self.margin = margin
+        if reference_size < 2:
+            raise ValueError("reference_size must be at least 2.")
+        self.margin = float(margin)
+        self.reference_size = int(reference_size)
 
     def forward(
         self,
@@ -51,334 +42,342 @@ class DeviationLoss(nn.Module):
         labels: torch.Tensor,
         ref_scores: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Compute deviation loss.
-
-        Args:
-            scores: Predicted anomaly scores (N,).
-            labels: Binary labels (0=normal, 1=anomaly) (N,).
-            ref_scores: Reference scores from normal samples.
-
-        Returns:
-            Loss value.
-        """
         if scores.shape != labels.shape:
             raise ValueError(f"scores and labels must share shape; got {scores.shape} and {labels.shape}")
         if not torch.all((labels == 0) | (labels == 1)):
             raise ValueError("labels must contain only 0 (normal) and 1 (anomaly)")
 
-        if ref_scores is None:
-            reference_mean = scores.new_tensor(0.0)
-            reference_std = scores.new_tensor(1.0)
-        else:
-            reference = ref_scores.to(device=scores.device, dtype=scores.dtype).reshape(-1)
-            if reference.numel() < 2:
-                raise ValueError("ref_scores must contain at least two values")
-            reference_mean = reference.mean()
-            reference_std = reference.std(unbiased=False).clamp_min(1e-6)
+        reference = (
+            torch.randn(self.reference_size, device=scores.device, dtype=scores.dtype)
+            if ref_scores is None
+            else ref_scores.to(device=scores.device, dtype=scores.dtype).reshape(-1)
+        )
+        if reference.numel() < 2:
+            raise ValueError("ref_scores must contain at least two values")
 
-        deviation = (scores - reference_mean) / reference_std
+        deviation = (scores - reference.mean()) / reference.std(unbiased=False).clamp_min(1e-6)
         normal_loss = deviation.abs()
         anomaly_loss = F.relu(self.margin - deviation)
         labels_float = labels.to(dtype=scores.dtype)
         return ((1.0 - labels_float) * normal_loss + labels_float * anomaly_loss).mean()
 
 
+class FeatureExtractor(nn.Module):
+    """ResNet convolutional feature map used by image DevNet."""
+
+    _FEATURE_DIMS = {"resnet18": 512, "resnet34": 512, "resnet50": 2048}
+
+    def __init__(self, backbone: str = "resnet18", pretrained: bool = False) -> None:
+        super().__init__()
+        if backbone not in self._FEATURE_DIMS:
+            raise ValueError(f"Unknown backbone: {backbone}")
+        resnet, _ = load_torchvision_model(backbone, pretrained=bool(pretrained))
+        self.feature_dim = self._FEATURE_DIMS[backbone]
+        self.backbone = nn.Sequential(*list(resnet.children())[:-2])
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        return self.backbone(images)
+
+
 class DevNetModel(nn.Module):
-    """Deviation network model."""
+    """Paper image network: ResNet patches, linear scores, and top-K MIL."""
 
     def __init__(
         self,
-        input_dim: int,
-        hidden_dims: Optional[list] = None,
-        dropout: float = 0.2,
-    ):
-        """Initialize model.
-
-        Args:
-            input_dim: Input feature dimension.
-            hidden_dims: Hidden layer dimensions.
-            dropout: Dropout rate.
-        """
+        *,
+        backbone: str = "resnet18",
+        pretrained: bool = False,
+        image_size: int = 448,
+        n_scales: int = 2,
+        topk_ratio: float = 0.1,
+    ) -> None:
         super().__init__()
+        if image_size <= 0 or n_scales <= 0:
+            raise ValueError("image_size and n_scales must be positive.")
+        if not 0.0 <= topk_ratio <= 1.0:
+            raise ValueError("topk_ratio must be in [0, 1].")
 
-        hidden_dims = list(hidden_dims or [128, 64])
+        self.image_size = int(image_size)
+        self.n_scales = int(n_scales)
+        self.topk_ratio = float(topk_ratio)
+        self.feature_extractor = FeatureExtractor(backbone=backbone, pretrained=pretrained)
+        self.score_head = nn.Conv2d(self.feature_extractor.feature_dim, 1, kernel_size=1)
 
-        layers = []
-        prev_dim = input_dim
+    @staticmethod
+    def aggregate_patch_scores(patch_scores: torch.Tensor, topk_ratio: float) -> torch.Tensor:
+        flattened = patch_scores.flatten(1)
+        if topk_ratio > 0:
+            count = max(int(flattened.shape[1] * float(topk_ratio)), 1)
+            # Equation 6 selects the largest signed anomaly scores, not magnitudes.
+            flattened = torch.topk(flattened, count, dim=1).values
+        return flattened.mean(dim=1)
 
-        for hidden_dim in hidden_dims:
-            layers.extend(
-                [
-                    nn.Linear(prev_dim, hidden_dim),
-                    nn.BatchNorm1d(hidden_dim),
-                    nn.ReLU(inplace=True),
-                    nn.Dropout(dropout),
-                ]
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        if images.shape[-2:] != (self.image_size, self.image_size):
+            images = F.interpolate(
+                images,
+                size=(self.image_size, self.image_size),
+                mode="bilinear",
+                align_corners=False,
             )
-            prev_dim = hidden_dim
 
-        # Output layer (anomaly score)
-        layers.append(nn.Linear(prev_dim, 1))
-
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
-
-        Args:
-            x: Input features (B, D).
-
-        Returns:
-            Anomaly scores (B, 1).
-        """
-        return self.model(x).squeeze(-1)
+        scale_scores = []
+        for scale in range(self.n_scales):
+            scaled = images
+            if scale:
+                side = self.image_size // (2**scale)
+                scaled = F.interpolate(images, size=(side, side), mode="nearest")
+            patch_scores = self.score_head(self.feature_extractor(scaled))
+            scale_scores.append(self.aggregate_patch_scores(patch_scores, self.topk_ratio))
+        return torch.stack(scale_scores, dim=1).mean(dim=1)
 
 
-class FeatureExtractor(nn.Module):
-    """Feature extractor for images."""
+class BalancedBatchSampler(Sampler[list[int]]):
+    """Yield the paper's half-normal, half-anomaly batches for a fixed step count."""
 
-    def __init__(self, backbone: str = "resnet18", pretrained: bool = False):
-        super().__init__()
+    def __init__(
+        self,
+        labels: NDArray,
+        *,
+        batch_size: int,
+        steps_per_epoch: int,
+        random_state: Optional[int],
+    ) -> None:
+        if batch_size < 2 or steps_per_epoch <= 0:
+            raise ValueError("batch_size must be at least 2 and steps_per_epoch must be positive.")
+        labels = np.asarray(labels).reshape(-1)
+        self.normal_indices = np.flatnonzero(labels == 0)
+        self.anomaly_indices = np.flatnonzero(labels == 1)
+        if not self.normal_indices.size or not self.anomaly_indices.size:
+            raise ValueError("Balanced batches require both normal and anomaly samples.")
+        self.batch_size = int(batch_size)
+        self.steps_per_epoch = int(steps_per_epoch)
+        self.rng = np.random.default_rng(random_state)
 
-        if backbone == "resnet18":
-            resnet, _ = load_torchvision_model("resnet18", pretrained=bool(pretrained))
-            self.feature_dim = 512
-        elif backbone == "resnet34":
-            resnet, _ = load_torchvision_model("resnet34", pretrained=bool(pretrained))
-            self.feature_dim = 512
-        elif backbone == "resnet50":
-            resnet, _ = load_torchvision_model("resnet50", pretrained=bool(pretrained))
-            self.feature_dim = 2048
-        else:
-            raise ValueError(f"Unknown backbone: {backbone}")
+    def _cycle(self, indices: NDArray) -> Iterator[int]:
+        while True:
+            yield from (int(index) for index in self.rng.permutation(indices))
 
-        # Remove classification head
-        self.backbone = nn.Sequential(*list(resnet.children())[:-1])
+    def __iter__(self) -> Iterator[list[int]]:
+        normal_stream = self._cycle(self.normal_indices)
+        anomaly_stream = self._cycle(self.anomaly_indices)
+        normal_count = self.batch_size // 2
+        anomaly_count = self.batch_size - normal_count
+        for _ in range(self.steps_per_epoch):
+            yield [next(normal_stream) for _ in range(normal_count)] + [
+                next(anomaly_stream) for _ in range(anomaly_count)
+            ]
 
-        # Freeze backbone
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+    def __len__(self) -> int:
+        return self.steps_per_epoch
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Extract features.
 
-        Args:
-            x: Input images (B, 3, H, W).
+class _DevNetArrayDataset(Dataset):
+    def __init__(self, images: NDArray, labels: NDArray, transform) -> None:
+        self.images = np.asarray(images)
+        self.labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+        self.transform = transform
 
-        Returns:
-            Features (B, D).
-        """
-        features = self.backbone(x)
-        features = features.view(features.size(0), -1)
-        return features
+    def __len__(self) -> int:
+        return len(self.images)
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
+        image = self.images[index]
+        if image.ndim == 2:
+            image = np.repeat(image[..., None], 3, axis=2)
+        elif image.ndim == 3 and image.shape[2] == 1:
+            image = np.repeat(image, 3, axis=2)
+        return self.transform(np.ascontiguousarray(image)), int(self.labels[index])
 
 
 @register_model(
     "vision_devnet",
-    tags=("vision", "deep", "devnet", "weakly-supervised", "kdd2019"),
+    tags=("vision", "deep", "devnet", "weakly-supervised", "few-shot"),
     metadata={
-        "description": "Image adaptation of DevNet's Gaussian-reference deviation loss",
-        "paper": "Deep Anomaly Detection with Deviation Networks",
-        "paper_url": "https://arxiv.org/abs/1911.08623",
-        "year": 2019,
+        "description": "Image DevNet with multi-scale top-K patch scoring and deviation loss",
+        "paper": "Explainable Deep Few-shot Anomaly Detection with Deviation Networks",
+        "paper_url": "https://arxiv.org/abs/2108.00462",
+        "year": 2021,
         "supervision": "weakly-supervised",
-        "implementation_status": "core-loss-image-adaptation",
+        "implementation_status": "paper-image-network-aligned-no-localization",
         "paper_fidelity": "paper-adaptation",
     },
 )
 @register_model(
     "devnet",
-    tags=("vision", "deep", "devnet", "weakly-supervised", "kdd2019"),
+    tags=("vision", "deep", "devnet", "weakly-supervised", "few-shot"),
     metadata={
-        "description": "Legacy alias for the DevNet image adaptation",
-        "paper": "Deep Anomaly Detection with Deviation Networks",
-        "year": 2019,
+        "description": "Legacy alias for the image DevNet adaptation",
+        "paper": "Explainable Deep Few-shot Anomaly Detection with Deviation Networks",
+        "paper_url": "https://arxiv.org/abs/2108.00462",
+        "year": 2021,
         "supervision": "weakly-supervised",
-        "implementation_status": "core-loss-image-adaptation",
+        "implementation_status": "paper-image-network-aligned-no-localization",
         "paper_fidelity": "paper-adaptation",
     },
 )
 class DevNetDetector(BaseVisionDeepDetector):
-    """DevNet anomaly detector.
-
-    Weakly-supervised anomaly detection using deviation loss.
-    Requires a small number of labeled anomaly samples.
-
-    Args:
-        backbone: Feature extraction backbone ("resnet18", "resnet34", "resnet50").
-        hidden_dims: Hidden layer dimensions for DevNet.
-        dropout: Dropout rate.
-        margin: Margin for deviation loss.
-        pretrained: Whether to use pretrained backbone.
-        epochs: Number of training epochs.
-        batch_size: Training batch size.
-        learning_rate: Learning rate.
-        device: Device to use ("cuda" or "cpu").
-
-    References:
-        Pang et al. "Deep Anomaly Detection with Deviation Networks." KDD 2019.
-    """
+    """Few-shot image DevNet with the paper network and training sampler."""
 
     def __init__(
         self,
+        *,
         backbone: str = "resnet18",
-        hidden_dims: Optional[list] = None,
-        dropout: float = 0.2,
         margin: float = 5.0,
+        reference_size: int = 5000,
         pretrained: bool = False,
+        image_size: int = 448,
+        n_scales: int = 2,
+        topk_ratio: float = 0.1,
         epochs: int = 50,
-        batch_size: int = 32,
-        learning_rate: float = 0.001,
+        batch_size: int = 48,
+        steps_per_epoch: int = 20,
+        learning_rate: float = 1e-3,
+        weight_decay: float = 1e-2,
+        scheduler_step_size: int = 10,
+        scheduler_gamma: float = 0.1,
+        gradient_clip_norm: float = 1.0,
         device: Optional[str] = None,
+        random_state: Optional[int] = 42,
+        contamination: float = 0.1,
+        verbose: int = 0,
         **kwargs,
-    ):
-        super().__init__(**kwargs)
-
-        self.backbone_name = backbone
-        self.hidden_dims = list(hidden_dims or [128, 64])
-        self.dropout = dropout
-        self.margin = margin
-        self.pretrained = pretrained
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
-
-        if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = torch.device(device)
-
-        # Build model
+    ) -> None:
+        super().__init__(
+            contamination=contamination,
+            device=device,
+            random_state=random_state,
+            verbose=verbose,
+            **kwargs,
+        )
+        self.backbone = str(backbone)
+        self.backbone_name = self.backbone
+        self.margin = float(margin)
+        self.reference_size = int(reference_size)
+        self.pretrained = bool(pretrained)
+        self.image_size = int(image_size)
+        self.n_scales = int(n_scales)
+        self.topk_ratio = float(topk_ratio)
+        self.epochs = int(epochs)
+        self.batch_size = int(batch_size)
+        self.steps_per_epoch = int(steps_per_epoch)
+        self.learning_rate = float(learning_rate)
+        self.weight_decay = float(weight_decay)
+        self.scheduler_step_size = int(scheduler_step_size)
+        self.scheduler_gamma = float(scheduler_gamma)
+        self.gradient_clip_norm = float(gradient_clip_norm)
+        self.random_state = None if random_state is None else int(random_state)
+        self.model: DevNetModel
+        self.optimizer_: Optional[torch.optim.Optimizer] = None
+        self.scheduler_: Optional[object] = None
         self._build_model()
 
-    def _build_model(self):
-        """Build the DevNet model."""
-        # Feature extractor
-        self.feature_extractor = FeatureExtractor(
-            self.backbone_name,
-            self.pretrained,
-        ).to(self.device)
+    def _build_model(self) -> None:
+        with torch.random.fork_rng(devices=[]):
+            if self.random_state is not None:
+                torch.manual_seed(self.random_state)
+            self.model = DevNetModel(
+                backbone=self.backbone,
+                pretrained=self.pretrained,
+                image_size=self.image_size,
+                n_scales=self.n_scales,
+                topk_ratio=self.topk_ratio,
+            ).to(self.device)
+        self.feature_extractor = self.model.feature_extractor
+        self.scoring_model = self.model
 
-        # DevNet scoring model
-        self.scoring_model = DevNetModel(
-            self.feature_extractor.feature_dim,
-            self.hidden_dims,
-            self.dropout,
-        ).to(self.device)
+    def _transform(self, *, training: bool):
+        operations: list[object] = [
+            transforms.ToPILImage(),
+            transforms.Resize((self.image_size, self.image_size)),
+        ]
+        if training:
+            operations.append(transforms.RandomRotation(180))
+        operations.extend(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225),
+                ),
+            ]
+        )
+        return transforms.Compose(operations)
 
-    def fit(self, x: NDArray, y: NDArray, **kwargs):
-        """Train the DevNet model.
-
-        Args:
-            X: Training images (N, H, W, C).
-            y: Labels (0=normal, 1=anomaly). Must include both normal and anomaly samples.
-        """
+    @isolated_random_state_method
+    def fit(self, x: NDArray, y: NDArray, **kwargs) -> "DevNetDetector":
         del kwargs
-        if y is None or len(np.unique(y)) < 2:
+        images = np.asarray(x)
+        labels = np.asarray(y).reshape(-1) if y is not None else np.asarray([])
+        if len(images) != len(labels) or set(np.unique(labels).tolist()) != {0, 1}:
             raise ValueError(
-                "DevNet requires labeled data with both normal (0) and anomaly (1) samples. "
-                "For unsupervised learning, use other algorithms like CutPaste or SPADE."
+                "DevNet requires labeled data with both normal (0) and anomaly (1) samples."
             )
 
-        logger.info("Training DevNet (weakly-supervised)...")
-        logger.info("  Normal samples: %d", int((y == 0).sum()))
-        logger.info("  Anomaly samples: %d", int((y == 1).sum()))
-
-        if x.max() > 1.0:
-            x = x.astype(np.float32) / 255.0
-
-        # Extract features
-        logger.info("Extracting features...")
-        self.feature_extractor.eval()
-
-        features_list = []
-        with torch.no_grad():
-            for img in x:
-                img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
-                features = self.feature_extractor(img_tensor)
-                features_list.append(features.cpu())
-
-        features = torch.cat(features_list, dim=0)
-        labels = torch.from_numpy(y).long()
-
-        # Create dataset
-        dataset = TensorDataset(features, labels)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
-
-        # Optimizer and loss
-        optimizer = torch.optim.Adam(
-            self.scoring_model.parameters(),
-            lr=self.learning_rate,
-            weight_decay=1e-5,
+        self._build_model()
+        dataset = _DevNetArrayDataset(images, labels, self._transform(training=True))
+        sampler = BalancedBatchSampler(
+            labels,
+            batch_size=self.batch_size,
+            steps_per_epoch=self.steps_per_epoch,
+            random_state=self.random_state,
         )
-        criterion = DeviationLoss(margin=self.margin)
+        dataloader = DataLoader(dataset, batch_sampler=sampler, num_workers=0)
 
-        # Training loop
-        self.scoring_model.train()
+        self.optimizer_ = torch.optim.Adam(
+            self.model.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
+        )
+        self.scheduler_ = torch.optim.lr_scheduler.StepLR(
+            self.optimizer_,
+            step_size=self.scheduler_step_size,
+            gamma=self.scheduler_gamma,
+        )
+        criterion = DeviationLoss(margin=self.margin, reference_size=self.reference_size)
 
-        for epoch in range(self.epochs):
-            epoch_loss = 0.0
-
-            for batch_features, batch_labels in dataloader:
-                batch_features = batch_features.to(self.device)
+        for _epoch in range(self.epochs):
+            self.model.train()
+            for batch_images, batch_labels in dataloader:
+                batch_images = batch_images.to(self.device)
                 batch_labels = batch_labels.to(self.device)
-
-                # Forward
-                scores = self.scoring_model(batch_features)
-
-                # Loss
+                scores = self.model(batch_images)
                 loss = criterion(scores, batch_labels)
-
-                # Backward
-                optimizer.zero_grad()
+                self.optimizer_.zero_grad(set_to_none=True)
                 loss.backward()
-                optimizer.step()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip_norm)
+                self.optimizer_.step()
+            self.scheduler_.step()
 
-                epoch_loss += loss.detach().item()
-
-            if (epoch + 1) % 10 == 0:
-                avg_loss = epoch_loss / len(dataloader)
-                logger.info("Epoch [%d/%d] Loss: %.6f", epoch + 1, self.epochs, avg_loss)
-
-        self.scoring_model.eval()
-        logger.info("Training completed!")
-        self.decision_scores_ = np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
-        self._process_decision_scores()
-        self._set_n_classes(y, warn_on_labeled_y=False)
+        self.model.eval()
+        self.is_fitted_ = True
         self.fitted_ = True
+        self.decision_scores_ = self.decision_function(images)
+        self._process_decision_scores()
+        self._set_n_classes(labels, warn_on_labeled_y=False)
         return self
 
-    def predict_proba(self, x: NDArray, **kwargs) -> NDArray:
-        """Predict anomaly scores.
-
-        Args:
-            X: Test images (N, H, W, C).
-
-        Returns:
-            Anomaly scores.
-        """
+    @torch.no_grad()
+    def predict_proba(self, x: NDArray, *, batch_size: Optional[int] = None, **kwargs) -> NDArray:
         del kwargs
-        if x.max() > 1.0:
-            x = x.astype(np.float32) / 255.0
-
-        self.feature_extractor.eval()
-        self.scoring_model.eval()
-
-        scores = []
-
-        with torch.no_grad():
-            for img in x:
-                img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
-
-                # Extract features
-                features = self.feature_extractor(img_tensor)
-
-                # Compute score
-                score = self.scoring_model(features)
-
-                scores.append(score.item())
-
-        return np.array(scores)
+        self._check_is_fitted()
+        images = np.asarray(x)
+        if len(images) == 0:
+            return np.zeros((0,), dtype=np.float64)
+        dataset = _DevNetArrayDataset(
+            images,
+            np.zeros(len(images), dtype=np.int64),
+            self._transform(training=False),
+        )
+        dataloader = DataLoader(
+            dataset,
+            batch_size=self.batch_size if batch_size is None else int(batch_size),
+            shuffle=False,
+            num_workers=0,
+        )
+        self.model.eval()
+        scores = [self.model(batch.to(self.device)).cpu() for batch, _labels in dataloader]
+        return torch.cat(scores).numpy().astype(np.float64, copy=False)
 
     def decision_function(
         self,
@@ -386,63 +385,34 @@ class DevNetDetector(BaseVisionDeepDetector):
         batch_size: Optional[int] = None,
         **kwargs,
     ) -> NDArray:
-        del batch_size, kwargs
-        return np.asarray(self.predict_proba(x), dtype=np.float64).reshape(-1)
-
-    def _preprocess(self, image: NDArray) -> torch.Tensor:
-        """Preprocess image.
-
-        Args:
-            image: Input image (H, W, C) in [0, 1].
-
-        Returns:
-            Preprocessed tensor (C, H, W).
-        """
-        if image.ndim == 2:
-            image = image[:, :, np.newaxis].repeat(3, axis=2)
-
-        image = torch.from_numpy(image).permute(2, 0, 1).float()
-
-        # Normalize
-        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-        image = (image - mean) / std
-
-        return image
+        if batch_size is not None and int(batch_size) <= 0:
+            raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
+        return self.predict_proba(x, batch_size=batch_size, **kwargs).reshape(-1)
 
     def get_feature_importance(self, x: NDArray) -> NDArray:
-        """Get feature importance scores.
-
-        Args:
-            X: Images (N, H, W, C).
-
-        Returns:
-            Feature importance scores (D,).
-        """
-        if x.max() > 1.0:
-            x = x.astype(np.float32) / 255.0
-
+        """Return mean absolute gradient importance for each backbone channel."""
+        self._check_is_fitted()
+        images = np.asarray(x)
+        if len(images) == 0:
+            return np.zeros((self.feature_extractor.feature_dim,), dtype=np.float32)
+        dataset = _DevNetArrayDataset(
+            images,
+            np.zeros(len(images), dtype=np.int64),
+            self._transform(training=False),
+        )
+        batch = torch.stack([dataset[index][0] for index in range(len(dataset))]).to(self.device)
         self.feature_extractor.eval()
-        self.scoring_model.eval()
+        features = self.feature_extractor(batch).detach().requires_grad_(True)
+        patch_scores = self.model.score_head(features)
+        scores = self.model.aggregate_patch_scores(patch_scores, self.topk_ratio)
+        gradients = torch.autograd.grad(scores.sum(), features)[0]
+        return gradients.abs().mean(dim=(0, 2, 3)).detach().cpu().numpy()
 
-        # Extract features
-        features_list = []
-        with torch.no_grad():
-            for img in x:
-                img_tensor = self._preprocess(img).unsqueeze(0).to(self.device)
-                features = self.feature_extractor(img_tensor)
-                features_list.append(features)
 
-        features = torch.cat(features_list, dim=0)
-
-        # Compute gradients w.r.t. features
-        features.requires_grad = True
-        scores = self.scoring_model(features)
-        total_score = scores.sum()
-
-        total_score.backward()
-
-        # Feature importance = absolute gradient
-        importance = features.grad.abs().mean(dim=0).cpu().numpy()
-
-        return importance
+__all__ = [
+    "BalancedBatchSampler",
+    "DeviationLoss",
+    "DevNetDetector",
+    "DevNetModel",
+    "FeatureExtractor",
+]

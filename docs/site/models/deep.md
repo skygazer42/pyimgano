@@ -39,6 +39,7 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_patchcore` | 局部补丁聚合、coreset、近邻重加权 |
 | `vision_padim` | 固定通道采样和逐位置高斯分布 |
 | `vision_stfpm` | 多层师生特征匹配和乘积异常图 |
+| `vision_devnet` | 2021 图像网络、两尺度 top-K MIL 与偏差损失（无定位接口） |
 | `vision_reverse_distillation` | WRN50-2 教师、OCBE 与反向 WRN 解码器 |
 | `vision_simplenet` | 论文 3×3 补丁嵌入、特征适配器与噪声判别器 |
 | `vision_spade` | 图像检索与深层金字塔对应 |
@@ -66,10 +67,12 @@ maps = model.predict_anomaly_map(test_images)
 
 ## 非完整论文实现
 
-- `paper-adaptation`: `vision_differnet` 已对齐论文检测网络与 4/64 变换数，
-  但未暴露论文的梯度定位路径；`vision_memae` 已对齐论文 CIFAR-10 RGB
-  网络和记忆寻址，但工业图像接口仍是场景适配；`vision_draem` 的网络与
-  训练计划已对齐但默认纹理合成仍为简化路径。
+- `paper-adaptation`: `vision_devnet` 已对齐 2021 图像论文的端到端
+  ResNet-18、1x1 patch 打分、两尺度 top-10% MIL、偏差损失与训练默认值，
+  但未暴露平滑输入梯度定位图；`vision_differnet` 已对齐论文检测网络与
+  4/64 变换数，但未暴露论文的梯度定位路径；`vision_memae` 已对齐论文
+  CIFAR-10 RGB 网络和记忆寻址，但工业图像接口仍是场景适配；
+  `vision_draem` 的网络与训练计划已对齐但默认纹理合成仍为简化路径。
 - `partial`: `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_fcdd`,
   `vision_softpatch`。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,

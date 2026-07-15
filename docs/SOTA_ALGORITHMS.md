@@ -73,6 +73,18 @@ but its fallback texture synthesis remains an adaptation unless DTD images are
 provided. DRAEM must not be reported as an exact paper experiment unless the
 DTD anomaly source and full data protocol are also used.
 
+The native DevNet entry now follows the 2021 image paper rather than applying
+the 2019 tabular MLP to pooled image features. It trains ResNet-18 end to end,
+uses a 1x1 convolutional patch scorer, averages the largest signed 10% of patch
+scores over two scales (448 and 224 pixels), and optimizes the margin-5
+deviation loss against 5,000 freshly sampled standard-normal references. Its
+paper defaults are 50 epochs, 20 balanced half-normal/half-anomaly batches per
+epoch, batch size 48, and Adam with learning rate 0.001 and weight decay 0.01.
+Equation 6 defines top-K by anomaly score, so the native implementation uses
+signed scores; the released repository's `abs()` shortcut is not copied. The
+offline default remains `pretrained=False`, and the paper's smoothed input-level
+localization map is not exposed, so this entry remains `paper-adaptation`.
+
 The native DifferNet detection path matches the paper and author code at its
 defining boundaries: frozen AlexNet convolutional features at 448/224/112,
 global pooling to 768 dimensions, eight fixed-permutation two-sided affine
@@ -93,6 +105,8 @@ that CIFAR network and score contract to industrial images is explicitly an
 adaptation.
 
 Primary references for these boundaries are the
+[image DevNet paper](https://arxiv.org/abs/2108.00462) and
+[author-endorsed image code](https://github.com/Choubo/deviation-network-image),
 [DifferNet paper](https://arxiv.org/abs/2008.12577) and
 [author code](https://github.com/marco-rudolph/differnet), plus the
 [MemAE paper](https://arxiv.org/abs/1904.02639) and

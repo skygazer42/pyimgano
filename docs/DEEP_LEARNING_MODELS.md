@@ -22,6 +22,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_patchcore` | `core-aligned` | Patch memory and localization |
 | `vision_padim` | `core-aligned` | Per-location Gaussian modeling |
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
+| `vision_devnet` | `paper-adaptation` | Paper image network and detection path; localization is not exposed |
 | `vision_differnet` | `paper-adaptation` | Paper detection path; gradient-map localization is not exposed |
 | `vision_reverse_distillation` | `core-aligned` | Paper WRN50-2 teacher, OCBE, and reverse-WRN decoder |
 | `vision_draem` | `paper-adaptation` | Paper networks/schedule; simplified fallback synthesis unless DTD images are supplied |
@@ -61,6 +62,10 @@ preprocessing, training schedule, score normalization, and metric protocol.
   `vision_softpatch` are compact/partial variants.
 - `vision_draem` uses the paper networks and schedule, but its fallback anomaly
   synthesis is not the DTD protocol unless anomaly-source images are supplied.
+- `vision_devnet` follows the 2021 image paper's end-to-end ResNet-18, 1x1 patch
+  scorer, two-scale top-10% MIL aggregation, Gaussian-reference loss, balanced
+  batches, and optimizer defaults. It keeps an offline-safe weight default and
+  does not expose the paper's smoothed input-gradient localization map.
 - `vision_differnet` matches the paper's three AlexNet scales, eight two-sided
   affine coupling blocks, 2048-unit s/t networks, clamp, optimizer, and 4/64
   transform counts. It remains an adaptation because the paper's gradient-map

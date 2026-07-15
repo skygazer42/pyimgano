@@ -103,7 +103,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "cutpaste",  # CutPaste self-supervised learning (CVPR 2021)
     "deep_svdd",  # Deep Support Vector Data Description
     "torch_autoencoder",  # Torch MLP autoencoder on embeddings/features
-    "devnet",  # Deviation Networks (KDD 2019)
+    "devnet",  # Explainable image Deviation Networks (2021)
     "dfm",  # Discriminative Feature Modeling
     "differnet",  # DifferNet learnable difference detector (WACV 2021)
     "draem",  # Discriminatively Reconstructed Embedding (ICCV 2021)
