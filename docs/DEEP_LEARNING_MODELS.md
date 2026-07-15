@@ -57,10 +57,17 @@ Published numbers additionally depend on weights, dataset split,
 preprocessing, training schedule, score normalization, and metric protocol.
 `core-aligned` is an algorithm-structure statement, not a benchmark claim.
 
-## When the native entry is partial or experimental
+## When the native entry is adapted, partial, or experimental
 
-- `vision_fastflow`, `vision_cflow`, `vision_dfm`, and `vision_softpatch` are
-  compact/partial variants.
+- `vision_cflow`, `vision_dfm`, and `vision_softpatch` are compact/partial
+  variants.
+- `vision_fastflow` now follows the paper's ResNet18/WideResNet50-2 stages
+  1--3, native feature widths, eight ActNorm/permutation/affine-coupling steps,
+  3x3-only or alternating 3x3/1x1 subnets, 2-D likelihood objective, and
+  multi-scale probability maps. It remains a paper adaptation because the
+  paper does not publish all stabilization, probability-map normalization,
+  image-reduction, or augmentation details and the local offline default does
+  not download ImageNet weights.
 - `vision_draem` uses the paper networks and schedule, but its fallback anomaly
   synthesis is not the DTD protocol unless anomaly-source images are supplied.
 - `core_deep_svdd` and `vision_deep_svdd` implement the paper's one-class and

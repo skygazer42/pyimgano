@@ -52,9 +52,8 @@ def test_registry_model_info_distinguishes_papers_from_related_references() -> N
     assert "Support" in ocsvm["metadata"]["paper"] or "One-Class SVM" in ocsvm["metadata"]["paper"]
 
     assert fastflow["metadata"]["year"] == 2021
-    assert "paper" not in fastflow["metadata"]
-    assert "FastFlow" in fastflow["metadata"]["related_paper"]
-    assert fastflow["metadata"]["paper_fidelity"] == "partial"
+    assert "FastFlow" in fastflow["metadata"]["paper"]
+    assert fastflow["metadata"]["paper_fidelity"] == "paper-adaptation"
 
     assert dbscan["metadata"]["year"] == 1996
     assert "Density-Based Algorithm" in dbscan["metadata"]["paper"]
@@ -211,8 +210,7 @@ def test_dfkde_alias_does_not_invent_a_paper_for_an_upstream_model_name() -> Non
 
     assert "paper" not in dfkde_alias["metadata"]
     assert (
-        dfkde_alias["metadata"]["algorithm_name"]
-        == "DFKDE: Deep Feature Kernel Density Estimation"
+        dfkde_alias["metadata"]["algorithm_name"] == "DFKDE: Deep Feature Kernel Density Estimation"
     )
     assert "year" not in dfkde_alias["metadata"]
 

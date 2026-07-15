@@ -60,9 +60,23 @@ certificate. The primary references are the
 ## Adaptations and compact variants
 
 - Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
-  `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fcdd`.
-- Partial variants: `vision_cflow`, `vision_fastflow`, `vision_dfm`,
-  `vision_softpatch`.
+  `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fastflow`,
+  `vision_fcdd`.
+- Partial variants: `vision_cflow`, `vision_dfm`, `vision_softpatch`.
+
+The native FastFlow entry now implements the paper's CNN path: frozen
+ResNet18 or WideResNet50-2 features from residual stages 1--3 at 256px, one
+2-D flow per scale, ActNorm, fixed channel permutation, two-convolution affine
+coupling subnets, eight flow steps, the paper's 3x3-only ResNet18 and alternating
+3x3/1x1 WideResNet50-2 schedules, spatial likelihood training, and averaged
+upsampled probability maps. The resulting WideResNet50-2 flow parameter counts
+are 74.4M (3-3) and 41.3M (3-1), matching Table 5. Adam defaults are 0.001,
+weight decay 0.00001, batch size 32, and 500 epochs. The paper does not release
+an author implementation or fully specify affine stabilization, probability-map
+normalization, image-score reduction, or rotation angles; the local default also
+disables ImageNet downloads and category-specific augmentation. The entry is
+therefore `paper-adaptation`, not a claim that its default run reproduces the
+published AUC.
 
 The native DRAEM entry now matches the author's base-128 reconstructive network,
 base-64 discriminative network, initialization, losses, and 700-epoch schedule,
@@ -130,7 +144,8 @@ Primary references for these boundaries are the
 [DifferNet paper](https://arxiv.org/abs/2008.12577) and
 [author code](https://github.com/marco-rudolph/differnet), plus the
 [MemAE paper](https://arxiv.org/abs/1904.02639) and
-[author code](https://github.com/donggong1/memae-anomaly-detection).
+[author code](https://github.com/donggong1/memae-anomaly-detection), and the
+[FastFlow paper](https://arxiv.org/abs/2111.07677).
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.

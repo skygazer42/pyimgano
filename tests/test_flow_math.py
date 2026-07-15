@@ -11,7 +11,7 @@ def test_flow_blocks_are_invertible() -> None:
 
     x = torch.randn(3, 4, 5, 5)
     step = FlowStep(4)
-    z, logdet = step(x, torch.zeros(3))
+    z, logdet = step(x)
     restored, reverse_logdet = step(z, logdet, reverse=True)
     torch.testing.assert_close(restored, x, rtol=1e-5, atol=1e-5)
     torch.testing.assert_close(reverse_logdet, torch.zeros_like(reverse_logdet), atol=1e-5, rtol=0)

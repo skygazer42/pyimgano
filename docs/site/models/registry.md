@@ -247,7 +247,7 @@ detector = create_model("vision_ecod", contamination=0.1)
 
 | 名称 | 标签 | 说明 |
 |------|------|------|
-| `vision_fastflow` | deep, vision, flow | FastFlow 相关紧凑流变体（partial） |
+| `vision_fastflow` | deep, vision, flow, pixel_map | FastFlow 论文 ResNet 二维流适配实现 |
 | `vision_cflow` | deep, vision, pixel_map | CFlow 单尺度紧凑变体（partial） |
 
 ### 重构方法

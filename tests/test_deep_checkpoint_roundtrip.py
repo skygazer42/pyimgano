@@ -381,10 +381,10 @@ def test_fastflow_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
         "contamination": 0.2,
         "backbone": "resnet18",
         "pretrained_backbone": False,
-        "selected_layers": ("layer3",),
-        "embedding_dim": 32,
-        "n_flow_steps": 2,
-        "flow_hidden_ratio": 1.0,
+        "selected_layers": ("layer1",),
+        "image_size": 32,
+        "n_flow_steps": 1,
+        "flow_hidden_ratio": 0.25,
         "lr": 1e-4,
         "epoch_num": 1,
         "batch_size": 2,
@@ -395,7 +395,9 @@ def test_fastflow_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
 
     detector = create_model("vision_fastflow", **kwargs)
     detector.fit(train_paths)
+    assert detector.optimizer.param_groups[0]["weight_decay"] == pytest.approx(1e-5)
     expected_scores = np.asarray(detector.decision_function(eval_paths), dtype=np.float64)
+    expected_maps = np.asarray(detector.predict_anomaly_map(eval_paths), dtype=np.float32)
     expected_threshold = float(detector.threshold_)
 
     ckpt_path = tmp_path / "fastflow.ckpt"
@@ -405,7 +407,9 @@ def test_fastflow_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     load_checkpoint_into_detector(restored, ckpt_path)
 
     restored_scores = np.asarray(restored.decision_function(eval_paths), dtype=np.float64)
+    restored_maps = np.asarray(restored.predict_anomaly_map(eval_paths), dtype=np.float32)
     np.testing.assert_allclose(restored_scores, expected_scores, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(restored_maps, expected_maps, rtol=1e-5, atol=1e-5)
     assert float(restored.threshold_) == pytest.approx(expected_threshold)
 
 
