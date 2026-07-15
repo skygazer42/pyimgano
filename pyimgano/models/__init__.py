@@ -168,9 +168,10 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     # Paper-aligned prompt/checkpoint adaptations
     "adaclip",
     "aaclip",
-    # Experimental family adapters (not paper reproductions)
     "visionad",
+    # Official-source paper adapters
     "univad",
+    # Experimental family adapters (not paper reproductions)
     "filopp",
     "one_to_normal",
     "logsad",

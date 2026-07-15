@@ -253,7 +253,7 @@ def _assert_signature_contains(method, *expected: str) -> None:
         _import_attr_param(
             "pyimgano.models.univad",
             "VisionUniVAD",
-            ("fit", "decision_function", "predict"),
+            ("fit", "decision_function", "predict", "predict_anomaly_map"),
             id="univad",
         ),
         _import_attr_param(

@@ -135,6 +135,10 @@ maps = model.predict_anomaly_map(test_images)
   checkpoint，并执行 256px、10-step DDIM、CFG=9、ResNet50 特征距离、
   sigma=5 平滑与最大像素评分。作者未发布训练权重，需同时提供
   `repository_path` 和自行按官方连续训练流程生成的 `checkpoint_path`。
+- `external-backend`: `vision_univad` 删除了原 prototype-fusion 代理，直接
+  调用作者 C³/CAPM/GECM 源码及 448px CLIP-L/14@336、DINOv2-G/14、
+  DINO-S/8 路径。输入必须是图像路径，并先用官方 `segment_components.py`
+  生成组件掩码；上游代码为 CUDA-only 且采用 CC BY-NC-SA 4.0 许可。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

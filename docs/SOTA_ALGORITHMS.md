@@ -292,6 +292,8 @@ the PatchCore inspection runtime. `vision_bayesianpf` requires an official
 Bayes-PFL backend and checkpoint instead of constructing a random local proxy.
 `vision_oneformore` loads an author-trained checkpoint through the official
 One-for-More source tree; upstream currently provides no pretrained checkpoint.
+`vision_univad` runs the official C³/CAPM/GECM source and requires its generated
+component-mask layout and pretrained foundation-model weights.
 
 External-backend status describes delegation, not independent validation of a
 particular checkpoint. Keep the upstream version, configuration, weights hash,
@@ -304,7 +306,7 @@ are **not paper reproductions**:
 
 - `vision_patchcore_lite_map`
 - `vision_anogen_adapter`, `vision_filopp`
-- `vision_logsad`, `vision_one_to_normal`, `vision_univad`
+- `vision_logsad`, `vision_one_to_normal`
 
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
 paper titles could not be verified and were removed. The directly importable
