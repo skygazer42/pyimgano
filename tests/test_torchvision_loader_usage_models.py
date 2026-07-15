@@ -257,27 +257,6 @@ def test_panda_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
     assert calls == [("resnet18", True, "IMAGENET1K_V1")]
 
 
-def test_inctrl_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
-    import torch
-
-    import pyimgano.models.inctrl as inctrl_module
-    from pyimgano.models.inctrl import ResidualEncoder
-
-    calls: list[tuple[str, bool]] = []
-
-    def _fake_loader(name: str, *, pretrained: bool):
-        calls.append((name, pretrained))
-        return _fake_resnet(torch), None
-
-    monkeypatch.setattr(inctrl_module, "load_torchvision_model", _fake_loader, raising=False)
-
-    encoder = ResidualEncoder(backbone="resnet18", feature_dim=64)
-    out = encoder.backbone(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
-
-    assert tuple(out.shape) == (1, 3, 8, 8)
-    assert calls == [("resnet18", True)]
-
-
 def test_reverse_distillation_teacher_uses_shared_torchvision_loader(monkeypatch) -> None:
     import torch
 

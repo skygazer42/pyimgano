@@ -27,7 +27,6 @@ _TARGETS = [
     "pyimgano/models/rdplusplus.py",
     "pyimgano/models/glad.py",
     "pyimgano/models/panda.py",
-    "pyimgano/models/inctrl.py",
     "pyimgano/models/reverse_distillation.py",
 ]
 

@@ -49,12 +49,6 @@ def test_panda_preprocess_uses_shared_helper(monkeypatch) -> None:
     assert tuple(output.shape) == (1, 3, 4, 4)
 
 
-def test_inctrl_preprocess_uses_shared_helper(monkeypatch) -> None:
-    import pyimgano.models.inctrl as module
-
-    _assert_preprocess_delegates(module=module, cls_name="VisionInCTRL", monkeypatch=monkeypatch)
-
-
 def test_ast_preprocess_uses_shared_helper(monkeypatch) -> None:
     import pyimgano.models.ast as module
 

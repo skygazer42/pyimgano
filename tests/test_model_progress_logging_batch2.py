@@ -72,29 +72,19 @@ def test_glad_fit_does_not_print_progress(monkeypatch, capsys) -> None:
     assert out == ""
 
 
-def test_inctrl_fit_does_not_print_progress(monkeypatch, capsys) -> None:
-    import pyimgano.models.inctrl as inctrl_module
+def test_inctrl_fit_does_not_print_progress(capsys) -> None:
     from pyimgano.models.inctrl import VisionInCTRL
 
-    class _DummyEncoder(torch.nn.Module):
-        def __init__(self, backbone: str = "resnet18", feature_dim: int = 8) -> None:
-            del backbone
-            super().__init__()
-            self.feature_dim = feature_dim
+    class _Backend:
+        def fit(self, items, class_name):  # noqa: ANN001, ANN201
+            del items, class_name
 
-        def forward(self, x):  # noqa: ANN001
-            pooled = x.mean(dim=(-1, -2))
-            repeats = (self.feature_dim + int(pooled.shape[1]) - 1) // int(pooled.shape[1])
-            return pooled.repeat(1, repeats)[:, : self.feature_dim]
-
-    monkeypatch.setattr(inctrl_module, "ResidualEncoder", _DummyEncoder)
+        def score(self, item):  # noqa: ANN001, ANN201
+            return float(np.asarray(item).mean())
 
     det = VisionInCTRL(
-        backbone="resnet18",
-        feature_dim=8,
-        num_heads=2,
+        backend=_Backend(),
         batch_size=2,
-        epochs=10,
         k_shot=2,
         device="cpu",
         random_state=0,
