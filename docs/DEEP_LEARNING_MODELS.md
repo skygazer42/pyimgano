@@ -180,7 +180,15 @@ preprocessing, training schedule, score normalization, and metric protocol.
   variants. `fit` only calibrates a threshold and does not recreate
   category-specific ATP training. The API returns raw top-250 scores instead
   of the author's whole-test-set min-max normalization to avoid test leakage.
-- `vision_oneformore` remains an experimental proxy.
+- `vision_oneformore` is an external adapter for the authors' CDAD source and
+  a task checkpoint produced by their continual-training scripts. It preserves
+  the released Stable Diffusion v1.5/AMN graph, 256px input, 10-step DDIM with
+  guidance 9, dataset-specific ResNet50 layers, Euclidean feature-map sum,
+  sigma-5 smoothing, and max-pixel image score. `fit` only calibrates the
+  threshold. The authors have not published trained task checkpoints, so the
+  adapter requires both `repository_path` and `checkpoint_path` and does not
+  claim to recreate the 500/100-epoch continual training protocol. Use the
+  author's pinned runtime, notably `pytorch-lightning==1.9.0`.
 - `vision_univad` remains an injectable family adapter, not a native paper
   reproduction.
 

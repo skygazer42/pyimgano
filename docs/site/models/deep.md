@@ -130,7 +130,11 @@ maps = model.predict_anomaly_map(test_images)
   checkpoint；VisA/PCB-Bank 的 ADS 使用独立冻结 DINO，最终定位使用微调
   DINO，并按作者配置加载相应 VAE。`fit` 仅标定阈值，不重写类别 ATP 训练；
   API 返回原始 top-250 均值，不采用作者对整套测试集做的 min-max 归一化。
-- `inspired`: `vision_oneformore`。
+- `external-backend`: `vision_oneformore` 删除了原先不对应论文的
+  ResNet/小型 U-Net 代理，改为通过作者 One-for-More 源码加载 CDAD 任务
+  checkpoint，并执行 256px、10-step DDIM、CFG=9、ResNet50 特征距离、
+  sigma=5 平滑与最大像素评分。作者未发布训练权重，需同时提供
+  `repository_path` 和自行按官方连续训练流程生成的 `checkpoint_path`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

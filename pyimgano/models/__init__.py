@@ -122,7 +122,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "memae",  # Memory-augmented autoencoder image adaptation
     "oddoneout",  # Odd-One-Out neighbor comparison (CVPR 2025)
     "one_svm_cnn",  # One-Class SVM with CNN features
-    "oneformore",  # Experimental One-for-More-related diffusion proxy
+    "oneformore",  # Official-source One-for-More checkpoint inference adapter
     "padim",  # Patch Distribution Modeling
     "padim_lite",  # PaDiM-like Gaussian baseline on embeddings (image-level)
     "panda",  # PANDA-Early ResNet feature adaptation

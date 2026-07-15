@@ -228,6 +228,15 @@ them. VisA/PCB-Bank retain a separate frozen pretrained DINO for ADS, matching
 the released evaluation code. Runtime scores remain the raw top-250 mean; the
 author script's whole-test-set min-max normalization is intentionally omitted.
 
+The One-for-More entry delegates network construction to the authors' CDAD
+source instead of retaining the former unrelated ResNet/small-U-Net proxy. It
+loads the released Stable Diffusion v1.5 latent UNet and eight-layer
+neighbor-masked AMN configuration, then follows the 256px, 10-step DDIM,
+guidance-9, ImageNet ResNet50 feature-distance, sigma-5 smoothing, and
+max-pixel scoring path. It is marked `external-backend`: the authors published
+training code but no trained task checkpoints, and pyimgano does not replace
+their 500/100-epoch continual training, gradient projection, or iSVD protocol.
+
 The native AnomalyDINO entry implements the paper's frozen DINOv2-S/14 path at
 shorter-edge resolution 448, eight reference rotations, category-conditioned
 PCA masking, cosine patch nearest neighbors, top-1% tail scoring, and σ=4
@@ -260,6 +269,9 @@ and [author repository](https://github.com/mala-lab/InCTRL).
 The GLAD boundary follows the
 [ECCV 2024 paper](https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/08940.pdf)
 and [author repository](https://github.com/hyao1/GLAD).
+The One-for-More boundary follows the
+[CVPR 2025 paper](https://openaccess.thecvf.com/content/CVPR2025/html/Li_One-for-More_Continual_Diffusion_Model_for_Anomaly_Detection_CVPR_2025_paper.html)
+and [author repository](https://github.com/FuNz-0/One-for-More).
 The AnomalyDINO boundary follows the
 [WACV 2025 paper](https://openaccess.thecvf.com/content/WACV2025/html/Damm_AnomalyDINO_Boosting_Patch-Based_Few-Shot_Anomaly_Detection_with_DINOv2_WACV_2025_paper.html)
 and [author repository](https://github.com/dammsi/AnomalyDINO).
@@ -278,6 +290,8 @@ Model-specific `vision_*_anomalib` entries load anomalib checkpoints and are
 marked `external-backend`. `vision_patchcore_inspection_checkpoint` delegates to
 the PatchCore inspection runtime. `vision_bayesianpf` requires an official
 Bayes-PFL backend and checkpoint instead of constructing a random local proxy.
+`vision_oneformore` loads an author-trained checkpoint through the official
+One-for-More source tree; upstream currently provides no pretrained checkpoint.
 
 External-backend status describes delegation, not independent validation of a
 particular checkpoint. Keep the upstream version, configuration, weights hash,
@@ -288,7 +302,6 @@ and dataset protocol with benchmark artifacts.
 The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
-- `vision_oneformore`
 - `vision_patchcore_lite_map`
 - `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`

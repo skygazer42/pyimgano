@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 _TARGETS = [
-    "pyimgano/models/oneformore.py",
     "pyimgano/models/gcad.py",
     "pyimgano/models/realnet.py",
     "pyimgano/models/panda.py",
