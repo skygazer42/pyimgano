@@ -2,7 +2,7 @@
 
 This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_index.py`.
 
-Total registered model names: **287**
+Total registered model names: **288**
 
 For deep models, **Fidelity** states whether the native code contains the paper's defining method, is an adaptation/partial/proxy, delegates to an external backend, or is a generic baseline. `related_paper` references do not claim reproduction.
 
@@ -103,7 +103,7 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `dbscan_anomaly` |  |  | a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise | vision, classical, clustering, dbscan, structural | 1996 |  | Structural-features DBSCAN-inspired anomaly baseline (modernized) | `pyimgano/models/dbscan.py` |
 | `devnet` | paper-adaptation | paper-image-network-aligned-no-localization | Explainable Deep Few-shot Anomaly Detection with Deviation Networks | vision, deep, devnet, weakly-supervised, few-shot | 2021 |  | Legacy alias for the image DevNet adaptation | `pyimgano/models/devnet.py` |
 | `differnet` | paper-adaptation | paper-detection-path-aligned-no-localization | Same Same But DifferNet: Semi-Supervised Defect Detection with Normalizing Flows | vision, deep, flow | 2021 |  | Legacy alias for the paper-aligned DifferNet detection path | `pyimgano/models/differnet.py` |
-| `efficient_ad` | inspired | experimental-distillation-proxy | EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies | vision, deep, distillation | 2024 |  | Teacher/student embedding baseline inspired by EfficientAD; not its PDN/AE method | `pyimgano/models/efficientad.py` |
+| `efficient_ad` | paper-adaptation | paper-network-loss-score-and-defaults-aligned | EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies | vision, deep, distillation, efficientad, pixel_map | 2024 |  | EfficientAD PDN teacher/student and autoencoder paper adaptation | `pyimgano/models/efficientad.py` |
 | `isolation_forest_struct` |  |  |  | vision, classical, iforest, ensemble, structural |  |  | Structural-features Isolation Forest baseline (modernized; native base classes) | `pyimgano/models/Isolationforest.py` |
 | `kmeans_anomaly` |  |  |  | vision, classical, clustering, kmeans, structural |  |  | Structural-features KMeans anomaly baseline (modernized) | `pyimgano/models/k_means.py` |
 | `lof_structure` |  |  |  | vision, classical, lof, neighbors, structural |  |  | Structural-features LOF anomaly detector (modernized; native base classes) | `pyimgano/models/lof.py` |
@@ -152,6 +152,7 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_dst` | not-applicable | generic-dual-student-baseline |  | vision, deep, dst, student-teacher, distillation, experimental |  |  | Generic dual-student distillation baseline; no verified paper reproduction | `pyimgano/models/dst.py` |
 | `vision_dtc` |  |  |  | vision, classical, distance, baseline |  |  | Vision distance-to-centroid baseline | `pyimgano/models/dtc.py` |
 | `vision_ecod` |  |  | Li et al., TKDE 2022 | vision, classical, ecod, parameter-free, high-performance | 2022 |  | ECOD - Empirical CDF-based outlier detector (TKDE 2022) | `pyimgano/models/ecod.py` |
+| `vision_efficientad` | paper-adaptation | paper-network-loss-score-and-defaults-aligned | EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies | vision, deep, distillation, efficientad, pixel_map | 2024 |  | EfficientAD PDN teacher/student and autoencoder paper adaptation | `pyimgano/models/efficientad.py` |
 | `vision_efficientad_anomalib` | external-backend | external-backend-adapter | EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies | vision, deep, backend, anomalib, efficientad, distillation | 2024 | anomalib | EfficientAD via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_elliptic_envelope` |  |  |  | vision, classical, gaussian, covariance |  |  | Vision wrapper for robust covariance / Mahalanobis-distance baseline | `pyimgano/models/elliptic_envelope.py` |
 | `vision_embedding_core` |  |  |  | vision, classical, pipeline, embeddings |  |  | Embedding extractor + core detector pipeline (industrial baseline) | `pyimgano/models/vision_embedding_core.py` |

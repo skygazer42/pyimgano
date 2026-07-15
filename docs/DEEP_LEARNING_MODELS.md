@@ -5,7 +5,7 @@ external checkpoint adapters through one registry. Inspect fidelity before
 using a paper name in reports:
 
 ```python
-from pyimgano.models import model_info
+from pyimgano.models.registry import model_info
 
 metadata = model_info("vision_patchcore")["metadata"]
 print(metadata["paper_fidelity"])
@@ -33,6 +33,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_simplenet` | `core-aligned` | Paper patch embedding, adapter, feature noise, and discriminator |
 | `vision_spade` | `core-aligned` | WRN50-2 ImageNet-V1 retrieval and squared-L2 deep-pyramid correspondences |
 | `vision_cutpaste` | `core-aligned` | ResNet-18 CutPaste 3-way learning and Gaussian-density scoring |
+| `vision_efficientad` | `paper-adaptation` | Paper S/M PDNs, dual-head student, 64-D autoencoder, three losses, calibrated dual maps |
 
 `pretrained=False` is the offline-safe default for most native vision models,
 including SimpleNet. Reverse Distillation instead defaults to the paper's
@@ -117,6 +118,12 @@ preprocessing, training schedule, score normalization, and metric protocol.
   U-Net, assembled partial inpaintings, L2/SSIM/MSGMS objective, four region
   sizes, and MSGMS anomaly maps. It remains an adaptation because the authors
   did not publish reference code.
+- `vision_efficientad` / `efficient_ad` implements the supplementary S/M PDN
+  tables, 384/768-channel teacher/student path, 64-D autoencoder, three paper
+  losses, 70,000-step Adam schedule, quantile-calibrated dual maps, and max
+  image score. Strict fitting requires caller-supplied distilled teacher
+  weights and ImageNet-style penalty data because the paper publishes neither
+  an official checkpoint nor an author repository.
 - `vision_promptad`, `vision_realnet`, `vision_inctrl`, `vision_glad`,
   `vision_oneformore`, `vision_panda`, `vision_regad`, and `vision_winclip` are
   experimental proxies.

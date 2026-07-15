@@ -88,6 +88,21 @@ Principles:
   - Synthesis primitives and presets: `pyimgano.synthesis`
   - CLI dataset generation: `pyimgano-synthesize` / `pyimgano.synthesize_cli`
 
+### EfficientAD
+- Source: WACV 2024 paper and appendices: https://openaccess.thecvf.com/content/WACV2024/html/Batzner_EfficientAD_Accurate_Visual_Anomaly_Detection_at_Millisecond-Level_Latencies_WACV_2024_paper.html
+- What it implies for us:
+  - The defining network is a distilled patch-description teacher, a two-headed
+    student, and a 64-dimensional bottleneck autoencoder; a global ResNet
+    embedding regression model is not EfficientAD.
+  - Paper training additionally needs ImageNet samples for the student penalty
+    and normal validation images for map calibration.
+- PyImgAno mapping:
+  - Native paper adaptation: `vision_efficientad` / `efficient_ad`
+  - Strict native fitting requires `teacher_checkpoint` and `imagenet_dir`; no
+    implicit weights or dataset downloads occur.
+  - Upstream-checkpoint inference remains available as
+    `vision_efficientad_anomalib`.
+
 ### AnomalyAny (diffusion-based generation ideas)
 - Source: https://github.com/EPFL-IMOS/AnomalyAny
 - What it implies for us:

@@ -239,7 +239,8 @@ detector = create_model("vision_ecod", contamination=0.1)
 | 名称 | 标签 | 说明 |
 |------|------|------|
 | `vision_stfpm` | deep, vision, pixel_map | STFPM 师生特征金字塔匹配 |
-| `efficient_ad` | deep, vision, distillation | EfficientAD 相关嵌入蒸馏代理（inspired） |
+| `efficient_ad` | deep, vision, distillation, pixel_map | EfficientAD 论文 PDN/双头学生/AE 适配（严格模式需教师权重与 ImageNet penalty 数据） |
+| `vision_efficientad` | deep, vision, distillation, pixel_map | `efficient_ad` 的规范视觉别名 |
 | `vision_reverse_distillation` | deep, vision, distillation | 论文对齐的 WRN50-2/OCBE 反向蒸馏 |
 | `vision_reverse_dist` | deep, vision, distillation | 论文对齐反向蒸馏（别名） |
 

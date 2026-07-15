@@ -50,6 +50,7 @@ and evaluation protocol.
 | `vision_reverse_distillation` | ImageNet WideResNet50-2 teacher stages 1--3, exact released OCBE and reverse-WRN block counts/channels, cosine loss, additive cosine maps, sigma-4 smoothing; 256px, Adam 0.005, batch 16, 200 epochs | Published metrics still require the MVTec category protocol and matching ImageNet weights |
 | `vision_simplenet` | WRN50-2 layer2/layer3 padded 3x3 neighborhoods, 1536-d MeanMapper/Aggregator embedding, bias-free 1536-d adapter, Linear-BN-LeakyReLU-Linear discriminator, sigma-0.015 feature noise and truncated L1 objective; 256-to-224 input, 160 epochs, batch 4 | Set `pretrained=True` to use the paper's ImageNet feature extractor; local default remains offline-safe |
 | `vision_cutpaste` | ResNet-18 pooled 512-d features, MLP CutPaste/scar 3-way objective, paper geometry and patch jitter, 256px input, 65,536 updates, SGD 0.03/0.9, weight decay 3e-5, cosine decay, Ledoit-Wolf Gaussian fit with the Eq. (2) negative log-density score | The paper does not publish MLP widths, input normalization, global translation/jitter amplitudes, covariance regularization, or an author implementation; EfficientNet-B4 transfer and patch-localization branches are not implemented |
+| `vision_efficientad` / `efficient_ad` | EfficientAD-S/M PDNs, 384-channel teacher and 768-channel student, 64-D bottleneck autoencoder, exact 8.06M/20.74M parameter totals (paper: 8M/21M), channel normalization, hard-feature/ImageNet-penalty/AE losses, 70,000-step Adam schedule, 0.9/0.995 map calibration, equal map fusion, and max image score | The paper provides no official teacher checkpoint or repository; strict fitting requires an explicitly distilled teacher and ImageNet-style penalty directory; the local 10% normal holdout is used only when no validation set is supplied because the paper does not state a split fraction |
 
 This table is a source/code conformance audit, not a numerical reproduction
 certificate. The primary references are the
@@ -61,6 +62,7 @@ certificate. The primary references are the
 [CFLOW-AD paper and author code](https://github.com/gudovskiy/cflow-ad),
 [Reverse Distillation paper and author code](https://github.com/hq-deng/RD4AD),
 [SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),
+[EfficientAD paper and supplement](https://openaccess.thecvf.com/content/WACV2024/html/Batzner_EfficientAD_Accurate_Visual_Anomaly_Detection_at_Millisecond-Level_Latencies_WACV_2024_paper.html),
 [CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html).
 The SPADE paper does not link an author repository; its equations and stated
 experiment parameters are therefore the canonical source for this audit.
@@ -69,7 +71,16 @@ experiment parameters are therefore the canonical source for this audit.
 
 - Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
   `vision_dfm`, `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fastflow`,
-  `vision_fcdd`.
+  `vision_fcdd`, `vision_efficientad` / `efficient_ad`.
+
+The native EfficientAD entry implements both supplementary PDN tables, the
+64-dimensional autoencoder, all three training losses, teacher-channel and
+map-quantile calibration, the 70,000-step optimizer schedule, and the paper's
+equal-map/max-score inference equations. The paper supplies neither an
+official repository nor distilled teacher weights, so `paper_strict=True`
+requires an explicit `teacher_checkpoint` and `imagenet_dir`; it never silently
+substitutes a random ResNet or downloads assets. A caller may disable this gate
+for diagnostics, but that run is not a paper reproduction.
 
 The native DFM entry implements the Gaussian branch of the
 [DFM paper](https://arxiv.org/abs/1909.11786): it extracts one independently
@@ -231,7 +242,7 @@ pyimgano-benchmark --model-info vision_promptad --json
 ```
 
 ```python
-from pyimgano.models import model_info
+from pyimgano.models.registry import model_info
 
 metadata = model_info("vision_promptad")["metadata"]
 print(metadata["paper_fidelity"])

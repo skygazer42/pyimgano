@@ -16,7 +16,7 @@ title: 深度学习模型
     name alone does not claim a paper reproduction; inspect `paper_fidelity`.
 
 ```python
-from pyimgano.models import model_info
+from pyimgano.models.registry import model_info
 
 print(model_info("vision_patchcore")["metadata"])
 ```
@@ -45,6 +45,7 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_simplenet` | 论文 3×3 补丁嵌入、特征适配器与噪声判别器 |
 | `vision_spade` | WRN50-2 ImageNet-V1 图像检索与平方 L2 深层金字塔对应 |
 | `vision_cutpaste` | ResNet-18 CutPaste 三分类自监督与高斯密度评分 |
+| `vision_efficientad` | 论文 S/M PDN、双头学生、64 维 AE 与双异常图（需外部教师权重） |
 
 !!! warning "预训练权重"
     多数模型默认 `pretrained=False`，用于离线安全和测试。结构正确不等于实验有效；
@@ -90,7 +91,11 @@ maps = model.predict_anomaly_map(test_images)
   四块 RealNVP teacher、四残差块 student、两阶段训练和 RGB 均值距离评分，
   但默认不下载 ImageNet 权重，且未实现论文的 3D/前景掩码路径；
   `vision_riad` 已对齐三组互补区域遮罩、论文 U-Net、L2/SSIM/MSGMS
-  联合目标和四种区域尺寸的 MSGMS 集成，但作者未发布参考代码，因此仍标为适配。
+  联合目标和四种区域尺寸的 MSGMS 集成，但作者未发布参考代码，因此仍标为适配；
+  `vision_efficientad` / `efficient_ad` 已对齐补充材料的 S/M PDN、384/768
+  通道师生路径、64 维瓶颈 AE、三项损失、70,000 步计划和分位数双图评分。
+  论文未发布官方教师权重或作者仓库，因此严格模式要求显式提供
+  `teacher_checkpoint` 与 `imagenet_dir`，不会用随机 ResNet 冒充。
 - `core-aligned`: `vision_cflow` 已对齐作者 ResNet 路径的 layer2--layer4
   特征金字塔、二维位置条件、每尺度八个条件流块、归一化似然目标和多尺度概率图；
   论文指标仍要求 ImageNet 权重、类别输入尺寸与完整评估协议；`vision_softpatch`
