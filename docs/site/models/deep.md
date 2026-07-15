@@ -43,7 +43,7 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_devnet` | 2021 图像网络、两尺度 top-K MIL 与偏差损失（无定位接口） |
 | `vision_reverse_distillation` | WRN50-2 教师、OCBE 与反向 WRN 解码器 |
 | `vision_simplenet` | 论文 3×3 补丁嵌入、特征适配器与噪声判别器 |
-| `vision_spade` | 图像检索与深层金字塔对应 |
+| `vision_spade` | WRN50-2 ImageNet-V1 图像检索与平方 L2 深层金字塔对应 |
 | `vision_cutpaste` | CutPaste 三分类自监督 |
 
 !!! warning "预训练权重"

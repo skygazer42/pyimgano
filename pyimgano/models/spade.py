@@ -38,7 +38,11 @@ logger = logging.getLogger(__name__)
 
 def _build_resnet_backbone(name: str, *, pretrained: bool) -> nn.Module:
     if name in {"wide_resnet50", "resnet50", "resnet18"}:
-        model, _ = load_torchvision_model(name, pretrained=bool(pretrained))
+        model, _ = load_torchvision_model(
+            name,
+            pretrained=bool(pretrained),
+            weights_name="IMAGENET1K_V1" if pretrained else None,
+        )
         return model
     raise ValueError(f"Unknown backbone: {name!r}")
 
@@ -80,7 +84,7 @@ class DeepPyramidExtractor(nn.Module):
         "paper_url": "https://arxiv.org/abs/2005.02357",
         "year": 2020,
         "supervision": "unsupervised",
-        "implementation_status": "core-aligned",
+        "implementation_status": "paper-wrn50x2-equations-and-pyramid-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -90,9 +94,10 @@ class DeepPyramidExtractor(nn.Module):
     metadata={
         "description": "Legacy alias for SPADE deep-pyramid correspondence localization",
         "paper": "Sub-Image Anomaly Detection with Deep Pyramid Correspondences",
+        "paper_url": "https://arxiv.org/abs/2005.02357",
         "year": 2020,
         "supervision": "unsupervised",
-        "implementation_status": "core-aligned",
+        "implementation_status": "paper-wrn50x2-equations-and-pyramid-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -119,14 +124,10 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         if image_size < 32:
             raise ValueError(f"image_size must be >= 32, got {image_size}")
         resolved_crop_size = (
-            int(crop_size)
-            if crop_size is not None
-            else max(1, int(round(image_size * 224 / 256)))
+            int(crop_size) if crop_size is not None else max(1, int(round(image_size * 224 / 256)))
         )
         if not 1 <= resolved_crop_size <= image_size:
-            raise ValueError(
-                f"crop_size must be in [1, image_size], got {resolved_crop_size}"
-            )
+            raise ValueError(f"crop_size must be in [1, image_size], got {resolved_crop_size}")
         if k_neighbors < 1:
             raise ValueError(f"k_neighbors must be >= 1, got {k_neighbors}")
 
@@ -275,9 +276,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
             raise RuntimeError("Model not fitted. Call fit() first.")
 
     @torch.no_grad()
-    def _extract_feature_bundle(
-        self, image: NDArray
-    ) -> tuple[dict[str, NDArray], NDArray]:
+    def _extract_feature_bundle(self, image: NDArray) -> tuple[dict[str, NDArray], NDArray]:
         img_tensor = self._preprocess(image).unsqueeze(0).to(self.device)
         f1, f2, f3, global_descriptor = self.feature_extractor(img_tensor)
         tensors = {"layer1": f1, "layer2": f2, "layer3": f3}
@@ -290,7 +289,8 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
     def _nearest_training_images(self, global_descriptor: NDArray) -> tuple[NDArray, NDArray]:
         self._check_fitted()
         train_global = cast(NDArray, self.train_global_features_)
-        distances = np.linalg.norm(train_global - global_descriptor.reshape(1, -1), axis=1)
+        residuals = train_global - global_descriptor.reshape(1, -1)
+        distances = np.sum(np.square(residuals), axis=1)
         count = min(self.k_neighbors, len(distances))
         indices = np.argsort(distances)[:count]
         return indices.astype(np.int64, copy=False), distances[indices]
@@ -363,8 +363,10 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         # SPADE describes each location by concatenating the selected feature
         # pyramid levels at a shared spatial resolution before correspondence
         # matching (paper Sec. 3.4).
-        reference_level = self.feature_levels[0]
-        height, width = query_maps[reference_level].shape[-2:]
+        height, width = max(
+            (query_maps[level].shape[-2:] for level in self.feature_levels),
+            key=lambda size: size[0] * size[1],
+        )
         query_tensors: list[torch.Tensor] = []
         gallery_tensors: list[torch.Tensor] = []
         for level in self.feature_levels:
@@ -397,17 +399,11 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
             gallery = self._align_features(gallery)
 
         nearest_distance, _ = cKDTree(gallery).query(query_patches, k=1, workers=-1)
-        anomaly_map = np.asarray(nearest_distance, dtype=np.float32).reshape(height, width)
-        anomaly_map_t = torch.from_numpy(anomaly_map).unsqueeze(0).unsqueeze(0)
-        final_map = (
-            F.interpolate(
-                anomaly_map_t,
-                size=(self.image_size, self.image_size),
-                mode="bilinear",
-                align_corners=False,
-            )
-            .squeeze()
-            .numpy()
+        anomaly_map = np.square(nearest_distance).reshape(height, width).astype(np.float32)
+        final_map = cv2.resize(
+            anomaly_map,
+            (self.image_size, self.image_size),
+            interpolation=cv2.INTER_AREA,
         )
         if self.gaussian_sigma > 0:
             final_map = gaussian_filter(final_map, sigma=self.gaussian_sigma)
@@ -443,9 +439,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
             },
             "state": {
                 "feature_extractor_state_dict": normalized_feature_state,
-                "train_global_features": np.asarray(
-                    self.train_global_features_, dtype=np.float32
-                ),
+                "train_global_features": np.asarray(self.train_global_features_, dtype=np.float32),
                 "train_feature_maps": {
                     str(level): np.asarray(maps, dtype=np.float32)
                     for level, maps in (self.train_feature_maps_ or {}).items()

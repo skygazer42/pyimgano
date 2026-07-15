@@ -23,7 +23,12 @@ _MODEL_NAME_ALIASES = {
 }
 
 
-def load_torchvision_model(name: str, *, pretrained: bool):
+def load_torchvision_model(
+    name: str,
+    *,
+    pretrained: bool,
+    weights_name: str | None = None,
+):
     """Load a torchvision model with a best-effort transform.
 
     Notes
@@ -31,6 +36,8 @@ def load_torchvision_model(name: str, *, pretrained: bool):
     - By default, callers should pass `pretrained=False` to avoid implicit
       downloads. If `pretrained=True`, torchvision may download weights via
       `torch.hub` when weights are not already cached.
+    - `weights_name` pins a paper-era weights enum instead of the mutable
+      torchvision `DEFAULT` alias.
     """
 
     from pyimgano.utils.optional_deps import require
@@ -44,12 +51,14 @@ def load_torchvision_model(name: str, *, pretrained: bool):
         weight_transform = None
         if pretrained:
             weights_enum = models.get_model_weights(model_name)
-            weights = weights_enum.DEFAULT
+            weights = getattr(weights_enum, weights_name or "DEFAULT")
             weight_transform = weights.transforms()
         model = models.get_model(model_name, weights=weights)
         return model, weight_transform
 
     # Fallback for older torchvision.
+    if weights_name not in {None, "IMAGENET1K_V1"}:
+        raise ValueError("Named torchvision weights require the multi-weight API.")
     ctor = getattr(models, model_name)
     model = ctor(pretrained=bool(pretrained))
     return model, None

@@ -44,7 +44,7 @@ and evaluation protocol.
 | `vision_patchcore` | WRN50-2 layer2/layer3 padded 3x3 patches, 1024-to-1024 MeanMapper/Aggregator embedding, 10% approximate greedy coreset, 1-NN max score; resize 256 then crop 224 | Paper experiments require ImageNet weights; offline default is `pretrained=False` |
 | `vision_softpatch` | PatchCore WRN50-2 layer2/layer3 embedding, position-wise LOF with k=6, top-15% patch removal, 10% greedy coreset with stored LOF weights, weighted 1-NN patch score, max image score, sigma-4 map smoothing | Paper experiments require ImageNet weights and the noisy MVTec/BTAD protocol; offline default is `pretrained=False` |
 | `vision_padim` | R18 448→100 and WR50-2 1792→550 channel paths, blockwise cross-level correspondence, per-location Gaussian, Mahalanobis map, bicubic resize, sigma-4 smoothing | Paper experiments require ImageNet weights; offline default is `pretrained=False`; the paper does not link an author reference implementation |
-| `vision_spade` | global KNN retrieval, retrieved-image pyramid gallery, dense correspondence, sigma-4 smoothing; resize 256 then crop 224 | Paper experiments require ImageNet WRN50x2 weights; offline default is `pretrained=False` |
+| `vision_spade` | WRN50-2 ImageNet-V1 global mean squared-L2 KNN (`K=50`), block1--3 pyramid concatenation on the finest grid, squared-L2 correspondence (`kappa=1`), INTER_AREA 256px map, sigma-4 smoothing; resize 256 then crop 224 | Set `pretrained=True` for the paper weights; offline default is `False` |
 | `vision_stfpm` | identical ResNet-18 teacher/student, conv2_x--conv4_x normalized feature loss, SGD 0.4 for 100 epochs, exact seeded 80/20 split, full-resolution bilinear map product, max image score | Exact paper path requires `pretrained_teacher=True`; the offline default keeps downloads opt-in |
 | `vision_cflow` | frozen ResNet layer2--layer4 pyramid, 128-D sinusoidal position conditions, three independent eight-block conditional flows, normalized likelihood objective, summed multi-scale probability maps | Set `pretrained_backbone=True` and use the authors' category-specific input size and evaluation protocol for published MVTec experiments |
 | `vision_reverse_distillation` | ImageNet WideResNet50-2 teacher stages 1--3, exact released OCBE and reverse-WRN block counts/channels, cosine loss, additive cosine maps, sigma-4 smoothing; 256px, Adam 0.005, batch 16, 200 epochs | Published metrics still require the MVTec category protocol and matching ImageNet weights |
@@ -62,6 +62,8 @@ certificate. The primary references are the
 [Reverse Distillation paper and author code](https://github.com/hq-deng/RD4AD),
 [SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),
 [CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html).
+The SPADE paper does not link an author repository; its equations and stated
+experiment parameters are therefore the canonical source for this audit.
 
 ## Adaptations
 
