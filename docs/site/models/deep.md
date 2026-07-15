@@ -44,7 +44,7 @@ print(model_info("vision_patchcore")["metadata"])
 | `vision_reverse_distillation` | WRN50-2 教师、OCBE 与反向 WRN 解码器 |
 | `vision_simplenet` | 论文 3×3 补丁嵌入、特征适配器与噪声判别器 |
 | `vision_spade` | WRN50-2 ImageNet-V1 图像检索与平方 L2 深层金字塔对应 |
-| `vision_cutpaste` | CutPaste 三分类自监督 |
+| `vision_cutpaste` | ResNet-18 CutPaste 三分类自监督与高斯密度评分 |
 
 !!! warning "预训练权重"
     多数模型默认 `pretrained=False`，用于离线安全和测试。结构正确不等于实验有效；

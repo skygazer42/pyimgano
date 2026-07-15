@@ -69,15 +69,19 @@ class CutPasteAugmentation:
         original_dtype = patch.dtype
         scale = 255.0 if np.issubdtype(original_dtype, np.integer) or patch.max() > 1.0 else 1.0
         tensor = (
-            torch.from_numpy(np.ascontiguousarray(patch))
-            .permute(2, 0, 1)
-            .to(dtype=torch.float32)
+            torch.from_numpy(np.ascontiguousarray(patch)).permute(2, 0, 1).to(dtype=torch.float32)
             / scale
         )
         operations = [
-            (tv_functional.adjust_brightness, float(self.rng.uniform(1 - intensity, 1 + intensity))),
+            (
+                tv_functional.adjust_brightness,
+                float(self.rng.uniform(1 - intensity, 1 + intensity)),
+            ),
             (tv_functional.adjust_contrast, float(self.rng.uniform(1 - intensity, 1 + intensity))),
-            (tv_functional.adjust_saturation, float(self.rng.uniform(1 - intensity, 1 + intensity))),
+            (
+                tv_functional.adjust_saturation,
+                float(self.rng.uniform(1 - intensity, 1 + intensity)),
+            ),
             (tv_functional.adjust_hue, float(self.rng.uniform(-intensity, intensity))),
         ]
         for index in self.rng.permutation(len(operations)):
@@ -293,7 +297,7 @@ class ProjectionHead(nn.Module):
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html",
         "year": 2021,
         "supervision": "self-supervised",
-        "implementation_status": "native-core-augmentation-and-classification",
+        "implementation_status": "paper-resnet18-objective-schedule-and-score-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -306,7 +310,7 @@ class ProjectionHead(nn.Module):
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html",
         "year": 2021,
         "supervision": "self-supervised",
-        "implementation_status": "native-core-augmentation-and-classification",
+        "implementation_status": "paper-resnet18-objective-schedule-and-score-aligned",
         "paper_fidelity": "core-aligned",
     },
 )
@@ -317,13 +321,13 @@ class CutPasteDetector(BaseVisionDeepDetector):
     cutting and pasting image patches.
 
     Args:
-        backbone: Backbone architecture ("resnet18", "resnet50", "efficientnet").
+        backbone: Backbone architecture ("resnet18", "resnet50", "wide_resnet50").
         embedding_dim: Dimension of feature embeddings.
         augment_type: Type of CutPaste ("normal", "scar", "3way").
         pretrained: Whether to use pretrained backbone.
         freeze_backbone: Whether to freeze backbone during training.
         epochs: Number of training epochs.
-        batch_size: Training batch size.
+        batch_size: Training batch size. Defaults to 96 for 3-way or 64 otherwise.
         learning_rate: Learning rate.
         device: Device to use ("cuda" or "cpu").
 
@@ -340,7 +344,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
         pretrained: bool = False,
         freeze_backbone: bool = False,
         epochs: int = 256,
-        batch_size: int = 96,
+        batch_size: Optional[int] = None,
         learning_rate: float = 0.03,
         image_size: int = 256,
         steps_per_epoch: int = 256,
@@ -357,7 +361,9 @@ class CutPasteDetector(BaseVisionDeepDetector):
         self.pretrained = pretrained
         self.freeze_backbone = freeze_backbone
         self.epochs = epochs
-        self.batch_size = batch_size
+        self.batch_size = int(
+            batch_size if batch_size is not None else (96 if augment_type == "3way" else 64)
+        )
         self.learning_rate = learning_rate
         self.image_size = int(image_size)
         self.steps_per_epoch = int(steps_per_epoch)
@@ -607,11 +613,11 @@ class CutPasteDetector(BaseVisionDeepDetector):
                 features = self._extract_features(batch_tensor).cpu().numpy()
 
                 delta = features - self.reference_mean
-                dist = np.sqrt(
-                    np.maximum(
-                        np.einsum("bi,ij,bj->b", delta, self.reference_precision, delta),
-                        0.0,
-                    )
+                # Negative Gaussian log-density from paper Eq. (2), up to
+                # sample-independent normalization constants.
+                dist = 0.5 * np.maximum(
+                    np.einsum("bi,ij,bj->b", delta, self.reference_precision, delta),
+                    0.0,
                 )
 
                 scores.append(dist)
@@ -698,9 +704,7 @@ class CutPasteDetector(BaseVisionDeepDetector):
         self.learning_rate = float(config.get("learning_rate", self.learning_rate))
         self.image_size = int(config.get("image_size", self.image_size))
         self.steps_per_epoch = int(config.get("steps_per_epoch", self.steps_per_epoch))
-        self.translation_ratio = float(
-            config.get("translation_ratio", self.translation_ratio)
-        )
+        self.translation_ratio = float(config.get("translation_ratio", self.translation_ratio))
         self.global_jitter = float(config.get("global_jitter", self.global_jitter))
         self.random_state = int(config.get("random_state", self.random_state))
         self.device = torch.device(str(config.get("device", self.device)))

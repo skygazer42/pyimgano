@@ -53,7 +53,7 @@ Method implementations (conceptual reference only):
 - PaDiM (unofficial): `xiahaifeng1995/PaDiM-Anomaly-Detection-Localization-master` (Apache-2.0)
 - SimpleNet: `DonaldRR/SimpleNet` (MIT)
 - DRAEM: `VitjanZ/DRAEM` (MIT)
-- CutPaste: `LilitYolyan/CutPaste` (MIT)
+- CutPaste (unofficial): `LilitYolyan/CutPaste` (MIT)
 - AnomalyDINO (WACV 2025; DINOv2 patch-kNN few-shot): `dammsi/AnomalyDINO` (Apache-2.0)
 - Dinomaly: `guojiajeremy/Dinomaly` (Apache-2.0)
 - MuSc: `xrli-U/MuSc` (MIT)

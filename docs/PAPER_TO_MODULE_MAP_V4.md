@@ -80,7 +80,7 @@ Principles:
   - Classical core on embeddings route: `vision_embedding_core` + `core_*`
 
 ### CutPaste / synthetic anomaly generation
-- Source: `LilitYolyan/CutPaste` (and follow-ups)
+- Source: CVPR 2021 paper and supplement; `LilitYolyan/CutPaste` is an unofficial reference implementation
 - What it implies for us:
   - Controlled anomaly masks + blending modes are practical for data-scarce factories.
   - Synthetic generation should emit manifest records with reproducible seeds and mask paths.
@@ -109,4 +109,3 @@ Principles:
 - Use `tools/clone_reference_repos.sh` for shallow, no-checkout clones into `.cache/pyimgano_refs/`.
 - Do not commit reference clones; enforce via local audits.
 - Copying code into this repo requires license compatibility + `UPSTREAM:` markers + `third_party/NOTICE.md` entries.
-

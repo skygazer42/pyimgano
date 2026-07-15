@@ -35,6 +35,7 @@ def test_cutpaste_contract_accepts_numpy_image_list() -> None:
 
     det.fit(train)
     assert det.training_steps_ == 1
+    assert det.final_learning_rate_ == pytest.approx(0.0)
     scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
@@ -83,21 +84,51 @@ def test_cutpaste_paper_defaults_and_preprocessing() -> None:
     parameters = inspect.signature(CutPasteDetector).parameters
     assert parameters["augment_type"].default == "3way"
     assert parameters["epochs"].default == 256
-    assert parameters["batch_size"].default == 96
+    assert parameters["batch_size"].default is None
+    assert parameters["learning_rate"].default == 0.03
     assert parameters["steps_per_epoch"].default == 256
     assert parameters["image_size"].default == 256
+    assert parameters["epochs"].default * parameters["steps_per_epoch"].default == 65_536
 
     det = CutPasteDetector(epochs=1, steps_per_epoch=1, device="cpu")
 
     assert det.augment_type == "3way"
     assert det.image_size == 256
     assert det.batch_size == 96
+    assert [len(det.backbone[index]) for index in (4, 5, 6, 7)] == [2, 2, 2, 2]
+    assert det.projection_head.fc1.in_features == 512
+    assert det.projection_head.fc1.out_features == 512
+    assert det.projection_head.fc2.in_features == 512
+    assert det.projection_head.fc2.out_features == 3
     names = [type(item).__name__ for item in det._get_transform(training=False).transforms]
     assert names == ["ToPILImage", "Resize", "ToTensor", "Normalize"]
-    output = det._get_transform(training=False)(
-        np.zeros((40, 60, 3), dtype=np.uint8)
-    )
+    output = det._get_transform(training=False)(np.zeros((40, 60, 3), dtype=np.uint8))
     assert tuple(output.shape) == (3, 256, 256)
+
+    binary = CutPasteDetector(augment_type="normal", epochs=1, steps_per_epoch=1, device="cpu")
+    assert binary.batch_size == 64
+    assert binary.projection_head.fc2.out_features == 2
+
+
+def test_cutpaste_gde_score_matches_paper_negative_log_density() -> None:
+    import torch
+
+    from pyimgano.models.cutpaste import CutPasteDetector
+
+    det = CutPasteDetector.__new__(CutPasteDetector)
+    det.batch_size = 2
+    det.device = torch.device("cpu")
+    det.backbone = torch.nn.Identity()
+    det.reference_mean = np.asarray([1.0, 2.0], dtype=np.float32)
+    det.reference_precision = np.diag([2.0, 3.0]).astype(np.float32)
+    det._preprocess = lambda _batch: torch.tensor(  # type: ignore[method-assign]
+        [[2.0, 4.0], [0.0, 2.0]], dtype=torch.float32
+    )
+    det._extract_features = lambda tensor: tensor  # type: ignore[method-assign]
+
+    scores = det._score_images(np.zeros((2, 2, 2, 3), dtype=np.uint8))
+
+    np.testing.assert_allclose(scores, [7.0, 1.0])
 
 
 def test_cutpaste_augmentation_is_repeatable_with_local_seed() -> None:
