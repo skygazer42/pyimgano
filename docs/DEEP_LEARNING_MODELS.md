@@ -59,8 +59,8 @@ preprocessing, training schedule, score normalization, and metric protocol.
 
 ## When the native entry is partial or experimental
 
-- `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_fcdd`, and
-  `vision_softpatch` are compact/partial variants.
+- `vision_fastflow`, `vision_cflow`, `vision_dfm`, and `vision_softpatch` are
+  compact/partial variants.
 - `vision_draem` uses the paper networks and schedule, but its fallback anomaly
   synthesis is not the DTD protocol unless anomaly-source images are supplied.
 - `core_deep_svdd` and `vision_deep_svdd` implement the paper's one-class and
@@ -78,6 +78,11 @@ preprocessing, training schedule, score normalization, and metric protocol.
 - `vision_memae` uses the paper's CIFAR-10 RGB encoder/decoder, 500-slot memory,
   cosine addressing, hard shrinkage, and entropy objective. Its industrial-image
   detector contract is an adaptation of that CIFAR-10 experiment.
+- `vision_fcdd` uses the paper's MVTec truncated VGG11-BN network, element-wise
+  pseudo-Huber/HSC objective, confetti settings, SGD schedule, and receptive-field
+  Gaussian transposed-convolution heatmap. Its offline default omits ImageNet
+  weights and estimates category normalization bounds from the supplied normal
+  images, so it remains a paper adaptation rather than a benchmark reproduction.
 - `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, and `vision_winclip` are experimental proxies.

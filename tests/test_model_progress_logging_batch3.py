@@ -15,10 +15,12 @@ def test_fcdd_fit_does_not_print_progress(capsys) -> None:
     from pyimgano.models.fcdd import FCDD
 
     det = FCDD(
-        objective="occ",
         learning_rate=1e-4,
         batch_size=2,
-        epochs=10,
+        accumulate_batches=1,
+        epoch_size_multiplier=1,
+        synthetic_anomalies=False,
+        epochs=1,
         device="cpu",
     )
 

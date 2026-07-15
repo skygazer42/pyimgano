@@ -160,7 +160,7 @@ def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> 
         "vision_realnet": "inspired",
         "vision_winclip": "inspired",
         "vision_patchcore_anomalib": "external-backend",
-        "vision_fcdd": "partial",
+        "vision_fcdd": "paper-adaptation",
         "vision_memae": "paper-adaptation",
     }
     for name, fidelity in expected.items():

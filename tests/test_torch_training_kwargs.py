@@ -22,7 +22,7 @@ def test_fcdd_fit_passes_explicit_num_workers(monkeypatch) -> None:
 
     monkeypatch.setattr(fcdd_module, "DataLoader", _recording_dataloader)
 
-    detector = fcdd_module.FCDD(objective="occ", epochs=0, batch_size=2, device="cpu")
+    detector = fcdd_module.FCDD(epochs=0, batch_size=2, device="cpu")
     detector.fit(_tiny_rgb_batch())
 
     assert observed["num_workers"] == 0

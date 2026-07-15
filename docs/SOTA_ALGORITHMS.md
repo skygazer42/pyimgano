@@ -60,15 +60,24 @@ certificate. The primary references are the
 ## Adaptations and compact variants
 
 - Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
-  `vision_differnet`, `vision_memae`, `vision_draem`.
+  `vision_differnet`, `vision_memae`, `vision_draem`, `vision_fcdd`.
 - Partial variants: `vision_cflow`, `vision_fastflow`, `vision_dfm`,
-  `vision_fcdd`, `vision_softpatch`.
+  `vision_softpatch`.
 
 The native DRAEM entry now matches the author's base-128 reconstructive network,
 base-64 discriminative network, initialization, losses, and 700-epoch schedule,
 but its fallback texture synthesis remains an adaptation unless DTD images are
 provided. DRAEM must not be reported as an exact paper experiment unless the
 DTD anomaly source and full data protocol are also used.
+
+The native FCDD entry now follows the paper's MVTec path: a 4,504,833-parameter
+truncated VGG11-BN FCN with a 1x1 score head, element-wise pseudo-Huber map,
+normal/anomalous HSC objective, 50% online confetti replacement, SGD/Nesterov
+schedule, and receptive-field Gaussian transposed-convolution upsampling. Set
+`pretrained=True` to load and freeze the paper's ImageNet feature slice. The
+offline default trains the same network without those weights and learns the
+category normalization bounds from supplied normal images, so the registry
+classifies it as `paper-adaptation` rather than a numerical reproduction.
 
 The native DevNet entry now follows the 2021 image paper rather than applying
 the 2019 tabular MLP to pooled image features. It trains ResNet-18 end to end,

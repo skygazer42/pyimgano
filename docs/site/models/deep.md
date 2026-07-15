@@ -75,9 +75,11 @@ maps = model.predict_anomaly_map(test_images)
   但未暴露平滑输入梯度定位图；`vision_differnet` 已对齐论文检测网络与
   4/64 变换数，但未暴露论文的梯度定位路径；`vision_memae` 已对齐论文
   CIFAR-10 RGB 网络和记忆寻址，但工业图像接口仍是场景适配；
-  `vision_draem` 的网络与训练计划已对齐但默认纹理合成仍为简化路径。
-- `partial`: `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_fcdd`,
-  `vision_softpatch`。
+  `vision_draem` 的网络与训练计划已对齐但默认纹理合成仍为简化路径；
+  `vision_fcdd` 已对齐 MVTec 的截断 VGG11-BN、pseudo-Huber/HSC 目标、
+  confetti 参数、优化计划和感受野高斯热图，但离线默认不加载 ImageNet 权重，
+  且在传入的正常样本上估计类别归一化范围。
+- `partial`: `vision_fastflow`, `vision_cflow`, `vision_dfm`, `vision_softpatch`。
 - `inspired`: `vision_ast`, `vision_promptad`, `vision_realnet`, `vision_inctrl`,
   `vision_glad`, `vision_oneformore`, `vision_panda`, `vision_regad`,
   `vision_riad`, `vision_winclip`。
