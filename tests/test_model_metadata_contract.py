@@ -159,7 +159,7 @@ def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> 
         "vision_promptad": "paper-adaptation",
         "vision_realnet": "paper-adaptation",
         "vision_regad": "paper-adaptation",
-        "vision_winclip": "inspired",
+        "vision_winclip": "paper-adaptation",
         "vision_patchcore_anomalib": "external-backend",
         "vision_fcdd": "paper-adaptation",
         "vision_memae": "paper-adaptation",

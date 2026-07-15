@@ -116,8 +116,10 @@ maps = model.predict_anomaly_map(test_images)
 - `paper-adaptation`: `vision_promptad` 已对齐冻结的 LAION-400M
   ViT-B/16+ VV-CLIP、语义拼接、零间隔 EAM、MAP/LAP 分布对齐、双层正常
   视觉记忆及论文调和融合；图像级与像素级提示需按论文分别训练。
-- `inspired`: `vision_inctrl`, `vision_glad`, `vision_oneformore`,
-  `vision_winclip`。
+- `paper-adaptation`: `vision_winclip` / `winclip` 已对齐 ViT-B/16+ 完整
+  组合提示集、2x2/3x3 masked-token 窗口、调和多尺度图、WinCLIP+ 三套
+  视觉记忆，以及补充材料的 240px 预处理和非方形切片策略。
+- `inspired`: `vision_inctrl`, `vision_glad`, `vision_oneformore`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 

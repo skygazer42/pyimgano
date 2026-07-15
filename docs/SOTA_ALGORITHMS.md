@@ -202,6 +202,12 @@ generation stage: fitting requires paired SDAS/SIA-style anomaly images and
 masks. The local unsupervised contract also does not use labeled validation
 anomalies to choose a best checkpoint as the author evaluation script does.
 
+The native WinCLIP entry implements the paper's frozen LAION-400M ViT-B/16+
+path, complete compositional prompt ensemble, efficient 2x2/3x3 masked-token
+windows, harmonic overlap/cross-scale aggregation, and WinCLIP+ three-memory
+few-shot fusion. It uses the supplementary 240px OpenCLIP preprocessing and
+non-square tiling policy.
+
 Primary references for these boundaries are the
 [image DevNet paper](https://arxiv.org/abs/2108.00462) and
 [author-endorsed image code](https://github.com/Choubo/deviation-network-image),
@@ -220,7 +226,8 @@ and [RealNet paper](https://openaccess.thecvf.com/content/CVPR2024/html/Zhang_Re
 plus the [RegAD paper](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136840300.pdf)
 and [author code](https://github.com/MediaBrain-SJTU/RegAD), plus the
 [PromptAD paper](https://openaccess.thecvf.com/content/CVPR2024/html/Li_PromptAD_Learning_Prompts_with_only_Normal_Samples_for_Few-Shot_Anomaly_CVPR_2024_paper.html)
-and [author code](https://github.com/FuNz-0/PromptAD).
+and [author code](https://github.com/FuNz-0/PromptAD), plus the
+[WinCLIP paper](https://openaccess.thecvf.com/content/CVPR2023/html/Jeong_WinCLIP_Zero-Few-Shot_Anomaly_Classification_and_Segmentation_CVPR_2023_paper.html).
 
 Use these for their stated local contract, not as drop-in sources of published
 benchmark results.
@@ -242,7 +249,6 @@ The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`
-- `vision_winclip`, `winclip`
 - `vision_anomalydino`, `vision_patchcore_lite_map`
 - `vision_aaclip`, `vision_adaclip`, `vision_anogen_adapter`, `vision_filopp`
 - `vision_logsad`, `vision_one_to_normal`, `vision_univad`, `vision_visionad`

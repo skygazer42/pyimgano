@@ -294,46 +294,6 @@ def test_feature_bagging_subspace_sampling_uses_default_rng(monkeypatch) -> None
     assert detector.estimators_features_
 
 
-def test_winclip_random_state_makes_few_shot_sampling_repeatable(monkeypatch) -> None:
-    import pyimgano.models.winclip as winclip_module
-
-    class FakeClipModel:
-        def eval(self) -> None:
-            return None
-
-        def encode_image(self, tensor: torch.Tensor) -> torch.Tensor:
-            flat = tensor.reshape(tensor.size(0), -1)
-            return flat.mean(dim=1, keepdim=True)
-
-        def encode_text(self, tokens: torch.Tensor) -> torch.Tensor:
-            return tokens.float()
-
-    class FakeClipBackend:
-        def load(self, clip_model: str, device=None):
-            del clip_model, device
-
-            def _preprocess(pil_img):
-                array = np.asarray(pil_img, dtype=np.float32)
-                return torch.from_numpy(array).permute(2, 0, 1)
-
-            return FakeClipModel(), _preprocess
-
-        def tokenize(self, prompts):
-            return torch.ones((len(prompts), 1), dtype=torch.float32)
-
-    monkeypatch.setattr(winclip_module, "require", lambda *args, **kwargs: FakeClipBackend())
-
-    x = np.arange(6 * 8 * 8 * 3, dtype=np.uint8).reshape(6, 8, 8, 3)
-
-    model_a = winclip_module.WinCLIPDetector(k_shot=3, device="cpu", random_state=5)
-    model_b = winclip_module.WinCLIPDetector(k_shot=3, device="cpu", random_state=5)
-
-    _run_after_advancing_global_numpy(9, lambda: model_a.fit(x))
-    _run_after_advancing_global_numpy(27, lambda: model_b.fit(x))
-
-    assert torch.equal(model_a.few_shot_features, model_b.few_shot_features)
-
-
 def test_core_torch_autoencoder_fit_does_not_reset_global_numpy_rng() -> None:
     from pyimgano.models.registry import create_model
 

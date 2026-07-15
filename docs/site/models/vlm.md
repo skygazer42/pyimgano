@@ -20,7 +20,7 @@ title: 视觉-语言模型
 
 | 模型 | 注册名 | 关系 | 基础模型 | 像素图 | 额外依赖 |
 |:---|:---|:---|:---|:---:|:---|
-| WinCLIP crop proxy | `winclip` / `vision_winclip` | `inspired` | OpenAI CLIP | 是 | `clip` |
+| WinCLIP / WinCLIP+ | `winclip` / `vision_winclip` | `paper-adaptation` | OpenCLIP ViT-B/16+ | 是 | `open_clip` |
 | WinCLIP upstream | `vision_winclip_anomalib` | `external-backend` | anomalib | 是 | `anomalib` |
 | AnomalyDINO-style kNN | `vision_anomalydino` | `inspired` | DINOv2 | 是 | `torch` |
 | OpenCLIP PatchKNN | `vision_openclip_patch_map` | `not-applicable` | OpenCLIP | 是 | `open_clip` |
@@ -30,36 +30,40 @@ title: 视觉-语言模型
     AnomalyDINO 的零样本模式需要至少 1 张参考图进行阈值校准，但不需要传统意义上的"训练"。
 
 !!! warning "论文复现状态"
-    本页的本地 `vision_winclip` 和 `vision_anomalydino` 是实验代理，
-    不是对应论文的完整实现。论文关系以 `model_info(...)["metadata"]["paper_fidelity"]`
-    为准；WinCLIP 的上游实现路径是 `vision_winclip_anomalib`。`vision_promptad`
-    是论文适配实现，但论文的图像级与像素级提示需分别训练。
+    本地 `vision_winclip` 是论文适配实现；`vision_anomalydino` 仍是实验代理。
+    论文关系以 `model_info(...)["metadata"]["paper_fidelity"]` 为准。
+    `vision_promptad` 也是论文适配实现，但其图像级与像素级提示需分别训练。
 
 ---
 
-## WinCLIP-related crop proxy
+## WinCLIP / WinCLIP+
 
 === "中文"
 
-    本地实现对裁剪窗口分别做 CLIP 编码和文本打分，只保留了 WinCLIP 的概念动机。
-    它没有实现论文的 token 级多尺度窗口嵌入与聚合，因此不能作为论文复现。
+    本地实现使用论文的完整组合提示集、ViT-B/16+ 的 2x2/3x3 masked-token
+    窗口、窗口与跨尺度调和聚合。设置 `k_shot > 0` 后，WinCLIP+ 还会建立
+    patch/小窗口/中窗口三套正常视觉记忆并与语言分数融合。
 
 === "English"
 
-    The local implementation scores cropped windows with CLIP and text prompts.
-    It omits the paper's token-level multi-scale window embeddings and aggregation,
-    so it is an experimental proxy rather than a WinCLIP reproduction.
+    The local implementation uses the paper's complete compositional prompts,
+    2x2/3x3 masked-token ViT-B/16+ windows, and harmonic overlap/cross-scale
+    aggregation. With `k_shot > 0`, WinCLIP+ adds patch, small-window, and
+    mid-window normal memories and fuses them with the language score.
 
 ### 关键参数
 
 | 参数 | 默认值 | 说明 |
 |:---|:---|:---|
-| `clip_model` | `"ViT-B/32"` | CLIP 模型架构 (`"RN50"`, `"RN101"`, `"ViT-B/32"`, `"ViT-L/14"`) |
-| `window_size` | `224` | 滑动窗口大小 |
-| `window_stride` | `112` | 滑动窗口步长 |
-| `text_prompts` | `None` | 自定义文本提示（默认使用内置正常/异常提示） |
+| `class_name` | `"object"` | 组合提示中的对象类别名 |
+| `openclip_model_name` | `"ViT-B-16-plus-240"` | 论文默认 OpenCLIP 主干 |
+| `openclip_pretrained` | `"laion400m_e31"` | LAION-400M 预训练权重 |
+| `image_size` | `240` | 论文输入分辨率 |
+| `scales` | `(2, 3)` | patch 网格上的小/中窗口尺度，stride 固定为 1 |
+| `temperature` | `0.07` | 二分类余弦 softmax 温度 |
 | `k_shot` | `0` | 少样本数量（0 = 零样本） |
-| `scales` | `[1.0]` | 多尺度推理 |
+| `tile_overlap` | `0.2` | 非方形图像切片最小重叠率 |
+| `text_prompts` | `None` | 可选自定义正常/异常完整提示列表 |
 | `device` | auto | 计算设备 |
 
 ### 零样本检测
@@ -69,7 +73,7 @@ from pyimgano import create_model
 
 # 零样本 -- 无需训练数据
 model = create_model("winclip",
-                     clip_model="ViT-B/32",
+                     class_name="bottle",
                      k_shot=0,
                      device="cuda")
 
@@ -86,7 +90,7 @@ anomaly_map = model.get_anomaly_map(test_images[0])
 ```python
 # 少样本 -- 仅需几张正常参考图
 model = create_model("winclip",
-                     clip_model="ViT-L/14",
+                     class_name="bottle",
                      k_shot=4,
                      device="cuda")
 model.fit(few_normal_images)  # 4 张即可
@@ -281,17 +285,11 @@ maps = pixel_model.predict_anomaly_map(test_images)
     VLM models require extra dependencies. Install the appropriate extras based on the model you use.
 
 ```bash
-# WinCLIP -- OpenAI CLIP
-pip install pyimgano[clip]
-
-# OpenCLIP Patch Map -- open_clip
+# WinCLIP / PromptAD / OpenCLIP baselines
 pip install pyimgano[clip]
 
 # AnomalyDINO -- torch + torchvision (DINOv2 via torch.hub)
 pip install pyimgano[torch]
-
-# PromptAD -- OpenCLIP
-pip install pyimgano[clip]
 
 # 安装所有 VLM 依赖
 pip install pyimgano[clip,torch]
@@ -305,8 +303,8 @@ pip install pyimgano[clip,torch]
 
     === "中文"
 
-        - **论文级 WinCLIP 路径**: -> `vision_winclip_anomalib`
-        - **零样本实验代理**: -> `winclip` (k_shot=0)
+        - **WinCLIP 零样本论文路径**: -> `winclip` (k_shot=0)
+        - **WinCLIP+ 少样本论文路径**: -> `winclip` (k_shot=1/2/4)
         - **少量参考图 (1-10 张) 的 kNN 基线**: -> `vision_anomalydino`
         - **需要像素定位 + 无训练**: -> `vision_anomalydino`
         - **自定义语义描述**: -> `winclip` (自定义 text_prompts)
@@ -314,8 +312,8 @@ pip install pyimgano[clip,torch]
 
     === "English"
 
-        - **Paper-backed WinCLIP path**: -> `vision_winclip_anomalib`
-        - **Zero-shot experimental proxy**: -> `winclip` (k_shot=0)
+        - **WinCLIP zero-shot paper path**: -> `winclip` (k_shot=0)
+        - **WinCLIP+ few-shot paper path**: -> `winclip` (k_shot=1/2/4)
         - **Few-reference kNN baseline (1-10)**: -> `vision_anomalydino`
         - **Pixel localization + no training**: -> `vision_anomalydino`
         - **Custom semantic descriptions**: -> `winclip` (custom text_prompts)

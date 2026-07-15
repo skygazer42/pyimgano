@@ -149,15 +149,18 @@ preprocessing, training schedule, score normalization, and metric protocol.
   paper trains image and pixel prompts separately; select the matching
   `training_task`. Published results still require the official support draws
   and dataset protocol.
-- `vision_inctrl`, `vision_glad`, `vision_oneformore`, and `vision_winclip`
-  are experimental proxies.
+- `vision_winclip` / `winclip` implements the paper's ViT-B/16+ compositional
+  prompt ensemble, 2x2/3x3 masked-token windows, harmonic multi-scale maps,
+  and WinCLIP+ patch/window reference association. Non-square inputs use the
+  supplementary shorter-edge tiling policy.
+- `vision_inctrl`, `vision_glad`, and `vision_oneformore` are experimental proxies.
 - Family adapters such as `vision_aaclip`, `vision_univad`, and
   `vision_visionad` expose injectable scoring hooks; they are not native paper
   reproductions.
 
-For supported upstream implementations, prefer model-specific anomalib entries
-such as `vision_fastflow_anomalib`, `vision_cflow_anomalib`, and
-`vision_winclip_anomalib`. These require an upstream-trained checkpoint.
+For supported upstream implementations, use model-specific anomalib entries
+such as `vision_fastflow_anomalib` and `vision_cflow_anomalib`. These require
+an upstream-trained checkpoint.
 
 ## Detector contract
 

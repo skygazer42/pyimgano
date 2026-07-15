@@ -152,7 +152,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "student_teacher_lite",  # Lite student-teacher via embedding regression
     "vae",  # Variational Autoencoder
     "vqvae",  # VQ-VAE reconstruction baseline
-    "winclip",  # Experimental crop-based WinCLIP proxy
+    "winclip",  # Native WinCLIP/WinCLIP+ OpenCLIP adaptation
     # Production wrappers
     "score_ensemble",  # Score-only ensemble wrapper detector
     "core_score_standardizer",  # Standardize scores for core detectors
