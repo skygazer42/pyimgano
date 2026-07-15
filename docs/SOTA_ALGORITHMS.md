@@ -265,7 +265,7 @@ are **not paper reproductions**:
 - `vision_glad`, `vision_inctrl`, `vision_oneformore`
 - `vision_patchcore_lite_map`
 - `vision_anogen_adapter`, `vision_filopp`
-- `vision_logsad`, `vision_one_to_normal`, `vision_univad`, `vision_visionad`
+- `vision_logsad`, `vision_one_to_normal`, `vision_univad`
 
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
 paper titles could not be verified and were removed. The directly importable

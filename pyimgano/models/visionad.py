@@ -218,7 +218,7 @@ class _InjectedVisionADBackend:
         query_global = _normalize_rows(embedded.global_feature[None])[0]
         label = self.global_labels[int(np.argmax(self.global_memory @ query_global))]
         query = _normalize_rows(embedded.patches)
-        similarities = np.clip(query @ self.memories[label].T, -1.0, 1.0)
+        similarities = query @ self.memories[label].T
         patch_scores = (1.0 - similarities.max(axis=1)).astype(np.float32, copy=False)
         image_score = aggregate_patch_scores(patch_scores, method="topk_mean", topk=self.topk)
         anomaly_map = (
@@ -384,7 +384,7 @@ class TorchVisionADBackend:
         for start in range(0, int(memory.shape[0]), self.memory_chunk_size):
             similarity = query @ memory[start : start + self.memory_chunk_size].T
             best = self._torch.maximum(best, similarity.amax(dim=1))
-        return 1.0 - best.clamp(-1.0, 1.0)
+        return 1.0 - best
 
     def score(self, item: Any) -> tuple[float, NDArray[np.float32]]:
         if self._global_memory is None or self._grid_shape is None:
@@ -414,8 +414,10 @@ class TorchVisionADBackend:
             mode="bilinear",
             align_corners=False,
         )[0, 0]
+        flat_scores = anomaly_map.flatten()
+        topk_count = max(1, int(flat_scores.numel() * self.topk))
+        image_score = float(self._torch.topk(flat_scores, topk_count).values.mean().item())
         anomaly_map_np = anomaly_map.detach().cpu().numpy().astype(np.float32, copy=False)
-        image_score = aggregate_patch_scores(anomaly_map_np, method="topk_mean", topk=self.topk)
         return image_score, anomaly_map_np
 
 

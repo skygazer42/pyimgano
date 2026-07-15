@@ -160,9 +160,14 @@ preprocessing, training schedule, score normalization, and metric protocol.
   prompt ensemble, 2x2/3x3 masked-token windows, harmonic multi-scale maps,
   and WinCLIP+ patch/window reference association. Non-square inputs use the
   supplementary shorter-edge tiling policy.
+- `vision_visionad` implements the released DINOv2-Register ViT-L/14 path,
+  raw-token fusion over blocks 4--18, six support views, three query views,
+  category-indexed cosine patch memories, 256x256 maps, and top-1% image
+  scoring. The paper's ViT-B/14 baseline remains selectable and defaults to
+  blocks 2--9.
 - `vision_inctrl`, `vision_glad`, and `vision_oneformore` are experimental proxies.
-- Family adapters such as `vision_univad` and `vision_visionad` expose
-  injectable scoring hooks; they are not native paper reproductions.
+- `vision_univad` remains an injectable family adapter, not a native paper
+  reproduction.
 
 For supported upstream implementations, use model-specific anomalib entries
 such as `vision_fastflow_anomalib` and `vision_cflow_anomalib`. These require
