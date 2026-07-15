@@ -28,7 +28,6 @@ The complete, generated inventory is in [MODEL_INDEX.md](MODEL_INDEX.md).
 - `vision_simplenet`
 - `vision_spade`
 - `vision_cutpaste` / `cutpaste`
-- `core_deep_svdd`
 
 These entries implement the defining algorithmic core. Inspect each model's
 weight default: offline-safe `pretrained=False` produces an experimentally weak
@@ -47,7 +46,6 @@ and evaluation protocol.
 | `vision_reverse_distillation` | ImageNet WideResNet50-2 teacher stages 1--3, exact released OCBE and reverse-WRN block counts/channels, cosine loss, additive cosine maps, sigma-4 smoothing; 256px, Adam 0.005, batch 16, 200 epochs | Published metrics still require the MVTec category protocol and matching ImageNet weights |
 | `vision_simplenet` | WRN50-2 layer2/layer3 padded 3x3 neighborhoods, 1536-d MeanMapper/Aggregator embedding, bias-free 1536-d adapter, Linear-BN-LeakyReLU-Linear discriminator, sigma-0.015 feature noise and truncated L1 objective; 256-to-224 input, 160 epochs, batch 4 | Set `pretrained=True` to use the paper's ImageNet feature extractor; local default remains offline-safe |
 | `vision_cutpaste` | CutPaste and scar geometry, patch jitter, 3-way objective, 256px input, 65,536-update default schedule, cosine decay, Gaussian feature density | Paper does not publish global translation/jitter amplitudes; local values remain configurable; patch-localization branch is not implemented |
-| `core_deep_svdd` | bias-free network option and one-class center-distance objective on supplied feature vectors | Generic feature-vector architecture; soft-boundary objective and paper dataset-specific CNNs are not included |
 
 This table is a source/code conformance audit, not a numerical reproduction
 certificate. The primary references are the
@@ -57,12 +55,11 @@ certificate. The primary references are the
 [STFPM paper](https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf),
 [Reverse Distillation paper and author code](https://github.com/hq-deng/RD4AD),
 [SimpleNet paper and author code](https://github.com/DonaldRR/SimpleNet),
-[CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html),
-and [Deep SVDD author code](https://github.com/lukasruff/Deep-SVDD-PyTorch).
+[CutPaste paper and supplement](https://openaccess.thecvf.com/content/CVPR2021/html/Li_CutPaste_Self-Supervised_Learning_for_Anomaly_Detection_and_Localization_CVPR_2021_paper.html).
 
 ## Adaptations and compact variants
 
-- Adaptations: `vision_alad`, `vision_devnet`, `vision_deep_svdd`,
+- Adaptations: `vision_alad`, `core_deep_svdd`, `vision_deep_svdd`, `vision_devnet`,
   `vision_differnet`, `vision_memae`, `vision_draem`.
 - Partial variants: `vision_cflow`, `vision_fastflow`, `vision_dfm`,
   `vision_fcdd`, `vision_softpatch`.
@@ -84,6 +81,18 @@ Equation 6 defines top-K by anomaly score, so the native implementation uses
 signed scores; the released repository's `abs()` shortcut is not copied. The
 offline default remains `pretrained=False`, and the paper's smoothed input-level
 localization map is not exposed, so this entry remains `paper-adaptation`.
+
+The Deep SVDD feature-space entries implement both objectives from the paper:
+one-class mean squared center distance and soft-boundary radius loss with
+signed `distance - radius^2` scores. The encoder has no bias terms, its final
+projection is linear, the center uses the authors' epsilon adjustment, and the
+soft radius is the `(1 - nu)` distance quantile. Defaults now use no dropout,
+leaky ReLU slope 0.1, weight decay 1e-6, and the author's released CLI values
+of learning rate 0.001, 50 epochs, and batch size 128. They remain adaptations:
+the shipped network is a generic MLP over supplied features, not the paper's
+MNIST/CIFAR-10 LeNet CNNs; DCAE initialization is opt-in, the paper's two-phase
+benchmark schedule is not included in this generic path, and feature
+standardization is a local deployment choice.
 
 The native DifferNet detection path matches the paper and author code at its
 defining boundaries: frozen AlexNet convolutional features at 448/224/112,
@@ -107,6 +116,8 @@ adaptation.
 Primary references for these boundaries are the
 [image DevNet paper](https://arxiv.org/abs/2108.00462) and
 [author-endorsed image code](https://github.com/Choubo/deviation-network-image),
+[Deep SVDD paper](https://proceedings.mlr.press/v80/ruff18a.html) and
+[author code](https://github.com/lukasruff/Deep-SVDD-PyTorch),
 [DifferNet paper](https://arxiv.org/abs/2008.12577) and
 [author code](https://github.com/marco-rudolph/differnet), plus the
 [MemAE paper](https://arxiv.org/abs/1904.02639) and

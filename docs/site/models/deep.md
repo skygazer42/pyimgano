@@ -67,8 +67,11 @@ maps = model.predict_anomaly_map(test_images)
 
 ## 非完整论文实现
 
-- `paper-adaptation`: `vision_devnet` 已对齐 2021 图像论文的端到端
-  ResNet-18、1x1 patch 打分、两尺度 top-10% MIL、偏差损失与训练默认值，
+- `paper-adaptation`: `core_deep_svdd` 与 `vision_deep_svdd` 已实现论文的
+  one-class/soft-boundary 目标、无偏置最终线性编码器、中心初始化和半径评分，
+  但仍是通用特征 MLP 而非论文的 MNIST/CIFAR-10 LeNet；`vision_devnet`
+  已对齐 2021 图像论文的端到端 ResNet-18、1x1 patch 打分、两尺度
+  top-10% MIL、偏差损失与训练默认值，
   但未暴露平滑输入梯度定位图；`vision_differnet` 已对齐论文检测网络与
   4/64 变换数，但未暴露论文的梯度定位路径；`vision_memae` 已对齐论文
   CIFAR-10 RGB 网络和记忆寻址，但工业图像接口仍是场景适配；

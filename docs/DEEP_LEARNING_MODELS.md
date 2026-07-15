@@ -22,6 +22,7 @@ The generated [Model Index](MODEL_INDEX.md) lists every registered name. The
 | `vision_patchcore` | `core-aligned` | Patch memory and localization |
 | `vision_padim` | `core-aligned` | Per-location Gaussian modeling |
 | `vision_stfpm` | `core-aligned` | Student/teacher feature pyramids |
+| `core_deep_svdd` | `paper-adaptation` | Both paper objectives on a generic feature MLP |
 | `vision_devnet` | `paper-adaptation` | Paper image network and detection path; localization is not exposed |
 | `vision_differnet` | `paper-adaptation` | Paper detection path; gradient-map localization is not exposed |
 | `vision_reverse_distillation` | `core-aligned` | Paper WRN50-2 teacher, OCBE, and reverse-WRN decoder |
@@ -62,6 +63,10 @@ preprocessing, training schedule, score normalization, and metric protocol.
   `vision_softpatch` are compact/partial variants.
 - `vision_draem` uses the paper networks and schedule, but its fallback anomaly
   synthesis is not the DTD protocol unless anomaly-source images are supplied.
+- `core_deep_svdd` and `vision_deep_svdd` implement the paper's one-class and
+  soft-boundary objectives, bias-free final-linear encoder constraint, center
+  initialization, and radius score. They use a generic feature MLP rather than
+  the paper's dataset-specific LeNet CNNs and are therefore adaptations.
 - `vision_devnet` follows the 2021 image paper's end-to-end ResNet-18, 1x1 patch
   scorer, two-scale top-10% MIL aggregation, Gaussian-reference loss, balanced
   batches, and optimizer defaults. It keeps an offline-safe weight default and

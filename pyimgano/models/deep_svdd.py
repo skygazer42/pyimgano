@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 from typing import Iterable
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 from torch.utils.data import DataLoader, TensorDataset
@@ -23,21 +21,10 @@ from .registry import register_model
 
 logger = logging.getLogger(__name__)
 
-OPTIMIZER_DICT = {
-    "sgd": optim.SGD,
-    "adam": optim.Adam,
-    "rmsprop": optim.RMSprop,
-    "adagrad": optim.Adagrad,
-    "adadelta": optim.Adadelta,
-    "adamw": optim.AdamW,
-    "nadam": optim.NAdam,
-    "sparseadam": optim.SparseAdam,
-    "asgd": optim.ASGD,
-    "lbfgs": optim.LBFGS,
-}
-
-
 def _get_activation(name: str) -> nn.Module:
+    if str(name).strip().lower() == "leaky_relu":
+        return nn.LeakyReLU(negative_slope=0.1)
+
     from ..utils.torch_activations import get_activation_by_name
 
     return get_activation_by_name(name)
@@ -80,14 +67,12 @@ class InnerDeepSVDD(nn.Module):
                 nn.Linear(self.hidden_neurons[idx - 1], self.hidden_neurons[idx], bias=False),
             )
             layers.add_module(f"act{idx}", _get_activation(self.hidden_activation))
-            layers.add_module(f"drop{idx}", nn.Dropout(self.dropout_rate))
+            if self.dropout_rate > 0:
+                layers.add_module(f"drop{idx}", nn.Dropout(self.dropout_rate))
 
         layers.add_module(
             "net_output",
             nn.Linear(self.hidden_neurons[-2], self.hidden_neurons[-1], bias=False),
-        )
-        layers.add_module(
-            f"act{len(self.hidden_neurons) - 1}", _get_activation(self.hidden_activation)
         )
         return layers
 
@@ -113,7 +98,8 @@ class InnerDeepSVDD(nn.Module):
                 nn.Linear(self.hidden_neurons[idx], self.hidden_neurons[idx - 1], bias=False),
             )
             layers.add_module(f"act_d{idx}", _get_activation(self.hidden_activation))
-            layers.add_module(f"drop_d{idx}", nn.Dropout(self.dropout_rate))
+            if self.dropout_rate > 0:
+                layers.add_module(f"drop_d{idx}", nn.Dropout(self.dropout_rate))
 
         layers.add_module("recon", nn.Linear(self.hidden_neurons[0], self.n_features, bias=False))
         layers.add_module("recon_act", _get_activation(self.output_activation))
@@ -145,8 +131,8 @@ class InnerDeepSVDD(nn.Module):
         "paper_url": "https://proceedings.mlr.press/v80/ruff18a.html",
         "year": 2018,
         "supervision": "one-class",
-        "implementation_status": "native-core-objective",
-        "paper_fidelity": "core-aligned",
+        "implementation_status": "paper-objectives-generic-feature-network",
+        "paper_fidelity": "paper-adaptation",
     },
 )
 class CoreDeepSVDD(BaseDetector):
@@ -157,17 +143,22 @@ class CoreDeepSVDD(BaseDetector):
         n_features: int | None = None,
         *,
         center=None,
+        objective: str = "one-class",
+        nu: float = 0.1,
+        warm_up_epochs: int = 10,
+        radius_update_interval: int = 5,
         use_autoencoder: bool = False,
         hidden_neurons=None,
-        hidden_activation: str = "relu",
-        output_activation: str = "sigmoid",
+        hidden_activation: str = "leaky_relu",
+        output_activation: str = "identity",
         optimizer: str = "adam",
         lr: float = 1e-3,
-        epochs: int = 100,
-        batch_size: int = 32,
-        dropout_rate: float = 0.2,
-        l2_weight: float = 0.1,
+        epochs: int = 50,
+        batch_size: int = 128,
+        dropout_rate: float = 0.0,
+        l2_weight: float = 1e-6,
         preprocessing: bool = True,
+        device: str | None = None,
         verbose: int = 1,
         random_state: int | None = None,
         contamination: float = 0.1,
@@ -175,22 +166,46 @@ class CoreDeepSVDD(BaseDetector):
         super().__init__(contamination=contamination)
         self.n_features = int(n_features) if n_features is not None else None
         self.center = center
-        self.use_autoencoder = use_autoencoder
-        self.hidden_neurons = hidden_neurons or [64, 32]
-        self.hidden_activation = hidden_activation
-        self.output_activation = output_activation
-        self.optimizer_name = optimizer
+        self.center_ = None
+        self.objective = str(objective).strip().lower()
+        self.nu = float(nu)
+        self.warm_up_epochs = int(warm_up_epochs)
+        self.radius_update_interval = int(radius_update_interval)
+        self.radius_ = 0.0
+        self.use_autoencoder = bool(use_autoencoder)
+        self.hidden_neurons = list(hidden_neurons or [64, 32])
+        self.hidden_activation = str(hidden_activation)
+        self.output_activation = str(output_activation)
+        self.optimizer = str(optimizer).strip().lower()
+        self.optimizer_name = self.optimizer
         self.lr = float(lr)
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.dropout_rate = dropout_rate
-        self.l2_weight = l2_weight
-        self.preprocessing = preprocessing
-        self.verbose = verbose
-        self.random_state = random_state
+        self.epochs = int(epochs)
+        self.batch_size = int(batch_size)
+        self.dropout_rate = float(dropout_rate)
+        self.l2_weight = float(l2_weight)
+        self.preprocessing = bool(preprocessing)
+        self.device = "cpu" if device is None else str(device)
+        self.verbose = int(verbose)
+        self.random_state = None if random_state is None else int(random_state)
         self.scaler = None
         self.model = None
-        self.best_model_state = None
+
+        if self.objective not in {"one-class", "soft-boundary"}:
+            raise ValueError("objective must be 'one-class' or 'soft-boundary'")
+        if not 0.0 < self.nu <= 1.0:
+            raise ValueError("nu must satisfy 0 < nu <= 1")
+        if self.warm_up_epochs < 0:
+            raise ValueError("warm_up_epochs must be non-negative")
+        if self.radius_update_interval <= 0:
+            raise ValueError("radius_update_interval must be positive")
+        if self.epochs < 0:
+            raise ValueError("epochs must be non-negative")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        if self.l2_weight < 0:
+            raise ValueError("l2_weight must be non-negative")
+        if self.optimizer not in {"adam", "amsgrad"}:
+            raise ValueError("optimizer must be 'adam' or 'amsgrad'")
 
         check_parameter(
             dropout_rate,
@@ -235,25 +250,26 @@ class CoreDeepSVDD(BaseDetector):
             hidden_activation=self.hidden_activation,
             output_activation=self.output_activation,
             dropout_rate=self.dropout_rate,
-        )
+        ).to(self.device)
+        self.radius_ = 0.0
 
         tensor_data = torch.tensor(x_norm, dtype=torch.float32)
         dataset = TensorDataset(tensor_data, tensor_data)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=0)
 
-        optimizer_cls = OPTIMIZER_DICT.get(self.optimizer_name.lower())
-        if optimizer_cls is None:
-            raise ValueError(f"未知优化器: {self.optimizer_name}")
-
         # Deep SVDD's optional autoencoder is a pretraining stage. It is not
         # optimized jointly with the hypersphere objective.
         if self.use_autoencoder:
-            pretrain_optimizer = optimizer_cls(
-                self.model.parameters(), lr=self.lr, weight_decay=self.l2_weight
+            pretrain_optimizer = torch.optim.Adam(
+                self.model.parameters(),
+                lr=self.lr,
+                weight_decay=self.l2_weight,
+                amsgrad=self.optimizer == "amsgrad",
             )
             for _epoch in range(self.epochs):
                 self.model.train()
                 for batch_x, _ in dataloader:
+                    batch_x = batch_x.to(self.device)
                     pretrain_optimizer.zero_grad()
                     reconstruction = self.model.reconstruct(self.model.encode(batch_x))
                     reconstruction_loss = torch.mean(torch.square(reconstruction - batch_x))
@@ -261,45 +277,61 @@ class CoreDeepSVDD(BaseDetector):
                     pretrain_optimizer.step()
 
         if self.center is None:
-            self.model.init_center(tensor_data)
-            self.center = self.model.center
+            self.model.init_center(tensor_data.to(self.device))
+            self.center_ = self.model.center
         else:
             center_arr = np.asarray(self.center, dtype=np.float32).reshape(-1)
             rep_dim = int(self.hidden_neurons[-1])
             if center_arr.shape[0] != rep_dim:
                 raise ValueError(f"Expected center shape ({rep_dim},), got {center_arr.shape}")
-            self.center = torch.tensor(center_arr, dtype=torch.float32)
+            self.center_ = torch.tensor(center_arr, dtype=torch.float32)
+            self.center_ = self.center_.to(self.device)
+            self.model.center = self.center_
 
-        optimizer = optimizer_cls(
-            self.model.encoder.parameters(), lr=self.lr, weight_decay=self.l2_weight
+        optimizer = torch.optim.Adam(
+            self.model.encoder.parameters(),
+            lr=self.lr,
+            weight_decay=self.l2_weight,
+            amsgrad=self.optimizer == "amsgrad",
         )
-
-        best_loss = float("inf")
 
         for epoch in range(self.epochs):
             epoch_loss = 0.0
             self.model.train()
 
             for batch_x, _ in dataloader:
+                batch_x = batch_x.to(self.device)
                 optimizer.zero_grad()
                 rep = self.model.encode(batch_x)
-                dist = torch.sum((rep - self.center) ** 2, dim=-1)
-                loss = dist.mean()
+                dist = torch.sum((rep - self.center_) ** 2, dim=-1)
+                if self.objective == "soft-boundary":
+                    radius_squared = dist.new_tensor(self.radius_**2)
+                    loss = radius_squared + torch.relu(dist - radius_squared).mean() / self.nu
+                else:
+                    loss = dist.mean()
 
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.detach().item() * batch_x.size(0)
 
             epoch_loss /= x_norm.shape[0]
-            if epoch_loss < best_loss:
-                best_loss = epoch_loss
-                self.best_model_state = copy.deepcopy(self.model.state_dict())
+
+            should_update_radius = (
+                self.objective == "soft-boundary"
+                and epoch + 1 >= self.warm_up_epochs
+                and (epoch + 1) % self.radius_update_interval == 0
+            )
+            if should_update_radius:
+                self.model.eval()
+                with torch.no_grad():
+                    representations = self.model.encode(tensor_data.to(self.device))
+                    distances = torch.sum((representations - self.center_) ** 2, dim=-1)
+                self.radius_ = float(
+                    np.quantile(np.sqrt(distances.cpu().numpy()), 1.0 - self.nu)
+                )
 
             if self.verbose:
                 logger.info("Epoch %d/%d - Loss: %.6f", epoch + 1, self.epochs, epoch_loss)
-
-        if self.best_model_state is not None:
-            self.model.load_state_dict(self.best_model_state)
 
         self.decision_scores_ = self.decision_function(x)
         self._process_decision_scores()
@@ -307,7 +339,7 @@ class CoreDeepSVDD(BaseDetector):
 
     def decision_function(self, x):
         x = check_array(x)
-        if self.model is None or self.center is None:
+        if self.model is None or self.center_ is None:
             raise RuntimeError("Model not fitted. Call fit() first.")
         if int(x.shape[1]) != int(self.n_features):
             raise ValueError(f"Expected n_features={self.n_features}, got {x.shape[1]}")
@@ -317,14 +349,16 @@ class CoreDeepSVDD(BaseDetector):
         else:
             x_norm = x.copy()
 
-        tensor_data = torch.tensor(x_norm, dtype=torch.float32)
+        tensor_data = torch.tensor(x_norm, dtype=torch.float32, device=self.device)
 
         self.model.eval()
         with torch.no_grad():
             rep = self.model.encode(tensor_data)
-            dist = torch.sum((rep - self.center) ** 2, dim=-1)
+            dist = torch.sum((rep - self.center_) ** 2, dim=-1)
+            if self.objective == "soft-boundary":
+                dist = dist - self.radius_**2
 
-        return dist.numpy()
+        return dist.cpu().numpy()
 
 
 @register_model(
@@ -349,17 +383,22 @@ class VisionDeepSVDD(BaseVisionDetector):
         feature_extractor=None,
         n_features: int | None = None,
         center=None,
+        objective: str = "one-class",
+        nu: float = 0.1,
+        warm_up_epochs: int = 10,
+        radius_update_interval: int = 5,
         use_autoencoder: bool = False,
         hidden_neurons=None,
-        hidden_activation: str = "relu",
-        output_activation: str = "sigmoid",
+        hidden_activation: str = "leaky_relu",
+        output_activation: str = "identity",
         optimizer: str = "adam",
         lr: float = 1e-3,
-        epochs: int = 100,
-        batch_size: int = 32,
-        dropout_rate: float = 0.2,
-        l2_weight: float = 0.1,
+        epochs: int = 50,
+        batch_size: int = 128,
+        dropout_rate: float = 0.0,
+        l2_weight: float = 1e-6,
         preprocessing: bool = True,
+        device: str | None = None,
         verbose: int = 1,
         random_state: int | None = None,
         contamination: float = 0.1,
@@ -380,6 +419,10 @@ class VisionDeepSVDD(BaseVisionDetector):
         self._detector_kwargs = dict(
             n_features=n_features,
             center=center,
+            objective=objective,
+            nu=nu,
+            warm_up_epochs=warm_up_epochs,
+            radius_update_interval=radius_update_interval,
             use_autoencoder=use_autoencoder,
             hidden_neurons=hidden_neurons,
             hidden_activation=hidden_activation,
@@ -391,6 +434,7 @@ class VisionDeepSVDD(BaseVisionDetector):
             dropout_rate=dropout_rate,
             l2_weight=l2_weight,
             preprocessing=preprocessing,
+            device=device,
             verbose=verbose,
             random_state=random_state,
             contamination=contamination,
