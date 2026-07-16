@@ -7,7 +7,7 @@ missing ``model.py`` and references unpublished projection/DreamBooth weights),
 so pyimgano deliberately does not invent the missing runtime.
 """
 
-PAPER_FIDELITY = "inspired"
+PAPER_FIDELITY = "not-applicable"
 IMPLEMENTATION_STATUS = "unregistered-incomplete-author-release"
 RELATED_PAPER = "One-to-Normal: Anomaly Personalization for Few-shot Anomaly Detection"
 RELATED_PAPER_URL = "https://arxiv.org/abs/2502.01201"
