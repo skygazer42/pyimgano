@@ -35,7 +35,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "cblof",  # Cluster-Based Local Outlier Factor
     "cof",  # Connectivity-based Outlier Factor
     "copod",  # Copula-based Outlier Detection (ICDM 2020)
-    "crossmad",  # Cross-Modal Anomaly Detection (CVPR 2025)
+    "crossmad",  # Unregistered false-paper compatibility marker
     "dbscan",  # Density-Based Spatial Clustering
     "ecod",  # Empirical Cumulative Outlier Detection (TKDE 2022)
     "extra_trees_density",  # Random trees embedding density baseline

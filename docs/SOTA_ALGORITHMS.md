@@ -339,6 +339,16 @@ independent vectors. The authors now publish source and two-stage checkpoints,
 but their per-instance label/3D-box output needs an explicit scene API rather
 than the current single-sample detector contract.
 
+The former `core_crossmad` and `vision_crossmad` keys were removed too. The
+CVPR 2025 CrossMAD method learns dataset-specific global/local visual
+prototypes, harmonizes them across RGB/3D/medical/thermal modalities, and adds
+normal-support discrepancy inference for few-shot testing. The deleted entries
+only fitted KMeans centers to independent vectors. At author commit
+`c2b8fe7e060a642a247beaec24f1582c54d02cdf`, the released runtime requires
+precomputed CLIP feature files but includes neither their extraction pipeline
+nor trained checkpoints or `prototype_list.pt`; restore it only with those
+inputs and the paper's cross-modal dataset contract.
+
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
 paper titles could not be verified and were removed. The directly importable
 legacy modules `bgad`, `dsr`, `intra`, `pni`, and `rdplusplus` are unregistered

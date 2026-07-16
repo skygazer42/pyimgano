@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 
@@ -141,6 +142,19 @@ def test_every_registered_deep_model_declares_an_auditable_paper_relationship() 
         elif fidelity in {"partial", "inspired"}:
             assert "paper" not in metadata, name
             assert str(metadata.get("related_paper", "")).strip(), name
+
+
+def test_venue_tagged_models_declare_fidelity_and_status() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+    from pyimgano.models.registry import MODEL_REGISTRY
+
+    venue = re.compile(r"(?:aaai|bmvc|cvpr|eccv|iccv|iclr|neurips|wacv)\d{4}")
+    for name in MODEL_REGISTRY.available():
+        entry = MODEL_REGISTRY.info(name)
+        if not any(venue.fullmatch(tag) for tag in entry.tags):
+            continue
+        assert str(entry.metadata.get("paper_fidelity", "")).strip(), name
+        assert str(entry.metadata.get("implementation_status", "")).strip(), name
 
 
 def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> None:

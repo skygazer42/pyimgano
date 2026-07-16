@@ -6,11 +6,11 @@ title: 模型注册表
 
 === "中文"
 
-    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **281** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
+    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **279** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
 
 === "English"
 
-    pyimgano manages all detectors through a unified model registry. Currently **281** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
+    pyimgano manages all detectors through a unified model registry. Currently **279** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
 
 ---
 
@@ -218,7 +218,6 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `core_padim_lite` | classical, core, gaussian | PaDiM-lite 高斯嵌入基线 |
 | `core_patchcore_lite` | classical, core, memory_bank | PatchCore-lite 核心集 + NN |
 | `core_patchcore_online` | classical, core, memory_bank, online | 增量 PatchCore |
-| `core_crossmad` | classical, core, prototype | CrossMAD 原型距离检测 |
 | `core_score_standardizer` | classical, core, calibration | 评分标准化包装器 |
 
 ---

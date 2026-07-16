@@ -2,7 +2,7 @@
 
 This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_index.py`.
 
-Total registered model names: **281**
+Total registered model names: **279**
 
 For deep models, **Fidelity** states whether the native code contains the paper's defining method, is an adaptation/partial/proxy, delegates to an external backend, or is a generic baseline. `related_paper` references do not claim reproduction.
 
@@ -37,7 +37,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `core_cook_distance` |  |  |  | classical, core, features, pca, influence |  |  | Cook-distance-inspired influence score (PCA residual + leverage) | `pyimgano/models/cook_distance.py` |
 | `core_copod` |  |  | Li et al., ICDM 2020 | classical, core, features, copod, parameter-free, interpretable | 2020 |  | Core COPOD on feature matrices (native wrapper) | `pyimgano/models/copod.py` |
 | `core_cosine_mahalanobis` |  |  |  | classical, core, features, distance, gaussian, shrinkage, cosine |  |  | Mahalanobis distance on L2-normalized embeddings with Ledoit-Wolf covariance shrinkage | `pyimgano/models/core_cosine_mahalanobis.py` |
-| `core_crossmad` |  |  | Beyond Single-Modal Boundary: Cross-Modal Anomaly Detection through Visual Prototype and Harmonization | classical, core, features, crossmad, prototype, clustering | 2025 |  | Core CrossMAD-style prototype-distance detector on feature matrices (native) | `pyimgano/models/crossmad.py` |
 | `core_dbscan` |  |  | a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise | classical, core, features, clustering, dbscan, density | 1996 |  | Core DBSCAN-inspired distance-to-core-set detector on feature matrices | `pyimgano/models/dbscan.py` |
 | `core_dcorr` |  |  |  | classical, core, features, projection, dependence |  |  | Distance-correlation influence (random projections; native) | `pyimgano/models/dcorr.py` |
 | `core_deep_svdd` | paper-adaptation | paper-objectives-generic-feature-network | Deep One-Class Classification | deep, core, features, torch, one-class | 2018 |  | 核心 DeepSVDD 异常检测器 | `pyimgano/models/deep_svdd.py` |
@@ -132,7 +131,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_cof` |  |  | Tang et al., PAKDD 2002 | vision, classical, neighbors, cof | 2002 |  | COF - Connectivity-based outlier detector (native) | `pyimgano/models/cof.py` |
 | `vision_cook_distance` |  |  |  | vision, classical, pca, influence |  |  | Vision wrapper for Cook-distance-inspired influence score | `pyimgano/models/cook_distance.py` |
 | `vision_copod` |  |  | Li et al., ICDM 2020 | vision, classical, copod, parameter-free, high-performance | 2020 |  | COPOD - Copula-based outlier detector (ICDM 2020) | `pyimgano/models/copod.py` |
-| `vision_crossmad` |  |  | Beyond Single-Modal Boundary: Cross-Modal Anomaly Detection through Visual Prototype and Harmonization | vision, classical, crossmad, prototype, embeddings, cvpr2025 | 2025 |  | Vision CrossMAD-style prototype-distance detector (embeddings + core_crossmad) | `pyimgano/models/crossmad.py` |
 | `vision_csflow_anomalib` | external-backend | external-backend-adapter | Fully Convolutional Cross-Scale-Flows for Image-Based Defect Detection | vision, deep, backend, anomalib, csflow, flow | 2022 | anomalib | CS-Flow via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_cutpaste` | core-aligned | paper-resnet18-objective-schedule-and-score-aligned | CutPaste: Self-Supervised Learning for Anomaly Detection and Localization | vision, deep, cutpaste, self-supervised, cvpr2021 | 2021 |  | CutPaste - self-supervised anomaly detection via synthetic cut/paste (CVPR 2021) | `pyimgano/models/cutpaste.py` |
 | `vision_dbscan` |  |  | a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise | vision, classical, clustering, dbscan, density | 1996 |  | Vision wrapper for DBSCAN-inspired distance-to-core-set baseline | `pyimgano/models/dbscan.py` |

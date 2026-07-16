@@ -11,7 +11,7 @@ title: 模型总览
 
 === "English"
 
-    pyimgano v0.8.0 ships **120+ registered models** (278 total names including aliases), spanning classical statistics, deep learning, and vision-language categories.
+    pyimgano v0.8.0 ships **120+ registered models** (279 total names including aliases), spanning classical statistics, deep learning, and vision-language categories.
     This page helps you pick the right algorithm for your use case.
 
 ---

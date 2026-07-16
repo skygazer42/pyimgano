@@ -43,18 +43,3 @@ def test_no_torchvision_weight_downloads_by_default(monkeypatch) -> None:
 
     create_model("efficient_ad")
     create_model("ae_resnet_unet")
-
-    # CrossMAD should also be safe-by-default even when fitting (which triggers
-    # embedding extraction).
-    import numpy as np
-
-    det = create_model(
-        "vision_crossmad",
-        backbone="resnet18",
-        image_size=32,
-        device="cpu",
-        num_prototypes=2,
-        pretrained=False,
-        contamination=0.5,
-    )
-    det.fit([np.zeros((32, 32, 3), dtype="uint8")])
