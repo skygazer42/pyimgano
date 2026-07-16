@@ -185,12 +185,6 @@ def _assert_signature_contains(method, *expected: str) -> None:
             id="logsad",
         ),
         _import_attr_param(
-            "pyimgano.models.one_to_normal",
-            "VisionOneToNormal",
-            ("fit", "decision_function", "predict", "predict_anomaly_map"),
-            id="one-to-normal",
-        ),
-        _import_attr_param(
             "pyimgano.models.superad",
             "VisionSuperAD",
             ("fit", "decision_function", "predict", "predict_anomaly_map"),

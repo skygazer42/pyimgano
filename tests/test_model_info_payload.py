@@ -263,7 +263,7 @@ def test_model_info_exposes_industrial_deployment_hints() -> None:
 
     patchcore_checkpoint = model_info("vision_patchcore_inspection_checkpoint")
     ssim_template = model_info("ssim_template_map")
-    one_to_normal = model_info("vision_one_to_normal")
+    regad = model_info("vision_regad")
 
     checkpoint_profile = patchcore_checkpoint["deployment_profile"]
     assert "patchcore" in checkpoint_profile["family"]
@@ -282,7 +282,7 @@ def test_model_info_exposes_industrial_deployment_hints() -> None:
     assert template_profile["artifact_requirements"] == []
     assert template_profile["industrial_fit"]["reference_inspection"] is True
 
-    fewshot_profile = one_to_normal["deployment_profile"]
+    fewshot_profile = regad["deployment_profile"]
     assert fewshot_profile["training_regime"] == "few-shot"
     assert fewshot_profile["industrial_fit"]["few_shot_adaptation"] is True
 

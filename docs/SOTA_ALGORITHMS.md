@@ -311,7 +311,14 @@ are **not paper reproductions**:
 
 - `vision_patchcore_lite_map`
 - `vision_anogen_adapter`
-- `vision_one_to_normal`
+
+The former `vision_one_to_normal` key was removed. Its local pixel-residual
+normalizer did not implement the paper's Stable Diffusion v1.5/DreamBooth
+personalization or three CLIP comparison branches. The author ModelScope
+artifact at commit `1faca331bf876a66f105a8f5aa095e399c21e44d` is not a runnable
+release: its script imports a missing `model.py`, references absent projection
+and DreamBooth weights, and uses 518px while the paper specifies 240px. Restore
+the model only after the authors publish a complete, verifiable runtime.
 
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
 paper titles could not be verified and were removed. The directly importable

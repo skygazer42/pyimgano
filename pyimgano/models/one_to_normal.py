@@ -1,118 +1,41 @@
-from __future__ import annotations
+"""Unregistered One-to-Normal compatibility marker.
 
-from typing import Any, Iterable, cast
+The former ``vision_one_to_normal`` entry was only an injectable pixel-residual
+normalizer and did not implement the NeurIPS 2024 method.  The author artifact
+at the pinned ModelScope commit is incomplete (its evaluation script imports a
+missing ``model.py`` and references unpublished projection/DreamBooth weights),
+so pyimgano deliberately does not invent the missing runtime.
+"""
 
-import numpy as np
-from numpy.typing import NDArray
+PAPER_FIDELITY = "inspired"
+IMPLEMENTATION_STATUS = "unregistered-incomplete-author-release"
+RELATED_PAPER = "One-to-Normal: Anomaly Personalization for Few-shot Anomaly Detection"
+RELATED_PAPER_URL = "https://arxiv.org/abs/2502.01201"
+AUTHOR_ARTIFACT = "https://www.modelscope.cn/models/liyiyue/One-to-Normal9"
+AUTHOR_ARTIFACT_COMMIT = "1faca331bf876a66f105a8f5aa095e399c21e44d"
 
-from ._legacy_x import MISSING, resolve_legacy_x_keyword
-from .registry import register_model
+PAPER_DIFFUSION_BACKBONE = "Stable Diffusion v1.5 + DreamBooth"
+PAPER_CLIP_BACKBONE = "ViT-L/14"
+PAPER_IMAGE_SIZE = 240
+PAPER_SHOTS = (2, 4, 8)
+PAPER_TIMESTEP_RATIO = 0.3
+PAPER_MEMORY_SIZE = 30
+PAPER_ALPHA = 1.0
+PAPER_BETA = 0.5
 
-
-def _as_float_array(image: Any) -> NDArray:
-    arr = np.asarray(image, dtype=np.float32)
-    if arr.ndim < 2:
-        raise ValueError(f"Expected image-like array with ndim >= 2. Got shape {arr.shape}.")
-    return arr
-
-
-def _normalize_with_backend(normalizer: Any, image: NDArray) -> NDArray:
-    if normalizer is None:
-        raise ValueError("normalizer is required for vision_one_to_normal.")
-
-    if hasattr(normalizer, "normalize"):
-        normalized = normalizer.normalize(image)
-    elif callable(normalizer):
-        normalized = normalizer(image)
-    else:
-        raise TypeError("normalizer must be callable or implement .normalize(image).")
-
-    normalized_arr = np.asarray(normalized, dtype=np.float32)
-    if normalized_arr.shape != image.shape:
-        raise ValueError(
-            "Normalized output must match the input shape. "
-            f"Got {normalized_arr.shape} vs {image.shape}."
-        )
-    return normalized_arr
-
-
-@register_model(
-    "vision_one_to_normal",
-    tags=("vision", "deep", "reconstruction", "few-shot", "pixel_map", "numpy", "one_to_normal"),
-    metadata={
-        "description": "Injectable residual-normalization adapter inspired by One-to-Normal; not a reproduction",
-        "related_paper": "One-to-Normal: Anomaly Personalization for Few-Shot Anomaly Detection",
-        "related_paper_url": "https://arxiv.org/abs/2502.01201",
-        "year": 2025,
-        "implementation_status": "experimental-family-adapter",
-        "paper_fidelity": "inspired",
-        "supervision": "few-shot",
-    },
-)
-class VisionOneToNormal:
-    def __init__(
-        self,
-        *,
-        normalizer: Any = None,
-        contamination: float = 0.1,
-    ) -> None:
-        self.normalizer = normalizer
-        self.contamination = float(contamination)
-        if not (0.0 < self.contamination < 0.5):
-            raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
-
-        self.decision_scores_: NDArray | None = None
-        self.threshold_: float | None = None
-        self.support_residual_mean_: float | None = None
-
-    def get_anomaly_map(self, image: Any) -> NDArray:
-        image_arr = _as_float_array(image)
-        normalized = _normalize_with_backend(self.normalizer, image_arr)
-        residual = np.abs(image_arr - normalized)
-        if residual.ndim == 2:
-            return residual.astype(np.float32, copy=False)
-        return np.mean(residual, axis=-1).astype(np.float32, copy=False)
-
-    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
-        items = list(
-            cast(
-                Iterable[Any],
-                resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
-            )
-        )
-        if not items:
-            return np.zeros((0, 1, 1), dtype=np.float32)
-        maps = [self.get_anomaly_map(item) for item in items]
-        return np.stack(maps, axis=0).astype(np.float32, copy=False)
-
-    def decision_function(self, x: object = MISSING, **kwargs: object):
-        items = list(
-            cast(
-                Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="decision_function")
-            )
-        )
-        scores = np.zeros((len(items),), dtype=np.float64)
-        for i, item in enumerate(items):
-            scores[i] = float(np.mean(self.get_anomaly_map(item)))
-        return scores
-
-    def fit(self, x: object = MISSING, y=None, **kwargs: object):
-        del y
-        items = list(cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
-        if not items:
-            raise ValueError("X must contain at least one support image.")
-        self.decision_scores_ = np.asarray(self.decision_function(items), dtype=np.float64)
-        self.support_residual_mean_ = float(np.mean(self.decision_scores_))
-        self.threshold_ = float(np.quantile(self.decision_scores_, 1.0 - self.contamination))
-        return self
-
-    def predict(self, x: object = MISSING, **kwargs: object):
-        if self.threshold_ is None:
-            raise RuntimeError("Model not fitted. Call fit() first.")
-        scores = np.asarray(
-            self.decision_function(
-                cast(Iterable[Any], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
-            ),
-            dtype=np.float64,
-        )
-        return (scores > float(self.threshold_)).astype(np.int64)
+__all__ = [
+    "AUTHOR_ARTIFACT",
+    "AUTHOR_ARTIFACT_COMMIT",
+    "IMPLEMENTATION_STATUS",
+    "PAPER_ALPHA",
+    "PAPER_BETA",
+    "PAPER_CLIP_BACKBONE",
+    "PAPER_DIFFUSION_BACKBONE",
+    "PAPER_FIDELITY",
+    "PAPER_IMAGE_SIZE",
+    "PAPER_MEMORY_SIZE",
+    "PAPER_SHOTS",
+    "PAPER_TIMESTEP_RATIO",
+    "RELATED_PAPER",
+    "RELATED_PAPER_URL",
+]

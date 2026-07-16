@@ -1,32 +1,17 @@
 from __future__ import annotations
 
-import numpy as np
-
 import pyimgano.models as models
+from pyimgano.models import one_to_normal
 
 
-class _FakeNormalizer:
-    def normalize(self, image: np.ndarray) -> np.ndarray:
-        arr = np.asarray(image, dtype=np.float32)
-        return arr * 0.1
-
-
-def test_one_to_normal_scores_residual_and_emits_maps() -> None:
-    detector = models.create_model(
-        "vision_one_to_normal",
-        normalizer=_FakeNormalizer(),
-        contamination=0.25,
-    )
-
-    normal = np.zeros((4, 4), dtype=np.float32)
-    anomaly = np.zeros((4, 4), dtype=np.float32)
-    anomaly[1:3, 1:3] = 5.0
-
-    detector.fit([normal, anomaly])
-    scores = np.asarray(detector.decision_function([normal, anomaly]), dtype=np.float64)
-    assert scores.shape == (2,)
-    assert float(scores[1]) > float(scores[0])
-
-    maps = np.asarray(detector.predict_anomaly_map([normal, anomaly]), dtype=np.float32)
-    assert maps.shape == (2, 4, 4)
-    assert float(np.max(maps[1])) > float(np.max(maps[0]))
+def test_incomplete_one_to_normal_release_is_not_registered_as_the_paper() -> None:
+    assert "vision_one_to_normal" not in models.list_models()
+    assert one_to_normal.IMPLEMENTATION_STATUS == "unregistered-incomplete-author-release"
+    assert one_to_normal.AUTHOR_ARTIFACT_COMMIT == ("1faca331bf876a66f105a8f5aa095e399c21e44d")
+    assert one_to_normal.PAPER_DIFFUSION_BACKBONE == "Stable Diffusion v1.5 + DreamBooth"
+    assert one_to_normal.PAPER_CLIP_BACKBONE == "ViT-L/14"
+    assert one_to_normal.PAPER_IMAGE_SIZE == 240
+    assert one_to_normal.PAPER_SHOTS == (2, 4, 8)
+    assert one_to_normal.PAPER_TIMESTEP_RATIO == 0.3
+    assert one_to_normal.PAPER_MEMORY_SIZE == 30
+    assert (one_to_normal.PAPER_ALPHA, one_to_normal.PAPER_BETA) == (1.0, 0.5)

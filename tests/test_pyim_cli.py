@@ -358,7 +358,6 @@ def test_pyim_list_families_includes_parallel_algorithm_families(capsys):
         "filopp",
         "adaclip",
         "aaclip",
-        "one_to_normal",
         "logsad",
         "anogen",
     }.issubset(names)

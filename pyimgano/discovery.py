@@ -118,11 +118,6 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
         tags=("aaclip",),
     ),
     ModelFamily(
-        name="one_to_normal",
-        description="One-to-Normal residual normalization and reconstruction detectors.",
-        tags=("one_to_normal",),
-    ),
-    ModelFamily(
         name="logsad",
         description="LogSAD official-source few-shot logical and structural anomaly detectors.",
         tags=("logsad",),

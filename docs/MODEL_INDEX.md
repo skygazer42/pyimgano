@@ -2,7 +2,7 @@
 
 This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_index.py`.
 
-Total registered model names: **288**
+Total registered model names: **287**
 
 For deep models, **Fidelity** states whether the native code contains the paper's defining method, is an adaptation/partial/proxy, delegates to an external backend, or is a generic baseline. `related_paper` references do not claim reproduction.
 
@@ -203,7 +203,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_ocsvm` |  |  | Estimating the Support of a High-Dimensional Distribution | vision, classical, svm, one-class, ocsvm | 2001 |  | One-Class SVM outlier detector (sklearn backend) | `pyimgano/models/ocsvm.py` |
 | `vision_oddoneout` |  |  |  | vision, classical, neighbors, oddoneout, cvpr2025, embeddings |  |  | Odd-One-Out neighbor comparison (CVPR 2025-inspired) on deep embeddings | `pyimgano/models/oddoneout.py` |
 | `vision_odin` |  |  |  | vision, classical, neighbors, graph |  |  | Vision ODIN - indegree-based kNN graph detector | `pyimgano/models/odin.py` |
-| `vision_one_to_normal` | inspired | experimental-family-adapter | One-to-Normal: Anomaly Personalization for Few-Shot Anomaly Detection | vision, deep, reconstruction, few-shot, pixel_map, numpy, one_to_normal | 2025 |  | Injectable residual-normalization adapter inspired by One-to-Normal; not a reproduction | `pyimgano/models/one_to_normal.py` |
 | `vision_oneformore` | external-backend | official-source-checkpoint-inference-adapter | One-for-More: Continual Diffusion Model for Anomaly Detection | vision, deep, oneformore, continual, diffusion, reconstruction, cvpr2025, external-backend | 2025 | official-one-for-more | Official-source One-for-More CDAD checkpoint inference adapter | `pyimgano/models/oneformore.py` |
 | `vision_onnx_copod` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, fast, parameter-free |  |  | Industrial baseline: ONNX Runtime embeddings + core_copod | `pyimgano/models/industrial_wrappers.py` |
 | `vision_onnx_cosine_mahalanobis` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, distance, gaussian, cosine |  |  | Industrial baseline: ONNX Runtime embeddings + core_cosine_mahalanobis | `pyimgano/models/industrial_wrappers.py` |

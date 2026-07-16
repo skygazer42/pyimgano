@@ -200,12 +200,13 @@ def test_corrected_proxy_references_do_not_repeat_legacy_citation_errors() -> No
 
 
 def test_unregistered_legacy_neural_modules_disclaim_unverified_paper_status() -> None:
-    from pyimgano.models import bgad, csflow, dsr, intra, pni, rdplusplus
+    from pyimgano.models import bgad, csflow, dsr, intra, one_to_normal, pni, rdplusplus
 
     assert bgad.PAPER_FIDELITY == "not-applicable"
     assert csflow.PAPER_FIDELITY == "partial"
     assert dsr.PAPER_FIDELITY == "not-applicable"
     assert intra.PAPER_FIDELITY == "not-applicable"
+    assert one_to_normal.IMPLEMENTATION_STATUS == "unregistered-incomplete-author-release"
     assert pni.PAPER_FIDELITY == "not-applicable"
     assert rdplusplus.PAPER_FIDELITY == "inspired"
 
