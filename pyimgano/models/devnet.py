@@ -9,7 +9,7 @@ Gaussian-reference deviation loss.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -43,7 +43,9 @@ class DeviationLoss(nn.Module):
         ref_scores: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         if scores.shape != labels.shape:
-            raise ValueError(f"scores and labels must share shape; got {scores.shape} and {labels.shape}")
+            raise ValueError(
+                f"scores and labels must share shape; got {scores.shape} and {labels.shape}"
+            )
         if not torch.all((labels == 0) | (labels == 1)):
             raise ValueError("labels must contain only 0 (normal) and 1 (anomaly)")
 
@@ -132,7 +134,7 @@ class DevNetModel(nn.Module):
         return torch.stack(scale_scores, dim=1).mean(dim=1)
 
 
-class BalancedBatchSampler(Sampler[list[int]]):
+class BalancedBatchSampler(Sampler[List[int]]):
     """Yield the paper's half-normal, half-anomaly batches for a fixed step count."""
 
     def __init__(

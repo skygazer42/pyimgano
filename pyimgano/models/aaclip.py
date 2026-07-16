@@ -17,6 +17,7 @@ from pyimgano.utils.optional_deps import require
 from ._image_batch import _coerce_single_rgb_image
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .adaclip import _run_block
+from .deep_io import safe_torch_load
 from .openclip_backend import _load_openclip_model_and_preprocess
 from .registry import register_model
 
@@ -407,18 +408,15 @@ class AAClipNetwork(nn.Module):
 
 
 def _read_author_state(path: Path, key: str) -> Mapping[str, torch.Tensor]:
-    try:
-        raw = torch.load(path, map_location="cpu", weights_only=True)
-    except TypeError:  # pragma: no cover - PyTorch < 2.0
-        raw = torch.load(path, map_location="cpu")
+    raw = safe_torch_load(path, map_location="cpu")
     if not isinstance(raw, Mapping) or not isinstance(raw.get(key), Mapping):
         raise TypeError(f"AA-CLIP checkpoint {path} must contain a '{key}' state mapping")
-    state = cast(Mapping[Any, Any], raw[key])
+    state = cast("Mapping[Any, Any]", raw[key])
     if not all(
         isinstance(name, str) and isinstance(value, torch.Tensor) for name, value in state.items()
     ):
         raise TypeError(f"AA-CLIP checkpoint {path} contains a non-tensor state entry")
-    return cast(Mapping[str, torch.Tensor], state)
+    return cast("Mapping[str, torch.Tensor]", state)
 
 
 def _load_author_checkpoints(

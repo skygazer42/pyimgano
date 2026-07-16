@@ -18,7 +18,7 @@ IntArray = NDArray[np.integer]
 UInt8Array = NDArray[np.uint8]
 
 
-PathLikeStr = Union[str, os.PathLike[str]]  # pragma: no cover - typing only
+PathLikeStr = Union[str, os.PathLike]  # pragma: no cover - typing only
 
 
 def ensure_1d_float_array(x) -> FloatArray:

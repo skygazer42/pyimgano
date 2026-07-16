@@ -4,6 +4,8 @@ End-to-end integration tests for PyImgAno.
 These tests verify that the complete workflow works correctly.
 """
 
+from __future__ import annotations
+
 import tempfile
 from pathlib import Path
 

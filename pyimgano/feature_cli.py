@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 
+from pyimgano.argparse_compat import BooleanOptionalAction
+
 
 def _parse_kwargs(text: str | None) -> dict[str, Any]:
     if text is None:
@@ -168,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--fit",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Call extractor.fit() before extract() when available. Default: true",
     )

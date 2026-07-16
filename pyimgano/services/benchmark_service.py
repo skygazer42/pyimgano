@@ -287,9 +287,7 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
         },
         "threshold_provenance": {
             "strategy": (
-                "train_quantile"
-                if request.calibration_quantile is not None
-                else "test_optimal_f1"
+                "train_quantile" if request.calibration_quantile is not None else "test_optimal_f1"
             ),
             "calibration_quantile": (
                 float(request.calibration_quantile)
@@ -354,9 +352,7 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
             "pixel_calibration_fraction": float(request.pixel_calibration_fraction),
             "pixel_calibration_seed": int(request.pixel_calibration_seed),
             "pixel_postprocess": (
-                asdict(request.pixel_postprocess)
-                if request.pixel_postprocess is not None
-                else None
+                asdict(request.pixel_postprocess) if request.pixel_postprocess is not None else None
             ),
             "pixel_aupro_limit": float(request.pixel_aupro_limit),
             "pixel_aupro_thresholds": int(request.pixel_aupro_thresholds),

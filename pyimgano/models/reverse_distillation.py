@@ -29,9 +29,7 @@ _PAPER_LAYERS = ("layer1", "layer2", "layer3")
 
 
 def _conv3x3(in_channels: int, out_channels: int, stride: int = 1) -> nn.Conv2d:
-    return nn.Conv2d(
-        in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False
-    )
+    return nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
 
 
 def _conv1x1(in_channels: int, out_channels: int, stride: int = 1) -> nn.Conv2d:
@@ -39,9 +37,7 @@ def _conv1x1(in_channels: int, out_channels: int, stride: int = 1) -> nn.Conv2d:
 
 
 def _deconv2x2(in_channels: int, out_channels: int) -> nn.ConvTranspose2d:
-    return nn.ConvTranspose2d(
-        in_channels, out_channels, kernel_size=2, stride=2, bias=False
-    )
+    return nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2, bias=False)
 
 
 def _init_author_residual_modules(module: nn.Module) -> None:
@@ -152,9 +148,7 @@ class OneClassBottleneck(nn.Module):
                 downsample=downsample,
             )
         ]
-        layers.extend(
-            WideResidualBottleneck(output_channels, planes) for _ in range(1, blocks)
-        )
+        layers.extend(WideResidualBottleneck(output_channels, planes) for _ in range(1, blocks))
         self.in_channels = output_channels
         return nn.Sequential(*layers)
 
@@ -188,9 +182,7 @@ class ReverseWideBottleneck(nn.Module):
         width = int(planes * (width_per_group / 64.0))
         self.conv1 = _conv1x1(in_channels, width)
         self.bn1 = nn.BatchNorm2d(width)
-        self.conv2: nn.Module = (
-            _deconv2x2(width, width) if stride == 2 else _conv3x3(width, width)
-        )
+        self.conv2: nn.Module = _deconv2x2(width, width) if stride == 2 else _conv3x3(width, width)
         self.bn2 = nn.BatchNorm2d(width)
         self.conv3 = _conv1x1(width, planes * self.expansion)
         self.bn3 = nn.BatchNorm2d(planes * self.expansion)
@@ -232,9 +224,7 @@ class ReverseWideResNet50Decoder(nn.Module):
                 upsample=upsample,
             )
         ]
-        layers.extend(
-            ReverseWideBottleneck(output_channels, planes) for _ in range(1, blocks)
-        )
+        layers.extend(ReverseWideBottleneck(output_channels, planes) for _ in range(1, blocks))
         self.in_channels = output_channels
         return nn.Sequential(*layers)
 
@@ -259,9 +249,7 @@ class ReverseDistillationNetwork(nn.Module):
         self.teacher.eval()
         return self
 
-    def forward(
-        self, images: torch.Tensor
-    ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    def forward(self, images: torch.Tensor) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
         self.teacher.eval()
         with torch.no_grad():
             teacher_features = self.teacher(images)
@@ -320,9 +308,7 @@ class ReverseDistillation(BaseVisionDeepDetector):
         if backbone == "wide_resnet50":
             backbone = _PAPER_BACKBONE
         if backbone != _PAPER_BACKBONE:
-            raise ValueError(
-                "Reverse Distillation requires the paper backbone 'wide_resnet50_2'."
-            )
+            raise ValueError("Reverse Distillation requires the paper backbone 'wide_resnet50_2'.")
         if tuple(selected_layers) != _PAPER_LAYERS:
             raise ValueError(
                 "Reverse Distillation requires selected_layers=('layer1', 'layer2', 'layer3') "
@@ -366,9 +352,9 @@ class ReverseDistillation(BaseVisionDeepDetector):
         )
 
     def build_model(self):
-        network = ReverseDistillationNetwork(
-            pretrained_backbone=self.pretrained_backbone
-        ).to(self.device)
+        network = ReverseDistillationNetwork(pretrained_backbone=self.pretrained_backbone).to(
+            self.device
+        )
         self.teacher = network.teacher
         self.bottleneck = network.bottleneck
         self.decoder = network.decoder

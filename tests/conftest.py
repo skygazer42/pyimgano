@@ -2,6 +2,8 @@
 Pytest configuration and fixtures for PyImgAno tests.
 """
 
+from __future__ import annotations
+
 import os
 import tempfile
 from pathlib import Path

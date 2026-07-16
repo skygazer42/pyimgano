@@ -10,6 +10,7 @@ import pyimgano.cli_discovery_options as cli_discovery_options
 import pyimgano.cli_discovery_rendering as cli_discovery_rendering
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
+from pyimgano.argparse_compat import BooleanOptionalAction
 from pyimgano.models.registry import create_model
 from pyimgano.utils.optional_deps import optional_import
 
@@ -108,7 +109,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--save-run",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Write run artifacts (report.json, per_image.jsonl) to disk. Default: true",
     )
@@ -133,7 +134,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--per-image-jsonl",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Write categories/<cat>/per_image.jsonl when saving a run. Default: true",
     )
@@ -236,7 +237,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--plugins",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=False,
         help=(
             "Load third-party pyimgano plugins via Python entry points (group 'pyimgano.plugins'). "
@@ -317,7 +318,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--suite-continue-on-error",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Continue the suite when a baseline fails or is missing optional deps. Default: true",
     )
@@ -374,7 +375,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=0.1)
     # Industrial default: keep CLIs offline-safe and avoid implicit weight downloads.
-    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--pretrained", action=BooleanOptionalAction, default=False)
     parser.add_argument(
         "--model-kwargs",
         default=None,
@@ -665,7 +666,7 @@ def _argv_from_config_obj(parser: argparse.ArgumentParser, obj: Any) -> list[str
             continue
 
         # BooleanOptionalAction supports --flag / --no-flag style toggles.
-        if isinstance(action, argparse.BooleanOptionalAction):
+        if isinstance(action, BooleanOptionalAction):
             if not isinstance(value, bool):
                 raise ValueError(f"--config key {key!r} must be boolean for this flag")
             opts = [str(s) for s in action.option_strings]

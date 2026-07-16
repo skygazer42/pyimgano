@@ -144,9 +144,9 @@ def _softpatch_embedder_from_payload(payload: dict[str, object], *, device: str)
     if str(payload.get("type", "")) != "softpatch_patchcore":
         return _embedder_from_checkpoint_payload(payload)
 
-    config = dict(cast(dict[str, object], payload.get("config", {})))
+    config = dict(cast("dict[str, object]", payload.get("config", {})))
     layers_value = config.get("layers", ["layer2", "layer3"])
-    layers = tuple(str(layer) for layer in cast(Iterable[object], layers_value))
+    layers = tuple(str(layer) for layer in cast("Iterable[object]", layers_value))
     embedder = _SoftPatchPatchCoreEmbedder(
         backbone=str(config.get("backbone", "wide_resnet50_2")),
         layers=layers,
@@ -397,7 +397,7 @@ class VisionSoftPatch:
         self.filtered_patches_ = int(state.get("filtered_patches_", 0))
         self.soft_weight = bool(state.get("soft_weight", self.soft_weight))
         self.aggregation_method = cast(
-            AggregationMethod, state.get("aggregation_method", self.aggregation_method)
+            "AggregationMethod", state.get("aggregation_method", self.aggregation_method)
         )
         self.aggregation_topk = float(state.get("aggregation_topk", self.aggregation_topk))
         self.gaussian_sigma = float(state.get("gaussian_sigma", self.gaussian_sigma))
@@ -496,7 +496,7 @@ class VisionSoftPatch:
         del y
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
             )
         )
@@ -577,7 +577,7 @@ class VisionSoftPatch:
     def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )
@@ -596,7 +596,7 @@ class VisionSoftPatch:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = self.decision_function(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
             )
         )
@@ -634,7 +634,7 @@ class VisionSoftPatch:
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
             )
         )

@@ -234,7 +234,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         images = list(
             self._iter_images(
                 cast(
-                    Union[Iterable[str], NDArray],
+                    "Union[Iterable[str], NDArray]",
                     resolve_legacy_x_keyword(x, legacy_kwargs, method_name="fit"),
                 )
             )
@@ -288,7 +288,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
 
     def _nearest_training_images(self, global_descriptor: NDArray) -> tuple[NDArray, NDArray]:
         self._check_fitted()
-        train_global = cast(NDArray, self.train_global_features_)
+        train_global = cast("NDArray", self.train_global_features_)
         residuals = train_global - global_descriptor.reshape(1, -1)
         distances = np.sum(np.square(residuals), axis=1)
         count = min(self.k_neighbors, len(distances))
@@ -313,7 +313,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         scores: list[float] = []
         for img in self._iter_images(
             cast(
-                Union[Iterable[str], NDArray],
+                "Union[Iterable[str], NDArray]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         ):
@@ -331,7 +331,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         del kwargs
         return self.decision_function(
             cast(
-                Union[Iterable[str], NDArray],
+                "Union[Iterable[str], NDArray]",
                 resolve_legacy_x_keyword(x, legacy_kwargs, method_name="predict_proba"),
             )
         )
@@ -347,7 +347,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
             self._compute_anomaly_map(img)
             for img in self._iter_images(
                 cast(
-                    Union[Iterable[str], NDArray],
+                    "Union[Iterable[str], NDArray]",
                     resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
                 )
             )
@@ -359,7 +359,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
 
         query_maps, global_descriptor = self._extract_feature_bundle(image)
         neighbor_indices, _distances = self._nearest_training_images(global_descriptor)
-        train_maps = cast(dict[str, NDArray], self.train_feature_maps_)
+        train_maps = cast("dict[str, NDArray]", self.train_feature_maps_)
         # SPADE describes each location by concatenating the selected feature
         # pyramid levels at a shared spatial resolution before correspondence
         # matching (paper Sec. 3.4).
@@ -477,7 +477,7 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         if str(payload.get("detector", "")) not in {"vision_spade", "spade"}:
             raise ValueError("Invalid SPADE checkpoint payload: detector marker mismatch.")
 
-        config = dict(cast(dict[str, object], payload.get("config", {})))
+        config = dict(cast("dict[str, object]", payload.get("config", {})))
         self.contamination = float(config.get("contamination", self.contamination))
         self.backbone_name = str(config.get("backbone", self.backbone_name))
         self.pretrained = bool(config.get("pretrained", self.pretrained))

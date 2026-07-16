@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from pyimgano.argparse_compat import BooleanOptionalAction
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pyimgano-export-onnx")
@@ -13,7 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--pretrained",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=False,
         help=(
             "Whether to use torchvision pretrained weights. Default: false (offline-safe). "
@@ -34,13 +36,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--dynamic-batch",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Export with dynamic batch dimension. Default: true",
     )
     parser.add_argument(
         "--verify",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Verify exported ONNX by loading via onnx + onnxruntime. Default: true",
     )

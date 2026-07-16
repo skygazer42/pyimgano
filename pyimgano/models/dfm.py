@@ -67,7 +67,9 @@ class VisionDFM(BaseVisionDeepDetector):
             raise ValueError("Pass either layer or legacy layers, not both.")
         if layers is not None:
             if len(layers) != 1:
-                raise ValueError("DFM scores one paper layer at a time; layers must contain one item.")
+                raise ValueError(
+                    "DFM scores one paper layer at a time; layers must contain one item."
+                )
             layer = str(layers[0])
         selected_layer = "layer4" if layer is None else str(layer)
         if pooling_kernel_size <= 0:
@@ -205,7 +207,7 @@ class VisionDFM(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> "VisionDFM":
         del y
-        paths = list(cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
+        paths = list(cast("Iterable[str]", resolve_legacy_x_keyword(x, kwargs, method_name="fit")))
         if len(paths) < 2:
             raise ValueError("DFM requires at least two normal training images.")
 
@@ -228,7 +230,7 @@ class VisionDFM(BaseVisionDeepDetector):
             )
         self._check_fitted()
         scores = self.decision_function(
-            cast(Iterable[str], resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
+            cast("Iterable[str]", resolve_legacy_x_keyword(x, kwargs, method_name="predict"))
         )
         return (scores >= self.threshold_).astype(int)
 
@@ -243,7 +245,7 @@ class VisionDFM(BaseVisionDeepDetector):
         self._check_fitted()
         paths = list(
             cast(
-                Iterable[str],
+                "Iterable[str]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )

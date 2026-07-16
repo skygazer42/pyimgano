@@ -507,7 +507,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         )[..., 1]
         zero_maps = [image_score.reshape(1, 1, 1).expand(1, *grid_size)]
         masks = [_make_patch_masks(grid_size, scale) for scale in self.scales]
-        for embeddings, mask in zip(window_embeddings, masks, strict=True):
+        for embeddings, mask in zip(window_embeddings, masks):
             scores = _class_scores(embeddings, self.text_embeddings_, self.temperature)[..., 1]
             zero_maps.append(_harmonic_aggregation(scores, grid_size, mask))
         zero_map = _harmonic_mean(torch.stack(zero_maps), dim=0)
@@ -515,6 +515,8 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         anomaly_map = zero_map
         final_image_score = image_score
         if self.reference_windows_ is not None and self.reference_patches_ is not None:
+            if len(self.reference_windows_) != len(masks):
+                raise RuntimeError("WinCLIP reference windows do not match the configured scales")
             few_maps = [
                 _visual_association_score(
                     patch_embeddings,
@@ -525,7 +527,6 @@ class WinCLIPDetector(BaseVisionDeepDetector):
                 window_embeddings,
                 self.reference_windows_,
                 masks,
-                strict=True,
             ):
                 scores = _visual_association_score(embeddings, references)
                 few_maps.append(_harmonic_aggregation(scores, grid_size, mask))

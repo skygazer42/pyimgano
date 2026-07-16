@@ -42,7 +42,7 @@ def _get_multiline_values(section_lines: list[str], key: str) -> list[str]:
 
 def test_default_tox_test_env_includes_skimage_for_classical_model_suite() -> None:
     tox_text = _read_repo_file("tox.ini")
-    testenv_lines = _get_section_lines(tox_text, "[testenv:py{39,310,311,312}]")
+    testenv_lines = _get_section_lines(tox_text, "[testenv:py{38,39,310,311,312}]")
 
     extras = _get_multiline_values(testenv_lines, "extras")
 

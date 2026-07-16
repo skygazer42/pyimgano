@@ -246,11 +246,15 @@ class FCDD(BaseVisionDeepDetector):
 
     @staticmethod
     def _color_jitter(image: torch.Tensor, rng: np.random.Generator) -> torch.Tensor:
-        limits = (0.04, 0.04, 0.04, 0.04) if rng.random() < 0.5 else (
-            0.005,
-            0.0005,
-            0.0005,
-            0.0005,
+        limits = (
+            (0.04, 0.04, 0.04, 0.04)
+            if rng.random() < 0.5
+            else (
+                0.005,
+                0.0005,
+                0.0005,
+                0.0005,
+            )
         )
         brightness, contrast, saturation, hue = limits
         operations = [

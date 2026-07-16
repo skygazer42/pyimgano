@@ -101,9 +101,7 @@ class DifferNetCouplingBlock(nn.Module):
         if not reverse:
             value = value.index_select(1, self.permutation)
 
-        value_1, value_2 = torch.split(
-            value, (self.split_dim_1, self.split_dim_2), dim=1
-        )
+        value_1, value_2 = torch.split(value, (self.split_dim_1, self.split_dim_2), dim=1)
         if reverse:
             scale_1, shift_1 = self.s1(value_1).split(self.split_dim_2, dim=1)
             log_scale_1 = self._log_scale(scale_1)
@@ -204,9 +202,7 @@ class DifferNetNetwork(nn.Module):
         self.feature_extractor.eval()
 
     def extract_features(self, images: torch.Tensor) -> torch.Tensor:
-        images = F.interpolate(
-            images, size=(self.image_size, self.image_size), mode="nearest"
-        )
+        images = F.interpolate(images, size=(self.image_size, self.image_size), mode="nearest")
         features = []
         for scale in range(self.n_scales):
             scaled = images
@@ -379,8 +375,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
             angles = torch.empty(expanded.shape[0], device=images.device).uniform_(-180.0, 180.0)
         else:
             angles = (
-                torch.arange(count, device=images.device, dtype=images.dtype)
-                * (360.0 / count)
+                torch.arange(count, device=images.device, dtype=images.dtype) * (360.0 / count)
             ).repeat_interleave(images.shape[0])
         return self._rotate_batch(expanded, angles)
 
@@ -491,9 +486,7 @@ class DifferNetDetector(BaseVisionDeepDetector):
         self.n_scales = int(config.get("n_scales", self.n_scales))
         self.n_flow_steps = int(config.get("n_flow_steps", self.n_flow_steps))
         self.n_transforms = int(config.get("n_transforms", self.n_transforms))
-        self.n_transforms_test = int(
-            config.get("n_transforms_test", self.n_transforms_test)
-        )
+        self.n_transforms_test = int(config.get("n_transforms_test", self.n_transforms_test))
         self.flow_hidden_dim = int(config.get("flow_hidden_dim", self.flow_hidden_dim))
         self.flow_clamp = float(config.get("flow_clamp", self.flow_clamp))
         self.flow_dropout = float(config.get("flow_dropout", self.flow_dropout))

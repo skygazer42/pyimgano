@@ -21,9 +21,7 @@ def test_fcdd_matches_the_paper_mvtec_network_loss_and_defaults() -> None:
     paper_score = math.sqrt(2.0) - 1.0
     expected_anomaly_loss = -math.log(1.0 - math.exp(-paper_score))
     assert _fcdd_loss(outputs[:1], torch.tensor([0])).item() == pytest.approx(paper_score)
-    assert _fcdd_loss(outputs[:1], torch.tensor([1])).item() == pytest.approx(
-        expected_anomaly_loss
-    )
+    assert _fcdd_loss(outputs[:1], torch.tensor([1])).item() == pytest.approx(expected_anomaly_loss)
     assert FCDD.receptive_upsample(_pseudo_huber(outputs)).shape == (2, 1, 224, 224)
     normal = torch.full((3, 240, 240), 0.5)
     confetti = FCDD._confetti_image(normal, np.random.default_rng(3))

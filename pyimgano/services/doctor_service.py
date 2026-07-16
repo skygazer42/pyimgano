@@ -1226,31 +1226,39 @@ def _build_command_extra_recommendation(command_name: str) -> dict[str, Any]:
     if spec is None:
         raise ValueError(f"Unknown command for extras recommendation: {key!r}")
     guidance = command_workflow_guidance(key)
-    return _build_extra_recommendation_payload(
+    payload = _build_extra_recommendation_payload(
         target_kind="command",
         target=key,
         required_extras=spec.get("required_extras", []),
         recommended_extras=spec.get("recommended_extras", []),
         recommended_extra_profiles=spec.get("recommended_extra_profiles", []),
         notes=spec.get("notes", []),
-    ) | {
-        "workflow_stage": (None if guidance is None else guidance.workflow_stage),
-        "recipe_list_command": (None if guidance is None else guidance.recipe_list_command),
-        "recipe_info_command": (None if guidance is None else guidance.recipe_info_command),
-        "dry_run_command": (None if guidance is None else guidance.dry_run_command),
-        "preflight_command": (None if guidance is None else guidance.preflight_command),
-        "recipe_run_command": (None if guidance is None else guidance.recipe_run_command),
-        "export_command": (None if guidance is None else guidance.export_command),
-        "infer_followup_command": (None if guidance is None else guidance.infer_followup_command),
-        "preset_infer_command": (None if guidance is None else guidance.preset_infer_command),
-        "from_run_infer_command": (None if guidance is None else guidance.from_run_infer_command),
-        "quality_command": (None if guidance is None else guidance.quality_command),
-        "acceptance_command": (None if guidance is None else guidance.acceptance_command),
-        "bundle_audit_command": (None if guidance is None else guidance.bundle_audit_command),
-        "suggested_commands": ([] if guidance is None else list(guidance.suggested_commands)),
-        "next_step_commands": ([] if guidance is None else list(guidance.next_step_commands)),
-        "artifact_hints": ([] if guidance is None else list(guidance.artifact_hints)),
-    }
+    )
+    payload.update(
+        {
+            "workflow_stage": (None if guidance is None else guidance.workflow_stage),
+            "recipe_list_command": (None if guidance is None else guidance.recipe_list_command),
+            "recipe_info_command": (None if guidance is None else guidance.recipe_info_command),
+            "dry_run_command": (None if guidance is None else guidance.dry_run_command),
+            "preflight_command": (None if guidance is None else guidance.preflight_command),
+            "recipe_run_command": (None if guidance is None else guidance.recipe_run_command),
+            "export_command": (None if guidance is None else guidance.export_command),
+            "infer_followup_command": (
+                None if guidance is None else guidance.infer_followup_command
+            ),
+            "preset_infer_command": (None if guidance is None else guidance.preset_infer_command),
+            "from_run_infer_command": (
+                None if guidance is None else guidance.from_run_infer_command
+            ),
+            "quality_command": (None if guidance is None else guidance.quality_command),
+            "acceptance_command": (None if guidance is None else guidance.acceptance_command),
+            "bundle_audit_command": (None if guidance is None else guidance.bundle_audit_command),
+            "suggested_commands": ([] if guidance is None else list(guidance.suggested_commands)),
+            "next_step_commands": ([] if guidance is None else list(guidance.next_step_commands)),
+            "artifact_hints": ([] if guidance is None else list(guidance.artifact_hints)),
+        }
+    )
+    return payload
 
 
 def _build_model_extra_recommendation(model_name: str) -> dict[str, Any]:

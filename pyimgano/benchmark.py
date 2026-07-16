@@ -8,6 +8,8 @@ This module provides tools to:
 - Generate comparison reports
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional

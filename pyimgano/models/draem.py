@@ -190,12 +190,8 @@ class DRAEMNetwork(nn.Module):
         super().__init__()
         if base_channels is not None:
             reconstructive_base_channels = discriminative_base_channels = int(base_channels)
-        self.reconstructor = ReconstructiveSubNetwork(
-            base_width=int(reconstructive_base_channels)
-        )
-        self.segmentor = DiscriminativeSubNetwork(
-            base_channels=int(discriminative_base_channels)
-        )
+        self.reconstructor = ReconstructiveSubNetwork(base_width=int(reconstructive_base_channels))
+        self.segmentor = DiscriminativeSubNetwork(base_channels=int(discriminative_base_channels))
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         reconstruction = self.reconstructor(x)
@@ -223,9 +219,7 @@ def _ssim_loss(x: torch.Tensor, target: torch.Tensor, window_size: int = 11) -> 
     mu_y_sq = mu_y.square()
     mu_xy = mu_x * mu_y
     sigma_x = F.conv2d(x.square(), window, padding=padding, groups=x.shape[1]) - mu_x_sq
-    sigma_y = (
-        F.conv2d(target.square(), window, padding=padding, groups=target.shape[1]) - mu_y_sq
-    )
+    sigma_y = F.conv2d(target.square(), window, padding=padding, groups=target.shape[1]) - mu_y_sq
     sigma_xy = F.conv2d(x * target, window, padding=padding, groups=x.shape[1]) - mu_xy
     c1 = 0.01**2
     c2 = 0.03**2
@@ -268,9 +262,7 @@ class ImagePathDataset(Dataset):
     ) -> None:
         self.image_paths = list(image_paths)
         self.anomaly_source_images = (
-            list(self.image_paths)
-            if anomaly_source_images is None
-            else list(anomaly_source_images)
+            list(self.image_paths) if anomaly_source_images is None else list(anomaly_source_images)
         )
         if not self.anomaly_source_images:
             raise ValueError("anomaly_source_images cannot be empty")

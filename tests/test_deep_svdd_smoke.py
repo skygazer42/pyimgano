@@ -30,7 +30,9 @@ def test_core_deep_svdd_defaults_and_network_follow_paper_constraints() -> None:
     assert detector.output_activation == "identity"
     assert isinstance(network.encoder[-1], torch.nn.Linear)
     assert not any(isinstance(layer, torch.nn.Dropout) for layer in network.encoder)
-    assert all(layer.bias is None for layer in network.encoder if isinstance(layer, torch.nn.Linear))
+    assert all(
+        layer.bias is None for layer in network.encoder if isinstance(layer, torch.nn.Linear)
+    )
     leaky_relu = next(layer for layer in network.encoder if isinstance(layer, torch.nn.LeakyReLU))
     assert leaky_relu.negative_slope == pytest.approx(0.1)
     assert detector.get_params(deep=False)["optimizer"] == "adam"

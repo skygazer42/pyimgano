@@ -359,12 +359,17 @@ def audit_metadata_contract(
                     "value": year,
                 }
             )
-        if is_deep and fidelity_key in {
-            "core_aligned",
-            "paper_adaptation",
-            "partial",
-            "inspired",
-        } and year is None:
+        if (
+            is_deep
+            and fidelity_key
+            in {
+                "core_aligned",
+                "paper_adaptation",
+                "partial",
+                "inspired",
+            }
+            and year is None
+        ):
             required_missing.append("year")
 
         supervision = payload["supervision"]

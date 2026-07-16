@@ -1188,6 +1188,7 @@ def test_pyim_app_uses_audit_helpers_boundary() -> None:
 def test_pyim_modules_only_import_allowed_internal_modules() -> None:
     allowed_internal_imports = {
         "pyim_cli.py": {
+            "pyimgano.argparse_compat",
             "pyimgano.pyim_app",
             "pyimgano.pyim_cli_options",
         },

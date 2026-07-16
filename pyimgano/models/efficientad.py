@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from itertools import chain
 from pathlib import Path
-from typing import Iterable, Sequence, Tuple
+from typing import Iterable, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -40,7 +40,7 @@ _PAPER_MAP_QUANTILES = (0.9, 0.995)
 _IMAGENET_MEAN = (0.485, 0.456, 0.406)
 _IMAGENET_STD = (0.229, 0.224, 0.225)
 
-ImageInput = str | Path | np.ndarray
+ImageInput = Union[str, Path, np.ndarray]
 
 
 def _to_hw(image_size: int | Tuple[int, int]) -> tuple[int, int]:

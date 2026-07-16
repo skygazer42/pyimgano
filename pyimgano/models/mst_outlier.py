@@ -38,7 +38,7 @@ def _mst_node_scores_from_distance_matrix(distance_matrix: np.ndarray) -> np.nda
     coo = mst.tocoo()
 
     scores = np.zeros((n,), dtype=np.float64)
-    # NOTE: zip(strict=...) is Python 3.10+. We support Python 3.9 (see requires-python),
+    # NOTE: zip(strict=...) is Python 3.10+. We support Python 3.8 (see requires-python),
     # so keep the default (non-strict) zip behavior here.
     for i, j, w in zip(coo.row, coo.col, coo.data):
         wi = float(w)

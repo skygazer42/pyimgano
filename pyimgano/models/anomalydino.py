@@ -114,7 +114,7 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
     if payload_type != "torchhub_dinov2":
         raise ValueError("Unsupported patch embedder checkpoint payload.")
 
-    config = dict(cast(dict[str, object], payload.get("config", {})))
+    config = dict(cast("dict[str, object]", payload.get("config", {})))
     embedder = TorchHubDinoV2Embedder(
         model_name=str(config.get("model_name", PAPER_MODEL_NAME)),
         device=str(config.get("device", "cpu")),
@@ -392,7 +392,7 @@ class VisionAnomalyDINO:
         del y
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
             )
         )
@@ -464,7 +464,7 @@ class VisionAnomalyDINO:
     def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )
@@ -484,7 +484,7 @@ class VisionAnomalyDINO:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = self.decision_function(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
             )
         )
@@ -521,7 +521,7 @@ class VisionAnomalyDINO:
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
             )
         )

@@ -183,19 +183,20 @@ def _load_author_model(
         raise ValueError("One-for-More checkpoint has no usable state dictionary.")
 
     try:
-        with (
-            _author_import_path(repository_path, allow_download=allow_download),
-            redirect_stdout(io.StringIO()),
-        ):
-            importlib.import_module("share")
-            model_module = importlib.import_module("cdm.model")
-            loaded_source = Path(model_module.__file__).resolve()
-            if not loaded_source.is_relative_to(repository_path):
-                raise RuntimeError(
-                    "A different top-level 'cdm' package is already imported; start a clean "
-                    "process before loading the One-for-More author repository."
-                )
-            model = model_module.create_model(str(config_path)).cpu()
+        with _author_import_path(repository_path, allow_download=allow_download):
+            with redirect_stdout(io.StringIO()):
+                importlib.import_module("share")
+                model_module = importlib.import_module("cdm.model")
+                loaded_source = Path(model_module.__file__).resolve()
+                if (
+                    repository_path != loaded_source
+                    and repository_path not in loaded_source.parents
+                ):
+                    raise RuntimeError(
+                        "A different top-level 'cdm' package is already imported; start a clean "
+                        "process before loading the One-for-More author repository."
+                    )
+                model = model_module.create_model(str(config_path)).cpu()
     except (ImportError, ModuleNotFoundError) as exc:
         raise RuntimeError(
             "The One-for-More author runtime dependencies are unavailable. Install the exact "

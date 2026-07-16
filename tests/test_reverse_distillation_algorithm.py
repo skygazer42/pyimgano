@@ -33,7 +33,11 @@ def test_reverse_distillation_uses_bottleneck_and_reverse_decoder() -> None:
         (1, 1024, 4, 4),
     ]
     assert len(detector.bottleneck.bn_layer) == 3
-    assert [len(detector.decoder.layer1), len(detector.decoder.layer2), len(detector.decoder.layer3)] == [
+    assert [
+        len(detector.decoder.layer1),
+        len(detector.decoder.layer2),
+        len(detector.decoder.layer3),
+    ] == [
         3,
         4,
         6,
@@ -116,9 +120,7 @@ def test_reverse_distillation_checkpoint_includes_frozen_teacher(tmp_path, monke
         torch.manual_seed(7)
         detector.model = detector.build_model()
     detector.threshold_ = 1.25
-    expected = {
-        key: value.detach().clone() for key, value in detector.model.state_dict().items()
-    }
+    expected = {key: value.detach().clone() for key, value in detector.model.state_dict().items()}
     assert any(key.startswith("teacher.") for key in expected)
 
     checkpoint = tmp_path / "reverse_distillation.ckpt"

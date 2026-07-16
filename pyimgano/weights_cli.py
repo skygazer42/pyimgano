@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from pyimgano.argparse_compat import BooleanOptionalAction
 from pyimgano.weights.bundle_audit import evaluate_bundle_weights_audit
 
 
@@ -40,7 +41,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_validate.add_argument(
         "--check-files",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Check that weight files exist on disk. Default: true",
     )
@@ -88,7 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_validate_model_card.add_argument(
         "--check-files",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=False,
         help="Check that the model card weights.path exists on disk. Default: false",
     )

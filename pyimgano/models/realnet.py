@@ -340,9 +340,11 @@ class ReconstructionResidualSelection(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         align_size = residuals[0].shape[-2:]
         aligned = [
-            residual
-            if residual.shape[-2:] == align_size
-            else F.interpolate(residual, align_size, mode="bilinear", align_corners=True)
+            (
+                residual
+                if residual.shape[-2:] == align_size
+                else F.interpolate(residual, align_size, mode="bilinear", align_corners=True)
+            )
             for residual in residuals
         ]
         residual = torch.cat(aligned, dim=1)

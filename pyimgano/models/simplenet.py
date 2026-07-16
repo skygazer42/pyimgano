@@ -40,9 +40,7 @@ class SimpleAdapter(nn.Module):
 class AnomalyDiscriminator(nn.Module):
     """Paper's Linear-BN-LeakyReLU-Linear normality discriminator."""
 
-    def __init__(
-        self, feature_dim: int = 1536, hidden_dim: Optional[int] = 1024
-    ) -> None:
+    def __init__(self, feature_dim: int = 1536, hidden_dim: Optional[int] = 1024) -> None:
         super().__init__()
         hidden = int(feature_dim if hidden_dim is None else hidden_dim)
         self.network = nn.Sequential(
@@ -281,9 +279,7 @@ class VisionSimpleNet(BaseVisionDeepDetector):
         )
         return embedded, reference_grid
 
-    def _extract_features(
-        self, images: torch.Tensor
-    ) -> tuple[torch.Tensor, tuple[int, int]]:
+    def _extract_features(self, images: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:
         with torch.no_grad():
             base = self.feature_extractor["stem"](images)
             layer2 = self.feature_extractor["layer2"](base)
@@ -356,9 +352,10 @@ class VisionSimpleNet(BaseVisionDeepDetector):
                 synthetic_anomaly = normal + self.noise_std * noise
                 normal_score = self.discriminator(normal)
                 anomaly_score = self.discriminator(synthetic_anomaly)
-                loss = F.relu(self.discriminator_margin - normal_score).mean() + F.relu(
-                    self.discriminator_margin + anomaly_score
-                ).mean()
+                loss = (
+                    F.relu(self.discriminator_margin - normal_score).mean()
+                    + F.relu(self.discriminator_margin + anomaly_score).mean()
+                )
                 adapter_optimizer.zero_grad(set_to_none=True)
                 discriminator_optimizer.zero_grad(set_to_none=True)
                 loss.backward()

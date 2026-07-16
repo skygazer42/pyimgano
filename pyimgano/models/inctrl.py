@@ -85,7 +85,7 @@ def _as_items(value: Any) -> list[Any]:
         return [value]
     if isinstance(value, np.ndarray) and value.ndim in (2, 3):
         return [value]
-    return list(cast(Iterable[Any], value))
+    return list(cast("Iterable[Any]", value))
 
 
 def _as_rgb_uint8(image: Any) -> NDArray[np.uint8]:
@@ -181,7 +181,7 @@ def _checkpoint_state(path: str | Path) -> dict[str, torch.Tensor]:
     for raw_name, value in payload.items():
         if not isinstance(raw_name, str) or not isinstance(value, torch.Tensor):
             continue
-        name = raw_name.removeprefix("module.")
+        name = raw_name[len("module.") :] if raw_name.startswith("module.") else raw_name
         state[name] = value
     if not state:
         raise ValueError("InCTRL checkpoint does not contain named tensors.")

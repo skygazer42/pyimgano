@@ -132,13 +132,10 @@ class VisionPatchCore(BaseVisionDeepDetector):
             raise ValueError(f"patch_stride must be >= 1, got {patch_stride}")
         if coreset_projection_dim is not None and int(coreset_projection_dim) < 1:
             raise ValueError(
-                "coreset_projection_dim must be >= 1 (or None), "
-                f"got {coreset_projection_dim}"
+                "coreset_projection_dim must be >= 1 (or None), " f"got {coreset_projection_dim}"
             )
         if coreset_starting_points < 1:
-            raise ValueError(
-                f"coreset_starting_points must be >= 1, got {coreset_starting_points}"
-            )
+            raise ValueError(f"coreset_starting_points must be >= 1, got {coreset_starting_points}")
 
         self.backbone_name = backbone
         self.layers = layers or ["layer2", "layer3"]
@@ -253,9 +250,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 "memory_bank": self._np.asarray(self.memory_bank, dtype=self._np.float32),
                 "decision_scores_": self._np.asarray(self.decision_scores_, dtype=self._np.float64),
                 "threshold_": float(self.threshold_),
-                "n_neighbors_fit": int(
-                    getattr(self, "_n_neighbors_fit", self.n_neighbors)
-                ),
+                "n_neighbors_fit": int(getattr(self, "_n_neighbors_fit", self.n_neighbors)),
                 "projection_state": projection_state,
                 "gaussian_sigma": float(self.gaussian_sigma),
             },
@@ -421,9 +416,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
         for index in range(1, len(features)):
             current = features[index]
             height, width = patch_shapes[index]
-            current = current.reshape(
-                current.shape[0], height, width, *current.shape[2:]
-            ).permute(0, 3, 4, 5, 1, 2)
+            current = current.reshape(current.shape[0], height, width, *current.shape[2:]).permute(
+                0, 3, 4, 5, 1, 2
+            )
             base_shape = current.shape
             current = current.reshape(-1, height, width)
             current = self._F.interpolate(
@@ -434,9 +429,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
             ).squeeze(1)
             current = current.reshape(*base_shape[:-2], *reference_shape)
             current = current.permute(0, 4, 5, 1, 2, 3)
-            features[index] = current.reshape(
-                current.shape[0], -1, *current.shape[-3:]
-            )
+            features[index] = current.reshape(current.shape[0], -1, *current.shape[-3:])
 
         features = [feature.reshape(-1, *feature.shape[-3:]) for feature in features]
         preprocessed = [

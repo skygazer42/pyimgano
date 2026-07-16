@@ -10,6 +10,8 @@ Reference:
     British Machine Vision Conference (BMVC).
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Dict, Iterable, List, Optional, Union, cast
 

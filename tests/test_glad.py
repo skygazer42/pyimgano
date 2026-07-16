@@ -62,9 +62,7 @@ def test_glad_released_architecture_presets_and_metadata() -> None:
 def test_glad_feature_map_matches_author_nearest_cosine_formula() -> None:
     from pyimgano.models.glad import _feature_anomaly_map
 
-    input_tokens = [
-        torch.tensor([[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]]])
-    ]
+    input_tokens = [torch.tensor([[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]]])]
     reconstruction_tokens = [
         torch.tensor([[[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [-1.0, 0.0], [-1.0, 0.0]]])
     ]
@@ -131,11 +129,13 @@ def test_glad_wrapper_calibrates_and_returns_maps() -> None:
         def score_items(self, items, *, seed):  # noqa: ANN001, ANN201
             assert seed == 7
             values = np.asarray([np.asarray(item).mean() for item in items], dtype=np.float32)
-            return values, np.repeat(values[:, None, None], 4, axis=1).reshape(-1, 2, 2), np.full(len(items), 350)
+            return (
+                values,
+                np.repeat(values[:, None, None], 4, axis=1).reshape(-1, 2, 2),
+                np.full(len(items), 350),
+            )
 
-    images = np.stack(
-        (np.zeros((4, 4, 3), dtype=np.uint8), np.ones((4, 4, 3), dtype=np.uint8))
-    )
+    images = np.stack((np.zeros((4, 4, 3), dtype=np.uint8), np.ones((4, 4, 3), dtype=np.uint8)))
     detector = VisionGLAD(backend=_Backend(), device="cpu", random_state=7)
     detector.fit(images)
 

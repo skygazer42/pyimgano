@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import pyimgano.cli_listing as cli_listing
 import pyimgano.cli_output as cli_output
+from pyimgano.argparse_compat import BooleanOptionalAction
 from pyimgano.cli_common import merge_checkpoint_path, parse_model_kwargs
 from pyimgano.reporting.report import save_run_report
 from pyimgano.services.benchmark_service import PixelPostprocessConfig
@@ -59,7 +60,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cpu", help="cpu|cuda (model dependent)")
     parser.add_argument("--contamination", type=float, default=0.1)
     # Industrial default: keep CLIs offline-safe and avoid implicit weight downloads.
-    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--pretrained", action=BooleanOptionalAction, default=False)
     parser.add_argument(
         "--model-kwargs",
         default=None,
@@ -72,7 +73,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--pixel-segf1",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help=(
             "Compute pixel SegF1/bg-FPR under a single calibrated threshold. "
@@ -145,13 +146,13 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _parse_model_kwargs(text: Optional[str]) -> dict[str, Any]:
+def _parse_model_kwargs(text: Optional[str]) -> Dict[str, Any]:
     return parse_model_kwargs(text)
 
 
 def _merge_checkpoint_path(
-    user_kwargs: dict[str, Any], *, checkpoint_path: Optional[str]
-) -> dict[str, Any]:
+    user_kwargs: Dict[str, Any], *, checkpoint_path: Optional[str]
+) -> Dict[str, Any]:
     return merge_checkpoint_path(user_kwargs, checkpoint_path=checkpoint_path)
 
 

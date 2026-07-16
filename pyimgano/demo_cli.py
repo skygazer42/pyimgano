@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pyimgano.argparse_compat import BooleanOptionalAction
 from pyimgano.utils.jsonable import to_jsonable
 
 _DEMO_SCENARIOS = {"smoke", "benchmark", "infer-defects"}
@@ -109,7 +110,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default="cpu",
         help="Device for models that support it (default: cpu).",
     )
-    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--pretrained", action=BooleanOptionalAction, default=False)
     parser.add_argument(
         "--resize",
         type=int,
@@ -126,7 +127,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--save-run",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Write artifacts to --output-dir (default: true).",
     )

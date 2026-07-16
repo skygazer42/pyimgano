@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from pyimgano.argparse_compat import BooleanOptionalAction
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pyimgano-export-torchscript")
@@ -13,7 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--pretrained",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=False,
         help="Whether to use torchvision pretrained weights. Default: false (offline-safe). When true, torchvision may download weights if not cached.",
     )
@@ -36,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--optimize",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=True,
         help="Apply TorchScript inference optimizations (freeze; best-effort). Default: true",
     )

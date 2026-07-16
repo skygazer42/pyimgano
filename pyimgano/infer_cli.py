@@ -17,6 +17,7 @@ import pyimgano.services.infer_options_service as infer_options_service
 import pyimgano.services.infer_output_service as infer_output_service
 import pyimgano.services.infer_runtime_service as infer_runtime_service
 import pyimgano.services.infer_wrapper_service as infer_wrapper_service
+from pyimgano.argparse_compat import BooleanOptionalAction
 from pyimgano.infer_cli_inputs import (
     collect_image_paths,
     parse_csv_ints_arg,
@@ -284,7 +285,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "random_seed/random_state when supported)"
         ),
     )
-    parser.add_argument("--pretrained", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--pretrained", action=BooleanOptionalAction, default=None)
     parser.add_argument(
         "--model-kwargs",
         default=None,

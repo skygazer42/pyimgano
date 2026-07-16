@@ -21,6 +21,7 @@ from .registry import register_model
 
 logger = logging.getLogger(__name__)
 
+
 def _get_activation(name: str) -> nn.Module:
     if str(name).strip().lower() == "leaky_relu":
         return nn.LeakyReLU(negative_slope=0.1)
@@ -326,9 +327,7 @@ class CoreDeepSVDD(BaseDetector):
                 with torch.no_grad():
                     representations = self.model.encode(tensor_data.to(self.device))
                     distances = torch.sum((representations - self.center_) ** 2, dim=-1)
-                self.radius_ = float(
-                    np.quantile(np.sqrt(distances.cpu().numpy()), 1.0 - self.nu)
-                )
+                self.radius_ = float(np.quantile(np.sqrt(distances.cpu().numpy()), 1.0 - self.nu))
 
             if self.verbose:
                 logger.info("Epoch %d/%d - Loss: %.6f", epoch + 1, self.epochs, epoch_loss)

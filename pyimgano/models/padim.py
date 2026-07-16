@@ -189,7 +189,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 "inv_covs": torch.as_tensor(
                     np.asarray(self.inv_covs, dtype=np.float32), dtype=torch.float32
                 ),
-                "patch_shape": [int(v) for v in cast(tuple[int, int], self.patch_shape)],
+                "patch_shape": [int(v) for v in cast("tuple[int, int]", self.patch_shape)],
                 "decision_scores_": torch.as_tensor(
                     np.asarray(self.decision_scores_, dtype=np.float64), dtype=torch.float64
                 ),
@@ -303,7 +303,9 @@ class VisionPaDiM(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> "VisionPaDiM":
         del y
-        x_iter = cast(Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
+        x_iter = cast(
+            "Iterable[ImageInput]", resolve_legacy_x_keyword(x, kwargs, method_name="fit")
+        )
         x_list = list(x_iter)
         if not x_list:
             raise ValueError("Training set cannot be empty")
@@ -386,7 +388,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
         self._check_fitted()
         x_iter = cast(
-            Iterable[ImageInput],
+            "Iterable[ImageInput]",
             resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
         )
         x_list = list(x_iter)
@@ -409,7 +411,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
         if not hasattr(self, "threshold_"):
             raise RuntimeError("Model not fitted. Call fit() first.")
         x_iter = cast(
-            Iterable[ImageInput], resolve_legacy_x_keyword(x, kwargs, method_name="predict")
+            "Iterable[ImageInput]", resolve_legacy_x_keyword(x, kwargs, method_name="predict")
         )
         scores = self.decision_function(x_iter)
         return (scores >= self.threshold_).astype(int)
@@ -443,7 +445,7 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         x_iter = cast(
-            Iterable[ImageInput],
+            "Iterable[ImageInput]",
             resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
         )
         maps = [self.get_anomaly_map(item) for item in x_iter]

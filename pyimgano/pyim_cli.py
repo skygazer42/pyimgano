@@ -6,6 +6,7 @@ import argparse
 
 import pyimgano.pyim_app as pyim_app
 import pyimgano.pyim_cli_options as pyim_cli_options
+from pyimgano.argparse_compat import BooleanOptionalAction
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -74,7 +75,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--deployable-only",
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
         default=False,
         help="When listing preprocessing schemes, include only deployable infer/workbench presets.",
     )

@@ -342,9 +342,7 @@ class ALAD(BaseVisionDeepDetector):
             lr=self.learning_rate_gen,
             betas=(0.5, 0.999),
         )
-        discriminator_parameters = list(self.disc_xz.parameters()) + list(
-            self.disc_xx.parameters()
-        )
+        discriminator_parameters = list(self.disc_xz.parameters()) + list(self.disc_xx.parameters())
         if self.add_disc_zz_loss:
             discriminator_parameters.extend(self.disc_zz.parameters())
         self.opt_disc = torch.optim.Adam(
@@ -395,12 +393,16 @@ class ALAD(BaseVisionDeepDetector):
             reconstructed_disc = decoder(encoded_disc)
             recycled_latent_disc = encoder(generated_disc)
 
-        loss_disc_xz = criterion(disc_xz(images, encoded_disc), torch.ones(batch_size, device=self.device))
+        loss_disc_xz = criterion(
+            disc_xz(images, encoded_disc), torch.ones(batch_size, device=self.device)
+        )
         loss_disc_xz = loss_disc_xz + criterion(
             disc_xz(generated_disc, latent_disc),
             torch.zeros(batch_size, device=self.device),
         )
-        loss_disc_xx = criterion(disc_xx(images, images), torch.ones(batch_size, device=self.device))
+        loss_disc_xx = criterion(
+            disc_xx(images, images), torch.ones(batch_size, device=self.device)
+        )
         loss_disc_xx = loss_disc_xx + criterion(
             disc_xx(images, reconstructed_disc),
             torch.zeros(batch_size, device=self.device),

@@ -13,9 +13,7 @@ def test_memory_modules_do_not_use_random_untrained_entries() -> None:
     assert isinstance(module.memory, torch.nn.Parameter)
 
     bank = MemoryBank(memory_size=4, feature_dim=2)
-    bank.memory.copy_(
-        torch.tensor([[1.0, 0.0], [100.0, 100.0], [100.0, 100.0], [100.0, 100.0]])
-    )
+    bank.memory.copy_(torch.tensor([[1.0, 0.0], [100.0, 100.0], [100.0, 100.0], [100.0, 100.0]]))
     bank.memory_filled = 1
     distances, indices = bank.query(torch.tensor([[1.0, 0.0]]), k=3)
     assert distances.shape == (1, 1)
@@ -59,7 +57,9 @@ def test_memae_entropy_is_averaged_per_spatial_query() -> None:
     from pyimgano.models.memae import memory_entropy
 
     attention = torch.tensor([[[[1.0, 0.5]], [[0.0, 0.5]]]])
-    assert memory_entropy(attention).item() == pytest.approx(float(torch.log(torch.tensor(2.0))) / 2)
+    assert memory_entropy(attention).item() == pytest.approx(
+        float(torch.log(torch.tensor(2.0))) / 2
+    )
 
 
 def test_memae_rgb_network_matches_paper_cifar_topology() -> None:

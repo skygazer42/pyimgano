@@ -52,9 +52,7 @@ def test_simplenet_patchify_uses_padded_three_by_three_neighborhoods() -> None:
     from pyimgano.models.simplenet import VisionSimpleNet
 
     feature_map = torch.tensor([[[[1.0, 2.0], [3.0, 4.0]]]])
-    patches, grid = VisionSimpleNet._patchify(
-        feature_map, patch_size=3, patch_stride=1
-    )
+    patches, grid = VisionSimpleNet._patchify(feature_map, patch_size=3, patch_stride=1)
 
     assert grid == (2, 2)
     assert patches.shape == (1, 4, 1, 3, 3)

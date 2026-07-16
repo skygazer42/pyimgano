@@ -4,6 +4,8 @@ No matching canonical paper was verified for the former PNI/CVPR claim. The
 class names remain importable for compatibility only.
 """
 
+from __future__ import annotations
+
 PAPER_FIDELITY = "not-applicable"
 IMPLEMENTATION_STATUS = "unregistered-experimental-baseline"
 

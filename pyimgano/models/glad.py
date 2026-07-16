@@ -57,8 +57,7 @@ def _presets(
     inference_steps: int,
 ) -> dict[str, GLADPreset]:
     return {
-        name: GLADPreset(*value, dino_resolution, inference_steps)
-        for name, value in values.items()
+        name: GLADPreset(*value, dino_resolution, inference_steps) for name, value in values.items()
     }
 
 
@@ -296,9 +295,7 @@ def _feature_anomaly_map(
             layer_backward = F.interpolate(
                 backward, size=(output_size, output_size), mode="bilinear", align_corners=True
             )
-            backward_map = (
-                layer_backward if backward_map is None else backward_map + layer_backward
-            )
+            backward_map = layer_backward if backward_map is None else backward_map + layer_backward
     result = cast(torch.Tensor, forward_map)
     return result if backward_map is None else result + backward_map
 
@@ -360,9 +357,7 @@ def _adaptive_ddim_step(
     alpha_t = alphas_cumprod[timestep].to(device=sample.device, dtype=sample.dtype)
     previous_timestep = int(timestep) - int(step_ratio)
     alpha_previous = (
-        alphas_cumprod[previous_timestep]
-        if previous_timestep >= 0
-        else final_alpha_cumprod
+        alphas_cumprod[previous_timestep] if previous_timestep >= 0 else final_alpha_cumprod
     ).to(device=sample.device, dtype=sample.dtype)
     beta_t = 1 - alpha_t
     predicted = (sample - beta_t.sqrt() * model_output) / alpha_t.sqrt()
@@ -445,7 +440,9 @@ class TorchGLADBackend:
         self.pipeline = pipeline
         self.dino_model = dino_model
         self.ads_dino_model = ads_dino_model
-        resolved_device = device if not str(device).startswith("cuda") or torch.cuda.is_available() else "cpu"
+        resolved_device = (
+            device if not str(device).startswith("cuda") or torch.cuda.is_available() else "cpu"
+        )
         self.device = torch.device(resolved_device)
         self.dtype = torch.float32 if self.device.type == "cpu" else (dtype or torch.float16)
         self.batch_size = int(batch_size)
@@ -499,9 +496,7 @@ class TorchGLADBackend:
                 raise ValueError(
                     "GLAD requires dino_model when downloads are disabled; pass the official DINO ViT-B/8."
                 )
-            self.dino_model = torch.hub.load(
-                self.dino_hub_repo, PAPER_DINO_MODEL, pretrained=True
-            )
+            self.dino_model = torch.hub.load(self.dino_hub_repo, PAPER_DINO_MODEL, pretrained=True)
         uses_fine_tuned_dino = _uses_fine_tuned_dino(self.dataset)
         if self.ads_dino_model is None:
             if uses_fine_tuned_dino:
@@ -603,7 +598,9 @@ class TorchGLADBackend:
                 encoder_hidden_states=embeddings,
                 return_dict=False,
             )
-            prediction = prediction[0] if isinstance(prediction, (tuple, list)) else prediction.sample
+            prediction = (
+                prediction[0] if isinstance(prediction, (tuple, list)) else prediction.sample
+            )
             unconditional, conditional = prediction.chunk(2)
             prediction = unconditional + PAPER_GUIDANCE_SCALE * (conditional - unconditional)
             latents, active = _adaptive_ddim_step(
@@ -649,7 +646,9 @@ class TorchGLADBackend:
             reverse=self.class_name in _REVERSE_DISTANCE_CLASSES,
         )
         if self.preset.pixel_weight:
-            pixel_map = (normalized_inputs - normalized_reconstruction).abs().mean(dim=1, keepdim=True)
+            pixel_map = (
+                (normalized_inputs - normalized_reconstruction).abs().mean(dim=1, keepdim=True)
+            )
             maximum = pixel_map.max()
             if bool(maximum > 0):
                 feature_map = feature_map + (
@@ -746,20 +745,24 @@ class VisionGLAD(BaseDetector):
         self.batch_size = batch_size_int
         self.device = resolved_device
         self.random_state = int(random_state)
-        self.backend = backend if backend is not None else TorchGLADBackend(
-            preset=preset,
-            class_name=self.class_name,
-            dataset=self.dataset,
-            pretrained_model_path=pretrained_model_path,
-            unet_checkpoint_path=checkpoint_path,
-            vae_checkpoint_path=vae_checkpoint_path,
-            dino_checkpoint_path=dino_checkpoint_path,
-            pipeline=pipeline,
-            dino_model=dino_model,
-            ads_dino_model=ads_dino_model,
-            device=resolved_device,
-            batch_size=batch_size_int,
-            allow_download=allow_download,
+        self.backend = (
+            backend
+            if backend is not None
+            else TorchGLADBackend(
+                preset=preset,
+                class_name=self.class_name,
+                dataset=self.dataset,
+                pretrained_model_path=pretrained_model_path,
+                unet_checkpoint_path=checkpoint_path,
+                vae_checkpoint_path=vae_checkpoint_path,
+                dino_checkpoint_path=dino_checkpoint_path,
+                pipeline=pipeline,
+                dino_model=dino_model,
+                ads_dino_model=ads_dino_model,
+                device=resolved_device,
+                batch_size=batch_size_int,
+                allow_download=allow_download,
+            )
         )
 
     def _score_items(
@@ -781,7 +784,11 @@ class VisionGLAD(BaseDetector):
         steps = np.asarray(result[2], dtype=np.int64).reshape(-1)
         if scores.shape != (len(items),) or maps.ndim != 3 or maps.shape[0] != len(items):
             raise ValueError("GLAD backend returned shapes inconsistent with the input batch.")
-        if steps.shape != (len(items),) or not np.isfinite(scores).all() or not np.isfinite(maps).all():
+        if (
+            steps.shape != (len(items),)
+            or not np.isfinite(scores).all()
+            or not np.isfinite(maps).all()
+        ):
             raise ValueError("GLAD backend returned invalid scores, maps, or denoising steps.")
         return scores, maps, steps
 
@@ -813,9 +820,7 @@ class VisionGLAD(BaseDetector):
         values = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
         return self._score_items(_as_items(values))[0]
 
-    def predict_anomaly_map(
-        self, x: object = MISSING, **kwargs: object
-    ) -> NDArray[np.float32]:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray[np.float32]:
         values = resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
         return self._score_items(_as_items(values))[1]
 

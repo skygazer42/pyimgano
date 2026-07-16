@@ -14,7 +14,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List
 
 from pyimgano.utils.path_normalize import normalize_path
 
@@ -116,7 +116,7 @@ def convert_custom_layout_to_manifest(
     return records
 
 
-ConverterFn = Callable[..., list[dict[str, Any]]]
+ConverterFn = Callable[..., List[Dict[str, Any]]]
 
 
 @dataclass(frozen=True)

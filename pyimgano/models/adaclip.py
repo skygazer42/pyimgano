@@ -19,6 +19,7 @@ from pyimgano.utils.optional_deps import require
 
 from ._image_batch import _coerce_single_rgb_image
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
+from .deep_io import safe_torch_load
 from .openclip_backend import _load_openclip_model_and_preprocess
 from .registry import register_model
 
@@ -503,10 +504,7 @@ class AdaCLIPNetwork(nn.Module):
 
 
 def _read_checkpoint(path: str | Path) -> Mapping[str, torch.Tensor]:
-    try:
-        raw = torch.load(path, map_location="cpu", weights_only=True)
-    except TypeError:  # pragma: no cover - PyTorch < 2.0
-        raw = torch.load(path, map_location="cpu")
+    raw = safe_torch_load(path, map_location="cpu")
     if isinstance(raw, Mapping) and isinstance(raw.get("state_dict"), Mapping):
         raw = raw["state_dict"]
     if not isinstance(raw, Mapping):

@@ -79,7 +79,7 @@ class CoreExtraTreesDensity(BaseDetector):
         for t in range(m):
             col = leaf[:, t]
             uniq, cnt = np.unique(col, return_counts=True)
-            # NOTE: zip(strict=...) is Python 3.10+. We support Python 3.9 (see requires-python),
+            # NOTE: zip(strict=...) is Python 3.10+. We support Python 3.8 (see requires-python),
             # so keep the default (non-strict) zip behavior here.
             counts_per_tree.append({int(u): int(c) for u, c in zip(uniq, cnt)})
 

@@ -12,7 +12,7 @@ def _read_repo_file(relative_path: str) -> str:
 def _parse_optional_dependency_extras(pyproject_text: str) -> set[str]:
     """Parse `[project.optional-dependencies]` keys from pyproject.toml.
 
-    We intentionally avoid adding a TOML parser dependency in tests (py39+),
+    We intentionally avoid adding a TOML parser dependency in tests (py38+),
     and only need a minimal, stable parse for the extras table.
     """
 

@@ -298,9 +298,7 @@ class PromptADPromptLearner(nn.Module):
 
         normal_strings = [f"{prefix} {display_name}." for _ in range(self.n_pro)]
         manual_strings = [
-            f"{prefix} {phrase}."
-            for phrase in anomaly_phrases
-            for _ in range(self.n_pro)
+            f"{prefix} {phrase}." for phrase in anomaly_phrases for _ in range(self.n_pro)
         ]
         # The learnable anomaly tokens are a suffix of the complete normal prompt,
         # as specified by equation 11 (the upstream code places them before obj.).
@@ -361,9 +359,7 @@ class PromptADPromptLearner(nn.Module):
         manual[:, 1 : 1 + self.n_ctx] = self.normal_context.repeat(self.n_manual, 1, 1)
 
         learned = self.learned_template.clone()
-        learned[:, 1 : 1 + self.n_ctx] = self.normal_context.repeat_interleave(
-            self.n_pro_ab, dim=0
-        )
+        learned[:, 1 : 1 + self.n_ctx] = self.normal_context.repeat_interleave(self.n_pro_ab, dim=0)
         learned[:, self.anomaly_start : self.anomaly_start + self.n_ctx_ab] = (
             self.anomaly_context.repeat(self.n_pro, 1, 1)
         )
@@ -463,7 +459,9 @@ class OpenCLIPPromptADBackend(nn.Module):
             "proj",
         )
         missing.extend(
-            f"visual.{name}" for name in visual_required if visual is None or not hasattr(visual, name)
+            f"visual.{name}"
+            for name in visual_required
+            if visual is None or not hasattr(visual, name)
         )
         if missing:
             raise TypeError(
@@ -598,7 +596,13 @@ class OpenCLIPPromptADBackend(nn.Module):
         if visual.proj is not None:
             pooled = pooled @ visual.proj
             tokens = tokens @ visual.proj
-        return pooled, tokens, memories[self.memory_layers[0]], memories[self.memory_layers[1]], grid
+        return (
+            pooled,
+            tokens,
+            memories[self.memory_layers[0]],
+            memories[self.memory_layers[1]],
+            grid,
+        )
 
     def encode_image(
         self, images: torch.Tensor
@@ -803,7 +807,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
                 for index in range(4):
                     outputs[index].append(encoded[index].detach().cpu())
         return cast(
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+            "tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]",
             tuple(torch.cat(parts) for parts in outputs),
         )
 
@@ -840,12 +844,8 @@ class VisionPromptAD(BaseVisionDeepDetector):
         ).to(self.device)
 
         global_features, local_features, memory1, memory2 = self._extract_visual_features(images)
-        self.feature_gallery1_ = _normalize(memory1.reshape(-1, memory1.shape[-1])).to(
-            self.device
-        )
-        self.feature_gallery2_ = _normalize(memory2.reshape(-1, memory2.shape[-1])).to(
-            self.device
-        )
+        self.feature_gallery1_ = _normalize(memory1.reshape(-1, memory1.shape[-1])).to(self.device)
+        self.feature_gallery2_ = _normalize(memory2.reshape(-1, memory2.shape[-1])).to(self.device)
         training_features = (
             global_features if self.training_task == "classification" else local_features
         )
@@ -922,7 +922,9 @@ class VisionPromptAD(BaseVisionDeepDetector):
             for start in range(0, len(images), self.batch_size):
                 batch = backend.preprocess_images(images[start : start + self.batch_size])
                 global_feature, local, memory1, memory2, grid = backend.encode_image(batch)
-                text = self.text_features_.to(device=global_feature.device, dtype=global_feature.dtype)
+                text = self.text_features_.to(
+                    device=global_feature.device, dtype=global_feature.dtype
+                )
                 scale = backend.logit_scale.to(
                     device=global_feature.device, dtype=global_feature.dtype
                 )
@@ -934,9 +936,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
                 visual1 = ((1.0 - memory1 @ gallery1.T).amin(dim=-1) / 2.0).clamp(0, 1)
                 visual2 = ((1.0 - memory2 @ gallery2.T).amin(dim=-1) / 2.0).clamp(0, 1)
                 visual_map = 0.5 * (visual1 + visual2)
-                image_score = _paper_harmonic_fusion(
-                    visual_map.amax(dim=-1), image_prompt_score
-                )
+                image_score = _paper_harmonic_fusion(visual_map.amax(dim=-1), image_prompt_score)
                 pixel_map = _paper_harmonic_fusion(visual_map, pixel_prompt_score)
                 pixel_map = pixel_map.reshape(-1, 1, grid[0], grid[1])
                 pixel_map = F.interpolate(
@@ -955,9 +955,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
                 map_array[index] = gaussian_filter(map_array[index], sigma=self.gaussian_sigma)
         return score_array, map_array
 
-    def predict_anomaly_map(
-        self, x: object = MISSING, **kwargs: object
-    ) -> NDArray[np.float32]:
+    def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray[np.float32]:
         x_value = resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
         return self._score_images(coerce_rgb_image_batch(x_value))[1]
 

@@ -182,9 +182,7 @@ class VisionBayesianPF:
         )
 
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
-        items = _as_items(
-            resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map")
-        )
+        items = _as_items(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
         method = getattr(self._require_backend(), "predict_anomaly_map", None)
         if not callable(method):
             raise NotImplementedError(
@@ -192,9 +190,7 @@ class VisionBayesianPF:
             )
         maps = np.asarray(method(items), dtype=np.float32)
         if maps.ndim != 3 or maps.shape[0] != len(items):
-            raise ValueError(
-                "Bayes-PFL backend predict_anomaly_map() must return shape (N, H, W)."
-            )
+            raise ValueError("Bayes-PFL backend predict_anomaly_map() must return shape (N, H, W).")
         if not np.isfinite(maps).all():
             raise ValueError("Bayes-PFL backend returned non-finite anomaly maps.")
         return maps

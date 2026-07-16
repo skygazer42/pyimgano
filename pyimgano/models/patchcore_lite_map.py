@@ -83,13 +83,13 @@ def _embedder_from_payload(payload: dict[str, object]) -> TorchvisionConvPatchEm
     if str(payload.get("type", "")) != "torchvision_conv_patch_embedder":
         raise ValueError("Unsupported patch embedder checkpoint payload.")
 
-    config = dict(cast(dict[str, object], payload.get("config", {})))
+    config = dict(cast("dict[str, object]", payload.get("config", {})))
     embedder = TorchvisionConvPatchEmbedder(
         backbone=str(config.get("backbone", "resnet18")),
         node=str(config.get("node", "layer3")),
         pretrained=bool(config.get("pretrained", False)),
         device=str(config.get("device", "cpu")),
-        input_color=cast(str, config.get("input_color", "rgb")),
+        input_color=cast("str", config.get("input_color", "rgb")),
         image_size=int(config.get("image_size", 224)),
         normalize=bool(config.get("normalize", True)),
         eps=float(config.get("eps", 1e-12)),
@@ -219,7 +219,7 @@ class VisionPatchCoreLiteMap:
         del y
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="fit"),
             )
         )
@@ -272,7 +272,7 @@ class VisionPatchCoreLiteMap:
     def decision_function(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"),
             )
         )
@@ -292,7 +292,7 @@ class VisionPatchCoreLiteMap:
             raise RuntimeError(MODEL_NOT_FITTED_ERROR)
         scores = self.decision_function(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="predict"),
             )
         )
@@ -327,7 +327,7 @@ class VisionPatchCoreLiteMap:
     def predict_anomaly_map(self, x: object = MISSING, **kwargs: object) -> NDArray:
         items = list(
             cast(
-                Iterable[Union[str, np.ndarray]],
+                "Iterable[Union[str, np.ndarray]]",
                 resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"),
             )
         )
@@ -385,7 +385,7 @@ class VisionPatchCoreLiteMap:
                 "Invalid PatchCore-lite-map checkpoint payload: detector marker mismatch."
             )
 
-        config = dict(cast(dict[str, object], payload.get("config", {})))
+        config = dict(cast("dict[str, object]", payload.get("config", {})))
         self.contamination = float(config.get("contamination", self.contamination))
         self.pretrained = bool(config.get("pretrained", self.pretrained))
         self.knn_backend = str(config.get("knn_backend", self.knn_backend))
@@ -396,7 +396,7 @@ class VisionPatchCoreLiteMap:
         )
         self.random_seed = int(config.get("random_seed", self.random_seed))
         self.aggregation_method = cast(
-            AggregationMethod, config.get("aggregation_method", self.aggregation_method)
+            "AggregationMethod", config.get("aggregation_method", self.aggregation_method)
         )
         self.aggregation_topk = float(config.get("aggregation_topk", self.aggregation_topk))
 

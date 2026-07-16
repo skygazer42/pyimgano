@@ -223,6 +223,13 @@ def test_unregistered_legacy_neural_modules_disclaim_unverified_paper_status() -
 
 
 def test_every_direct_deep_detector_is_registered_or_explicitly_disclaimed() -> None:
+    def _tail_name(node: ast.AST) -> str:
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        return ""
+
     models_dir = Path(__file__).parents[1] / "pyimgano" / "models"
     unregistered: set[str] = set()
     for path in models_dir.glob("*.py"):
@@ -230,12 +237,11 @@ def test_every_direct_deep_detector_is_registered_or_explicitly_disclaimed() -> 
         for node in tree.body:
             if not isinstance(node, ast.ClassDef):
                 continue
-            base_names = {ast.unparse(base).split(".")[-1] for base in node.bases}
+            base_names = {_tail_name(base) for base in node.bases}
             if "BaseVisionDeepDetector" not in base_names:
                 continue
             is_registered = any(
-                isinstance(decorator, ast.Call)
-                and ast.unparse(decorator.func).split(".")[-1] == "register_model"
+                isinstance(decorator, ast.Call) and _tail_name(decorator.func) == "register_model"
                 for decorator in node.decorator_list
             )
             if not is_registered:

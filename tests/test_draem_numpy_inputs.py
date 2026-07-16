@@ -58,12 +58,8 @@ def test_draem_uses_perlin_mask_and_discriminative_branch():
     assert len(network.reconstructor.decoder_blocks) == 4
     assert len(network.segmentor.encoder_blocks) == 6
     assert len(network.segmentor.decoder_blocks) == 5
-    assert inspect.signature(DRAEMNetwork).parameters[
-        "reconstructive_base_channels"
-    ].default == 128
-    assert inspect.signature(DRAEMNetwork).parameters[
-        "discriminative_base_channels"
-    ].default == 64
+    assert inspect.signature(DRAEMNetwork).parameters["reconstructive_base_channels"].default == 128
+    assert inspect.signature(DRAEMNetwork).parameters["discriminative_base_channels"].default == 64
     detector_signature = inspect.signature(VisionDRAEM.__init__)
     assert detector_signature.parameters["epochs"].default == 700
     assert detector_signature.parameters["batch_size"].default == 8
