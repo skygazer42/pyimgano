@@ -568,6 +568,7 @@ def test_base_deep_detector_applies_ema_weights_after_training() -> None:
 
         def build_model(self):
             self.model = torch.nn.Linear(self.feature_size, self.feature_size, bias=False)
+            self.model.register_buffer("running_value", torch.tensor(0.0))
             with torch.no_grad():
                 self.model.weight.zero_()
             return self.model
@@ -576,6 +577,7 @@ def test_base_deep_detector_applies_ema_weights_after_training() -> None:
             del batch_data
             with torch.no_grad():
                 self.model.weight.fill_(self._value)
+                self.model.running_value.fill_(self._value)
                 self._value += 1.0
             return float(self._value)
 
@@ -602,8 +604,9 @@ def test_base_deep_detector_applies_ema_weights_after_training() -> None:
     assert det.training_steps_completed_ == 4
     assert det.training_ema_updates_ == 2
     assert det.training_ema_applied_ is True
-    assert _loss_value(det.model.weight.mean()) == pytest.approx(3.5)
-    assert np.asarray(det.decision_scores_).tolist() == pytest.approx([3.5, 3.5, 3.5, 3.5])
+    assert _loss_value(det.model.weight.mean()) == pytest.approx(3.25)
+    assert _loss_value(det.model.running_value) == pytest.approx(4.0)
+    assert np.asarray(det.decision_scores_).tolist() == pytest.approx([3.25] * 4)
 
 
 def test_base_deep_detector_applies_step_scheduler_and_records_lr_history() -> None:

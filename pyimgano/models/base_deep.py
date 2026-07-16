@@ -456,6 +456,12 @@ class BaseDeepLearningDetector(BaseDetector):
             return
 
         state_dict = model.state_dict()
+        named_parameters = getattr(model, "named_parameters", None)
+        parameter_names = (
+            {str(name) for name, _parameter in named_parameters()}
+            if callable(named_parameters)
+            else set(state_dict)
+        )
         if self._ema_state is None:
             self._ema_state = {}
             for key, value in state_dict.items():
@@ -480,7 +486,12 @@ class BaseDeepLearningDetector(BaseDetector):
                 continue
 
             is_floating_point = getattr(current, "is_floating_point", None)
-            if callable(is_floating_point) and current.is_floating_point():
+            # EMA trainable variables only; BN/SN buffers must stay current.
+            if (
+                str(key) in parameter_names
+                and callable(is_floating_point)
+                and current.is_floating_point()
+            ):
                 shadow.mul_(decay).add_(current, alpha=1.0 - decay)
             else:
                 shadow.copy_(current)
@@ -524,6 +535,8 @@ class BaseDeepLearningDetector(BaseDetector):
 
         for _epoch in range(self.epoch_num):
             self._apply_warmup_lr(_epoch)
+            if self._should_update_ema(epoch_index=_epoch) and self._ema_state is None:
+                self._update_ema_state()
             if self.optimizer is not None and getattr(self.optimizer, "param_groups", None):
                 self.training_lr_history_.append(float(self.optimizer.param_groups[0]["lr"]))
             losses: list[float] = []
