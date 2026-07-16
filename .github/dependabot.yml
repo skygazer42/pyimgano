@@ -10,7 +10,7 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 5
     reviewers:
-      - "jhlu2019"
+      - "skygazer42"
     labels:
       - "dependencies"
       - "python"
