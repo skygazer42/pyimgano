@@ -296,6 +296,9 @@ One-for-More source tree; upstream currently provides no pretrained checkpoint.
 component-mask layout and pretrained foundation-model weights.
 `vision_logsad` runs the authors' CLIP/DINOv2/SAM patch, interest, and
 composition-matching source for the five released MVTec LOCO categories.
+`vision_filopp` is a legacy name for the official FiLo checkpoint path: the
+authors' 2024 CLIP/Grounding-DINO/MMCI source is used because the later FiLo++
+runtime-filtering, deformable-MDCI, and few-shot code is not in that repository.
 
 External-backend status describes delegation, not independent validation of a
 particular checkpoint. Keep the upstream version, configuration, weights hash,
@@ -307,7 +310,7 @@ The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
 - `vision_patchcore_lite_map`
-- `vision_anogen_adapter`, `vision_filopp`
+- `vision_anogen_adapter`
 - `vision_one_to_normal`
 
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old

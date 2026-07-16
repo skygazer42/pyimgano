@@ -204,6 +204,17 @@ preprocessing, training schedule, score normalization, and metric protocol.
   calibration, and maximum-score fusion. The released code supports only the
   five MVTec LOCO categories and requires the public SAM checkpoint plus normal
   reference paths. The pinned repository declares no top-level software license.
+- `vision_filopp` is retained as a legacy registry name but now delegates to the
+  actually released ACM MM 2024 FiLo source, not the former patch-prototype
+  proxy. It preserves CLIP-L/14@336, 518px input, layers 6/12/18/24, 12-token
+  conditional prompts, QKV projection plus six-shape MMCI over V-V features,
+  Grounding-DINO position prompts, sigma-4 smoothing, and 0.7 background
+  suppression. Evaluation requires the official FiLo and Grounding-DINO
+  checkpoints trained on the opposite dataset. The later FiLo++ paper adds
+  runtime prompt filtering, deformable MDCI, and a few-shot branch, but those
+  changes are not present in the official repository's pinned 2024 source.
+  FiLo stays on CUDA; set `grounding_device="cpu"` only when the optional
+  Grounding-DINO CUDA extension is unavailable.
 
 For supported upstream implementations, use model-specific anomalib entries
 such as `vision_fastflow_anomalib` and `vision_cflow_anomalib`. These require

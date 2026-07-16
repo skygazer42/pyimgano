@@ -172,8 +172,8 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     # Official-source paper adapters
     "univad",
     "logsad",
-    # Experimental family adapters (not paper reproductions)
     "filopp",
+    # Experimental family adapters (not paper reproductions)
     "one_to_normal",
     "anogen",
     # Pipelines registered as models

@@ -104,7 +104,7 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ),
     ModelFamily(
         name="filopp",
-        description="FiLo++ VLM patch-localization and prompt-scoring detectors.",
+        description="Official FiLo VLM localization (legacy filopp family name).",
         tags=("filopp",),
     ),
     ModelFamily(

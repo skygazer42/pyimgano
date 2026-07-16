@@ -142,6 +142,11 @@ maps = model.predict_anomaly_map(test_images)
 - `external-backend`: `vision_logsad` 直接调用作者的 448px DataComp-1B
   CLIP ViT-L/14、DINOv2 ViT-L/14、SAM ViT-H/16 与 patch/interest/composition
   匹配路径；当前发布代码只覆盖五个 MVTec LOCO 类别，且仓库未声明顶层软件许可。
+- `external-backend`: `vision_filopp` 保留旧注册名，但实际严格调用作者公开的
+  ACM MM 2024 FiLo：CLIP-L/14@336、518px、6/12/18/24 层、12-token prompt、
+  QKV/MMCI、Grounding-DINO 定位及 sigma=4 后处理。FiLo++ 新增的运行时
+  prompt filtering、可变形 MDCI 和 few-shot 分支尚未出现在该官方仓库源码中；
+  无 Grounding-DINO CUDA 扩展时可单独设置 `grounding_device="cpu"`。
 - 外部路径：使用对应的 `vision_*_anomalib` 检查点封装；例如
   `vision_winclip_anomalib` 或 `vision_fastflow_anomalib`。
 
