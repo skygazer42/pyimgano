@@ -496,7 +496,9 @@ class TorchGLADBackend:
                 raise ValueError(
                     "GLAD requires dino_model when downloads are disabled; pass the official DINO ViT-B/8."
                 )
-            self.dino_model = torch.hub.load(self.dino_hub_repo, PAPER_DINO_MODEL, pretrained=True)
+            self.dino_model = torch.hub.load(  # nosec B614 - Bandit 1.8.x false positive
+                self.dino_hub_repo, PAPER_DINO_MODEL, pretrained=True
+            )
         uses_fine_tuned_dino = _uses_fine_tuned_dino(self.dataset)
         if self.ads_dino_model is None:
             if uses_fine_tuned_dino:
