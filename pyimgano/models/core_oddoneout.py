@@ -1,187 +1,46 @@
-# -*- coding: utf-8 -*-
-"""Odd-One-Out (neighbor comparison) core detector for feature matrices.
+"""Unregistered Odd-One-Out compatibility marker.
 
-This implements a lightweight, industrial-friendly variant inspired by the
-CVPR 2025 "Odd-One-Out" neighbor comparison idea:
-
-- Build a kNN index on normal (training) features
-- Score each sample by *relative* neighborhood distance:
-
-    score(x) = mean_k(dist(x, NN_k(train))) / mean_k(train_local_mean[NN_k(train)])
-
-Intuition:
-- a point is anomalous if it is further from its neighbors than those neighbors
-  are from *their* neighbors (i.e., it is the "odd one out" locally).
-
-Design goals:
-- `core_*` contract: accepts `np.ndarray` / torch tensors (via CoreFeatureDetector)
-- Higher score => more anomalous
-- Safe-by-default (no deep backbones; no downloads)
+The former ``core_oddoneout`` and vision wrappers implemented a relative kNN
+distance ratio over independent feature vectors.  That is unrelated to the
+CVPR 2025 method, whose input is a posed multi-view scene and whose output is
+an anomaly label and 3D box for every object instance.  The official release
+is complete, but that scene contract does not fit pyimgano's current
+single-sample detector registry, so no substitute runtime is invented here.
 """
 
-from __future__ import annotations
-
-from typing import Optional
-
-import numpy as np
-from sklearn.neighbors import NearestNeighbors
-from sklearn.utils import check_array
-
-from .core_feature_base import CoreFeatureDetector
-from .registry import register_model
-
-
-class _OddOneOutBackend:
-    def __init__(
-        self,
-        *,
-        contamination: float,
-        n_neighbors: int,
-        metric: str,
-        p: int,
-        method: str,
-        normalize: bool,
-        eps: float,
-        n_jobs: int,
-        random_state: Optional[int],
-    ) -> None:
-        self.contamination = float(contamination)
-        self.n_neighbors = int(n_neighbors)
-        self.metric = str(metric)
-        self.p = int(p)
-        self.method = str(method)
-        self.normalize = bool(normalize)
-        self.eps = float(eps)
-        self.n_jobs = int(n_jobs)
-        self.random_state = random_state
-
-        self._nn: NearestNeighbors | None = None
-        self._k_effective: int | None = None
-        self._train_local_mean: np.ndarray | None = None
-        self.decision_scores_: np.ndarray | None = None
-
-    def _normalize_rows(self, x: np.ndarray) -> np.ndarray:
-        if not self.normalize:
-            return np.asarray(x, dtype=np.float64)
-        norms = np.linalg.norm(x, axis=1, keepdims=True)
-        norms = np.maximum(norms, float(self.eps))
-        return np.asarray(x / norms, dtype=np.float64)
-
-    def _aggregate(self, distances: np.ndarray) -> np.ndarray:
-        if self.method == "mean":
-            return distances.mean(axis=1)
-        if self.method == "median":
-            return np.median(distances, axis=1)
-        if self.method == "largest":
-            return distances.max(axis=1)
-        raise ValueError("method must be one of {'mean', 'median', 'largest'}")
-
-    def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
-        del y
-        x = check_array(x, ensure_2d=True, dtype=np.float64)
-        x = self._normalize_rows(x)
-
-        n_train = int(x.shape[0])
-        if n_train <= 1:
-            self._k_effective = 0
-            self._nn = None
-            self._train_local_mean = np.zeros(n_train, dtype=np.float64)
-            self.decision_scores_ = np.zeros(n_train, dtype=np.float64)
-            return self
-
-        if self.n_neighbors < 1:
-            raise ValueError("n_neighbors must be >= 1")
-
-        k = min(int(self.n_neighbors), n_train - 1)
-        self._k_effective = int(k)
-
-        algo = "brute" if self.metric == "cosine" else "auto"
-        nn = NearestNeighbors(
-            n_neighbors=k + 1,  # include self for training
-            metric=self.metric,
-            p=self.p,
-            algorithm=algo,
-            n_jobs=int(self.n_jobs),
-        )
-        nn.fit(x)
-        self._nn = nn
-
-        dist, idx = nn.kneighbors(x, n_neighbors=k + 1, return_distance=True)
-        dist = np.asarray(dist, dtype=np.float64)[:, 1:]  # drop self
-        idx = np.asarray(idx, dtype=np.int64)[:, 1:]
-
-        local_mean = self._aggregate(dist).astype(np.float64)
-        self._train_local_mean = local_mean
-
-        # Relative "oddness": compare sample neighborhood distance to the neighbors' typical distance.
-        neigh_baseline = np.mean(local_mean[idx], axis=1)
-        neigh_baseline = np.maximum(neigh_baseline, float(self.eps))
-        scores = local_mean / neigh_baseline
-        self.decision_scores_ = np.asarray(scores, dtype=np.float64).reshape(-1)
-        return self
-
-    def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self._k_effective is None or self._train_local_mean is None:
-            raise RuntimeError("Detector must be fitted before calling decision_function")
-        k = int(self._k_effective)
-        x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
-        if k <= 0:
-            return np.zeros(int(x_arr.shape[0]), dtype=np.float64)
-        if self._nn is None:
-            raise RuntimeError("Internal error: missing neighbor index")
-
-        x_arr = self._normalize_rows(x_arr)
-        dist, idx = self._nn.kneighbors(x_arr, n_neighbors=k, return_distance=True)
-        dist = np.asarray(dist, dtype=np.float64)
-        idx = np.asarray(idx, dtype=np.int64)
-
-        local_mean = self._aggregate(dist).astype(np.float64)
-        neigh_baseline = np.mean(np.asarray(self._train_local_mean, dtype=np.float64)[idx], axis=1)
-        neigh_baseline = np.maximum(neigh_baseline, float(self.eps))
-        scores = local_mean / neigh_baseline
-        return np.asarray(scores, dtype=np.float64).reshape(-1)
-
-
-@register_model(
-    "core_oddoneout",
-    tags=("classical", "core", "features", "neighbors", "oddoneout", "cvpr2025"),
-    metadata={
-        "description": "Odd-One-Out (neighbor comparison) core detector on feature matrices",
-        "input": "features",
-    },
+PAPER_FIDELITY = "not-applicable"
+IMPLEMENTATION_STATUS = "unregistered-incompatible-scene-contract"
+RELATED_PAPER = "Odd-One-Out: Anomaly Detection by Comparing with Neighbors"
+RELATED_PAPER_URL = (
+    "https://openaccess.thecvf.com/content/CVPR2025/html/"
+    "Bhunia_Odd-One-Out_Anomaly_Detection_by_Comparing_with_Neighbors_CVPR_2025_paper.html"
 )
-class CoreOddOneOut(CoreFeatureDetector):
-    """Odd-One-Out neighbor comparison detector for `np.ndarray` / torch feature matrices."""
+AUTHOR_REPOSITORY = "https://github.com/VICO-UoE/OddOneOutAD"
+AUTHOR_REPOSITORY_COMMIT = "5200c918e80628288c4bdc46c5afd036d1e79482"
 
-    def __init__(
-        self,
-        *,
-        contamination: float = 0.1,
-        n_neighbors: int = 5,
-        metric: str = "minkowski",
-        p: int = 2,
-        method: str = "mean",
-        normalize: bool = True,
-        eps: float = 1e-12,
-        n_jobs: int = 1,
-        random_state: Optional[int] = 0,
-    ) -> None:
-        self._backend_kwargs = {
-            "contamination": float(contamination),
-            "n_neighbors": int(n_neighbors),
-            "metric": str(metric),
-            "p": int(p),
-            "method": str(method),
-            "normalize": bool(normalize),
-            "eps": float(eps),
-            "n_jobs": int(n_jobs),
-            "random_state": random_state,
-        }
-        self.random_state = random_state
-        super().__init__(contamination=float(contamination))
+PAPER_INPUT_CONTRACT = "five posed RGB views plus camera projection matrices"
+PAPER_OUTPUT_CONTRACT = "per-instance anomaly labels and 3D bounding boxes"
+PAPER_2D_BACKBONE = "ResNet50-FPN"
+PAPER_3D_BACKBONE = "four-scale encoder-decoder 3D CNN"
+PAPER_DINO_FEATURE_DIM = 128
+PAPER_IMAGE_SIZE = 256
+PAPER_NUM_VIEWS = 5
+PAPER_TRAIN_VIEWS = 10
+PAPER_VOXEL_GRID = (96, 96, 16)
+PAPER_VOXEL_SIZE_METERS = 0.04
+PAPER_POINTS_PER_RAY = 128
+PAPER_RENDERED_FEATURE_SIZE = 32
+PAPER_DENSITY_THRESHOLD = 0.2
+PAPER_ATTENTION_BLOCKS = 3
+PAPER_ATTENTION_HEADS = 8
+PAPER_ATTENTION_TOPK = 20
+PAPER_STAGE_EPOCHS = (50, 50)
+PAPER_BATCH_SIZE = 4
+PAPER_LEARNING_RATE = 2e-5
 
-    def _build_detector(self):
-        return _OddOneOutBackend(**self._backend_kwargs)
-
-
-__all__ = ["CoreOddOneOut"]
+AUTHOR_CODE_DINO_MODEL = "dinov2_vits14"
+AUTHOR_CODE_OBJECT_VOLUME = (8, 8, 8)
+AUTHOR_CODE_VOXEL_DIMS = {"feature": 32, "hidden": 128, "projection": 384}
+AUTHOR_CODE_LEARNING_RATES = {"backbone": 1e-5, "matching_net": 2e-5}
+AUTHOR_CODE_ADAM_BETAS = (0.0, 0.999)
+AUTHOR_CODE_THRESHOLDS = {"toysad8k": 0.5, "partsad15k": 0.3}

@@ -82,7 +82,10 @@ Foundation weights (study-only; do not enable implicit downloads by default):
 - DINOv2: `facebookresearch/dinov2` (torch.hub entrypoint; weights download by default if used)
 
 Papers (study-only, implementation patterns only):
-- Odd-One-Out neighbor comparison (CVPR 2025): https://openaccess.thecvf.com/content/CVPR2025/html/Zhao_Odd-One-Out_Neighbor_Comparison_for_Robust_Visual_Anomaly_Detection_CVPR_2025_paper.html
+- Odd-One-Out posed multi-view 3D scene anomaly detection (CVPR 2025):
+  [paper](https://openaccess.thecvf.com/content/CVPR2025/html/Bhunia_Odd-One-Out_Anomaly_Detection_by_Comparing_with_Neighbors_CVPR_2025_paper.html),
+  [author code](https://github.com/VICO-UoE/OddOneOutAD). Its scene-level input
+  and per-instance 3D output are not represented by a pyimgano model entry.
 - IAD-GPT (ICLR 2025 workshop): https://openreview.net/forum?id=I7LkT8pWJ1
 - VELM (arXiv): https://arxiv.org/abs/2508.00141
 

@@ -46,14 +46,16 @@ This is a planning + onboarding aid, not an exhaustive bibliography.
 
 ## Patch/Pixel map baselines (template/reference inspection)
 
-### Odd-One-Out neighbor comparison (CVPR 2025)
+### Odd-One-Out multi-view scene comparison (CVPR 2025)
 
 **Concept:**
-- Robust neighbor comparison under nuisance variation
+- Posed multi-view RGB scenes, 3D feature volumes, DINOv2 feature rendering,
+  object-centric volumes, and sparse cross-instance voxel attention
 
-**pyimgano mapping (v5 direction):**
-- Study-only reference for additional `core_*` and `vision_*` “neighbor-compare” variants.
-- Existing starting point: `pyimgano/models/oddoneout.py` (registry: `oddoneout` family).
+**pyimgano mapping:**
+- Study-only reference. The former feature-vector kNN ratio was unrelated to
+  the paper and was removed. A faithful adapter needs a posed-scene contract
+  and per-instance 3D outputs, which the current model registry does not have.
 
 ---
 

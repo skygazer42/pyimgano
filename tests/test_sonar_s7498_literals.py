@@ -43,8 +43,6 @@ def test_sonar_s7498_literal_kwargs_smoke_non_torch() -> None:
             "vision_feature_bagging_spec",
             {"feature_extractor": "identity", "n_estimators": 2},
         ),
-        ("core_oddoneout", {"n_neighbors": 3}),
-        ("vision_oddoneout", {"feature_extractor": "identity", "n_neighbors": 3}),
         ("core_knn_cosine", {"n_neighbors": 3}),
         ("core_random_projection_knn", {"n_neighbors": 3}),
         ("vision_random_projection_knn", {"feature_extractor": "identity", "n_neighbors": 3}),

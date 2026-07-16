@@ -121,7 +121,7 @@ Recommended order:
 
 1. Get embeddings stable and offline-safe.
 2. Start with `core_ecod` or `core_knn`.
-3. If you need more robustness, try `core_mcd`, `core_lof`, or `core_oddoneout`.
+3. If you need more robustness, try `core_mcd`, `core_lof`, or `core_loop`.
 4. If you later need localization, move to patch-based or pixel-map models rather
    than forcing an image-level core detector to do pixel work.
 

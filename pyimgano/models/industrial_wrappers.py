@@ -1118,57 +1118,6 @@ class VisionTorchscriptExtraTreesDensity(VisionEmbeddingCoreDetector):
 
 
 @register_model(
-    "vision_torchscript_oddoneout",
-    tags=(
-        "vision",
-        "classical",
-        "pipeline",
-        "industrial",
-        "embeddings",
-        "torchscript",
-        "neighbors",
-        "oddoneout",
-    ),
-    metadata={
-        "description": "Industrial baseline: TorchScript embeddings + core_oddoneout",
-        "requires_checkpoint": True,
-    },
-)
-class VisionTorchscriptOddOneOut(VisionEmbeddingCoreDetector):
-    def __init__(
-        self,
-        *,
-        contamination: float = 0.1,
-        checkpoint_path: str | None = None,
-        device: str = "cpu",
-        batch_size: int = 16,
-        image_size: int = 224,
-        cache_dir: str | None = None,
-        embedding_extractor: str | Any = "torchscript_embed",
-        embedding_kwargs: Mapping[str, Any] | None = None,
-        core_kwargs: Mapping[str, Any] | None = None,
-    ) -> None:
-        if embedding_kwargs is None and str(embedding_extractor) == "torchscript_embed":
-            if checkpoint_path is None:
-                raise ValueError("checkpoint_path is required for vision_torchscript_oddoneout")
-            embedding_kwargs = _default_torchscript_embedding_extractor(
-                checkpoint_path=str(checkpoint_path),
-                device=str(device),
-                batch_size=int(batch_size),
-                image_size=int(image_size),
-                cache_dir=cache_dir,
-            )["kwargs"]
-
-        super().__init__(
-            contamination=float(contamination),
-            embedding_extractor=embedding_extractor,
-            embedding_kwargs=embedding_kwargs,
-            core_detector="core_oddoneout",
-            core_kwargs=dict(core_kwargs or {}),
-        )
-
-
-@register_model(
     "vision_onnx_ecod",
     tags=("vision", "classical", "pipeline", "industrial", "embeddings", "onnx", "fast"),
     metadata={
@@ -1798,61 +1747,6 @@ class VisionONNXExtraTreesDensity(VisionEmbeddingCoreDetector):
 
 
 @register_model(
-    "vision_onnx_oddoneout",
-    tags=(
-        "vision",
-        "classical",
-        "pipeline",
-        "industrial",
-        "embeddings",
-        "onnx",
-        "neighbors",
-        "oddoneout",
-    ),
-    metadata={
-        "description": "Industrial baseline: ONNX Runtime embeddings + core_oddoneout",
-        "requires_checkpoint": True,
-    },
-)
-class VisionONNXOddOneOut(VisionEmbeddingCoreDetector):
-    def __init__(
-        self,
-        *,
-        contamination: float = 0.1,
-        checkpoint_path: str | None = None,
-        device: str = "cpu",
-        batch_size: int = 16,
-        image_size: int = 224,
-        cache_dir: str | None = None,
-        providers: list[str] | None = None,
-        session_options: Mapping[str, Any] | None = None,
-        embedding_extractor: str | Any = "onnx_embed",
-        embedding_kwargs: Mapping[str, Any] | None = None,
-        core_kwargs: Mapping[str, Any] | None = None,
-    ) -> None:
-        if embedding_kwargs is None and str(embedding_extractor) == "onnx_embed":
-            if checkpoint_path is None:
-                raise ValueError("checkpoint_path is required for vision_onnx_oddoneout")
-            embedding_kwargs = _default_onnx_embedding_extractor(
-                checkpoint_path=str(checkpoint_path),
-                device=str(device),
-                batch_size=int(batch_size),
-                image_size=int(image_size),
-                cache_dir=cache_dir,
-                providers=providers,
-                session_options=session_options,
-            )["kwargs"]
-
-        super().__init__(
-            contamination=float(contamination),
-            embedding_extractor=embedding_extractor,
-            embedding_kwargs=embedding_kwargs,
-            core_detector="core_oddoneout",
-            core_kwargs=dict(core_kwargs or {}),
-        )
-
-
-@register_model(
     "vision_resnet18_knn_cosine",
     tags=("vision", "classical", "pipeline", "industrial", "embeddings", "neighbors", "cosine"),
     metadata={
@@ -2231,44 +2125,6 @@ class VisionResNet18ExtraTreesDensity(VisionEmbeddingCoreDetector):
 
 
 @register_model(
-    "vision_resnet18_oddoneout",
-    tags=("vision", "classical", "pipeline", "industrial", "embeddings", "neighbors", "oddoneout"),
-    metadata={
-        "description": "Industrial baseline: resnet18 embeddings (safe) + core_oddoneout",
-    },
-)
-class VisionResNet18OddOneOut(VisionEmbeddingCoreDetector):
-    def __init__(
-        self,
-        *,
-        contamination: float = 0.1,
-        embedding_extractor: str | Any = "torchvision_backbone",
-        embedding_kwargs: Mapping[str, Any] | None = None,
-        core_kwargs: Mapping[str, Any] | None = None,
-        backbone: str = "resnet18",
-        pretrained: bool = False,
-        device: str = "cpu",
-        image_size: int = 224,
-        pool: str = "avg",
-    ) -> None:
-        if embedding_kwargs is None and str(embedding_extractor) == "torchvision_backbone":
-            embedding_kwargs = _default_torchvision_embedding_extractor(
-                backbone=str(backbone),
-                pretrained=bool(pretrained),
-                pool=str(pool),
-                device=str(device),
-                image_size=int(image_size),
-            )["kwargs"]
-        super().__init__(
-            contamination=float(contamination),
-            embedding_extractor=embedding_extractor,
-            embedding_kwargs=embedding_kwargs,
-            core_detector="core_oddoneout",
-            core_kwargs=dict(core_kwargs or {}),
-        )
-
-
-@register_model(
     "vision_resnet18_mahalanobis_shrinkage",
     tags=(
         "vision",
@@ -2378,7 +2234,6 @@ __all__ = [
     "VisionResNet18MSTOutlier",
     "VisionResNet18PCAMD",
     "VisionResNet18ExtraTreesDensity",
-    "VisionResNet18OddOneOut",
     "VisionResNet18MahalanobisShrinkage",
     "VisionResNet18TorchAE",
     "VisionTorchscriptECOD",
@@ -2393,5 +2248,4 @@ __all__ = [
     "VisionTorchscriptMSTOutlier",
     "VisionTorchscriptPCAMD",
     "VisionTorchscriptExtraTreesDensity",
-    "VisionTorchscriptOddOneOut",
 ]

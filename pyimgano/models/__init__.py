@@ -50,7 +50,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "knn",  # K-Nearest Neighbors
     "core_knn_cosine",  # kNN cosine distance baseline (embeddings)
     "core_knn_cosine_calibrated",  # kNN cosine + unsupervised score standardization
-    "core_oddoneout",  # Odd-One-Out neighbor comparison (core, embeddings/features)
+    "core_oddoneout",  # Unregistered false-paper compatibility marker
     "knn_degree",  # epsilon-graph degree
     "kpca",  # Kernel Principal Component Analysis
     "k_means",  # K-Means clustering-based detection
@@ -120,7 +120,6 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "intra",  # Unregistered transformer reconstruction baseline
     "memseg",  # Memory-guided Segmentation
     "memae",  # Memory-augmented autoencoder image adaptation
-    "oddoneout",  # Odd-One-Out neighbor comparison (CVPR 2025)
     "one_svm_cnn",  # One-Class SVM with CNN features
     "oneformore",  # Official-source One-for-More checkpoint inference adapter
     "one_to_normal",  # Unregistered proxy; author release is incomplete

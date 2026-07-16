@@ -38,7 +38,6 @@ def test_embedding_industrial_wrappers_are_registered() -> None:
     assert "vision_resnet18_mst_outlier" in names
     assert "vision_resnet18_pca_md" in names
     assert "vision_resnet18_extra_trees_density" in names
-    assert "vision_resnet18_oddoneout" in names
     assert "vision_resnet18_torch_ae" in names
     assert "vision_torchscript_ecod" in names
     assert "vision_torchscript_copod" in names
@@ -52,7 +51,6 @@ def test_embedding_industrial_wrappers_are_registered() -> None:
     assert "vision_torchscript_mst_outlier" in names
     assert "vision_torchscript_pca_md" in names
     assert "vision_torchscript_extra_trees_density" in names
-    assert "vision_torchscript_oddoneout" in names
     assert "vision_onnx_ecod" in names
     assert "vision_onnx_copod" in names
     assert "vision_onnx_iforest" in names
@@ -65,7 +63,6 @@ def test_embedding_industrial_wrappers_are_registered() -> None:
     assert "vision_onnx_mst_outlier" in names
     assert "vision_onnx_pca_md" in names
     assert "vision_onnx_extra_trees_density" in names
-    assert "vision_onnx_oddoneout" in names
 
 
 def test_torchscript_industrial_wrappers_smoke(tmp_path) -> None:
@@ -230,7 +227,6 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
         "vision_resnet18_mst_outlier",
         "vision_resnet18_pca_md",
         "vision_resnet18_extra_trees_density",
-        "vision_resnet18_oddoneout",
     ]:
         det = create_model(name, contamination=0.2, embedding_extractor="identity")
         det.fit(x)
@@ -251,7 +247,6 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
         "vision_torchscript_mst_outlier",
         "vision_torchscript_pca_md",
         "vision_torchscript_extra_trees_density",
-        "vision_torchscript_oddoneout",
         "vision_onnx_ecod",
         "vision_onnx_copod",
         "vision_onnx_iforest",
@@ -264,7 +259,6 @@ def test_embedding_industrial_wrappers_accept_identity_extractor_on_vectors() ->
         "vision_onnx_mst_outlier",
         "vision_onnx_pca_md",
         "vision_onnx_extra_trees_density",
-        "vision_onnx_oddoneout",
     ]:
         det = create_model(name, contamination=0.2, embedding_extractor="identity")
         det.fit(x)

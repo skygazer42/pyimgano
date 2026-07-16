@@ -330,6 +330,15 @@ not in the paper. At author commit
 embeddings but no trained detector checkpoint; expose it again only as an
 explicit generation/training workflow, not as a registry detector.
 
+The former `core_oddoneout`, `vision_oddoneout`, and three embedding-wrapper
+keys were removed as well. The CVPR 2025 Odd-One-Out method consumes posed
+multi-view RGB scenes, constructs a ResNet50-FPN/3D-CNN voxel representation,
+distills DINOv2 features by rendering, and compares object volumes with sparse
+voxel attention. The deleted entries only computed a relative kNN distance on
+independent vectors. The authors now publish source and two-stage checkpoints,
+but their per-instance label/3D-box output needs an explicit scene API rather
+than the current single-sample detector contract.
+
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
 paper titles could not be verified and were removed. The directly importable
 legacy modules `bgad`, `dsr`, `intra`, `pni`, and `rdplusplus` are unregistered

@@ -6,11 +6,11 @@ title: 模型注册表
 
 === "中文"
 
-    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **286** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
+    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **281** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
 
 === "English"
 
-    pyimgano manages all detectors through a unified model registry. Currently **286** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
+    pyimgano manages all detectors through a unified model registry. Currently **281** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
 
 ---
 
@@ -143,7 +143,6 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `core_cof` | classical, core, neighbors | 连通异常因子 (COF) |
 | `core_odin` | classical, core, neighbors, graph | 基于 kNN 图入度的 ODIN |
 | `core_lid` | classical, core, neighbors | 局部内在维度 (LID) |
-| `core_oddoneout` | classical, core, neighbors | Odd-One-Out 邻居比较 |
 | `vision_knn` | classical, vision | kNN 视觉包装器 |
 | `vision_lof` | classical, vision | LOF 视觉包装器 |
 
@@ -355,7 +354,6 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `vision_resnet18_lid` | `core_lid` | ResNet18 嵌入 + LID |
 | `vision_resnet18_mst_outlier` | `core_mst_outlier` | ResNet18 嵌入 + MST |
 | `vision_resnet18_extra_trees_density` | `core_extra_trees_density` | ResNet18 嵌入 + ExtraTrees |
-| `vision_resnet18_oddoneout` | `core_oddoneout` | ResNet18 嵌入 + OddOneOut |
 | `vision_resnet18_mahalanobis_shrinkage` | `core_mahalanobis_shrinkage` | ResNet18 嵌入 + 收缩 Mahalanobis |
 | `vision_resnet18_torch_ae` | `core_torch_autoencoder` | ResNet18 嵌入 + Autoencoder |
 
@@ -383,7 +381,6 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `vision_onnx_lid` | `core_lid` |
 | `vision_onnx_mst_outlier` | `core_mst_outlier` |
 | `vision_onnx_extra_trees_density` | `core_extra_trees_density` |
-| `vision_onnx_oddoneout` | `core_oddoneout` |
 
 ### TorchScript 系列
 
@@ -400,7 +397,6 @@ detector = create_model("vision_ecod", contamination=0.1)
 | `vision_torchscript_pca_md` | `core_pca_md` |
 | `vision_torchscript_lid` | `core_lid` |
 | `vision_torchscript_extra_trees_density` | `core_extra_trees_density` |
-| `vision_torchscript_oddoneout` | `core_oddoneout` |
 | `vision_torchscript_mst_outlier` | `core_mst_outlier` |
 
 ---

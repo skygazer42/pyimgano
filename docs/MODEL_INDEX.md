@@ -2,7 +2,7 @@
 
 This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_index.py`.
 
-Total registered model names: **286**
+Total registered model names: **281**
 
 For deep models, **Fidelity** states whether the native code contains the paper's defining method, is an adaptation/partial/proxy, delegates to an external backend, or is a generic baseline. `related_paper` references do not claim reproduction.
 
@@ -77,7 +77,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `core_mst_outlier` |  |  |  | classical, core, features, graph, mst |  |  | MST-based outlier baseline (max incident MST edge length) | `pyimgano/models/mst_outlier.py` |
 | `core_neighborhood_entropy` |  |  |  | classical, core, features, neighbors, graph, entropy |  |  | Neighborhood entropy score over kNN distances (native baseline) | `pyimgano/models/neighborhood_entropy.py` |
 | `core_ocsvm` |  |  | Estimating the Support of a High-Dimensional Distribution | classical, core, features, svm, one-class, ocsvm | 2001 |  | Core One-Class SVM detector on feature matrices (native wrapper) | `pyimgano/models/ocsvm.py` |
-| `core_oddoneout` |  |  |  | classical, core, features, neighbors, oddoneout, cvpr2025 |  |  | Odd-One-Out (neighbor comparison) core detector on feature matrices | `pyimgano/models/core_oddoneout.py` |
 | `core_odin` |  |  |  | classical, core, features, neighbors, graph |  |  | ODIN - indegree-based kNN graph outlier detector (native) | `pyimgano/models/odin.py` |
 | `core_padim_lite` | inspired | image-level-gaussian-proxy | PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization | classical, core, features, padim, gaussian | 2020 |  | PaDiM-lite: Gaussian embedding baseline via robust covariance (Mahalanobis distance) | `pyimgano/models/padim_lite.py` |
 | `core_patchcore_lite` | inspired | image-level-memory-bank-proxy | Towards Total Recall in Industrial Anomaly Detection | classical, core, features, neighbors, memory_bank, patchcore | 2022 |  | PatchCore-lite: coreset memory bank + nearest-neighbor distance (image-level) | `pyimgano/models/patchcore_lite.py` |
@@ -200,7 +199,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_mst_outlier` |  |  |  | vision, classical, graph, mst |  |  | Vision wrapper for MST-based outlier detector | `pyimgano/models/mst_outlier.py` |
 | `vision_neighborhood_entropy` |  |  |  | vision, classical, neighbors, graph, entropy |  |  | Vision wrapper for neighborhood entropy score | `pyimgano/models/neighborhood_entropy.py` |
 | `vision_ocsvm` |  |  | Estimating the Support of a High-Dimensional Distribution | vision, classical, svm, one-class, ocsvm | 2001 |  | One-Class SVM outlier detector (sklearn backend) | `pyimgano/models/ocsvm.py` |
-| `vision_oddoneout` |  |  |  | vision, classical, neighbors, oddoneout, cvpr2025, embeddings |  |  | Odd-One-Out neighbor comparison (CVPR 2025-inspired) on deep embeddings | `pyimgano/models/oddoneout.py` |
 | `vision_odin` |  |  |  | vision, classical, neighbors, graph |  |  | Vision ODIN - indegree-based kNN graph detector | `pyimgano/models/odin.py` |
 | `vision_oneformore` | external-backend | official-source-checkpoint-inference-adapter | One-for-More: Continual Diffusion Model for Anomaly Detection | vision, deep, oneformore, continual, diffusion, reconstruction, cvpr2025, external-backend | 2025 | official-one-for-more | Official-source One-for-More CDAD checkpoint inference adapter | `pyimgano/models/oneformore.py` |
 | `vision_onnx_copod` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, fast, parameter-free |  |  | Industrial baseline: ONNX Runtime embeddings + core_copod | `pyimgano/models/industrial_wrappers.py` |
@@ -214,7 +212,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_onnx_lof` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, neighbors, density, lof |  |  | Industrial baseline: ONNX Runtime embeddings + core_lof | `pyimgano/models/industrial_wrappers.py` |
 | `vision_onnx_mcd` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, gaussian, robust, mcd |  |  | Industrial baseline: ONNX Runtime embeddings + core_mcd | `pyimgano/models/industrial_wrappers.py` |
 | `vision_onnx_mst_outlier` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, graph, mst |  |  | Industrial baseline: ONNX Runtime embeddings + core_mst_outlier | `pyimgano/models/industrial_wrappers.py` |
-| `vision_onnx_oddoneout` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, neighbors, oddoneout |  |  | Industrial baseline: ONNX Runtime embeddings + core_oddoneout | `pyimgano/models/industrial_wrappers.py` |
 | `vision_onnx_pca_md` |  |  |  | vision, classical, pipeline, industrial, embeddings, onnx, pca, distance |  |  | Industrial baseline: ONNX Runtime embeddings + core_pca_md | `pyimgano/models/industrial_wrappers.py` |
 | `vision_openclip_patch_map` | not-applicable | generic-openclip-baseline |  | vision, deep, clip, openclip, backend, pixel_map |  | openclip | OpenCLIP patch template distance anomaly map (requires pyimgano[clip]) | `pyimgano/models/openclip_patch_map.py` |
 | `vision_openclip_patchknn` | not-applicable | generic-openclip-knn-baseline |  | vision, deep, clip, openclip, backend, knn |  | openclip | OpenCLIP patch embedding + kNN detector (requires pyimgano[clip]) | `pyimgano/models/openclip_backend.py` |
@@ -255,7 +252,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_resnet18_mahalanobis_shrinkage` |  |  |  | vision, classical, pipeline, industrial, embeddings, distance, gaussian, shrinkage |  |  | Industrial baseline: resnet18 embeddings (safe) + core_mahalanobis_shrinkage | `pyimgano/models/industrial_wrappers.py` |
 | `vision_resnet18_mcd` |  |  |  | vision, classical, pipeline, industrial, embeddings, gaussian, robust, mcd |  |  | Industrial baseline: resnet18 embeddings (safe) + core_mcd (robust covariance) | `pyimgano/models/industrial_wrappers.py` |
 | `vision_resnet18_mst_outlier` |  |  |  | vision, classical, pipeline, industrial, embeddings, graph, mst |  |  | Industrial baseline: resnet18 embeddings (safe) + core_mst_outlier | `pyimgano/models/industrial_wrappers.py` |
-| `vision_resnet18_oddoneout` |  |  |  | vision, classical, pipeline, industrial, embeddings, neighbors, oddoneout |  |  | Industrial baseline: resnet18 embeddings (safe) + core_oddoneout | `pyimgano/models/industrial_wrappers.py` |
 | `vision_resnet18_pca_md` |  |  |  | vision, classical, pipeline, industrial, embeddings, pca, distance |  |  | Industrial baseline: resnet18 embeddings (safe) + core_pca_md | `pyimgano/models/industrial_wrappers.py` |
 | `vision_resnet18_torch_ae` | not-applicable | generic-industrial-pipeline |  | vision, deep, pipeline, industrial, embeddings, reconstruction |  |  | Industrial baseline: resnet18 embeddings (safe) + core_torch_autoencoder | `pyimgano/models/industrial_wrappers.py` |
 | `vision_reverse_dist` | core-aligned | paper-network-and-defaults-aligned | Anomaly Detection via Reverse Distillation from One-Class Embedding | vision, deep, distillation, pixel_map | 2022 |  | Alias for paper-aligned WideResNet50-2 Reverse Distillation | `pyimgano/models/reverse_distillation.py` |
@@ -306,7 +302,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_torchscript_lof` |  |  |  | vision, classical, pipeline, industrial, embeddings, torchscript, neighbors, density, lof |  |  | Industrial baseline: TorchScript embeddings + core_lof | `pyimgano/models/industrial_wrappers.py` |
 | `vision_torchscript_mcd` |  |  |  | vision, classical, pipeline, industrial, embeddings, torchscript, gaussian, robust, mcd |  |  | Industrial baseline: TorchScript embeddings + core_mcd (robust covariance) | `pyimgano/models/industrial_wrappers.py` |
 | `vision_torchscript_mst_outlier` |  |  |  | vision, classical, pipeline, industrial, embeddings, torchscript, graph, mst |  |  | Industrial baseline: TorchScript embeddings + core_mst_outlier | `pyimgano/models/industrial_wrappers.py` |
-| `vision_torchscript_oddoneout` |  |  |  | vision, classical, pipeline, industrial, embeddings, torchscript, neighbors, oddoneout |  |  | Industrial baseline: TorchScript embeddings + core_oddoneout | `pyimgano/models/industrial_wrappers.py` |
 | `vision_torchscript_pca_md` |  |  |  | vision, classical, pipeline, industrial, embeddings, torchscript, pca, distance |  |  | Industrial baseline: TorchScript embeddings + core_pca_md | `pyimgano/models/industrial_wrappers.py` |
 | `vision_uflow_anomalib` | external-backend | external-backend-adapter | U-Flow: A U-shaped Normalizing Flow for Anomaly Detection with Unsupervised Threshold | vision, deep, backend, anomalib, uflow, flow | 2022 | anomalib | U-Flow via anomalib backend (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_univad` | external-backend | official-source-inference-adapter | UniVAD: A Training-free Unified Model for Few-shot Visual Anomaly Detection | vision, deep, neighbors, few-shot, pixel_map, univad, cvpr2025, external-backend | 2025 | official-univad | Official-source UniVAD C³/CAPM/GECM inference adapter | `pyimgano/models/univad.py` |

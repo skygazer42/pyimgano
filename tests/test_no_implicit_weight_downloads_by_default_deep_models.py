@@ -33,13 +33,12 @@ def test_no_implicit_weight_downloads_by_default_for_selected_deep_models(
         "vision_spade",
         "vision_padim",
         "vision_simplenet",
-        "vision_oddoneout",
         "vision_softpatch",
     ]
     for name in offline_ok:
         det = create_model(name, device="cpu")
         # Some models are lazy and only build backbones on first `fit()` / `extract()`.
-        if name in {"vision_oddoneout", "vision_patchcore_lite_map"}:
+        if name == "vision_patchcore_lite_map":
             import numpy as np
 
             x = np.zeros((2, 64, 64, 3), dtype=np.uint8)

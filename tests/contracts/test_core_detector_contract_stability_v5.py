@@ -12,7 +12,6 @@ import pytest
         "core_knn_cosine_calibrated",
         "core_mahalanobis_shrinkage",
         "core_cosine_mahalanobis",
-        "core_oddoneout",
     ],
 )
 def test_core_detector_contract_torch_inputs_and_nan_handling(model_name: str) -> None:

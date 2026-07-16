@@ -24,7 +24,7 @@ Why this route works well:
 - **Core detector**: consumes a feature matrix `X: np.ndarray (N, D)`
   - examples: `core_ecod`, `core_copod`, `core_knn`, `core_knn_cosine`, `core_knn_cosine_calibrated`, `core_iforest`
   - robust/statistical: `core_mahalanobis_shrinkage`, `core_cosine_mahalanobis`, `core_mcd`, `core_pca_md`
-  - local/graph: `core_lof`, `core_lid`, `core_oddoneout`, `core_mst_outlier`
+  - local/graph: `core_lof`, `core_lid`, `core_loop`, `core_mst_outlier`
   - simple density: `core_extra_trees_density`
   - deep-on-embeddings: `core_torch_autoencoder`
 
@@ -55,14 +55,14 @@ Why this route works well:
      - `vision_resnet18_ecod` / `vision_resnet18_copod`
      - `vision_resnet18_knn_cosine_calibrated` (stable [0,1] score scale via unsupervised calibration)
      - `vision_resnet18_mahalanobis_shrinkage` / `vision_resnet18_cosine_mahalanobis` (Gaussian distance baselines)
-     - `vision_resnet18_oddoneout` / `vision_resnet18_lof` (local anomaly baselines)
+     - `vision_resnet18_lof` (local anomaly baseline)
      - `vision_resnet18_pca_md` / `vision_resnet18_extra_trees_density` (sanity-check baselines)
      - `vision_resnet18_mcd` (robust covariance; useful when you suspect heavy tails / outliers)
      - `vision_resnet18_mst_outlier` (graph baseline)
    - TorchScript embeddings route (deployment-friendly; requires `checkpoint_path`)
      - `vision_torchscript_ecod` / `vision_torchscript_copod`
      - `vision_torchscript_knn_cosine_calibrated` / `vision_torchscript_cosine_mahalanobis`
-     - `vision_torchscript_oddoneout` / `vision_torchscript_lof`
+     - `vision_torchscript_lof`
    - Structural CPU route (no torch; useful as an offline/CPU fallback)
      - `vision_structural_ecod` / `vision_structural_copod` / `vision_structural_iforest`
      - `vision_structural_knn` / `vision_structural_lof`
@@ -80,7 +80,7 @@ This is a practical “start here” menu for common industrial scenarios.
 | **Stable score scale across lines/cameras** | `vision_resnet18_knn_cosine_calibrated` | Unsupervised score standardization makes thresholds more portable |
 | **Gaussian distance baseline** | `vision_resnet18_mahalanobis_shrinkage` | Strong, stable covariance baseline for embeddings |
 | **Directional embeddings (magnitude noisy)** | `vision_resnet18_cosine_mahalanobis` | L2-normalized Mahalanobis (cosine-style) |
-| **Local/cluster anomalies** | `vision_resnet18_oddoneout` / `vision_resnet18_lof` | Neighborhood comparison / density baselines |
+| **Local/cluster anomalies** | `vision_resnet18_lof` | Local-density baseline |
 | **Robust covariance (outliers/heavy tails)** | `vision_resnet18_mcd` | Robust estimator; avoid extremely high-dimensional features |
 | **Pure CPU fallback (no torch)** | `vision_structural_ecod` / `vision_structural_copod` | Deterministic, dependency-light baseline |
 
