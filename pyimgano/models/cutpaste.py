@@ -581,7 +581,10 @@ class CutPasteDetector(BaseVisionDeepDetector):
                 features = self._extract_features(batch_tensor)
                 features_list.append(features.cpu().numpy())
 
-        features = np.vstack(features_list)
+        # Fit the Gaussian in double precision.  SciPy's single-precision
+        # eigensolver can fail for CutPaste's small-sample, 512-D feature sets
+        # on macOS, while float64 preserves the same Ledoit-Wolf estimator.
+        features = np.asarray(np.vstack(features_list), dtype=np.float64)
 
         density = LedoitWolf().fit(features)
         self.reference_mean = np.asarray(density.location_, dtype=np.float32)
