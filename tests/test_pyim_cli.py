@@ -359,8 +359,8 @@ def test_pyim_list_families_includes_parallel_algorithm_families(capsys):
         "adaclip",
         "aaclip",
         "logsad",
-        "anogen",
     }.issubset(names)
+    assert "anogen" not in names
 
 
 def test_pyim_list_metadata_contract_outputs_json(capsys):

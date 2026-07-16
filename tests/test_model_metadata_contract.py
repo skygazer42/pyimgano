@@ -184,24 +184,21 @@ def test_all_deep_models_resolve_a_valid_supervision_contract() -> None:
     assert report["invalid_fields_by_model"] == {}
 
 
-def test_corrected_proxy_references_do_not_repeat_legacy_citation_errors() -> None:
+def test_corrected_riad_reference_does_not_repeat_legacy_citation_error() -> None:
     import pyimgano.models  # noqa: F401 - registry population side effects
     from pyimgano.models.registry import MODEL_REGISTRY
 
-    anogen = MODEL_REGISTRY.info("vision_anogen_adapter").metadata
     riad = MODEL_REGISTRY.info("vision_riad").metadata
 
-    assert anogen["year"] == 2024
-    assert "Few-Shot Anomaly-Driven Generation" in anogen["related_paper"]
-    assert "eccv_2024" in anogen["related_paper_url"]
     assert riad["paper_url"] == "https://doi.org/10.1016/j.patcog.2020.107706"
     assert riad["year"] == 2021
     assert "2108.11092" not in str(riad)
 
 
 def test_unregistered_legacy_neural_modules_disclaim_unverified_paper_status() -> None:
-    from pyimgano.models import bgad, csflow, dsr, intra, one_to_normal, pni, rdplusplus
+    from pyimgano.models import anogen, bgad, csflow, dsr, intra, one_to_normal, pni, rdplusplus
 
+    assert anogen.IMPLEMENTATION_STATUS == "unregistered-workflow-not-detector"
     assert bgad.PAPER_FIDELITY == "not-applicable"
     assert csflow.PAPER_FIDELITY == "partial"
     assert dsr.PAPER_FIDELITY == "not-applicable"

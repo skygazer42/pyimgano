@@ -81,11 +81,12 @@ def test_infer_cli_can_list_models_by_density_estimation_type(capsys) -> None:
 def test_infer_cli_can_list_models_by_new_parallel_family(capsys) -> None:
     from pyimgano.infer_cli import main as infer_main
 
-    rc = infer_main(["--list-models", "--family", "anogen", "--year", "2024"])
+    rc = infer_main(["--list-models", "--family", "adaclip", "--year", "2024"])
     assert rc == 0
 
     out = capsys.readouterr().out.strip().splitlines()
-    assert "vision_anogen_adapter" in out
+    assert "vision_adaclip" in out
+    assert "vision_anogen_adapter" not in out
     assert "vision_one_to_normal" not in out
 
 

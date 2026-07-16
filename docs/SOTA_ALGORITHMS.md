@@ -310,7 +310,6 @@ The following names remain available for compatibility, but the local classes
 are **not paper reproductions**:
 
 - `vision_patchcore_lite_map`
-- `vision_anogen_adapter`
 
 The former `vision_one_to_normal` key was removed. Its local pixel-residual
 normalizer did not implement the paper's Stable Diffusion v1.5/DreamBooth
@@ -319,6 +318,17 @@ artifact at commit `1faca331bf876a66f105a8f5aa095e399c21e44d` is not a runnable
 release: its script imports a missing `model.py`, references absent projection
 and DreamBooth weights, and uses 518px while the paper specifies 240px. Restore
 the model only after the authors publish a complete, verifiable runtime.
+
+The former `vision_anogen_adapter` key was also removed. AnoGen is a
+three-stage anomaly-data workflow: learn a mask-guided embedding with a frozen
+LDM, generate box-guided anomalies, then train weakly supervised DRAEM or
+DeSTSeg. The deleted local class instead scored mean-image residuals, which is
+not in the paper. At author commit
+`11ade1bd89ec3bb89646d70b6b95f2c69053f973`, the paper specifies CLIP/768 and
+6000 embedding steps, while the checked-in LDM configuration uses
+`BERTEmbedder`/1280 and 6100 maximum steps. The release includes anomaly
+embeddings but no trained detector checkpoint; expose it again only as an
+explicit generation/training workflow, not as a registry detector.
 
 `vision_dst`, `vision_favae`, and `vision_gcad` are generic baselines; their old
 paper titles could not be verified and were removed. The directly importable

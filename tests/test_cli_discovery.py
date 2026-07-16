@@ -68,10 +68,11 @@ def test_cli_list_models_supports_year_and_type_filters(capsys):
 def test_cli_list_models_supports_new_parallel_family_filters(capsys):
     from pyimgano.cli import main
 
-    code = main(["--list-models", "--year", "2024", "--family", "anogen"])
+    code = main(["--list-models", "--year", "2024", "--family", "adaclip"])
     assert code == 0
     out = capsys.readouterr().out
-    assert "vision_anogen_adapter" in out
+    assert "vision_adaclip" in out
+    assert "vision_anogen_adapter" not in out
     assert "vision_one_to_normal" not in out
 
 

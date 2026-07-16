@@ -6,11 +6,11 @@ title: 模型注册表
 
 === "中文"
 
-    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **287** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
+    pyimgano 通过统一的模型注册表管理所有检测器。目前共注册 **286** 个模型名称（包含别名），覆盖经典统计方法、深度学习模型和视觉语言模型。所有模型通过 `create_model()` 统一创建。
 
 === "English"
 
-    pyimgano manages all detectors through a unified model registry. Currently **287** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
+    pyimgano manages all detectors through a unified model registry. Currently **286** model names are registered (including aliases), covering classical statistical methods, deep learning models, and vision-language models. All models are created via `create_model()`.
 
 ---
 

@@ -10,9 +10,10 @@ from pyimgano.services.discovery_service import (
 
 
 def test_list_discovery_model_names_supports_family_and_year_filters() -> None:
-    names = list_discovery_model_names(family="anogen", year="2024")
+    names = list_discovery_model_names(family="adaclip", year="2024")
     assert isinstance(names, list)
-    assert "vision_anogen_adapter" in names
+    assert "vision_adaclip" in names
+    assert "vision_anogen_adapter" not in names
 
 
 def test_build_model_info_payload_returns_json_ready_shape() -> None:

@@ -1,40 +1,25 @@
 from __future__ import annotations
 
-import numpy as np
-import pytest
-
 import pyimgano.models as models
+from pyimgano.models import anogen
 
 
-class _FakeAnoGenerator:
-    def generate(self, image: np.ndarray):
-        arr = np.asarray(image, dtype=np.float32)
-        generated = np.array(arr, copy=True)
-        generated[1:3, 1:3] += 4.0
-        mask = np.zeros(arr.shape[:2], dtype=np.float32)
-        mask[1:3, 1:3] = 1.0
-        return generated, mask, {"kind": "square"}
-
-
-def test_anogen_adapter_generates_pairs_and_scores_anomaly_higher() -> None:
-    detector = models.create_model(
-        "vision_anogen_adapter",
-        generator=_FakeAnoGenerator(),
+def test_anogen_workflow_is_not_registered_as_a_detector() -> None:
+    assert "vision_anogen_adapter" not in models.list_models()
+    assert anogen.IMPLEMENTATION_STATUS == "unregistered-workflow-not-detector"
+    assert anogen.AUTHOR_REPOSITORY_COMMIT == "11ade1bd89ec3bb89646d70b6b95f2c69053f973"
+    assert (anogen.PAPER_TEXT_ENCODER, anogen.PAPER_EMBEDDING_DIM) == ("CLIP", 768)
+    assert (anogen.PAPER_SUPPORT_SHOTS, anogen.PAPER_EMBEDDING_TRAIN_STEPS) == (3, 6000)
+    assert anogen.PAPER_EMBEDDING_LEARNING_RATE == 0.005
+    assert (anogen.PAPER_MASKS_PER_NORMAL_IMAGE, anogen.PAPER_IMAGES_PER_MASK) == (2, 2)
+    assert anogen.PAPER_NORMAL_CONFIDENCE_THRESHOLD == 0.9
+    assert anogen.PAPER_GENERATED_SAMPLE_PROBABILITY == 0.5
+    assert anogen.PAPER_GENERATED_DATASET_SIZE == 70_760
+    assert (anogen.AUTHOR_CODE_TEXT_ENCODER, anogen.AUTHOR_CODE_CONTEXT_DIM) == (
+        "BERTEmbedder",
+        1280,
     )
-
-    normal = np.zeros((4, 4), dtype=np.float32)
-    shifted = np.zeros((4, 4), dtype=np.float32)
-    shifted[1:3, 1:3] = 3.0
-
-    pairs = detector.generate_training_pairs([normal])
-    assert len(pairs) == 1
-    assert np.allclose(pairs[0]["normal"], normal)
-    assert pairs[0]["anomalous"].shape == normal.shape
-    assert pairs[0]["mask"].shape == normal.shape
-    assert np.isclose(float(np.sum(pairs[0]["mask"])), 4.0)
-    assert pairs[0]["meta"]["kind"] == "square"
-
-    detector.fit([normal])
-    scores = np.asarray(detector.decision_function([normal, shifted]), dtype=np.float64)
-    assert scores.shape == (2,)
-    assert float(scores[1]) > float(scores[0])
+    assert anogen.AUTHOR_CODE_IMAGE_SIZE == 256
+    assert anogen.AUTHOR_CODE_MAX_STEPS == 6100
+    assert anogen.AUTHOR_RELEASE_HAS_ANOMALY_EMBEDDINGS is True
+    assert anogen.AUTHOR_RELEASE_HAS_DETECTOR_CHECKPOINT is False

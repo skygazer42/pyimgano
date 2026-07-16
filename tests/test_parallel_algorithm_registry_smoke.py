@@ -10,6 +10,5 @@ def test_parallel_algorithm_family_placeholders_register():
         "vision_adaclip",
         "vision_aaclip",
         "vision_logsad",
-        "vision_anogen_adapter",
     }
     assert expected.issubset(available)

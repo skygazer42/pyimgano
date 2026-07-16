@@ -174,7 +174,7 @@ _MODEL_MODULE_ALLOWLIST: tuple[str, ...] = (
     "univad",
     "logsad",
     "filopp",
-    # Experimental family adapters (not paper reproductions)
+    # Unregistered workflow provenance marker
     "anogen",
     # Pipelines registered as models
     "feature_pipeline",

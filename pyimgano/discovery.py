@@ -123,11 +123,6 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
         tags=("logsad",),
     ),
     ModelFamily(
-        name="anogen",
-        description="AnoGen anomaly-driven generation and residual scoring detectors.",
-        tags=("anogen",),
-    ),
-    ModelFamily(
         name="backend",
         description="Optional backend wrappers and external integration families.",
         tags=("backend",),

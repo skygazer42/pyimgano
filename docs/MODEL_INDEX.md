@@ -2,7 +2,7 @@
 
 This file is auto-generated from `pyimgano/models/*` by `tools/generate_model_index.py`.
 
-Total registered model names: **287**
+Total registered model names: **286**
 
 For deep models, **Fidelity** states whether the native code contains the paper's defining method, is an adaptation/partial/proxy, delegates to an external backend, or is a generic baseline. `related_paper` references do not claim reproduction.
 
@@ -122,7 +122,6 @@ See `docs/DEEP_LEARNING_MODELS.md` for a minimal template.
 | `vision_adaclip` | paper-adaptation | native-paper-inference-openclip-adaptation | AdaCLIP: Adapting CLIP with Hybrid Learnable Prompts for Zero-Shot Anomaly Detection | vision, deep, clip, openclip, zero-shot, prompt, pixel_map, adaclip, eccv2024 | 2024 |  | Native AdaCLIP hybrid visual/text prompt and HSF inference path | `pyimgano/models/adaclip.py` |
 | `vision_ae1svm` | not-applicable | generic-composite-baseline |  | vision, deep, svm |  |  | Autoencoder plus one-class SVM visual baseline | `pyimgano/models/ae1svm.py` |
 | `vision_alad` | paper-adaptation | paper-image-network-industrial-input-adaptation | Adversarially Learned Anomaly Detection | vision, deep, gan, cycle-consistency, spectral-normalization | 2018 |  | ALAD with the paper image network, losses, EMA, and feature score | `pyimgano/models/alad.py` |
-| `vision_anogen_adapter` | inspired | experimental-family-adapter | Few-Shot Anomaly-Driven Generation for Anomaly Classification and Segmentation | vision, deep, reconstruction, few-shot, numpy, anogen, pixel_map | 2024 |  | Injectable generator/residual adapter inspired by AnoGen; not a reproduction | `pyimgano/models/anogen.py` |
 | `vision_anomalib_checkpoint` | external-backend | external-backend-adapter |  | vision, deep, backend, anomalib |  | anomalib | Generic anomalib checkpoint inferencer wrapper (requires pyimgano[anomalib]) | `pyimgano/models/anomalib_backend.py` |
 | `vision_anomalydino` | paper-adaptation | native-paper-method-dinov2-adaptation | AnomalyDINO: Boosting Patch-based Few-shot Anomaly Detection with DINOv2 | vision, deep, anomalydino, knn, dinov2, few-shot, numpy, pixel_map, neighbors, wacv2025 | 2025 |  | Native AnomalyDINO DINOv2 patch-memory and preprocessing adaptation | `pyimgano/models/anomalydino.py` |
 | `vision_ast` | paper-adaptation | paper-mvtec-ad-rgb-path-aligned | Asymmetric Student-Teacher Networks for Industrial Anomaly Detection | vision, deep, ast, student-teacher, normalizing-flow, pixel_map | 2023 |  | AST RGB path with a conditional-flow teacher and residual convolutional student | `pyimgano/models/ast.py` |
