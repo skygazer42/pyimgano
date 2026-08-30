@@ -341,6 +341,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional checkpoint path for checkpoint-backed models; sets model kwarg checkpoint_path",
     )
     parser.add_argument(
+        "--trust-checkpoint",
+        action="store_true",
+        help=(
+            "Allow executable legacy joblib/pickle fallback when restoring a trained checkpoint "
+            "from --from-run/--infer-config. Use only after verifying artifact provenance."
+        ),
+    )
+    parser.add_argument(
         "--train-dir",
         default=None,
         help="Optional directory of normal images used to `fit()` and calibrate threshold",
@@ -818,6 +826,7 @@ def main(argv: list[str] | None = None) -> int:
                     context=context,
                     seed=seed,
                     user_kwargs=user_kwargs,
+                    trust_checkpoint=bool(args.trust_checkpoint),
                 ),
                 create_detector=create_model,
             )
@@ -882,6 +891,7 @@ def main(argv: list[str] | None = None) -> int:
                     context=context,
                     seed=seed,
                     user_kwargs=user_kwargs,
+                    trust_checkpoint=bool(args.trust_checkpoint),
                 ),
                 create_detector=create_model,
             )

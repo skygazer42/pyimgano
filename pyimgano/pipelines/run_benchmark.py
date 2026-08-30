@@ -34,6 +34,7 @@ class RunConfig:
     model_kwargs: dict[str, Any] | None = None
     cache_dir: str | None = None
     load_detector_path: str | None = None
+    trust_detector: bool = False
     save_detector_path: str | None = None
     score_threshold_strategy: ScoreThresholdStrategy = "train_quantile"
     calibration_quantile: float | None = None
@@ -313,10 +314,17 @@ def run_benchmark_category(
         auto_defaults["random_state"] = int(config.seed)
 
     if load_detector_requested:
+        if not config.trust_detector:
+            raise ValueError(
+                "Refusing executable detector pickle. Pass trust_detector=True "
+                "only after verifying artifact provenance and integrity."
+            )
         load_detector_start = time.perf_counter()
         from pyimgano.serialization import load_detector
 
-        detector = load_detector(str(config.load_detector_path))
+        # Supplying --load-detector is the CLI's explicit trust decision; the
+        # option help warns that pickle artifacts must come from a trusted source.
+        detector = load_detector(str(config.load_detector_path), trusted=True)
         timing["load_detector_s"] = float(time.perf_counter() - load_detector_start)
     else:
         create_model_start = time.perf_counter()
@@ -521,6 +529,7 @@ def run_benchmark(
     per_image_jsonl: bool = True,
     cache_dir: str | Path | None = None,
     load_detector_path: str | Path | None = None,
+    trust_detector: bool = False,
     save_detector_path: str | Path | None = None,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -552,6 +561,7 @@ def run_benchmark(
             load_detector_path=(
                 str(load_detector_path) if load_detector_path is not None else None
             ),
+            trust_detector=bool(trust_detector),
             save_detector_path=(
                 str(save_detector_path) if save_detector_path is not None else None
             ),

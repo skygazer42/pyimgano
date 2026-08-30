@@ -96,6 +96,7 @@ class TrainingConfig:
     ema_decay: float | None = None
     ema_start_epoch: int | None = None
     resume_from_checkpoint: str | None = None
+    trust_checkpoint: bool = False
     checkpoint_name: str = "model.pt"
     tracker_backend: str | None = None
     tracker_dir: str | None = None

@@ -10,7 +10,7 @@ Provides tools for:
 Example:
     >>> from pyimgano.utils.model_utils import save_model, load_model
     >>> save_model(detector, 'my_model.pkl')
-    >>> detector = load_model('my_model.pkl')
+    >>> detector = load_model('my_model.pkl', trusted=True)
 """
 
 import json
@@ -52,25 +52,34 @@ def save_model(
     protocol = pickle.HIGHEST_PROTOCOL if compression else pickle.DEFAULT_PROTOCOL
 
     with open(save_path, "wb") as f:
-        pickle.dump(save_dict, f, protocol=protocol)
+        pickle.dump(  # nosemgrep: python.lang.security.deserialization.pickle.avoid-pickle
+            save_dict, f, protocol=protocol
+        )  # Intentional legacy format; loaders require explicit trust.
 
     print(f"Model saved to: {save_path}")
 
 
-def load_model(path: str) -> Any:
-    """Load model from disk.
+def load_model(path: str, *, trusted: bool = False) -> Any:
+    """Load a model from a trusted pickle artifact.
 
     Args:
         path: Path to saved model
+        trusted: Explicit acknowledgement that the artifact's origin and
+            integrity have been independently verified.
 
     Returns:
         Loaded model
 
     Example:
-        >>> detector = load_model('patchcore_bottle.pkl')
+        >>> detector = load_model('patchcore_bottle.pkl', trusted=True)
     """
+    if not trusted:
+        raise ValueError(
+            "Refusing to load executable pickle without trusted=True. "
+            "Only load model artifacts from a verified source."
+        )
     with open(path, "rb") as f:
-        save_dict = pickle.load(f)  # nosec B301 - expected to load trusted artifacts
+        save_dict = pickle.load(f)  # nosemgrep  # nosec B301 - trusted gate above
 
     model = save_dict["model"]
     metadata = save_dict.get("metadata", {})
@@ -110,7 +119,9 @@ def save_checkpoint(
     save_dict = {"model": model, "epoch": epoch, "metrics": metrics or {}, "timestamp": time.time()}
 
     with open(checkpoint_path, "wb") as f:
-        pickle.dump(save_dict, f, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(  # nosemgrep: python.lang.security.deserialization.pickle.avoid-pickle
+            save_dict, f, protocol=pickle.HIGHEST_PROTOCOL
+        )  # Intentional legacy format; loaders require explicit trust.
 
     # Clean up old checkpoints
     checkpoints = sorted(save_dir.glob("checkpoint_epoch_*.pkl"))
@@ -121,22 +132,31 @@ def save_checkpoint(
     print(f"Checkpoint saved: {checkpoint_path}")
 
 
-def load_checkpoint(path: str) -> Dict[str, Any]:
-    """Load model checkpoint.
+def load_checkpoint(path: str, *, trusted: bool = False) -> Dict[str, Any]:
+    """Load a model checkpoint from a trusted pickle artifact.
 
     Args:
         path: Path to checkpoint
+        trusted: Explicit acknowledgement that the artifact's origin and
+            integrity have been independently verified.
 
     Returns:
         Dictionary with model, epoch, and metrics
 
     Example:
-        >>> checkpoint = load_checkpoint('./checkpoints/checkpoint_epoch_0010.pkl')
+        >>> checkpoint = load_checkpoint(
+        ...     './checkpoints/checkpoint_epoch_0010.pkl', trusted=True
+        ... )
         >>> model = checkpoint['model']
         >>> epoch = checkpoint['epoch']
     """
+    if not trusted:
+        raise ValueError(
+            "Refusing to load executable pickle without trusted=True. "
+            "Only load checkpoint artifacts from a verified source."
+        )
     with open(path, "rb") as f:
-        checkpoint = pickle.load(f)  # nosec B301 - expected to load trusted artifacts
+        checkpoint = pickle.load(f)  # nosemgrep  # nosec B301 - trusted gate above
 
     print(f"Checkpoint loaded from: {path}")
     print(f"Epoch: {checkpoint.get('epoch', 'N/A')}")
@@ -317,7 +337,9 @@ class ModelRegistry:
             raise ValueError(f"Model '{name}' not found in registry")
 
         model_path = self.index[name]["path"]
-        return load_model(model_path)
+        # Registry entries are created and indexed inside this managed base
+        # directory; callers should secure that directory against replacement.
+        return load_model(model_path, trusted=True)
 
     def list_models(self) -> Dict[str, Dict]:
         """List all registered models.

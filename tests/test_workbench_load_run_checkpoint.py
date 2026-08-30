@@ -59,7 +59,7 @@ def test_load_checkpoint_into_detector_restores_joblib_serialized_detector_state
     save_model(fitted, ckpt)
 
     det = _SerializableDetector(marker="fresh")
-    load_checkpoint_into_detector(det, ckpt)
+    load_checkpoint_into_detector(det, ckpt, trusted=True)
 
     assert det.marker == "trained"
     assert math.isclose(det.threshold_, 0.42)
@@ -79,7 +79,7 @@ def test_load_checkpoint_into_detector_unwraps_runtime_tiling_wrapper_state(tmp_
     save_model(TiledDetector(detector=fitted, tile_size=4, stride=4), ckpt)
 
     det = _SerializableDetector(marker="fresh")
-    load_checkpoint_into_detector(det, ckpt)
+    load_checkpoint_into_detector(det, ckpt, trusted=True)
 
     assert det.marker == "trained"
     assert math.isclose(det.threshold_, 0.24)

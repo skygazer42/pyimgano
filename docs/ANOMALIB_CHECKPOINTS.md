@@ -34,9 +34,12 @@ All anomalib checkpoint wrappers are registered models (so they work with `pyimg
 
 - `vision_anomalib_checkpoint` (generic; requires `checkpoint_path`)
 
-### Alias wrappers (tags/metadata only)
+### Identity-checked alias wrappers
 
-These currently map to the same inference wrapper implementation, but provide clearer names for reports and filtering:
+These map to the same inference wrapper implementation, but fail closed unless
+the exported backend model class or anomalib metadata proves the expected model
+identity. This prevents, for example, a PaDiM export from being reported as
+PatchCore merely because it was supplied to the PatchCore alias:
 
 - `vision_patchcore_anomalib`
 - `vision_padim_anomalib`
@@ -108,6 +111,8 @@ Rules:
 - `--model-kwargs` must be a **JSON object**.
 - `--checkpoint-path` and `--model-kwargs '{"checkpoint_path": "..."}'` must **match** (conflicts error out).
 - For strict constructors (no `**kwargs`), unknown keys in `--model-kwargs` are rejected with a clear error.
+- If a legacy anomalib export does not embed a verifiable model identity, use
+  `vision_anomalib_checkpoint`; a model-specific alias will reject it.
 
 ---
 

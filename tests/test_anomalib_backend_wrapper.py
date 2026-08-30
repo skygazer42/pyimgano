@@ -123,3 +123,39 @@ def test_anomalib_checkpoint_wrapper_normalizes_map_shapes():
     m2 = model.get_anomaly_map("b.png")
     assert m2.shape == (3, 5)
     assert m2.dtype == np.float32
+
+
+def test_anomalib_model_alias_verifies_export_identity() -> None:
+    from pyimgano.models.anomalib_backend import VisionPatchCoreAnomalib
+
+    class PatchcoreExport:
+        pass
+
+    inferencer = _FakeInferencerDict({}, {})
+    inferencer.model = PatchcoreExport()
+
+    model = VisionPatchCoreAnomalib(
+        checkpoint_path="ignored.pt",
+        inferencer=inferencer,
+    )
+
+    assert model.anomalib_model_identity == "patchcore"
+
+
+def test_anomalib_model_alias_rejects_wrong_or_unverifiable_identity() -> None:
+    from pyimgano.models.anomalib_backend import VisionPatchCoreAnomalib
+
+    class PadimExport:
+        pass
+
+    wrong = _FakeInferencerDict({}, {})
+    wrong.model = PadimExport()
+
+    with pytest.raises(ValueError, match="could not be verified as 'patchcore'"):
+        VisionPatchCoreAnomalib(checkpoint_path="wrong.pt", inferencer=wrong)
+
+    with pytest.raises(ValueError, match="no identity metadata"):
+        VisionPatchCoreAnomalib(
+            checkpoint_path="legacy.pt",
+            inferencer=_FakeInferencerDict({}, {}),
+        )

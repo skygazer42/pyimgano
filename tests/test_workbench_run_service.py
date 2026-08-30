@@ -28,7 +28,9 @@ def test_workbench_run_service_delegates_to_workbench_load_run(monkeypatch) -> N
     monkeypatch.setattr(
         load_run,
         "load_checkpoint_into_detector",
-        lambda detector, checkpoint_path: calls.append(("checkpoint", detector, checkpoint_path)),
+        lambda detector, checkpoint_path, *, trusted=False: calls.append(
+            ("checkpoint", detector, (checkpoint_path, trusted))
+        ),
     )
 
     detector = object()
@@ -39,5 +41,5 @@ def test_workbench_run_service_delegates_to_workbench_load_run(monkeypatch) -> N
     assert result == {"kind": "config"}
     assert calls == [
         ("config", "/tmp/run", None),
-        ("checkpoint", detector, "/tmp/model.pt"),
+        ("checkpoint", detector, ("/tmp/model.pt", False)),
     ]

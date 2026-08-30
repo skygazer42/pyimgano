@@ -275,6 +275,10 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
         t_map.get("resume_from_checkpoint", None),
         name="training.resume_from_checkpoint",
     )
+    trust_checkpoint = _optional_bool(
+        t_map.get("trust_checkpoint", False),
+        name="training.trust_checkpoint",
+    )
     tracker_backend_raw = t_map.get("tracker_backend", None)
     tracker_backend: str | None = None
     if tracker_backend_raw is not None:
@@ -366,6 +370,7 @@ def _parse_training_config(top: Mapping[str, Any]) -> TrainingConfig:
         ema_decay=ema_decay,
         ema_start_epoch=ema_start_epoch,
         resume_from_checkpoint=resume_from_checkpoint,
+        trust_checkpoint=bool(trust_checkpoint),
         checkpoint_name=_parse_checkpoint_name(t_map.get("checkpoint_name", None)),
         tracker_backend=tracker_backend,
         tracker_dir=tracker_dir,

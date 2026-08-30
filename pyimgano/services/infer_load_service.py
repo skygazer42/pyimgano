@@ -36,6 +36,7 @@ class ConfigBackedInferLoadRequest:
     context: ConfigBackedInferContext
     seed: int | None = None
     user_kwargs: dict[str, Any] | None = None
+    trust_checkpoint: bool = False
 
 
 @dataclass(frozen=True)
@@ -161,7 +162,14 @@ def load_config_backed_infer_detector(
         load_checkpoint_fn = workbench_run_service.load_checkpoint_into_detector
 
     if context.trained_checkpoint_path is not None:
-        load_checkpoint_fn(detector, str(context.trained_checkpoint_path))
+        if load_checkpoint is None:
+            workbench_run_service.load_checkpoint_into_detector(
+                detector,
+                str(context.trained_checkpoint_path),
+                trusted=bool(request.trust_checkpoint),
+            )
+        else:
+            load_checkpoint_fn(detector, str(context.trained_checkpoint_path))
     if context.threshold is not None:
         setattr(detector, "threshold_", float(context.threshold))
 

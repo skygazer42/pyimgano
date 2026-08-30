@@ -56,6 +56,23 @@ class _FakePatchCoreInferencer:
         return list(self._scores), list(self._maps)
 
 
+def test_patchcore_inspection_rejects_artifact_input_shape_mismatch() -> None:
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+
+    from pyimgano.models.patchcore_inspection_backend import VisionPatchCoreInspectionCheckpoint
+
+    inferencer = _FakePatchCoreInferencer(scores=[0.0], maps=[np.zeros((320, 320))])
+    inferencer.input_shape = (3, 320, 320)
+
+    with pytest.raises(ValueError, match="artifact input_shape.*imagesize"):
+        VisionPatchCoreInspectionCheckpoint(
+            checkpoint_path="trusted-artifact",
+            inferencer=inferencer,
+            imagesize=224,
+        )
+
+
 def test_patchcore_inspection_wrapper_calibrates_threshold_and_maps(tmp_path):
     pytest.importorskip("torch")
     pytest.importorskip("torchvision")

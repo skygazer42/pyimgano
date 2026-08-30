@@ -50,7 +50,7 @@ def test_cli_can_save_detector_pickle(tmp_path) -> None:
     detector_path = out_dir / "detector.pkl"
     assert detector_path.exists()
 
-    detector = load_detector(detector_path)
+    detector = load_detector(detector_path, trusted=True)
     assert hasattr(detector, "decision_function")
 
     payload = json.loads((out_dir / "report.json").read_text(encoding="utf-8"))
@@ -94,6 +94,7 @@ def test_cli_can_load_detector_pickle_and_skip_fit(tmp_path) -> None:
             "2",
             "--load-detector",
             str(detector_path),
+            "--trust-detector",
             "--output-dir",
             str(out_dir),
         ]

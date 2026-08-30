@@ -28,6 +28,52 @@ from pyimgano.utils.fitted import require_fitted
 from .base_detector import BaseDetector
 from .registry import register_model
 
+_PCA_FITTED_ATTRIBUTES = (
+    "components_",
+    "explained_variance_",
+    "explained_variance_ratio_",
+    "singular_values_",
+    "mean_",
+    "n_components_",
+    "n_samples_",
+    "noise_variance_",
+    "n_features_in_",
+    "feature_names_in_",
+)
+
+
+def _pca_to_safe_state(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    from sklearn.decomposition import PCA
+
+    if not isinstance(value, PCA):
+        raise TypeError(
+            "StudentTeacherLite checkpointing supports only sklearn.decomposition.PCA "
+            f"for extractor _pca state, got {type(value).__name__}"
+        )
+    fitted = {name: getattr(value, name) for name in _PCA_FITTED_ATTRIBUTES if hasattr(value, name)}
+    return {"params": dict(value.get_params(deep=False)), "fitted": fitted}
+
+
+def _pca_from_safe_state(payload: Any) -> Any:
+    if payload is None:
+        return None
+    if not isinstance(payload, Mapping):
+        raise ValueError("Invalid PCA state in StudentTeacherLite checkpoint.")
+    from sklearn.decomposition import PCA
+
+    params = payload.get("params", {})
+    fitted = payload.get("fitted", {})
+    if not isinstance(params, Mapping) or not isinstance(fitted, Mapping):
+        raise ValueError("Invalid PCA parameters in StudentTeacherLite checkpoint.")
+    pca = PCA(**dict(params))
+    for name, value in fitted.items():
+        if str(name) not in _PCA_FITTED_ATTRIBUTES:
+            raise ValueError(f"Unsupported PCA fitted attribute: {name!r}")
+        setattr(pca, str(name), value)
+    return pca
+
 
 def _ridge_solve(
     student_features: np.ndarray, teacher_features: np.ndarray, *, ridge: float
@@ -74,7 +120,7 @@ def _feature_extractor_to_spec(extractor: Any) -> dict[str, Any]:
         if key in params:
             continue
         if key == "_pca":
-            state[key] = value
+            state["_pca_state"] = _pca_to_safe_state(value)
             continue
         if str(key).startswith("_"):
             continue
@@ -117,9 +163,11 @@ def _feature_extractor_from_spec(payload: Mapping[str, Any]) -> BaseFeatureExtra
     state = payload.get("state", {})
     if isinstance(state, Mapping):
         for key, value in state.items():
-            if str(key) == "_model_state_dict":
+            if str(key) in {"_model_state_dict", "_pca_state"}:
                 continue
             setattr(extractor, str(key), value)
+        if "_pca_state" in state:
+            setattr(extractor, "_pca", _pca_from_safe_state(state["_pca_state"]))
         model_state = state.get("_model_state_dict", None)
         ensure_ready = getattr(extractor, "_ensure_ready", None)
         if isinstance(model_state, Mapping) and callable(ensure_ready):
@@ -218,7 +266,7 @@ class VisionStudentTeacherLite(BaseDetector):
     def save_checkpoint(self, path: str | Path) -> Path:
         require_fitted(self, ["W_"])
 
-        from pyimgano.models.serialization import save_model
+        from pyimgano.serialization.safe_checkpoint import save_safe_checkpoint
 
         payload = {
             "schema_version": 1,
@@ -248,12 +296,12 @@ class VisionStudentTeacherLite(BaseDetector):
                 "pot_min_exceedances": int(getattr(self, "pot_min_exceedances", 20)),
             },
         }
-        return save_model(payload, path)
+        return save_safe_checkpoint(payload, path)
 
     def load_checkpoint(self, path: str | Path) -> None:
-        from pyimgano.models.serialization import load_model
+        from pyimgano.serialization.safe_checkpoint import load_safe_checkpoint
 
-        payload = load_model(path)
+        payload = load_safe_checkpoint(path)
         if not isinstance(payload, Mapping):
             raise ValueError("Invalid StudentTeacherLite checkpoint payload: expected a mapping.")
         if str(payload.get("detector", "")) != "vision_student_teacher_lite":

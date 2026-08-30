@@ -10,7 +10,8 @@ def save_checkpoint(detector: Any, path: str | Path) -> Path:
     Priority:
     1) `detector.save_checkpoint(path)` when present.
     2) `detector.model.state_dict()` saved via `torch.save(...)` when present.
-    3) serialize the detector object itself via joblib when possible.
+    3) store its structured state in a non-executable safe archive.
+    4) serialize the detector object itself via joblib when necessary.
     """
 
     out_path = Path(path)
@@ -42,6 +43,14 @@ def save_checkpoint(detector: Any, path: str | Path) -> Path:
         return out_path
 
     try:
+        from pyimgano.serialization.safe_checkpoint import SafeCheckpointError
+        from pyimgano.serialization.safe_detector_state import save_safe_detector_state
+
+        return save_safe_detector_state(checkpoint_target, out_path)
+    except SafeCheckpointError:
+        pass
+
+    try:
         from pyimgano.models.serialization import save_model
 
         return save_model(checkpoint_target, out_path)
@@ -50,5 +59,6 @@ def save_checkpoint(detector: Any, path: str | Path) -> Path:
             "Detector does not support checkpoint saving. Expected one of:\n"
             "- `detector.save_checkpoint(path)`\n"
             "- `detector.model` with a torch-style `state_dict()`\n"
+            "- a detector state containing safe structured values\n"
             "- a joblib-serializable detector object\n"
         ) from exc

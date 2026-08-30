@@ -344,7 +344,7 @@ class VisionPatchCoreLiteMap:
                 "TorchvisionConvPatchEmbedder."
             )
 
-        from pyimgano.models.serialization import save_model
+        from pyimgano.serialization.safe_checkpoint import save_safe_checkpoint
 
         payload = {
             "schema_version": 1,
@@ -372,12 +372,12 @@ class VisionPatchCoreLiteMap:
                 "n_neighbors_fit": int(self._n_neighbors_fit),
             },
         }
-        return save_model(payload, path)
+        return save_safe_checkpoint(payload, path)
 
     def load_checkpoint(self, path: str | Path) -> None:
-        from pyimgano.models.serialization import load_model
+        from pyimgano.serialization.safe_checkpoint import load_safe_checkpoint
 
-        payload = load_model(path)
+        payload = load_safe_checkpoint(path)
         if not isinstance(payload, dict):
             raise ValueError("Invalid PatchCore-lite-map checkpoint payload: expected a dict.")
         if str(payload.get("detector", "")) != "vision_patchcore_lite_map":

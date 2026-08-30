@@ -40,6 +40,7 @@ def test_run_benchmark_request_delegates_to_pipeline(monkeypatch) -> None:
 
     assert payload["ok"] is True
     assert calls[0]["model"] == "vision_ecod"
+    assert calls[0]["trust_detector"] is False
 
 
 def test_build_pixel_postprocess_materializes_anomaly_map_postprocess() -> None:

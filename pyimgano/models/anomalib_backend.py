@@ -12,6 +12,68 @@ from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .registry import register_model
 
 
+def _normalize_model_identity(value: object) -> str:
+    return "".join(character for character in str(value).lower() if character.isalnum())
+
+
+def _anomalib_model_identity_candidates(inferencer: object) -> set[str]:
+    """Extract model identity evidence from an anomalib exported inferencer."""
+
+    candidates: set[str] = set()
+
+    def _add(value: object) -> None:
+        if value is None or isinstance(value, (bool, int, float)):
+            return
+        normalized = _normalize_model_identity(value)
+        if normalized:
+            candidates.add(normalized)
+
+    model = getattr(inferencer, "model", None)
+    if model is not None:
+        _add(type(model).__name__)
+        for attr in ("name", "model_name", "class_name", "model_type"):
+            _add(getattr(model, attr, None))
+        nested_model = getattr(model, "model", None)
+        if nested_model is not None:
+            _add(type(nested_model).__name__)
+            for attr in ("name", "model_name", "class_name", "model_type"):
+                _add(getattr(nested_model, attr, None))
+
+    metadata = getattr(inferencer, "metadata", None)
+    if isinstance(metadata, dict):
+        for key in (
+            "model",
+            "model_name",
+            "model_type",
+            "class_name",
+            "class_path",
+            "anomalib_model",
+        ):
+            value = metadata.get(key)
+            if isinstance(value, dict):
+                for nested_key in ("name", "class_name", "class_path", "model_type"):
+                    _add(value.get(nested_key))
+            else:
+                _add(value)
+    return candidates
+
+
+def _validate_anomalib_model_identity(inferencer: object, expected_model: str) -> None:
+    expected = _normalize_model_identity(expected_model)
+    candidates = _anomalib_model_identity_candidates(inferencer)
+    if any(
+        candidate == expected or candidate.startswith(expected) or candidate.endswith(expected)
+        for candidate in candidates
+    ):
+        return
+    rendered = ", ".join(sorted(candidates)) if candidates else "no identity metadata"
+    raise ValueError(
+        f"anomalib checkpoint identity could not be verified as {expected_model!r}; "
+        f"observed {rendered}. Use vision_anomalib_checkpoint for legacy exports "
+        "whose model identity is not embedded."
+    )
+
+
 def _build_torch_inferencer(*, checkpoint_path: str, device: str):
     require("anomalib", extra="anomalib", purpose="anomalib backend detectors")
 
@@ -126,6 +188,8 @@ class VisionAnomalibCheckpoint:
     via anomalib, producing a checkpoint that this wrapper can load.
     """
 
+    anomalib_model_identity: str | None = None
+
     def __init__(
         self,
         *,
@@ -145,6 +209,11 @@ class VisionAnomalibCheckpoint:
             if inferencer is not None
             else _build_torch_inferencer(checkpoint_path=checkpoint_path, device=device)
         )
+        if self.anomalib_model_identity is not None:
+            _validate_anomalib_model_identity(
+                self._inferencer,
+                self.anomalib_model_identity,
+            )
 
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None
@@ -216,6 +285,8 @@ class VisionPatchCoreAnomalib(VisionAnomalibCheckpoint):
     The implementation is shared; only the registry entry differs.
     """
 
+    anomalib_model_identity = "patchcore"
+
 
 @register_model(
     "vision_padim_anomalib",
@@ -231,6 +302,8 @@ class VisionPatchCoreAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionPadimAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with PaDiM tags."""
+
+    anomalib_model_identity = "padim"
 
 
 @register_model(
@@ -248,6 +321,8 @@ class VisionPadimAnomalib(VisionAnomalibCheckpoint):
 class VisionStfpmAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with STFPM tags."""
 
+    anomalib_model_identity = "stfpm"
+
 
 @register_model(
     "vision_draem_anomalib",
@@ -263,6 +338,8 @@ class VisionStfpmAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionDraemAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with DRAEM tags."""
+
+    anomalib_model_identity = "draem"
 
 
 @register_model(
@@ -280,6 +357,8 @@ class VisionDraemAnomalib(VisionAnomalibCheckpoint):
 class VisionFastflowAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with FastFlow tags."""
 
+    anomalib_model_identity = "fastflow"
+
 
 @register_model(
     "vision_reverse_distillation_anomalib",
@@ -295,6 +374,8 @@ class VisionFastflowAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionReverseDistillationAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with Reverse Distillation tags."""
+
+    anomalib_model_identity = "reversedistillation"
 
 
 @register_model(
@@ -312,6 +393,8 @@ class VisionReverseDistillationAnomalib(VisionAnomalibCheckpoint):
 class VisionDfmAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with DFM tags."""
 
+    anomalib_model_identity = "dfm"
+
 
 @register_model(
     "vision_cflow_anomalib",
@@ -327,6 +410,8 @@ class VisionDfmAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionCflowAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with CFlow tags."""
+
+    anomalib_model_identity = "cflow"
 
 
 @register_model(
@@ -344,6 +429,8 @@ class VisionCflowAnomalib(VisionAnomalibCheckpoint):
 class VisionEfficientadAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with EfficientAD tags."""
 
+    anomalib_model_identity = "efficientad"
+
 
 @register_model(
     "vision_dinomaly_anomalib",
@@ -359,6 +446,8 @@ class VisionEfficientadAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionDinomalyAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with Dinomaly tags."""
+
+    anomalib_model_identity = "dinomaly"
 
 
 @register_model(
@@ -376,6 +465,8 @@ class VisionDinomalyAnomalib(VisionAnomalibCheckpoint):
 class VisionCfaAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with CFA tags."""
 
+    anomalib_model_identity = "cfa"
+
 
 @register_model(
     "vision_csflow_anomalib",
@@ -392,6 +483,8 @@ class VisionCfaAnomalib(VisionAnomalibCheckpoint):
 class VisionCsflowAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with CS-Flow tags."""
 
+    anomalib_model_identity = "csflow"
+
 
 @register_model(
     "vision_dfkde_anomalib",
@@ -406,6 +499,8 @@ class VisionCsflowAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionDfkdeAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with DFKDE tags."""
+
+    anomalib_model_identity = "dfkde"
 
 
 @register_model(
@@ -423,6 +518,8 @@ class VisionDfkdeAnomalib(VisionAnomalibCheckpoint):
 class VisionDsrAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with DSR tags."""
 
+    anomalib_model_identity = "dsr"
+
 
 @register_model(
     "vision_ganomaly_anomalib",
@@ -438,6 +535,8 @@ class VisionDsrAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionGanomalyAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with GANomaly tags."""
+
+    anomalib_model_identity = "ganomaly"
 
 
 @register_model(
@@ -455,6 +554,8 @@ class VisionGanomalyAnomalib(VisionAnomalibCheckpoint):
 class VisionRkdeAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with R-KDE tags."""
 
+    anomalib_model_identity = "rkde"
+
 
 @register_model(
     "vision_uflow_anomalib",
@@ -470,6 +571,8 @@ class VisionRkdeAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionUflowAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with U-Flow tags."""
+
+    anomalib_model_identity = "uflow"
 
 
 @register_model(
@@ -487,6 +590,8 @@ class VisionUflowAnomalib(VisionAnomalibCheckpoint):
 class VisionWinclipAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with WinCLIP tags."""
 
+    anomalib_model_identity = "winclip"
+
 
 @register_model(
     "vision_fre_anomalib",
@@ -502,6 +607,8 @@ class VisionWinclipAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionFreAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with FRE tags."""
+
+    anomalib_model_identity = "fre"
 
 
 @register_model(
@@ -519,6 +626,8 @@ class VisionFreAnomalib(VisionAnomalibCheckpoint):
 class VisionSuperSimpleNetAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with SuperSimpleNet tags."""
 
+    anomalib_model_identity = "supersimplenet"
+
 
 @register_model(
     "vision_vlmad_anomalib",
@@ -532,3 +641,5 @@ class VisionSuperSimpleNetAnomalib(VisionAnomalibCheckpoint):
 )
 class VisionVLMADAnomalib(VisionAnomalibCheckpoint):
     """Alias for ``vision_anomalib_checkpoint`` with VLM-AD tags."""
+
+    anomalib_model_identity = "vlmad"

@@ -1076,6 +1076,65 @@ def test_bundle_watch_service_rejects_non_http_webhook_scheme(tmp_path: Path) ->
     assert deliveries == []
 
 
+@pytest.mark.parametrize(
+    "addresses",
+    [
+        ["127.0.0.1"],
+        ["169.254.169.254"],
+        ["10.0.0.8"],
+        ["93.184.216.34", "192.168.1.10"],
+    ],
+)
+def test_webhook_target_rejects_non_public_dns_answers(monkeypatch, addresses: list[str]) -> None:
+    from pyimgano.services import bundle_watch_service
+
+    monkeypatch.setattr(
+        bundle_watch_service.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [(2, 1, 6, "", (address, 443)) for address in addresses],
+    )
+
+    with pytest.raises(ValueError, match="public addresses"):
+        bundle_watch_service._resolve_public_webhook_target("https://hooks.example.test/event")
+
+
+def test_webhook_sender_rejects_redirects(monkeypatch) -> None:
+    from pyimgano.services import bundle_watch_service
+
+    monkeypatch.setattr(
+        bundle_watch_service.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
+    )
+
+    class _RedirectResponse:
+        status = 302
+
+    class _FakeConnection:
+        def __init__(self, hostname, *, port, timeout):
+            del hostname, port, timeout
+
+        def request(self, method, target, *, body, headers):
+            del method, target, body, headers
+
+        def getresponse(self):
+            return _RedirectResponse()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(bundle_watch_service.http.client, "HTTPSConnection", _FakeConnection)
+
+    with pytest.raises(RuntimeError, match="redirects are not allowed"):
+        bundle_watch_service._send_watch_webhook(
+            {},
+            "https://hooks.example.test/event",
+            1.0,
+            {"Content-Type": "application/json"},
+            "{}",
+        )
+
+
 def test_bundle_cli_run_writes_results_and_run_report_for_image_dir(
     tmp_path: Path, capsys, monkeypatch
 ) -> None:

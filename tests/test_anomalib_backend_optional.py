@@ -28,8 +28,13 @@ def test_more_anomalib_aliases_are_registered():
     assert "vision_vlmad_anomalib" in anomalib_models
 
 
-def test_anomalib_checkpoint_wrapper_requires_anomalib_if_no_inferencer():
-    from pyimgano.models import create_model
+def test_anomalib_checkpoint_wrapper_requires_anomalib_if_no_inferencer(monkeypatch):
+    from pyimgano.models import anomalib_backend, create_model
+
+    def missing_anomalib(*_args, **_kwargs):
+        raise ImportError("simulated missing anomalib")
+
+    monkeypatch.setattr(anomalib_backend, "require", missing_anomalib)
 
     with pytest.raises(ImportError):
         create_model(

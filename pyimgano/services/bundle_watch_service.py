@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import http.client
+import ipaddress
 import json
 import shutil
+import socket
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib import request as urllib_request
 from urllib.parse import urlparse
 
 from pyimgano.infer_cli_inputs import collect_image_paths
@@ -329,7 +331,61 @@ def _validated_webhook_url(url: str) -> str:
         raise ValueError("webhook_url must use http or https.")
     if not parsed.netloc:
         raise ValueError("webhook_url must include a network location.")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("webhook_url must not contain credentials.")
+    if parsed.fragment:
+        raise ValueError("webhook_url must not contain a fragment.")
     return normalized
+
+
+def _resolve_public_webhook_target(url: str) -> tuple[str, str, int, str, str]:
+    """Validate and pin a webhook URL to a public IP address.
+
+    Every DNS answer must be globally routable.  Rejecting mixed public/private
+    answers prevents a resolver from selecting a private target after the
+    validation step.  The returned IP is used for the actual TCP connection,
+    closing the usual DNS-rebinding gap between validation and use.
+    """
+
+    normalized = _validated_webhook_url(url)
+    parsed = urlparse(normalized)
+    hostname = parsed.hostname
+    if hostname is None:
+        raise ValueError("webhook_url must include a hostname.")
+    try:
+        port = int(parsed.port or (443 if parsed.scheme == "https" else 80))
+    except ValueError as exc:
+        raise ValueError("webhook_url contains an invalid port.") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError("webhook_url port must be between 1 and 65535.")
+
+    try:
+        resolved = socket.getaddrinfo(
+            hostname,
+            port,
+            family=socket.AF_UNSPEC,
+            type=socket.SOCK_STREAM,
+        )
+    except OSError as exc:
+        raise ValueError(f"webhook_url hostname could not be resolved: {hostname!r}.") from exc
+
+    addresses = sorted({str(answer[4][0]) for answer in resolved})
+    if not addresses:
+        raise ValueError(f"webhook_url hostname has no usable address: {hostname!r}.")
+    for address in addresses:
+        try:
+            ip = ipaddress.ip_address(address.split("%", 1)[0])
+        except ValueError as exc:
+            raise ValueError(f"webhook_url resolved to an invalid address: {address!r}.") from exc
+        if not ip.is_global:
+            raise ValueError(
+                "webhook_url must resolve only to public addresses; " f"rejected {address!r}."
+            )
+
+    request_target = parsed.path or "/"
+    if parsed.query:
+        request_target = f"{request_target}?{parsed.query}"
+    return normalized, hostname, port, addresses[0], request_target
 
 
 def _resolve_webhook_headers(request: BundleWatchRequest) -> dict[str, str]:
@@ -441,19 +497,50 @@ def _send_watch_webhook(
     headers: dict[str, str],
     body: str,
 ) -> None:
-    _validated_webhook_url(url)
-    req = urllib_request.Request(
-        url=str(url),
-        data=str(body).encode("utf-8"),
-        headers=dict(headers),
-        method="POST",
+    normalized, hostname, port, pinned_ip, request_target = _resolve_public_webhook_target(url)
+    parsed = urlparse(normalized)
+    connection_type = (
+        http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
     )
-    with urllib_request.urlopen(
-        req, timeout=float(timeout)
-    ) as response:  # nosec B310 - URL scheme validated above
-        status = int(getattr(response, "status", response.getcode()))
+    connection = connection_type(hostname, port=port, timeout=float(timeout))
+
+    # http.client normally resolves ``hostname`` again inside connect().  Pin
+    # the socket to the address validated above while preserving the logical
+    # hostname for the HTTP Host header and HTTPS SNI/certificate validation.
+    def _create_pinned_connection(
+        address,
+        timeout_value=socket._GLOBAL_DEFAULT_TIMEOUT,
+        source_address=None,
+        *args,
+        **kwargs,
+    ):
+        del args, kwargs
+        return socket.create_connection(
+            (pinned_ip, int(address[1])),
+            timeout=timeout_value,
+            source_address=source_address,
+        )
+
+    connection._create_connection = _create_pinned_connection  # type: ignore[method-assign]
+    try:
+        connection.request(
+            "POST",
+            request_target,
+            body=str(body).encode("utf-8"),
+            headers=dict(headers),
+        )
+        response = connection.getresponse()
+        status = int(response.status)
+        # Redirects are rejected instead of automatically followed.  This both
+        # prevents a public endpoint redirecting into a private network and
+        # avoids forwarding bearer/custom headers to a different authority.
+        if 300 <= status < 400:
+            raise RuntimeError(f"webhook redirects are not allowed (HTTP {status})")
         if not 200 <= status < 300:
             raise RuntimeError(f"webhook returned HTTP {status}")
+        response.read()
+    finally:
+        connection.close()
 
 
 def _entry_needs_webhook_delivery(entry: Mapping[str, Any], request: BundleWatchRequest) -> bool:

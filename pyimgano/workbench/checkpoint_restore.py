@@ -75,16 +75,15 @@ def _try_load_state_dict(model: Any, path: Path) -> bool:
     return True
 
 
-def _try_restore_serialized_detector(detector: Any, path: Path) -> bool:
+def _try_restore_serialized_detector(detector: Any, path: Path, *, trusted: bool) -> bool:
+    if not trusted:
+        return False
     try:
         from pyimgano.models.serialization import load_model
     except Exception:
         return False
 
-    try:
-        loaded = load_model(path)
-    except Exception:
-        return False
+    loaded = load_model(path, trusted=True)
     if loaded is None:
         return False
 
@@ -107,7 +106,30 @@ def _try_restore_serialized_detector(detector: Any, path: Path) -> bool:
     return True
 
 
-def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) -> None:
+def _try_restore_safe_detector_state(detector: Any, path: Path) -> bool:
+    from pyimgano.serialization.safe_checkpoint import SafeCheckpointError
+    from pyimgano.serialization.safe_detector_state import load_safe_detector_state
+
+    try:
+        load_safe_detector_state(detector, path)
+    except SafeCheckpointError:
+        return False
+    return True
+
+
+def load_checkpoint_into_detector(
+    detector: Any,
+    checkpoint_path: str | Path,
+    *,
+    trusted: bool = False,
+) -> None:
+    """Restore detector state, rejecting executable legacy artifacts by default.
+
+    Safe detector-specific formats and torch ``weights_only`` state dictionaries
+    do not require trust. Set ``trusted=True`` only to enable the final legacy
+    joblib fallback for an artifact whose provenance has been verified.
+    """
+
     path = Path(checkpoint_path)
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {path}")
@@ -122,7 +144,10 @@ def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) ->
     if model is not None and _try_load_state_dict(model, path):
         return
 
-    if _try_restore_serialized_detector(detector, path):
+    if _try_restore_safe_detector_state(detector, path):
+        return
+
+    if _try_restore_serialized_detector(detector, path, trusted=bool(trusted)):
         return
 
     raise NotImplementedError(
@@ -131,7 +156,9 @@ def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) ->
         "- `detector.load(path)`\n"
         "- `detector.build_model()` + `detector.model.load_state_dict(...)`\n"
         "- `detector.model.load_state_dict(...)` (torch)\n"
-        "- a joblib-serialized detector object matching the requested model\n"
+        "- a non-executable pyimgano detector-state archive\n"
+        "- a joblib-serialized detector object matching the requested model "
+        "(requires trusted=True)\n"
     )
 
 

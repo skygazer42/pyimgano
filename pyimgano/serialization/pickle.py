@@ -37,15 +37,28 @@ def save_detector(path: str | Path, detector: Any) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("wb") as f:
-        pickle.dump(detector, f, protocol=pickle.HIGHEST_PROTOCOL)  # nosec B301
+        pickle.dump(  # nosemgrep: python.lang.security.deserialization.pickle.avoid-pickle
+            detector, f, protocol=pickle.HIGHEST_PROTOCOL
+        )  # Intentional legacy artifact format; loading requires explicit trust.
 
 
-def load_detector(path: str | Path) -> Any:
-    """Load a detector from disk via pickle (restricted to classical detectors)."""
+def load_detector(path: str | Path, *, trusted: bool = False) -> Any:
+    """Load a trusted detector pickle.
+
+    Pickle can execute arbitrary code before the detector type can be checked.
+    Callers must set ``trusted=True`` only for artifacts whose origin and
+    integrity they have independently verified.
+    """
+
+    if not trusted:
+        raise ValueError(
+            "Refusing to load executable pickle without trusted=True. "
+            "Only load detector artifacts from a verified source."
+        )
 
     in_path = Path(path)
     with in_path.open("rb") as f:
-        detector = pickle.load(f)  # nosec B301 - controlled helper; see module docstring.
+        detector = pickle.load(f)  # nosemgrep  # nosec B301 - trusted gate above
 
     if not is_pickle_safe_detector(detector):
         raise TypeError(

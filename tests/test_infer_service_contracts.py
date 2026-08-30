@@ -44,6 +44,7 @@ def test_selected_infer_result_contract_fields_are_stable() -> None:
         "context",
         "seed",
         "user_kwargs",
+        "trust_checkpoint",
     ]
     assert [field.name for field in fields(InferRuntimePlanResult)] == [
         "include_maps",

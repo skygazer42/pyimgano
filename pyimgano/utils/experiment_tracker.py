@@ -129,8 +129,6 @@ class Experiment:
             name: Artifact name
             data: Artifact data
         """
-        import pickle
-
         artifact_path = self.artifacts_dir / name
 
         # Save based on extension
@@ -138,8 +136,12 @@ class Experiment:
             with open(artifact_path, "w") as f:
                 json.dump(data, f, indent=2)
         elif name.endswith((".pkl", ".pickle")):
-            with open(artifact_path, "wb") as f:
-                pickle.dump(data, f)
+            if not isinstance(data, (bytes, bytearray, memoryview)):
+                raise TypeError(
+                    "Pickle artifacts must be supplied as already serialized bytes; "
+                    "Experiment.log_artifact does not serialize arbitrary objects."
+                )
+            artifact_path.write_bytes(bytes(data))
         elif name.endswith(".npy"):
             np.save(artifact_path, data)
         elif name.endswith(".txt"):

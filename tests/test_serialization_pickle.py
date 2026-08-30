@@ -12,7 +12,7 @@ def test_pickle_roundtrip_classical_detector(tmp_path) -> None:
     path = tmp_path / "detector.pkl"
 
     save_detector(path, detector)
-    loaded = load_detector(path)
+    loaded = load_detector(path, trusted=True)
     assert loaded.__class__ is detector.__class__
     assert hasattr(loaded, "decision_function")
 
@@ -22,3 +22,10 @@ def test_pickle_rejects_non_classical_detector(tmp_path) -> None:
 
     with pytest.raises(TypeError):
         save_detector(tmp_path / "x.pkl", object())
+
+
+def test_pickle_load_requires_explicit_trust(tmp_path) -> None:
+    from pyimgano.serialization.pickle import load_detector
+
+    with pytest.raises(ValueError, match="trusted=True"):
+        load_detector(tmp_path / "untrusted.pkl")

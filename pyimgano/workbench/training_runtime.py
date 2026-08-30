@@ -215,7 +215,11 @@ def restore_training_checkpoint_if_requested(
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
 
     checkpoint_path = Path(str(resume_path))
-    load_checkpoint_into_detector(detector, checkpoint_path)
+    load_checkpoint_into_detector(
+        detector,
+        checkpoint_path,
+        trusted=bool(getattr(config.training, "trust_checkpoint", False)),
+    )
     return {
         "requested_path": str(resume_path),
         "loaded": True,

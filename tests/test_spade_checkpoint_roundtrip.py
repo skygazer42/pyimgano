@@ -5,13 +5,14 @@ import pytest
 
 
 def test_spade_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
-    pytest.importorskip("torch")
+    torch = pytest.importorskip("torch")
     pytest.importorskip("torchvision")
     pytest.importorskip("cv2")
 
     from PIL import Image
 
     import pyimgano.models  # noqa: F401
+    from pyimgano.models.deep_io import safe_torch_load
     from pyimgano.models.registry import create_model
     from pyimgano.training.checkpointing import save_checkpoint
     from pyimgano.workbench.checkpoint_restore import load_checkpoint_into_detector
@@ -59,8 +60,13 @@ def test_spade_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     ckpt_path = tmp_path / "spade.ckpt"
     save_checkpoint(detector, ckpt_path)
 
+    payload = safe_torch_load(ckpt_path, map_location="cpu")
+    payload["config"]["device"] = "cuda:0"
+    torch.save(payload, ckpt_path)
+
     restored = _make_detector()
     load_checkpoint_into_detector(restored, ckpt_path)
+    assert str(restored.device) == "cpu"
 
     restored_scores = np.asarray(
         restored.decision_function([str(normal_path), str(anomaly_path)]),

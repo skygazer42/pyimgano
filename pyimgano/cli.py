@@ -133,6 +133,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--trust-detector",
+        action="store_true",
+        help=(
+            "Required with --load-detector to acknowledge executable pickle risk. "
+            "Enable only for an independently verified artifact."
+        ),
+    )
+    parser.add_argument(
         "--per-image-jsonl",
         action=BooleanOptionalAction,
         default=True,
@@ -1205,6 +1213,7 @@ def main(argv: list[str] | None = None) -> int:
                 load_detector_path=(
                     str(args.load_detector) if args.load_detector is not None else None
                 ),
+                trust_detector=bool(args.trust_detector),
                 save_detector_path=(
                     str(args.save_detector) if args.save_detector is not None else None
                 ),

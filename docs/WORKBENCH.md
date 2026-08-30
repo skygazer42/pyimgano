@@ -129,6 +129,9 @@ Notes:
 
 - `pyimgano-infer --from-run` is **best-effort**: it loads model settings, applies `threshold_`,
   and loads checkpoints when the detector supports it.
+- Safe structured and torch `weights_only` checkpoints load by default. Legacy executable
+  joblib/pickle checkpoints are rejected unless the operator explicitly passes
+  `--trust-checkpoint` after verifying artifact provenance and integrity.
 - For production shipping, prefer `artifacts/infer_config.json` (`pyimgano-infer --infer-config ...`):
   it’s a minimal “what inference needs” payload and includes `threshold_provenance` for auditing.
 - `artifacts/calibration_card.json` is the compact threshold-audit companion artifact for review,
@@ -159,6 +162,8 @@ The workbench run directory is meant to stay reviewable and portable:
 
 - `checkpoints/<cat>/...` is for small run-local checkpoints that a recipe writes explicitly.
 - `pyimgano-infer --from-run` can reuse those run-local checkpoints when the detector supports checkpoint restore.
+- Workbench resume follows the same policy. Set `training.trust_checkpoint=true` only for a
+  verified legacy joblib/pickle checkpoint; it is not needed for current safe checkpoint formats.
 - large pretrained weights still live in the cache locations used by the underlying runtime libraries.
 
 For models that fetch upstream weights, cache placement is controlled by the usual environment variables:

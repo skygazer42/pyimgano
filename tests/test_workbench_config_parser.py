@@ -86,6 +86,7 @@ def test_workbench_config_parser_builds_compatible_workbench_config() -> None:
             "warmup_epochs": 3,
             "warmup_start_factor": 0.25,
             "resume_from_checkpoint": "/tmp/bootstrap/model.pt",
+            "trust_checkpoint": True,
         },
     }
 
@@ -145,6 +146,7 @@ def test_workbench_config_parser_builds_compatible_workbench_config() -> None:
     assert cfg.training.warmup_epochs == 3
     assert cfg.training.warmup_start_factor == pytest.approx(0.25)
     assert cfg.training.resume_from_checkpoint == "/tmp/bootstrap/model.pt"
+    assert cfg.training.trust_checkpoint is True
     assert cfg.prediction.reject_confidence_below is None
     assert cfg.prediction.reject_label is None
 

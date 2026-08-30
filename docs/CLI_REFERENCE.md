@@ -500,7 +500,8 @@ Key flags:
 
 - Save detector after fit: `--save-detector [PATH|auto]`
   - `auto` writes `<output-dir>/detector.pkl` (or `runs/.../detector.pkl` if `--output-dir` is omitted)
-- Load detector and skip fitting: `--load-detector PATH`
+- Load detector and skip fitting: `--load-detector PATH --trust-detector`. Detector pickle is
+  executable; the separate trust acknowledgement is required and must only be used for a verified artifact.
 
 Security note: never load pickle files from untrusted sources.
 
@@ -685,6 +686,9 @@ Optional:
 - `--infer-config PATH` — load model/threshold/checkpoint from an exported workbench infer-config
   - For example: `runs/.../artifacts/infer_config.json`
   - If the infer-config contains multiple categories, pass `--infer-category NAME`.
+- `--trust-checkpoint` — enable the legacy executable joblib/pickle restore fallback for
+  `--from-run` / `--infer-config`. Leave disabled for safe structured and torch state-dict
+  checkpoints; enable it only after independently verifying the artifact source.
 
 Defects export example:
 

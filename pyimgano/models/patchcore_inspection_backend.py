@@ -157,7 +157,6 @@ class VisionPatchCoreInspectionCheckpoint:
         if self.batch_size < 1:
             raise ValueError(f"batch_size must be >= 1. Got {self.batch_size}.")
 
-        self._transform = _build_transform(resize=self.resize, imagesize=self.imagesize)
         self._inferencer = (
             inferencer
             if inferencer is not None
@@ -167,6 +166,19 @@ class VisionPatchCoreInspectionCheckpoint:
                 faiss_num_workers=int(faiss_num_workers),
             )
         )
+        artifact_shape = getattr(self._inferencer, "input_shape", None)
+        if artifact_shape is not None:
+            artifact_shape = tuple(int(value) for value in artifact_shape)
+            if len(artifact_shape) != 3 or artifact_shape[0] not in (1, 3):
+                raise ValueError(
+                    f"Invalid patchcore-inspection input_shape in artifact: {artifact_shape}."
+                )
+            if artifact_shape[-2:] != (self.imagesize, self.imagesize):
+                raise ValueError(
+                    "patchcore-inspection artifact input_shape does not match `imagesize`: "
+                    f"artifact={artifact_shape}, imagesize={self.imagesize}."
+                )
+        self._transform = _build_transform(resize=self.resize, imagesize=self.imagesize)
 
         self.decision_scores_: Optional[NDArray] = None
         self.threshold_: Optional[float] = None

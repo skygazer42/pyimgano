@@ -532,6 +532,7 @@ def test_infer_cli_infer_config_delegates_detector_setup_to_service(
         [
             "--infer-config",
             str(infer_cfg_path),
+            "--trust-checkpoint",
             "--input",
             str(input_dir),
             "--save-jsonl",
@@ -540,6 +541,7 @@ def test_infer_cli_infer_config_delegates_detector_setup_to_service(
     )
     assert rc == 0
     assert len(calls) == 1
+    assert calls[0].trust_checkpoint is True
 
 
 def test_infer_cli_infer_config_delegates_wrapper_setup_to_service(

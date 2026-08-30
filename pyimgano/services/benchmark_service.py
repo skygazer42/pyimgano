@@ -51,6 +51,7 @@ class BenchmarkRunRequest:
     per_image_jsonl: bool = True
     cache_dir: str | None = None
     load_detector_path: str | None = None
+    trust_detector: bool = False
     save_detector_path: str | None = None
     output_dir: str | None = None
     pixel: bool = False
@@ -303,11 +304,7 @@ def _run_pixel_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]
             "reason": str(pixel_skip_reason),
         }
 
-    from pyimgano.reporting.report import (
-        save_jsonl_records,
-        save_run_report,
-        stamp_report_payload,
-    )
+    from pyimgano.reporting.report import save_jsonl_records, save_run_report, stamp_report_payload
 
     payload = stamp_report_payload(payload)
     if request.save_run:
@@ -427,6 +424,7 @@ def run_benchmark_request(request: BenchmarkRunRequest) -> dict[str, Any]:
         load_detector_path=(
             str(request.load_detector_path) if request.load_detector_path is not None else None
         ),
+        trust_detector=bool(request.trust_detector),
         save_detector_path=(
             str(request.save_detector_path) if request.save_detector_path is not None else None
         ),

@@ -134,6 +134,18 @@ def test_padim_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     ckpt_path = tmp_path / "padim.ckpt"
     save_checkpoint(detector, ckpt_path)
 
+    incompatible = create_model(
+        "vision_padim",
+        contamination=0.2,
+        backbone="resnet18",
+        d_reduced=16,
+        image_size=32,
+        pretrained=False,
+        device="cpu",
+    )
+    with pytest.raises(ValueError, match="preprocessing/extractor contract mismatch"):
+        load_checkpoint_into_detector(incompatible, ckpt_path)
+
     restored = _make_detector()
     load_checkpoint_into_detector(restored, ckpt_path)
 
@@ -315,7 +327,7 @@ def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     anomaly[10:22, 10:22, :] = 240
     _write_rgb(anomaly_path, anomaly)
 
-    def _make_detector():
+    def _make_detector(*, n_neighbors: int):
         return create_model(
             "vision_patchcore",
             contamination=0.2,
@@ -324,7 +336,7 @@ def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
             coreset_sampling_ratio=1.0,
             feature_projection_dim=32,
             projection_fit_samples=2,
-            n_neighbors=1,
+            n_neighbors=n_neighbors,
             knn_backend="sklearn",
             memory_bank_dtype="float32",
             random_seed=0,
@@ -332,7 +344,7 @@ def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
             device="cpu",
         )
 
-    detector = _make_detector()
+    detector = _make_detector(n_neighbors=2)
     detector.fit(train_paths)
     expected_scores = np.asarray(
         detector.decision_function([str(normal_path), str(anomaly_path)]),
@@ -344,7 +356,7 @@ def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     ckpt_path = tmp_path / "patchcore.ckpt"
     save_checkpoint(detector, ckpt_path)
 
-    restored = _make_detector()
+    restored = _make_detector(n_neighbors=1)
     load_checkpoint_into_detector(restored, ckpt_path)
 
     restored_scores = np.asarray(
@@ -356,6 +368,7 @@ def test_patchcore_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
     np.testing.assert_allclose(restored_scores, expected_scores, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(restored_map, expected_map, rtol=1e-5, atol=1e-5)
     assert float(restored.threshold_) == pytest.approx(expected_threshold)
+    assert restored.n_neighbors == 2
 
 
 def test_fastflow_checkpoint_roundtrip_on_image_paths(tmp_path) -> None:
@@ -515,7 +528,7 @@ def test_anomalydino_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) 
     anomaly[10:22, 10:22, :] = 240
     _write_rgb(anomaly_path, anomaly)
 
-    def _make_detector():
+    def _make_detector(*, aggregation_topk: float, gaussian_sigma: float):
         embedder = TorchHubDinoV2Embedder(model_name="dinov2_vits14", device="cpu", image_size=32)
         return create_model(
             "vision_anomalydino",
@@ -526,14 +539,15 @@ def test_anomalydino_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) 
             coreset_sampling_ratio=1.0,
             random_seed=0,
             aggregation_method="topk_mean",
-            aggregation_topk=0.05,
+            aggregation_topk=aggregation_topk,
+            gaussian_sigma=gaussian_sigma,
             pretrained=True,
             device="cpu",
             image_size=32,
             dino_model_name="dinov2_vits14",
         )
 
-    detector = _make_detector()
+    detector = _make_detector(aggregation_topk=0.05, gaussian_sigma=4.0)
     detector.fit(train_paths)
     expected_scores = np.asarray(
         detector.decision_function([str(normal_path), str(anomaly_path)]),
@@ -548,7 +562,7 @@ def test_anomalydino_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) 
     ckpt_path = tmp_path / "anomalydino.ckpt"
     save_checkpoint(detector, ckpt_path)
 
-    restored = _make_detector()
+    restored = _make_detector(aggregation_topk=0.5, gaussian_sigma=0.0)
     load_checkpoint_into_detector(restored, ckpt_path)
 
     restored_scores = np.asarray(
@@ -563,3 +577,5 @@ def test_anomalydino_checkpoint_roundtrip_on_image_paths(tmp_path, monkeypatch) 
     np.testing.assert_allclose(restored_scores, expected_scores, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(restored_maps, expected_maps, rtol=1e-5, atol=1e-5)
     assert float(restored.threshold_) == pytest.approx(expected_threshold)
+    assert restored.aggregation_topk == pytest.approx(0.05)
+    assert restored.gaussian_sigma == pytest.approx(4.0)

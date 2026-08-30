@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 import cv2
-import joblib
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -295,6 +294,8 @@ class ImageAnomalyDetector:
 
     def save_model(self, save_path):
         """保存模型"""
+        from pyimgano.models.serialization import save_model
+
         model_data = {
             "ocsvm": self.ocsvm,
             "scaler": self.scaler,
@@ -303,12 +304,14 @@ class ImageAnomalyDetector:
             "threshold_percentile_95": self.threshold_percentile_95,
             "is_trained": self.is_trained,
         }
-        joblib.dump(model_data, save_path)
+        save_model(model_data, save_path)
         print(f"模型已保存到: {save_path}")
 
-    def load_model(self, load_path):
-        """加载模型"""
-        model_data = joblib.load(load_path)
+    def load_model(self, load_path, *, trusted=False):
+        """从明确可信的可执行 Joblib 工件加载模型。"""
+        from pyimgano.models.serialization import load_model
+
+        model_data = load_model(load_path, trusted=bool(trusted))
         self.ocsvm = model_data["ocsvm"]
         self.scaler = model_data["scaler"]
         self.pca = model_data["pca"]

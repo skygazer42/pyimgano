@@ -202,8 +202,17 @@ def test_workbench_training_runtime_restores_checkpoint_before_micro_finetune(
 ) -> None:
     calls: list[tuple[str, object]] = []
 
-    def _fake_restore(detector, checkpoint_path):  # noqa: ANN001
-        calls.append(("restore", {"detector": detector, "checkpoint_path": str(checkpoint_path)}))
+    def _fake_restore(detector, checkpoint_path, *, trusted=False):  # noqa: ANN001
+        calls.append(
+            (
+                "restore",
+                {
+                    "detector": detector,
+                    "checkpoint_path": str(checkpoint_path),
+                    "trusted": bool(trusted),
+                },
+            )
+        )
 
     def _fake_micro_finetune(
         detector,
@@ -256,6 +265,7 @@ def test_workbench_training_runtime_restores_checkpoint_before_micro_finetune(
                 "enabled": True,
                 "epochs": 2,
                 "resume_from_checkpoint": str(resume_path),
+                "trust_checkpoint": True,
             },
             "output": {"save_run": True},
         }
@@ -272,7 +282,11 @@ def test_workbench_training_runtime_restores_checkpoint_before_micro_finetune(
     assert calls == [
         (
             "restore",
-            {"detector": result.detector, "checkpoint_path": str(resume_path)},
+            {
+                "detector": result.detector,
+                "checkpoint_path": str(resume_path),
+                "trusted": True,
+            },
         ),
         (
             "micro_finetune",

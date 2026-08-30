@@ -16,7 +16,7 @@ def test_core_model_joblib_roundtrip(tmp_path) -> None:  # noqa: ANN001 - pytest
     s0 = np.asarray(det.decision_function(x[:10]), dtype=np.float64)
 
     p = save_model(det, tmp_path / "model.joblib")
-    det2 = load_model(p)
+    det2 = load_model(p, trusted=True)
     s1 = np.asarray(det2.decision_function(x[:10]), dtype=np.float64)
 
     assert s0.shape == s1.shape

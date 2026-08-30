@@ -41,10 +41,15 @@ def resolve_checkpoint_path(
     return load_run.resolve_checkpoint_path(run_dir, report_payload)
 
 
-def load_checkpoint_into_detector(detector: Any, checkpoint_path: str | Path) -> None:
+def load_checkpoint_into_detector(
+    detector: Any,
+    checkpoint_path: str | Path,
+    *,
+    trusted: bool = False,
+) -> None:
     import pyimgano.workbench.load_run as load_run
 
-    load_run.load_checkpoint_into_detector(detector, checkpoint_path)
+    load_run.load_checkpoint_into_detector(detector, checkpoint_path, trusted=trusted)
 
 
 __all__ = [

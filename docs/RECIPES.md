@@ -368,6 +368,8 @@ Best-effort behavior:
 - loads model settings from `config.json`
 - loads a checkpoint when present in `report.json` (when the detector supports it)
 - sets `detector.threshold_` from `report.json` when available
+- rejects legacy executable joblib/pickle checkpoints by default; pass `--trust-checkpoint`
+  only for an independently verified legacy artifact
 
 ---
 

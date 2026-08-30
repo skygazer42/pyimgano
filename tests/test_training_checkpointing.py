@@ -42,16 +42,25 @@ def test_save_checkpoint_falls_back_to_torch_state_dict(tmp_path):
     assert "bias" in state
 
 
-def test_save_checkpoint_falls_back_to_joblib_detector_serialization(tmp_path):
+def test_save_checkpoint_prefers_safe_detector_state_serialization(tmp_path):
+    from pyimgano.serialization.safe_detector_state import load_safe_detector_state
+
     out = tmp_path / "model.pt"
     saved = save_checkpoint(_SerializableDetector(), out)
     assert saved == out
     assert out.exists()
 
+    restored = _SerializableDetector()
+    restored.name = "fresh"
+    restored.state = {}
+    load_safe_detector_state(restored, out)
+    assert restored.name == "vision-ecod-like"
+    assert restored.state == {"threshold": 0.7, "scores": [0.1, 0.2, 0.3]}
 
-def test_save_checkpoint_unwraps_runtime_tiling_wrapper_before_joblib_fallback(tmp_path):
+
+def test_save_checkpoint_unwraps_runtime_tiling_wrapper_before_safe_fallback(tmp_path):
     from pyimgano.inference.tiling import TiledDetector
-    from pyimgano.models.serialization import load_model
+    from pyimgano.serialization.safe_detector_state import load_safe_detector_state
 
     wrapped = TiledDetector(detector=_SerializableDetector(), tile_size=4, stride=4)
 
@@ -59,12 +68,17 @@ def test_save_checkpoint_unwraps_runtime_tiling_wrapper_before_joblib_fallback(t
     saved = save_checkpoint(wrapped, out)
     assert saved == out
 
-    loaded = load_model(out)
-    assert isinstance(loaded, _SerializableDetector)
+    loaded = _SerializableDetector()
+    loaded.name = "fresh"
+    load_safe_detector_state(loaded, out)
+    assert loaded.name == "vision-ecod-like"
 
 
 def test_save_checkpoint_raises_when_unsupported(tmp_path):
     class _Detector:
+        def __init__(self):
+            self.unsupported = object()
+
         def __getstate__(self):
             raise RuntimeError("no pickle")
 
