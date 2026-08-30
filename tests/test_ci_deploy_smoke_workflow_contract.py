@@ -38,10 +38,23 @@ def test_ci_workflow_quality_job_runs_deploy_smoke_docs_audit() -> None:
 def test_ci_workflow_build_job_waits_for_deploy_smoke() -> None:
     workflow = _read_ci_workflow()
 
-    assert "needs: [quality, test, deploy_smoke]" in workflow
+    assert (
+        "needs: [quality, compatibility, test_full, optional_integration, deploy_smoke, security]"
+        in workflow
+    )
 
 
 def test_ci_workflow_test_matrix_installs_torch_and_skimage_extras() -> None:
     workflow = _read_ci_workflow()
 
     assert "pip install -e .[dev,torch,skimage]" in workflow
+
+
+def test_ci_workflow_has_pinned_optional_and_semgrep_gates() -> None:
+    workflow = _read_ci_workflow()
+
+    assert "constraints/optional-py310-current.txt" in workflow
+    assert "optional_integration:" in workflow
+    assert "semgrep scan --config p/python --config p/security-audit --error" in workflow
+    assert "pip-audit --progress-spinner off --desc off" in workflow
+    assert "--ignore-vuln PYSEC-2026-3624" in workflow

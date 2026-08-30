@@ -18,7 +18,7 @@ pyimgano-export-onnx --train-dir runs/my_model --output embed.onnx
 |------|------|--------|
 | `--train-dir` | 训练输出目录 | *必填* |
 | `--output` | 输出文件路径 | `embed.onnx` |
-| `--opset` | ONNX opset 版本 | `17` |
+| `--opset` | ONNX opset 版本 | `18` |
 | `--dynamic-batch` | 启用动态 batch 维度 | `False` |
 | `--no-pretrained` | 不下载预训练权重（离线安全） | `False` |
 | `--simplify` | 运行 ONNX Simplifier | `False` |

@@ -144,7 +144,7 @@ def test_onnx_industrial_wrappers_smoke(tmp_path) -> None:
             "--image-size",
             "32",
             "--opset",
-            "17",
+            "18",
             "--dynamic-batch",
             "--no-verify",
             "--out",

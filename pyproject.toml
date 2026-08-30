@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,8 +7,9 @@ name = "pyimgano"
 version = "0.9.1"
 description = "Enterprise-Grade Visual Anomaly Detection Toolkit with 120+ registry models and 80+ operations"
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "PyImgAno Contributors"},
 ]
@@ -30,7 +31,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -82,7 +82,7 @@ viz = [
 ]
 anomalib = [
     "pyimgano[torch]",
-    "anomalib>=0.10.0",
+    "anomalib>=1.0.0,<3.0.0",
 ]
 patchcore_inspection = [
     # PyPI forbids VCS/direct-URL dependencies in published metadata.
@@ -179,7 +179,7 @@ pyimgano = ["py.typed"]
 # Black configuration
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py39']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -248,7 +248,7 @@ exclude_lines = [
 
 # MyPy configuration
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -275,7 +275,7 @@ ignore_missing_imports = true
 # Ruff configuration (modern alternative to flake8)
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [

@@ -1,0 +1,45 @@
+name: Official GPU E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * 1'
+
+jobs:
+  official_weights:
+    name: PatchCore and OpenCLIP official weights
+    runs-on: [self-hosted, linux, x64, gpu]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/torch
+            ~/.cache/huggingface
+          key: official-gpu-e2e-${{ runner.os }}-${{ hashFiles('constraints/optional-py310-current.txt') }}
+
+      - name: Install pinned optional profile
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -c constraints/optional-py310-current.txt -e .[torch,clip]
+          python -m pip check
+
+      - name: Verify CUDA
+        run: |
+          nvidia-smi
+          python -c "import torch; assert torch.cuda.is_available(); print(torch.cuda.get_device_name(0))"
+
+      - name: Run official-weight E2E
+        run: python tools/run_official_gpu_e2e.py --device cuda --allow-download --output official-gpu-e2e.json
+
+      - name: Upload report
+        uses: actions/upload-artifact@v7
+        with:
+          name: official-gpu-e2e
+          path: official-gpu-e2e.json

@@ -31,8 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--opset",
         type=int,
-        default=17,
-        help="ONNX opset version. Default: 17",
+        default=18,
+        help="ONNX opset version. Default: 18",
     )
     parser.add_argument(
         "--dynamic-batch",
@@ -78,24 +78,18 @@ def main(argv: list[str] | None = None) -> int:
 
     dummy = torch.zeros((1, 3, image_size, image_size), dtype=torch.float32)
 
-    input_names = ["input"]
-    output_names = ["embeddings"]
-    dynamic_axes = None
-    if bool(args.dynamic_batch):
-        dynamic_axes = {
-            "input": {0: "batch"},
-            "embeddings": {0: "batch"},
-        }
+    from pyimgano.utils.onnx_export import export_torch_model
 
     try:
-        torch.onnx.export(
-            model,
-            dummy,
-            str(out_path),
-            input_names=input_names,
-            output_names=output_names,
-            dynamic_axes=dynamic_axes,
-            opset_version=int(opset),
+        export_torch_model(
+            torch=torch,
+            model=model,
+            dummy_input=dummy,
+            output_path=out_path,
+            input_names=["input"],
+            output_names=["embeddings"],
+            opset_version=opset,
+            dynamic_batch=bool(args.dynamic_batch),
             do_constant_folding=True,
         )
     except ModuleNotFoundError as exc:

@@ -25,7 +25,7 @@ def test_onnx_export_cli_smoke(tmp_path: Path) -> None:
             "--image-size",
             "32",
             "--opset",
-            "17",
+            "18",
             "--dynamic-batch",
             "--verify",
             "--out",

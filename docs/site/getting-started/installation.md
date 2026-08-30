@@ -12,7 +12,7 @@ pip install pyimgano
 
 !!! info "Python 版本"
 
-    pyimgano 需要 **Python 3.8+**。推荐使用 Python 3.10 或 3.11。
+    pyimgano 需要 **Python 3.9+**。推荐使用 Python 3.10 或 3.11。
 
 === "中文"
 

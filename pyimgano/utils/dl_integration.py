@@ -435,14 +435,17 @@ class TorchWrapper:
         """
         dummy_input = torch.randn(*input_shape).to(self.device)
 
-        torch.onnx.export(
-            self.model,
-            dummy_input,
-            output_path,
+        from pyimgano.utils.onnx_export import export_torch_model
+
+        export_torch_model(
+            torch=torch,
+            model=self.model,
+            dummy_input=dummy_input,
+            output_path=output_path,
             opset_version=opset_version,
             input_names=["input"],
             output_names=["output"],
-            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+            dynamic_batch=True,
         )
 
 

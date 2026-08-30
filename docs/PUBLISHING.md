@@ -13,7 +13,7 @@ you need to publish a release to **PyPI**.
 
 - A PyPI account (https://pypi.org/)
 - A PyPI API token (recommended) or a username/password (not recommended)
-- Python 3.8+
+- Python 3.9+
 
 ## Authentication (Twine)
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Raised the supported Python floor from 3.8 to 3.9 and migrated package
+  licensing metadata to the current PEP 639/SPDX form required by modern
+  setuptools.
+
 ## [0.9.1] - 2026-05-03
 
 ### Changed
