@@ -211,6 +211,31 @@ def _validate_author_model(model: Any) -> None:
         raise ValueError("FiLo adapter must use the released 768-to-384-to-768 bottleneck.")
 
 
+def _load_filo_state_dict(model: torch.nn.Module, state: Mapping[Any, Any]) -> None:
+    """Load an author FiLo state while rejecting zero-coverage/mismatched artifacts."""
+
+    if not all(
+        isinstance(key, str) and isinstance(value, torch.Tensor) for key, value in state.items()
+    ):
+        raise TypeError("The FiLo state dict must contain only string tensor entries.")
+    model_keys = set(model.state_dict())
+    state_keys = set(state)
+    if not model_keys.intersection(state_keys):
+        raise ValueError("The FiLo checkpoint has no parameters matching the released FiLo model.")
+
+    incompatible = model.load_state_dict(dict(state), strict=False)
+    unexpected = set(incompatible.unexpected_keys)
+    if unexpected:
+        preview = ", ".join(sorted(unexpected)[:5])
+        raise ValueError(f"The FiLo checkpoint contains unexpected parameter keys: {preview}")
+
+    trainable = {name for name, parameter in model.named_parameters() if parameter.requires_grad}
+    missing_trainable = trainable.intersection(incompatible.missing_keys)
+    if missing_trainable:
+        preview = ", ".join(sorted(missing_trainable)[:5])
+        raise ValueError(f"The FiLo checkpoint is missing trainable parameters: {preview}")
+
+
 def _load_author_models(
     *,
     repository_path: Path,
@@ -283,7 +308,7 @@ def _load_author_models(
                 module.mvtec_obj_list if dataset == "mvtec" else module.visa_obj_list
             )
             filo_model = module.FiLo(object_names, args, str(device)).to(device)
-            filo_model.load_state_dict(dict(state), strict=False)
+            _load_filo_state_dict(filo_model, state)
             grounding_model = module.load_model(
                 str(grounding_config), str(grounding_checkpoint_path), str(grounding_device)
             )

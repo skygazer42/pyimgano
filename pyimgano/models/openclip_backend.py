@@ -13,6 +13,8 @@ The goal is to make `import pyimgano.models` safe even when optional deps are
 not installed, while still registering model names so they can be discovered.
 """
 
+import inspect
+from pathlib import Path
 from typing import Any, Iterable, Literal, Optional, Union, cast
 
 import numpy as np
@@ -30,6 +32,19 @@ def _require_open_clip(open_clip_module=None):
     if open_clip_module is not None:
         return open_clip_module
     return require("open_clip", extra="clip", purpose=OPENCLIP_DETECTORS)
+
+
+def _validate_openclip_pretrained_access(
+    pretrained: Optional[str], *, allow_download: bool
+) -> None:
+    """Reject implicit OpenCLIP weight downloads unless explicitly authorized."""
+
+    pretrained_text = "" if pretrained is None else str(pretrained).strip()
+    if pretrained_text and not Path(pretrained_text).is_file() and not allow_download:
+        raise RuntimeError(
+            "OpenCLIP pretrained weights may require network access. Pass "
+            "allow_download=True explicitly, set pretrained=None, or provide a local weight file."
+        )
 
 
 def _l2_normalize(x: NDArray, *, axis: int, eps: float = 1e-12) -> NDArray:
@@ -99,8 +114,12 @@ def _load_openclip_model_and_preprocess(
     pretrained: Optional[str],
     device: str,
     force_image_size: Optional[int] = None,
+    allow_download: bool = False,
+    precision: Optional[str] = None,
 ):
     """Load an OpenCLIP model + preprocess lazily (best-effort API compatibility)."""
+
+    _validate_openclip_pretrained_access(pretrained, allow_download=allow_download)
 
     open_clip = _require_open_clip(open_clip_module)
 
@@ -112,6 +131,8 @@ def _load_openclip_model_and_preprocess(
     kwargs: dict[str, Any] = {}
     if force_image_size is not None:
         kwargs["force_image_size"] = int(force_image_size)
+    if precision is not None:
+        kwargs["precision"] = str(precision)
 
     result = open_clip.create_model_and_transforms(
         str(model_name),
@@ -138,30 +159,100 @@ def _load_openclip_model_and_preprocess(
     return model, preprocess, device_t
 
 
-def _run_openclip_transformer(transformer: Any, x: Any) -> Any:
-    """Run an OpenCLIP transformer in either (B, N, C) or (N, B, C) mode."""
+def _openclip_block_batch_first(block: Any) -> bool:
+    """Return the token layout expected by an OpenCLIP transformer block.
 
-    # Strategy 1: some implementations accept (B, N, C).
-    try:
-        out = transformer(x)
-        if isinstance(out, tuple):
-            out = out[0]
-        return out
-    except Exception:
-        pass
+    OpenCLIP changed its residual blocks from sequence-first PyTorch
+    ``MultiheadAttention`` to a batch-first custom attention implementation.
+    Both variants accept arbitrary rank-3 tensors, so trying one layout and
+    waiting for an exception cannot detect the difference safely.
+    """
 
-    # Strategy 2: OpenAI CLIP style expects (N, B, C).
-    try:
-        x_t = x.permute(1, 0, 2)
-        out = transformer(x_t)
-        if isinstance(out, tuple):
-            out = out[0]
-        return out.permute(1, 0, 2)
-    except Exception as exc:
+    explicit = getattr(block, "batch_first", None)
+    if explicit is not None:
+        return bool(explicit)
+
+    attention = getattr(block, "attn", None)
+    if attention is None:
+        attention = getattr(block, "self_attn", None)
+    if attention is None:
         raise RuntimeError(
-            "Failed to run OpenCLIP visual transformer. This may be an unsupported "
-            "OpenCLIP version / model architecture."
+            "Cannot determine OpenCLIP token layout: transformer block has no "
+            "`attn`, `self_attn`, or explicit `batch_first` capability."
+        )
+
+    explicit = getattr(attention, "batch_first", None)
+    if explicit is not None:
+        return bool(explicit)
+
+    # Current OpenCLIP Attention exposes the SDPA switch and accepts BNC. Its
+    # predecessor used the same projection parameter names but accepted LNC,
+    # so projection shape/name inspection is not sufficient.
+    if hasattr(attention, "use_sdpa"):
+        return True
+
+    forward = getattr(attention, "forward", None)
+    if callable(forward):
+        try:
+            parameters = inspect.signature(forward).parameters
+        except (TypeError, ValueError):  # pragma: no cover - opaque extension modules
+            parameters = {}
+        if "k_x" in parameters or "v_x" in parameters:
+            return True
+
+    # OpenCLIP 2.x custom sequence-first attention exposes these capabilities
+    # but not ``use_sdpa`` or the cross-attention ``k_x``/``v_x`` API.
+    if all(hasattr(attention, name) for name in ("scaled_cosine", "in_proj_weight")):
+        return False
+
+    raise RuntimeError(
+        "Cannot determine OpenCLIP token layout from the attention capabilities. "
+        "Use a supported OpenCLIP transformer or expose `batch_first` explicitly."
+    )
+
+
+def _openclip_transformer_batch_first(transformer: Any) -> bool:
+    explicit = getattr(transformer, "batch_first", None)
+    if explicit is not None:
+        return bool(explicit)
+
+    blocks = getattr(transformer, "resblocks", None)
+    if blocks is not None:
+        try:
+            if len(blocks) == 0:
+                raise RuntimeError("OpenCLIP transformer has no residual blocks.")
+            return _openclip_block_batch_first(blocks[0])
+        except TypeError:  # pragma: no cover - unusual non-sized containers
+            pass
+
+    # Useful for PyTorch TransformerEncoderLayer and compatible wrappers.
+    if hasattr(transformer, "attn") or hasattr(transformer, "self_attn"):
+        return _openclip_block_batch_first(transformer)
+
+    raise RuntimeError(
+        "Cannot determine OpenCLIP transformer token layout: no residual-block "
+        "or explicit `batch_first` capability was found."
+    )
+
+
+def _run_openclip_transformer(transformer: Any, x: Any, *, attn_mask: Any = None) -> Any:
+    """Run an OpenCLIP transformer and return canonical ``(B, N, C)`` tokens."""
+
+    batch_first = _openclip_transformer_batch_first(transformer)
+    transformer_input = x if batch_first else x.permute(1, 0, 2)
+    try:
+        if attn_mask is None:
+            out = transformer(transformer_input)
+        else:
+            out = transformer(transformer_input, attn_mask=attn_mask)
+    except Exception as exc:
+        layout = "(B, N, C)" if batch_first else "(N, B, C)"
+        raise RuntimeError(
+            f"Failed to run OpenCLIP visual transformer with detected {layout} layout."
         ) from exc
+    if isinstance(out, tuple):
+        out = out[0]
+    return out if batch_first else out.permute(1, 0, 2)
 
 
 class OpenCLIPViTPatchEmbedder:
@@ -182,6 +273,7 @@ class OpenCLIPViTPatchEmbedder:
         device: str = "cpu",
         force_image_size: Optional[int] = None,
         normalize: bool = True,
+        allow_download: bool = False,
         open_clip_module=None,
         model: Any = None,
         preprocess: Any = None,
@@ -191,6 +283,7 @@ class OpenCLIPViTPatchEmbedder:
         self.device = str(device)
         self.force_image_size = force_image_size
         self.normalize = bool(normalize)
+        self.allow_download = bool(allow_download)
         self._open_clip = open_clip_module
 
         self._model: Any = model
@@ -206,6 +299,7 @@ class OpenCLIPViTPatchEmbedder:
             pretrained=self.pretrained,
             device=self.device,
             force_image_size=self.force_image_size,
+            allow_download=self.allow_download,
         )
         self._model = model
         self._preprocess = preprocess
@@ -342,6 +436,7 @@ def _encode_openclip_text_features(
     *,
     open_clip: Any,
     model: Any,
+    model_name: str,
     device_t: Any,
     prompts: list[str],
 ) -> NDArray:
@@ -352,7 +447,15 @@ def _encode_openclip_text_features(
 
     torch = require("torch", extra="torch", purpose=OPENCLIP_DETECTORS)
 
-    tokens = open_clip.tokenize(prompts).to(device_t)
+    get_tokenizer = getattr(open_clip, "get_tokenizer", None)
+    if callable(get_tokenizer):
+        tokenizer = get_tokenizer(str(model_name))
+    else:
+        tokenizer = getattr(open_clip, "tokenize", None)
+        if not callable(tokenizer):
+            raise RuntimeError("OpenCLIP exposes neither `get_tokenizer` nor legacy `tokenize`.")
+
+    tokens = tokenizer(prompts).to(device_t)
     with torch.no_grad():
         features = model.encode_text(tokens)
         denom = torch.linalg.norm(features, dim=-1, keepdim=True)
@@ -406,6 +509,7 @@ class VisionOpenCLIPPromptScore:
         text_prompts: Optional[dict[str, list[str]]] = None,
         openclip_model_name: str = "ViT-B-32",
         openclip_pretrained: Optional[str] = "laion2b_s34b_b79k",
+        allow_download: bool = False,
         device: str = "cpu",
         force_image_size: Optional[int] = None,
         normalize_embeddings: bool = True,
@@ -425,6 +529,7 @@ class VisionOpenCLIPPromptScore:
         )
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = openclip_pretrained
+        self.allow_download = bool(allow_download)
         self.device = str(device)
         self.force_image_size = force_image_size
         self.normalize_embeddings = bool(normalize_embeddings)
@@ -455,6 +560,7 @@ class VisionOpenCLIPPromptScore:
                 device=self.device,
                 force_image_size=self.force_image_size,
                 normalize=self.normalize_embeddings,
+                allow_download=self.allow_download,
             )
         else:
             # If callers provide a custom embedder, require explicit text features
@@ -518,12 +624,14 @@ class VisionOpenCLIPPromptScore:
         self.text_features_normal = _encode_openclip_text_features(
             open_clip=open_clip,
             model=model,
+            model_name=self.openclip_model_name,
             device_t=device_t,
             prompts=normal_prompts,
         )
         self.text_features_anomaly = _encode_openclip_text_features(
             open_clip=open_clip,
             model=model,
+            model_name=self.openclip_model_name,
             device_t=device_t,
             prompts=anomaly_prompts,
         )
@@ -689,6 +797,7 @@ class VisionOpenCLIPPatchKNN:
         knn_index: Optional[Any] = None,
         openclip_model_name: str = "ViT-B-32",
         openclip_pretrained: Optional[str] = "laion2b_s34b_b79k",
+        allow_download: bool = False,
         device: str = "cpu",
         force_image_size: Optional[int] = None,
         normalize_embeddings: bool = True,
@@ -705,12 +814,17 @@ class VisionOpenCLIPPatchKNN:
                 device=str(device),
                 force_image_size=force_image_size,
                 normalize=bool(normalize_embeddings),
+                allow_download=bool(allow_download),
             )
 
         self._open_clip = open_clip_module
-        self._knn_index = knn_index
         self._kwargs = dict(kwargs)
-        self._core = VisionAnomalyDINO(embedder=embedder, device=str(device), **kwargs)
+        self._core = VisionAnomalyDINO(
+            embedder=embedder,
+            knn_index=knn_index,
+            device=str(device),
+            **kwargs,
+        )
 
     def fit(self, x: object = MISSING, y=None, **kwargs: object):  # pragma: no cover - skeleton API
         self._core.fit(resolve_legacy_x_keyword(x, kwargs, method_name="fit"), y=y)

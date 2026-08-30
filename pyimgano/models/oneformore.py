@@ -127,6 +127,21 @@ def _paper_anomaly_maps(
     return maps.astype(np.float32, copy=False)
 
 
+def _paper_image_ap_scores(anomaly_maps: NDArray[Any]) -> NDArray[np.float32]:
+    """Apply the released ``EvalImageAP`` reducer to anomaly maps."""
+
+    maps = np.asarray(anomaly_maps, dtype=np.float32)
+    if maps.ndim != 3 or not maps.shape[0] or not np.isfinite(maps).all():
+        raise ValueError("One-for-More anomaly maps must be a finite non-empty (N, H, W) array.")
+    if min(maps.shape[-2:]) < 57:
+        raise ValueError("One-for-More EvalImageAP requires anomaly maps of at least 57x57.")
+
+    smoothed = torch.from_numpy(maps).unsqueeze(1)
+    for _ in range(8):
+        smoothed = F.avg_pool2d(smoothed, kernel_size=8, stride=1)
+    return smoothed.flatten(1).amax(dim=1).cpu().numpy().astype(np.float32, copy=False)
+
+
 @contextmanager
 def _author_import_path(repository_path: Path, *, allow_download: bool) -> Iterator[None]:
     path = str(repository_path)
@@ -302,7 +317,7 @@ class AuthorOneForMoreBackend:
                     [output_features[index] for index in layers],
                 )
                 maps.append(batch_maps)
-                scores.append(batch_maps.reshape(len(batch_items), -1).max(axis=1))
+                scores.append(_paper_image_ap_scores(batch_maps))
         return (
             np.concatenate(scores).astype(np.float32, copy=False),
             np.concatenate(maps).astype(np.float32, copy=False),

@@ -25,3 +25,17 @@ def test_panda_paper_defaults_and_squared_l2_two_nn_score() -> None:
     scores = detector._score_features(torch.tensor([[1.0], [4.0]]))
 
     np.testing.assert_allclose(scores, [2.0, 5.0])
+
+
+def test_panda_predict_returns_labels_and_decision_function_returns_scores() -> None:
+    from pyimgano.models.panda import VisionPANDA
+
+    detector = VisionPANDA(pretrained=False, device="cpu")
+    detector.memory_bank_ = torch.tensor([[0.0], [2.0], [5.0]])
+    detector.threshold_ = 3.0
+    detector.is_fitted_ = True
+    detector._preprocess = lambda _values: torch.tensor([[1.0], [4.0]])  # type: ignore[method-assign]
+    detector._extract_features = lambda values: values  # type: ignore[method-assign]
+
+    np.testing.assert_allclose(detector.decision_function(["a", "b"]), [2.0, 5.0])
+    np.testing.assert_array_equal(detector.predict(["a", "b"]), [0, 1])

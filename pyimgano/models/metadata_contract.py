@@ -194,6 +194,11 @@ def _match_family_names(tags: Sequence[str]) -> list[str]:
     for family in _MODEL_FAMILIES:
         if {_normalize_key(tag) for tag in family.tags}.issubset(tag_set):
             out.append(str(family.name))
+    # ``classical`` and ``deep`` are useful fallbacks for otherwise unclassified
+    # entries, but discovery should expose the more actionable family when one
+    # exists (for example ``template`` rather than ``classical, template``).
+    if len(out) > 1:
+        out = [name for name in out if name not in {"classical", "deep"}]
     return out
 
 
@@ -225,6 +230,11 @@ def _infer_supervision(meta: Mapping[str, Any], tags: Sequence[str]) -> str | No
         # The remaining native deep detectors expose the normal-only training
         # contract used throughout the registry.
         return "one-class"
+    if tag_set.intersection({"classical", "ensemble", "wrapper"}):
+        # Classical detectors and the score-only ensemble/calibration wrappers
+        # consume normal/unlabelled feature collections and never require class
+        # labels in the registry contract.
+        return "unsupervised"
     return None
 
 

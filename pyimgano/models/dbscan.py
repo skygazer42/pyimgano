@@ -56,6 +56,7 @@ class CoreDBSCAN:
 
         self.scaler_: StandardScaler | None = None
         self.core_samples_: np.ndarray | None = None
+        self.used_training_fallback_: bool = False
         self.decision_scores_: np.ndarray | None = None
         self._fitted: bool = False
 
@@ -89,13 +90,27 @@ class CoreDBSCAN:
 
         core_idx = getattr(db, "core_sample_indices_", None)
         if core_idx is None or len(core_idx) == 0:
-            # Degenerate: no cores discovered.
-            self.core_samples_ = None
-            self.decision_scores_ = np.ones((n,), dtype=np.float64)
+            # DBSCAN discovered no core points.  The novelty extension still
+            # needs to rank unseen samples, so use the observed training set as
+            # the reference set instead of returning a query-independent
+            # constant.  Training scores use leave-one-out nearest-neighbour
+            # distances to avoid the zero self-distance.
+            self.core_samples_ = np.asarray(x_proc, dtype=np.float64)
+            self.used_training_fallback_ = True
+            if n <= 1:
+                self.decision_scores_ = np.zeros((n,), dtype=np.float64)
+            else:
+                kwargs = {"metric": self.metric, "n_jobs": self.n_jobs}
+                if self.metric == "minkowski":
+                    kwargs["p"] = int(self.p)
+                train_dists = pairwise_distances(x_proc, self.core_samples_, **kwargs)
+                np.fill_diagonal(train_dists, np.inf)
+                self.decision_scores_ = np.min(train_dists, axis=1).astype(np.float64, copy=False)
             self._fitted = True
             return self
 
         self.core_samples_ = np.asarray(x_proc[np.asarray(core_idx, dtype=int)], dtype=np.float64)
+        self.used_training_fallback_ = False
 
         # Training scores: distance to nearest core sample.
         self._fitted = True
@@ -115,7 +130,7 @@ class CoreDBSCAN:
 
         x = check_array(x, ensure_2d=True, dtype=np.float64)
         if self.core_samples_ is None:
-            return np.ones((x.shape[0],), dtype=np.float64)
+            raise RuntimeError("Internal error: missing DBSCAN reference samples")
 
         x_proc = x
         if self.preprocessing:
@@ -136,8 +151,12 @@ class CoreDBSCAN:
     metadata={
         "description": "Core DBSCAN-inspired distance-to-core-set detector on feature matrices",
         "input": "features",
-        "paper": "a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "related_paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "paper_url": "https://cdn.aaai.org/KDD/1996/KDD96-037.pdf",
         "year": 1996,
+        "paper_fidelity": "inspired",
+        "implementation_status": "distance-to-core-novelty-extension",
+        "known_deviation": "Defines a fitted distance-to-core anomaly score that is not part of the DBSCAN paper.",
     },
 )
 class CoreDBSCANModel(CoreFeatureDetector):
@@ -174,8 +193,12 @@ class CoreDBSCANModel(CoreFeatureDetector):
     tags=("vision", "classical", "clustering", "dbscan", "density"),
     metadata={
         "description": "Vision wrapper for DBSCAN-inspired distance-to-core-set baseline",
-        "paper": "a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "related_paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "paper_url": "https://cdn.aaai.org/KDD/1996/KDD96-037.pdf",
         "year": 1996,
+        "paper_fidelity": "inspired",
+        "implementation_status": "vision-distance-to-core-novelty-extension",
+        "known_deviation": "Uses DBSCAN core samples to define a library-specific anomaly score.",
     },
 )
 class VisionDBSCAN(BaseVisionDetector):
@@ -218,8 +241,12 @@ class VisionDBSCAN(BaseVisionDetector):
     metadata={
         "description": "Structural-features DBSCAN-inspired anomaly baseline (modernized)",
         "legacy_name": True,
-        "paper": "a Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "related_paper": "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise",
+        "paper_url": "https://cdn.aaai.org/KDD/1996/KDD96-037.pdf",
         "year": 1996,
+        "paper_fidelity": "inspired",
+        "implementation_status": "structural-feature-distance-to-core-novelty-extension",
+        "known_deviation": "The anomaly scoring extension is not defined by the DBSCAN paper.",
     },
     overwrite=True,
 )

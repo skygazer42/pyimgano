@@ -85,7 +85,10 @@ class DeepPyramidExtractor(nn.Module):
         "year": 2020,
         "supervision": "unsupervised",
         "implementation_status": "paper-wrn50x2-equations-and-pyramid-aligned",
-        "paper_fidelity": "core-aligned",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
+        "supports_save_load": True,
     },
 )
 @register_model(
@@ -98,7 +101,10 @@ class DeepPyramidExtractor(nn.Module):
         "year": 2020,
         "supervision": "unsupervised",
         "implementation_status": "paper-wrn50x2-equations-and-pyramid-aligned",
-        "paper_fidelity": "core-aligned",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
+        "supports_save_load": True,
     },
 )
 class VisionSPADEDetector(BaseVisionDeepDetector):
@@ -493,9 +499,8 @@ class VisionSPADEDetector(BaseVisionDeepDetector):
         self.align_features = bool(config.get("align_features", self.align_features))
         self.gaussian_sigma = float(config.get("gaussian_sigma", self.gaussian_sigma))
 
-        device_value = config.get("device", None)
-        if device_value is not None:
-            self.device = torch.device(str(device_value))
+        # The serialized device records provenance only. Keep the receiving
+        # detector's runtime placement so CUDA artifacts remain CPU-portable.
 
         self.feature_extractor = DeepPyramidExtractor(
             self.backbone_name,

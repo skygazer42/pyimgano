@@ -89,6 +89,20 @@ def test_author_backend_runs_released_preprocess_sampling_and_score() -> None:
     assert float(batch["jpg"][0, 0, 0, 0]) == pytest.approx(-0.485 / 0.229)
 
 
+def test_oneformore_uses_released_ap_smoothing_image_reducer() -> None:
+    from pyimgano.models.oneformore import _paper_image_ap_scores
+
+    point = np.zeros((256, 256), dtype=np.float32)
+    point[128, 128] = 1.0
+    block = np.zeros((256, 256), dtype=np.float32)
+    block[96:160, 96:160] = 1.0
+
+    scores = _paper_image_ap_scores(np.stack((point, block)))
+
+    assert scores[0] == pytest.approx(0.0036432659, rel=1e-6)
+    assert scores[1] == pytest.approx(1.0)
+
+
 def test_oneformore_wrapper_calibrates_and_returns_pixel_maps(capsys) -> None:
     from pyimgano.models.oneformore import VisionOneForMore
 

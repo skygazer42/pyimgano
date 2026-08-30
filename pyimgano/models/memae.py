@@ -33,6 +33,28 @@ from .registry import register_model
 logger = logging.getLogger(__name__)
 
 
+def _preprocess_memae_images(x: NDArray) -> torch.Tensor:
+    """Map equivalent uint8 ``[0, 255]`` and float ``[0, 1]`` images to ``[-1, 1]``."""
+
+    images = np.asarray(x)
+    if images.ndim == 3:
+        images = np.expand_dims(images, axis=-1)
+    if images.ndim != 4 or not images.size:
+        raise ValueError("MemAE expects a non-empty (N, H, W[, C]) image batch.")
+    if not np.isfinite(images).all():
+        raise ValueError("MemAE images must contain only finite values.")
+    minimum = float(images.min())
+    maximum = float(images.max())
+    if minimum < 0.0 or maximum > 255.0:
+        raise ValueError("MemAE image values must be in float [0, 1] or [0, 255].")
+
+    channel_first = np.transpose(images, (0, 3, 1, 2))
+    tensor = torch.from_numpy(np.ascontiguousarray(channel_first)).float()
+    if np.issubdtype(images.dtype, np.floating) and maximum <= 1.0:
+        return tensor.mul(2.0).sub(1.0)
+    return tensor.div(127.5).sub(1.0)
+
+
 class MemoryModule(nn.Module):
     """Paper memory addressing with cosine attention and sparse shrinkage."""
 
@@ -263,16 +285,11 @@ class MemAE(BaseVisionDeepDetector):
         del y
         x = np.asarray(x)
         x_original = x.copy()
-        # Convert to torch tensor
-        if x.ndim == 3:
-            x = np.expand_dims(x, axis=-1)
-
-        x = np.transpose(x, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(np.ascontiguousarray(x)).float() / 127.5 - 1.0
+        x_tensor = _preprocess_memae_images(x)
 
         # Initialize network
         self.network_ = MemAENetwork(
-            in_channels=x.shape[1], mem_dim=self.mem_dim, shrink_thres=self.shrink_thres
+            in_channels=x_tensor.shape[1], mem_dim=self.mem_dim, shrink_thres=self.shrink_thres
         ).to(self.device)
 
         # Setup optimizer
@@ -336,12 +353,7 @@ class MemAE(BaseVisionDeepDetector):
         """
         self._check_is_fitted()
 
-        # Preprocess
-        if x.ndim == 3:
-            x = np.expand_dims(x, axis=-1)
-
-        x = np.transpose(x, (0, 3, 1, 2))
-        x_tensor = torch.from_numpy(np.ascontiguousarray(x)).float() / 127.5 - 1.0
+        x_tensor = _preprocess_memae_images(x)
 
         # Compute scores
         self.network_.eval()

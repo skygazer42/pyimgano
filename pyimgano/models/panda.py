@@ -41,7 +41,7 @@ class PANDAEncoder(nn.Module):
         self,
         backbone: str = "resnet152",
         *,
-        pretrained: bool = True,
+        pretrained: bool = False,
         weights_name: str = "IMAGENET1K_V1",
     ) -> None:
         super().__init__()
@@ -91,28 +91,30 @@ class PANDAEncoder(nn.Module):
         "paper": "PANDA: Adapting Pretrained Features for Anomaly Detection and Segmentation",
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2021/html/Reiss_PANDA_Adapting_Pretrained_Features_for_Anomaly_Detection_and_Segmentation_CVPR_2021_paper.html",
         "year": 2021,
-        "implementation_status": "paper-image-panda-early-path-aligned",
-        "paper_fidelity": "core-aligned",
+        "implementation_status": "paper-panda-early-path-conditional-on-pretrained-backbone",
+        "paper_fidelity": "paper-adaptation",
         "type": "feature-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
     },
 )
 class VisionPANDA(BaseVisionDeepDetector):
     """Paper-aligned PANDA-Early image-level detector.
 
-    Defaults reproduce the published fixed-iteration path: ImageNet-pretrained
-    ResNet152, blocks 3/4 fine-tuning, 2,300 minibatches of 32 images, SGD with
+    The published profile uses ImageNet-pretrained ResNet152, blocks 3/4
+    fine-tuning, 2,300 minibatches of 32 images, SGD with
     ``lr=1e-2``, momentum ``0.9``, weight decay ``5e-5``, gradient clipping at
     ``1e-3``, and summed squared distances to two nearest normal features.
 
-    ``pretrained=False`` and non-default backbones are useful for tests but are
-    not paper configurations.
+    The constructor stays offline-safe with ``pretrained=False``; set it to
+    ``True`` to select the paper backbone.
     """
 
     def __init__(
         self,
         backbone: str = "resnet152",
         *,
-        pretrained: bool = True,
+        pretrained: bool = False,
         weights_name: str = "IMAGENET1K_V1",
         learning_rate: float = 1e-2,
         batch_size: int = 32,
@@ -296,14 +298,15 @@ class VisionPANDA(BaseVisionDeepDetector):
         x: object = MISSING,
         return_confidence: bool = False,
         **kwargs: object,
-    ) -> NDArray[np.float32]:
+    ) -> NDArray[np.int64]:
         if return_confidence:
             raise NotImplementedError(
                 f"return_confidence is not implemented for {self.__class__.__name__}"
             )
         self._check_is_fitted()
         values = resolve_legacy_x_keyword(x, kwargs, method_name="predict")
-        return self._score_features(self._extract_features(self._preprocess(values)))
+        scores = self.decision_function(values)
+        return (scores > float(self.threshold_)).astype(np.int64)
 
     def decision_function(
         self,
@@ -312,14 +315,15 @@ class VisionPANDA(BaseVisionDeepDetector):
         **kwargs: object,
     ) -> NDArray[np.float32]:
         values = cast(object, resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
+        self._check_is_fitted()
         if batch_size is None:
-            return self.predict(values)
+            return self._score_features(self._extract_features(self._preprocess(values)))
         if int(batch_size) <= 0:
             raise ValueError(f"batch_size must be positive integer, got: {batch_size!r}")
         old_batch_size = self.batch_size
         try:
             self.batch_size = int(batch_size)
-            return self.predict(values)
+            return self._score_features(self._extract_features(self._preprocess(values)))
         finally:
             self.batch_size = old_batch_size
 

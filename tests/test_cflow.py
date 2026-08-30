@@ -99,3 +99,23 @@ def test_cflow_positional_encoding_matches_author_layout() -> None:
     assert encoding[0, 0, 1].item() == pytest.approx(torch.sin(torch.tensor(1.0)).item())
     assert encoding[4, 1, 0].item() == pytest.approx(torch.sin(torch.tensor(1.0)).item())
     assert encoding[5, 0, 0].item() == pytest.approx(1.0)
+
+
+def test_cflow_fitted_normalizer_is_query_batch_invariant() -> None:
+    torch = pytest.importorskip("torch")
+
+    from pyimgano.models.cflow import _fixed_normalized_anomaly_maps
+
+    query = torch.full((1, 2, 2), -1.0)
+    contextual_query = torch.cat((query, torch.full((1, 2, 2), -10.0)))
+    kwargs = {
+        "log_probability_maxima": (0.0,),
+        "probability_sum_maximum": 1.0,
+        "output_size": 2,
+    }
+
+    alone = _fixed_normalized_anomaly_maps([query], **kwargs)
+    with_context = _fixed_normalized_anomaly_maps([contextual_query], **kwargs)
+
+    torch.testing.assert_close(alone[0], with_context[0])
+    torch.testing.assert_close(alone, torch.full_like(alone, 1.0 - np.exp(-1.0)))

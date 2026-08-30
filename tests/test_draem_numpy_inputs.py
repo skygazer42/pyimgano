@@ -52,6 +52,15 @@ def test_draem_uses_perlin_mask_and_discriminative_branch():
     assert mask.shape == (1, 32, 32)
     assert torch.any(mask > 0)
     assert not torch.equal(augmented, original)
+    assert len(dataset.last_augmentation_indices_) == 3
+    assert len(set(dataset.last_augmentation_indices_)) == 3
+
+    pool_input = torch.linspace(0.0, 1.0, 3 * 16 * 16).reshape(3, 16, 16)
+    for augmentation_index in range(10):
+        pool_output = dataset._apply_texture_augmentation(pool_input, augmentation_index)
+        assert pool_output.shape == pool_input.shape
+        assert torch.isfinite(pool_output).all()
+        assert 0.0 <= float(pool_output.min()) <= float(pool_output.max()) <= 1.0
 
     network = DRAEMNetwork(base_channels=4)
     assert len(network.reconstructor.encoder_blocks) == 5

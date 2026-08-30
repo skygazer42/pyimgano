@@ -39,6 +39,35 @@ _GAUSSIAN_LOG_CONSTANT = -0.5 * math.log(2.0 * math.pi)
 logger = logging.getLogger(__name__)
 
 
+def _fixed_normalized_anomaly_maps(
+    log_probability_maps: list[torch.Tensor],
+    *,
+    log_probability_maxima: tuple[float, ...],
+    probability_sum_maximum: float,
+    output_size: int,
+) -> torch.Tensor:
+    """Convert likelihood maps with normalizers fixed on the training set."""
+
+    if not log_probability_maps or len(log_probability_maps) != len(log_probability_maxima):
+        raise ValueError("CFLOW likelihood maps and fitted scale normalizers must align.")
+    batch = int(log_probability_maps[0].shape[0])
+    probability_sum = torch.zeros((batch, output_size, output_size), dtype=torch.float32)
+    for log_probability, maximum in zip(log_probability_maps, log_probability_maxima):
+        if int(log_probability.shape[0]) != batch:
+            raise ValueError("CFLOW likelihood-map batches must align across scales.")
+        # A query can be more likely than every training fiber. Bound the
+        # exponent to avoid overflow; the final anomaly distance is clipped at
+        # zero for such above-calibration likelihoods.
+        probability = torch.exp((log_probability - float(maximum)).clamp(max=80.0))
+        probability_sum += F.interpolate(
+            probability.unsqueeze(1),
+            size=(output_size, output_size),
+            mode="bilinear",
+            align_corners=True,
+        ).squeeze(1)
+    return (float(probability_sum_maximum) - probability_sum).clamp_min(0.0)
+
+
 def positional_encoding_2d(
     dimensions: int,
     height: int,
@@ -302,8 +331,14 @@ def _cflow_transform(image_size: int, *, training: bool):
         "author_code": "https://github.com/gudovskiy/cflow-ad",
         "year": 2022,
         "supervision": "one-class",
-        "implementation_status": "paper-resnet-cflow-core-aligned",
-        "paper_fidelity": "core-aligned",
+        "implementation_status": "paper-core-with-fitted-likelihood-normalizer-api-adaptation",
+        "paper_fidelity": "paper-adaptation",
+        "score_adaptation": (
+            "Likelihood maxima are calibrated on fit data and reused at inference to keep "
+            "decision_function independent of query-batch composition."
+        ),
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained_backbone": True},
         "speed": "real-time",
     },
 )
@@ -386,6 +421,8 @@ class VisionCFlow(BaseVisionDeepDetector):
         self.fiber_batch_size = int(fiber_batch_size)
         self.num_workers = int(num_workers)
         self._is_fitted = False
+        self._log_probability_maxima: tuple[float, ...] | None = None
+        self._probability_sum_maximum: float | None = None
         self.feature_extractor: CFlowEncoder | None = None
         self.decoders: nn.ModuleList | None = None
 
@@ -532,6 +569,7 @@ class VisionCFlow(BaseVisionDeepDetector):
 
         self._is_fitted = True
         self.is_fitted_ = True
+        self._fit_likelihood_normalizer(x_list, batch_size=self.batch_size)
         self.decision_scores_ = self.decision_function(x_list)
         self._process_decision_scores()
         return self
@@ -558,14 +596,14 @@ class VisionCFlow(BaseVisionDeepDetector):
         return maps
 
     @torch.no_grad()
-    def _anomaly_maps_for_paths(
+    def _log_probability_maps_for_paths(
         self,
         paths: list[str],
         *,
         batch_size: int,
-    ) -> torch.Tensor:
+    ) -> list[torch.Tensor]:
         if not paths:
-            return torch.zeros((0, self.image_size, self.image_size), dtype=torch.float32)
+            return []
         dataset = ImagePathDataset(
             paths,
             transform=self.eval_transform,
@@ -588,20 +626,58 @@ class VisionCFlow(BaseVisionDeepDetector):
         except FileNotFoundError as exc:
             raise ValueError(f"Failed to load image: {exc}") from exc
 
+        return [torch.cat(scale_maps) for scale_maps in collected]
+
+    @torch.no_grad()
+    def _fit_likelihood_normalizer(self, paths: list[str], *, batch_size: int) -> None:
+        log_probability_maps = self._log_probability_maps_for_paths(
+            paths,
+            batch_size=batch_size,
+        )
+        if not log_probability_maps:
+            raise ValueError("CFLOW cannot calibrate likelihoods on an empty training set.")
+        self._log_probability_maxima = tuple(
+            float(log_probability.amax().item()) for log_probability in log_probability_maps
+        )
+
         probability_sum = torch.zeros(
             (len(paths), self.image_size, self.image_size),
             dtype=torch.float32,
         )
-        for scale_maps in collected:
-            log_probability = torch.cat(scale_maps)
-            probability = torch.exp(log_probability - log_probability.amax())
+        for log_probability, maximum in zip(
+            log_probability_maps,
+            self._log_probability_maxima,
+        ):
+            probability = torch.exp(log_probability - float(maximum))
             probability_sum += F.interpolate(
                 probability.unsqueeze(1),
                 size=(self.image_size, self.image_size),
                 mode="bilinear",
                 align_corners=True,
             ).squeeze(1)
-        return probability_sum.amax() - probability_sum
+        self._probability_sum_maximum = float(probability_sum.amax().item())
+
+    @torch.no_grad()
+    def _anomaly_maps_for_paths(
+        self,
+        paths: list[str],
+        *,
+        batch_size: int,
+    ) -> torch.Tensor:
+        if not paths:
+            return torch.zeros((0, self.image_size, self.image_size), dtype=torch.float32)
+        if self._log_probability_maxima is None or self._probability_sum_maximum is None:
+            raise RuntimeError("CFLOW fitted likelihood normalizer is unavailable.")
+        log_probability_maps = self._log_probability_maps_for_paths(
+            paths,
+            batch_size=batch_size,
+        )
+        return _fixed_normalized_anomaly_maps(
+            log_probability_maps,
+            log_probability_maxima=self._log_probability_maxima,
+            probability_sum_maximum=self._probability_sum_maximum,
+            output_size=self.image_size,
+        )
 
     def _check_fitted(self) -> None:
         if not self._is_fitted:

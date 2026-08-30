@@ -22,6 +22,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from numpy.typing import NDArray
+from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
@@ -55,6 +56,32 @@ def _to_hw(image_size: int | Tuple[int, int]) -> tuple[int, int]:
 
 def _image_transform(image_size: tuple[int, int]) -> transforms.Compose:
     return transforms.Compose([transforms.Resize(image_size), transforms.ToTensor()])
+
+
+def _original_image_hw(value: ImageInput) -> tuple[int, int]:
+    if isinstance(value, np.ndarray):
+        if value.ndim < 2:
+            raise ValueError(
+                f"Expected an image array with at least two dimensions, got {value.shape}."
+            )
+        return int(value.shape[0]), int(value.shape[1])
+    with Image.open(value) as image:
+        width, height = image.size
+    return int(height), int(width)
+
+
+def _resize_anomaly_map(
+    anomaly_map: NDArray[np.float32], hw: tuple[int, int]
+) -> NDArray[np.float32]:
+    height, width = int(hw[0]), int(hw[1])
+    if height <= 0 or width <= 0:
+        raise ValueError(f"Invalid target anomaly-map size: {hw!r}.")
+    source = np.asarray(anomaly_map, dtype=np.float32)
+    if source.shape == (height, width):
+        return source.astype(np.float32, copy=False)
+    tensor = torch.from_numpy(source).reshape(1, 1, *source.shape)
+    resized = F.interpolate(tensor, size=(height, width), mode="bilinear", align_corners=False)
+    return resized[0, 0].numpy().astype(np.float32, copy=False)
 
 
 def _imagenet_normalize(images: torch.Tensor) -> torch.Tensor:
@@ -304,7 +331,7 @@ def _teacher_state_dict(payload: object) -> dict[str, object]:
         "description": "EfficientAD PDN teacher/student and autoencoder paper adaptation",
         "paper": "EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies",
         "year": 2024,
-        "implementation_status": "paper-network-loss-score-and-defaults-aligned",
+        "implementation_status": "paper-network-loss-score-map-resize-and-defaults-aligned",
         "paper_fidelity": "paper-adaptation",
         "supports_save_load": True,
     },
@@ -317,7 +344,7 @@ def _teacher_state_dict(payload: object) -> dict[str, object]:
         "description": "EfficientAD PDN teacher/student and autoencoder paper adaptation",
         "paper": "EfficientAD: Accurate Visual Anomaly Detection at Millisecond-Level Latencies",
         "year": 2024,
-        "implementation_status": "paper-network-loss-score-and-defaults-aligned",
+        "implementation_status": "paper-network-loss-score-map-resize-and-defaults-aligned",
         "paper_fidelity": "paper-adaptation",
         "supports_save_load": True,
     },
@@ -645,7 +672,7 @@ class EfficientADDetector(BaseVisionDeepDetector):
     @torch.no_grad()
     def _predict_maps(
         self, values: Sequence[ImageInput], *, batch_size: int | None = None
-    ) -> NDArray[np.float32]:
+    ) -> list[NDArray[np.float32]]:
         if self.model is None:
             raise RuntimeError("EfficientAD model is not initialized.")
         self.model.eval()
@@ -655,17 +682,25 @@ class EfficientADDetector(BaseVisionDeepDetector):
             shuffle=False,
             batch_size=batch_size,
         )
-        maps: list[np.ndarray] = []
+        native_maps: list[np.ndarray] = []
         for images, _targets in loader:
             anomaly_map = self.model.anomaly_map(images.to(self.device))
-            maps.append(anomaly_map[:, 0].cpu().numpy().astype(np.float32, copy=False))
-        if not maps:
-            return np.empty((0, *self.image_size), dtype=np.float32)
-        return np.concatenate(maps, axis=0)
+            native_maps.append(anomaly_map[:, 0].cpu().numpy().astype(np.float32, copy=False))
+        if not native_maps:
+            return []
+        stacked = np.concatenate(native_maps, axis=0)
+        if len(stacked) != len(values):
+            raise RuntimeError(
+                "EfficientAD inference returned a different number of maps than input images."
+            )
+        return [
+            _resize_anomaly_map(anomaly_map, _original_image_hw(value))
+            for anomaly_map, value in zip(stacked, values)
+        ]
 
     def _decision_function(self, values: Sequence[ImageInput]) -> NDArray[np.float32]:
         maps = self._predict_maps(values)
-        return maps.reshape(len(maps), -1).max(axis=1).astype(np.float32, copy=False)
+        return np.asarray([float(anomaly_map.max()) for anomaly_map in maps], dtype=np.float32)
 
     def decision_function(
         self, x: object = MISSING, batch_size: int | None = None, **kwargs: object
@@ -673,14 +708,24 @@ class EfficientADDetector(BaseVisionDeepDetector):
         self._check_is_fitted()
         values = list(resolve_legacy_x_keyword(x, kwargs, method_name="decision_function"))
         maps = self._predict_maps(values, batch_size=batch_size)
-        return maps.reshape(len(maps), -1).max(axis=1).astype(np.float32, copy=False)
+        return np.asarray([float(anomaly_map.max()) for anomaly_map in maps], dtype=np.float32)
 
     def predict_anomaly_map(
         self, x: object = MISSING, batch_size: int | None = None, **kwargs: object
     ) -> NDArray[np.float32]:
         self._check_is_fitted()
         values = list(resolve_legacy_x_keyword(x, kwargs, method_name="predict_anomaly_map"))
-        return self._predict_maps(values, batch_size=batch_size)
+        maps = self._predict_maps(values, batch_size=batch_size)
+        if not maps:
+            return np.empty((0, *self.image_size), dtype=np.float32)
+        first_shape = maps[0].shape
+        for anomaly_map in maps[1:]:
+            if anomaly_map.shape != first_shape:
+                raise ValueError(
+                    "Inconsistent original image sizes produce anomaly maps that cannot be "
+                    f"stacked: expected {first_shape}, got {anomaly_map.shape}."
+                )
+        return np.stack(maps, axis=0).astype(np.float32, copy=False)
 
     def save_checkpoint(self, path: str | Path) -> Path:
         if self.model is None or not hasattr(self, "threshold_"):

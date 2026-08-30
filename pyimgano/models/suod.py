@@ -178,10 +178,14 @@ class CoreSUOD:
     "core_suod",
     tags=("classical", "core", "features", "ensemble", "suod"),
     metadata={
-        "description": "Core SUOD-style score ensemble on feature matrices (native wrapper)",
+        "description": "Heterogeneous standardized-score ensemble inspired by SUOD",
         "input": "features",
-        "paper": "Zhao et al., 2021",
+        "related_paper": "SUOD: Accelerating Large-Scale Unsupervised Heterogeneous Outlier Detection",
+        "paper_url": "https://proceedings.mlsys.org/paper_files/paper/2021/file/37385144cac01dff38247ab11c119e3c-Paper.pdf",
         "year": 2021,
+        "paper_fidelity": "inspired",
+        "implementation_status": "heterogeneous-standardized-score-ensemble",
+        "known_deviation": "Omits SUOD random projection, pseudo-supervised approximation, and load-balanced scheduling.",
     },
 )
 class CoreSUODModel(CoreFeatureDetector):
@@ -217,10 +221,14 @@ class CoreSUODModel(CoreFeatureDetector):
     "core_suod_spec",
     tags=("classical", "core", "features", "ensemble", "suod"),
     metadata={
-        "description": "Core SUOD-style ensemble with JSON-friendly base-estimator specs",
+        "description": "JSON-configurable heterogeneous score ensemble inspired by SUOD",
         "input": "features",
-        "paper": "Zhao et al., SUOD (2021)",
+        "related_paper": "SUOD: Accelerating Large-Scale Unsupervised Heterogeneous Outlier Detection",
+        "paper_url": "https://proceedings.mlsys.org/paper_files/paper/2021/file/37385144cac01dff38247ab11c119e3c-Paper.pdf",
         "year": 2021,
+        "paper_fidelity": "inspired",
+        "implementation_status": "heterogeneous-standardized-score-ensemble",
+        "known_deviation": "Omits SUOD's three acceleration layers.",
     },
 )
 class CoreSUODSpecModel(CoreFeatureDetector):
@@ -262,7 +270,15 @@ class CoreSUODSpecModel(CoreFeatureDetector):
 @register_model(
     "vision_suod",
     tags=("vision", "classical", "ensemble", "suod"),
-    metadata={"description": "SUOD-style score ensemble (native, simplified)"},
+    metadata={
+        "description": "Vision wrapper for a heterogeneous score ensemble inspired by SUOD",
+        "related_paper": "SUOD: Accelerating Large-Scale Unsupervised Heterogeneous Outlier Detection",
+        "paper_url": "https://proceedings.mlsys.org/paper_files/paper/2021/file/37385144cac01dff38247ab11c119e3c-Paper.pdf",
+        "year": 2021,
+        "paper_fidelity": "inspired",
+        "implementation_status": "vision-wrapper-over-heterogeneous-score-ensemble",
+        "known_deviation": "Does not implement the SUOD acceleration system.",
+    },
 )
 class VisionSUOD(BaseVisionDetector):
     """Vision-friendly SUOD wrapper using project feature extractors."""
@@ -303,7 +319,15 @@ class VisionSUOD(BaseVisionDetector):
 @register_model(
     "vision_suod_spec",
     tags=("vision", "classical", "ensemble", "suod"),
-    metadata={"description": "SUOD-style ensemble with JSON-friendly base-estimator specs"},
+    metadata={
+        "description": "JSON-configurable vision score ensemble inspired by SUOD",
+        "related_paper": "SUOD: Accelerating Large-Scale Unsupervised Heterogeneous Outlier Detection",
+        "paper_url": "https://proceedings.mlsys.org/paper_files/paper/2021/file/37385144cac01dff38247ab11c119e3c-Paper.pdf",
+        "year": 2021,
+        "paper_fidelity": "inspired",
+        "implementation_status": "vision-wrapper-over-heterogeneous-score-ensemble",
+        "known_deviation": "Does not implement the SUOD acceleration system.",
+    },
 )
 class VisionSUODSpec(BaseVisionDetector):
     """Vision-friendly SUOD wrapper that accepts base-estimator specs."""

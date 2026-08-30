@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Neighborhood entropy baseline (kNN distance distribution).
 
-We compute a simple entropy-based statistic over kNN distance weights.
-This is a lightweight graph-inspired score useful as an additional baseline.
+We combine an entropy statistic over kNN distance weights with absolute
+neighbourhood isolation.  The distance term is necessary because entropy alone
+cannot distinguish a compact neighbourhood from an equally shaped
+neighbourhood located far outside the training distribution.
 
 Algorithm
 ---------
@@ -11,7 +13,9 @@ For each sample:
 2) Convert to weights w_i = exp(-d_i / scale)
 3) Normalize p_i = w_i / sum(w)
 4) Entropy H = -sum p_i log p_i
-5) Score = 1 - H / log(k)  (higher => more anomalous)
+5) Add log-scaled mean-neighbour distance relative to the training scale
+
+Higher scores are more anomalous.
 """
 
 from __future__ import annotations
@@ -77,6 +81,15 @@ class CoreNeighborhoodEntropy(BaseDetector):
         self.n_jobs = n_jobs
         self.eps = float(eps)
 
+    def _score_distances(self, dist: np.ndarray) -> np.ndarray:
+        entropy_score = _entropy_scores(dist, eps=float(self.eps))
+        if dist.shape[1] == 0:
+            return entropy_score
+        distance_scale = max(float(self._distance_scale), float(self.eps))
+        mean_distance = np.mean(np.asarray(dist, dtype=np.float64), axis=1)
+        isolation_score = np.log1p(mean_distance / distance_scale)
+        return np.asarray(entropy_score + isolation_score, dtype=np.float64).reshape(-1)
+
     def fit(self, x, y=None):  # noqa: ANN001, ANN201
         x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         self._set_n_classes(y)
@@ -106,20 +119,22 @@ class CoreNeighborhoodEntropy(BaseDetector):
         self._X_train = x_arr
         self._nn = nn
         self._k_eff = int(k_eff)
+        mean_train_dist = np.mean(dist, axis=1)
+        self._distance_scale = max(float(np.median(mean_train_dist)), float(self.eps))
 
-        self.decision_scores_ = _entropy_scores(dist, eps=float(self.eps))
+        self.decision_scores_ = self._score_distances(dist)
         self._process_decision_scores()
         return self
 
     def decision_function(self, x):  # noqa: ANN001, ANN201
-        require_fitted(self, ["_nn", "_X_train", "_k_eff"])
+        require_fitted(self, ["_nn", "_X_train", "_k_eff", "_distance_scale"])
         x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         nn: NearestNeighbors = self._nn  # type: ignore[assignment]
         k_eff = int(self._k_eff)  # type: ignore[arg-type]
         if k_eff <= 0:
             return np.zeros((x_arr.shape[0],), dtype=np.float64)
         dist, _idx = nn.kneighbors(x_arr, n_neighbors=k_eff, return_distance=True)
-        return _entropy_scores(dist, eps=float(self.eps))
+        return self._score_distances(np.asarray(dist, dtype=np.float64))
 
 
 @register_model(

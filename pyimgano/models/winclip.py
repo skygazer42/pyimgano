@@ -18,7 +18,7 @@ from numpy.typing import NDArray
 
 from ._image_batch import _coerce_single_rgb_image
 from .baseCv import BaseVisionDeepDetector
-from .openclip_backend import _load_openclip_model_and_preprocess
+from .openclip_backend import _load_openclip_model_and_preprocess, _run_openclip_transformer
 from .registry import register_model
 
 PAPER_MODEL = "ViT-B-16-plus-240"
@@ -197,6 +197,7 @@ class OpenCLIPWinCLIPBackend:
         *,
         model_name: str = PAPER_MODEL,
         pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         image_size: int = PAPER_IMAGE_SIZE,
         scales: Sequence[int] = PAPER_SCALES,
         device: str = "cuda",
@@ -207,6 +208,7 @@ class OpenCLIPWinCLIPBackend:
     ) -> None:
         self.model_name = str(model_name)
         self.pretrained = str(pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.scales = tuple(int(scale) for scale in scales)
         self.device = torch.device(device)
@@ -227,6 +229,7 @@ class OpenCLIPWinCLIPBackend:
                 pretrained=self.pretrained,
                 device=str(self.device),
                 force_image_size=self.image_size,
+                allow_download=self.allow_download,
             )
         else:
             self.model = self.model.to(self.device).eval()
@@ -297,10 +300,7 @@ class OpenCLIPWinCLIPBackend:
             dim=0,
         )
         masked = visual.ln_pre(visual.patch_dropout(masked))
-        transformed = visual.transformer(masked.permute(1, 0, 2))
-        if isinstance(transformed, tuple):
-            transformed = transformed[0]
-        transformed = transformed.permute(1, 0, 2)
+        transformed = _run_openclip_transformer(visual.transformer, masked)
         pooled, _ = visual._global_pool(transformed)
         pooled = visual.ln_post(pooled)
         if visual.proj is not None:
@@ -360,13 +360,16 @@ class OpenCLIPWinCLIPBackend:
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2023/html/Jeong_WinCLIP_Zero-Few-Shot_Anomaly_Classification_and_Segmentation_CVPR_2023_paper.html",
         "year": 2023,
         "conference": "CVPR",
-        "implementation_status": "native-paper-method-openclip-adaptation",
+        "implementation_status": "independent-paper-reconstruction-openclip-adaptation",
         "paper_fidelity": "paper-adaptation",
         "type": "vision-language",
         "supervision": "zero-shot",
         "supports_pixel_map": True,
         "requires_checkpoint": True,
         "weights_source": "OpenCLIP ViT-B-16-plus-240 laion400m_e31",
+        "known_deviations": [
+            "No author implementation/checkpoint was available for numerical verification; temperature=0.07 is a local reconstruction choice."
+        ],
     },
 )
 class WinCLIPDetector(BaseVisionDeepDetector):
@@ -386,6 +389,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         class_name: str = "object",
         openclip_model_name: str = PAPER_MODEL,
         openclip_pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         image_size: int = PAPER_IMAGE_SIZE,
         temperature: float = PAPER_TEMPERATURE,
         tile_overlap: float = 0.2,
@@ -434,6 +438,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         self.device = resolved
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = str(openclip_pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.temperature = float(temperature)
         self.k_shot = int(k_shot)
@@ -445,6 +450,7 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         self.backend = backend or OpenCLIPWinCLIPBackend(
             model_name=self.openclip_model_name,
             pretrained=self.openclip_pretrained,
+            allow_download=self.allow_download,
             image_size=self.image_size,
             scales=self.scales,
             device=str(self.device),
@@ -639,13 +645,16 @@ class WinCLIPDetector(BaseVisionDeepDetector):
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2023/html/Jeong_WinCLIP_Zero-Few-Shot_Anomaly_Classification_and_Segmentation_CVPR_2023_paper.html",
         "year": 2023,
         "conference": "CVPR",
-        "implementation_status": "native-paper-method-openclip-adaptation",
+        "implementation_status": "independent-paper-reconstruction-openclip-adaptation",
         "paper_fidelity": "paper-adaptation",
         "type": "vision-language",
         "supervision": "zero-shot",
         "supports_pixel_map": True,
         "requires_checkpoint": True,
         "weights_source": "OpenCLIP ViT-B-16-plus-240 laion400m_e31",
+        "known_deviations": [
+            "No author implementation/checkpoint was available for numerical verification; temperature=0.07 is a local reconstruction choice."
+        ],
     },
 )
 class VisionWinCLIP(WinCLIPDetector):

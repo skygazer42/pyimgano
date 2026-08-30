@@ -189,7 +189,9 @@ def _softpatch_embedder_from_payload(payload: dict[str, object], *, device: str)
         "year": 2022,
         "supervision": "unsupervised",
         "implementation_status": "core-aligned",
-        "paper_fidelity": "core-aligned",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
     },
 )
 class VisionSoftPatch:

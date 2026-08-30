@@ -86,6 +86,14 @@ def test_filo_validates_released_network_dimensions() -> None:
         _validate_author_model(model)
 
 
+def test_filo_checkpoint_loader_rejects_zero_key_coverage() -> None:
+    from pyimgano.models.filopp import _load_filo_state_dict
+
+    model = torch.nn.Linear(2, 1)
+    with pytest.raises(ValueError, match="no parameters matching"):
+        _load_filo_state_dict(model, {"totally_wrong": torch.ones(1)})
+
+
 def test_filo_released_localization_and_score_postprocessing() -> None:
     from pyimgano.models.filopp import _paper_boxes_and_position, _paper_score_and_map
 

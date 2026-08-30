@@ -92,6 +92,7 @@ class _IdentityTextTransformer(torch.nn.Module):
         super().__init__()
         self.anchor = torch.nn.Parameter(torch.ones(()))
         self.cast_dtype = torch.float32
+        self.batch_first = False
 
     def forward(self, x: torch.Tensor, attn_mask=None) -> torch.Tensor:  # noqa: ANN001
         return x
@@ -225,6 +226,38 @@ def test_openclip_backend_preserves_cls_path_and_uses_vv_local_path() -> None:
     assert all(not parameter.requires_grad for parameter in model.parameters())
 
 
+def test_promptad_accepts_current_openclip_batch_first_attention_parameters() -> None:
+    from pyimgano.models.promptad import OpenCLIPPromptADBackend
+
+    class _CurrentAttention(torch.nn.Module):
+        use_sdpa = True
+
+        def __init__(self, source: torch.nn.MultiheadAttention) -> None:
+            super().__init__()
+            self.num_heads = source.num_heads
+            self.in_proj_weight = torch.nn.Parameter(source.in_proj_weight.detach().clone())
+            self.in_proj_bias = torch.nn.Parameter(source.in_proj_bias.detach().clone())
+            self.out_proj = torch.nn.Linear(source.embed_dim, source.embed_dim)
+            self.out_proj.load_state_dict(source.out_proj.state_dict())
+            self.attn_drop = torch.nn.Dropout(0.0)
+
+    model = _TinyCLIP()
+    for block in model.visual.transformer.resblocks:
+        block.attn = _CurrentAttention(block.attn)
+    backend = OpenCLIPPromptADBackend(
+        model=model,
+        tokenizer=_tiny_tokenizer,
+        preprocess=lambda image: torch.zeros(3, 8, 8),
+        memory_layers=(0, 1),
+        precision="fp32",
+        device="cpu",
+    ).initialize()
+
+    pooled, tokens, *_ = backend.encode_image(torch.randn(2, 3, 8, 8))
+    assert pooled.shape == (2, 6)
+    assert tokens.shape == (2, 4, 6)
+
+
 def test_openclip_backend_loads_published_backbone_and_weights() -> None:
     from pyimgano.models.promptad import OpenCLIPPromptADBackend
 
@@ -247,6 +280,7 @@ def test_openclip_backend_loads_published_backbone_and_weights() -> None:
         precision="fp32",
         device="cpu",
         memory_layers=(0, 1),
+        allow_download=True,
     ).initialize()
 
     assert backend.model is model

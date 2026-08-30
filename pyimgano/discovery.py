@@ -23,6 +23,11 @@ class ModelType:
 
 _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ModelFamily(
+        name="classical",
+        description="Classical statistical, geometric, and feature-space anomaly detectors.",
+        tags=("classical",),
+    ),
+    ModelFamily(
         name="deep",
         description="Deep-learning anomaly detectors and learned visual representations.",
         tags=("deep",),
@@ -131,6 +136,11 @@ _MODEL_FAMILIES: tuple[ModelFamily, ...] = (
         name="pipeline",
         description="Composed pipelines and higher-level wrapper detectors.",
         tags=("pipeline",),
+    ),
+    ModelFamily(
+        name="calibration",
+        description="Score calibration, normalization, and detector-combination wrappers.",
+        tags=("calibration",),
     ),
 )
 
@@ -249,6 +259,16 @@ _MODEL_TYPES: tuple[ModelType, ...] = (
         name="backend-wrappers",
         description="External backend wrappers and registry shims for optional runtimes or integrations.",
         tags=("backend",),
+    ),
+    ModelType(
+        name="ensemble-based",
+        description="Detector ensembles and score-combination methods.",
+        tags=("ensemble",),
+    ),
+    ModelType(
+        name="score-calibration",
+        description="Score normalization, calibration, and thresholding wrappers.",
+        tags=("calibration",),
     ),
 )
 

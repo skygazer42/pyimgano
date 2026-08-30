@@ -212,8 +212,12 @@ class ImageFeatureExtractor:
     metadata={
         "description": "Core CBLOF detector on feature matrices (native implementation)",
         "input": "features",
-        "paper": "He et al., SDM 2003",
+        "paper": "Discovering Cluster-Based Local Outliers",
+        "paper_url": "https://doi.org/10.1016/S0167-8655(03)00003-5",
         "year": 2003,
+        "journal": "Pattern Recognition Letters",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "native-cblof-score-and-cluster-partition",
     },
 )
 class CoreCBLOF(BaseDetector):
@@ -340,14 +344,16 @@ class CoreCBLOF(BaseDetector):
         intersection = np.intersect1d(alpha_list, beta_list)
 
         if len(intersection) > 0:
-            threshold = intersection[0]
+            threshold = int(intersection[0])
         elif len(alpha_list) > 0:
-            threshold = alpha_list[0]
+            threshold = int(alpha_list[0])
         elif len(beta_list) > 0:
-            threshold = beta_list[0]
+            threshold = int(beta_list[0])
         else:
-            threshold = 1
-            logger.info("CBLOF falling back to default large/small cluster split threshold=1")
+            raise ValueError(
+                "CBLOF could not separate large and small clusters with the configured "
+                "alpha/beta thresholds. Adjust alpha, beta, or n_clusters."
+            )
 
         self.large_cluster_labels_ = sorted_indices[:threshold]
         self.small_cluster_labels_ = sorted_indices[threshold:]
@@ -396,8 +402,12 @@ class CoreCBLOF(BaseDetector):
     tags=("vision", "classical", "clustering"),
     metadata={
         "description": "基于 CBLOF 的视觉异常检测器",
-        "paper": "He et al., SDM 2003",
+        "paper": "Discovering Cluster-Based Local Outliers",
+        "paper_url": "https://doi.org/10.1016/S0167-8655(03)00003-5",
         "year": 2003,
+        "journal": "Pattern Recognition Letters",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "vision-wrapper-over-native-cblof",
     },
 )
 class VisionCBLOF(BaseVisionDetector):

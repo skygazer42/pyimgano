@@ -108,8 +108,13 @@ def _gaussian_kernel(size: int, sigma: float, reference: torch.Tensor) -> torch.
         "paper_url": "https://openreview.net/forum?id=A5VV3UyIQz",
         "year": 2021,
         "supervision": "self-supervised",
-        "implementation_status": "paper-mvtec-network-and-objective-industrial-adaptation",
+        "implementation_status": "paper-objective-conditional-on-pretrained-frozen-backbone",
         "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-trainable-backbone",
+        "paper_profile": {"pretrained": True, "freeze_features": True},
+        "known_deviations": [
+            "Default pretrained=False/freeze_features=False is not the paper MVTec backbone profile."
+        ],
     },
 )
 class FCDD(BaseVisionDeepDetector):

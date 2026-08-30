@@ -24,6 +24,11 @@ def test_alad_matches_paper_image_network_defaults_and_score() -> None:
         1.0,
     )
     assert (det.ema_enabled, det.ema_decay, det.ema_start_epoch) == (True, 0.999, 1)
+    assert (det.validation_fraction, det.validation_patience, det.restore_best_validation) == (
+        0.1,
+        10,
+        True,
+    )
     assert [type(layer).__name__ for layer in det.train_transform.transforms] == [
         "Resize",
         "ToTensor",
@@ -83,7 +88,7 @@ def test_alad_matches_paper_image_network_defaults_and_score() -> None:
         ).numpy()
     actual = det.evaluating_forward((images, torch.zeros(2)))
     assert actual == pytest.approx(expected)
-    assert MODEL_REGISTRY.info("vision_alad").metadata["paper_fidelity"] == "paper-adaptation"
+    assert MODEL_REGISTRY.info("vision_alad").metadata["paper_fidelity"] == "core-aligned"
 
 
 def test_vision_alad_contract_fit_and_score() -> None:
@@ -112,3 +117,40 @@ def test_vision_alad_contract_fit_and_score() -> None:
     scores = np.asarray(det.decision_function(test), dtype=np.float64).reshape(-1)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
+    assert len(det.validation_score_history_) == 1
+    assert det.best_validation_epoch_ == 1
+
+
+def test_alad_validation_selection_stops_and_restores_best_state() -> None:
+    import torch
+
+    from pyimgano.models.alad import ALAD
+
+    detector = ALAD(
+        device="cpu",
+        verbose=0,
+        validation_patience=2,
+        restore_best_validation=True,
+    )
+    detector.model = torch.nn.Linear(2, 1, bias=False)
+    detector._validation_loader = object()
+    score_sequence = iter([np.asarray([0.2, 0.4]), np.asarray([0.5]), np.asarray([0.6])])
+    detector.evaluate = lambda _loader: next(score_sequence)  # type: ignore[method-assign]
+
+    with torch.no_grad():
+        detector.model.weight.fill_(1.0)
+    detector.training_epochs_completed_ = 1
+    detector.epoch_update()
+
+    with torch.no_grad():
+        detector.model.weight.fill_(2.0)
+    detector.training_epochs_completed_ = 2
+    detector.epoch_update()
+    detector.training_epochs_completed_ = 3
+    detector.epoch_update()
+
+    assert detector.training_stop_reason_ == "validation_early_stopping"
+    assert detector.best_validation_score_ == pytest.approx(0.3)
+    assert detector.best_validation_epoch_ == 1
+    assert detector._restore_best_validation_state() is True
+    assert torch.equal(detector.model.weight, torch.ones_like(detector.model.weight))

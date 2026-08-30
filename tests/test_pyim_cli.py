@@ -374,13 +374,16 @@ def test_pyim_list_metadata_contract_outputs_json(capsys):
     assert any(item["name"] == "family" and item["requirement"] == "required" for item in payload)
 
 
-def test_pyim_audit_metadata_outputs_json_and_nonzero_exit(capsys):
+def test_pyim_audit_metadata_outputs_clean_json_report(capsys):
     from pyimgano.pyim_cli import main
 
     code = main(["--audit-metadata", "--json"])
-    assert code == 1
+    assert code == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["summary"]["total_models"] > 0
+    assert payload["summary"]["models_with_required_issues"] == 0
+    assert payload["summary"]["models_with_recommended_issues"] == 0
+    assert payload["summary"]["models_with_invalid_fields"] == 0
     assert "required_missing_by_model" in payload
     assert "recommended_missing_by_model" in payload
 

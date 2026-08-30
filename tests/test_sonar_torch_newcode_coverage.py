@@ -41,7 +41,6 @@ def test_torch_detectors_predict_return_confidence_raises():
     from pyimgano.models.glad import VisionGLAD
     from pyimgano.models.inctrl import VisionInCTRL
     from pyimgano.models.oneformore import VisionOneForMore
-    from pyimgano.models.panda import VisionPANDA
     from pyimgano.models.promptad import VisionPromptAD
     from pyimgano.models.realnet import VisionRealNet
     from pyimgano.models.regad import VisionRegAD
@@ -60,7 +59,6 @@ def test_torch_detectors_predict_return_confidence_raises():
         VisionGLAD,
         VisionInCTRL,
         VisionOneForMore,
-        VisionPANDA,
         VisionPromptAD,
         VisionRealNet,
         VisionRegAD,
@@ -197,7 +195,6 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
     from pyimgano.models.glad import VisionGLAD
     from pyimgano.models.inctrl import VisionInCTRL
     from pyimgano.models.oneformore import VisionOneForMore
-    from pyimgano.models.panda import VisionPANDA
     from pyimgano.models.promptad import VisionPromptAD
     from pyimgano.models.realnet import VisionRealNet
     from pyimgano.models.regad import VisionRegAD
@@ -210,7 +207,6 @@ def test_torch_detectors_decision_function_alias_batch_size_paths():
         VisionGLAD,
         VisionInCTRL,
         VisionOneForMore,
-        VisionPANDA,
         VisionPromptAD,
         VisionRealNet,
         VisionRegAD,
@@ -320,5 +316,7 @@ def test_dfm_and_cflow_do_not_turn_input_failures_into_normal_scores(tmp_path):
         verbose=0,
     )
     cflow._is_fitted = True
+    cflow._log_probability_maxima = (1.0,)
+    cflow._probability_sum_maximum = 1.0
     with pytest.raises(ValueError, match="Failed to load image"):
         VisionCFlow.decision_function(cflow, [missing])

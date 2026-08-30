@@ -9,7 +9,7 @@ def test_core_cblof_fit_predict_smoke() -> None:
     rng = np.random.default_rng(0)
     x = rng.normal(size=(50, 4)).astype(np.float32)
 
-    det = CoreCBLOF(n_clusters=3, contamination=0.2, random_state=0)
+    det = CoreCBLOF(n_clusters=3, contamination=0.2, alpha=0.6, random_state=0)
     det.fit(x)
 
     assert det.decision_scores_.shape == (50,)
@@ -42,6 +42,7 @@ def test_vision_cblof_with_identity_extractor() -> None:
         feature_extractor=IdentityExtractor(),
         n_clusters=3,
         contamination=0.25,
+        alpha=0.6,
         random_state=0,
     )
     det.fit(x)

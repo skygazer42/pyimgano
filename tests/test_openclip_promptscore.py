@@ -127,3 +127,39 @@ def test_openclip_promptscore_caches_text_features_by_class_name():
     detector.set_class_name("widget")
     detector._ensure_text_features()
     assert fake_open_clip.model.encode_text_calls == 4
+
+
+def test_openclip_promptscore_uses_model_specific_tokenizer() -> None:
+    torch = pytest.importorskip("torch")
+
+    from pyimgano.models.openclip_backend import _encode_openclip_text_features
+
+    requested_names: list[str] = []
+
+    class _FakeOpenCLIP:
+        @staticmethod
+        def get_tokenizer(model_name: str):
+            requested_names.append(model_name)
+            return lambda prompts: torch.zeros((len(prompts), 3), dtype=torch.int64)
+
+        @staticmethod
+        def tokenize(_prompts):  # noqa: ANN001, ANN205
+            raise AssertionError(
+                "global tokenizer must not be used when get_tokenizer is available"
+            )
+
+    class _FakeModel:
+        @staticmethod
+        def encode_text(tokens):  # noqa: ANN001, ANN205
+            return torch.ones((tokens.shape[0], 4), dtype=torch.float32)
+
+    encoded = _encode_openclip_text_features(
+        open_clip=_FakeOpenCLIP(),
+        model=_FakeModel(),
+        model_name="hf-hub:example/custom-model",
+        device_t=torch.device("cpu"),
+        prompts=["normal object", "damaged object"],
+    )
+
+    assert requested_names == ["hf-hub:example/custom-model"]
+    assert encoded.shape == (4,)

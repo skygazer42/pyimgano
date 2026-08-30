@@ -10,6 +10,8 @@ Reference:
     Kriegel, H.-P. et al., 2008. Angle-Based Outlier Detection in High-dimensional Data.
 """
 
+# UPSTREAM: yzhao062/pyod @ 34f7996effac700a5166d882d5e94c6e6078fae3 (BSD-2-Clause; adapted)
+
 from __future__ import annotations
 
 from itertools import combinations

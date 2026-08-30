@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -140,6 +141,26 @@ def test_adaclip_block_runner_supports_openclip_batch_first_attention() -> None:
     expected = block(sequence_first.permute(1, 0, 2)).permute(1, 0, 2)
 
     torch.testing.assert_close(_run_block(block, sequence_first), expected)
+
+
+def test_adaclip_block_runner_detects_current_openclip_custom_attention() -> None:
+    from pyimgano.models.adaclip import _run_block
+
+    class CurrentBlock(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attn = SimpleNamespace(use_sdpa=True)
+
+        def forward(self, tokens, attn_mask=None):  # noqa: ANN001, ANN201
+            del attn_mask
+            assert tuple(tokens.shape[:2]) == (2, 5)
+            return tokens + 2.0
+
+    sequence_first = torch.randn(5, 2, 8)
+    torch.testing.assert_close(
+        _run_block(CurrentBlock(), sequence_first),
+        sequence_first + 2.0,
+    )
 
 
 def test_adaclip_network_has_released_prompt_structure_and_returns_both_outputs() -> None:

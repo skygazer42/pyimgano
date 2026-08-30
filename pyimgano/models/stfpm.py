@@ -101,8 +101,14 @@ class ImagePathDataset(Dataset):
         "paper_url": "https://www.bmva-archive.org.uk/bmvc/2021/assets/papers/1273.pdf",
         "year": 2021,
         "supervision": "one-class",
-        "implementation_status": "paper-resnet18-objective-and-score-aligned",
-        "paper_fidelity": "core-aligned",
+        "implementation_status": "paper-map-order-source-divergent-offline-default",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-teacher",
+        "paper_profile": {"pretrained_teacher": True},
+        "known_deviations": [
+            "Map order follows the paper (upsample then multiply), not the released source's 64x64 intermediate product.",
+            "Default pretrained_teacher=False is not the paper training profile.",
+        ],
     },
 )
 class VisionSTFPM(BaseVisionDeepDetector):

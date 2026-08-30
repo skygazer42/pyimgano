@@ -1,8 +1,3 @@
-from __future__ import annotations
-
-UPSTREAM_PREFIX = "UPSTREAM:"
-
-
 """Audit helper for third-party code notices.
 
 Policy:
@@ -13,10 +8,27 @@ Policy:
 This script is intentionally conservative and text-based.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+UPSTREAM_PREFIX = "UPSTREAM:"
+
+_KNOWN_DERIVED_FILES = {
+    "pyimgano/models/abod.py": "yzhao062/pyod",
+    "pyimgano/models/cof.py": "yzhao062/pyod",
+    "pyimgano/models/hbos.py": "yzhao062/pyod",
+    "pyimgano/models/inne.py": "yzhao062/pyod",
+    "pyimgano/models/kpca.py": "yzhao062/pyod",
+    "pyimgano/models/lmdd.py": "yzhao062/pyod",
+    "pyimgano/models/loci.py": "yzhao062/pyod",
+    "pyimgano/models/mcd.py": "yzhao062/pyod",
+    "pyimgano/models/ocsvm.py": "yzhao062/pyod",
+    "pyimgano/models/qmcd.py": "yzhao062/pyod",
+}
 
 
 @dataclass(frozen=True)
@@ -86,6 +98,23 @@ def _extract_upstreams(py_files: list[Path]) -> dict[str, list[UpstreamRef]]:
     return upstream_to_refs
 
 
+def _missing_known_markers(repo_root: Path) -> list[tuple[Path, str]]:
+    missing: list[tuple[Path, str]] = []
+    for relative_path, upstream in _KNOWN_DERIVED_FILES.items():
+        path = repo_root / relative_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        markers = [
+            line.split(UPSTREAM_PREFIX, 1)[1].strip()
+            for line in text.splitlines()
+            if UPSTREAM_PREFIX in line
+        ]
+        if not any(_normalize_upstream(marker)[0] == upstream for marker in markers):
+            missing.append((path, upstream))
+    return missing
+
+
 def main(argv: list[str] | None = None) -> int:
     del argv
     repo_root = Path(__file__).resolve().parents[1]
@@ -97,6 +126,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     py_files = _iter_py_files(src_root)
+    missing_known_markers = _missing_known_markers(repo_root)
+    if missing_known_markers:
+        print("error: known derived files are missing required UPSTREAM markers:", file=sys.stderr)
+        for path, upstream in missing_known_markers:
+            print(f"- {path.relative_to(repo_root)}: expected {upstream}", file=sys.stderr)
+        return 1
+
     upstreams = _extract_upstreams(py_files)
 
     if not upstreams:
@@ -156,8 +192,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    marker_count = sum(len(refs) for refs in upstreams.values())
     print(
-        f"OK: found {len(upstreams)} UPSTREAM marker(s) and all are covered in third_party/NOTICE.md"
+        f"OK: found {marker_count} UPSTREAM marker(s) across {len(upstreams)} source(s); "
+        "all are covered in third_party/NOTICE.md"
     )
     return 0
 

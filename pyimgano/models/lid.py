@@ -29,8 +29,11 @@ def _lid_from_knn_distances(dist: np.ndarray, *, eps: float) -> np.ndarray:
     rk = np.asarray(d[:, [-1]], dtype=np.float64)
     rk = np.maximum(rk, float(eps))
     ratio = np.maximum(d, float(eps)) / rk
-    # ratio in (0,1]; log <= 0
-    lid = -np.mean(np.log(ratio), axis=1)
+    # ratio in (0,1]; log <= 0.  The Hill/MLE estimator is the negative
+    # reciprocal of the mean log-ratio, not the negative mean itself.
+    mean_log_ratio = np.mean(np.log(ratio), axis=1)
+    denominator = np.minimum(mean_log_ratio, -float(eps))
+    lid = -1.0 / denominator
     return np.asarray(lid, dtype=np.float64).reshape(-1)
 
 

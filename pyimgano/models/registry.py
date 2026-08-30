@@ -303,6 +303,18 @@ def audit_model_metadata(
 
     from pyimgano.models.metadata_contract import audit_metadata_contract
 
-    selected = None if names is None else list(names)
+    if names is None:
+        # Runtime tests and third-party plugins may add process-local entries to
+        # the global registry. The default audit is the reproducible built-in
+        # package surface; callers can pass explicit names to audit extensions.
+        selected = [
+            name
+            for name in MODEL_REGISTRY.available()
+            if str(getattr(MODEL_REGISTRY.info(name).constructor, "__module__", "")).startswith(
+                "pyimgano."
+            )
+        ]
+    else:
+        selected = list(names)
     payload: dict[str, Any] = audit_metadata_contract(MODEL_REGISTRY, names=selected, limit=limit)
     return payload

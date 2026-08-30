@@ -78,13 +78,18 @@ class ImagePathDataset(Dataset):
     "vision_simplenet",
     tags=("vision", "deep", "simplenet", "self-supervised", "pixel_map"),
     metadata={
-        "description": "Paper-aligned SimpleNet patch adapter and Gaussian-noise discriminator",
+        "description": "SimpleNet patch adapter and Gaussian-noise discriminator adaptation",
         "paper": "SimpleNet: A Simple Network for Image Anomaly Detection and Localization",
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2023/html/Liu_SimpleNet_A_Simple_Network_for_Image_Anomaly_Detection_and_Localization_CVPR_2023_paper.html",
         "year": 2023,
         "supervision": "self-supervised",
-        "implementation_status": "paper-network-and-training-defaults-aligned",
-        "paper_fidelity": "core-aligned",
+        "implementation_status": "paper-config-conditional-source-divergent-offline-default",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
+        "known_deviations": [
+            "Paper configuration differs from released code in batch/input size, adapter bias, and optimizer details."
+        ],
     },
 )
 class VisionSimpleNet(BaseVisionDeepDetector):

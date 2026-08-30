@@ -48,3 +48,15 @@ def test_openclip_extractor_passes_pretrained_none(monkeypatch) -> None:
     ex = OpenCLIPExtractor()
     ex._ensure_ready()
     assert calls == [None]
+
+
+def test_openclip_backend_rejects_implicit_pretrained_download() -> None:
+    from pyimgano.models.openclip_backend import _load_openclip_model_and_preprocess
+
+    with pytest.raises(RuntimeError, match="allow_download=True"):
+        _load_openclip_model_and_preprocess(
+            open_clip_module=object(),
+            model_name="ViT-B-32",
+            pretrained="laion2b_s34b_b79k",
+            device="cpu",
+        )

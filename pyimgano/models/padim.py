@@ -53,7 +53,10 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
         "year": 2020,
         "supervision": "one-class",
         "implementation_status": "paper-resnet-paths-and-statistics-aligned",
-        "paper_fidelity": "core-aligned",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
+        "supports_save_load": True,
     },
 )
 @register_model(
@@ -66,7 +69,10 @@ def _build_torchvision_backbone(name: str, *, pretrained: bool) -> torch.nn.Modu
         "year": 2020,
         "supervision": "one-class",
         "implementation_status": "paper-resnet-paths-and-statistics-aligned",
-        "paper_fidelity": "core-aligned",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
+        "supports_save_load": True,
     },
 )
 class VisionPaDiM(BaseVisionDeepDetector):
@@ -178,7 +184,19 @@ class VisionPaDiM(BaseVisionDeepDetector):
 
         torch.save(
             {
-                "schema_version": 3,
+                "schema_version": 4,
+                "config": {
+                    "backbone": str(self.backbone_name),
+                    "d_reduced": int(self.d_reduced),
+                    "image_size": int(self.image_size),
+                    "resize_size": int(self.resize_size),
+                    "pretrained": bool(self.pretrained),
+                    "covariance_eps": float(self.covariance_eps),
+                    "gaussian_sigma": float(self.gaussian_sigma),
+                    "random_state": int(self.random_state),
+                    "contamination": float(self.contamination),
+                    "preprocessing": "resize-bicubic-center-crop-imagenet-v1",
+                },
                 "model_state_dict": model_state_dict,
                 "feature_indices": torch.as_tensor(
                     np.asarray(self.feature_indices_, dtype=np.int64), dtype=torch.int64
@@ -194,7 +212,6 @@ class VisionPaDiM(BaseVisionDeepDetector):
                     np.asarray(self.decision_scores_, dtype=np.float64), dtype=torch.float64
                 ),
                 "threshold_": float(self.threshold_),
-                "gaussian_sigma": float(self.gaussian_sigma),
             },
             out_path,
         )
@@ -204,17 +221,38 @@ class VisionPaDiM(BaseVisionDeepDetector):
         state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionPaDiM checkpoint payload.")
-        if int(state.get("schema_version", 0)) != 3:
+        if int(state.get("schema_version", 0)) != 4:
             raise ValueError(
                 "Unsupported legacy PaDiM checkpoint: older checkpoints used a different "
-                "channel-selection or cross-level feature-alignment contract. Refit and save "
-                "it again."
+                "channel-selection, feature-alignment, or preprocessing contract. Refit and "
+                "save it again."
+            )
+
+        config = state.get("config")
+        if not isinstance(config, dict):
+            raise ValueError("VisionPaDiM checkpoint is missing its inference config.")
+        expected_contract = {
+            "backbone": str(self.backbone_name),
+            "d_reduced": int(self.d_reduced),
+            "image_size": int(self.image_size),
+            "resize_size": int(self.resize_size),
+            "preprocessing": "resize-bicubic-center-crop-imagenet-v1",
+        }
+        mismatches = [
+            f"{key}: checkpoint={config.get(key)!r}, detector={expected!r}"
+            for key, expected in expected_contract.items()
+            if config.get(key) != expected
+        ]
+        if mismatches:
+            raise ValueError(
+                "VisionPaDiM checkpoint preprocessing/extractor contract mismatch: "
+                + "; ".join(mismatches)
             )
 
         model_state_dict = state.get("model_state_dict", None)
         if not isinstance(model_state_dict, dict):
             raise ValueError("VisionPaDiM checkpoint is missing model_state_dict.")
-        self.model.load_state_dict(dict(model_state_dict), strict=False)
+        self.model.load_state_dict(dict(model_state_dict), strict=True)
         self.model.to(self.device)
         self.model.eval()
 
@@ -224,17 +262,49 @@ class VisionPaDiM(BaseVisionDeepDetector):
                 "VisionPaDiM checkpoint feature subset does not match d_reduced. "
                 f"Expected {self.d_reduced}, got {feature_indices.size}."
             )
+        if np.any(feature_indices < 0) or np.unique(feature_indices).size != feature_indices.size:
+            raise ValueError("VisionPaDiM checkpoint has invalid feature indices.")
         self.feature_indices_ = feature_indices
 
-        self.means = np.asarray(state["means"], dtype=np.float32)
-        self.inv_covs = np.asarray(state["inv_covs"], dtype=np.float32)
+        if "means" not in state or "inv_covs" not in state:
+            raise ValueError("VisionPaDiM checkpoint is missing Gaussian moments.")
+        means = np.asarray(state["means"], dtype=np.float32)
+        inv_covs = np.asarray(state["inv_covs"], dtype=np.float32)
         patch_shape = state.get("patch_shape", None)
         if not isinstance(patch_shape, (list, tuple)) or len(patch_shape) != 2:
             raise ValueError("VisionPaDiM checkpoint is missing patch_shape.")
-        self.patch_shape = (int(patch_shape[0]), int(patch_shape[1]))
-        self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
-        self.threshold_ = float(state["threshold_"])
-        self.gaussian_sigma = float(state.get("gaussian_sigma", self.gaussian_sigma))
+        resolved_patch_shape = (int(patch_shape[0]), int(patch_shape[1]))
+        n_patches = resolved_patch_shape[0] * resolved_patch_shape[1]
+        expected_means_shape = (n_patches, self.d_reduced)
+        expected_covs_shape = (n_patches, self.d_reduced, self.d_reduced)
+        if resolved_patch_shape[0] <= 0 or resolved_patch_shape[1] <= 0:
+            raise ValueError("VisionPaDiM checkpoint has an invalid patch_shape.")
+        if means.shape != expected_means_shape or inv_covs.shape != expected_covs_shape:
+            raise ValueError(
+                "VisionPaDiM checkpoint Gaussian state does not match its patch grid: "
+                f"means={means.shape}, inv_covs={inv_covs.shape}, "
+                f"expected={expected_means_shape}/{expected_covs_shape}."
+            )
+        if not np.isfinite(means).all() or not np.isfinite(inv_covs).all():
+            raise ValueError("VisionPaDiM checkpoint contains non-finite Gaussian state.")
+
+        decision_scores = np.asarray(state.get("decision_scores_"), dtype=np.float64).reshape(-1)
+        threshold = float(state.get("threshold_", np.nan))
+        if not np.isfinite(decision_scores).all() or not np.isfinite(threshold):
+            raise ValueError("VisionPaDiM checkpoint contains invalid calibration state.")
+
+        self.means = means
+        self.inv_covs = inv_covs
+        self.patch_shape = resolved_patch_shape
+        self.decision_scores_ = decision_scores
+        self.threshold_ = threshold
+        self.labels_ = (decision_scores >= threshold).astype(int)
+        self.pretrained = bool(config.get("pretrained", self.pretrained))
+        self.covariance_eps = float(config.get("covariance_eps", self.covariance_eps))
+        self.gaussian_sigma = float(config.get("gaussian_sigma", self.gaussian_sigma))
+        self.random_state = int(config.get("random_state", self.random_state))
+        self.contamination = float(config.get("contamination", self.contamination))
+        self._set_n_classes(None)
 
     def _register_hooks(self) -> None:
         def get_activation(name: str):

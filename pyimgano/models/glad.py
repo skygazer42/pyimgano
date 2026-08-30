@@ -708,6 +708,9 @@ class TorchGLADBackend:
         "supports_pixel_map": True,
         "supervision": "one-class",
         "weights_source": "Official GLAD category UNet and optional VAE/DINO checkpoints",
+        "known_deviations": [
+            "The local pipeline reconstructs the released inference path on current diffusers; numerical equivalence requires the official category checkpoints and has not been certified by bundled weights."
+        ],
     },
 )
 class VisionGLAD(BaseDetector):

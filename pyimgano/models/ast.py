@@ -436,9 +436,14 @@ def _ast_transform(image_size: int):
         "author_code": "https://github.com/marco-rudolph/AST",
         "year": 2023,
         "supervision": "one-class",
-        "implementation_status": "paper-mvtec-ad-rgb-path-aligned",
+        "implementation_status": "paper-rgb-path-conditional-on-pretrained-backbone",
         "paper_fidelity": "paper-adaptation",
         "type": "knowledge-distillation",
+        "default_profile": "offline-safe-frozen-random-backbone",
+        "paper_profile": {"pretrained_backbone": True},
+        "known_deviations": [
+            "The offline-safe default freezes a randomly initialized backbone; enable pretrained_backbone for the paper profile."
+        ],
     },
 )
 class VisionAST(BaseVisionDeepDetector):

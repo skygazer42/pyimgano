@@ -32,5 +32,5 @@ def test_realnet_refuses_to_fake_missing_sdas_pairs() -> None:
     detector = VisionRealNet(pretrained=False, device="cpu", epochs=1, afs_batches=1)
     normal = np.zeros((2, 16, 16, 3), dtype=np.uint8)
 
-    with pytest.raises(ValueError, match="SDAS/SIA"):
+    with pytest.raises(ValueError, match="online SDAS"):
         detector.fit(normal)

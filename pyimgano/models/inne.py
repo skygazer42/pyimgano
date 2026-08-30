@@ -19,6 +19,8 @@ sklearn-style detector contract used across PyImgAno, but is implemented nativel
 without requiring external outlier-toolkits.
 """
 
+# UPSTREAM: yzhao062/pyod @ 34f7996effac700a5166d882d5e94c6e6078fae3 (BSD-2-Clause; adapted)
+
 from __future__ import annotations
 
 import numbers
@@ -93,6 +95,11 @@ class CoreINNE:
             max_samples = max(1, int(max_samples_f * n_samples))
 
         self.max_samples_ = int(max_samples)
+        if self.max_samples_ < 2:
+            raise ValueError(
+                "INNE requires max_samples to resolve to at least 2 so each centroid "
+                "has a finite nearest-neighbour radius"
+            )
         self._fit_ensemble(x)
         self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self

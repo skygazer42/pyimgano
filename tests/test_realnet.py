@@ -79,3 +79,22 @@ def test_vision_realnet_fit_does_not_print_progress(monkeypatch, capsys) -> None
     detector.fit(normal, synthetic_images=anomaly, synthetic_masks=masks)
 
     assert capsys.readouterr().out == ""
+
+
+def test_vision_realnet_resamples_online_sdas_each_epoch(monkeypatch) -> None:  # noqa: ANN001
+    normal, _anomaly, _masks = _inputs()
+    detector = _detector(monkeypatch)
+    calls: list[int] = []
+
+    def _sampler(normal_image, rng):  # noqa: ANN001, ANN202
+        calls.append(int(rng.integers(0, 1_000_000)))
+        synthetic = np.asarray(normal_image).copy()
+        synthetic[8:24, 8:24] = 255 - synthetic[8:24, 8:24]
+        mask = np.zeros(synthetic.shape[:2], dtype=np.uint8)
+        mask[8:24, 8:24] = 1
+        return synthetic, mask
+
+    detector.fit(normal, synthetic_sampler=_sampler)
+
+    # One batch initializes AFS, then every epoch obtains a fresh SDAS batch.
+    assert len(calls) == 2 * len(normal)

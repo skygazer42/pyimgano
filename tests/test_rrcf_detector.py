@@ -1,6 +1,19 @@
 import numpy as np
 
 
+def test_rrcf_collusive_displacement_uses_sibling_mass_ratio() -> None:
+    from pyimgano.models.rrcf import _collusive_displacement, _RCTNode
+
+    left = _RCTNode(size=1, sample_indices=(0,))
+    right = _RCTNode(size=3, sample_indices=(1, 2, 3))
+    root = _RCTNode(size=4, left=left, right=right)
+    left.parent = root
+    right.parent = root
+
+    assert _collusive_displacement(left) == 3.0
+    assert _collusive_displacement(right) == 1.0 / 3.0
+
+
 def test_core_rrcf_fit_predict_smoke() -> None:
     import pyimgano.models  # noqa: F401
     from pyimgano.models import create_model
@@ -17,6 +30,9 @@ def test_core_rrcf_fit_predict_smoke() -> None:
     assert preds.shape == (9,)
     assert np.all(np.isfinite(scores))
     assert set(np.unique(preds)).issubset({0, 1})
+
+    near, far = det.decision_function(np.asarray([[0.0] * 4, [50.0] * 4]))
+    assert far > near
 
 
 def test_vision_rrcf_with_identity_extractor() -> None:

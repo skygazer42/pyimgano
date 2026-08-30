@@ -150,7 +150,7 @@ class RegADRegistrationNetwork(nn.Module):
     def __init__(
         self,
         *,
-        pretrained: bool = True,
+        pretrained: bool = False,
         image_size: int = 224,
         stn_mode: str = "rotation_scale",
     ):
@@ -254,7 +254,7 @@ class RegADModel(nn.Module):
     def __init__(
         self,
         *,
-        pretrained: bool = True,
+        pretrained: bool = False,
         image_size: int = 224,
         stn_mode: str = "rotation_scale",
     ):
@@ -326,6 +326,15 @@ class RegADModel(nn.Module):
         "supervision": "few-shot",
         "type": "registration",
         "supports_pixel_map": True,
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {
+            "pretrained": True,
+            "benchmark_repetitions": 10,
+            "oracle_test_auc_selection": True,
+        },
+        "known_deviations": [
+            "Library API performs one support adaptation and does not reproduce test-AUC oracle checkpoint selection."
+        ],
     },
 )
 class VisionRegAD(BaseVisionDeepDetector):
@@ -339,7 +348,7 @@ class VisionRegAD(BaseVisionDeepDetector):
     def __init__(
         self,
         backbone: str = "resnet18",
-        pretrained: bool = True,
+        pretrained: bool = False,
         image_size: int = 224,
         stn_mode: str = "rotation_scale",
         learning_rate: float = 1e-4,

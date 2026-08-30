@@ -50,18 +50,19 @@ def _as_scores(value: Any, *, expected: int) -> NDArray:
     "vision_bayesianpf",
     tags=("vision", "deep", "bayesianpf", "zero-shot", "external-backend"),
     metadata={
-        "description": "Adapter for an official, checkpoint-backed Bayes-PFL runtime",
+        "description": "Facade for a user-supplied Bayes-PFL-compatible inference backend",
         "paper": "Bayesian Prompt Flow Learning for Zero-Shot Anomaly Detection",
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2025/html/Qu_Bayesian_Prompt_Flow_Learning_for_Zero-Shot_Anomaly_Detection_CVPR_2025_paper.html",
         "year": 2025,
         "conference": "CVPR",
         "supervision": "zero-shot",
         "training_regime": "auxiliary-trained zero-shot transfer",
-        "implementation_status": "external-backend-adapter",
+        "implementation_status": "user-supplied-external-backend-facade",
         "paper_fidelity": "external-backend",
-        "backend": "official-bayes-pfl",
+        "backend": "user-supplied-bayes-pfl-bridge",
         "requires_checkpoint": True,
-        "weights_source": "official-bayes-pfl-checkpoint-and-clip-weights",
+        "weights_source": "managed-by-user-supplied-backend",
+        "known_deviation": "PyImgAno does not parse the official checkpoint or implement the official preprocessing, prompt, and scoring pipeline.",
     },
 )
 class VisionBayesianPF:

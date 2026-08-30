@@ -89,7 +89,9 @@ class CoreLoOP(BaseDetector):
         mean_nbr_pdist = np.mean(pdist[nbr_idx], axis=1)
         plof = pdist / (mean_nbr_pdist + float(self.eps)) - 1.0
 
-        nplof = float(self.lambda_) * float(np.std(plof)) + float(self.eps)
+        # LoOP defines the standard deviation around an assumed zero mean,
+        # i.e. the RMS of PLOF rather than the centered sample stddev.
+        nplof = float(self.lambda_) * float(np.sqrt(np.mean(np.square(plof)))) + float(self.eps)
         loop = erf(plof / (nplof * float(np.sqrt(2.0))))
         loop = np.clip(loop, 0.0, 1.0)
 

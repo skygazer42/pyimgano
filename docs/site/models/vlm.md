@@ -23,7 +23,7 @@ title: 视觉-语言模型
 | WinCLIP / WinCLIP+ | `winclip` / `vision_winclip` | `paper-adaptation` | OpenCLIP ViT-B/16+ | 是 | `open_clip` |
 | WinCLIP upstream | `vision_winclip_anomalib` | `external-backend` | anomalib | 是 | `anomalib` |
 | AnomalyDINO | `vision_anomalydino` | `paper-adaptation` | DINOv2 ViT-S/14 | 是 | `torch` |
-| OpenCLIP PatchKNN | `vision_openclip_patch_map` | `not-applicable` | OpenCLIP | 是 | `open_clip` |
+| OpenCLIP PatchKNN | `vision_openclip_patchknn` | `not-applicable` | OpenCLIP | 是 | `open_clip` |
 | PromptAD | `vision_promptad` | `paper-adaptation` | VV-CLIP ViT-B/16+ | 是 | `open_clip` |
 
 !!! note "少样本说明"

@@ -42,7 +42,7 @@ def _get_perplexity(d: np.ndarray, beta: float) -> tuple[float, np.ndarray]:
 
 
 class CoreSOS:
-    """Pure NumPy implementation of SOS (Stochastic Outlier Selection)."""
+    """SOS with a deterministic per-query novelty extension."""
 
     def __init__(
         self,
@@ -58,6 +58,15 @@ class CoreSOS:
         self.eps = float(eps)
 
         self.decision_scores_: np.ndarray | None = None
+        self._X_fit: np.ndarray | None = None
+
+    def _calculate_scores(self, x: np.ndarray) -> np.ndarray:
+        if x.shape[0] < 2:
+            return np.zeros(x.shape[0], dtype=np.float64)
+        d = self._x2d(x)
+        a = self._d2a(d)
+        b = self._a2b(a)
+        return np.asarray(self._b2o(b), dtype=np.float64).ravel()
 
     def _x2d(self, x: np.ndarray) -> np.ndarray:
         n, d = x.shape
@@ -129,6 +138,7 @@ class CoreSOS:
     def fit(self, x, y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         del y
         x = check_array(x, ensure_2d=True, dtype=np.float64)
+        self._X_fit = np.asarray(x, dtype=np.float64).copy()
         if x.shape[0] < 2:
             self.decision_scores_ = np.zeros(x.shape[0], dtype=np.float64)
             return self
@@ -136,26 +146,26 @@ class CoreSOS:
         if not (1.0 <= self.perplexity <= float(x.shape[0] - 1)):
             raise ValueError(f"perplexity must be in [1, n_samples-1], got {self.perplexity}")
 
-        d = self._x2d(x)
-        a = self._d2a(d)
-        b = self._a2b(a)
-        outlier_prob = self._b2o(b)
-        self.decision_scores_ = np.asarray(outlier_prob, dtype=np.float64).ravel()
+        self.decision_scores_ = self._calculate_scores(x)
         return self
 
     def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.decision_scores_ is None:
+        if self.decision_scores_ is None or self._X_fit is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         x = check_array(x, ensure_2d=True, dtype=np.float64)
-        if x.shape[0] < 2:
-            return np.zeros(x.shape[0], dtype=np.float64)
-
-        d = self._x2d(x)
-        a = self._d2a(d)
-        b = self._a2b(a)
-        outlier_prob = self._b2o(b)
-        return np.asarray(outlier_prob, dtype=np.float64).ravel()
+        if self.metric.lower() == "none":
+            raise ValueError(
+                "metric='none' accepts a transductive dissimilarity matrix and cannot score "
+                "out-of-sample rows without training-to-query distances"
+            )
+        if x.shape[1] != self._X_fit.shape[1]:
+            raise ValueError(f"Expected {self._X_fit.shape[1]} features, got {x.shape[1]}")
+        scores = np.empty(x.shape[0], dtype=np.float64)
+        for index, row in enumerate(x):
+            reference_plus_query = np.vstack((self._X_fit, row.reshape(1, -1)))
+            scores[index] = self._calculate_scores(reference_plus_query)[-1]
+        return scores
 
 
 @register_model(
@@ -164,6 +174,8 @@ class CoreSOS:
     metadata={
         "description": "SOS (Stochastic Outlier Selection) for feature matrices (native wrapper)",
         "type": "probabilistic",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-transductive-core-per-query-novelty-extension",
     },
 )
 class CoreSOSDetector(CoreFeatureDetector):
@@ -202,6 +214,8 @@ class CoreSOSDetector(CoreFeatureDetector):
     metadata={
         "description": "Stochastic Outlier Selection (probabilistic baseline)",
         "type": "probabilistic",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-transductive-core-per-query-novelty-extension",
     },
 )
 class VisionSOS(BaseVisionDetector):

@@ -17,7 +17,7 @@ from ._image_batch import _coerce_single_rgb_image
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .base_detector import BaseDetector
 from .deep_io import safe_torch_load
-from .openclip_backend import _load_openclip_model_and_preprocess
+from .openclip_backend import _load_openclip_model_and_preprocess, _openclip_block_batch_first
 from .registry import register_model
 from .winclip import ANOMALOUS_STATES, NORMAL_STATES
 
@@ -221,6 +221,7 @@ class OpenCLIPInCTRLBackend:
         checkpoint_path: str | Path | None = None,
         model_name: str = PAPER_MODEL_NAME,
         pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         feature_layers: Sequence[int] = PAPER_FEATURE_LAYERS,
         image_size: int = PAPER_IMAGE_SIZE,
         device: str = "cuda",
@@ -234,6 +235,7 @@ class OpenCLIPInCTRLBackend:
         self.checkpoint_path = None if checkpoint_path is None else Path(checkpoint_path)
         self.model_name = str(model_name)
         self.pretrained = str(pretrained)
+        self.allow_download = bool(allow_download)
         self.feature_layers = tuple(int(layer) for layer in feature_layers)
         self.image_size = int(image_size)
         self.device = torch.device(
@@ -270,6 +272,7 @@ class OpenCLIPInCTRLBackend:
                 pretrained=load_pretrained,
                 device=str(self.device),
                 force_image_size=self.image_size,
+                allow_download=self.allow_download,
             )
         else:
             self.model = self.model.to(self.device).eval()
@@ -351,7 +354,7 @@ class OpenCLIPInCTRLBackend:
             raise RuntimeError("InCTRL positional embedding does not match the 15x15 grid.")
         tokens = visual.ln_pre(visual.patch_dropout(tokens + position))
         blocks = visual.transformer.resblocks
-        batch_first = bool(getattr(getattr(blocks[0], "attn", None), "batch_first", False))
+        batch_first = _openclip_block_batch_first(blocks[0])
         if not batch_first:
             tokens = tokens.permute(1, 0, 2)
 
@@ -481,6 +484,7 @@ class VisionInCTRL(BaseDetector):
         device: str = "cuda",
         model_name: str = PAPER_MODEL_NAME,
         pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         random_state: int | None = None,
         backend: Any = None,
         open_clip_module: Any = None,
@@ -497,6 +501,7 @@ class VisionInCTRL(BaseDetector):
         self.device = str(device)
         self.model_name = str(model_name)
         self.pretrained = str(pretrained)
+        self.allow_download = bool(allow_download)
         self.random_state = random_state
         if not self.class_name:
             raise ValueError("class_name must be non-empty.")
@@ -508,6 +513,7 @@ class VisionInCTRL(BaseDetector):
             checkpoint_path=checkpoint_path,
             model_name=self.model_name,
             pretrained=self.pretrained,
+            allow_download=self.allow_download,
             device=self.device,
             batch_size=self.batch_size,
             open_clip_module=open_clip_module,

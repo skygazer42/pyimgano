@@ -24,6 +24,7 @@ from pyimgano.utils.random_state import isolated_random_state_method
 
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
+from .openclip_backend import _run_openclip_transformer, _validate_openclip_pretrained_access
 from .registry import register_model
 
 logger = logging.getLogger(__name__)
@@ -374,6 +375,7 @@ class OpenCLIPPromptADBackend(nn.Module):
         *,
         model_name: str = "ViT-B-16-plus-240",
         pretrained: str = "laion400m_e32",
+        allow_download: bool = False,
         image_size: int = 240,
         precision: str = "fp16",
         device: str = "cuda",
@@ -386,6 +388,7 @@ class OpenCLIPPromptADBackend(nn.Module):
         super().__init__()
         self.model_name = str(model_name)
         self.pretrained = str(pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.precision = str(precision)
         requested_device = torch.device(device)
@@ -411,6 +414,10 @@ class OpenCLIPPromptADBackend(nn.Module):
                 "open_clip",
                 extra="clip",
                 purpose="PromptAD's frozen OpenCLIP backbone",
+            )
+            _validate_openclip_pretrained_access(
+                self.pretrained,
+                allow_download=self.allow_download,
             )
             result = open_clip.create_model_and_transforms(
                 self.model_name,
@@ -477,8 +484,13 @@ class OpenCLIPPromptADBackend(nn.Module):
             raise TypeError("PromptAD requires the ViT CLS-token pooling path")
         for block in blocks:
             attention = getattr(block, "attn", None)
-            if not isinstance(attention, nn.MultiheadAttention) or attention.in_proj_weight is None:
-                raise TypeError("PromptAD V-V attention requires nn.MultiheadAttention blocks")
+            required_attention = ("num_heads", "in_proj_weight", "in_proj_bias", "out_proj")
+            if attention is None or any(
+                not hasattr(attention, name) for name in required_attention
+            ):
+                raise TypeError("PromptAD V-V attention requires OpenCLIP QKV projection blocks")
+            if attention.in_proj_weight is None:
+                raise TypeError("PromptAD V-V attention requires a combined QKV projection")
 
     def tokenize(self, prompts: list[str]) -> torch.Tensor:
         self.initialize()
@@ -512,19 +524,14 @@ class OpenCLIPPromptADBackend(nn.Module):
         model = self.model
         cast_dtype = self._text_cast_dtype()
         x = embeddings.to(dtype=cast_dtype) + model.positional_embedding.to(dtype=cast_dtype)
-        x = x.permute(1, 0, 2)
         mask = getattr(model, "attn_mask", None)
-        x = model.transformer(x, attn_mask=mask)
-        if isinstance(x, tuple):
-            x = x[0]
-        x = model.ln_final(x.permute(1, 0, 2))
+        x = _run_openclip_transformer(model.transformer, x, attn_mask=mask)
+        x = model.ln_final(x)
         rows = torch.arange(x.shape[0], device=x.device)
         return x[rows, eot_indices.to(x.device)] @ model.text_projection
 
     @staticmethod
-    def _dual_attention(
-        attention: nn.MultiheadAttention, x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _dual_attention(attention: nn.Module, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the author's V-V and original Q-K attention branches."""
         length, batch, width = x.shape
         heads = int(attention.num_heads)
@@ -540,13 +547,14 @@ class OpenCLIPPromptADBackend(nn.Module):
         scale = head_width**-0.5
         original_weights = ((query @ key.transpose(-2, -1)) * scale).softmax(dim=-1)
         value_weights = ((value @ value.transpose(-2, -1)) * scale).softmax(dim=-1)
-        if float(attention.dropout):
+        dropout = getattr(attention, "dropout", None)
+        if dropout is None:
+            dropout = float(getattr(getattr(attention, "attn_drop", None), "p", 0.0))
+        if float(dropout):
             original_weights = F.dropout(
-                original_weights, p=float(attention.dropout), training=attention.training
+                original_weights, p=float(dropout), training=attention.training
             )
-            value_weights = F.dropout(
-                value_weights, p=float(attention.dropout), training=attention.training
-            )
+            value_weights = F.dropout(value_weights, p=float(dropout), training=attention.training)
 
         def project(weights: torch.Tensor) -> torch.Tensor:
             output = (weights @ value).transpose(1, 2).reshape(batch, length, width)
@@ -684,6 +692,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         class_name: str = "object",
         openclip_model_name: str = "ViT-B-16-plus-240",
         openclip_pretrained: str = "laion400m_e32",
+        allow_download: bool = False,
         image_size: int = 240,
         n_ctx: int = 4,
         n_ctx_ab: int = 1,
@@ -740,6 +749,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
         self.class_name = str(class_name)
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = str(openclip_pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.n_ctx = int(n_ctx)
         self.n_ctx_ab = int(n_ctx_ab)
@@ -770,6 +780,7 @@ class VisionPromptAD(BaseVisionDeepDetector):
             self.backend_ = OpenCLIPPromptADBackend(
                 model_name=self.openclip_model_name,
                 pretrained=self.openclip_pretrained,
+                allow_download=self.allow_download,
                 image_size=self.image_size,
                 precision=self.precision,
                 device=str(self.device),

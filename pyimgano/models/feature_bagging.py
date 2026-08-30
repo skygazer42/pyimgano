@@ -2,7 +2,9 @@
 """Feature Bagging (random feature subspace ensemble).
 
 Feature Bagging improves stability by fitting multiple base detectors on
-randomly sampled feature subspaces and aggregating their scores.
+randomly sampled feature subspaces and aggregating their scores.  The paper's
+cumulative-sum and breadth-first combination rules are both available; the
+default is cumulative sum.
 
 Reference
 ---------
@@ -129,7 +131,7 @@ class CoreFeatureBagging:
         max_features: Union[int, float] = 1.0,
         bootstrap_features: bool = False,
         random_state: Optional[int] = None,
-        combination: str = "average",
+        combination: str = "cumulative_sum",
         base_estimator: str = "lof",
         base_estimator_spec: Any = None,
         n_jobs: int = 1,
@@ -204,10 +206,13 @@ class CoreFeatureBagging:
                 raise ValueError("max_features as float must be in (0, 1]")
             max_features = int(max_features_f * n_features)
 
+        # Lazarevic & Kumar sample proper subspaces with an upper bound of d-1.
+        max_features = min(max_features, n_features - 1)
+
         check_parameter(
             max_features,
             low=min_features,
-            high=n_features,
+            high=n_features - 1,
             include_left=True,
             include_right=True,
             param_name="max_features",
@@ -256,12 +261,37 @@ class CoreFeatureBagging:
         if score_mat.size == 0:
             return np.zeros((0,), dtype=np.float64)
 
+        if self.combination in {"cumulative_sum", "sum"}:
+            return np.sum(score_mat, axis=1)
+        if self.combination == "breadth_first":
+            # Lazarevic & Kumar sort each detector's score vector descending,
+            # then visit rank 1 from every detector, rank 2 from every detector,
+            # and so on, keeping the first occurrence of each sample.  Convert
+            # that final ordering to a descending numeric score so it remains
+            # compatible with the detector API.
+            n_samples, n_estimators = score_mat.shape
+            sorted_indices = np.argsort(-score_mat, axis=0, kind="stable")
+            final_order: list[int] = []
+            seen = np.zeros((n_samples,), dtype=bool)
+            for rank in range(n_samples):
+                for estimator_index in range(n_estimators):
+                    sample_index = int(sorted_indices[rank, estimator_index])
+                    if not seen[sample_index]:
+                        seen[sample_index] = True
+                        final_order.append(sample_index)
+            combined = np.empty((n_samples,), dtype=np.float64)
+            for position, sample_index in enumerate(final_order):
+                combined[sample_index] = float(n_samples - position)
+            return combined
         if self.combination == "average":
             return np.mean(score_mat, axis=1)
         if self.combination in {"max", "maximization"}:
             return np.max(score_mat, axis=1)
 
-        raise ValueError("combination must be one of {'average', 'max'}")
+        raise ValueError(
+            "combination must be one of "
+            "{'cumulative_sum', 'sum', 'breadth_first', 'average', 'max'}"
+        )
 
     def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
         if self.n_features_in_ is None or self.decision_scores_ is None:
@@ -288,8 +318,12 @@ class CoreFeatureBagging:
     metadata={
         "description": "Core Feature Bagging ensemble on feature matrices (native wrapper)",
         "input": "features",
-        "paper": "Lazarevic & Kumar, KDD 2005",
+        "related_paper": "Feature Bagging for Outlier Detection",
+        "paper_url": "https://doi.org/10.1145/1081870.1081891",
         "year": 2005,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "proper-random-subspaces-with-paper-combination-rules",
+        "known_deviation": "Adds a fitted novelty-scoring API for new samples; breadth-first mode is transductive within each scored matrix.",
     },
 )
 class CoreFeatureBaggingModel(CoreFeatureDetector):
@@ -303,7 +337,7 @@ class CoreFeatureBaggingModel(CoreFeatureDetector):
         max_features: Union[int, float] = 1.0,
         bootstrap_features: bool = False,
         random_state: Optional[int] = None,
-        combination: str = "average",
+        combination: str = "cumulative_sum",
         base_estimator: str = "lof",
         n_jobs: int = 1,
         n_neighbors: int = 20,
@@ -330,8 +364,12 @@ class CoreFeatureBaggingModel(CoreFeatureDetector):
     tags=("vision", "ensemble", "feature_bagging"),
     metadata={
         "description": "Feature Bagging - random feature-subspace ensemble (native)",
-        "paper": "Lazarevic & Kumar, KDD 2005",
+        "related_paper": "Feature Bagging for Outlier Detection",
+        "paper_url": "https://doi.org/10.1145/1081870.1081891",
         "year": 2005,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "proper-random-subspaces-with-paper-combination-rules",
+        "known_deviation": "Adds a fitted novelty-scoring API for new samples; breadth-first mode is transductive within each scored matrix.",
         "ensemble": True,
         "robust": True,
     },
@@ -349,7 +387,7 @@ class VisionFeatureBagging(BaseVisionDetector):
         bootstrap_features: bool = False,
         n_jobs: int = 1,
         random_state: Optional[int] = None,
-        combination: str = "average",
+        combination: str = "cumulative_sum",
         base_estimator: str = "lof",
         n_neighbors: int = 20,
     ) -> None:
@@ -382,8 +420,12 @@ class VisionFeatureBagging(BaseVisionDetector):
     metadata={
         "description": "Core Feature Bagging ensemble with JSON-friendly base-estimator spec",
         "input": "features",
-        "paper": "Lazarevic & Kumar, KDD 2005",
+        "related_paper": "Feature Bagging for Outlier Detection",
+        "paper_url": "https://doi.org/10.1145/1081870.1081891",
         "year": 2005,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "proper-random-subspaces-with-paper-combination-rules",
+        "known_deviation": "Adds a fitted novelty-scoring API for new samples; breadth-first mode is transductive within each scored matrix.",
     },
 )
 class CoreFeatureBaggingSpecModel(CoreFeatureDetector):
@@ -402,7 +444,7 @@ class CoreFeatureBaggingSpecModel(CoreFeatureDetector):
         max_features: Union[int, float] = 1.0,
         bootstrap_features: bool = False,
         random_state: Optional[int] = None,
-        combination: str = "average",
+        combination: str = "cumulative_sum",
         base_estimator_spec: Any = "core_lof",
         n_jobs: int = 1,
         n_neighbors: int = 20,
@@ -430,8 +472,12 @@ class CoreFeatureBaggingSpecModel(CoreFeatureDetector):
     tags=("vision", "ensemble", "feature_bagging", "spec"),
     metadata={
         "description": "Feature Bagging ensemble with JSON-friendly base-estimator spec",
-        "paper": "Lazarevic & Kumar, KDD 2005",
+        "related_paper": "Feature Bagging for Outlier Detection",
+        "paper_url": "https://doi.org/10.1145/1081870.1081891",
         "year": 2005,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "proper-random-subspaces-with-paper-combination-rules",
+        "known_deviation": "Adds a fitted novelty-scoring API for new samples; breadth-first mode is transductive within each scored matrix.",
         "ensemble": True,
         "robust": True,
     },
@@ -449,7 +495,7 @@ class VisionFeatureBaggingSpec(BaseVisionDetector):
         bootstrap_features: bool = False,
         n_jobs: int = 1,
         random_state: Optional[int] = None,
-        combination: str = "average",
+        combination: str = "cumulative_sum",
         base_estimator_spec: Any = "core_lof",
         n_neighbors: int = 20,
     ) -> None:

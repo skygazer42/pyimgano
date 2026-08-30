@@ -65,6 +65,7 @@ class VisionOpenCLIPPatchMap:
         embedder: Optional[OpenCLIPViTPatchEmbedder] = None,
         openclip_model_name: str = "ViT-B-32",
         openclip_pretrained: Optional[str] = None,
+        allow_download: bool = False,
         device: str = "cpu",
         force_image_size: Optional[int] = None,
         normalize_embeddings: bool = True,
@@ -76,6 +77,7 @@ class VisionOpenCLIPPatchMap:
     ) -> None:
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = openclip_pretrained
+        self.allow_download = bool(allow_download)
         self.device = str(device)
         self.force_image_size = force_image_size
         self.normalize_embeddings = bool(normalize_embeddings)
@@ -96,6 +98,7 @@ class VisionOpenCLIPPatchMap:
                 device=self.device,
                 force_image_size=self.force_image_size,
                 normalize=self.normalize_embeddings,
+                allow_download=self.allow_download,
             )
         self.embedder = embedder
 

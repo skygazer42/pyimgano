@@ -15,6 +15,8 @@ This is a native implementation for PyImgAno using scikit-learn's
 `sklearn.covariance.MinCovDet` (no extra outlier-toolbox dependency).
 """
 
+# UPSTREAM: yzhao062/pyod @ 34f7996effac700a5166d882d5e94c6e6078fae3 (BSD-2-Clause; adapted)
+
 from __future__ import annotations
 
 from typing import Iterable, Optional

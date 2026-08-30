@@ -11,16 +11,19 @@ def test_openclip_extractor_is_discoverable() -> None:
     assert "openclip_embed" in list_feature_extractors()
 
 
-def test_openclip_extractor_raises_clean_error_when_missing() -> None:
-    from pyimgano.utils.optional_deps import optional_import
+def test_openclip_extractor_raises_clean_error_when_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pyimgano.features import openclip_embed
 
-    mod, _err = optional_import("open_clip")
-    if mod is not None:
-        pytest.skip("open_clip is installed; skip missing-dep error path")
+    def missing_openclip(module_name: str, **_kwargs: object):
+        if module_name == "open_clip":
+            raise ImportError("simulated missing open_clip")
+        raise AssertionError(f"unexpected dependency request: {module_name}")
 
-    from pyimgano.features.openclip_embed import OpenCLIPExtractor
+    monkeypatch.setattr(openclip_embed, "require", missing_openclip)
 
-    ext = OpenCLIPExtractor(pretrained=None, device="cpu", batch_size=1)
+    ext = openclip_embed.OpenCLIPExtractor(pretrained=None, device="cpu", batch_size=1)
     img = np.zeros((32, 32, 3), dtype=np.uint8)
     with pytest.raises(ImportError) as excinfo:
         ext.extract([img])

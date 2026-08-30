@@ -16,6 +16,8 @@ This is a lightweight, dependency-minimal implementation implemented natively
 in PyImgAno (no extra outlier-toolbox dependency).
 """
 
+# UPSTREAM: yzhao062/pyod @ 34f7996effac700a5166d882d5e94c6e6078fae3 (BSD-2-Clause; adapted)
+
 from __future__ import annotations
 
 from typing import Iterable, List
@@ -47,12 +49,13 @@ class CoreHBOS:
 
         self._bin_edges: List[NDArray[np.float64]] | None = None
         self._bin_log_prob: List[NDArray[np.float64]] | None = None
+        self._oos_log_prob: List[float] | None = None
         self.n_features_in_: int | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
     def _fit_feature(
         self, values: NDArray[np.float64]
-    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64], float]:
         values = np.asarray(values, dtype=np.float64).reshape(-1)
         if values.size == 0:
             raise ValueError("HBOS requires non-empty training data")
@@ -69,10 +72,19 @@ class CoreHBOS:
 
         # Additive smoothing to avoid log(0). This keeps the detector stable for
         # small sample sizes.
-        counts = counts + self.alpha
-        probs = counts / float(np.sum(counts))
+        smoothing = max(float(self.alpha), float(self.eps))
+        counts = counts + smoothing
+        # Reserve one smoothed probability mass for values outside the fitted
+        # histogram support instead of clipping them into a dense edge bin.
+        total = float(np.sum(counts) + smoothing)
+        probs = counts / total
         log_prob = -np.log(np.clip(probs, self.eps, 1.0))
-        return edges.astype(np.float64, copy=False), log_prob.astype(np.float64, copy=False)
+        oos_log_prob = float(-np.log(np.clip(smoothing / total, self.eps, 1.0)))
+        return (
+            edges.astype(np.float64, copy=False),
+            log_prob.astype(np.float64, copy=False),
+            oos_log_prob,
+        )
 
     def fit(self, x, _y=None):  # noqa: ANN001, ANN201 - sklearn-like API
         del _y
@@ -83,16 +95,23 @@ class CoreHBOS:
         self.n_features_in_ = int(x.shape[1])
         self._bin_edges = []
         self._bin_log_prob = []
+        self._oos_log_prob = []
         for j in range(self.n_features_in_):
-            edges, log_prob = self._fit_feature(x[:, j])
+            edges, log_prob, oos_log_prob = self._fit_feature(x[:, j])
             self._bin_edges.append(edges)
             self._bin_log_prob.append(log_prob)
+            self._oos_log_prob.append(oos_log_prob)
 
         self.decision_scores_ = np.asarray(self.decision_function(x), dtype=np.float64)
         return self
 
     def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self._bin_edges is None or self._bin_log_prob is None or self.n_features_in_ is None:
+        if (
+            self._bin_edges is None
+            or self._bin_log_prob is None
+            or self._oos_log_prob is None
+            or self.n_features_in_ is None
+        ):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         x = check_array(x, ensure_2d=True, dtype=np.float64)
@@ -105,8 +124,11 @@ class CoreHBOS:
             log_prob = self._bin_log_prob[j]
             # Map each value to a histogram bin index.
             idx = np.searchsorted(edges, x[:, j], side="right") - 1
+            outside_support = (x[:, j] < edges[0]) | (x[:, j] > edges[-1])
             idx = np.clip(idx, 0, log_prob.shape[0] - 1)
-            scores += log_prob[idx]
+            contribution = log_prob[idx]
+            contribution[outside_support] = self._oos_log_prob[j]
+            scores += contribution
         return scores.ravel()
 
 

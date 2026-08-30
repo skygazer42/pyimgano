@@ -58,10 +58,12 @@ def test_registry_model_info_distinguishes_papers_from_related_references() -> N
 
     assert cflow["metadata"]["year"] == 2022
     assert "CFLOW-AD" in cflow["metadata"]["paper"]
-    assert cflow["metadata"]["paper_fidelity"] == "core-aligned"
+    assert cflow["metadata"]["paper_fidelity"] == "paper-adaptation"
 
     assert dbscan["metadata"]["year"] == 1996
-    assert "Density-Based Algorithm" in dbscan["metadata"]["paper"]
+    assert "paper" not in dbscan["metadata"]
+    assert "Density-Based Algorithm" in dbscan["metadata"]["related_paper"]
+    assert dbscan["metadata"]["paper_fidelity"] == "inspired"
 
     assert deep_svdd["metadata"]["year"] == 2018
     assert "Deep One-Class Classification" in deep_svdd["metadata"]["paper"]
@@ -125,7 +127,7 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert softpatch["metadata"]["year"] == 2022
     assert "SoftPatch" in softpatch["metadata"]["paper"]
     assert "neurips.cc" in softpatch["metadata"]["paper_url"]
-    assert softpatch["metadata"]["paper_fidelity"] == "core-aligned"
+    assert softpatch["metadata"]["paper_fidelity"] == "paper-adaptation"
     assert softpatch["metadata"]["supervision"] == "unsupervised"
 
     assert cfa_alias["metadata"]["year"] == 2022
@@ -188,16 +190,18 @@ def test_backend_alias_model_info_inherits_verified_algorithm_metadata() -> None
     assert "SuperSimpleNet" in supersimplenet_alias["metadata"]["paper"]
 
     assert ssim_template["metadata"]["year"] == 2004
-    assert "Image Quality Assessment" in ssim_template["metadata"]["paper"]
+    assert "paper" not in ssim_template["metadata"]
+    assert "Image Quality Assessment" in ssim_template["metadata"]["related_paper"]
+    assert ssim_template["metadata"]["paper_fidelity"] == "inspired"
 
     assert ssim_template_map["metadata"]["year"] == 2004
-    assert "Image Quality Assessment" in ssim_template_map["metadata"]["paper"]
+    assert "Image Quality Assessment" in ssim_template_map["metadata"]["related_paper"]
 
     assert ssim_struct["metadata"]["year"] == 2004
-    assert "Image Quality Assessment" in ssim_struct["metadata"]["paper"]
+    assert "Image Quality Assessment" in ssim_struct["metadata"]["related_paper"]
 
     assert ssim_struct_map["metadata"]["year"] == 2004
-    assert "Image Quality Assessment" in ssim_struct_map["metadata"]["paper"]
+    assert "Image Quality Assessment" in ssim_struct_map["metadata"]["related_paper"]
 
     assert uflow_alias["metadata"]["year"] == 2022
     assert "U-Flow" in uflow_alias["metadata"]["paper"]

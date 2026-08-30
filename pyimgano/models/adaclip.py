@@ -20,7 +20,7 @@ from pyimgano.utils.optional_deps import require
 from ._image_batch import _coerce_single_rgb_image
 from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .deep_io import safe_torch_load
-from .openclip_backend import _load_openclip_model_and_preprocess
+from .openclip_backend import _load_openclip_model_and_preprocess, _openclip_block_batch_first
 from .registry import register_model
 
 PAPER_MODEL = "ViT-L-14-336"
@@ -83,7 +83,7 @@ def _run_block(
     *,
     attn_mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    batch_first = bool(getattr(getattr(block, "attn", None), "batch_first", False))
+    batch_first = _openclip_block_batch_first(block)
     block_input = x.permute(1, 0, 2) if batch_first else x
     try:
         output = block(block_input, attn_mask=attn_mask)
@@ -544,6 +544,7 @@ class OpenCLIPAdaCLIPBackend:
         checkpoint_path: str | Path | None,
         model_name: str = PAPER_MODEL,
         pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         image_size: int = PAPER_IMAGE_SIZE,
         output_layers: Sequence[int] = PAPER_OUTPUT_LAYERS,
         prompting_depth: int = PAPER_PROMPT_DEPTH,
@@ -562,6 +563,7 @@ class OpenCLIPAdaCLIPBackend:
         self.checkpoint_path = None if checkpoint_path is None else Path(checkpoint_path)
         self.model_name = str(model_name)
         self.pretrained = str(pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.output_layers = tuple(int(layer) for layer in output_layers)
         self.prompting_depth = int(prompting_depth)
@@ -604,6 +606,7 @@ class OpenCLIPAdaCLIPBackend:
                 pretrained=self.pretrained,
                 device=str(self.device),
                 force_image_size=self.image_size,
+                allow_download=self.allow_download,
             )
         else:
             self.model = self.model.to(self.device).eval()
@@ -711,6 +714,7 @@ class VisionAdaCLIP:
         checkpoint_path: str | Path | None = None,
         openclip_model_name: str = PAPER_MODEL,
         openclip_pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         image_size: int = PAPER_IMAGE_SIZE,
         output_layers: Sequence[int] = PAPER_OUTPUT_LAYERS,
         prompting_depth: int = PAPER_PROMPT_DEPTH,
@@ -739,6 +743,7 @@ class VisionAdaCLIP:
             checkpoint_path=checkpoint_path,
             model_name=openclip_model_name,
             pretrained=openclip_pretrained,
+            allow_download=allow_download,
             image_size=image_size,
             output_layers=output_layers,
             prompting_depth=prompting_depth,
@@ -753,6 +758,7 @@ class VisionAdaCLIP:
         )
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = str(openclip_pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.output_layers = tuple(int(layer) for layer in output_layers)
         self.prompting_depth = int(prompting_depth)

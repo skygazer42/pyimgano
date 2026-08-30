@@ -23,6 +23,7 @@ from typing import Iterable, List, Optional, Sequence
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.neighbors import KDTree
+from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_array
 
 from ..utils.random_state import check_random_state
@@ -105,6 +106,7 @@ class CoreLSCP:
         self.local_min_features = float(local_min_features)
 
         self.x_train_: NDArray[np.float64] | None = None
+        self.scaler_: StandardScaler | None = None
         self.train_scores_: NDArray[np.float64] | None = None
         self.decision_scores_: NDArray[np.float64] | None = None
 
@@ -124,21 +126,23 @@ class CoreLSCP:
             raise ValueError("detector_list must contain at least 2 base detectors")
 
         x = check_array(x, ensure_2d=True, dtype=np.float64)
-        self.x_train_ = x
+        self.scaler_ = StandardScaler().fit(x)
+        x_normalized = self.scaler_.transform(x)
+        self.x_train_ = x_normalized
 
-        train_scores = np.zeros((x.shape[0], self.n_clf), dtype=np.float64)
+        train_scores = np.zeros((x_normalized.shape[0], self.n_clf), dtype=np.float64)
         for k, det in enumerate(self.detector_list):
             fit = getattr(det, "fit", None)
             decision = getattr(det, "decision_function", None)
             if not callable(fit) or not callable(decision):
                 raise TypeError("Each base detector must implement fit() and decision_function()")
 
-            det.fit(x)
+            det.fit(x_normalized)
             scores = getattr(det, "decision_scores_", None)
             if scores is None:
                 raise RuntimeError("Base detector did not set decision_scores_ during fit")
             scores_np = np.asarray(scores, dtype=np.float64).reshape(-1)
-            if scores_np.shape[0] != x.shape[0]:
+            if scores_np.shape[0] != x_normalized.shape[0]:
                 raise ValueError("Base detector returned unexpected decision_scores_ length")
             train_scores[:, k] = scores_np
 
@@ -147,7 +151,7 @@ class CoreLSCP:
         return self
 
     def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.x_train_ is None or self.train_scores_ is None:
+        if self.x_train_ is None or self.train_scores_ is None or self.scaler_ is None:
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         x = check_array(x, ensure_2d=True, dtype=np.float64)
@@ -157,7 +161,7 @@ class CoreLSCP:
                 f"Model n_features={self.x_train_.shape[1]}, input n_features={x.shape[1]}."
             )
 
-        return self._get_decision_scores(x)
+        return self._get_decision_scores(self.scaler_.transform(x))
 
     def _get_decision_scores(self, x_test: NDArray[np.float64]) -> NDArray[np.float64]:
         if self.x_train_ is None or self.train_scores_ is None:
@@ -312,8 +316,11 @@ def _default_lscp_detectors(
     metadata={
         "description": "Core LSCP ensemble on feature matrices (native wrapper)",
         "input": "features",
-        "paper": "Zhao et al., LSCP (SDM 2019)",
+        "paper": "LSCP: Locally Selective Combination in Parallel Outlier Ensembles",
+        "paper_url": "https://doi.org/10.1137/1.9781611975673.66",
         "year": 2019,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "standardized-local-region-selective-ensemble",
     },
 )
 class CoreLSCPModel(CoreFeatureDetector):
@@ -364,8 +371,11 @@ class CoreLSCPModel(CoreFeatureDetector):
     metadata={
         "description": "Core LSCP ensemble with JSON-friendly base-detector specs",
         "input": "features",
-        "paper": "Zhao et al., LSCP (SDM 2019)",
+        "paper": "LSCP: Locally Selective Combination in Parallel Outlier Ensembles",
+        "paper_url": "https://doi.org/10.1137/1.9781611975673.66",
         "year": 2019,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "standardized-local-region-selective-ensemble",
     },
 )
 class CoreLSCPSpecModel(CoreFeatureDetector):
@@ -422,7 +432,14 @@ class CoreLSCPSpecModel(CoreFeatureDetector):
 @register_model(
     "vision_lscp",
     tags=("vision", "classical", "ensemble", "lscp"),
-    metadata={"description": "LSCP - locally selective combination ensemble (native)"},
+    metadata={
+        "description": "LSCP - locally selective combination ensemble (native)",
+        "paper": "LSCP: Locally Selective Combination in Parallel Outlier Ensembles",
+        "paper_url": "https://doi.org/10.1137/1.9781611975673.66",
+        "year": 2019,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "vision-wrapper-over-standardized-local-selection",
+    },
 )
 class VisionLSCP(BaseVisionDetector):
     """Vision-friendly LSCP wrapper using project feature extractors."""
@@ -479,7 +496,14 @@ class VisionLSCP(BaseVisionDetector):
 @register_model(
     "vision_lscp_spec",
     tags=("vision", "classical", "ensemble", "lscp"),
-    metadata={"description": "LSCP ensemble with JSON-friendly base-detector specs"},
+    metadata={
+        "description": "LSCP ensemble with JSON-friendly base-detector specs",
+        "paper": "LSCP: Locally Selective Combination in Parallel Outlier Ensembles",
+        "paper_url": "https://doi.org/10.1137/1.9781611975673.66",
+        "year": 2019,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "vision-wrapper-over-standardized-local-selection",
+    },
 )
 class VisionLSCPSpec(BaseVisionDetector):
     """Vision-friendly LSCP wrapper that accepts detector specs.

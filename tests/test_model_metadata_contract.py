@@ -162,12 +162,12 @@ def test_paper_fidelity_classification_covers_core_proxy_and_backend_paths() -> 
     from pyimgano.models.registry import MODEL_REGISTRY
 
     expected = {
-        "vision_patchcore": "core-aligned",
-        "vision_padim": "core-aligned",
-        "vision_stfpm": "core-aligned",
+        "vision_patchcore": "paper-adaptation",
+        "vision_padim": "paper-adaptation",
+        "vision_stfpm": "paper-adaptation",
         "vision_reverse_distillation": "core-aligned",
         "vision_draem": "paper-adaptation",
-        "vision_simplenet": "core-aligned",
+        "vision_simplenet": "paper-adaptation",
         "vision_differnet": "paper-adaptation",
         "vision_ast": "paper-adaptation",
         "vision_promptad": "paper-adaptation",
@@ -194,6 +194,17 @@ def test_all_deep_models_resolve_a_valid_supervision_contract() -> None:
     names = MODEL_REGISTRY.available(tags=("deep",))
     report = audit_metadata_contract(MODEL_REGISTRY, names=names)
 
+    assert report["recommended_missing_by_model"] == {}
+    assert report["invalid_fields_by_model"] == {}
+
+
+def test_all_registered_models_satisfy_the_metadata_contract() -> None:
+    import pyimgano.models  # noqa: F401 - registry population side effects
+    from pyimgano.models.registry import audit_model_metadata
+
+    report = audit_model_metadata()
+
+    assert report["required_missing_by_model"] == {}
     assert report["recommended_missing_by_model"] == {}
     assert report["invalid_fields_by_model"] == {}
 

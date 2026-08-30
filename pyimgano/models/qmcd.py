@@ -1,21 +1,23 @@
 """
 QMCD (Wrap-around Quasi-Monte Carlo Discrepancy) detector.
 
-QMCD measures how well each point "fills" a hypercube relative to other points
-via a wrap-around discrepancy criterion. Points with larger discrepancy are
-more likely to be outliers.
+This detector uses wrap-around discrepancy as a robust-statistical feature and
+converts it to a two-sided anomaly score around the training median.  The cited
+uniform-design paper defines the discrepancy, not an anomaly detector or an
+out-of-sample scoring rule.
 
 Reference:
-    Fang, K.T., Hickernell, F.J. and Winker, P., 2001.
-    Wrap-around L2-discrepancy of lattice rules.
+    Fang, K.T. and Ma, C.X., 2001. Wrap-Around L2-Discrepancy of Random
+    Sampling, Latin Hypercube and Uniform Designs.
 """
+
+# UPSTREAM: yzhao062/pyod @ 34f7996effac700a5166d882d5e94c6e6078fae3 (BSD-2-Clause; adapted)
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 
 import numpy as np
-import scipy.stats as stats
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import check_array
 
@@ -27,23 +29,28 @@ from .registry import register_model
 
 numba = require("numba", extra="numba", purpose="QMCD discrepancy acceleration")
 njit = numba.njit
-prange = numba.prange
 
 
-@njit(fastmath=True, parallel=True)
+@njit(fastmath=True)
 def _wrap_around_discrepancy(data: np.ndarray, check: np.ndarray) -> np.ndarray:
-    """Wrap-around Quasi-Monte Carlo discrepancy."""
+    """Wrap-around Quasi-Monte Carlo discrepancy.
+
+    A serial JIT kernel is intentional: nested ``prange`` loops require a
+    process-wide threading backend and caused runtime warnings or fallback on
+    hosts with an older system TBB. The numerical kernel remains compiled and
+    deterministic without that external threading-layer dependency.
+    """
 
     n = data.shape[0]
     d = data.shape[1]
     p = check.shape[0]
 
     disc = np.zeros(p, dtype=np.float64)
-    for i in prange(p):
+    for i in range(p):
         dc = 0.0
-        for j in prange(n):
+        for j in range(n):
             prod = 1.0
-            for k in prange(d):
+            for k in range(d):
                 x_kikj = abs(check[i, k] - data[j, k])
                 prod *= 1.5 - x_kikj + x_kikj * x_kikj
             dc += prod
@@ -53,14 +60,16 @@ def _wrap_around_discrepancy(data: np.ndarray, check: np.ndarray) -> np.ndarray:
 
 
 class CoreQMCD:
-    """Native QMCD core implementation."""
+    """Discrepancy-inspired detector with a robust two-sided score."""
 
-    def __init__(self, *, contamination: float = 0.1) -> None:
+    def __init__(self, *, contamination: float = 0.1, eps: float = 1e-12) -> None:
         self.contamination = float(contamination)
+        self.eps = float(eps)
 
         self._scaler: MinMaxScaler | None = None
         self._fitted_data: np.ndarray | None = None
-        self._is_flipped: bool = False
+        self._score_center: float | None = None
+        self._score_scale: float | None = None
 
         self.decision_scores_: np.ndarray | None = None
 
@@ -72,46 +81,49 @@ class CoreQMCD:
         x_norm = self._scaler.fit_transform(x)
         self._fitted_data = x_norm.copy()
 
-        scores = _wrap_around_discrepancy(x_norm, x_norm)
-
-        # Flip scores so that "higher = more anomalous" (consistent scoring direction).
-        self._is_flipped = False
-        skew = float(stats.skew(scores))
-        kurt = float(stats.kurtosis(scores))
-        if (skew < 0) or ((skew >= 0) and (kurt < 0)):
-            scores = scores.max() + scores.min() - scores
-            self._is_flipped = True
-
-        self.decision_scores_ = np.asarray(scores, dtype=np.float64).ravel()
+        raw_scores = np.asarray(_wrap_around_discrepancy(x_norm, x_norm), dtype=np.float64).ravel()
+        self._score_center = float(np.median(raw_scores))
+        mad = float(np.median(np.abs(raw_scores - self._score_center)))
+        self._score_scale = max(1.4826 * mad, float(self.eps))
+        self.decision_scores_ = np.abs(raw_scores - self._score_center) / self._score_scale
         return self
 
     def decision_function(self, x):  # noqa: ANN001, ANN201 - sklearn-like API
-        if self.decision_scores_ is None or self._scaler is None or self._fitted_data is None:
+        if (
+            self.decision_scores_ is None
+            or self._scaler is None
+            or self._fitted_data is None
+            or self._score_center is None
+            or self._score_scale is None
+        ):
             raise RuntimeError("Detector must be fitted before calling decision_function")
 
         x = check_array(x, ensure_2d=True, dtype=np.float64)
         x_norm = self._scaler.transform(x)
-        scores = _wrap_around_discrepancy(self._fitted_data, x_norm)
-        if self._is_flipped:
-            scores = self.decision_scores_.max() + self.decision_scores_.min() - scores
-        return np.asarray(scores, dtype=np.float64).ravel()
+        raw_scores = np.asarray(
+            _wrap_around_discrepancy(self._fitted_data, x_norm), dtype=np.float64
+        ).ravel()
+        return np.abs(raw_scores - self._score_center) / self._score_scale
 
 
 @register_model(
     "core_qmcd",
     tags=("classical", "core", "features", "qmcd", "robust", "baseline"),
     metadata={
-        "description": "Core QMCD discrepancy detector on feature matrices (native wrapper)",
+        "description": "Wrap-around discrepancy-inspired robust two-sided detector",
         "input": "features",
-        "paper": "Fang et al., 2001",
+        "related_paper": "Wrap-Around L2-Discrepancy of Random Sampling, Latin Hypercube and Uniform Designs",
+        "paper_url": "https://doi.org/10.1006/jcom.2001.0589",
+        "paper_fidelity": "inspired",
+        "implementation_status": "discrepancy-inspired-robust-two-sided-score",
         "year": 2001,
     },
 )
 class CoreQMCDModel(CoreFeatureDetector):
     """Core (feature-matrix) QMCD detector with BaseDetector thresholding."""
 
-    def __init__(self, *, contamination: float = 0.1) -> None:
-        self._backend_kwargs = {"contamination": float(contamination)}
+    def __init__(self, *, contamination: float = 0.1, eps: float = 1e-12) -> None:
+        self._backend_kwargs = {"contamination": float(contamination), "eps": float(eps)}
         super().__init__(contamination=float(contamination))
 
     def _build_detector(self):
@@ -122,8 +134,12 @@ class CoreQMCDModel(CoreFeatureDetector):
     "vision_qmcd",
     tags=("vision", "classical", "qmcd", "robust", "baseline"),
     metadata={
-        "description": "QMCD wrap-around discrepancy detector (robust-statistical baseline)",
+        "description": "Wrap-around discrepancy-inspired robust-statistical baseline",
         "type": "robust-statistical",
+        "related_paper": "Wrap-Around L2-Discrepancy of Random Sampling, Latin Hypercube and Uniform Designs",
+        "paper_url": "https://doi.org/10.1006/jcom.2001.0589",
+        "paper_fidelity": "inspired",
+        "implementation_status": "discrepancy-inspired-robust-two-sided-score",
     },
 )
 class VisionQMCD(BaseVisionDetector):
@@ -134,8 +150,9 @@ class VisionQMCD(BaseVisionDetector):
         *,
         feature_extractor=None,
         contamination: float = 0.1,
+        eps: float = 1e-12,
     ) -> None:
-        self._detector_kwargs = {"contamination": float(contamination)}
+        self._detector_kwargs = {"contamination": float(contamination), "eps": float(eps)}
         super().__init__(contamination=contamination, feature_extractor=feature_extractor)
 
     def _build_detector(self):

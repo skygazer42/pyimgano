@@ -86,10 +86,10 @@ def _deployment_training_regime(
 ) -> str:
     if requires_checkpoint:
         return "checkpoint-wrapper"
-    if supervision is not None and str(supervision).strip():
-        return str(supervision).strip()
     if "template" in {str(item) for item in family}:
         return "reference-fit"
+    if supervision is not None and str(supervision).strip():
+        return str(supervision).strip()
     if "classical" in tags:
         return "one-class-fit"
     return "normal-only-fit"

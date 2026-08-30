@@ -28,7 +28,15 @@ logger = logging.getLogger(__name__)
 @register_model(
     "core_odin",
     tags=("classical", "core", "features", "neighbors", "graph"),
-    metadata={"description": "ODIN - indegree-based kNN graph outlier detector (native)"},
+    metadata={
+        "description": "ODIN training-graph score with a fitted novelty extension",
+        "related_paper": "Outlier Detection Using Indegree Number",
+        "paper_url": "https://doi.org/10.1109/ICPR.2004.1334558",
+        "year": 2004,
+        "paper_fidelity": "inspired",
+        "implementation_status": "dataset-odin-with-neighbor-indegree-novelty-extension",
+        "known_deviation": "Out-of-sample queries use their training neighbors' mean indegree; the paper defines a dataset-level graph score.",
+    },
 )
 class CoreODIN(BaseDetector):
     def __init__(
@@ -114,7 +122,15 @@ class CoreODIN(BaseDetector):
 @register_model(
     "vision_odin",
     tags=("vision", "classical", "neighbors", "graph"),
-    metadata={"description": "Vision ODIN - indegree-based kNN graph detector"},
+    metadata={
+        "description": "Vision wrapper for ODIN with a fitted novelty extension",
+        "related_paper": "Outlier Detection Using Indegree Number",
+        "paper_url": "https://doi.org/10.1109/ICPR.2004.1334558",
+        "year": 2004,
+        "paper_fidelity": "inspired",
+        "implementation_status": "vision-wrapper-over-odin-novelty-extension",
+        "known_deviation": "Out-of-sample scoring is a library adaptation, not the paper's dataset-level ODIN definition.",
+    },
 )
 class VisionODIN(BaseVisionDetector):
     def __init__(

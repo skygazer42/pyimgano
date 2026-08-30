@@ -104,8 +104,12 @@ def _select_templates(
     metadata={
         "description": "Structural SSIM template-match baseline (edges; modernized)",
         "legacy_name": True,
-        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "related_paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "paper_url": "https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf",
         "year": 2004,
+        "paper_fidelity": "inspired",
+        "implementation_status": "structural-edge-one-minus-ssim-template-adaptation",
+        "known_deviation": "Applies SSIM to derived edge images as a template anomaly score.",
     },
     overwrite=True,
 )

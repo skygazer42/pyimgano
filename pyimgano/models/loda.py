@@ -232,7 +232,7 @@ class CoreLODA(BaseDetector):
         else:
             raise ValueError(f"n_bins must be an integer or 'auto', got {self.n_bins!r}")
 
-        self.decision_scores_ = pred_scores / float(self.n_random_cuts)
+        self.decision_scores_ = pred_scores
         self._process_decision_scores()
         return self
 
@@ -261,7 +261,7 @@ class CoreLODA(BaseDetector):
         else:
             raise ValueError(f"n_bins must be an integer or 'auto', got {self.n_bins!r}")
 
-        return pred_scores / float(self.n_random_cuts)
+        return pred_scores
 
 
 @register_model(

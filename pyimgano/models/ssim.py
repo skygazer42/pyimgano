@@ -109,8 +109,12 @@ def _select_templates(
     metadata={
         "description": "SSIM template-match baseline (modernized; native BaseDetector contract)",
         "legacy_name": True,
-        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "related_paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "paper_url": "https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf",
         "year": 2004,
+        "paper_fidelity": "inspired",
+        "implementation_status": "one-minus-ssim-template-anomaly-adaptation",
+        "known_deviation": "Adapts an image-quality metric into a template anomaly detector.",
     },
     overwrite=True,
 )

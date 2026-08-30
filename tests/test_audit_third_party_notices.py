@@ -56,3 +56,23 @@ def test_audit_third_party_notices_accepts_notice_url_entry(
     captured = capsys.readouterr()
     assert rc == 0
     assert "all are covered" in captured.out
+
+
+def test_audit_third_party_notices_requires_markers_on_known_derived_files(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    repo_root = tmp_path
+    script_path = repo_root / "tools" / "audit_third_party_notices.py"
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    script_path.write_text("# test shim\n", encoding="utf-8")
+    _write_repo_file(repo_root / "pyimgano" / "models" / "qmcd.py", "# marker removed\n")
+    _write_repo_file(repo_root / "third_party" / "NOTICE.md", "yzhao062/pyod\n")
+
+    monkeypatch.setattr(audit_module, "__file__", str(script_path))
+
+    rc = audit_module.main()
+
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert "known derived files" in captured.err
+    assert "pyimgano/models/qmcd.py" in captured.err

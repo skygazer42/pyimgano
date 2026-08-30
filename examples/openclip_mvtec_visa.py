@@ -7,7 +7,7 @@ Detectors:
 
 Notes:
 - Requires: `pip install "pyimgano[clip]"`
-- OpenCLIP may download weights on first run (cached by torch).
+- Pass `--allow-download` to authorize the first OpenCLIP weight download.
 """
 
 from __future__ import annotations
@@ -38,6 +38,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--openclip-model", default="ViT-B-32")
     parser.add_argument("--openclip-pretrained", default="laion2b_s34b_b79k")
     parser.add_argument(
+        "--allow-download",
+        action="store_true",
+        help="Explicitly allow OpenCLIP to download pretrained weights.",
+    )
+    parser.add_argument(
         "--class-name",
         default=None,
         help="Class name used for prompt templates (promptscore only). Defaults to --category.",
@@ -61,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         "device": args.device,
         "openclip_model_name": args.openclip_model,
         "openclip_pretrained": args.openclip_pretrained,
+        "allow_download": bool(args.allow_download),
     }
 
     if args.model == "vision_openclip_promptscore":

@@ -450,6 +450,7 @@ class OpenCLIPAAClipBackend:
         checkpoint_path: str | Path | None,
         model_name: str = PAPER_MODEL,
         pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         image_size: int = PAPER_IMAGE_SIZE,
         output_layers: Sequence[int] = PAPER_OUTPUT_LAYERS,
         text_adapt_until: int = PAPER_TEXT_ADAPT_UNTIL,
@@ -466,6 +467,7 @@ class OpenCLIPAAClipBackend:
         self.checkpoint_path = None if checkpoint_path is None else Path(checkpoint_path)
         self.model_name = str(model_name)
         self.pretrained = str(pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.output_layers = tuple(int(layer) for layer in output_layers)
         self.text_adapt_until = int(text_adapt_until)
@@ -517,6 +519,7 @@ class OpenCLIPAAClipBackend:
                 pretrained=self.pretrained,
                 device=str(self.device),
                 force_image_size=self.image_size,
+                allow_download=self.allow_download,
             )
         else:
             self.model = self.model.to(self.device).eval()
@@ -573,7 +576,12 @@ class OpenCLIPAAClipBackend:
             if anchors is None:
                 anchors = self.network.encode_text_anchors(class_description)
                 self._text_cache[class_description] = anchors
-            anomaly_map, anomaly_score = self.network(batch, anchors, domain=domain)
+            anomaly_map, detection_score = self.network(batch, anchors, domain=domain)
+            pixel_score = anomaly_map.flatten(1).amax(dim=1)
+            if str(domain).strip().lower() == "industrial":
+                anomaly_score = 0.5 * pixel_score + 0.5 * detection_score
+            else:
+                anomaly_score = pixel_score
         return (
             float(anomaly_score.item()),
             anomaly_map[0].float().cpu().numpy().astype(np.float32, copy=False),
@@ -600,7 +608,11 @@ class OpenCLIPAAClipBackend:
         "official_code_url": "https://github.com/Mwxinnn/AA-CLIP",
         "year": 2025,
         "conference": "CVPR",
-        "implementation_status": "native-paper-inference-openclip-adaptation",
+        "implementation_status": ("paper-inference-adaptation-with-fixed-per-image-score-fusion"),
+        "score_adaptation": (
+            "Uses the released industrial 0.5*pixel-max + 0.5*detection fusion "
+            "(pixel-max only for medical) without evaluation-set-wide min-max normalization."
+        ),
         "paper_fidelity": "paper-adaptation",
         "supervision": "zero-shot",
         "supports_pixel_map": True,
@@ -627,6 +639,7 @@ class VisionAAClip:
         checkpoint_path: str | Path | None = None,
         openclip_model_name: str = PAPER_MODEL,
         openclip_pretrained: str = PAPER_PRETRAINED,
+        allow_download: bool = False,
         image_size: int = PAPER_IMAGE_SIZE,
         output_layers: Sequence[int] = PAPER_OUTPUT_LAYERS,
         text_adapt_until: int = PAPER_TEXT_ADAPT_UNTIL,
@@ -652,6 +665,7 @@ class VisionAAClip:
             checkpoint_path=checkpoint_path,
             model_name=openclip_model_name,
             pretrained=openclip_pretrained,
+            allow_download=allow_download,
             image_size=image_size,
             output_layers=output_layers,
             text_adapt_until=text_adapt_until,
@@ -664,6 +678,7 @@ class VisionAAClip:
         )
         self.openclip_model_name = str(openclip_model_name)
         self.openclip_pretrained = str(openclip_pretrained)
+        self.allow_download = bool(allow_download)
         self.image_size = int(image_size)
         self.output_layers = tuple(int(layer) for layer in output_layers)
         self.text_adapt_until = int(text_adapt_until)

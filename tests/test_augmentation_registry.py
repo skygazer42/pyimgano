@@ -71,10 +71,9 @@ def test_rand_augment_pipeline():
     assert isinstance(result, Image.Image)
 
 
-def test_diffusion_augmentor_optional():
-    from pyimgano.utils.augmentation import _DIFFUSERS_AVAILABLE, DiffusionAugmentor
+def test_diffusion_augmentor_optional(monkeypatch):
+    from pyimgano.utils import augmentation
 
-    if _DIFFUSERS_AVAILABLE:
-        pytest.skip("diffusers available; skipping heavy pipeline test")
+    monkeypatch.setattr(augmentation, "_DIFFUSERS_AVAILABLE", False)
     with pytest.raises(ImportError):
-        DiffusionAugmentor()
+        augmentation.DiffusionAugmentor()

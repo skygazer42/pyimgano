@@ -6,10 +6,9 @@ PCA-based outlier detection uses reconstruction error from principal components
 to identify anomalies. Samples with large reconstruction error are more likely
 to be anomalous.
 
-Reference:
-    Shyu, M.L., Chen, S.C., Sarinnapakorn, K. and Chang, L., 2003.
-    A novel anomaly detection scheme based on principal component classifier.
-    ICDM.
+This module implements a low-rank PCA reconstruction baseline.  It is related
+to, but is not an implementation of, the major/minor-component classifier from
+Shyu et al. (ICDM 2003).
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ class CorePCA:
         self,
         *,
         contamination: float = 0.1,
-        n_components=None,
+        n_components: int | float | None = 0.95,
         n_selected_components: int | None = None,
         whiten: bool = False,
         svd_solver: str = "auto",
@@ -43,7 +42,9 @@ class CorePCA:
         **pca_kwargs,
     ) -> None:
         self.contamination = float(contamination)
-        self.n_components = n_components
+        # ``None`` in sklearn retains every component and makes reconstruction
+        # error degenerate.  Treat it as the documented low-rank default.
+        self.n_components = 0.95 if n_components is None else n_components
         self.n_selected_components = n_selected_components
         self.whiten = bool(whiten)
         self.svd_solver = str(svd_solver)
@@ -54,6 +55,7 @@ class CorePCA:
 
         self.scaler_: StandardScaler | None = None
         self.pca_: PCA | None = None
+        self.n_selected_components_: int | None = None
         self.decision_scores_: np.ndarray | None = None
 
     def fit(self, x, y=None):  # noqa: ANN001, ANN201
@@ -74,6 +76,20 @@ class CorePCA:
         )
         self.pca_.fit(x_proc)
 
+        retained = int(self.pca_.n_components_)
+        if self.n_selected_components is None:
+            full_rank = min(int(x_proc.shape[0]), int(x_proc.shape[1]))
+            # A full-rank inverse transform is exact.  Always leave at least
+            # one residual direction when the data has more than one feature.
+            self.n_selected_components_ = (
+                retained - 1 if retained >= full_rank and retained > 1 else retained
+            )
+        else:
+            requested = int(self.n_selected_components)
+            if requested < 1:
+                raise ValueError("n_selected_components must be >= 1")
+            self.n_selected_components_ = min(requested, retained)
+
         self.decision_scores_ = self.decision_function(x)
         return self
 
@@ -90,11 +106,8 @@ class CorePCA:
 
         z = self.pca_.transform(x_proc)
 
-        if self.n_selected_components is not None:
-            k = int(self.n_selected_components)
-            if k < 1:
-                raise ValueError("n_selected_components must be >= 1")
-            k = min(k, z.shape[1])
+        if self.n_selected_components_ is not None and self.n_selected_components_ < z.shape[1]:
+            k = int(self.n_selected_components_)
             z_masked = np.zeros_like(z)
             z_masked[:, :k] = z[:, :k]
             x_recon = self.pca_.inverse_transform(z_masked)
@@ -110,9 +123,12 @@ class CorePCA:
     "core_pca",
     tags=("classical", "core", "features", "linear", "pca"),
     metadata={
-        "description": "Core PCA reconstruction-error detector on feature matrices (native wrapper)",
+        "description": "Low-rank PCA reconstruction-error baseline on feature matrices",
         "input": "features",
-        "paper": "ICDM 2003",
+        "related_paper": "A Novel Anomaly Detection Scheme Based on Principal Component Classifier",
+        "paper_url": "https://lweb.umkc.edu/chen/PDF/ICDM03_WS.pdf",
+        "paper_fidelity": "inspired",
+        "implementation_status": "low-rank-pca-reconstruction-baseline",
         "year": 2003,
     },
 )
@@ -123,7 +139,7 @@ class CorePCAModel(CoreFeatureDetector):
         self,
         *,
         contamination: float = 0.1,
-        n_components=None,
+        n_components: int | float | None = 0.95,
         n_selected_components: int | None = None,
         whiten: bool = False,
         svd_solver: str = "auto",
@@ -153,8 +169,11 @@ class CorePCAModel(CoreFeatureDetector):
     "vision_pca",
     tags=("vision", "classical", "linear", "pca"),
     metadata={
-        "description": "Vision wrapper for PCA-based outlier detector",
-        "paper": "ICDM 2003",
+        "description": "Vision wrapper for low-rank PCA reconstruction-error baseline",
+        "related_paper": "A Novel Anomaly Detection Scheme Based on Principal Component Classifier",
+        "paper_url": "https://lweb.umkc.edu/chen/PDF/ICDM03_WS.pdf",
+        "paper_fidelity": "inspired",
+        "implementation_status": "low-rank-pca-reconstruction-baseline",
         "year": 2003,
         "classic": True,
         "interpretable": True,
@@ -168,7 +187,7 @@ class VisionPCA(BaseVisionDetector):
         *,
         feature_extractor=None,
         contamination: float = 0.1,
-        n_components=None,
+        n_components: int | float | None = 0.95,
         n_selected_components: int | None = None,
         whiten: bool = False,
         svd_solver: str = "auto",

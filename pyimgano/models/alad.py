@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
 
+from ._legacy_x import MISSING, resolve_legacy_x_keyword
 from .baseCv import BaseVisionDeepDetector
 from .registry import register_model
 
@@ -221,8 +222,12 @@ def _paper_transform() -> transforms.Compose:
         "paper_url": "https://arxiv.org/abs/1812.02288",
         "year": 2018,
         "supervision": "one-class",
-        "implementation_status": "paper-image-network-industrial-input-adaptation",
-        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-image-network-with-validation-feature-score-selection",
+        "paper_fidelity": "core-aligned",
+        "reproducibility_profile": {
+            "paper_objective_and_ema": True,
+            "validation_early_stop_and_best_checkpoint": True,
+        },
     },
 )
 class ALAD(BaseVisionDeepDetector):
@@ -253,6 +258,10 @@ class ALAD(BaseVisionDeepDetector):
         verbose: int = 1,
         train_transform=None,
         eval_transform=None,
+        validation_fraction: float = 0.1,
+        validation_patience: int = 10,
+        validation_min_delta: float = 0.0,
+        restore_best_validation: bool = True,
         **kwargs,
     ) -> None:
         if preprocessing:
@@ -283,6 +292,12 @@ class ALAD(BaseVisionDeepDetector):
             raise ValueError("score_degree must be positive")
         if not 0.0 <= ema_decay < 1.0:
             raise ValueError("ema_decay must be in [0, 1)")
+        if not 0.0 < validation_fraction < 1.0:
+            raise ValueError("validation_fraction must be in (0, 1)")
+        if validation_patience < 1:
+            raise ValueError("validation_patience must be >= 1")
+        if validation_min_delta < 0.0:
+            raise ValueError("validation_min_delta must be non-negative")
 
         self.latent_dim = int(latent_dim)
         self.dropout_rate = float(dropout_rate)
@@ -296,6 +311,10 @@ class ALAD(BaseVisionDeepDetector):
         self.ema_decay = float(ema_decay)
         self.ema_enabled = True
         self.ema_start_epoch = 1
+        self.validation_fraction = float(validation_fraction)
+        self.validation_patience = int(validation_patience)
+        self.validation_min_delta = float(validation_min_delta)
+        self.restore_best_validation = bool(restore_best_validation)
 
         self.enc: Optional[ConvEncoder] = None
         self.dec: Optional[ConvDecoder] = None
@@ -309,6 +328,115 @@ class ALAD(BaseVisionDeepDetector):
         self.hist_loss_disc: List[float] = []
         self.hist_loss_gen: List[float] = []
         self.hist_loss_enc: List[float] = []
+        self.validation_score_history_: List[float] = []
+        self.best_validation_score_: float | None = None
+        self.best_validation_epoch_: int | None = None
+        self._validation_stale_epochs = 0
+        self._validation_loader: Any = None
+        self._best_validation_state: dict[str, Any] | None = None
+
+    @staticmethod
+    def _make_image_loader(items: Sequence[Any], *, transform: Any, batch_size: int):
+        from pyimgano.datasets import VisionArrayDataset, VisionImageDataset
+        from pyimgano.utils.optional_deps import require
+
+        dataloader_cls = require("torch.utils.data", purpose="ALAD validation").DataLoader
+        item_list = list(items)
+        if item_list and isinstance(item_list[0], np.ndarray):
+            dataset = VisionArrayDataset(images=item_list, transform=transform)
+        else:
+            dataset = VisionImageDataset(image_paths=item_list, transform=transform)
+        return dataloader_cls(dataset, batch_size=int(batch_size), shuffle=False)
+
+    def _snapshot_validation_state(self) -> dict[str, Any]:
+        if self.model is None:
+            raise RuntimeError("ALAD model has not been built")
+        snapshot: dict[str, Any] = {}
+        for key, value in self.model.state_dict().items():
+            detach = getattr(value, "detach", None)
+            snapshot[str(key)] = value.detach().cpu().clone() if callable(detach) else value
+        return snapshot
+
+    def _restore_best_validation_state(self) -> bool:
+        if (
+            not self.restore_best_validation
+            or self.model is None
+            or self._best_validation_state is None
+        ):
+            return False
+        self.model.load_state_dict(self._best_validation_state, strict=True)
+        return True
+
+    def epoch_update(self) -> None:
+        if self._validation_loader is None:
+            return
+        scores = np.asarray(self.evaluate(self._validation_loader), dtype=np.float64)
+        if scores.size == 0 or not np.isfinite(scores).all():
+            raise RuntimeError("ALAD validation feature scores must be non-empty and finite")
+        mean_score = float(np.mean(scores))
+        self.validation_score_history_.append(mean_score)
+        best = self.best_validation_score_
+        if best is None or mean_score < best - self.validation_min_delta:
+            self.best_validation_score_ = mean_score
+            self.best_validation_epoch_ = int(getattr(self, "training_epochs_completed_", 0))
+            self._best_validation_state = self._snapshot_validation_state()
+            self._validation_stale_epochs = 0
+            return
+        self._validation_stale_epochs += 1
+        if self._validation_stale_epochs >= self.validation_patience:
+            self.training_stop_reason_ = "validation_early_stopping"
+
+    def train(self, train_loader) -> None:  # noqa: ANN001
+        super().train(train_loader)
+        self._restore_best_validation_state()
+
+    def fit(
+        self,
+        x: object = MISSING,
+        y=None,
+        *,
+        validation_inputs: Optional[Sequence[Any]] = None,
+        **kwargs: object,
+    ):
+        x_value = list(resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
+        if len(x_value) < 2:
+            raise ValueError("ALAD requires at least two normal images for train/validation")
+
+        if validation_inputs is None:
+            validation_count = max(1, int(round(len(x_value) * self.validation_fraction)))
+            validation_count = min(validation_count, len(x_value) - 1)
+            rng = np.random.default_rng(self.random_state)
+            order = rng.permutation(len(x_value))
+            validation_indices = set(int(index) for index in order[:validation_count])
+            train_items = [
+                item for index, item in enumerate(x_value) if index not in validation_indices
+            ]
+            validation_items = [
+                item for index, item in enumerate(x_value) if index in validation_indices
+            ]
+        else:
+            train_items = x_value
+            validation_items = list(validation_inputs)
+            if not validation_items:
+                raise ValueError("validation_inputs must be non-empty when provided")
+
+        self._validation_loader = self._make_image_loader(
+            validation_items,
+            transform=self.eval_transform,
+            batch_size=self.batch_size,
+        )
+        self.validation_score_history_ = []
+        self.best_validation_score_ = None
+        self.best_validation_epoch_ = None
+        self._validation_stale_epochs = 0
+        self._best_validation_state = None
+
+        super().fit(train_items, y=y)
+        # Calibrate the public detector threshold on every supplied normal
+        # training sample after the best validation checkpoint is restored.
+        self.decision_scores_ = self.decision_function(x_value)
+        self._process_decision_scores()
+        return self
 
     def build_model(self) -> nn.ModuleList:
         self.enc = ConvEncoder(

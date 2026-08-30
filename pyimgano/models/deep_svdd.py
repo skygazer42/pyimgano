@@ -134,6 +134,10 @@ class InnerDeepSVDD(nn.Module):
         "supervision": "one-class",
         "implementation_status": "paper-objectives-generic-feature-network",
         "paper_fidelity": "paper-adaptation",
+        "reproducibility_profile": {
+            "paper_objective": True,
+            "paper_cnn_and_autoencoder_initialization": False,
+        },
     },
 )
 class CoreDeepSVDD(BaseDetector):
@@ -369,8 +373,11 @@ class CoreDeepSVDD(BaseDetector):
         "paper_url": "https://proceedings.mlr.press/v80/ruff18a.html",
         "year": 2018,
         "supervision": "one-class",
-        "implementation_status": "feature-extractor-image-adaptation",
+        "implementation_status": "raw-image-flattening-objective-proxy-by-default",
         "paper_fidelity": "paper-adaptation",
+        "known_deviations": [
+            "Default image path flattens 32x32 pixels into a generic MLP and skips paper CNN/AE pretraining."
+        ],
     },
 )
 class VisionDeepSVDD(BaseVisionDetector):

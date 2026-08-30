@@ -201,6 +201,42 @@ def test_aaclip_backend_loads_author_checkpoint_directory(tmp_path) -> None:
         torch.testing.assert_close(backend.network.image_adapter.state_dict()[name], expected)
 
 
+def test_aaclip_backend_fuses_patch_max_into_industrial_image_score() -> None:
+    from pyimgano.models.aaclip import OpenCLIPAAClipBackend
+
+    class _Network(torch.nn.Module):
+        @staticmethod
+        def encode_text_anchors(_description):  # noqa: ANN001, ANN205
+            return torch.zeros((2, 2))
+
+        @staticmethod
+        def forward(_images, _anchors, *, domain):  # noqa: ANN001, ANN205
+            assert domain == "industrial"
+            anomaly_map = torch.zeros((1, 4, 4))
+            anomaly_map[:, 1, 2] = 0.8
+            return anomaly_map, torch.tensor([0.2])
+
+    backend = OpenCLIPAAClipBackend(
+        checkpoint_path="unused",
+        model=_TinyCLIP(),
+        preprocess=_preprocess,
+        tokenizer=_tokenize,
+        image_size=20,
+        output_layers=(1, 2, 3, 4),
+        device="cpu",
+    )
+    backend.network = _Network()
+    backend._loaded = True
+
+    score, _ = backend.score_image(
+        np.zeros((8, 8, 3), dtype=np.uint8),
+        "dark bottle",
+        "industrial",
+    )
+
+    assert score == pytest.approx(0.5)
+
+
 def test_aaclip_detector_calibrates_without_replacing_paper_training() -> None:
     from pyimgano.models.aaclip import VisionAAClip
 

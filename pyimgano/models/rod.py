@@ -10,11 +10,9 @@ Reference:
     Almardeny, Y. et al., 2020.
     A novel outlier detection approach based on Rodrigues rotation formula.
 
-Pragmatic Note
---------------
-The full nD variant that enumerates *all* 3D subspaces is combinatorial and can
-be very slow when the feature dimension is large. To keep `pyimgano` fast and
-lightweight, we cap the number of evaluated 3D subspaces by default.
+The nD variant enumerates all three-dimensional subspaces by default.  Callers
+may opt into deterministic subspace sampling with ``max_subspaces`` when the
+combinatorial runtime is unsuitable for their application.
 """
 
 from __future__ import annotations
@@ -197,14 +195,14 @@ def _choose_subspaces(
 
 
 class CoreROD:
-    """Native ROD implementation with capped subspace evaluation."""
+    """Native ROD implementation with complete subspace evaluation by default."""
 
     def __init__(
         self,
         *,
         contamination: float = 0.1,
         parallel_execution: bool = False,  # API compat (currently ignored)
-        max_subspaces: int | None = 256,
+        max_subspaces: int | None = None,
         random_state: int = 0,
     ) -> None:
         self.contamination = float(contamination)
@@ -272,7 +270,7 @@ class CoreROD:
                 )
             return z.astype(np.float64).ravel()
 
-        # nD: scale once, then score across (sampled) 3D subspaces.
+        # nD: scale once, then score across all (or explicitly sampled) 3D subspaces.
         if self.data_scaler_ is None:
             self.data_scaler_ = RobustScaler()
             x_scaled = self.data_scaler_.fit_transform(x_use)
@@ -327,6 +325,12 @@ class CoreROD:
     metadata={
         "description": "ROD (Rotation-based Outlier Detection) for feature matrices (native wrapper)",
         "type": "geometric",
+        "paper": "A Novel Outlier Detection Approach Based on Rodrigues' Rotation Formula",
+        "paper_url": "https://doi.org/10.1109/TKDE.2020.3036524",
+        "year": 2020,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "rotation-score-with-complete-subspace-aggregation",
+        "known_deviation": "Inputs below three dimensions are zero-padded; an explicit max_subspaces value opts into deterministic approximation.",
     },
 )
 class CoreRODDetector(CoreFeatureDetector):
@@ -337,7 +341,7 @@ class CoreRODDetector(CoreFeatureDetector):
         *,
         contamination: float = 0.1,
         parallel_execution: bool = False,
-        max_subspaces: int | None = 256,
+        max_subspaces: int | None = None,
         random_state: int = 0,
     ) -> None:
         self.parallel_execution = bool(parallel_execution)
@@ -359,6 +363,12 @@ class CoreRODDetector(CoreFeatureDetector):
     tags=("vision", "classical", "rod", "baseline"),
     metadata={
         "description": "Rotation-based Outlier Detection (baseline)",
+        "paper": "A Novel Outlier Detection Approach Based on Rodrigues' Rotation Formula",
+        "paper_url": "https://doi.org/10.1109/TKDE.2020.3036524",
+        "year": 2020,
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "vision-wrapper-over-complete-subspace-rod",
+        "known_deviation": "Inputs below three dimensions are zero-padded; an explicit max_subspaces value opts into deterministic approximation.",
     },
 )
 class VisionROD(BaseVisionDetector):
@@ -370,7 +380,7 @@ class VisionROD(BaseVisionDetector):
         feature_extractor=None,
         contamination: float = 0.1,
         parallel_execution: bool = False,
-        max_subspaces: int | None = 256,
+        max_subspaces: int | None = None,
         random_state: int = 0,
     ) -> None:
         self._detector_kwargs = {

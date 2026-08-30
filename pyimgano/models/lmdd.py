@@ -15,6 +15,8 @@ Our IMDD core implementation already matches the LMDD scoring mechanics used in
 common open-source references, so `vision_lmdd` reuses `CoreIMDD`.
 """
 
+# UPSTREAM: yzhao062/pyod @ 34f7996effac700a5166d882d5e94c6e6078fae3 (BSD-2-Clause; adapted)
+
 from __future__ import annotations
 
 from typing import Optional
@@ -31,6 +33,8 @@ from .registry import register_model
     metadata={
         "description": "LMDD deviation detector for feature matrices (native wrapper)",
         "type": "deviation",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-transductive-core-per-query-novelty-extension",
     },
 )
 class CoreLMDDDetector(CoreFeatureDetector):
@@ -71,7 +75,9 @@ class CoreLMDDDetector(CoreFeatureDetector):
     "vision_lmdd",
     tags=("vision", "classical", "lmdd", "baseline"),
     metadata={
-        "description": "LMDD deviation detector (native implementation)",
+        "description": "LMDD detector with per-query novelty extension",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-transductive-core-per-query-novelty-extension",
     },
 )
 class VisionLMDD(BaseVisionDetector):

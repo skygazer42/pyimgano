@@ -25,6 +25,8 @@ from numpy.typing import NDArray
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+from torchvision.transforms import InterpolationMode
+from torchvision.transforms import functional as transform_functional
 
 from pyimgano.synthesis.perlin import perlin_noise_2d
 from pyimgano.utils.random_state import isolated_random_state
@@ -268,6 +270,7 @@ class ImagePathDataset(Dataset):
             raise ValueError("anomaly_source_images cannot be empty")
         self.transform = transform
         self.rng = rng if rng is not None else np.random.default_rng()
+        self.last_augmentation_indices_: tuple[int, ...] = ()
 
     def __len__(self):
         return len(self.image_paths)
@@ -299,6 +302,15 @@ class ImagePathDataset(Dataset):
             img = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
             texture = torch.from_numpy(texture).permute(2, 0, 1).float() / 255.0
 
+        # The released loader rotates the normal image independently with 30%
+        # probability before synthesizing the anomaly.
+        if self.rng.random() > 0.7:
+            img = transform_functional.rotate(
+                img,
+                angle=float(self.rng.uniform(-90.0, 90.0)),
+                interpolation=InterpolationMode.BILINEAR,
+            )
+
         augmented, mask = self._add_synthetic_anomaly(img, texture)
         return augmented, img, mask
 
@@ -318,23 +330,81 @@ class ImagePathDataset(Dataset):
             2 ** int(rng.integers(0, max_power + 1)),
         )
         noise = perlin_noise_2d((height, width), resolution, rng=rng)
-        noise = np.rot90(noise, k=int(rng.integers(0, 4))).copy()
-        mask = torch.from_numpy((noise > 0.5).astype(np.float32)).unsqueeze(0)
+        noise_tensor = torch.from_numpy(np.asarray(noise, dtype=np.float32)).unsqueeze(0)
+        noise_tensor = transform_functional.rotate(
+            noise_tensor,
+            angle=float(rng.uniform(-90.0, 90.0)),
+            interpolation=InterpolationMode.BILINEAR,
+        )
+        mask = (noise_tensor > 0.5).to(dtype=img.dtype)
 
-        if rng.random() > 0.5:
-            texture = torch.flip(texture, dims=(2,))
-        if rng.random() > 0.5:
-            texture = torch.flip(texture, dims=(1,))
-        texture = texture[torch.as_tensor(rng.permutation(3), dtype=torch.long)]
-        gamma = float(rng.uniform(0.5, 2.0))
-        texture = texture.clamp(0.0, 1.0).pow(gamma)
-        brightness = float(rng.uniform(0.75, 1.25))
-        texture = (texture * brightness).clamp(0.0, 1.0)
+        # Author code samples exactly three distinct operations from its
+        # ten-operation imgaug pool for every anomaly source image.
+        augmentation_indices = tuple(int(index) for index in rng.choice(10, size=3, replace=False))
+        self.last_augmentation_indices_ = augmentation_indices
+        for augmentation_index in augmentation_indices:
+            texture = self._apply_texture_augmentation(texture, augmentation_index)
 
         beta = float(rng.uniform(0.0, 0.8))
         blended = (1.0 - beta) * texture + beta * img
         augmented = img * (1.0 - mask) + blended * mask
         return augmented, mask
+
+    def _apply_texture_augmentation(
+        self, texture: torch.Tensor, augmentation_index: int
+    ) -> torch.Tensor:
+        """Apply one operation from the released DRAEM augmentation pool."""
+
+        rng = self.rng
+        image = texture.clamp(0.0, 1.0)
+        if augmentation_index == 0:  # GammaContrast, per channel.
+            gammas = torch.as_tensor(
+                rng.uniform(0.5, 2.0, size=(image.shape[0], 1, 1)),
+                dtype=image.dtype,
+                device=image.device,
+            )
+            return image.pow(gammas)
+        if augmentation_index == 1:  # MultiplyAndAddToBrightness.
+            multiplier = float(rng.uniform(0.8, 1.2))
+            addition = float(rng.uniform(-30.0, 30.0)) / 255.0
+            return (image * multiplier + addition).clamp(0.0, 1.0)
+        if augmentation_index == 2:  # EnhanceSharpness.
+            return transform_functional.adjust_sharpness(
+                image, sharpness_factor=float(rng.uniform(0.0, 2.0))
+            )
+        if augmentation_index == 3:  # AddToHueAndSaturation.
+            image = transform_functional.adjust_hue(image, float(rng.uniform(-0.5, 0.5)))
+            return transform_functional.adjust_saturation(
+                image, saturation_factor=float(rng.uniform(0.5, 1.5))
+            ).clamp(0.0, 1.0)
+        if augmentation_index == 4:  # Solarize with p=0.5.
+            if rng.random() < 0.5:
+                return transform_functional.solarize(
+                    image, threshold=float(rng.uniform(32.0, 128.0)) / 255.0
+                )
+            return image
+        if augmentation_index == 5:  # Posterize.
+            uint8_image = (image * 255.0).round().to(torch.uint8)
+            return (
+                transform_functional.posterize(uint8_image, bits=int(rng.integers(1, 9))).to(
+                    image.dtype
+                )
+                / 255.0
+            )
+        if augmentation_index == 6:  # Invert.
+            return transform_functional.invert(image)
+        if augmentation_index == 7:  # PIL-like autocontrast.
+            return transform_functional.autocontrast(image)
+        if augmentation_index == 8:  # PIL-like equalize.
+            uint8_image = (image * 255.0).round().to(torch.uint8)
+            return transform_functional.equalize(uint8_image).to(image.dtype) / 255.0
+        if augmentation_index == 9:  # Affine rotation.
+            return transform_functional.rotate(
+                image,
+                angle=float(rng.uniform(-45.0, 45.0)),
+                interpolation=InterpolationMode.BILINEAR,
+            )
+        raise ValueError(f"Unknown DRAEM augmentation index: {augmentation_index}")
 
 
 @register_model(
@@ -346,8 +416,15 @@ class ImagePathDataset(Dataset):
         "paper_url": "https://openaccess.thecvf.com/content/ICCV2021/html/Zavrtanik_DRAEM_-_A_Discriminatively_Trained_Reconstruction_Embedding_for_Surface_Anomaly_ICCV_2021_paper.html",
         "year": 2021,
         "supervision": "self-supervised",
-        "implementation_status": "paper-network-and-schedule-aligned",
+        "implementation_status": "paper-network-schedule-and-ten-operation-synthetic-augmentation",
         "paper_fidelity": "paper-adaptation",
+        "reproducibility_profile": {
+            "paper_network_schedule": True,
+            "paper_augmentation_distribution": True,
+        },
+        "known_deviations": [
+            "When anomaly_source_images is omitted, training images replace the paper's external DTD texture source."
+        ],
     },
 )
 class VisionDRAEM(BaseVisionDeepDetector):

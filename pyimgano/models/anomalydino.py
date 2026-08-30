@@ -164,6 +164,10 @@ def _embedder_from_checkpoint_payload(payload: dict[str, object]) -> PatchEmbedd
         "supports_pixel_map": True,
         "requires_checkpoint": False,
         "weights_source": "DINOv2 dinov2_vits14 LVD-142M weights",
+        "artifact_contract": "schema-v2-state-config-memory-bank-requires-dinov2-architecture-source",
+        "known_deviations": [
+            "Saved artifacts contain model state and all inference configuration but still require the matching DINOv2 architecture source to reconstruct the backbone."
+        ],
     },
 )
 class VisionAnomalyDINO:
@@ -183,6 +187,7 @@ class VisionAnomalyDINO:
         contamination: float = 0.1,
         pretrained: bool = False,
         knn_backend: str = "sklearn",
+        knn_index: Optional[KNNIndex] = None,
         n_neighbors: int = 1,
         coreset_sampling_ratio: float = 1.0,
         random_seed: int = 0,
@@ -220,6 +225,7 @@ class VisionAnomalyDINO:
             raise ValueError(f"contamination must be in (0, 0.5). Got {self.contamination}.")
         self.pretrained = bool(pretrained)
         self.knn_backend = str(knn_backend)
+        self._provided_knn_index = knn_index
         self.n_neighbors = int(n_neighbors)
         if self.n_neighbors < 1:
             raise ValueError(f"n_neighbors must be >= 1. Got {n_neighbors}.")
@@ -277,7 +283,22 @@ class VisionAnomalyDINO:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
+                "schema_version": 2,
                 "embedder": embedder_payload,
+                "config": {
+                    "contamination": float(self.contamination),
+                    "knn_backend": str(self.knn_backend),
+                    "n_neighbors": int(self.n_neighbors),
+                    "coreset_sampling_ratio": float(self.coreset_sampling_ratio),
+                    "random_seed": int(self.random_seed),
+                    "aggregation_method": str(self.aggregation_method),
+                    "aggregation_topk": float(self.aggregation_topk),
+                    "reference_rotations": tuple(float(v) for v in self.reference_rotations),
+                    "class_name": self.class_name,
+                    "masking": bool(self.masking),
+                    "mask_reference_images": bool(self.mask_reference_images),
+                    "gaussian_sigma": float(self.gaussian_sigma),
+                },
                 "memory_bank": np.asarray(self._memory_bank, dtype=np.float32),
                 "n_neighbors_fit": int(self._n_neighbors_fit),
                 "decision_scores_": np.asarray(self.decision_scores_, dtype=np.float64),
@@ -291,6 +312,34 @@ class VisionAnomalyDINO:
         state = safe_torch_load(Path(path), map_location="cpu")
         if not isinstance(state, dict):
             raise ValueError("Invalid VisionAnomalyDINO checkpoint payload.")
+        if int(state.get("schema_version", 0)) != 2:
+            raise ValueError(
+                "Unsupported legacy VisionAnomalyDINO checkpoint: refit and save a "
+                "self-describing schema-v2 artifact."
+            )
+
+        config = state.get("config", None)
+        if not isinstance(config, dict):
+            raise ValueError("VisionAnomalyDINO checkpoint is missing its inference config.")
+        self.contamination = float(config["contamination"])
+        self.knn_backend = str(config["knn_backend"])
+        self.n_neighbors = int(config["n_neighbors"])
+        self.coreset_sampling_ratio = float(config["coreset_sampling_ratio"])
+        self.random_seed = int(config["random_seed"])
+        self.aggregation_method = cast("AggregationMethod", str(config["aggregation_method"]))
+        self.aggregation_topk = float(config["aggregation_topk"])
+        self.reference_rotations = tuple(float(v) for v in config["reference_rotations"])
+        class_name = config.get("class_name", None)
+        self.class_name = None if class_name is None else str(class_name)
+        self.masking = bool(config["masking"])
+        self.mask_reference_images = bool(config["mask_reference_images"])
+        self.gaussian_sigma = float(config["gaussian_sigma"])
+        if not 0.0 < self.contamination < 0.5:
+            raise ValueError("VisionAnomalyDINO checkpoint has invalid contamination.")
+        if self.n_neighbors < 1 or not 0.0 < self.aggregation_topk <= 1.0:
+            raise ValueError("VisionAnomalyDINO checkpoint has invalid scoring configuration.")
+        if not np.isfinite(self.gaussian_sigma) or self.gaussian_sigma < 0:
+            raise ValueError("VisionAnomalyDINO checkpoint has invalid gaussian_sigma.")
 
         embedder_payload = state.get("embedder", None)
         if not isinstance(embedder_payload, dict):
@@ -301,9 +350,10 @@ class VisionAnomalyDINO:
             int(state.get("n_neighbors_fit", self.n_neighbors)),
             int(self._memory_bank.shape[0]),
         )
-        self._knn_index = build_knn_index(
-            backend=self.knn_backend,
-            n_neighbors=self._n_neighbors_fit,
+        self._knn_index = (
+            self._provided_knn_index
+            if self._provided_knn_index is not None
+            else build_knn_index(backend=self.knn_backend, n_neighbors=self._n_neighbors_fit)
         )
         self._knn_index.fit(self._memory_bank)
         self.decision_scores_ = np.asarray(state["decision_scores_"], dtype=np.float64)
@@ -425,9 +475,10 @@ class VisionAnomalyDINO:
 
         effective_k = min(max(1, self.n_neighbors), int(memory_bank.shape[0]))
         self._n_neighbors_fit = effective_k
-        self._knn_index = build_knn_index(
-            backend=self.knn_backend,
-            n_neighbors=effective_k,
+        self._knn_index = (
+            self._provided_knn_index
+            if self._provided_knn_index is not None
+            else build_knn_index(backend=self.knn_backend, n_neighbors=effective_k)
         )
         self._knn_index.fit(memory_bank)
 

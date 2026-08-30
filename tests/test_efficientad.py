@@ -14,6 +14,7 @@ from pyimgano.models.efficientad import (  # noqa: E402
     SmallPatchDescriptionNetwork,
     _hard_feature_loss,
     _normalize_map,
+    _resize_anomaly_map,
 )
 
 
@@ -131,6 +132,45 @@ def test_efficientad_hard_mining_and_quantile_normalization() -> None:
     assert float(_hard_feature_loss(distance)) == pytest.approx(3.0)
     normalized = _normalize_map(torch.tensor([1.0, 3.0]), torch.tensor(1.0), torch.tensor(3.0))
     torch.testing.assert_close(normalized, torch.tensor([0.0, 0.1]))
+
+
+def test_efficientad_restores_anomaly_map_to_original_image_size() -> None:
+    source = np.arange(16, dtype=np.float32).reshape(4, 4)
+    restored = _resize_anomaly_map(source, (7, 11))
+
+    assert restored.shape == (7, 11)
+    assert restored.dtype == np.float32
+    assert np.isfinite(restored).all()
+
+
+def test_efficientad_map_api_preserves_size_and_rejects_heterogeneous_stack() -> None:
+    class _MapModel:
+        def eval(self):  # noqa: ANN201
+            return self
+
+        def anomaly_map(self, images):  # noqa: ANN001, ANN201
+            return torch.ones((images.shape[0], 1, 256, 256), dtype=torch.float32)
+
+    detector = EfficientADDetector.__new__(EfficientADDetector)
+    detector.model = _MapModel()
+    detector.device = torch.device("cpu")
+    detector.image_size = (256, 256)
+    detector.batch_size = 2
+    detector.eval_transform = None
+    detector._check_is_fitted = lambda: None
+    detector._loader = lambda values, **_kwargs: [
+        (torch.zeros((len(values), 3, 256, 256)), torch.zeros(len(values)))
+    ]
+
+    same_size = [np.zeros((12, 20, 3), dtype=np.uint8) for _ in range(2)]
+    assert detector.predict_anomaly_map(same_size).shape == (2, 12, 20)
+
+    mixed_sizes = [
+        np.zeros((12, 20, 3), dtype=np.uint8),
+        np.zeros((9, 20, 3), dtype=np.uint8),
+    ]
+    with pytest.raises(ValueError, match="Inconsistent original image sizes"):
+        detector.predict_anomaly_map(mixed_sizes)
 
 
 def test_efficientad_strict_fit_requires_paper_assets() -> None:

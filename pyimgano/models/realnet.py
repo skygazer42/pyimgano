@@ -4,16 +4,15 @@ Paper: "RealNet: A Feature Selection Network with Realistic Synthetic Anomaly
 for Anomaly Detection" (CVPR 2024).
 
 The detector path implements AFS, independent multi-scale reconstruction, and
-RRS.  SDAS is the paper's separate offline diffusion stage, so fitting requires
-paired synthetic anomaly images and masks instead of silently substituting a
-different image corruption method.
+RRS. SDAS is the paper's separate diffusion stage; callers can inject it as an
+online sampler, while paired synthetic images remain a compatibility path.
 """
 
 from __future__ import annotations
 
 import logging
 import math
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 import numpy as np
 import torch
@@ -57,7 +56,7 @@ class RealNetFeatureExtractor(nn.Module):
         self,
         backbone: str = "wide_resnet50_2",
         *,
-        pretrained: bool = True,
+        pretrained: bool = False,
         weights_name: str = "IMAGENET1K_V1",
     ) -> None:
         super().__init__()
@@ -434,35 +433,39 @@ class RealNetModel(nn.Module):
     "vision_realnet",
     tags=("vision", "deep", "realnet", "feature-reconstruction", "pixel_map", "paper"),
     metadata={
-        "description": "RealNet AFS, multi-scale reconstruction, and RRS detector path with external SDAS pairs",
+        "description": "RealNet AFS, reconstruction, and RRS with an external online SDAS sampler interface",
         "paper": "RealNet: A Feature Selection Network with Realistic Synthetic Anomaly for Anomaly Detection",
         "paper_url": "https://openaccess.thecvf.com/content/CVPR2024/html/Zhang_RealNet_A_Feature_Selection_Network_with_Realistic_Synthetic_Anomaly_for_CVPR_2024_paper.html",
         "year": 2024,
-        "implementation_status": "paper-afs-reconstruction-rrs-path-aligned-external-sdas",
+        "implementation_status": "paper-core-with-online-external-sdas-sampling-interface",
         "paper_fidelity": "paper-adaptation",
         "conference": "CVPR",
         "type": "feature-reconstruction",
         "supports_pixel_map": True,
+        "default_profile": "offline-safe-untrained-backbone",
+        "paper_profile": {"pretrained": True, "online_sdas_sampling": True},
+        "known_deviations": ["The official diffusion SDAS generator remains an external artifact."],
     },
 )
 class VisionRealNet(BaseVisionDeepDetector):
     """Paper-aligned RealNet detector path.
 
-    The published defaults use WideResNet50-2 features, selected dimensions
+    The published profile uses pretrained WideResNet50-2 features, selected dimensions
     ``(256, 512, 512, 256)``, four independent reconstruction U-Nets, RRS
     ``max/mean`` Top-K dimensions ``(256, 256)``, 256px inputs, batch size 16,
     Adam at ``1e-4``, and 1,000 epochs.
 
-    ``fit`` requires already blended synthetic anomaly images and masks paired
-    with the supplied normal images. Use the authors' SIA/SDAS data to reproduce
-    the paper; generic local corruptions are deliberately not substituted.
+    The constructor keeps the backbone offline-safe; pass ``pretrained=True``
+    for the paper feature extractor. Pass the authors' SIA/SDAS generator as
+    ``synthetic_sampler`` for online sampling. Static preblended pairs remain
+    supported for compatibility; generic local corruptions are not substituted.
     """
 
     def __init__(
         self,
         backbone: str = "wide_resnet50_2",
         *,
-        pretrained: bool = True,
+        pretrained: bool = False,
         weights_name: str = "IMAGENET1K_V1",
         selected_channels: Sequence[int] = (256, 512, 512, 256),
         hidden_ratio: float = 0.5,
@@ -482,6 +485,9 @@ class VisionRealNet(BaseVisionDeepDetector):
         contamination: float = 0.1,
         device: str = "cuda",
         random_state: Optional[int] = None,
+        synthetic_sampler: Optional[
+            Callable[[object, np.random.Generator], tuple[object, object]]
+        ] = None,
         **kwargs: object,
     ) -> None:
         if int(batch_size) <= 0 or int(epochs) <= 0 or int(afs_batches) <= 0:
@@ -525,6 +531,7 @@ class VisionRealNet(BaseVisionDeepDetector):
         self.image_size = int(image_size)
         self.image_score_pool_size = int(image_score_pool_size)
         self.random_state = random_state
+        self.synthetic_sampler = synthetic_sampler
         self.model: RealNetModel | None = None
         self.is_fitted_ = False
 
@@ -647,6 +654,42 @@ class VisionRealNet(BaseVisionDeepDetector):
                 maps.append(anomaly_map.cpu())
         return torch.cat(maps, dim=0)
 
+    def _sample_online_sdas(
+        self,
+        normal_items: Sequence[object],
+        sampler: Callable[[object, np.random.Generator], tuple[object, object]],
+        *,
+        rng: np.random.Generator,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        synthetic_images: list[object] = []
+        synthetic_masks: list[object] = []
+        for normal_item in normal_items:
+            sampled = sampler(normal_item, rng)
+            if not isinstance(sampled, tuple) or len(sampled) != 2:
+                raise TypeError("synthetic_sampler must return (synthetic_image, synthetic_mask)")
+            synthetic_image, synthetic_mask = sampled
+            synthetic_images.append(synthetic_image)
+            synthetic_masks.append(synthetic_mask)
+        return self._preprocess(synthetic_images), self._preprocess_masks(
+            synthetic_masks, len(normal_items)
+        )
+
+    def _make_training_loader(
+        self,
+        normal: torch.Tensor,
+        anomaly: torch.Tensor,
+        masks: torch.Tensor,
+    ) -> DataLoader:
+        train_images = torch.cat((normal, anomaly), dim=0)
+        train_targets = torch.cat((normal, normal), dim=0)
+        train_masks = torch.cat((torch.zeros_like(masks), masks), dim=0)
+        return DataLoader(
+            TensorDataset(train_images, train_targets, train_masks),
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=0,
+        )
+
     def _image_scores(self, maps: torch.Tensor) -> NDArray[np.float32]:
         kernel = min(self.image_score_pool_size, int(maps.shape[-2]), int(maps.shape[-1]))
         pooled = F.avg_pool2d(maps, kernel_size=kernel, stride=1)
@@ -660,31 +703,30 @@ class VisionRealNet(BaseVisionDeepDetector):
         *,
         synthetic_images: object | None = None,
         synthetic_masks: object | None = None,
+        synthetic_sampler: Optional[
+            Callable[[object, np.random.Generator], tuple[object, object]]
+        ] = None,
         **kwargs: object,
     ) -> "VisionRealNet":
-        values = resolve_legacy_x_keyword(x, kwargs, method_name="fit")
-        if synthetic_images is None or synthetic_masks is None:
+        values = list(resolve_legacy_x_keyword(x, kwargs, method_name="fit"))
+        sampler = synthetic_sampler or self.synthetic_sampler
+        if sampler is None and (synthetic_images is None or synthetic_masks is None):
             raise ValueError(
-                "Paper-aligned RealNet requires paired synthetic_images and "
-                "synthetic_masks from SDAS/SIA (or an explicitly chosen paper ablation)."
+                "Paper-aligned RealNet requires synthetic_sampler for online SDAS, or paired "
+                "synthetic_images/synthetic_masks for the static compatibility path."
             )
         normal = self._preprocess(values)
-        anomaly = self._preprocess(synthetic_images)
-        if len(anomaly) != len(normal):
-            raise ValueError("synthetic_images must be paired one-to-one with normal images.")
-        masks = self._preprocess_masks(synthetic_masks, len(normal))
+        rng = np.random.default_rng(self.random_state)
+        if sampler is not None:
+            anomaly, masks = self._sample_online_sdas(values, sampler, rng=rng)
+        else:
+            anomaly = self._preprocess(synthetic_images)
+            if len(anomaly) != len(normal):
+                raise ValueError("synthetic_images must be paired one-to-one with normal images.")
+            masks = self._preprocess_masks(synthetic_masks, len(normal))
 
         self.model = self._build_model()
         self._initialize_afs(anomaly, normal, masks)
-        train_images = torch.cat((normal, anomaly), dim=0)
-        train_targets = torch.cat((normal, normal), dim=0)
-        train_masks = torch.cat((torch.zeros_like(masks), masks), dim=0)
-        loader = DataLoader(
-            TensorDataset(train_images, train_targets, train_masks),
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=0,
-        )
         optimizer = torch.optim.Adam(
             list(self.model.reconstruction.parameters()) + list(self.model.rrs.parameters()),
             lr=self.learning_rate,
@@ -692,6 +734,9 @@ class VisionRealNet(BaseVisionDeepDetector):
         )
         last_loss = 0.0
         for _ in range(self.epochs):
+            if sampler is not None:
+                anomaly, masks = self._sample_online_sdas(values, sampler, rng=rng)
+            loader = self._make_training_loader(normal, anomaly, masks)
             self.model.train()
             self.model.feature_extractor.eval()
             for image, target, mask in loader:

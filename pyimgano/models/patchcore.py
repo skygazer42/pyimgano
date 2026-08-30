@@ -50,7 +50,9 @@ ImageInput = Union[str, NDArray]
         "year": 2022,
         "supervision": "one-class",
         "implementation_status": "core-aligned",
-        "paper_fidelity": "core-aligned",
+        "paper_fidelity": "paper-adaptation",
+        "default_profile": "offline-safe-random-backbone",
+        "paper_profile": {"pretrained": True},
     },
 )
 class VisionPatchCore(BaseVisionDeepDetector):
@@ -250,6 +252,7 @@ class VisionPatchCore(BaseVisionDeepDetector):
                 "memory_bank": self._np.asarray(self.memory_bank, dtype=self._np.float32),
                 "decision_scores_": self._np.asarray(self.decision_scores_, dtype=self._np.float64),
                 "threshold_": float(self.threshold_),
+                "n_neighbors": int(self.n_neighbors),
                 "n_neighbors_fit": int(getattr(self, "_n_neighbors_fit", self.n_neighbors)),
                 "projection_state": projection_state,
                 "gaussian_sigma": float(self.gaussian_sigma),
@@ -296,6 +299,9 @@ class VisionPatchCore(BaseVisionDeepDetector):
             self._projection.n_components_ = int(projection_state["n_components_"])
 
         self.memory_bank = self._np.asarray(state["memory_bank"], dtype=self._np.float32)
+        self.n_neighbors = int(state.get("n_neighbors", state.get("n_neighbors_fit", 1)))
+        if self.n_neighbors < 1:
+            raise ValueError("VisionPatchCore checkpoint contains an invalid n_neighbors value.")
         self._n_neighbors_fit = min(
             int(state.get("n_neighbors_fit", self.n_neighbors)),
             int(self.memory_bank.shape[0]),

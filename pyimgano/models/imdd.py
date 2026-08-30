@@ -35,7 +35,7 @@ def _resolve_distance_measure(dis_measure: str):
 
 
 class CoreIMDD:
-    """Pure NumPy implementation of LMDD/IMDD detector."""
+    """IMDD/LMDD with a deterministic per-query novelty extension."""
 
     def __init__(
         self,
@@ -48,20 +48,31 @@ class CoreIMDD:
         check_parameter(n_iter, low=1, param_name="n_iter")
         self.n_iter = n_iter
         self.random_state = check_random_state(random_state)
+        self._random_state_snapshot = self.random_state.get_state()
         self.dis_measure_name = dis_measure
         self.dis_measure = _resolve_distance_measure(dis_measure)
         self.decision_scores_ = None
+        self._X_fit = None
 
     # ------------------------------------------------------------------
     def fit(self, x, _y=None):
         del _y
         x = check_array(x)
+        self._X_fit = np.asarray(x, dtype=np.float64).copy()
         self.decision_scores_ = self._compute_scores(x)
         return self
 
     def decision_function(self, x):
+        if self.decision_scores_ is None or self._X_fit is None:
+            raise RuntimeError("Detector must be fitted before calling decision_function")
         x = check_array(x)
-        return self._compute_scores(x)
+        if x.shape[1] != self._X_fit.shape[1]:
+            raise ValueError(f"Expected {self._X_fit.shape[1]} features, got {x.shape[1]}")
+        scores = np.empty(x.shape[0], dtype=np.float64)
+        for index, row in enumerate(x):
+            reference_plus_query = np.vstack((self._X_fit, row.reshape(1, -1)))
+            scores[index] = self._compute_scores(reference_plus_query)[-1]
+        return scores
 
     # ------------------------------------------------------------------
     def _compute_scores(self, x):
@@ -74,7 +85,9 @@ class CoreIMDD:
         dis = np.maximum(dis, base_scores)
 
         indices = np.arange(x.shape[0])
-        rs = check_random_state(self.random_state.randint(0, 2**31 - 1))
+        seed_source = np.random.RandomState()
+        seed_source.set_state(self._random_state_snapshot)
+        rs = check_random_state(seed_source.randint(0, 2**31 - 1))
         for _ in range(self.n_iter):
             rs.shuffle(indices)
             shuffled = x[indices]
@@ -118,6 +131,8 @@ class CoreIMDD:
     metadata={
         "description": "IMDD/LMDD deviation detector for feature matrices (native wrapper)",
         "type": "deviation",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-transductive-core-per-query-novelty-extension",
     },
 )
 class CoreIMDDDetector(CoreFeatureDetector):
@@ -148,7 +163,11 @@ class CoreIMDDDetector(CoreFeatureDetector):
 @register_model(
     "vision_imdd",
     tags=("vision", "classical"),
-    metadata={"description": "Vision wrapper for IMDD deviation detector"},
+    metadata={
+        "description": "Vision wrapper for IMDD with per-query novelty extension",
+        "paper_fidelity": "paper-adaptation",
+        "implementation_status": "paper-transductive-core-per-query-novelty-extension",
+    },
 )
 class VisionIMDD(BaseVisionDetector):
     def __init__(self, *, feature_extractor, contamination: float = 0.1, **kwargs):

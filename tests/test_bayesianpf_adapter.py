@@ -61,6 +61,6 @@ def test_bayesianpf_adapter_preserves_detector_contract() -> None:
 
 def test_bayesianpf_registry_discloses_external_checkpoint_requirement() -> None:
     info = model_info("vision_bayesianpf")
-    assert info["metadata"]["implementation_status"] == "external-backend-adapter"
+    assert info["metadata"]["implementation_status"] == "user-supplied-external-backend-facade"
     assert info["metadata"]["requires_checkpoint"] is True
     assert "sota" not in info["tags"]

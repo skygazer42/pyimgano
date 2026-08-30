@@ -266,8 +266,12 @@ class _BaseSSIMMapDetector(BaseDetector):
     tags=("vision", "classical", "template", "ssim", "pixel_map"),
     metadata={
         "description": "SSIM template detector with pixel anomaly maps (1 - SSIM map)",
-        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "related_paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "paper_url": "https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf",
         "year": 2004,
+        "paper_fidelity": "inspired",
+        "implementation_status": "one-minus-ssim-template-map-adaptation",
+        "known_deviation": "Adapts an image-quality similarity map into an anomaly map.",
     },
 )
 class SSIMTemplateMapDetector(_BaseSSIMMapDetector):
@@ -298,8 +302,12 @@ class SSIMTemplateMapDetector(_BaseSSIMMapDetector):
     tags=("vision", "classical", "template", "ssim", "structural", "pixel_map"),
     metadata={
         "description": "Structural SSIM (edges) with pixel anomaly maps",
-        "paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "related_paper": "Image Quality Assessment: From Error Visibility to Structural Similarity",
+        "paper_url": "https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf",
         "year": 2004,
+        "paper_fidelity": "inspired",
+        "implementation_status": "structural-edge-one-minus-ssim-map-adaptation",
+        "known_deviation": "Applies SSIM to derived edge images for anomaly localization.",
     },
 )
 class SSIMStructMapDetector(_BaseSSIMMapDetector):

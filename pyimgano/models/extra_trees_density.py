@@ -68,6 +68,7 @@ class CoreExtraTreesDensity(BaseDetector):
         leaf = np.asarray(leaf, dtype=np.int64)
         n = int(leaf.shape[0])
         m = int(leaf.shape[1])
+        self.n_train_ = n
         if n == 0 or m == 0:
             self.embedding_ = emb
             self.leaf_counts_ = []
@@ -99,7 +100,8 @@ class CoreExtraTreesDensity(BaseDetector):
             return np.zeros((n,), dtype=np.float64)
 
         counts_per_tree: list[dict[int, int]] = self.leaf_counts_  # type: ignore[attr-defined]
-        inv_n = 1.0 / max(float(n), float(self.eps))
+        n_train = int(self.n_train_)  # type: ignore[attr-defined]
+        inv_n = 1.0 / max(float(n_train), float(self.eps))
 
         out = np.zeros((n,), dtype=np.float64)
         for t in range(m):
@@ -113,7 +115,7 @@ class CoreExtraTreesDensity(BaseDetector):
         return np.asarray(out, dtype=np.float64).reshape(-1)
 
     def decision_function(self, x):  # noqa: ANN001, ANN201
-        require_fitted(self, ["embedding_", "leaf_counts_"])
+        require_fitted(self, ["embedding_", "leaf_counts_", "n_train_"])
         x_arr = check_array(x, ensure_2d=True, dtype=np.float64)
         emb: RandomTreesEmbedding = self.embedding_  # type: ignore[assignment]
         leaf = np.asarray(emb.apply(x_arr), dtype=np.int64)

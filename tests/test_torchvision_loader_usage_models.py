@@ -226,7 +226,7 @@ def test_panda_encoder_uses_shared_torchvision_loader(monkeypatch) -> None:
 
     monkeypatch.setattr(panda_module, "load_torchvision_model", _fake_loader, raising=False)
 
-    encoder = PANDAEncoder(backbone="resnet18")
+    encoder = PANDAEncoder(backbone="resnet18", pretrained=True)
     out = encoder(torch.zeros((1, 3, 8, 8), dtype=torch.float32))
 
     assert tuple(out.shape) == (1, 3)

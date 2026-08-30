@@ -97,7 +97,7 @@ class CoreSOD:
 
     def _score_one(self, obs: np.ndarray, ref: np.ndarray) -> float:
         means = np.mean(ref, axis=0)
-        var_total = float(np.sum(np.square(ref - means)) / self.ref_set)
+        var_total = float(np.sum(np.square(ref - means)) / ref.shape[0])
         var_expect = self.alpha * var_total / ref.shape[1]
         var_actual = np.var(ref, axis=0)
         var_mask = var_actual < var_expect
