@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/readme-banner.png" alt="pyimgano README banner" width="100%"/>
+  <img src="https://raw.githubusercontent.com/skygazer42/pyimgano/main/assets/readme-banner-white-art.png" alt="pyimgano README banner" width="100%"/>
 </p>
 
 <p align="center">
