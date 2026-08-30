@@ -52,9 +52,14 @@ def test_ci_workflow_test_matrix_installs_torch_and_skimage_extras() -> None:
 
 def test_ci_workflow_has_pinned_optional_and_semgrep_gates() -> None:
     workflow = _read_ci_workflow()
+    security_job = workflow.split("\n  security:", maxsplit=1)[1].split(
+        "\n  deploy_smoke:", maxsplit=1
+    )[0]
 
     assert "constraints/optional-py310-current.txt" in workflow
     assert "optional_integration:" in workflow
+    assert "python-version: '3.10'" in security_job
+    assert "semgrep==1.169.0" in security_job
     assert "semgrep scan --config p/python --config p/security-audit --error" in workflow
     assert "pip-audit --progress-spinner off --desc off" in workflow
     assert "--ignore-vuln PYSEC-2026-3624" in workflow
