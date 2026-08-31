@@ -17,8 +17,8 @@
 <p align="center">
   <a href="#installation">Installation</a> ·
   <a href="#quickstart">Quickstart</a> ·
-  <a href="#recommended-models">Models</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="#deployment">Deployment</a> ·
+  <a href="#recommended-models">Models</a>
 </p>
 
 <p align="center">
@@ -132,6 +132,8 @@ pyimgano-bundle validate runs/<run_dir>/deploy_bundle --json
 pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
 ```
 
+## Deployment
+
 The current schema-v1 full-format trained-export target is
 `ae_resnet_unet` (native supported; graph formats conditional on a complete
 checkpoint and backend dependencies). Existing `vision_patchcore` starters do
@@ -155,6 +157,9 @@ pyimgano-artifact import --format onnx --model model.onnx \
 pyimgano-infer --artifact imported-artifact --input /path/to/images \
   --save-jsonl results.jsonl
 ```
+
+See [Trained Artifacts](https://github.com/skygazer42/pyimgano/blob/main/docs/TRAINED_ARTIFACTS.md)
+for format support, manifest contracts, trust boundaries, and the Python API.
 
 ---
 
@@ -180,39 +185,6 @@ and [Model Index](https://github.com/skygazer42/pyimgano/blob/main/docs/MODEL_IN
 for capabilities, dependencies, and trade-offs.
 
 ---
-
-## Documentation
-
-| Goal | Guide |
-|---|---|
-| Run the first smoke test | [Start Here](https://github.com/skygazer42/pyimgano/blob/main/docs/START_HERE.md) |
-| Choose an exact route | [Starter Paths](https://github.com/skygazer42/pyimgano/blob/main/docs/STARTER_PATHS.md) |
-| Learn the Python API | [Full Quickstart](https://github.com/skygazer42/pyimgano/blob/main/docs/QUICKSTART.md) |
-| Browse runnable examples | [Examples Index](https://github.com/skygazer42/pyimgano/blob/main/examples/README.md) |
-| Select a model | [Algorithm Selection Guide](https://github.com/skygazer42/pyimgano/blob/main/docs/ALGORITHM_SELECTION_GUIDE.md) |
-| Run reproducible benchmarks | [Benchmark Getting Started](https://github.com/skygazer42/pyimgano/blob/main/docs/BENCHMARK_GETTING_STARTED.md) |
-| Train and hand off a deploy bundle | [Industrial Fast-Path](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_FASTPATH.md) |
-| Export, import, load, and run trained artifacts | [Trained Artifacts](https://github.com/skygazer42/pyimgano/blob/main/docs/TRAINED_ARTIFACTS.md) |
-| Integrate NumPy, JSONL, maps, and defects | [Industrial Inference](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_INFERENCE.md) |
-| Use `bundle watch`, webhook delivery, or `audit-bundle` | [CLI Reference](https://github.com/skygazer42/pyimgano/blob/main/docs/CLI_REFERENCE.md) |
-| Compare runs with `pyimgano-runs` and quality gates | [Run Comparison](https://github.com/skygazer42/pyimgano/blob/main/docs/RUN_COMPARISON.md) |
-| Understand architecture boundaries | [Classical Pipelines](https://github.com/skygazer42/pyimgano/blob/main/docs/ARCHITECTURE_CLASSICAL_PIPELINES.md) · [Deep Contracts](https://github.com/skygazer42/pyimgano/blob/main/docs/ARCHITECTURE_DEEP_CONTRACTS.md) |
-| Browse every document | [Documentation Index](https://github.com/skygazer42/pyimgano/blob/main/docs/README_DOCS.md) |
-
-Published documentation is also available at
-[skygazer42.github.io/pyimgano](https://skygazer42.github.io/pyimgano/).
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](https://github.com/skygazer42/pyimgano/blob/main/CONTRIBUTING.md),
-[CODE_OF_CONDUCT.md](https://github.com/skygazer42/pyimgano/blob/main/CODE_OF_CONDUCT.md),
-and [SECURITY.md](https://github.com/skygazer42/pyimgano/blob/main/SECURITY.md).
-
-## License
-
-[MIT](https://github.com/skygazer42/pyimgano/blob/main/LICENSE)
 
 ## Citation
 

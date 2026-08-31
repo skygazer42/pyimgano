@@ -34,13 +34,14 @@ def test_comparison_doc_mentions_starting_paths() -> None:
     assert "pyimgano-demo --smoke" in text
 
 
-def test_readme_top_navigation_mentions_first_run_and_reference_guides() -> None:
+def test_readme_top_navigation_focuses_on_product_workflow() -> None:
     text = _read_text("README.md")
 
-    assert "docs/START_HERE.md" in text
-    assert "docs/STARTER_PATHS.md" in text
-    assert "docs/BENCHMARK_GETTING_STARTED.md" in text
-    assert "docs/CLI_REFERENCE.md" in text
+    assert 'href="#installation"' in text
+    assert 'href="#quickstart"' in text
+    assert 'href="#deployment"' in text
+    assert 'href="#recommended-models"' in text
+    assert "docs/TRAINED_ARTIFACTS.md" in text
     assert "docs/ALGORITHM_SELECTION_GUIDE.md" in text
 
 
