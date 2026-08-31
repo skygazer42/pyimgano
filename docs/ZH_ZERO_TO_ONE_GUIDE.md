@@ -75,8 +75,8 @@ pip install "pyimgano[torch]"
 如果你确定会用 ONNX / OpenVINO / scikit-image，再按需补装：
 
 ```bash
-pip install "pyimgano[onnx]"
-pip install "pyimgano[openvino]"
+pip install "pyimgano[onnx-runtime]"
+pip install "pyimgano[openvino-runtime]"
 pip install "pyimgano[skimage]"
 ```
 

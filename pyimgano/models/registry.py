@@ -272,6 +272,8 @@ def model_info(name: str) -> Dict[str, Any]:
         "requires_checkpoint": bool(caps.requires_checkpoint),
         "supports_save_load": bool(caps.supports_save_load),
         "supports_confidence": bool(caps.supports_confidence),
+        "runtime_consumption": dict(caps.runtime_consumption),
+        "trained_export": dict(caps.trained_export),
     }
     payload["capabilities"] = caps_payload
     payload["deployment_profile"] = compute_model_deployment_profile(entry)

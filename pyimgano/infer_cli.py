@@ -189,6 +189,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Load model + threshold + (optional) checkpoint from an exported infer_config.json file",
     )
     source.add_argument(
+        "--artifact",
+        default=None,
+        help=(
+            "Load a verified pyimgano artifact directory, artifact_manifest.json, "
+            "export directory, or deploy bundle"
+        ),
+    )
+    source.add_argument(
         "--list-models",
         action="store_true",
         help="List available model names and exit (default output: text, one per line)",
@@ -217,6 +225,28 @@ def _build_parser() -> argparse.ArgumentParser:
         "--infer-category",
         default=None,
         help="When --infer-config has multiple categories, select one category name",
+    )
+    parser.add_argument(
+        "--artifact-category",
+        default=None,
+        help="When --artifact contains multiple categories, select one category name",
+    )
+    parser.add_argument(
+        "--artifact-format",
+        default=None,
+        choices=["native", "onnx", "torchscript", "openvino"],
+        help="Select an artifact format when an export directory contains multiple runtimes",
+    )
+    parser.add_argument(
+        "--artifact-backend",
+        default=None,
+        choices=["pyimgano", "onnxruntime", "torchscript", "openvino"],
+        help="Select an artifact runtime backend",
+    )
+    parser.add_argument(
+        "--artifact-id",
+        default=None,
+        help="Select or require an exact content-addressed artifact ID",
     )
     parser.add_argument(
         "--preset",
@@ -298,6 +328,22 @@ def _build_parser() -> argparse.ArgumentParser:
             "Optional JSON object of onnxruntime SessionOptions to pass to ONNX-based routes "
             "(e.g. vision_onnx_* wrappers). This avoids nested --model-kwargs. "
             'Example: \'{"intra_op_num_threads":8,"graph_optimization_level":"all"}\''
+        ),
+    )
+    parser.add_argument(
+        "--onnx-providers",
+        default=None,
+        help=(
+            "Comma-separated ONNX Runtime execution providers for --artifact, in priority order "
+            "(for example CUDAExecutionProvider,CPUExecutionProvider)"
+        ),
+    )
+    parser.add_argument(
+        "--onnx-provider-options",
+        default=None,
+        help=(
+            "Optional JSON object mapping ONNX provider names to provider option objects; "
+            "requires --onnx-providers"
         ),
     )
     parser.add_argument(
@@ -708,6 +754,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    artifact_runtime_to_close: Any | None = None
 
     _apply_defects_preset_if_requested(args)
 
@@ -742,6 +789,41 @@ def main(argv: list[str] | None = None) -> int:
             onnx_session_options_cli = parse_json_mapping_arg(
                 str(args.onnx_session_options), arg_name="--onnx-session-options"
             )
+        onnx_provider_specs: list[str | dict[str, Any]] | None = None
+        if getattr(args, "onnx_providers", None) is not None:
+            provider_names = parse_csv_strs_arg(
+                str(args.onnx_providers), arg_name="--onnx-providers"
+            )
+            if not provider_names:
+                raise ValueError("--onnx-providers must contain at least one provider name")
+            if len(set(provider_names)) != len(provider_names):
+                raise ValueError("--onnx-providers must not contain duplicate provider names")
+            provider_options: dict[str, Any] = {}
+            if getattr(args, "onnx_provider_options", None) is not None:
+                provider_options = parse_json_mapping_arg(
+                    str(args.onnx_provider_options), arg_name="--onnx-provider-options"
+                )
+                unknown = sorted(set(provider_options) - set(provider_names))
+                if unknown:
+                    raise ValueError(
+                        "--onnx-provider-options contains providers not selected by "
+                        f"--onnx-providers: {', '.join(unknown)}"
+                    )
+            onnx_provider_specs = []
+            for provider_name in provider_names:
+                options = provider_options.get(provider_name, {})
+                if not isinstance(options, dict):
+                    raise ValueError(
+                        "--onnx-provider-options values must be JSON objects; "
+                        f"got {provider_name!r}={type(options).__name__}"
+                    )
+                onnx_provider_specs.append(
+                    {"name": str(provider_name), "options": dict(options)}
+                    if options
+                    else str(provider_name)
+                )
+        elif getattr(args, "onnx_provider_options", None) is not None:
+            raise ValueError("--onnx-provider-options requires --onnx-providers")
 
         seed = int(args.seed) if args.seed is not None else None
         if seed is not None:
@@ -757,6 +839,15 @@ def main(argv: list[str] | None = None) -> int:
 
         from_run = args.from_run is not None
         infer_config_mode = args.infer_config is not None
+        artifact_mode = args.artifact is not None
+        if not artifact_mode and (
+            getattr(args, "onnx_providers", None) is not None
+            or getattr(args, "onnx_provider_options", None) is not None
+        ):
+            raise ValueError(
+                "--onnx-providers and --onnx-provider-options are artifact runtime options; "
+                "use them with --artifact"
+            )
         threshold_from_run = None
         infer_config_postprocess = None
         prediction_payload: dict[str, Any] | None = None
@@ -766,9 +857,114 @@ def main(argv: list[str] | None = None) -> int:
         include_maps_by_default = False
         illumination_contrast_knobs = None
         tiling_payload: dict[str, Any] | None = None
+        apply_cli_wrappers = True
+        executed_runtime_info: dict[str, Any] | None = None
 
         t_load_start = time.perf_counter()
-        if from_run:
+        if artifact_mode:
+            if args.artifact_id is not None and any(
+                selector is not None
+                for selector in (
+                    args.artifact_category,
+                    args.artifact_format,
+                    args.artifact_backend,
+                )
+            ):
+                raise ValueError(
+                    "--artifact-id is an exact selector and cannot be combined with "
+                    "--artifact-category, --artifact-format, or --artifact-backend"
+                )
+            if args.device is not None and onnx_provider_specs is not None:
+                raise ValueError(
+                    "--device and --onnx-providers are alternative artifact runtime "
+                    "selection mechanisms and cannot be combined"
+                )
+            forbidden_artifact_options = {
+                "--preset": args.preset,
+                "--preprocessing-preset": args.preprocessing_preset,
+                "--contamination": args.contamination,
+                "--pretrained/--no-pretrained": args.pretrained,
+                "--model-kwargs": args.model_kwargs,
+                "--checkpoint-path": args.checkpoint_path,
+                "--train-dir": args.train_dir,
+                "--reference-dir": args.reference_dir,
+                "--calibration-quantile": args.calibration_quantile,
+                "--tile-size": args.tile_size,
+                "--tile-stride": args.tile_stride,
+                "--u16-max": args.u16_max,
+            }
+            selected_forbidden = [
+                name for name, value in forbidden_artifact_options.items() if value is not None
+            ]
+            if bool(args.onnx_sweep):
+                selected_forbidden.append("--onnx-sweep")
+            if selected_forbidden:
+                raise ValueError(
+                    "Artifact manifests own model reconstruction and preprocessing policy; "
+                    "these options cannot be combined with --artifact: "
+                    + ", ".join(selected_forbidden)
+                )
+
+            from pyimgano.inference import load_artifact
+
+            detector = load_artifact(
+                str(args.artifact),
+                category=(
+                    str(args.artifact_category) if args.artifact_category is not None else None
+                ),
+                format=(str(args.artifact_format) if args.artifact_format is not None else None),
+                backend=(str(args.artifact_backend) if args.artifact_backend is not None else None),
+                artifact_id=(str(args.artifact_id) if args.artifact_id is not None else None),
+                device=(str(args.device) if args.device is not None else None),
+                providers=onnx_provider_specs,
+                session_options=onnx_session_options_cli,
+                trust_checkpoint=bool(args.trust_checkpoint),
+            )
+            artifact_runtime_to_close = detector
+            executed_runtime_info = (
+                dict(detector.runtime_info)
+                if isinstance(getattr(detector, "runtime_info", None), dict)
+                else None
+            )
+            model_name = str(getattr(detector, "model_name", None) or "artifact")
+            threshold_from_run = getattr(detector, "threshold_", None)
+            policy = (
+                dict(detector.infer_config)
+                if isinstance(getattr(detector, "infer_config", None), dict)
+                else {}
+            )
+            postprocess_payload = (
+                dict(policy.get("postprocess", {}))
+                if isinstance(policy.get("postprocess", None), dict)
+                else {}
+            )
+            adaptation_payload = (
+                dict(policy.get("adaptation", {}))
+                if isinstance(policy.get("adaptation", None), dict)
+                else {}
+            )
+            map_postprocess_payload = postprocess_payload.get("map_postprocess", None)
+            if not isinstance(map_postprocess_payload, dict):
+                fallback_postprocess = adaptation_payload.get("postprocess", None)
+                map_postprocess_payload = (
+                    dict(fallback_postprocess) if isinstance(fallback_postprocess, dict) else None
+                )
+            infer_config_postprocess = (
+                dict(map_postprocess_payload) if isinstance(map_postprocess_payload, dict) else None
+            )
+            context_postprocess_summary = (
+                dict(map_postprocess_payload) if isinstance(map_postprocess_payload, dict) else None
+            )
+            review_payload = postprocess_payload.get("review_policy", None)
+            if not isinstance(review_payload, dict):
+                review_payload = policy.get("prediction", None)
+            prediction_payload = dict(review_payload) if isinstance(review_payload, dict) else None
+            defects_value = policy.get("defects", None)
+            defects_payload = dict(defects_value) if isinstance(defects_value, dict) else None
+            defects_payload_source = "artifact_policy" if defects_payload is not None else None
+            include_maps_by_default = bool(adaptation_payload.get("save_maps", False))
+            apply_cli_wrappers = False
+        elif from_run:
             context = infer_context_service.prepare_from_run_context(
                 infer_context_service.FromRunInferContextRequest(
                     run_dir=str(args.from_run),
@@ -947,22 +1143,23 @@ def main(argv: list[str] | None = None) -> int:
         if preprocessing_preset_knobs is not None:
             illumination_contrast_knobs = preprocessing_preset_knobs
 
-        wrapped = infer_wrapper_service.apply_infer_detector_wrappers(
-            infer_wrapper_service.InferDetectorWrapperRequest(
-                detector=detector,
-                model_name=model_name,
-                threshold=threshold_from_run,
-                tiling_payload=tiling_payload,
-                tile_size=(int(args.tile_size) if args.tile_size is not None else None),
-                tile_stride=(int(args.tile_stride) if args.tile_stride is not None else None),
-                tile_score_reduce=str(args.tile_score_reduce),
-                tile_score_topk=float(args.tile_score_topk),
-                tile_map_reduce=str(args.tile_map_reduce),
-                illumination_contrast_knobs=illumination_contrast_knobs,
-                u16_max=(int(args.u16_max) if args.u16_max is not None else None),
+        if apply_cli_wrappers:
+            wrapped = infer_wrapper_service.apply_infer_detector_wrappers(
+                infer_wrapper_service.InferDetectorWrapperRequest(
+                    detector=detector,
+                    model_name=model_name,
+                    threshold=threshold_from_run,
+                    tiling_payload=tiling_payload,
+                    tile_size=(int(args.tile_size) if args.tile_size is not None else None),
+                    tile_stride=(int(args.tile_stride) if args.tile_stride is not None else None),
+                    tile_score_reduce=str(args.tile_score_reduce),
+                    tile_score_topk=float(args.tile_score_topk),
+                    tile_map_reduce=str(args.tile_map_reduce),
+                    illumination_contrast_knobs=illumination_contrast_knobs,
+                    u16_max=(int(args.u16_max) if args.u16_max is not None else None),
+                )
             )
-        )
-        detector = wrapped.detector
+            detector = wrapped.detector
 
         if args.reference_dir is not None:
             setter = getattr(detector, "set_reference_dir", None)
@@ -1260,6 +1457,7 @@ def main(argv: list[str] | None = None) -> int:
                     infer=t_infer,
                     artifacts=t_artifacts,
                     total=total,
+                    runtime_info=executed_runtime_info,
                 ),
                 file=sys.stderr,
             )
@@ -1275,13 +1473,23 @@ def main(argv: list[str] | None = None) -> int:
                 infer=t_infer,
                 artifacts=t_artifacts,
                 total=total,
+                runtime_info=executed_runtime_info,
             )
             infer_cli_profile.write_infer_profile_payload(args.profile_json, profile_payload)
 
+        if artifact_runtime_to_close is not None:
+            artifact_runtime_to_close.close()
+            artifact_runtime_to_close = None
         if bool(continue_on_error) and int(errors) > 0:
             return 1
         return 0
     except Exception as exc:  # noqa: BLE001 - CLI boundary
+        if artifact_runtime_to_close is not None:
+            try:
+                artifact_runtime_to_close.close()
+            except Exception:
+                pass
+            artifact_runtime_to_close = None
         context_lines: list[str] = []
         from_run = getattr(args, "from_run", None)
         if from_run:
@@ -1296,6 +1504,9 @@ def main(argv: list[str] | None = None) -> int:
             model_preset = getattr(args, "model_preset", None)
             if model_preset:
                 context_lines.append(f"context: model_preset={model_preset!r}")
+        artifact = getattr(args, "artifact", None)
+        if artifact:
+            context_lines.append(f"context: artifact={artifact!r}")
         cli_output.print_cli_error(exc, context_lines=context_lines or None)
         return 2
 

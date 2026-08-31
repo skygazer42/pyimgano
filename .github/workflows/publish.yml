@@ -12,9 +12,14 @@ on:
         default: true
 
 jobs:
+  artifact-e2e:
+    name: Trained artifact release gate
+    uses: ./.github/workflows/artifact-e2e.yml
+
   release-readiness:
     name: Release Readiness
     runs-on: ubuntu-latest
+    needs: [artifact-e2e]
 
     steps:
       - uses: actions/checkout@v6
@@ -80,7 +85,7 @@ jobs:
   build-and-publish:
     name: Build and publish Python distributions to PyPI
     runs-on: ubuntu-latest
-    needs: [release-readiness]
+    needs: [artifact-e2e, release-readiness]
 
     steps:
       - uses: actions/checkout@v6
@@ -95,11 +100,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
-      - name: Build package
-        run: python -m build
+      - name: Download the wheel that passed the artifact gate
+        uses: actions/download-artifact@v8
+        with:
+          name: pyimgano-artifact-wheel-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist
+
+      - name: Build source distribution
+        run: python -m build --sdist
 
       - name: Check package
-        run: twine check dist/*
+        run: python -m twine check dist/*
 
       - name: Publish to Test PyPI
         if: github.event_name == 'workflow_dispatch' && inputs.test_pypi

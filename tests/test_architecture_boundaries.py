@@ -1027,6 +1027,10 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
         "bundle_watch_service.py": {
             "pyimgano.services.bundle_run_service",
         },
+        "artifact_load_service.py": set(),
+        "checkpoint_certification_service.py": {
+            "pyimgano.services.model_options",
+        },
         "discovery_service.py": set(),
         "doctor_service.py": {
             "pyimgano.services.discovery_service",
@@ -1037,6 +1041,13 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
             "pyimgano.services.benchmark_service",
             "pyimgano.services.discovery_service",
             "pyimgano.services.train_service",
+        },
+        "export_service.py": {
+            "pyimgano.services.infer_context_service",
+            "pyimgano.services.infer_load_service",
+            "pyimgano.services.model_options",
+            "pyimgano.services.workbench_run_service",
+            "pyimgano.services.workbench_service",
         },
         "infer_artifact_service.py": set(),
         "infer_context_service.py": {
@@ -1079,6 +1090,7 @@ def test_service_modules_only_import_allowed_internal_service_modules() -> None:
         },
         "dataset_split_service.py": set(),
         "train_service.py": {
+            "pyimgano.services.export_service",
             "pyimgano.services.train_export_helpers",
             "pyimgano.services.workbench_service",
         },
@@ -1606,6 +1618,7 @@ def test_train_export_helper_modules_define_expected_public_exports() -> None:
             "apply_bundle_manifest_metadata",
             "build_optional_calibration_card_payload",
             "copy_deploy_bundle_supporting_files",
+            "copy_exported_artifacts_to_bundle",
             "prepare_bundle_infer_config_payload",
             "require_run_dir",
             "rewrite_bundle_paths",

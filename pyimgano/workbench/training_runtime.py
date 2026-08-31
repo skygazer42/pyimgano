@@ -227,12 +227,22 @@ def restore_training_checkpoint_if_requested(
     }
 
 
-def _build_checkpoint_meta(*, saved: Path, run_dir: Path) -> dict[str, Any]:
+def _build_checkpoint_meta(
+    *,
+    saved: Path,
+    run_dir: Path,
+    contract: Any | None = None,
+) -> dict[str, Any]:
     try:
         rel = saved.relative_to(run_dir)
-        return {"path": rel.as_posix()}
+        payload = {"path": rel.as_posix()}
     except Exception:
-        return {"path": str(saved)}
+        payload = {"path": str(saved)}
+    if contract is not None:
+        to_dict = getattr(contract, "to_dict", None)
+        if callable(to_dict):
+            payload.update(dict(to_dict()))
+    return payload
 
 
 def _save_checkpoint_best_effort(
@@ -241,6 +251,8 @@ def _save_checkpoint_best_effort(
     run_dir: Path,
     category: str,
     checkpoint_name: str,
+    config: WorkbenchConfig,
+    probe_inputs: Sequence[Any],
 ) -> dict[str, Any] | None:
     from pyimgano.training.checkpointing import save_checkpoint
 
@@ -251,7 +263,24 @@ def _save_checkpoint_best_effort(
         saved = save_checkpoint(detector, ckpt_path)
     except NotImplementedError:
         return None
-    return _build_checkpoint_meta(saved=saved, run_dir=run_dir)
+    contract = None
+    try:
+        from pyimgano.services.checkpoint_certification_service import (
+            certify_checkpoint_for_export,
+        )
+
+        contract = certify_checkpoint_for_export(
+            detector,
+            saved,
+            config=config,
+            probe_inputs=probe_inputs,
+        )
+    except Exception as exc:  # noqa: BLE001 - preserve the trained run with failed evidence
+        from pyimgano.training.checkpointing import failed_checkpoint_contract
+
+        contract = failed_checkpoint_contract(str(exc))
+        _LOGGER.warning("Checkpoint export certification failed: %s", exc)
+    return _build_checkpoint_meta(saved=saved, run_dir=run_dir, contract=contract)
 
 
 def run_workbench_training(
@@ -311,6 +340,8 @@ def run_workbench_training(
                 run_dir=run_path,
                 category=category,
                 checkpoint_name=str(config.training.checkpoint_name),
+                config=config,
+                probe_inputs=train_inputs,
             )
 
         return WorkbenchTrainingResult(
@@ -335,6 +366,8 @@ def run_workbench_training(
             run_dir=run_path,
             category=category,
             checkpoint_name=str(config.training.checkpoint_name),
+            config=config,
+            probe_inputs=train_inputs,
         )
     return WorkbenchTrainingResult(
         detector=detector,

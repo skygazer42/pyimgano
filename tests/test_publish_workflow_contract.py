@@ -29,7 +29,26 @@ def test_publish_workflow_includes_release_readiness_gate() -> None:
 def test_publish_workflow_build_job_waits_for_release_readiness() -> None:
     workflow = _read_publish_workflow()
 
-    assert "needs: [release-readiness]" in workflow
+    assert "needs: [artifact-e2e, release-readiness]" in workflow
+
+
+def test_publish_workflow_calls_reusable_artifact_gate_before_readiness() -> None:
+    workflow = _read_publish_workflow()
+
+    assert "artifact-e2e:" in workflow
+    assert "uses: ./.github/workflows/artifact-e2e.yml" in workflow
+    assert "release-readiness:" in workflow
+    assert "needs: [artifact-e2e]" in workflow
+
+
+def test_publish_workflow_uploads_the_wheel_that_passed_artifact_e2e() -> None:
+    workflow = _read_publish_workflow()
+
+    assert "actions/download-artifact@v8" in workflow
+    assert "pyimgano-artifact-wheel-${{ github.run_id }}-${{ github.run_attempt }}" in workflow
+    assert "python -m build --sdist" in workflow
+    assert "python -m twine check dist/*" in workflow
+    assert "python -m build\n" not in workflow
 
 
 def test_publishing_doc_mentions_release_readiness_job() -> None:

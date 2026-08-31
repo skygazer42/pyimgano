@@ -31,8 +31,15 @@ def test_torchscript_safe_wrappers_suppress_deprecation_warnings(tmp_path: Path)
         scripted = trace_module(model, example)
         frozen = freeze_module(scripted)
         frozen.save(str(path))
-        loaded = load_module(path, map_location=torch.device("cpu"))
+        loaded = load_module(path, map_location=torch.device("cpu"), trusted=True)
 
     assert loaded is not None
     messages = [str(item.message) for item in caught]
     assert not any("deprecated" in message.lower() for message in messages), messages
+
+
+def test_torchscript_load_requires_explicit_trust(tmp_path: Path) -> None:
+    from pyimgano.utils.torchscript_safe import UnsafeTorchScriptError, load_module
+
+    with pytest.raises(UnsafeTorchScriptError, match="requires trusted=True"):
+        load_module(tmp_path / "untrusted.pt", map_location="cpu")

@@ -27,6 +27,29 @@ from pyimgano.inputs.image_format import ImageFormat
 from pyimgano.postprocess.anomaly_map import AnomalyMapPostprocess
 
 
+class _InferenceUnset:
+    def __repr__(self) -> str:  # pragma: no cover - debugging convenience
+        return "INFERENCE_UNSET"
+
+
+INFERENCE_UNSET = _InferenceUnset()
+
+
+def _resolve_inference_default(
+    detector: Any,
+    key: str,
+    value: Any,
+    *,
+    library_default: Any,
+) -> Any:
+    if value is not INFERENCE_UNSET:
+        return value
+    defaults = getattr(detector, "inference_defaults", None)
+    if isinstance(defaults, dict) and key in defaults:
+        return defaults[key]
+    return library_default
+
+
 @dataclass(frozen=True)
 class InferenceResult:
     score: float
@@ -252,12 +275,12 @@ def infer(
     *,
     input_format: str | ImageFormat | None = None,
     u16_max: int | None = None,
-    include_maps: bool = False,
-    include_confidence: bool = False,
-    reject_confidence_below: float | None = None,
-    reject_label: int | None = None,
-    postprocess: AnomalyMapPostprocess | None = None,
-    postprocess_summary: dict[str, Any] | None = None,
+    include_maps: bool | _InferenceUnset = INFERENCE_UNSET,
+    include_confidence: bool | _InferenceUnset = INFERENCE_UNSET,
+    reject_confidence_below: float | None | _InferenceUnset = INFERENCE_UNSET,
+    reject_label: int | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess: AnomalyMapPostprocess | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess_summary: dict[str, Any] | None | _InferenceUnset = INFERENCE_UNSET,
     batch_size: int | None = None,
     amp: bool = False,
 ) -> list[InferenceResult]:
@@ -289,12 +312,12 @@ def infer_bgr(
     detector: Any,
     inputs: Sequence[ImageInput],
     *,
-    include_maps: bool = False,
-    include_confidence: bool = False,
-    reject_confidence_below: float | None = None,
-    reject_label: int | None = None,
-    postprocess: AnomalyMapPostprocess | None = None,
-    postprocess_summary: dict[str, Any] | None = None,
+    include_maps: bool | _InferenceUnset = INFERENCE_UNSET,
+    include_confidence: bool | _InferenceUnset = INFERENCE_UNSET,
+    reject_confidence_below: float | None | _InferenceUnset = INFERENCE_UNSET,
+    reject_label: int | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess: AnomalyMapPostprocess | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess_summary: dict[str, Any] | None | _InferenceUnset = INFERENCE_UNSET,
     batch_size: int | None = None,
     amp: bool = False,
 ) -> list[InferenceResult]:
@@ -323,12 +346,12 @@ def infer_iter_bgr(
     detector: Any,
     inputs: Sequence[ImageInput],
     *,
-    include_maps: bool = False,
-    include_confidence: bool = False,
-    reject_confidence_below: float | None = None,
-    reject_label: int | None = None,
-    postprocess: AnomalyMapPostprocess | None = None,
-    postprocess_summary: dict[str, Any] | None = None,
+    include_maps: bool | _InferenceUnset = INFERENCE_UNSET,
+    include_confidence: bool | _InferenceUnset = INFERENCE_UNSET,
+    reject_confidence_below: float | None | _InferenceUnset = INFERENCE_UNSET,
+    reject_label: int | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess: AnomalyMapPostprocess | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess_summary: dict[str, Any] | None | _InferenceUnset = INFERENCE_UNSET,
     batch_size: int | None = None,
     amp: bool = False,
     timing: InferenceTiming | None = None,
@@ -377,12 +400,12 @@ def infer_iter(
     *,
     input_format: str | ImageFormat | None = None,
     u16_max: int | None = None,
-    include_maps: bool = False,
-    include_confidence: bool = False,
-    reject_confidence_below: float | None = None,
-    reject_label: int | None = None,
-    postprocess: AnomalyMapPostprocess | None = None,
-    postprocess_summary: dict[str, Any] | None = None,
+    include_maps: bool | _InferenceUnset = INFERENCE_UNSET,
+    include_confidence: bool | _InferenceUnset = INFERENCE_UNSET,
+    reject_confidence_below: float | None | _InferenceUnset = INFERENCE_UNSET,
+    reject_label: int | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess: AnomalyMapPostprocess | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess_summary: dict[str, Any] | None | _InferenceUnset = INFERENCE_UNSET,
     batch_size: int | None = None,
     amp: bool = False,
     timing: InferenceTiming | None = None,
@@ -392,6 +415,51 @@ def infer_iter(
     This is recommended for large runs with anomaly maps, since keeping per-image
     float32 maps in memory can be expensive.
     """
+
+    include_maps = bool(
+        _resolve_inference_default(detector, "include_maps", include_maps, library_default=False)
+    )
+    include_confidence = bool(
+        _resolve_inference_default(
+            detector, "include_confidence", include_confidence, library_default=False
+        )
+    )
+    reject_confidence_below = cast(
+        Optional[float],
+        _resolve_inference_default(
+            detector,
+            "reject_confidence_below",
+            reject_confidence_below,
+            library_default=None,
+        ),
+    )
+    reject_label = cast(
+        Optional[int],
+        _resolve_inference_default(
+            detector,
+            "reject_label",
+            reject_label,
+            library_default=None,
+        ),
+    )
+    postprocess = cast(
+        Optional[AnomalyMapPostprocess],
+        _resolve_inference_default(
+            detector,
+            "postprocess",
+            postprocess,
+            library_default=None,
+        ),
+    )
+    postprocess_summary = cast(
+        Optional[dict[str, Any]],
+        _resolve_inference_default(
+            detector,
+            "postprocess_summary",
+            postprocess_summary,
+            library_default=None,
+        ),
+    )
 
     normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)

@@ -1,0 +1,592 @@
+name: Trained artifact E2E
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ARTIFACT_GATE_OS: ubuntu-latest
+  ARTIFACT_GATE_PYTHON: '3.10'
+  ARTIFACT_GATE_PROVIDER: CPU
+  WHEEL_ARTIFACT_NAME: pyimgano-artifact-wheel-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  build-wheel:
+    name: Build artifact gate wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Build exactly one wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --outdir wheelhouse
+          python - <<'PY'
+          from pathlib import Path
+
+          wheels = list(Path("wheelhouse").glob("*.whl"))
+          assert len(wheels) == 1, wheels
+          PY
+
+      - name: Upload tested wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  native:
+    name: Native artifact · Ubuntu · Python 3.10 · CPU
+    runs-on: ubuntu-latest
+    needs: build-wheel
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Download tested wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/wheel
+
+      - name: Export a native artifact from the installed wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/native-export-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/native-export-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/native-export-venv/bin/python" -m pip install \
+            "${wheels[0]}[torch]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/native-export-venv/bin/python" -m pip check
+          cp tests/test_trained_graph_export.py "$RUNNER_TEMP/test_trained_graph_export.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/native-export-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/test_trained_graph_export.py::test_native_export_uses_registered_codec_and_public_loader" \
+            --basetemp "$RUNNER_TEMP/native-export"
+
+      - name: Stage the exported native artifact
+        env:
+          EXPORT_BASE: ${{ runner.temp }}/native-export
+          ARTIFACT_STAGE: ${{ runner.temp }}/native-artifact
+          EXPECTED_BACKEND: pyimgano
+        run: |
+          "$RUNNER_TEMP/native-export-venv/bin/python" - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          base = Path(os.environ["EXPORT_BASE"])
+          matches = []
+          for manifest in base.rglob("artifact_manifest.json"):
+              payload = json.loads(manifest.read_text(encoding="utf-8"))
+              if payload.get("runtime", {}).get("backend") == os.environ["EXPECTED_BACKEND"]:
+                  matches.append(manifest.parent)
+          assert len(matches) == 1, matches
+          shutil.copytree(matches[0], Path(os.environ["ARTIFACT_STAGE"]))
+          PY
+
+      - name: Relocate, load, and infer with the native runtime
+        run: |
+          python -m venv "$RUNNER_TEMP/native-runtime-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/native-runtime-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/native-runtime-venv/bin/python" -m pip install "${wheels[0]}[torch]"
+          "$RUNNER_TEMP/native-runtime-venv/bin/python" -m pip check
+          mkdir -p "$RUNNER_TEMP/native-relocated" "$RUNNER_TEMP/native-images"
+          mv "$RUNNER_TEMP/native-artifact" "$RUNNER_TEMP/native-relocated/artifact"
+          "$RUNNER_TEMP/native-runtime-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          from pathlib import Path
+
+          from PIL import Image
+          import pyimgano
+
+          source = Path(pyimgano.__file__).resolve()
+          assert not source.is_relative_to(Path(os.environ["GITHUB_WORKSPACE"]).resolve()), source
+          assert importlib.metadata.version("pyimgano") == pyimgano.__version__
+          Image.new("RGB", (16, 16), color=(96, 96, 96)).save(
+              Path(os.environ["RUNNER_TEMP"]) / "native-images" / "sample.png"
+          )
+          PY
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/native-runtime-venv/bin/pyimgano-export" --help > /dev/null
+          "$RUNNER_TEMP/native-runtime-venv/bin/pyimgano-artifact" \
+            validate "$RUNNER_TEMP/native-relocated/artifact" --json
+          "$RUNNER_TEMP/native-runtime-venv/bin/pyimgano-infer" \
+            --artifact "$RUNNER_TEMP/native-relocated/artifact" \
+            --input "$RUNNER_TEMP/native-images" \
+            --save-jsonl "$RUNNER_TEMP/native-results.jsonl"
+          "$RUNNER_TEMP/native-runtime-venv/bin/python" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          rows = [
+              json.loads(line)
+              for line in (Path(os.environ["RUNNER_TEMP"]) / "native-results.jsonl")
+              .read_text(encoding="utf-8")
+              .splitlines()
+              if line.strip()
+          ]
+          assert len(rows) == 1 and "score" in rows[0], rows
+          PY
+
+  onnx:
+    name: ONNX artifact · Ubuntu · Python 3.10 · CPUExecutionProvider
+    runs-on: ubuntu-latest
+    needs: build-wheel
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Download tested wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/wheel
+
+      - name: Export an ONNX artifact from the installed wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/onnx-export-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/onnx-export-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/onnx-export-venv/bin/python" -m pip install \
+            "${wheels[0]}[onnx-export]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/onnx-export-venv/bin/python" -m pip check
+          cp tests/test_trained_graph_export.py "$RUNNER_TEMP/test_trained_graph_export.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/onnx-export-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/test_trained_graph_export.py::test_fitted_graph_export_manifest_public_load_and_reference_parity[onnx-onnx-onnxruntime]" \
+            --basetemp "$RUNNER_TEMP/onnx-export"
+
+      - name: Stage the exported ONNX artifact
+        env:
+          EXPORT_BASE: ${{ runner.temp }}/onnx-export
+          ARTIFACT_STAGE: ${{ runner.temp }}/onnx-artifact
+          EXPECTED_BACKEND: onnxruntime
+        run: |
+          "$RUNNER_TEMP/onnx-export-venv/bin/python" - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          base = Path(os.environ["EXPORT_BASE"])
+          matches = []
+          for manifest in base.rglob("artifact_manifest.json"):
+              payload = json.loads(manifest.read_text(encoding="utf-8"))
+              if payload.get("runtime", {}).get("backend") == os.environ["EXPECTED_BACKEND"]:
+                  matches.append(manifest.parent)
+          assert len(matches) == 1, matches
+          shutil.copytree(matches[0], Path(os.environ["ARTIFACT_STAGE"]))
+          PY
+
+      - name: Relocate, load, and infer with ONNX Runtime only
+        env:
+          PYIMGANO_E2E_EXPECT_WHEEL: '1'
+        run: |
+          python -m venv "$RUNNER_TEMP/onnx-runtime-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" -m pip install \
+            "${wheels[0]}[onnx-runtime]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" -m pip check
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" - <<'PY'
+          from importlib.util import find_spec
+
+          assert find_spec("onnx") is not None
+          assert find_spec("onnxruntime") is not None
+          assert find_spec("torch") is None
+          PY
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$GITHUB_WORKSPACE/tests/test_artifact_portability_e2e.py"
+          mkdir -p "$RUNNER_TEMP/onnx-relocated" "$RUNNER_TEMP/onnx-images"
+          mv "$RUNNER_TEMP/onnx-artifact" "$RUNNER_TEMP/onnx-relocated/artifact"
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          from pathlib import Path
+
+          from PIL import Image
+          import pyimgano
+
+          source = Path(pyimgano.__file__).resolve()
+          assert not source.is_relative_to(Path(os.environ["GITHUB_WORKSPACE"]).resolve()), source
+          assert importlib.metadata.version("pyimgano") == pyimgano.__version__
+          Image.new("RGB", (16, 16), color=(96, 96, 96)).save(
+              Path(os.environ["RUNNER_TEMP"]) / "onnx-images" / "sample.png"
+          )
+          PY
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/pyimgano-export" --help > /dev/null
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/pyimgano-artifact" \
+            validate "$RUNNER_TEMP/onnx-relocated/artifact" --json
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/pyimgano-infer" \
+            --artifact "$RUNNER_TEMP/onnx-relocated/artifact" \
+            --input "$RUNNER_TEMP/onnx-images" \
+            --save-jsonl "$RUNNER_TEMP/onnx-results.jsonl"
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          rows = [
+              json.loads(line)
+              for line in (Path(os.environ["RUNNER_TEMP"]) / "onnx-results.jsonl")
+              .read_text(encoding="utf-8")
+              .splitlines()
+              if line.strip()
+          ]
+          assert len(rows) == 1 and "score" in rows[0], rows
+          PY
+
+      - name: Export, relocate, and parity-check the ONNX ECOD composite from the wheel
+        run: |
+          cp tests/test_ecod_composite_artifact.py \
+            "$RUNNER_TEMP/test_ecod_composite_artifact.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/onnx-runtime-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/test_ecod_composite_artifact.py::test_ecod_composite_export_relocate_delete_source_and_fresh_load_score_parity[vision_onnx_ecod-onnx-.onnx-onnxruntime]" \
+            --basetemp "$RUNNER_TEMP/onnx-composite"
+
+  torchscript:
+    name: TorchScript artifact · Ubuntu · Python 3.10 · CPU
+    runs-on: ubuntu-latest
+    needs: build-wheel
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Download tested wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/wheel
+
+      - name: Export a TorchScript artifact from the installed wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/torchscript-export-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/torchscript-export-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/torchscript-export-venv/bin/python" -m pip install \
+            "${wheels[0]}[torch]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/torchscript-export-venv/bin/python" -m pip check
+          cp tests/test_trained_graph_export.py "$RUNNER_TEMP/test_trained_graph_export.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/torchscript-export-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/test_trained_graph_export.py::test_fitted_graph_export_manifest_public_load_and_reference_parity[torchscript-torchscript-torchscript]" \
+            --basetemp "$RUNNER_TEMP/torchscript-export"
+
+      - name: Stage the exported TorchScript artifact
+        env:
+          EXPORT_BASE: ${{ runner.temp }}/torchscript-export
+          ARTIFACT_STAGE: ${{ runner.temp }}/torchscript-artifact
+          EXPECTED_BACKEND: torchscript
+        run: |
+          "$RUNNER_TEMP/torchscript-export-venv/bin/python" - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          base = Path(os.environ["EXPORT_BASE"])
+          matches = []
+          for manifest in base.rglob("artifact_manifest.json"):
+              payload = json.loads(manifest.read_text(encoding="utf-8"))
+              if payload.get("runtime", {}).get("backend") == os.environ["EXPECTED_BACKEND"]:
+                  matches.append(manifest.parent)
+          assert len(matches) == 1, matches
+          shutil.copytree(matches[0], Path(os.environ["ARTIFACT_STAGE"]))
+          PY
+
+      - name: Relocate, load, and infer with TorchScript
+        run: |
+          python -m venv "$RUNNER_TEMP/torchscript-runtime-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" -m pip install \
+            "${wheels[0]}[torch]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" -m pip check
+          mkdir -p "$RUNNER_TEMP/torchscript-relocated" "$RUNNER_TEMP/torchscript-images"
+          mv "$RUNNER_TEMP/torchscript-artifact" "$RUNNER_TEMP/torchscript-relocated/artifact"
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          from pathlib import Path
+
+          from PIL import Image
+          import pyimgano
+
+          source = Path(pyimgano.__file__).resolve()
+          assert not source.is_relative_to(Path(os.environ["GITHUB_WORKSPACE"]).resolve()), source
+          assert importlib.metadata.version("pyimgano") == pyimgano.__version__
+          Image.new("RGB", (16, 16), color=(96, 96, 96)).save(
+              Path(os.environ["RUNNER_TEMP"]) / "torchscript-images" / "sample.png"
+          )
+          PY
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/pyimgano-export" --help > /dev/null
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/pyimgano-artifact" \
+            validate "$RUNNER_TEMP/torchscript-relocated/artifact" --json
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/pyimgano-infer" \
+            --artifact "$RUNNER_TEMP/torchscript-relocated/artifact" \
+            --trust-checkpoint \
+            --input "$RUNNER_TEMP/torchscript-images" \
+            --save-jsonl "$RUNNER_TEMP/torchscript-results.jsonl"
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          rows = [
+              json.loads(line)
+              for line in (Path(os.environ["RUNNER_TEMP"]) / "torchscript-results.jsonl")
+              .read_text(encoding="utf-8")
+              .splitlines()
+              if line.strip()
+          ]
+          assert len(rows) == 1 and "score" in rows[0], rows
+          PY
+
+      - name: Export, relocate, and parity-check the TorchScript ECOD composite from the wheel
+        run: |
+          cp tests/test_ecod_composite_artifact.py \
+            "$RUNNER_TEMP/test_ecod_composite_artifact.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/test_ecod_composite_artifact.py::test_ecod_composite_export_relocate_delete_source_and_fresh_load_score_parity[vision_torchscript_ecod-torchscript-.pt-torchscript]" \
+            --basetemp "$RUNNER_TEMP/torchscript-composite"
+
+  openvino:
+    name: OpenVINO artifact · Ubuntu · Python 3.10 · CPU
+    runs-on: ubuntu-latest
+    needs: build-wheel
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Download tested wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/wheel
+
+      - name: Export an OpenVINO artifact from the installed wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/openvino-export-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/openvino-export-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/openvino-export-venv/bin/python" -m pip install \
+            "${wheels[0]}[openvino-export]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/openvino-export-venv/bin/python" -m pip check
+          cp tests/test_trained_graph_export.py "$RUNNER_TEMP/test_trained_graph_export.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/openvino-export-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/test_trained_graph_export.py::test_openvino_export_is_conditional_and_verified_from_onnx" \
+            --basetemp "$RUNNER_TEMP/openvino-export"
+
+      - name: Stage the exported OpenVINO artifact
+        env:
+          EXPORT_BASE: ${{ runner.temp }}/openvino-export
+          ARTIFACT_STAGE: ${{ runner.temp }}/openvino-artifact
+          EXPECTED_BACKEND: openvino
+        run: |
+          "$RUNNER_TEMP/openvino-export-venv/bin/python" - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          base = Path(os.environ["EXPORT_BASE"])
+          matches = []
+          for manifest in base.rglob("artifact_manifest.json"):
+              payload = json.loads(manifest.read_text(encoding="utf-8"))
+              if payload.get("runtime", {}).get("backend") == os.environ["EXPECTED_BACKEND"]:
+                  matches.append(manifest.parent)
+          assert len(matches) == 1, matches
+          shutil.copytree(matches[0], Path(os.environ["ARTIFACT_STAGE"]))
+          PY
+
+      - name: Relocate, load, and infer with OpenVINO Runtime only
+        run: |
+          python -m venv "$RUNNER_TEMP/openvino-runtime-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/python" -m pip install \
+            "${wheels[0]}[openvino-runtime]"
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/python" -m pip check
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/python" - <<'PY'
+          from importlib.util import find_spec
+
+          assert find_spec("openvino") is not None
+          assert find_spec("torch") is None
+          PY
+          mkdir -p "$RUNNER_TEMP/openvino-relocated" "$RUNNER_TEMP/openvino-images"
+          mv "$RUNNER_TEMP/openvino-artifact" "$RUNNER_TEMP/openvino-relocated/artifact"
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          from pathlib import Path
+
+          from PIL import Image
+          import pyimgano
+
+          source = Path(pyimgano.__file__).resolve()
+          assert not source.is_relative_to(Path(os.environ["GITHUB_WORKSPACE"]).resolve()), source
+          assert importlib.metadata.version("pyimgano") == pyimgano.__version__
+          Image.new("RGB", (16, 16), color=(96, 96, 96)).save(
+              Path(os.environ["RUNNER_TEMP"]) / "openvino-images" / "sample.png"
+          )
+          PY
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/pyimgano-export" --help > /dev/null
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/pyimgano-artifact" \
+            validate "$RUNNER_TEMP/openvino-relocated/artifact" --json
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/pyimgano-infer" \
+            --artifact "$RUNNER_TEMP/openvino-relocated/artifact" \
+            --input "$RUNNER_TEMP/openvino-images" \
+            --save-jsonl "$RUNNER_TEMP/openvino-results.jsonl"
+          "$RUNNER_TEMP/openvino-runtime-venv/bin/python" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          rows = [
+              json.loads(line)
+              for line in (Path(os.environ["RUNNER_TEMP"]) / "openvino-results.jsonl")
+              .read_text(encoding="utf-8")
+              .splitlines()
+              if line.strip()
+          ]
+          assert len(rows) == 1 and "score" in rows[0], rows
+          PY
+
+  docs-security:
+    name: Wheel scripts, documentation, and artifact security contracts
+    runs-on: ubuntu-latest
+    needs: build-wheel
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Download tested wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/wheel
+
+      - name: Install the wheel without the checkout
+        run: |
+          python -m venv "$RUNNER_TEMP/contracts-venv"
+          wheels=("$RUNNER_TEMP"/wheel/*.whl)
+          test "${#wheels[@]}" -eq 1
+          "$RUNNER_TEMP/contracts-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/contracts-venv/bin/python" -m pip install \
+            "${wheels[0]}[onnx-runtime]" pytest pytest-cov pytest-error-for-skips
+          "$RUNNER_TEMP/contracts-venv/bin/python" -m pip check
+
+      - name: Smoke every published console script from the wheel
+        run: |
+          cd "$RUNNER_TEMP"
+          for command in \
+            pyimgano \
+            pyimgano-artifact \
+            pyimgano-benchmark \
+            pyimgano-bundle \
+            pyimgano-datasets \
+            pyimgano-defects \
+            pyimgano-demo \
+            pyimgano-doctor \
+            pyimgano-evaluate \
+            pyimgano-export \
+            pyimgano-export-onnx \
+            pyimgano-export-torchscript \
+            pyimgano-features \
+            pyimgano-infer \
+            pyimgano-manifest \
+            pyimgano-robust-benchmark \
+            pyimgano-runs \
+            pyimgano-synthesize \
+            pyimgano-train \
+            pyimgano-validate-infer-config \
+            pyimgano-weights \
+            pyim
+          do
+            "$RUNNER_TEMP/contracts-venv/bin/$command" --help > /dev/null
+          done
+          "$RUNNER_TEMP/contracts-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          from pathlib import Path
+
+          import pyimgano
+          from pyimgano.artifacts import ARTIFACT_SCHEMA_VERSION
+
+          source = Path(pyimgano.__file__).resolve()
+          assert not source.is_relative_to(Path(os.environ["GITHUB_WORKSPACE"]).resolve()), source
+          assert importlib.metadata.version("pyimgano") == pyimgano.__version__
+          assert ARTIFACT_SCHEMA_VERSION == 1
+          PY
+
+      - name: Run artifact security negative tests from the wheel
+        run: |
+          mkdir -p "$RUNNER_TEMP/security-tests"
+          cp tests/test_artifact_security.py "$RUNNER_TEMP/security-tests/test_artifact_security.py"
+          cp tests/test_artifact_security_e2e.py \
+            "$RUNNER_TEMP/security-tests/test_artifact_security_e2e.py"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/contracts-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            "$RUNNER_TEMP/security-tests/test_artifact_security.py" \
+            "$RUNNER_TEMP/security-tests/test_artifact_security_e2e.py"
+
+      - name: Audit documentation commands and release contracts
+        run: |
+          "$RUNNER_TEMP/contracts-venv/bin/python" tools/audit_repo_links.py
+          "$RUNNER_TEMP/contracts-venv/bin/python" -m pytest --no-cov \
+            --error-for-skips -q \
+            tests/test_trained_artifact_docs_contract.py \
+            tests/test_train_export_docs_contract.py \
+            tests/test_public_artifact_api.py \
+            tests/test_package_version_sync.py \
+            tests/test_publishing_docs_contract.py \
+            tests/test_publish_workflow_contract.py \
+            tests/test_artifact_workflow_contract.py

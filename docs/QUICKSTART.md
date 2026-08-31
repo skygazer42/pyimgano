@@ -26,11 +26,14 @@ pip install pyimgano
 # For deep models / torchvision backbones
 pip install "pyimgano[torch]"
 
-# For ONNX Runtime inference / ONNX export
-pip install "pyimgano[onnx]"
+# For ONNX Runtime inference/import without Torch
+pip install "pyimgano[onnx-runtime]"
+
+# For ONNX artifact creation + inference
+pip install "pyimgano[onnx-export]"
 
 # For OpenVINO inference
-pip install "pyimgano[openvino]"
+pip install "pyimgano[openvino-runtime]"
 
 # For SSIM / phase-correlation / scikit-image baselines
 pip install "pyimgano[skimage]"

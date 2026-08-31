@@ -108,7 +108,8 @@ pyimgano-train --config my_config.json
 pyimgano-train --config my_config.json --preflight
 
 # 训练并导出部署包
-pyimgano-train --config my_config.json --export-deploy-bundle
+pyimgano-train --config my_config.json \
+    --export-format native --export-deploy-bundle
 ```
 
 | 参数 | 说明 |
@@ -117,6 +118,7 @@ pyimgano-train --config my_config.json --export-deploy-bundle
 | `--dry-run` | 试运行（mini-epoch） |
 | `--preflight` | 配置预检，不执行训练 |
 | `--export-infer-config` | 导出推理配置 |
+| `--export-format` | 导出 fitted artifact；可重复选择 certified format |
 | `--export-deploy-bundle` | 导出完整部署包 |
 | `--list-recipes` | 列出所有可用配方 |
 | `--recipe-info <name>` | 查看配方详细信息 |
@@ -140,12 +142,22 @@ pyimgano-infer --model patchcore --train-dir runs/my_model --input test_images/
 # 带缺陷提取和可视化
 pyimgano-infer --model patchcore --train-dir runs/my_model --input test_images/ \
     --defects --save-masks --save-overlays --save-jsonl results.jsonl
+
+# 加载已验证 artifact / export root / deploy bundle
+pyimgano-infer --artifact ./exports --artifact-format native \
+    --input test_images/ --save-jsonl results.jsonl
 ```
 
 | 参数 | 说明 |
 |------|------|
 | `--model` | 模型名称 |
 | `--model-preset` | 模型预设名称 |
+| `--artifact` | artifact directory/manifest、export root 或 deploy bundle |
+| `--artifact-category` | 多 artifact source 的 category selector |
+| `--artifact-format` | `native` / `onnx` / `torchscript` / `openvino` |
+| `--artifact-backend` | runtime backend selector |
+| `--artifact-id` | 不能与其它 selector 组合的精确内容 ID |
+| `--onnx-providers` | 有序 ONNX Runtime provider 列表 |
 | `--train-dir` | 训练输出目录 |
 | `--input` | 输入图像或目录 |
 | `--save-jsonl` | 输出 JSONL 结果文件路径 |
@@ -190,6 +202,10 @@ pyimgano bundle validate my_bundle/ --json
 
 # 一次性运行
 pyimgano bundle run my_bundle/ --image-dir test_images/
+
+# 多 runtime bundle 的显式选择
+pyimgano-bundle run my_bundle/ --artifact-format onnx \
+    --onnx-providers CPUExecutionProvider --image-dir test_images/
 
 # 热文件夹长驻（v0.9.0+）
 pyimgano-bundle watch my_bundle/ \
@@ -413,39 +429,69 @@ pyimgano-features info wide_resnet50
 
 ---
 
-## pyimgano-export-onnx
+## pyimgano-export
 
 === "中文"
 
-    将模型导出为 ONNX 格式。
+    从持久化 run 恢复 fitted detector，并发布强制验证的可迁移 artifact。
 
 === "English"
 
-    Export model to ONNX format.
+    Restore a fitted detector from a persisted run and publish a mandatory-verified,
+    relocatable artifact.
 
 ```bash
-pyimgano-export-onnx --train-dir runs/my_model --output embed.onnx
+pyimgano-export --from-run runs/<run_dir> --format native --out ./exports
 ```
 
-详细用法参见 [模型导出](../deployment/export.md)。
+`--format` 可重复选择 `native`、`onnx`、`torchscript` 或 `openvino`，但每一项必须由
+model export adapter 明确认证。默认强制 `reference-parity` 且事务严格；
+`--verification-level end-to-end` 只加强验证，`--non-strict` 才允许部分成功。
+当前唯一全格式认证目标为 `ae_resnet_unet`：native 静态 supported，graph formats 在具体
+完整 checkpoint 与依赖可用前为 conditional。另有两个 source-locked composite cell：
+`vision_onnx_ecod` 仅 ONNX，`vision_torchscript_ecod` 仅 TorchScript；两者都不做跨格式转换。
+TorchScript single/composite 加载必须显式使用 `--trust-checkpoint` 或 API
+`trust_checkpoint=True`。`vision_patchcore` 当前没有 export adapter。发布认证平台仍为
+Ubuntu x86_64、Python 3.10、CPU。
 
 ---
 
-## pyimgano-export-torchscript
+## pyimgano-artifact
 
 === "中文"
 
-    将模型导出为 TorchScript 格式。
+    使用显式 versioned tensor/semantics contract 导入第三方 ONNX，或 inspect、validate、
+    bind-policy 已有 artifact。
 
 === "English"
 
-    Export model to TorchScript format.
+    Import third-party ONNX with an explicit versioned tensor/semantics contract, or
+    inspect, validate, and policy-bind an existing artifact.
 
 ```bash
-pyimgano-export-torchscript --train-dir runs/my_model --output embed.ts
+pyimgano-artifact import --format onnx --model model.onnx \
+    --contract onnx-contract.json --out imported-artifact
+pyimgano-artifact inspect imported-artifact --json
+pyimgano-artifact validate imported-artifact --json
 ```
 
-详细用法参见 [模型导出](../deployment/export.md)。
+raw `.onnx` 不可直接交给 `load_artifact()` 或 `pyimgano-infer --artifact`；tensor shape
+不能替代 anomaly score、preprocessing 或 map 语义。详细 contract 见
+[训练产物导出与第三方导入](../deployment/export.md)。
+
+---
+
+## pyimgano-export-onnx / pyimgano-export-torchscript（legacy）
+
+这两个兼容入口只导出 torchvision embedding/backbone，不封装 fitted detector，也不生成
+`artifact_manifest.json`：
+
+```bash
+pyimgano-export-onnx --backbone resnet18 --out embed.onnx
+pyimgano-export-torchscript --backbone resnet18 --out embed.pt
+```
+
+训练后部署请使用 `pyimgano-export`。
 
 ---
 

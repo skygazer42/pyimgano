@@ -39,7 +39,7 @@ def test_ci_workflow_build_job_waits_for_deploy_smoke() -> None:
     workflow = _read_ci_workflow()
 
     assert (
-        "needs: [quality, compatibility, test_full, optional_integration, deploy_smoke, security]"
+        "needs: [quality, compatibility, test_full, optional_integration, artifact-e2e, deploy_smoke, security]"
         in workflow
     )
 

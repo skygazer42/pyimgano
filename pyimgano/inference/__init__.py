@@ -8,7 +8,10 @@ This module provides a small, production-friendly API on top of detectors:
 
 from __future__ import annotations
 
+from typing import Any
+
 from .api import (
+    INFERENCE_UNSET,
     InferenceResult,
     InferenceTiming,
     calibrate_threshold,
@@ -20,11 +23,29 @@ from .api import (
     result_to_jsonable,
     results_to_jsonable,
 )
+from .artifact_runtime import ArtifactRuntime, ArtifactRuntimeError
+from .legacy_artifact import LegacyArtifactWarning, load_legacy_artifact
 from .tiling import TiledDetector
+
+
+def __getattr__(name: str) -> Any:
+    """Load the service facade lazily to keep fresh submodule imports acyclic."""
+
+    if name == "load_artifact":
+        from pyimgano.services.artifact_load_service import load_artifact
+
+        globals()[name] = load_artifact
+        return load_artifact
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "InferenceTiming",
     "InferenceResult",
+    "INFERENCE_UNSET",
+    "ArtifactRuntime",
+    "ArtifactRuntimeError",
+    "LegacyArtifactWarning",
     "calibrate_threshold_bgr",
     "calibrate_threshold",
     "infer",
@@ -33,5 +54,7 @@ __all__ = [
     "infer_iter_bgr",
     "result_to_jsonable",
     "results_to_jsonable",
+    "load_artifact",
+    "load_legacy_artifact",
     "TiledDetector",
 ]

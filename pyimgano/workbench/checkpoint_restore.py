@@ -117,6 +117,21 @@ def _try_restore_safe_detector_state(detector: Any, path: Path) -> bool:
     return True
 
 
+def _try_restore_fitted_state(detector: Any, path: Path) -> bool:
+    from pyimgano.exporting.state_codec import (
+        inspect_fitted_state,
+        load_fitted_state,
+    )
+    from pyimgano.serialization.safe_checkpoint import SafeCheckpointError
+
+    try:
+        inspect_fitted_state(path)
+    except SafeCheckpointError:
+        return False
+    load_fitted_state(detector, path)
+    return True
+
+
 def load_checkpoint_into_detector(
     detector: Any,
     checkpoint_path: str | Path,
@@ -138,6 +153,9 @@ def load_checkpoint_into_detector(
         return
 
     if _try_detector_method(detector, "load", path):
+        return
+
+    if _try_restore_fitted_state(detector, path):
         return
 
     model = _ensure_detector_model(detector)

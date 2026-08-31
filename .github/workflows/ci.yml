@@ -132,7 +132,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -c constraints/optional-py310-current.txt -e .[dev,torch,onnx,skimage,numba,faiss,diffusion,anomalib,clip]
+          pip install -c constraints/optional-py310-current.txt -e .[dev,torch,onnx-export,skimage,numba,faiss,diffusion,anomalib,clip]
           pip install pip-audit
           python -m pip check
 
@@ -178,7 +178,7 @@ jobs:
       - name: Install pinned optional profile
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -c constraints/optional-py310-current.txt -e .[dev,torch,onnx,skimage,numba,faiss,diffusion,anomalib,clip]
+          pip install -c constraints/optional-py310-current.txt -e .[dev,torch,onnx-export,skimage,numba,faiss,diffusion,anomalib,clip]
           python -m pip check
 
       - name: Run optional integration contracts
@@ -186,6 +186,11 @@ jobs:
           pytest -q \
             tests/test_anomalib_backend_optional.py \
             tests/test_anomalib_backend_wrapper.py \
+            tests/test_onnx_artifact_import.py \
+            tests/test_onnx_artifact_runtime.py \
+            tests/test_infer_cli_artifact.py \
+            tests/test_public_artifact_api.py \
+            tests/test_trained_artifact_docs_contract.py \
             tests/test_feature_onnx_embed_optional_v16.py \
             tests/test_feature_openclip_optional.py \
             tests/test_classical_models_smoke.py \
@@ -197,10 +202,14 @@ jobs:
             tests/test_openclip_optional.py \
             tests/test_patchcore_inspection_backend_optional.py
 
+  artifact-e2e:
+    name: Trained artifact release gate
+    uses: ./.github/workflows/artifact-e2e.yml
+
   build:
     name: Build Distribution
     runs-on: ubuntu-latest
-    needs: [quality, compatibility, test_full, optional_integration, deploy_smoke, security]
+    needs: [quality, compatibility, test_full, optional_integration, artifact-e2e, deploy_smoke, security]
 
     steps:
       - uses: actions/checkout@v6

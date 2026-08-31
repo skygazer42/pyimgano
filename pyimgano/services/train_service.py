@@ -20,6 +20,9 @@ from pyimgano.services.train_export_helpers import (
     copy_deploy_bundle_supporting_files as _copy_deploy_bundle_supporting_files_helper,
 )
 from pyimgano.services.train_export_helpers import (
+    copy_exported_artifacts_to_bundle as _copy_exported_artifacts_to_bundle_helper,
+)
+from pyimgano.services.train_export_helpers import (
     prepare_bundle_infer_config_payload as _prepare_bundle_infer_config_payload_helper,
 )
 from pyimgano.services.train_export_helpers import require_run_dir as _require_run_dir_helper
@@ -49,6 +52,12 @@ class TrainRunRequest:
     preprocessing_preset: str | None = None
     export_infer_config: bool = False
     export_deploy_bundle: bool = False
+    export_formats: tuple[str, ...] = ()
+    export_dir: str | None = None
+    export_verification_level: str = "reference_parity"
+    export_strict: bool = True
+    export_trust_checkpoint: bool = False
+    export_overwrite: bool = False
 
 
 def apply_train_overrides(raw: dict[str, Any], request: TrainRunRequest) -> dict[str, Any]:
@@ -166,7 +175,12 @@ def run_train_preflight_payload(request: TrainRunRequest) -> dict[str, Any]:
     return payload
 
 
-def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]) -> Path:
+def _export_deploy_bundle(
+    *,
+    run_dir: Path,
+    infer_config_payload: dict[str, Any],
+    artifact_export: dict[str, Any] | None = None,
+) -> Path:
     bundle_dir = run_dir / "deploy_bundle"
     if bundle_dir.exists():
         raise FileExistsError(f"deploy bundle already exists: {bundle_dir}")
@@ -181,6 +195,10 @@ def _export_deploy_bundle(*, run_dir: Path, infer_config_payload: dict[str, Any]
         bundle_dir=bundle_dir,
         calibration_card_filename=_CALIBRATION_CARD_FILENAME,
         operator_contract_filename=_OPERATOR_CONTRACT_FILENAME,
+    )
+    _copy_exported_artifacts_to_bundle_helper(
+        artifact_export,
+        bundle_dir=bundle_dir,
     )
 
     bundle_payload = _prepare_bundle_infer_config_payload_helper(
@@ -310,6 +328,14 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
     reporter = get_active_train_progress_reporter()
     cfg = load_train_config(request)
     _validate_export_request(cfg, request)
+    if request.export_formats:
+        import pyimgano.services.export_service as export_service
+
+        export_service.preflight_train_export(
+            config=cfg,
+            formats=tuple(request.export_formats),
+            strict=bool(request.export_strict),
+        )
     recipe = RECIPE_REGISTRY.get(cfg.recipe)
     report = recipe(cfg)
 
@@ -322,6 +348,46 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
             reporter=reporter,
         )
 
+    artifact_export: dict[str, Any] | None = None
+    if request.export_formats:
+        import pyimgano.services.export_service as export_service
+
+        artifact_run_dir = _require_run_dir(report)
+        try:
+            artifact_export = export_service.export_from_run(
+                run_dir=str(artifact_run_dir),
+                formats=tuple(request.export_formats),
+                out_dir=(str(request.export_dir) if request.export_dir is not None else None),
+                category=(str(request.category) if request.category is not None else None),
+                verification_level=str(request.export_verification_level),
+                strict=bool(request.export_strict),
+                trust_checkpoint=bool(request.export_trust_checkpoint),
+                overwrite=bool(request.export_overwrite),
+            )
+        except Exception as exc:
+            failed_report = dict(report)
+            failed_report["artifact_export"] = {
+                "status": "failed",
+                "artifacts": [],
+                "failures": [{"reason": str(exc)}],
+            }
+            save_run_report(artifact_run_dir / "report.json", failed_report)
+            raise
+        report = dict(report)
+        report["artifact_export"] = dict(artifact_export)
+        save_run_report(artifact_run_dir / "report.json", report)
+        for item in artifact_export.get("artifacts", []) or []:
+            if isinstance(item, dict) and item.get("path") is not None:
+                reporter.on_artifact_written(
+                    kind=f"artifact_{item.get('format', 'runtime')}",
+                    path=str(item["path"]),
+                )
+        if str(artifact_export.get("status", "")).strip().lower() == "failed":
+            raise export_service.ExportServiceError(
+                "Artifact export produced no deployable result; the successful training run "
+                f"and failure report remain at {artifact_run_dir}."
+            )
+
     if bool(request.export_deploy_bundle):
         if infer_config_payload is None:
             raise RuntimeError(
@@ -330,7 +396,9 @@ def run_train_request(request: TrainRunRequest) -> dict[str, Any]:
         if run_dir is None:
             run_dir = _require_run_dir(report, deploy_bundle=True)
         bundle_dir = _export_deploy_bundle(
-            run_dir=run_dir, infer_config_payload=infer_config_payload
+            run_dir=run_dir,
+            infer_config_payload=infer_config_payload,
+            artifact_export=artifact_export,
         )
         report = dict(report)
         report["deploy_bundle_dir"] = str(bundle_dir)

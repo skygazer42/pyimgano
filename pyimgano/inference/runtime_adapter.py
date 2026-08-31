@@ -33,6 +33,42 @@ def _call_decision_function_best_effort(detector: Any, inputs: Sequence[Any]) ->
     return _call_with_numpy_batch_fallback(detector.decision_function, inputs)
 
 
+def _call_score_and_maps_hook(
+    detector: Any,
+    inputs: Sequence[Any],
+    *,
+    include_maps: bool,
+) -> Any | None:
+    hook = getattr(detector, "score_and_maps", None)
+    if not callable(hook):
+        return None
+    try:
+        return hook(inputs, include_maps=bool(include_maps))
+    except TypeError as exc:
+        # Compatibility for early detector hooks that accepted only the batch.
+        try:
+            return hook(inputs)
+        except TypeError:
+            raise exc
+
+
+def _normalize_hook_maps(maps: Any, *, n_expected: int) -> np.ndarray | list[np.ndarray] | None:
+    if maps is None:
+        return None
+    if isinstance(maps, (list, tuple)):
+        if len(maps) != n_expected:
+            raise ValueError(f"Expected {n_expected} anomaly maps, got {len(maps)}.")
+        normalized = [np.asarray(item, dtype=np.float32) for item in maps]
+        for item in normalized:
+            if item.ndim != 2:
+                raise ValueError(
+                    f"Expected each anomaly map to be 2D, got shape {tuple(item.shape)}."
+                )
+        if len({tuple(item.shape) for item in normalized}) > 1:
+            return normalized
+    return normalize_anomaly_maps(maps, n_expected=n_expected)
+
+
 def _normalize_extracted_maps(
     maps: Any,
     *,
@@ -75,10 +111,23 @@ def score_and_maps(
     inputs: Sequence[Any],
     *,
     include_maps: bool = True,
-) -> tuple[np.ndarray, np.ndarray | None]:
+) -> tuple[np.ndarray, np.ndarray | list[np.ndarray] | None]:
     n_expected = int(len(inputs))
     if n_expected == 0:
         return np.zeros((0,), dtype=np.float32), None
+
+    hooked = _call_score_and_maps_hook(
+        detector,
+        inputs,
+        include_maps=bool(include_maps),
+    )
+    if hooked is not None:
+        if not isinstance(hooked, (tuple, list)) or len(hooked) != 2:
+            raise TypeError("detector.score_and_maps() must return (scores, maps).")
+        scores_any, maps_any = hooked
+        scores = normalize_scores(scores_any, n_expected=n_expected)
+        maps = _normalize_hook_maps(maps_any, n_expected=n_expected) if include_maps else None
+        return scores, maps
 
     out = _call_decision_function_best_effort(detector, inputs)
     if isinstance(out, (tuple, list)) and len(out) == 2:

@@ -29,8 +29,10 @@ pip install pyimgano
 | Extra | 安装命令 | 功能 |
 |-------|---------|------|
 | `torch` | `pip install "pyimgano[torch]"` | 深度学习模型 / torchvision 骨干网络 |
-| `onnx` | `pip install "pyimgano[onnx]"` | ONNX Runtime 推理 / ONNX 导出 |
-| `openvino` | `pip install "pyimgano[openvino]"` | OpenVINO 推理 |
+| `onnx-runtime` | `pip install "pyimgano[onnx-runtime]"` | ONNX artifact 导入 / 推理（不安装 Torch） |
+| `onnx-export` | `pip install "pyimgano[onnx-export]"` | ONNX artifact 创建 / 推理 |
+| `openvino-runtime` | `pip install "pyimgano[openvino-runtime]"` | OpenVINO artifact 推理（不安装 Torch） |
+| `openvino-export` | `pip install "pyimgano[openvino-export]"` | OpenVINO artifact 创建 / 推理 |
 | `skimage` | `pip install "pyimgano[skimage]"` | SSIM / 相位相关 / scikit-image 基线 |
 | `numba` | `pip install "pyimgano[numba]"` | Numba 加速基线 |
 | `clip` | `pip install "pyimgano[clip]"` | OpenCLIP 后端 |
@@ -42,7 +44,8 @@ pip install pyimgano
 
 !!! tip "组合安装"
 
-    可同时安装多个 extras：`pip install "pyimgano[torch,onnx,skimage]"`
+    完整 artifact 创建和执行路径可安装 `pip install "pyimgano[deploy]"`。
+    `onnx` 与 `openvino` 作为兼容别名保留一个次要发布周期。
 
 ---
 
@@ -134,8 +137,9 @@ pyimgano-doctor --accelerators --json
 |------|---------|
 | CPU 模板检测基线 | `pip install pyimgano`（+ `[skimage]` 用于 SSIM/相位相关） |
 | GPU 异常热图 (PatchCore / SoftPatch / DINO) | `pip install "pyimgano[torch]"` |
-| 部署运行时 (ONNX) | `pip install "pyimgano[onnx]"` |
-| 部署运行时 (OpenVINO) | `pip install "pyimgano[openvino]"` |
+| 部署运行时 (ONNX) | `pip install "pyimgano[onnx-runtime]"` |
+| 部署运行时 (OpenVINO) | `pip install "pyimgano[openvino-runtime]"` |
+| 完整 artifact 创建与执行 | `pip install "pyimgano[deploy]"` |
 | 语义驱动基线 | `pip install "pyimgano[clip]"` |
 | 完整基准测试 | `pip install "pyimgano[benchmark]"` |
 

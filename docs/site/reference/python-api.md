@@ -46,27 +46,41 @@ model = create_model("patchcore", device="cuda")
 
 === "English"
 
-    Inference and threshold calibration interface.
+    Inference, verified artifact loading, and threshold calibration interface.
 
 ```python
-from pyimgano.inference import infer, infer_iter, calibrate_threshold
+from pyimgano.inference import calibrate_threshold, infer, infer_iter, load_artifact
 
-# 单次推理
-result = infer(model, image)
+# 批量推理
+results = infer(model, ["images/a.png"])
 
 # 迭代推理（批量）
-for result in infer_iter(model, image_dir):
+for result in infer_iter(model, image_paths):
     print(result.score, result.label)
 
 # 阈值校准
 threshold = calibrate_threshold(model, calibration_images)
+
+# 加载已校验、可迁移的 fitted artifact
+with load_artifact(
+    "./exports",
+    category="bottle",
+    format="native",
+) as artifact_model:
+    results = infer(artifact_model, ["images/a.png"])
 ```
 
 | 函数 | 说明 |
 |------|------|
-| `infer(model, image, **kwargs)` | 对单张图像执行推理，返回检测结果 |
-| `infer_iter(model, source, **kwargs)` | 迭代推理，逐张返回结果 |
-| `calibrate_threshold(model, images, **kwargs)` | 基于正常样本校准异常分数阈值 |
+| `infer(detector, inputs, **kwargs)` | 对输入序列推理，返回 `InferenceResult` 列表 |
+| `infer_iter(detector, inputs, **kwargs)` | 迭代推理，逐张返回结果 |
+| `calibrate_threshold(detector, images, **kwargs)` | 基于正常样本校准异常分数阈值 |
+| `load_artifact(path, **selectors)` | 校验 manifest/files 后返回 detector-compatible `ArtifactRuntime` |
+
+`load_artifact()` 接受单个 artifact、`artifact_manifest.json`、multi-format export root
+或含 `artifact_refs` 的 deploy bundle。可用 `category`、`format`、`backend` 选择唯一项；
+`artifact_id` 是不能与这些 selector 组合的精确内容 ID。ONNX 可额外传入有序
+`providers` 与 `session_options`。raw `.onnx` 文件必须先通过显式 import contract 导入。
 
 ---
 
@@ -84,13 +98,13 @@ threshold = calibrate_threshold(model, calibration_images)
 from pyimgano.inputs import ImageFormat, normalize_numpy_image
 
 # 将 OpenCV BGR 帧转换为标准格式
-normalized = normalize_numpy_image(frame, source_format=ImageFormat.BGR_U8_HWC)
+normalized = normalize_numpy_image(frame, input_format=ImageFormat.BGR_U8_HWC)
 ```
 
 | 符号 | 说明 |
 |------|------|
 | `ImageFormat` | 图像格式枚举（RGB_U8_HWC, BGR_U8_HWC 等） |
-| `normalize_numpy_image(image, source_format, **kwargs)` | 将任意格式图像归一化为模型期望格式 |
+| `normalize_numpy_image(image, input_format, **kwargs)` | 将显式格式图像归一化为 canonical RGB uint8 HWC |
 
 ---
 

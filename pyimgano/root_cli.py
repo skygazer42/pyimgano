@@ -17,7 +17,9 @@ from pyimgano.workflow_guidance import (
 _COMMANDS: dict[str, tuple[str, str]] = {
     "benchmark": ("pyimgano.cli", "Benchmarking, suites, and benchmark discovery."),
     "bundle": ("pyimgano.bundle_cli", "Deploy bundle validation and offline execution."),
+    "artifact": ("pyimgano.artifact_cli", "Import, inspect, and rebind executable artifacts."),
     "evaluate": ("pyimgano.evaluate_cli", "Full-model evaluation harness across datasets."),
+    "export": ("pyimgano.export_cli", "Export fitted detectors from persisted runs."),
     "infer": ("pyimgano.infer_cli", "Inference, deploy bundles, and model discovery."),
     "train": ("pyimgano.train_cli", "Workbench training and artifact export."),
     "runs": ("pyimgano.runs_cli", "Run indexing, comparison, and quality gates."),

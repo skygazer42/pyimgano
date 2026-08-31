@@ -8,7 +8,13 @@ from typing import Any, Optional, Sequence
 
 import numpy as np
 
-from pyimgano.inference.api import InferenceResult, InferenceTiming
+from pyimgano.inference.api import (
+    INFERENCE_UNSET,
+    InferenceResult,
+    InferenceTiming,
+    _InferenceUnset,
+    _resolve_inference_default,
+)
 from pyimgano.inference.decision_summary import maybe_build_decision_summary
 from pyimgano.inference.runtime_adapter import extract_maps_best_effort, score_and_maps
 from pyimgano.inference.runtime_support import (
@@ -146,16 +152,43 @@ def iter_inference_records(
     inputs: Sequence[ImageInput],
     input_format: str | ImageFormat | None = None,
     u16_max: int | None = None,
-    include_maps: bool = False,
-    include_confidence: bool = False,
-    reject_confidence_below: float | None = None,
-    reject_label: int | None = None,
-    postprocess: AnomalyMapPostprocess | None = None,
-    postprocess_summary: dict[str, Any] | None = None,
+    include_maps: bool | _InferenceUnset = INFERENCE_UNSET,
+    include_confidence: bool | _InferenceUnset = INFERENCE_UNSET,
+    reject_confidence_below: float | None | _InferenceUnset = INFERENCE_UNSET,
+    reject_label: int | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess: AnomalyMapPostprocess | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess_summary: dict[str, Any] | None | _InferenceUnset = INFERENCE_UNSET,
     batch_size: int | None = None,
     amp: bool = False,
     timing: InferenceTiming | None = None,
 ):
+    include_maps = bool(
+        _resolve_inference_default(detector, "include_maps", include_maps, library_default=False)
+    )
+    include_confidence = bool(
+        _resolve_inference_default(
+            detector, "include_confidence", include_confidence, library_default=False
+        )
+    )
+    reject_confidence_below = _resolve_inference_default(
+        detector,
+        "reject_confidence_below",
+        reject_confidence_below,
+        library_default=None,
+    )
+    reject_label = _resolve_inference_default(
+        detector, "reject_label", reject_label, library_default=None
+    )
+    postprocess = _resolve_inference_default(
+        detector, "postprocess", postprocess, library_default=None
+    )
+    postprocess_summary = _resolve_inference_default(
+        detector,
+        "postprocess_summary",
+        postprocess_summary,
+        library_default=None,
+    )
+
     normalized = _normalize_inputs(inputs, input_format=input_format, u16_max=u16_max)
     threshold = getattr(detector, "threshold_", None)
     rejection_threshold = _resolve_rejection_threshold(reject_confidence_below)
@@ -256,12 +289,12 @@ def run_inference(
     inputs: Sequence[ImageInput],
     input_format: str | ImageFormat | None = None,
     u16_max: int | None = None,
-    include_maps: bool = False,
-    include_confidence: bool = False,
-    reject_confidence_below: float | None = None,
-    reject_label: int | None = None,
-    postprocess: AnomalyMapPostprocess | None = None,
-    postprocess_summary: dict[str, Any] | None = None,
+    include_maps: bool | _InferenceUnset = INFERENCE_UNSET,
+    include_confidence: bool | _InferenceUnset = INFERENCE_UNSET,
+    reject_confidence_below: float | None | _InferenceUnset = INFERENCE_UNSET,
+    reject_label: int | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess: AnomalyMapPostprocess | None | _InferenceUnset = INFERENCE_UNSET,
+    postprocess_summary: dict[str, Any] | None | _InferenceUnset = INFERENCE_UNSET,
     batch_size: int | None = None,
     amp: bool = False,
 ) -> InferenceRunResult:

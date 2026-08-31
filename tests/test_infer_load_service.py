@@ -114,3 +114,37 @@ def test_load_config_backed_infer_detector_merges_context_base_user_kwargs() -> 
     assert created["name"] == "vision_ecod"
     assert created["kwargs"]["n_jobs"] == 2
     assert created["kwargs"]["eps"] == pytest.approx(0.05)
+
+
+def test_config_backed_embedding_model_keeps_source_graph_separate_from_fitted_state() -> None:
+    created: dict[str, object] = {}
+    loaded: list[str] = []
+
+    load_config_backed_infer_detector(
+        ConfigBackedInferLoadRequest(
+            context=ConfigBackedInferContext(
+                model_name="vision_torchscript_ecod",
+                preset=None,
+                device="cpu",
+                contamination=0.1,
+                pretrained=False,
+                base_user_kwargs={"batch_size": 4, "image_size": 16},
+                checkpoint_path="/tmp/source-embedding.pt",
+                trained_checkpoint_path="/tmp/fitted-core.pyim",
+                threshold=None,
+                defects_payload=None,
+                prediction_payload=None,
+                defects_payload_source=None,
+                illumination_contrast_knobs=None,
+                tiling_payload=None,
+                infer_config_postprocess=None,
+                warnings=(),
+            )
+        ),
+        create_detector=lambda name, **kwargs: created.update(name=str(name), kwargs=dict(kwargs))
+        or object(),
+        load_checkpoint=lambda detector, path: loaded.append(path),
+    )
+
+    assert created["kwargs"]["checkpoint_path"] == "/tmp/source-embedding.pt"
+    assert loaded == ["/tmp/fitted-core.pyim"]

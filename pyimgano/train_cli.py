@@ -139,6 +139,35 @@ def _build_parser() -> argparse.ArgumentParser:
             "Requires output.save_run=true."
         ),
     )
+    parser.add_argument(
+        "--export-format",
+        action="append",
+        choices=("native", "onnx", "torchscript", "openvino"),
+        default=None,
+        help="Export a fitted artifact after training. Repeat for multiple formats.",
+    )
+    parser.add_argument(
+        "--export-dir",
+        default=None,
+        help="Artifact output root. Default: <run>/artifacts/exported.",
+    )
+    parser.add_argument(
+        "--export-verification-level",
+        choices=("reference-parity", "end-to-end"),
+        default="reference-parity",
+        help="Strengthen mandatory parity validation; it cannot disable verification.",
+    )
+    parser.add_argument(
+        "--export-non-strict",
+        action="store_true",
+        help="Allow verified formats to publish when another requested format fails.",
+    )
+    parser.add_argument(
+        "--export-trust-checkpoint",
+        action="store_true",
+        help="Allow an integrity-verified executable/trust-required checkpoint.",
+    )
+    parser.add_argument("--export-overwrite", action="store_true")
 
     # Optional overrides (applied after loading --config).
     parser.add_argument("--dataset", default=None, help="Override dataset.name from config")
@@ -174,6 +203,12 @@ def _build_train_request(args: argparse.Namespace) -> train_service.TrainRunRequ
         ),
         export_infer_config=bool(args.export_infer_config),
         export_deploy_bundle=bool(args.export_deploy_bundle),
+        export_formats=tuple(str(item) for item in (args.export_format or ())),
+        export_dir=(str(args.export_dir) if args.export_dir is not None else None),
+        export_verification_level=str(args.export_verification_level).replace("-", "_"),
+        export_strict=not bool(args.export_non_strict),
+        export_trust_checkpoint=bool(args.export_trust_checkpoint),
+        export_overwrite=bool(args.export_overwrite),
     )
 
 

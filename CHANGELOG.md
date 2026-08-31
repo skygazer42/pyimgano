@@ -7,11 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-31
+
+### Added
+
+- Added schema-v1 trained artifacts with immutable manifests, artifact-local
+  inference policy, content identity, component hashes, verification evidence,
+  and relocatable native, ONNX, TorchScript, and OpenVINO runtime layouts.
+- Added the public `pyimgano.artifacts` creation/validation API,
+  `pyimgano.inference.load_artifact`, and the `pyimgano-export` and
+  `pyimgano-artifact` console scripts.
+- Added explicit `onnx-runtime`, `onnx-export`, `openvino-runtime`, and
+  `openvino-export` dependency profiles so ONNX/OpenVINO execution does not
+  require Torch.
+- Added an independent, reusable wheel-first release gate for the four declared
+  artifact formats, documentation commands, console scripts, and security
+  negative tests. The publish workflow uploads the wheel that passed this gate.
+- Added source-locked ECOD composite artifacts: `vision_onnx_ecod` is certified
+  only for an ONNX embedding graph plus safe fitted core, while
+  `vision_torchscript_ecod` is certified only for the equivalent TorchScript
+  composite. Wheel-first E2E jobs relocate, reload, and parity-check both paths.
+
 ### Changed
 
 - Raised the supported Python floor from 3.8 to 3.9 and migrated package
   licensing metadata to the current PEP 639/SPDX form required by modern
   setuptools.
+- Trained deployment now uses a canonical export-from-run path and a manifest
+  loader. Raw ONNX files require an explicit versioned import contract instead
+  of inferred preprocessing or anomaly-score semantics.
+- The release-certified artifact matrix is Ubuntu x86_64, Python 3.10, and CPU:
+  native `pyimgano`, ONNX `CPUExecutionProvider`, TorchScript CPU, and OpenVINO
+  CPU. Other project compatibility cells are not artifact release-certified.
+
+### Deprecated
+
+- `pyimgano-export-onnx` and `pyimgano-export-torchscript` remain available as
+  embedding/backbone exporters, but are deprecated for fitted-detector
+  deployment. Use `pyimgano-export`; the legacy commands remain throughout the
+  0.10.x line and are eligible for removal no earlier than 0.11.0.
+- The `onnx` and `openvino` extras remain compatibility aliases throughout the
+  0.10.x line. New environments should use the creation/runtime-specific extras;
+  the aliases are eligible for removal no earlier than 0.11.0.
+
+### Security
+
+- Artifact loading rejects path traversal, absolute/external component paths,
+  symlink escapes, size/hash tampering, future schemas, and executable checkpoint
+  deserialization unless the caller explicitly opts into the verified
+  `trust_checkpoint` boundary.
+- TorchScript single-graph and composite artifacts require explicit
+  `--trust-checkpoint` / `trust_checkpoint=True` at load time. This reflects the
+  upstream `torch.jit.load` arbitrary-code risk; a verified digest establishes
+  integrity, not trust in the graph's author.
+
+### Migration
+
+- Existing fitted runs should be migrated with `pyimgano-export --from-run ...`.
+  The explicit `load_legacy_artifact(..., allow_legacy=True)` bridge emits
+  `LegacyArtifactWarning`; it does not grant schema-v1 closure or identity.
 
 ## [0.9.1] - 2026-05-03
 
@@ -1105,7 +1159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Minor**: New features, backward compatible
 - **Patch**: Bug fixes, backward compatible
 
-[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/skygazer42/pyimgano/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.10.0
 [0.9.1]: https://github.com/skygazer42/pyimgano/releases/tag/v0.9.1
 [0.9.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.9.0
 [0.8.0]: https://github.com/skygazer42/pyimgano/releases/tag/v0.8.0

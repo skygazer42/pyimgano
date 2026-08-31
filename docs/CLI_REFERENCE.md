@@ -8,6 +8,8 @@ PyImgAno provides the following CLIs:
 - `pyimgano-runs` — inspect and compare saved benchmark/workbench runs
 - `pyimgano-demo` — minimal offline demo (creates a tiny custom dataset + runs a suite/sweep)
 - `pyimgano-train` — recipe-driven workbench runs (adaptation-first; optional micro-finetune)
+- `pyimgano-export` — verified fitted-detector export from a persisted run
+- `pyimgano-artifact` — import, inspect, validate, and policy-bind executable artifacts
 - `pyimgano-infer` — JSONL inference over images/videos (path-driven)
 - `pyimgano-defects` — standalone anomaly-map → mask → regions defects export
 - `pyimgano-robust-benchmark` — robustness evaluation (clean + corruptions)
@@ -532,6 +534,41 @@ Notes:
   `pyimgano-benchmark`: `1 - contamination` when available, else `0.995`).
 - Pass `--calibration-quantile Q` to override the quantile explicitly.
 
+### Verified Artifact Runtime
+
+Load a single artifact, an `artifact_manifest.json`, a multi-format export root,
+or a deploy bundle:
+
+```bash
+pyimgano-infer \
+  --artifact ./exports \
+  --artifact-category bottle \
+  --artifact-format onnx \
+  --artifact-backend onnxruntime \
+  --input /path/to/inputs \
+  --save-jsonl out.jsonl
+```
+
+- `--artifact-category`, `--artifact-format`, and `--artifact-backend` narrow a
+  multi-artifact source to one runtime. Ambiguity is an error.
+- `--artifact-id sha256:...` is an exact selector and cannot be combined with
+  category, format, or backend selectors.
+- `--onnx-providers` is a comma-separated priority order. Optional
+  `--onnx-provider-options` is a JSON object keyed by selected provider and
+  requires `--onnx-providers`.
+- `--onnx-session-options` is a JSON object of supported ONNX Runtime session
+  settings.
+- Artifact mode rejects model reconstruction and training overrides. The
+  manifest and artifact-local policy own those decisions.
+- Raw `.onnx` files are rejected. Import them once with `pyimgano-artifact
+  import` and an explicit versioned preprocessing/output contract.
+- `--trust-checkpoint` is off by default. It is required for every TorchScript
+  artifact (`single_graph` and `composite`) and any other executable state, and
+  must only be enabled after provenance review. PyTorch documents that
+  [`torch.jit.load`](https://docs.pytorch.org/docs/stable/generated/torch.jit.load.html)
+  can execute code from a malicious model; an artifact digest does not make an
+  untrusted graph safe.
+
 ### Model Presets (Shortcuts)
 
 Presets are just **named (model + kwargs)** pairs that keep industrial command lines short while staying reproducible.
@@ -829,6 +866,15 @@ Notes:
   `handoff_report.json` is validated as part of the deploy-bundle handoff contract.
 - `validate --json` also reports `watch_command` so wrappers can surface the hot-folder runtime path separately from the one-shot `run` path.
 - `run` executes offline inference from the bundle and writes `results.jsonl` plus `run_report.json` under `--output-dir`.
+- A bundle with `bundle_manifest.json.artifact_refs` loads the selected verified
+  artifact and its authoritative local policy. Legacy bundles without those
+  references retain the root `infer_config.json` fallback.
+- For multiple artifact choices, use `--artifact-category`, `--artifact-format`,
+  or `--artifact-backend`; `--artifact-id` is an exact selector. ONNX bundle
+  routes also accept `--onnx-providers`, `--onnx-provider-options`, and
+  `--onnx-session-options`.
+- A selected TorchScript single-graph or composite artifact requires
+  `--trust-checkpoint` for `run` and `watch`, after provenance review.
 - `watch` polls `--watch-dir`, waits for files to stay stable for `--settle-seconds`, and appends stable inputs to aggregate watch artifacts under `--output-dir`.
 - `watch` writes `results.jsonl`, `watch_report.json`, `watch_state.json`, and `watch_events.jsonl`; when requested it also writes `masks/`, `overlays/`, and `defects_regions.jsonl`.
 - `watch_state.json` stores the per-file fingerprint/state ledger so already-processed and failed fingerprints are not retried until the file changes.
@@ -889,6 +935,10 @@ Common outputs:
   - deploy bundles also include `calibration_card.json` when it exists in the run artifacts
   - Validate the bundle with: `pyimgano-validate-infer-config deploy_bundle/infer_config.json`
 - See `docs/CALIBRATION_AUDIT.md` for how to review threshold provenance, score summaries, and split context.
+- `--export-format native|onnx|torchscript|openvino` is repeatable and invokes
+  the canonical fitted-detector exporter after training. When combined with
+  `--export-deploy-bundle`, complete artifact roots are copied into the bundle
+  and indexed by `bundle_manifest.json.artifact_refs`.
 
 ### Artifact layout
 
@@ -1014,9 +1064,94 @@ Notes:
 
 ---
 
-## `pyimgano-export-torchscript`
+## `pyimgano-export`
 
-Export a torchvision backbone (classification head stripped) as a TorchScript `.pt` file.
+Restore a fitted detector from a completed run and publish a verified,
+relocatable artifact transaction:
+
+```bash
+pyimgano-export \
+  --from-run runs/<run_dir> \
+  --format native \
+  --out ./exports
+```
+
+Important flags:
+
+- `--format native|onnx|torchscript|openvino` is repeatable; the default is
+  `native`.
+- `--category` selects one category from a multi-category run.
+- `--verification-level reference-parity|end-to-end` defaults to mandatory
+  reference parity. `end-to-end` strengthens verification; it does not disable
+  the mandatory probe.
+- The transaction is strict by default. `--non-strict` publishes only formats
+  that pass when another requested format is unsupported or fails.
+- `--overwrite` is required to replace an existing output.
+- `--trust-checkpoint` explicitly permits an integrity-verified checkpoint
+  marked as executable/trust-required.
+
+Support is declared per model/format by the fitted-export adapter registry. Use
+`pyimgano-benchmark --model-info MODEL --json` and inspect
+`capabilities.trained_export`; runtime-consumption tags are not export support.
+The current schema-v1 certification matrix is model- and layout-specific:
+
+| Model | Native | ONNX | TorchScript | OpenVINO |
+|---|---|---|---|---|
+| `ae_resnet_unet` | supported native detector | conditional single graph | conditional single graph | conditional single graph |
+| `vision_onnx_ecod` | unsupported | conditional composite | unsupported | unsupported |
+| `vision_torchscript_ecod` | unsupported | unsupported | conditional composite | unsupported |
+| `vision_patchcore` | unsupported | unsupported | unsupported | unsupported |
+
+The ECOD rows require the canonical wrapper, its exact local embedding graph,
+and a complete checkpoint certified against that graph. They package a
+score-only safe fitted core and do not cross-convert ONNX and TorchScript.
+TorchScript export may require `--trust-checkpoint` to restore executable source
+state, and every later TorchScript artifact load also requires the CLI flag or
+`load_artifact(..., trust_checkpoint=True)`. The release-tested matrix is Ubuntu
+x86_64, Python 3.10, CPU (`CPUExecutionProvider` for ONNX); other platform cells
+are not release-certified by this gate.
+
+## `pyimgano-artifact`
+
+Import a third-party ONNX graph with an explicit versioned semantics contract:
+
+```bash
+pyimgano-artifact import \
+  --format onnx \
+  --model ./model.onnx \
+  --contract ./onnx-contract.json \
+  --out ./imported-artifact
+```
+
+The contract must use `schema_family=pyimgano-onnx-import` and
+`schema_version=1`, and declare the image input name/dtype/layout/color/size,
+resize/scale/normalization behavior, plus a named score output, transform, and
+score order. Tensor shapes alone do not define anomaly semantics. Optional
+`outputs.anomaly_map` declares map name/layout/channel and source resizing.
+
+Other commands:
+
+```bash
+pyimgano-artifact inspect ./artifact --json
+pyimgano-artifact validate ./artifact --json
+pyimgano-artifact bind-policy \
+  --artifact ./artifact --policy ./infer-policy.json --out ./production-artifact
+```
+
+An import without `--policy` is score-only and receives `runtime_smoke`
+verification. `bind-policy` clones the immutable runtime with a separately
+validated policy; it does not mutate the source artifact.
+
+See `docs/TRAINED_ARTIFACTS.md` for the complete contract JSON and Python
+`load_artifact()` examples.
+
+---
+
+## `pyimgano-export-torchscript` (legacy embedding exporter)
+
+Export a torchvision backbone (classification head stripped) as a TorchScript
+`.pt` file. This does **not** export fitted detector state or create
+`artifact_manifest.json`; use `pyimgano-export` for trained artifacts.
 
 Requires:
 
@@ -1037,14 +1172,16 @@ Notes:
 
 ---
 
-## `pyimgano-export-onnx`
+## `pyimgano-export-onnx` (legacy embedding exporter)
 
-Export a torchvision backbone (classification head stripped) as an ONNX `.onnx` file.
+Export a torchvision backbone (classification head stripped) as an ONNX `.onnx`
+file. This does **not** export fitted detector state or create
+`artifact_manifest.json`; use `pyimgano-export` for trained artifacts.
 
 Requires:
 
 - `pip install "pyimgano[torch]"` (export)
-- `pip install "pyimgano[onnx]"` (recommended; needed for `--verify`, and required by newer `torch.onnx.export` flows via `onnxscript`)
+- `pip install "pyimgano[onnx-export]"` (ONNX tooling, Runtime verification, and `onnxscript`)
 
 Example (offline-safe):
 

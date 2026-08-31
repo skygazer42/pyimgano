@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
+
+from pyimgano.exporting.types import (
+    CheckpointCompleteness,
+    CheckpointContract,
+    SerializationKind,
+)
 
 
 def save_checkpoint(detector: Any, path: str | Path) -> Path:
@@ -62,3 +68,73 @@ def save_checkpoint(detector: Any, path: str | Path) -> Path:
             "- a detector state containing safe structured values\n"
             "- a joblib-serializable detector object\n"
         ) from exc
+
+
+def inspect_checkpoint_contract(path: str | Path) -> CheckpointContract:
+    """Return persisted checkpoint evidence without upgrading unknown state."""
+
+    from pyimgano.exporting.state_codec import inspect_checkpoint_contract as inspect
+
+    return inspect(path)
+
+
+def build_checkpoint_contract(
+    path: str | Path,
+    *,
+    codec_id: str,
+    codec_version: int,
+    adapter_id: str,
+    adapter_version: int,
+    model_config: Mapping[str, Any],
+    state_schema_version: int,
+    roundtrip_verified: bool,
+    roundtrip: Mapping[str, Any],
+    serialization: SerializationKind = SerializationKind.SAFE_DATA,
+    requires_trust: bool = False,
+) -> CheckpointContract:
+    """Build explicit evidence after save/probe; never infer it from loading."""
+
+    import hashlib
+
+    from pyimgano.artifacts import canonical_json_bytes
+    from pyimgano.exporting.writer import sha256_file
+
+    checkpoint = Path(path)
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+    fingerprint = "sha256:" + hashlib.sha256(canonical_json_bytes(dict(model_config))).hexdigest()
+    return CheckpointContract(
+        completeness=(
+            CheckpointCompleteness.COMPLETE
+            if bool(roundtrip_verified)
+            else CheckpointCompleteness.PARTIAL
+        ),
+        codec_id=str(codec_id),
+        codec_version=int(codec_version),
+        adapter_id=str(adapter_id),
+        adapter_version=int(adapter_version),
+        model_config_fingerprint=fingerprint,
+        state_schema_version=int(state_schema_version),
+        serialization=serialization,
+        requires_trust=bool(requires_trust),
+        size_bytes=int(checkpoint.stat().st_size),
+        sha256=sha256_file(checkpoint),
+        roundtrip_verified=bool(roundtrip_verified),
+        roundtrip=dict(roundtrip),
+    )
+
+
+def failed_checkpoint_contract(reason: str) -> CheckpointContract:
+    return CheckpointContract(
+        completeness=CheckpointCompleteness.FAILED,
+        roundtrip_verified=False,
+        failure_reason=str(reason),
+    )
+
+
+__all__ = [
+    "build_checkpoint_contract",
+    "failed_checkpoint_contract",
+    "inspect_checkpoint_contract",
+    "save_checkpoint",
+]

@@ -17,19 +17,25 @@ Goals:
 | What you want | Install |
 |--------------|---------|
 | Deep models / torchvision backbones | `pip install "pyimgano[torch]"` |
-| ONNX Runtime inference / ONNX export | `pip install "pyimgano[onnx]"` |
-| OpenVINO inference | `pip install "pyimgano[openvino]"` |
+| ONNX artifact import/inference (no Torch) | `pip install "pyimgano[onnx-runtime]"` |
+| ONNX artifact creation + inference | `pip install "pyimgano[onnx-export]"` |
+| OpenVINO artifact inference (no Torch) | `pip install "pyimgano[openvino-runtime]"` |
+| OpenVINO artifact creation + inference | `pip install "pyimgano[openvino-export]"` |
 | SSIM / phase-correlation / scikit-image baselines | `pip install "pyimgano[skimage]"` |
 | Numba-accelerated baselines | `pip install "pyimgano[numba]"` |
 | OpenCLIP backends | `pip install "pyimgano[clip]"` |
 | Faster kNN (memory-bank methods) | `pip install "pyimgano[faiss]"` |
 | anomalib checkpoint wrappers | `pip install "pyimgano[anomalib]"` |
 | Common backends bundle | `pip install "pyimgano[backends]"` |
+| Complete artifact creation/runtime path | `pip install "pyimgano[deploy]"` |
 | Everything (dev/docs/viz + all backends) | `pip install "pyimgano[all]"` |
 
 Notes:
 
 - Some extras imply others (for example `pyimgano[clip]` includes `pyimgano[torch]`).
+- `onnx` and `openvino` remain compatibility aliases for the 0.10 release line.
+  Prefer the explicit `*-runtime` or `*-export` profile in new environments so
+  runtime-only images do not install Torch unnecessarily.
 - Some third-party backends are not on PyPI (example: `patchcore-inspection`); install those separately.
 
 ---
@@ -69,8 +75,9 @@ This is intentional: it keeps `pip install pyimgano` usable and avoids surprise
 |------------|----------------|
 | CPU-only “template inspection” baselines | `pip install pyimgano` (+ `pyimgano[skimage]` if you want SSIM/phase-corr) |
 | GPU anomaly maps (PatchCore / SoftPatch / DINO-based) | `pip install "pyimgano[torch]"` |
-| Deployment runtime (ONNX) | `pip install "pyimgano[onnx]"` |
-| Deployment runtime (OpenVINO) | `pip install "pyimgano[openvino]"` |
+| Deployment runtime (ONNX, no Torch) | `pip install "pyimgano[onnx-runtime]"` |
+| Deployment runtime (OpenVINO, no Torch) | `pip install "pyimgano[openvino-runtime]"` |
+| Export and run every supported artifact backend | `pip install "pyimgano[deploy]"` |
 | Semantics-driven baselines | `pip install "pyimgano[clip]"` |
 
 ---

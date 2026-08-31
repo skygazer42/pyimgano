@@ -13,14 +13,17 @@ def require_run_dir(report: dict[str, Any], *, deploy_bundle: bool = False) -> P
     if run_dir_raw is None:
         if deploy_bundle:
             raise ValueError("--export-deploy-bundle requires recipe output to include run_dir.")
-        raise ValueError(
-            "--export-infer-config/--export-deploy-bundle require recipe output to include run_dir."
-        )
+        raise ValueError("Artifact export requires recipe output to include run_dir.")
     return Path(str(run_dir_raw))
 
 
 def validate_export_request(cfg: Any, request: Any) -> None:
-    if not (bool(request.export_infer_config) or bool(request.export_deploy_bundle)):
+    has_trained_artifact_export = bool(getattr(request, "export_formats", ()))
+    if not (
+        bool(request.export_infer_config)
+        or bool(request.export_deploy_bundle)
+        or has_trained_artifact_export
+    ):
         return
     if (
         bool(request.export_deploy_bundle)
@@ -33,7 +36,8 @@ def validate_export_request(cfg: Any, request: Any) -> None:
         )
     if not bool(cfg.output.save_run):
         raise ValueError(
-            "--export-infer-config/--export-deploy-bundle require output.save_run=true."
+            "Infer-config, deploy-bundle, and trained artifact export require "
+            "output.save_run=true."
         )
 
 
@@ -70,6 +74,36 @@ def copy_deploy_bundle_supporting_files(
     operator_contract_src = run_dir / "artifacts" / str(operator_contract_filename)
     if operator_contract_src.exists():
         shutil.copy2(operator_contract_src, bundle_dir / str(operator_contract_filename))
+
+
+def copy_exported_artifacts_to_bundle(
+    artifact_export: dict[str, Any] | None,
+    *,
+    bundle_dir: Path,
+) -> Path | None:
+    """Copy a completed runtime export transaction into a deploy bundle.
+
+    The export index and each artifact manifest stay together so bundle loading can
+    select a category/format without reaching back into the training run.
+    """
+
+    if not isinstance(artifact_export, dict):
+        return None
+    output_dir = artifact_export.get("output_dir", None)
+    artifacts = artifact_export.get("artifacts", None)
+    if output_dir is None or not isinstance(artifacts, list) or not artifacts:
+        return None
+    source = Path(str(output_dir)).resolve()
+    if not source.is_dir():
+        raise FileNotFoundError(f"Exported artifact directory not found: {source}")
+    for path in source.rglob("*"):
+        if path.is_symlink():
+            raise ValueError(f"Exported artifact tree must not contain symlinks: {path}")
+    destination = bundle_dir / "artifacts"
+    if destination.exists():
+        raise FileExistsError(f"Deploy bundle artifact directory already exists: {destination}")
+    shutil.copytree(source, destination)
+    return destination
 
 
 def prepare_bundle_infer_config_payload(
@@ -235,6 +269,7 @@ __all__ = [
     "apply_bundle_manifest_metadata",
     "build_optional_calibration_card_payload",
     "copy_deploy_bundle_supporting_files",
+    "copy_exported_artifacts_to_bundle",
     "prepare_bundle_infer_config_payload",
     "require_run_dir",
     "rewrite_bundle_paths",

@@ -16,6 +16,40 @@ title: 更新日志
 
 ---
 
+## v0.10.0 — 2026-08-31
+
+### 训练产物运行时 / Trained Artifact Runtime
+
+=== "中文"
+
+    - 新增 schema v1 训练产物：manifest、产物本地推理策略、内容哈希、验证证据与可搬迁布局
+    - `pyimgano-export` 从已持久化 run 导出 fitted detector；`pyimgano-artifact` 导入、检查、校验与绑定策略
+    - 支持 native、ONNX、TorchScript 与 OpenVINO 运行时布局；ONNX/OpenVINO runtime-only 安装不会引入 Torch
+    - 加载器默认拒绝路径逃逸、符号链接、大小/哈希篡改、未来 schema 与未显式信任的可执行 checkpoint
+
+=== "English"
+
+    - Added schema-v1 trained artifacts with manifests, artifact-local inference policy, content hashes, verification evidence, and relocatable layouts
+    - `pyimgano-export` exports a fitted detector from a persisted run; `pyimgano-artifact` imports, inspects, validates, and policy-binds artifacts
+    - Added native, ONNX, TorchScript, and OpenVINO runtime layouts; ONNX/OpenVINO runtime-only installs do not pull Torch
+    - The loader rejects path escape, symlinks, size/hash tampering, future schemas, and executable checkpoints without explicit trust
+
+### 发布与迁移 / Release and Migration
+
+=== "中文"
+
+    - CI 与发布流程共用独立 wheel-first 四后端 gate；PyPI 上传的是通过该 gate 的同一个 wheel
+    - 0.10.0 发布认证矩阵为 Ubuntu x86_64、Python 3.10、CPU（ONNX 使用 `CPUExecutionProvider`）
+    - 旧 backbone exporter 与 `onnx` / `openvino` 兼容 extras 在整个 0.10.x 保留，最早在 0.11.0 移除
+
+=== "English"
+
+    - CI and publishing share an independent wheel-first four-backend gate; PyPI receives the same wheel that passed it
+    - The 0.10.0 release-certified matrix is Ubuntu x86_64, Python 3.10, and CPU (`CPUExecutionProvider` for ONNX)
+    - Legacy backbone exporters and the `onnx` / `openvino` compatibility extras remain throughout 0.10.x and cannot be removed before 0.11.0
+
+---
+
 ## v0.9.1 — 2026-05-03
 
 ### 发布对齐 / Release Alignment

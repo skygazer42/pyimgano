@@ -13,6 +13,7 @@ from pyimgano.serialization.safe_checkpoint import (
 
 DETECTOR_STATE_FORMAT = "pyimgano.detector-state"
 DETECTOR_STATE_VERSION = 1
+DETECTOR_STATE_COMPLETENESS = "unknown"
 
 
 def _detector_type_name(detector: Any) -> str:
@@ -21,10 +22,13 @@ def _detector_type_name(detector: Any) -> str:
 
 
 def save_safe_detector_state(detector: Any, path: str | Path) -> Path:
-    """Save an allowlisted detector ``__dict__`` without executable pickle data.
+    """Save legacy structured detector state without executable pickle data.
 
-    This deliberately fails for fitted state containing unsupported Python
-    objects. Callers may then use an explicitly trusted legacy serializer.
+    This compatibility format is always marked ``completeness=unknown``.  Generic
+    ``__dict__`` replay cannot certify that every fitted field is present and must
+    never be promoted to a trained-export checkpoint merely because it loads.
+    New portable artifacts use registered codecs from
+    :mod:`pyimgano.exporting.state_codec` instead.
     """
 
     state = getattr(detector, "__dict__", None)
@@ -34,6 +38,7 @@ def save_safe_detector_state(detector: Any, path: str | Path) -> Path:
         {
             "format": DETECTOR_STATE_FORMAT,
             "version": DETECTOR_STATE_VERSION,
+            "completeness": DETECTOR_STATE_COMPLETENESS,
             "detector_type": _detector_type_name(detector),
             "state": dict(state),
         },
@@ -69,9 +74,28 @@ def load_safe_detector_state(detector: Any, path: str | Path) -> None:
     target_state.update(dict(state))
 
 
+def inspect_safe_detector_state(path: str | Path) -> dict[str, Any]:
+    """Return non-executable metadata without upgrading legacy completeness."""
+
+    payload = load_safe_checkpoint(path)
+    if payload.get("format") != DETECTOR_STATE_FORMAT:
+        raise SafeCheckpointError("Checkpoint is not a detector-state archive.")
+    if int(payload.get("version", -1)) != DETECTOR_STATE_VERSION:
+        raise SafeCheckpointError("Unsupported detector-state archive version.")
+    return {
+        "format": DETECTOR_STATE_FORMAT,
+        "version": DETECTOR_STATE_VERSION,
+        "completeness": DETECTOR_STATE_COMPLETENESS,
+        "detector_type": str(payload.get("detector_type", "")),
+        "serialization": "safe-data",
+    }
+
+
 __all__ = [
     "DETECTOR_STATE_FORMAT",
+    "DETECTOR_STATE_COMPLETENESS",
     "DETECTOR_STATE_VERSION",
+    "inspect_safe_detector_state",
     "load_safe_detector_state",
     "save_safe_detector_state",
 ]

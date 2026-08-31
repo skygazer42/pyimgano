@@ -141,7 +141,11 @@ def load_config_backed_infer_detector(
             user_kwargs=request.user_kwargs,
         ),
         auto_kwargs=auto_kwargs,
-        checkpoint_path=None,
+        # This is the model's external/source component (for example an ONNX
+        # embedding graph), not the separately persisted fitted-state checkpoint.
+        checkpoint_path=(
+            str(context.checkpoint_path) if context.checkpoint_path is not None else None
+        ),
     )
     enforce_checkpoint_requirement(
         model_name=model_name,

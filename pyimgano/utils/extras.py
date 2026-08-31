@@ -19,8 +19,22 @@ from pyimgano.utils.optional_deps import optional_import
 EXTRA_ROOT_MODULES: dict[str, tuple[str, ...]] = {
     # Base extras
     "torch": ("torch", "torchvision"),
-    "onnx": ("onnxruntime", "onnx", "onnxscript"),
+    "onnx": ("torch", "torchvision", "onnxruntime", "onnx", "onnxscript"),
     "openvino": ("openvino",),
+    # Creation/execution-specific artifact profiles. The compatibility aliases
+    # stay above these entries so missing-root hints remain stable for one
+    # release line (for example, an old caller still sees ``pyimgano[onnx]``).
+    "onnx-runtime": ("onnxruntime", "onnx"),
+    "onnx-export": ("torch", "torchvision", "onnxruntime", "onnx", "onnxscript"),
+    "openvino-runtime": ("openvino",),
+    "openvino-export": (
+        "torch",
+        "torchvision",
+        "onnxruntime",
+        "onnx",
+        "onnxscript",
+        "openvino",
+    ),
     "skimage": ("skimage",),
     "numba": ("numba",),
     "diffusion": ("diffusers", "transformers", "accelerate", "torch"),

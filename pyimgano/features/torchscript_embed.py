@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -270,7 +271,13 @@ class TorchscriptEmbedExtractor(BaseFeatureExtractor):
         dev = _make_device(torch, str(self.device))
         from pyimgano.utils.torchscript_safe import load_module
 
-        model = load_module(ckpt, map_location=dev)
+        warnings.warn(
+            "Loading a user-supplied TorchScript checkpoint is executable deserialization; "
+            "this legacy API treats the explicitly supplied checkpoint as trusted.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        model = load_module(ckpt, map_location=dev, trusted=True)
         # `.eval()` exists for ScriptModule.
         model.eval()
         self._model = model

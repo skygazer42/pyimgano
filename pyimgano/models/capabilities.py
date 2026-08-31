@@ -35,6 +35,8 @@ class ModelCapabilities:
     requires_checkpoint: bool
     supports_save_load: bool
     supports_confidence: bool
+    runtime_consumption: Mapping[str, Any]
+    trained_export: Mapping[str, Any]
 
 
 def _constructor_supports_numpy(constructor: Any) -> bool:
@@ -183,11 +185,41 @@ def _tested_runtime(
     weights_source = str(metadata.get("weights_source", "")).strip().lower()
     if weights_source == "local-exported-onnx" or "onnx" in tags:
         return "onnxruntime"
+    if weights_source == "local-exported-torchscript" or "torchscript" in tags:
+        return "torchscript"
     if backend == "openvino" or "openvino" in tags:
         return "openvino"
     if "deep" in tags or upstream_project in {"anomalib", "patchcore_inspection"}:
         return "torch"
     return "numpy"
+
+
+def compute_runtime_consumption_capabilities(entry: _ModelEntryLike) -> dict[str, Any]:
+    """Describe what a model consumes today, not what fitted formats it exports."""
+
+    metadata = dict(entry.metadata)
+    tags = {str(tag).strip().lower() for tag in entry.tags}
+    weights_source = str(metadata.get("weights_source", "")).strip().lower()
+    backend = str(metadata.get("backend", "")).strip().lower()
+    return {
+        "onnx": bool("onnx" in tags or weights_source == "local-exported-onnx"),
+        "torchscript": bool(
+            "torchscript" in tags or weights_source == "local-exported-torchscript"
+        ),
+        "openvino": bool("openvino" in tags or backend == "openvino"),
+    }
+
+
+def compute_trained_export_capabilities(entry: _ModelEntryLike) -> dict[str, dict[str, Any]]:
+    """Return declared fitted-detector export cells from the explicit adapter registry."""
+
+    from pyimgano.exporting.registry import get_export_capability
+    from pyimgano.exporting.types import ArtifactFormat
+
+    return {
+        str(format): get_export_capability(str(entry.name), format).to_dict()
+        for format in ArtifactFormat
+    }
 
 
 def _upstream_model_id(
@@ -333,6 +365,8 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
     if requires_checkpoint:
         artifact_requirements.append("checkpoint")
 
+    runtime_consumption = compute_runtime_consumption_capabilities(entry)
+    trained_export = compute_trained_export_capabilities(entry)
     return {
         "family": family,
         "training_regime": training_regime,
@@ -361,6 +395,11 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
         "artifact_format": artifact_format,
         "benchmark_fit": benchmark_fit,
         "deployment_risks": deployment_risks,
+        "runtime_consumption": runtime_consumption,
+        "trained_export": trained_export,
+        # Deprecated compatibility booleans.  Crucially these now derive from
+        # trained-export adapter cells; ONNX/TorchScript consumption tags no
+        # longer imply that the fitted detector can be exported.
         "export_support": {
             "checkpoint": bool(
                 requires_checkpoint
@@ -368,11 +407,10 @@ def compute_model_deployment_profile(entry: _ModelEntryLike) -> dict[str, Any]:
                 or bool(contract.get("weights_source"))
             ),
             "save_load": bool(supports_save_load),
-            "onnx": bool("onnx" in tags or contract.get("weights_source") == "local-exported-onnx"),
-            "torchscript": bool(
-                "torchscript" in tags
-                or contract.get("weights_source") == "local-exported-torchscript"
-            ),
+            "native": bool(trained_export["native"].get("status") == "supported"),
+            "onnx": bool(trained_export["onnx"].get("status") == "supported"),
+            "torchscript": bool(trained_export["torchscript"].get("status") == "supported"),
+            "openvino": bool(trained_export["openvino"].get("status") == "supported"),
         },
         "artifact_requirements": artifact_requirements,
         "memory_bank": {
@@ -419,6 +457,8 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
         else bool("classical" in tags and not requires_checkpoint)
     )
     supports_confidence = _constructor_supports_confidence(entry.constructor)
+    runtime_consumption = compute_runtime_consumption_capabilities(entry)
+    trained_export = compute_trained_export_capabilities(entry)
 
     return ModelCapabilities(
         input_modes=tuple(input_modes),
@@ -427,4 +467,6 @@ def compute_model_capabilities(entry: _ModelEntryLike) -> ModelCapabilities:
         requires_checkpoint=bool(requires_checkpoint),
         supports_save_load=bool(supports_save_load),
         supports_confidence=bool(supports_confidence),
+        runtime_consumption=runtime_consumption,
+        trained_export=trained_export,
     )

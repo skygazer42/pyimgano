@@ -1,0 +1,77 @@
+{
+  "schema_family": "pyimgano-doc-artifact-quickstart",
+  "schema_version": 1,
+  "certified_model": "ae_resnet_unet",
+  "commands": {
+    "export_from_run": [
+      "--from-run",
+      "runs/example",
+      "--format",
+      "native",
+      "--out",
+      "exports"
+    ],
+    "import_onnx": [
+      "import",
+      "--format",
+      "onnx",
+      "--model",
+      "model.onnx",
+      "--contract",
+      "onnx-contract.json",
+      "--out",
+      "imported-artifact"
+    ],
+    "infer_artifact": [
+      "--artifact",
+      "exports",
+      "--artifact-format",
+      "native",
+      "--input",
+      "images",
+      "--save-jsonl",
+      "results.jsonl"
+    ],
+    "run_bundle": [
+      "run",
+      "deploy_bundle",
+      "--artifact-format",
+      "native",
+      "--image-dir",
+      "images",
+      "--output-dir",
+      "bundle-run"
+    ]
+  },
+  "onnx_import_contract": {
+    "schema_family": "pyimgano-onnx-import",
+    "schema_version": 1,
+    "input": {
+      "name": "input",
+      "dtype": "float32",
+      "layout": "NCHW",
+      "color_space": "RGB",
+      "size": [224, 224],
+      "dynamic_batch": true,
+      "dynamic_spatial": false,
+      "resize": {
+        "mode": "stretch",
+        "interpolation": "bilinear"
+      },
+      "scale": {
+        "divisor": 255.0
+      },
+      "normalize": {
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0]
+      }
+    },
+    "outputs": {
+      "score": {
+        "name": "score",
+        "transform": "identity",
+        "score_order": "higher_is_more_anomalous"
+      }
+    }
+  }
+}

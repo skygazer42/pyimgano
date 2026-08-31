@@ -1,95 +1,179 @@
-# 模型导出
+# 训练产物导出与第三方导入
 
 === "中文"
 
-    pyimgano 支持将训练好的模型导出为 ONNX、TorchScript 和 OpenVINO 格式，以便在不同运行时和硬件平台上进行推理。
+    `pyimgano-export` 将**已拟合 detector** 从持久化 run 恢复并封装成可迁移、可校验的
+    artifact。导出不会重新调用 `fit()`。artifact 包含运行时状态、输入/输出契约、
+    artifact-local 推理策略、哈希和验证证据。
 
 === "English"
 
-    pyimgano supports exporting trained models to ONNX, TorchScript, and OpenVINO formats for inference across different runtimes and hardware platforms.
+    `pyimgano-export` restores a **fitted detector** from a persisted run and packages a
+    relocatable, verified artifact. Export never refits the detector. The artifact carries
+    runtime state, tensor contracts, artifact-local policy, hashes, and verification evidence.
 
-## ONNX 导出
+## 从已完成 run 导出
 
 ```bash
-pyimgano-export-onnx --train-dir runs/my_model --output embed.onnx
+pyimgano-export \
+    --from-run runs/<run_dir> \
+    --format native \
+    --out ./exports
+```
+
+重复 `--format` 可请求多个已认证格式：
+
+```bash
+pyimgano-export \
+    --from-run runs/<run_dir> \
+    --format native \
+    --format onnx \
+    --out ./exports
 ```
 
 | 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--train-dir` | 训练输出目录 | *必填* |
-| `--output` | 输出文件路径 | `embed.onnx` |
-| `--opset` | ONNX opset 版本 | `18` |
-| `--dynamic-batch` | 启用动态 batch 维度 | `False` |
-| `--no-pretrained` | 不下载预训练权重（离线安全） | `False` |
-| `--simplify` | 运行 ONNX Simplifier | `False` |
+|---|---|---|
+| `--from-run` | 包含持久化训练 checkpoint 的完成 run | 必填 |
+| `--format` | `native` / `onnx` / `torchscript` / `openvino`，可重复 | `native` |
+| `--out` | artifact 输出根目录 | `<run>/artifacts/exported` |
+| `--category` | 多 category run 的显式选择器 | 无 |
+| `--verification-level` | `reference-parity` / `end-to-end` | `reference-parity` |
+| `--non-strict` | 允许仅发布通过验证的格式 | false |
+| `--trust-checkpoint` | 显式允许已校验但需要可执行反序列化的 checkpoint | false |
+| `--overwrite` | 替换已存在的目标 | false |
 
-!!! note "安装要求"
+默认事务是严格且原子的：所有请求格式均必须支持并通过验证，否则不发布最终目录。
+schema v1 不支持“未验证”导出；`end-to-end` 只会加强强制 reference parity。
 
-    需要安装 `onnx` extra：`pip install pyimgano[onnx]`
-
-## TorchScript 导出
-
-```bash
-pyimgano-export-torchscript --train-dir runs/my_model --output embed.ts
-```
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--train-dir` | 训练输出目录 | *必填* |
-| `--output` | 输出文件路径 | `embed.ts` |
-| `--no-pretrained` | 不下载预训练权重（离线安全） | `False` |
-| `--trace` | 使用 tracing 而非 scripting | `False` |
-
-## OpenVINO 导出
-
-=== "中文"
-
-    OpenVINO 导出基于 Intel 的模型优化工具包（Model Optimizer），适用于 Intel CPU/GPU/VPU 推理加速。
-
-=== "English"
-
-    OpenVINO export uses Intel's Model Optimizer toolkit for accelerated inference on Intel CPU/GPU/VPU hardware.
+训练时也可直接请求相同的 canonical export service：
 
 ```bash
-# 先导出 ONNX，再转换为 OpenVINO IR
-pyimgano-export-onnx --train-dir runs/my_model --output embed.onnx
-mo --input_model embed.onnx --output_dir openvino_out/
+pyimgano-train \
+    --config my_certified_config.json \
+    --export-format native \
+    --export-verification-level reference-parity
 ```
 
-!!! note "安装要求"
+## 支持能力不是按格式猜测
 
-    需要安装 `openvino` extra：`pip install pyimgano[openvino]`
-
-## 导出验证
-
-=== "中文"
-
-    导出后应验证模型输出的一致性。可使用推理命令对比原始模型和导出模型的结果。
-
-=== "English"
-
-    After export, verify output consistency by comparing inference results between the original and exported models.
+每个 model 与 fitted state 的 `capabilities.trained_export` 由显式 adapter registry 决定：
 
 ```bash
-# 使用导出的 ONNX 模型运行推理
-pyimgano-infer --model onnx --train-dir runs/my_model --input test_images/
+pyimgano-benchmark --model-info <model_name> --json
 ```
 
-## 离线安全默认值
+若 capability cell 为 unsupported，CLI 会返回原因和 remediation；不会把
+“能消费 ONNX”误报为“能导出已训练 ONNX”。
 
-=== "中文"
+当前 schema-v1 认证矩阵按 model、格式和 layout 明确区分：
 
-    在受限网络环境中，使用 `--no-pretrained` 标志避免运行时下载预训练权重。建议在 CI/CD 或生产打包流程中始终使用此选项。
+| Model | Native | ONNX | TorchScript | OpenVINO |
+|---|---|---|---|---|
+| `ae_resnet_unet` | supported / `native_detector` | conditional / `single_graph` | conditional / `single_graph` | conditional / `single_graph` |
+| `vision_onnx_ecod` | unsupported | conditional / `composite` | unsupported | unsupported |
+| `vision_torchscript_ecod` | unsupported | unsupported | conditional / `composite` | unsupported |
+| `vision_patchcore` | unsupported | unsupported | unsupported | unsupported |
 
-=== "English"
+`conditional` cell 需要具体 fitted detector、完整已验证 checkpoint、声明的依赖，以及
+（ECOD composite）认证时绑定的精确本地 embedding graph。`vision_onnx_ecod` 只保留 ONNX
+源图及 external-data closure；`vision_torchscript_ecod` 只保留 TorchScript 源图。schema v1
+不会在两者之间转换。两种 composite 均封装 non-executable fitted ECOD core、不会 refit，且
+只提供 image score，不提供 anomaly map。自定义 extractor、变化后的 graph 或不完整 core
+都会拒绝导出。上面的 `my_certified_config.json` 占位配置仍指全格式参考目标
+`model.name=ae_resnet_unet`。
 
-    In restricted network environments, use the `--no-pretrained` flag to avoid runtime downloads of pretrained weights. Recommended for CI/CD and production packaging workflows.
+发布 E2E 认证矩阵仍是 Ubuntu x86_64、Python 3.10、CPU；ONNX 使用
+`CPUExecutionProvider`。其它平台兼容性不由该 release gate 认证。
+
+| 格式 | 执行后端 | Runtime extra | Export extra | 关键边界 |
+|---|---|---|---|---|
+| Native | `pyimgano` | 基础/模型依赖 | 基础/模型依赖 | 需要认证 state codec 或显式 trust checkpoint |
+| ONNX | `onnxruntime` | `onnx-runtime` | `onnx-export` | raw ONNX 必须先提供语义契约 |
+| TorchScript | `torchscript` | `torch` | `torch` | single/composite graph 加载均需显式 trust |
+| OpenVINO | `openvino` | `openvino-runtime` | `openvino-export` | 使用 device；不接受 ONNX provider flags |
+
+完整创建与执行环境可安装：
 
 ```bash
-pyimgano-export-onnx --train-dir runs/my_model --output embed.onnx --no-pretrained
-pyimgano-export-torchscript --train-dir runs/my_model --output embed.ts --no-pretrained
+pip install "pyimgano[deploy]"
 ```
 
-!!! warning "重要"
+仅运行 ONNX/OpenVINO 的容器不需要 Torch：
 
-    如果模型依赖预训练特征提取器，请确保权重文件已在训练阶段缓存到本地，或通过 `pyimgano-weights` 命令预先下载。
+```bash
+pip install "pyimgano[onnx-runtime]"
+pip install "pyimgano[openvino-runtime]"
+```
+
+`onnx` 与 `openvino` 在 0.10 发布线中保留为兼容别名。
+
+## TorchScript 可执行信任边界
+
+TorchScript 的 `single_graph` 与 `composite` artifact 都会调用可执行 graph loader，因此默认
+拒绝加载。CLI 必须显式传入 `--trust-checkpoint`：
+
+```bash
+pyimgano-infer --artifact ./exports/bottle/torchscript \
+    --trust-checkpoint --input ./test_images --save-jsonl ./results.jsonl
+```
+
+Python API 对应为 `load_artifact(path, trust_checkpoint=True)`。PyTorch 官方
+[`torch.jit.load` 文档](https://docs.pytorch.org/docs/stable/generated/torch.jit.load.html)
+警告恶意模型可能在反序列化时执行任意代码。只有独立确认来源与完整性后才能开启；hash
+只能发现内容变化，不能把不可信 graph 变安全。
+
+## 导入第三方 ONNX
+
+raw `.onnx` 文件不是自描述 anomaly artifact。必须用 versioned contract 明确预处理与
+score/map 语义：
+
+```json
+{
+  "schema_family": "pyimgano-onnx-import",
+  "schema_version": 1,
+  "input": {
+    "name": "input",
+    "dtype": "float32",
+    "layout": "NCHW",
+    "color_space": "RGB",
+    "size": [224, 224],
+    "dynamic_batch": true,
+    "dynamic_spatial": false,
+    "resize": {"mode": "stretch", "interpolation": "bilinear"},
+    "scale": {"divisor": 255.0},
+    "normalize": {
+      "mean": [0.0, 0.0, 0.0],
+      "std": [1.0, 1.0, 1.0]
+    }
+  },
+  "outputs": {
+    "score": {
+      "name": "score",
+      "transform": "identity",
+      "score_order": "higher_is_more_anomalous"
+    }
+  }
+}
+```
+
+```bash
+pyimgano-artifact import \
+    --format onnx \
+    --model ./model.onnx \
+    --contract ./onnx-contract.json \
+    --out ./imported-artifact
+
+pyimgano-infer --artifact ./imported-artifact \
+    --input ./test_images --save-jsonl ./results.jsonl
+```
+
+Importer 会校验 graph/contract、约束 external-data 路径，并在 fresh ONNX Runtime session
+中执行 smoke test。第三方模型没有 PyImgAno reference implementation，因此其诚实验证等级是
+`runtime_smoke`。未传 `--policy` 时得到 score-only policy；可用
+`pyimgano-artifact bind-policy` 创建带已校验 operating policy 的新 immutable artifact。
+
+## 旧 backbone exporter
+
+`pyimgano-export-onnx` 与 `pyimgano-export-torchscript` 是兼容保留的
+embedding/backbone exporter。它们不会封装 fitted detector，也不会生成
+`artifact_manifest.json`。训练后部署请使用 `pyimgano-export`。

@@ -539,6 +539,10 @@ def _build_operator_contract_digests(
 
 
 def _classify_entry(rel_path: str) -> str:
+    if rel_path.endswith("/artifact_manifest.json"):
+        return "runtime_artifact_manifest"
+    if rel_path == "artifacts/export_index.json":
+        return "runtime_artifact_index"
     if rel_path == _INFER_CONFIG_JSON:
         return "infer_config"
     if rel_path == _CALIBRATION_CARD_JSON:
@@ -560,6 +564,62 @@ def _classify_entry(rel_path: str) -> str:
     if rel_path.endswith(".pt") or rel_path.endswith(".pth") or rel_path.endswith(".onnx"):
         return "checkpoint"
     return "artifact"
+
+
+def _build_runtime_artifact_refs(bundle_root: Path) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    for manifest_path in sorted(bundle_root.rglob("artifact_manifest.json")):
+        try:
+            manifest_path.resolve().relative_to(bundle_root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"Artifact manifest escapes deploy bundle: {manifest_path}") from exc
+        payload = _load_json_dict(manifest_path)
+        model = payload.get("model", None)
+        runtime = payload.get("runtime", None)
+        components = payload.get("components", None)
+        model_payload = dict(model) if isinstance(model, Mapping) else {}
+        runtime_payload = dict(runtime) if isinstance(runtime, Mapping) else {}
+        artifact_format = None
+        if isinstance(components, list):
+            for component in components:
+                if not isinstance(component, Mapping):
+                    continue
+                if str(component.get("role", "")) == "runtime_model":
+                    artifact_format = _nonempty_str(component.get("format", None))
+                    if artifact_format is not None:
+                        break
+        if artifact_format is None:
+            layout = str(payload.get("layout", ""))
+            artifact_format = {
+                "native_detector": "native",
+                "composite": "native",
+            }.get(layout)
+        refs.append(
+            {
+                "path": manifest_path.relative_to(bundle_root).as_posix(),
+                "category": _nonempty_str(model_payload.get("category", None)),
+                "format": artifact_format,
+                "backend": _nonempty_str(runtime_payload.get("backend", None)),
+                "artifact_id": _nonempty_str(payload.get("artifact_id", None)),
+            }
+        )
+    return refs
+
+
+def _validate_runtime_artifact_refs(
+    value: Any,
+    *,
+    bundle_root: Path,
+) -> list[str]:
+    expected = _build_runtime_artifact_refs(bundle_root)
+    if value is None and not expected:
+        return []
+    if not isinstance(value, list):
+        return ["artifact_refs must be a list of runtime artifact references."]
+    normalized = [dict(item) for item in value if isinstance(item, Mapping)]
+    if len(normalized) != len(value) or normalized != expected:
+        return ["artifact_refs does not match bundled artifact manifests."]
+    return []
 
 
 def _collect_existing_artifact_refs(
@@ -774,6 +834,7 @@ def build_deploy_bundle_manifest(
         )
     artifact_roles = _build_artifact_roles(entries)
     artifact_digests = _build_artifact_digests(entries)
+    runtime_artifact_refs = _build_runtime_artifact_refs(bundle_root)
 
     return {
         "schema_version": int(DEPLOY_BUNDLE_SCHEMA_VERSION),
@@ -791,6 +852,7 @@ def build_deploy_bundle_manifest(
             "artifact_refs": source_artifact_refs,
         },
         "bundle_artifact_refs": bundle_artifact_refs,
+        "artifact_refs": runtime_artifact_refs,
         "artifact_roles": artifact_roles,
         "artifact_digests": artifact_digests,
         "required_source_artifacts_present": _required_artifacts_present(
@@ -998,6 +1060,12 @@ def validate_deploy_bundle_manifest(
             field_name="bundle_artifact_refs",
             root=bundle_root,
             entry_paths=entry_paths,
+        )
+    )
+    errors.extend(
+        _validate_runtime_artifact_refs(
+            manifest.get("artifact_refs", None),
+            bundle_root=bundle_root,
         )
     )
     errors.extend(

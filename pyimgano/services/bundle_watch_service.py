@@ -52,6 +52,15 @@ class BundleWatchRequest:
     max_reject_rate: float | None = None
     max_error_rate: float | None = None
     min_processed: int | None = None
+    artifact_category: str | None = None
+    artifact_format: str | None = None
+    artifact_backend: str | None = None
+    artifact_id: str | None = None
+    device: str | None = None
+    onnx_providers: str | None = None
+    onnx_provider_options: str | None = None
+    onnx_session_options: str | None = None
+    trust_checkpoint: bool = False
 
 
 def _state_file_path(request: BundleWatchRequest, *, output_dir: Path) -> Path:
@@ -971,6 +980,15 @@ def run_bundle_watch_once(
                 defects_regions_jsonl=(
                     str(staging_regions) if bool(request.export_defects_regions) else None
                 ),
+                artifact_category=request.artifact_category,
+                artifact_format=request.artifact_format,
+                artifact_backend=request.artifact_backend,
+                artifact_id=request.artifact_id,
+                device=request.device,
+                onnx_providers=request.onnx_providers,
+                onnx_provider_options=request.onnx_provider_options,
+                onnx_session_options=request.onnx_session_options,
+                trust_checkpoint=bool(request.trust_checkpoint),
             ),
             infer_main_impl=infer_main_impl,
         )

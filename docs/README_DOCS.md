@@ -66,6 +66,7 @@ docs/
 ├── ZH_INDUSTRY_SCENARIO_PLAYBOOK.md # 中文行业场景落地手册
 ├── ZH_FAQ_TROUBLESHOOTING.md # 中文 FAQ / 排障文档
 ├── QUICKSTART.md            # Quick start guide
+├── TRAINED_ARTIFACTS.md     # Fitted export, ONNX import, artifact and bundle runtime
 ├── OPTIONAL_DEPENDENCIES.md # Extras map (optional dependencies)
 ├── PLUGINS.md               # Third-party extension mechanism (entry points)
 ├── COMPARISON.md            # PyImgAno vs PyOD comparison
@@ -84,6 +85,7 @@ If you’re updating docs, these pages form the "happy path" for most industrial
 - `docs/ZH_FAQ_TROUBLESHOOTING.md` (中文 FAQ / Troubleshooting / 排障索引)
 - `docs/QUICKSTART.md` (install + basic usage)
 - `docs/WORKBENCH.md` (train/eval/export loop; artifacts)
+- `docs/TRAINED_ARTIFACTS.md` (verified fitted export/import and relocatable runtime contract)
 - `docs/OPTIONAL_DEPENDENCIES.md` (extras map + recommended install combos)
 - `docs/PLUGINS.md` (third-party extension mechanism; enterprise/internal models)
 - `docs/MANIFEST_DATASET.md` (recommended custom dataset format: JSONL manifest, paths-first)

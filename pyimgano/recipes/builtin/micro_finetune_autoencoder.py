@@ -156,6 +156,22 @@ def micro_finetune_autoencoder(config: WorkbenchConfig) -> dict[str, Any]:
 
     checkpoint_path = paths.checkpoints_dir / "model.pt"
     saved = save_checkpoint(detector, checkpoint_path)
+    checkpoint_contract = None
+    try:
+        from pyimgano.services.checkpoint_certification_service import (
+            certify_checkpoint_for_export,
+        )
+
+        checkpoint_contract = certify_checkpoint_for_export(
+            detector,
+            saved,
+            config=config,
+            probe_inputs=train_inputs,
+        )
+    except Exception as exc:  # noqa: BLE001 - persist the trained run and failed evidence
+        from pyimgano.training.checkpointing import failed_checkpoint_contract
+
+        checkpoint_contract = failed_checkpoint_contract(str(exc))
     try:
         rel = saved.relative_to(paths.run_dir)
         checkpoint_rel = rel.as_posix()
@@ -171,7 +187,10 @@ def micro_finetune_autoencoder(config: WorkbenchConfig) -> dict[str, Any]:
         "device": str(config.model.device),
         "preset": config.model.preset,
         "resize": [int(config.dataset.resize[0]), int(config.dataset.resize[1])],
-        "checkpoint": {"path": checkpoint_rel},
+        "checkpoint": {
+            "path": checkpoint_rel,
+            **(checkpoint_contract.to_dict() if checkpoint_contract is not None else {}),
+        },
         "training": training,
         "run_dir": str(paths.run_dir),
     }

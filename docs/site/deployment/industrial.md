@@ -81,20 +81,24 @@ pyimgano-train --config examples/configs/industrial_adapt_audited.json
 pyimgano-train --config examples/configs/industrial_adapt_audited.json --dry-run
 ```
 
-### 2. 训练并导出推理配置
+### 2. 训练、导出推理配置并组装 Bundle
 
 ```bash
 pyimgano-train \
     --config examples/configs/industrial_adapt_audited.json \
-    --export-infer-config
+    --export-infer-config \
+    --export-deploy-bundle
 ```
 
-### 3. 导出部署包
+若该 model 的 `capabilities.trained_export` 声明支持目标格式，可额外传入可重复的
+`--export-format`；bundle assembly 会复制通过 parity 验证的完整 artifact root，并写入
+`bundle_manifest.json.artifact_refs`。未包含 runtime artifact 的 bundle 保持 legacy
+`infer_config.json` 执行路径。
+
+### 3. 验证部署包
 
 ```bash
-pyimgano-train \
-    --config examples/configs/industrial_adapt_audited.json \
-    --export-deploy-bundle
+pyimgano-bundle validate /path/to/run_dir/deploy_bundle --check-hashes --json
 ```
 
 ### 4. 检查产物完整性

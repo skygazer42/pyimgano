@@ -13,18 +13,22 @@
 ```
 my_bundle/
 ├── bundle_manifest.json      # 包清单：版本、哈希、文件列表
-├── infer_config.json          # 推理配置：模型参数、输入格式、阈值
+├── infer_config.json          # 兼容旧 reader 的推理配置镜像
 ├── calibration_card.json      # 校准卡：阈值来源、数据集统计
 ├── handoff_report.json        # 交付报告：训练指标、验证结果
-├── model/                     # 模型文件（ONNX/TorchScript等）
-│   └── embed.onnx
-└── assets/                    # 附属资源
+└── artifacts/
+    ├── export_index.json
+    └── <category>/<format>/
+        ├── artifact_manifest.json
+        ├── infer_config.json  # artifact-local authoritative policy
+        ├── model/ or state/
+        └── verification/
 ```
 
 | 文件 | 用途 |
 |------|------|
-| `bundle_manifest.json` | 清单与完整性校验（文件哈希、版本） |
-| `infer_config.json` | 推理时所需的全部配置 |
+| `bundle_manifest.json` | 清单、完整性校验和 runtime `artifact_refs` 索引 |
+| `infer_config.json` | 旧 reader 的兼容镜像；vNext runtime 使用 artifact-local policy |
 | `calibration_card.json` | 阈值校准的来源和统计信息 |
 | `handoff_report.json` | 训练过程的质量指标和验证结果 |
 
@@ -39,12 +43,20 @@ my_bundle/
     Generate a complete deploy bundle during training with the `--export-deploy-bundle` flag.
 
 ```bash
-pyimgano-train --config my_config.json --export-deploy-bundle
+pyimgano-train --config my_config.json \
+    --export-format native \
+    --export-infer-config \
+    --export-deploy-bundle
 ```
+
+当前可执行的全格式参考配置必须使用 `model.name=ae_resnet_unet`。不要给现有
+`vision_patchcore` starter 追加 `--export-format`：其 trained-export cells 当前为 unsupported。
 
 !!! tip "推荐工作流"
 
-    使用 `--export-deploy-bundle` 可确保训练产物和部署产物在同一流程中生成，避免版本不一致。
+    `--export-format` 先调用 canonical fitted-detector exporter；bundle assembly 随后复制完整
+    artifact root，并将每个 manifest 写入 `bundle_manifest.json.artifact_refs`。格式可重复，
+    但必须由该 model 的 export adapter 明确支持。
 
 ## 验证 Bundle
 
@@ -83,6 +95,23 @@ pyimgano bundle run my_bundle/ \
     --max-error-rate 0.01 \
     --min-processed 100
 ```
+
+若 bundle 含多个 artifact，必须加 selector，不能静默选择：
+
+```bash
+pyimgano-bundle run my_bundle/ \
+    --artifact-category bottle \
+    --artifact-format onnx \
+    --artifact-backend onnxruntime \
+    --onnx-providers CPUExecutionProvider \
+    --image-dir ./test_images/ \
+    --output-dir ./bundle_run
+```
+
+带 `artifact_refs` 的 bundle 总是加载选中 artifact 的 authoritative policy。没有
+runtime artifact references 的旧 bundle 继续使用根目录 `infer_config.json` fallback。
+若选择的 artifact 含 TorchScript graph（single 或 composite），`run` / `watch` 还必须在
+完成 provenance review 后传入 `--trust-checkpoint`；默认不会执行该 graph。
 
 ### 运行参数
 

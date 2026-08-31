@@ -17,8 +17,10 @@
   - 目标：CPU baseline + 基础 CLI 可用
 - 可选 extras（按需安装）：
   - 深度/torch：`pip install "pyimgano[torch]"`
-  - ONNX：`pip install "pyimgano[onnx]"`
-  - OpenVINO：`pip install "pyimgano[openvino]"`
+  - ONNX runtime：`pip install "pyimgano[onnx-runtime]"`
+  - ONNX export：`pip install "pyimgano[onnx-export]"`
+  - OpenVINO runtime：`pip install "pyimgano[openvino-runtime]"`
+  - OpenVINO export：`pip install "pyimgano[openvino-export]"`
   - scikit-image（SSIM/LBP/HOG/Gabor/phase-corr 等）：`pip install "pyimgano[skimage]"`
   - 一揽子：`pip install "pyimgano[all]"`
 

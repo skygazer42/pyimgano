@@ -140,6 +140,48 @@ def _resolve_secret_from_cli_or_env(
     return str(raw)
 
 
+def _add_artifact_runtime_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--artifact-category",
+        default=None,
+        help="Select a category when the bundle contains multiple runtime artifacts.",
+    )
+    parser.add_argument(
+        "--artifact-format",
+        default=None,
+        choices=["native", "onnx", "torchscript", "openvino"],
+        help="Select a bundled runtime format.",
+    )
+    parser.add_argument(
+        "--artifact-backend",
+        default=None,
+        choices=["pyimgano", "onnxruntime", "torchscript", "openvino"],
+        help="Select a bundled runtime backend.",
+    )
+    parser.add_argument("--artifact-id", default=None, help="Require an exact artifact ID.")
+    parser.add_argument("--device", default=None, help="Runtime device (backend dependent).")
+    parser.add_argument(
+        "--onnx-providers",
+        default=None,
+        help="Comma-separated ONNX Runtime execution providers in priority order.",
+    )
+    parser.add_argument(
+        "--onnx-provider-options",
+        default=None,
+        help="JSON object mapping selected ONNX providers to provider options.",
+    )
+    parser.add_argument(
+        "--onnx-session-options",
+        default=None,
+        help="JSON object of ONNX Runtime SessionOptions.",
+    )
+    parser.add_argument(
+        "--trust-checkpoint",
+        action="store_true",
+        help="Allow a provenance-verified legacy executable state inside a native artifact.",
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyimgano-bundle",
@@ -243,6 +285,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit run_report.json payload to stdout after writing it.",
     )
+    _add_artifact_runtime_options(run_parser)
 
     watch_parser = subparsers.add_parser(
         "watch",
@@ -385,6 +428,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit watch_report.json payload to stdout after the current cycle or `--once` run.",
     )
+    _add_artifact_runtime_options(watch_parser)
     return parser
 
 
@@ -1378,6 +1422,15 @@ def _run_bundle(args: argparse.Namespace) -> dict[str, Any]:
                 if optional_artifacts.get("defects_regions_jsonl") is not None
                 else None
             ),
+            artifact_category=getattr(args, "artifact_category", None),
+            artifact_format=getattr(args, "artifact_format", None),
+            artifact_backend=getattr(args, "artifact_backend", None),
+            artifact_id=getattr(args, "artifact_id", None),
+            device=getattr(args, "device", None),
+            onnx_providers=getattr(args, "onnx_providers", None),
+            onnx_provider_options=getattr(args, "onnx_provider_options", None),
+            onnx_session_options=getattr(args, "onnx_session_options", None),
+            trust_checkpoint=bool(getattr(args, "trust_checkpoint", False)),
         )
     )
     if rc != 0:
@@ -1514,6 +1567,15 @@ def _watch_request_from_args(args: argparse.Namespace) -> bundle_watch_service.B
         min_processed=(
             int(args.min_processed) if getattr(args, "min_processed", None) is not None else None
         ),
+        artifact_category=getattr(args, "artifact_category", None),
+        artifact_format=getattr(args, "artifact_format", None),
+        artifact_backend=getattr(args, "artifact_backend", None),
+        artifact_id=getattr(args, "artifact_id", None),
+        device=getattr(args, "device", None),
+        onnx_providers=getattr(args, "onnx_providers", None),
+        onnx_provider_options=getattr(args, "onnx_provider_options", None),
+        onnx_session_options=getattr(args, "onnx_session_options", None),
+        trust_checkpoint=bool(getattr(args, "trust_checkpoint", False)),
     )
 
 

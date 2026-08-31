@@ -77,6 +77,46 @@ predictions = model.predict(X_test)
 
 ---
 
+## 加载已训练 artifact
+
+持久化部署时，用 `load_artifact()` 恢复已校验的 fitted state 与 artifact-local
+preprocessing/threshold/postprocess policy。上下文管理器会确定性释放 backend 和临时 staging：
+
+```python
+from pyimgano.inference import infer, load_artifact
+
+with load_artifact(
+    "./exports",
+    category="bottle",
+    format="native",
+) as detector:
+    scores = detector.decision_function(["images/a.png", "images/b.png"])
+    results = infer(detector, ["images/a.png", "images/b.png"])
+```
+
+单个 artifact directory 或 `artifact_manifest.json` 不需要 selector。multi-format export root
+或 deploy bundle 必须选择唯一 artifact。`artifact_id` 是精确 selector，不能与
+`category`、`format` 或 `backend` 组合。
+
+ONNX Runtime provider 配置示例：
+
+```python
+with load_artifact(
+    "./exports/bottle/onnx",
+    providers=[
+        {"name": "CUDAExecutionProvider", "options": {"device_id": "0"}},
+        "CPUExecutionProvider",
+    ],
+    session_options={"intra_op_num_threads": 4},
+) as detector:
+    scores = detector.decision_function(["images/a.png"])
+```
+
+raw `.onnx` 不是自描述 artifact，必须先用 `pyimgano-artifact import` 和 versioned
+preprocessing/output contract 导入。详见[训练产物导出与第三方导入](../deployment/export.md)。
+
+---
+
 ## 像素级异常检测
 
 === "中文"

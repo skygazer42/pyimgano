@@ -131,7 +131,8 @@ environments: the only required artifact is your checkpoint file.
 If you want a deployment-friendly embedding route that does not depend on Torch
 at inference time, you can export a torchvision backbone to ONNX and use:
 
-- Install: `pip install "pyimgano[onnx]"` (runtime) and `pip install "pyimgano[torch]"` (export)
+- Runtime-only install: `pip install "pyimgano[onnx-runtime]"`
+- Export + runtime install: `pip install "pyimgano[onnx-export]"`
 - `embedding_extractor="onnx_embed"`
 - `embedding_kwargs={"checkpoint_path": "/path/to/model.onnx", ...}`
 

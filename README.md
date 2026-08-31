@@ -55,7 +55,8 @@ pip install pyimgano
 Install a task profile only when you need it:
 
 ```bash
-pip install "pyimgano[deploy]"       # training + ONNX/OpenVINO deployment
+pip install "pyimgano[deploy]"       # artifact creation + ONNX/OpenVINO runtimes
+pip install "pyimgano[onnx-runtime]" # ONNX import/inference without Torch
 pip install "pyimgano[benchmark]"    # benchmark vision backends
 pip install "pyimgano[cpu-offline]"  # richer offline CPU baselines
 ```
@@ -118,17 +119,42 @@ pyimgano train --dry-run --config examples/configs/industrial_adapt_audited.json
 pyimgano train --config examples/configs/industrial_adapt_audited.json \
   --export-infer-config --export-deploy-bundle
 
-# Infer
+# Export a run whose model reports native trained-export support
+pyimgano-export --from-run runs/<certified_run_dir> --format native --out ./exports
+
+# Infer from a run or verified artifact
 pyimgano-infer --from-run runs/<run_dir> --input /path/to/images --save-jsonl results.jsonl
+pyimgano-infer --artifact ./exports \
+  --artifact-format native --input /path/to/images --save-jsonl artifact-results.jsonl
 
 # Validate + Gate
 pyimgano-bundle validate runs/<run_dir>/deploy_bundle --json
 pyimgano runs acceptance runs/<run_dir> --require-status audited --check-bundle-hashes --json
 ```
 
+The current schema-v1 full-format trained-export target is
+`ae_resnet_unet` (native supported; graph formats conditional on a complete
+checkpoint and backend dependencies). Existing `vision_patchcore` starters do
+not claim trained-export support. Source-locked composite certification is also
+available for `vision_onnx_ecod` in ONNX format only and
+`vision_torchscript_ecod` in TorchScript format only. Every TorchScript artifact
+load requires `--trust-checkpoint` or API `trust_checkpoint=True` after
+provenance review.
+
 Successful JSONL records include `decision_summary` and, when applicable,
 `postprocess_summary`. Deploy bundles include `infer_config.json`,
-`bundle_manifest.json`, and `handoff_report.json`.
+`bundle_manifest.json`, and `handoff_report.json`. `pyimgano-export --from-run`
+is the canonical post-run path for a verified, relocatable fitted detector.
+
+Raw ONNX files must first be imported with an explicit preprocessing/output
+contract; they are not accepted as self-describing artifacts:
+
+```bash
+pyimgano-artifact import --format onnx --model model.onnx \
+  --contract onnx-contract.json --out imported-artifact
+pyimgano-infer --artifact imported-artifact --input /path/to/images \
+  --save-jsonl results.jsonl
+```
 
 ---
 
@@ -166,6 +192,7 @@ for capabilities, dependencies, and trade-offs.
 | Select a model | [Algorithm Selection Guide](https://github.com/skygazer42/pyimgano/blob/main/docs/ALGORITHM_SELECTION_GUIDE.md) |
 | Run reproducible benchmarks | [Benchmark Getting Started](https://github.com/skygazer42/pyimgano/blob/main/docs/BENCHMARK_GETTING_STARTED.md) |
 | Train and hand off a deploy bundle | [Industrial Fast-Path](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_FASTPATH.md) |
+| Export, import, load, and run trained artifacts | [Trained Artifacts](https://github.com/skygazer42/pyimgano/blob/main/docs/TRAINED_ARTIFACTS.md) |
 | Integrate NumPy, JSONL, maps, and defects | [Industrial Inference](https://github.com/skygazer42/pyimgano/blob/main/docs/INDUSTRIAL_INFERENCE.md) |
 | Use `bundle watch`, webhook delivery, or `audit-bundle` | [CLI Reference](https://github.com/skygazer42/pyimgano/blob/main/docs/CLI_REFERENCE.md) |
 | Compare runs with `pyimgano-runs` and quality gates | [Run Comparison](https://github.com/skygazer42/pyimgano/blob/main/docs/RUN_COMPARISON.md) |

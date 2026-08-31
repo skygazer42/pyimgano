@@ -13,6 +13,7 @@ import io
 import json
 import math
 import os
+import re
 import tempfile
 import zipfile
 from pathlib import Path
@@ -26,10 +27,45 @@ _MANIFEST_NAME = "manifest.json"
 _MAX_MANIFEST_BYTES = 8 * 1024 * 1024
 _MAX_ARRAY_COUNT = 100_000
 _MAX_UNCOMPRESSED_BYTES = 8 * 1024 * 1024 * 1024
+_MAX_ARRAY_BYTES = 2 * 1024 * 1024 * 1024
+_MAX_ARRAY_RANK = 32
+_MAX_COMPRESSION_RATIO = 10_000
+_ARRAY_MEMBER_RE = re.compile(r"arrays/[0-9]{8}\.npy\Z")
 
 
 class SafeCheckpointError(ValueError):
     """Raised when a safe checkpoint is malformed or unsupported."""
+
+
+def _validate_array(array: np.ndarray, *, field: str) -> np.ndarray:
+    normalized = np.asarray(array)
+    if normalized.dtype.hasobject or normalized.dtype.kind in {"O", "V", "U", "S"}:
+        raise SafeCheckpointError(
+            f"{field} has unsupported dtype {normalized.dtype!s}; only numeric/bool arrays are allowed."
+        )
+    if int(normalized.ndim) > _MAX_ARRAY_RANK:
+        raise SafeCheckpointError(f"{field} exceeds the supported array rank.")
+    if int(normalized.nbytes) > _MAX_ARRAY_BYTES:
+        raise SafeCheckpointError(f"{field} exceeds the supported array byte size.")
+    return normalized
+
+
+def _validate_array_member_name(name: str) -> None:
+    if _ARRAY_MEMBER_RE.fullmatch(str(name)) is None:
+        raise SafeCheckpointError(f"Checkpoint array member name is invalid: {name!r}")
+
+
+def _reject_duplicate_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise SafeCheckpointError(f"Checkpoint manifest contains duplicate JSON key: {key!r}")
+        out[key] = value
+    return out
+
+
+def _load_manifest_json(data: bytes) -> Any:
+    return json.loads(data.decode("utf-8"), object_pairs_hook=_reject_duplicate_json_pairs)
 
 
 def _as_numpy_array(value: Any) -> tuple[np.ndarray, bool] | None:
@@ -72,8 +108,7 @@ def _encode_value(value: Any, arrays: dict[str, bytes], *, depth: int = 0) -> An
     array_payload = _as_numpy_array(value)
     if array_payload is not None:
         array, was_tensor = array_payload
-        if array.dtype.hasobject:
-            raise SafeCheckpointError("Object-dtype arrays are not supported in safe checkpoints.")
+        array = _validate_array(array, field="Checkpoint array")
         name = f"arrays/{len(arrays):08d}.npy"
         buffer = io.BytesIO()
         np.save(buffer, np.ascontiguousarray(array), allow_pickle=False)
@@ -214,6 +249,27 @@ def load_safe_checkpoint(path: str | Path) -> dict[str, Any]:
                 raise SafeCheckpointError("Checkpoint manifest is missing.")
             if len(infos) - 1 > _MAX_ARRAY_COUNT:
                 raise SafeCheckpointError("Checkpoint contains too many array members.")
+            for info in infos:
+                if info.is_dir():
+                    raise SafeCheckpointError("Checkpoint archive must not contain directories.")
+                unix_mode = (int(info.external_attr) >> 16) & 0o170000
+                if unix_mode not in {0, 0o100000}:
+                    raise SafeCheckpointError("Checkpoint archive contains a non-regular member.")
+                compressed_size = int(info.compress_size)
+                uncompressed_size = int(info.file_size)
+                if uncompressed_size > _MAX_ARRAY_BYTES and info.filename != _MANIFEST_NAME:
+                    raise SafeCheckpointError("Checkpoint array member exceeds the size limit.")
+                if uncompressed_size > 0 and compressed_size == 0:
+                    raise SafeCheckpointError(
+                        "Checkpoint archive member has an invalid compressed size."
+                    )
+                if (
+                    compressed_size > 0
+                    and uncompressed_size / compressed_size > _MAX_COMPRESSION_RATIO
+                ):
+                    raise SafeCheckpointError(
+                        "Checkpoint archive member exceeds compression ratio limit."
+                    )
             total_size = sum(int(info.file_size) for info in infos)
             if total_size > _MAX_UNCOMPRESSED_BYTES:
                 raise SafeCheckpointError("Checkpoint exceeds the supported uncompressed size.")
@@ -221,7 +277,7 @@ def load_safe_checkpoint(path: str | Path) -> dict[str, Any]:
             manifest_info = archive.getinfo(_MANIFEST_NAME)
             if int(manifest_info.file_size) > _MAX_MANIFEST_BYTES:
                 raise SafeCheckpointError("Checkpoint manifest exceeds the supported size.")
-            manifest = json.loads(archive.read(_MANIFEST_NAME).decode("utf-8"))
+            manifest = _load_manifest_json(archive.read(_MANIFEST_NAME))
             if not isinstance(manifest, dict):
                 raise SafeCheckpointError("Checkpoint manifest must be a JSON object.")
             if manifest.get("format") != FORMAT_NAME:
@@ -238,20 +294,30 @@ def load_safe_checkpoint(path: str | Path) -> dict[str, Any]:
 
             arrays: dict[str, np.ndarray] = {}
             for name, meta in array_meta.items():
-                if not isinstance(name, str) or not name.startswith("arrays/"):
+                if not isinstance(name, str):
                     raise SafeCheckpointError("Checkpoint array member name is invalid.")
+                _validate_array_member_name(name)
                 if not isinstance(meta, dict):
                     raise SafeCheckpointError("Checkpoint array metadata is invalid.")
+                declared_size = int(meta.get("size", -1))
+                if declared_size < 0 or declared_size > _MAX_ARRAY_BYTES:
+                    raise SafeCheckpointError(f"Checkpoint array size is invalid: {name}")
+                declared_digest = str(meta.get("sha256", "")).lower()
+                if len(declared_digest) != 64 or any(
+                    char not in "0123456789abcdef" for char in declared_digest
+                ):
+                    raise SafeCheckpointError(f"Checkpoint array digest is invalid: {name}")
                 data = archive.read(name)
-                if len(data) != int(meta.get("size", -1)):
+                if len(data) != declared_size:
                     raise SafeCheckpointError(f"Checkpoint array size mismatch: {name}")
                 digest = hashlib.sha256(data).hexdigest()
-                if digest != str(meta.get("sha256", "")):
+                if digest != declared_digest:
                     raise SafeCheckpointError(f"Checkpoint array digest mismatch: {name}")
                 try:
-                    arrays[name] = np.load(io.BytesIO(data), allow_pickle=False)
+                    loaded = np.load(io.BytesIO(data), allow_pickle=False)
                 except Exception as exc:
                     raise SafeCheckpointError(f"Invalid checkpoint array: {name}") from exc
+                arrays[name] = _validate_array(loaded, field=f"Checkpoint array {name!r}")
     except zipfile.BadZipFile as exc:
         raise SafeCheckpointError("Checkpoint is not a valid safe archive.") from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:

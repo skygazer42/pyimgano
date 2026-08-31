@@ -15,8 +15,10 @@
 | Extra | 安装命令 | 用途 |
 |-------|----------|------|
 | `torch` | `pip install pyimgano[torch]` | PyTorch 深度学习模型 |
-| `onnx` | `pip install pyimgano[onnx]` | ONNX 导出与推理 |
-| `openvino` | `pip install pyimgano[openvino]` | OpenVINO 推理加速 |
+| `onnx-runtime` | `pip install pyimgano[onnx-runtime]` | ONNX artifact 导入与推理（不安装 Torch） |
+| `onnx-export` | `pip install pyimgano[onnx-export]` | ONNX artifact 创建与推理 |
+| `openvino-runtime` | `pip install pyimgano[openvino-runtime]` | OpenVINO artifact 推理（不安装 Torch） |
+| `openvino-export` | `pip install pyimgano[openvino-export]` | OpenVINO artifact 创建与推理 |
 | `skimage` | `pip install pyimgano[skimage]` | scikit-image 图像处理 |
 | `numba` | `pip install pyimgano[numba]` | Numba JIT 加速 |
 | `clip` | `pip install pyimgano[clip]` | CLIP 视觉-语言特征 |
@@ -27,6 +29,9 @@
 | `dev` | `pip install pyimgano[dev]` | 开发依赖（测试、lint 等） |
 | `all` | `pip install pyimgano[all]` | 安装全部可选依赖 |
 
+`onnx` 与 `openvino` 在 0.10 发布线中保留为兼容别名。新环境应选择明确的
+`*-runtime` 或 `*-export` extra；仅执行 artifact 的容器不需要安装 Torch。
+
 === "中文"
 
     可以组合安装多个 extras：
@@ -36,7 +41,7 @@
     Multiple extras can be installed together:
 
 ```bash
-pip install pyimgano[torch,onnx,deploy]
+pip install pyimgano[deploy]
 ```
 
 ---
@@ -53,7 +58,7 @@ pyimgano-doctor
 pyimgano-doctor --recommend-extras
 
 # 断言指定 extra 已安装（CI/CD 中使用）
-pyimgano-doctor --require-extras torch,onnx
+pyimgano-doctor --require-extras onnx-runtime
 
 # 检查加速器
 pyimgano-doctor --accelerators
@@ -82,7 +87,7 @@ pyimgano-doctor --accelerators
 ### 工业部署
 
 ```bash
-pip install pyimgano[torch,deploy]
+pip install pyimgano[deploy]
 ```
 
 === "中文"
@@ -108,7 +113,7 @@ pip install pyimgano[all]
 ### 轻量推理（仅 ONNX）
 
 ```bash
-pip install pyimgano[onnx]
+pip install pyimgano[onnx-runtime]
 ```
 
 === "中文"
