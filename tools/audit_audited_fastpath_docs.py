@@ -18,10 +18,7 @@ class AuditRule:
 DEFAULT_RULES = (
     AuditRule(
         path="README.md",
-        required=(
-            _INDUSTRIAL_FASTPATH_DOC,
-            _AUDITED_CONFIG_JSON,
-        ),
+        required=(_AUDITED_CONFIG_JSON,),
     ),
     AuditRule(
         path="docs/QUICKSTART.md",

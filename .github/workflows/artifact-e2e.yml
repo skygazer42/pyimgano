@@ -105,6 +105,7 @@ jobs:
           "$RUNNER_TEMP/native-runtime-venv/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/native-runtime-venv/bin/python" -m pip install "${wheels[0]}[torch]"
           "$RUNNER_TEMP/native-runtime-venv/bin/python" -m pip check
+          cd "$RUNNER_TEMP"
           mkdir -p "$RUNNER_TEMP/native-relocated" "$RUNNER_TEMP/native-images"
           mv "$RUNNER_TEMP/native-artifact" "$RUNNER_TEMP/native-relocated/artifact"
           "$RUNNER_TEMP/native-runtime-venv/bin/python" - <<'PY'
@@ -122,7 +123,6 @@ jobs:
               Path(os.environ["RUNNER_TEMP"]) / "native-images" / "sample.png"
           )
           PY
-          cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/native-runtime-venv/bin/pyimgano-export" --help > /dev/null
           "$RUNNER_TEMP/native-runtime-venv/bin/pyimgano-artifact" \
             validate "$RUNNER_TEMP/native-relocated/artifact" --json
@@ -335,6 +335,7 @@ jobs:
           "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" -m pip install \
             "${wheels[0]}[torch]" pytest pytest-cov pytest-error-for-skips
           "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" -m pip check
+          cd "$RUNNER_TEMP"
           mkdir -p "$RUNNER_TEMP/torchscript-relocated" "$RUNNER_TEMP/torchscript-images"
           mv "$RUNNER_TEMP/torchscript-artifact" "$RUNNER_TEMP/torchscript-relocated/artifact"
           "$RUNNER_TEMP/torchscript-runtime-venv/bin/python" - <<'PY'
@@ -352,7 +353,6 @@ jobs:
               Path(os.environ["RUNNER_TEMP"]) / "torchscript-images" / "sample.png"
           )
           PY
-          cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/torchscript-runtime-venv/bin/pyimgano-export" --help > /dev/null
           "$RUNNER_TEMP/torchscript-runtime-venv/bin/pyimgano-artifact" \
             validate "$RUNNER_TEMP/torchscript-relocated/artifact" --json
@@ -450,6 +450,7 @@ jobs:
           "$RUNNER_TEMP/openvino-runtime-venv/bin/python" -m pip install \
             "${wheels[0]}[openvino-runtime]"
           "$RUNNER_TEMP/openvino-runtime-venv/bin/python" -m pip check
+          cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/openvino-runtime-venv/bin/python" - <<'PY'
           from importlib.util import find_spec
 
@@ -473,7 +474,6 @@ jobs:
               Path(os.environ["RUNNER_TEMP"]) / "openvino-images" / "sample.png"
           )
           PY
-          cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/openvino-runtime-venv/bin/pyimgano-export" --help > /dev/null
           "$RUNNER_TEMP/openvino-runtime-venv/bin/pyimgano-artifact" \
             validate "$RUNNER_TEMP/openvino-relocated/artifact" --json

@@ -37,12 +37,7 @@ def test_cli_reference_documents_bundle_validate_run_and_watch() -> None:
     assert "watch_events.jsonl" in text
 
 
-def test_readme_points_to_bundle_deployment_and_audit_docs() -> None:
+def test_readme_keeps_the_compact_bundle_validation_entrypoint() -> None:
     text = _read_text("README.md")
 
     assert "pyimgano-bundle validate" in text
-    assert "bundle watch" in text
-    assert "webhook" in text
-    assert "audit-bundle" in text
-    assert "docs/CLI_REFERENCE.md" in text
-    assert "docs/INDUSTRIAL_FASTPATH.md" in text

@@ -113,6 +113,15 @@ def test_runtime_only_jobs_prove_torch_is_absent_and_skips_are_errors() -> None:
         assert "--error-for-skips" in body
 
 
+def test_runtime_wheel_import_checks_run_outside_the_checkout() -> None:
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    for name in ("native", "onnx", "torchscript", "openvino"):
+        body = _job(workflow, name)
+        runtime_step = body[body.index("Relocate, load, and infer") :]
+        assert runtime_step.index('cd "$RUNNER_TEMP"') < runtime_step.index("import pyimgano")
+
+
 def test_onnx_and_torchscript_jobs_gate_real_ecod_composite_relocation_parity() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
     onnx = _job(workflow, "onnx")

@@ -134,7 +134,7 @@ def test_explicit_openvino_device_requires_exact_allowed_and_verified_spec() -> 
         )
 
 
-def test_openvino_selected_device_must_be_available_before_model_read() -> None:
+def test_openvino_selected_device_must_be_available_before_model_read(monkeypatch) -> None:
     class Core:
         available_devices = ["CPU"]
         read_called = False
@@ -144,6 +144,11 @@ def test_openvino_selected_device_must_be_available_before_model_read() -> None:
             raise AssertionError("read_model must not be reached")
 
     core = Core()
+
+    def reject_require(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise AssertionError("injected OpenVINO core must not import the optional runtime")
+
+    monkeypatch.setattr("pyimgano.utils.optional_deps.require", reject_require)
     with pytest.raises(ArtifactRuntimeError, match="GPU.*unavailable"):
         OpenVINOArtifactRuntime(
             "detector.xml",

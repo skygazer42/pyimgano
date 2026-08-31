@@ -333,15 +333,16 @@ class OpenVINOArtifactRuntime:
             device=device,
         )
         if compiled_model is None:
-            if openvino_module is None:
-                from pyimgano.utils.optional_deps import require
+            if core is None:
+                if openvino_module is None:
+                    from pyimgano.utils.optional_deps import require
 
-                openvino_module = require(
-                    "openvino",
-                    extra="openvino-runtime",
-                    purpose="loading an OpenVINO artifact",
-                )
-            core = core or openvino_module.Core()
+                    openvino_module = require(
+                        "openvino",
+                        extra="openvino-runtime",
+                        purpose="loading an OpenVINO artifact",
+                    )
+                core = openvino_module.Core()
             available_devices = getattr(core, "available_devices", None)
             if available_devices is not None:
                 available = {str(item).strip().upper() for item in available_devices}

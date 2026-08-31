@@ -21,6 +21,9 @@ def _write_score_model(path: Path) -> None:
         [helper.make_tensor_value_info("score", TensorProto.FLOAT, [None])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    # Keep this fixture inside the importer/runtime compatibility envelope.
+    # onnx.helper defaults to the newest package IR, which changes across releases.
+    model.ir_version = 10
     onnx.save_model(model, str(path))
 
 
