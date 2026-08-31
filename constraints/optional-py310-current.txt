@@ -6,7 +6,7 @@
 # The exact versions below are validated together by the full test suite. Keep
 # the anomalib/Lightning risk exception documented in SECURITY.md until the
 # upstream Lightning project publishes a fixed release for CVE-2026-58659.
-numpy==1.26.4
+numpy==2.2.6
 scipy==1.14.1
 scikit-learn==1.7.2
 Pillow==12.3.0
