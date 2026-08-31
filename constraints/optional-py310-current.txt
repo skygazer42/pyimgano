@@ -18,7 +18,7 @@ faiss-cpu==1.8.0
 torch==2.13.0
 torchvision==0.28.0
 onnx==1.22.0
-onnxruntime==1.23.2
+onnxruntime==1.24.3
 onnxscript==0.7.1
 diffusers==0.40.0
 transformers==5.16.1
